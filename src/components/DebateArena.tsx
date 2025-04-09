@@ -16,6 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
 import DebateMessage from "./DebateMessage";
 import ThinkingIndicator from "./ThinkingIndicator";
+import ModelSelector from "./ModelSelector";
 import { Brain, Save } from "lucide-react";
 
 interface DebateMessage {
@@ -36,6 +37,8 @@ const DebateArena = () => {
   const [messages, setMessages] = useState<DebateMessage[]>([]);
   const [savedDebates, setSavedDebates] = useState<{topic: string, date: Date}[]>([]);
   const messageEndRef = useRef<HTMLDivElement>(null);
+  const [model1, setModel1] = useState("llama-3-70b");
+  const [model2, setModel2] = useState("llama-3-405b");
 
   // Mock function to simulate API calls to LLaMA endpoints
   const callLlamaAPI = async (model: 'llama1' | 'llama2', prompt: string): Promise<string> => {
@@ -255,6 +258,22 @@ const DebateArena = () => {
         </div>
       </div>
       
+      {/* Model Selectors */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <ModelSelector 
+          side="llama1" 
+          selectedModel={model1} 
+          onSelectModel={setModel1} 
+          disabled={isDebating}
+        />
+        <ModelSelector 
+          side="llama2" 
+          selectedModel={model2} 
+          onSelectModel={setModel2} 
+          disabled={isDebating}
+        />
+      </div>
+      
       {/* Debate Arena */}
       <div className="flex-1 bg-debateBg rounded-lg border border-gray-800 overflow-hidden">
         {messages.length === 0 && !isThinking ? (
@@ -305,6 +324,9 @@ const DebateArena = () => {
             Round {currentRound + 1} of {rounds} • 
             Current turn: <span className={`text-${currentModel} font-semibold`}>
               {currentModel === 'llama1' ? 'LLaMA Model 1' : 'LLaMA Model 2'}
+            </span>
+            <span className="ml-2">
+              {currentModel === 'llama1' ? `(${model1})` : `(${model2})`}
             </span>
           </p>
         </div>
