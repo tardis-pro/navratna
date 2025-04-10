@@ -19,6 +19,13 @@ import { Brain, Save, Sparkles, Zap, MessageSquare, Download, Share2, Scale } fr
 import { cn } from "@/lib/utils";
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useDebatePrompts } from '../hooks/useDebatePrompts';
+import { useDiscussion } from '@/contexts/DiscussionContext';
+import { AgentState } from '@/types/agent';
+import { AgentSelector } from './AgentSelector';
+
+interface DebateArenaProps {
+  onTopicChange: (topic: string) => void;
+}
 
 // Define the DebateMessageData type here to match DebateMessage's expectations
 interface DebateMessageData {
@@ -30,20 +37,32 @@ interface DebateMessageData {
   apiType: 'ollama' | 'llmstudio';
 }
 
-const DebateArena = () => {
+const DebateArena: React.FC<DebateArenaProps> = ({ onTopicChange }) => {
   const { toast } = useToast();
   const messageEndRef = useRef<HTMLDivElement>(null);
   
   // Add ref to track if debate should be stopped
   const shouldStopDebateRef = useRef<boolean>(false);
   
+  // Discussion manager state
+  const {
+    currentTurn,
+    isActive,
+    history,
+    currentRound,
+    addAgent,
+    removeAgent,
+    setModerator,
+    start: startDiscussion,
+    stop: stopDiscussion,
+    addMessage,
+    setInitialDocument
+  } = useDiscussion();
+  
   // State management
   const [topic, setTopic] = useState<string>('');
   const [rounds, setRounds] = useState<string>('3');
-  const [currentRound, setCurrentRound] = useState<number>(0);
-  const [currentTurn, setCurrentTurn] = useState<'llama1' | 'llama2' | 'judge'>('llama1');
   const [messages, setMessages] = useState<DebateMessageData[]>([]);
-  const [isDebating, setIsDebating] = useState<boolean>(false);
   const [isThinking, setIsThinking] = useState<boolean>(false);
   const [isJudgeThinking, setIsJudgeThinking] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +71,7 @@ const DebateArena = () => {
   const [judgeModel, setJudgeModel] = useState<string | undefined>(undefined);
   const [allModels, setAllModels] = useState<ModelOption[]>([]);
   const [savedDebates, setSavedDebates] = useState<{topic: string, date: Date}[]>([]);
+  const [agents, setAgents] = useState<{[key: string]: AgentState}>({});
 
   // Add virtualization for messages
   const parentRef = useRef(null);
@@ -86,85 +106,74 @@ const DebateArena = () => {
     return '';
   }, [isThinking, isJudgeThinking, currentTurn, model1, model2, judgeModel]);
   
+  // Initialize agents when models are selected
+  useEffect(() => {
+    if (model1 && model2 && judgeModel) {
+      // Remove any existing agents
+      removeAgent('llama1');
+      removeAgent('llama2');
+      removeAgent('judge');
+
+      // Add new agents
+      const baseAgentState: Omit<AgentState, 'id' | 'name'> = {
+        currentResponse: null,
+        conversationHistory: [],
+        isThinking: false,
+        error: null
+      };
+
+      addAgent('llama1', { ...baseAgentState, id: 'llama1', name: getModelName(model1) });
+      addAgent('llama2', { ...baseAgentState, id: 'llama2', name: getModelName(model2) });
+      addAgent('judge', { ...baseAgentState, id: 'judge', name: getModelName(judgeModel) });
+      
+      // Set judge as moderator
+      setModerator('judge');
+    }
+  }, [model1, model2, judgeModel, addAgent, removeAgent, setModerator, getModelName]);
+
+  // Convert discussion history to debate messages
+  useEffect(() => {
+    const convertedMessages: DebateMessageData[] = history.map(msg => ({
+      id: msg.id,
+      role: msg.sender as 'llama1' | 'llama2' | 'judge',
+      content: msg.content,
+      timestamp: msg.timestamp,
+      modelId: agents[msg.sender]?.modelId || '',
+      apiType: agents[msg.sender]?.apiType || 'ollama'
+    }));
+    setMessages(convertedMessages);
+  }, [history, agents]);
+
+  const handleAgentSelect = useCallback((role: string, agent: AgentState) => {
+    setAgents(prev => ({ ...prev, [role]: agent }));
+    addAgent(role, agent);
+    if (role === 'judge') {
+      setModerator(role);
+    }
+  }, [addAgent, setModerator]);
+
   // Optimize message generation with useCallback
   const generateNextMessage = useCallback(async (role: 'llama1' | 'llama2' | 'judge') => {
     try {
-      // Check if debate was stopped
-      if (shouldStopDebateRef.current) {
-        return;
-      }
+      if (shouldStopDebateRef.current) return;
       
       setIsThinking(role === 'llama1' || role === 'llama2');
       setIsJudgeThinking(role === 'judge');
       
-      // Add retry logic
       const maxRetries = 3;
       let retryCount = 0;
       let success = false;
       
       while (retryCount < maxRetries && !success && !shouldStopDebateRef.current) {
         try {
-          const prompt = role === 'judge' 
-            ? buildJudgePrompt() 
-            : buildLlamaPrompt(role);
-          
+          const prompt = role === 'judge' ? buildJudgePrompt() : buildLlamaPrompt(role);
           const response = await callModelAPI(role, prompt);
           
-          // Check if debate was stopped during API call
-          if (shouldStopDebateRef.current) {
-            return;
-          }
+          if (shouldStopDebateRef.current) return;
           
           if (response) {
-            const modelForRole = role === 'llama1' ? model1 : role === 'llama2' ? model2 : judgeModel;
-            const selectedModel = allModels.find(m => m.id === modelForRole);
-            const apiType = selectedModel?.apiType === 'ollama' ? 'ollama' : 'llmstudio';
-            
-            const newMessage: DebateMessageData = {
-              id: Date.now().toString(),
-              role,
-              content: response,
-              timestamp: new Date(),
-              modelId: modelForRole || '',
-              apiType
-            };
-            
-            setMessages(prev => [...prev, newMessage]);
+            addMessage(role, response);
             success = true;
-            
-            // After message is added, progress to next turn
-            if (role !== 'judge' && !shouldStopDebateRef.current) {
-              const nextRole = role === 'llama1' ? 'llama2' : 'llama1';
-              
-              // If we've completed a round (both llama1 and llama2 have spoken)
-              const isRoundComplete = role === 'llama2';
-              
-              if (isRoundComplete) {
-                // Move to the next round
-                const nextRound = currentRound + 1;
-                setCurrentRound(nextRound);
-                
-                // If we've completed all rounds, it's time for the judge
-                if (nextRound >= parseInt(rounds)) {
-                  setCurrentTurn('judge');
-                  // Generate judge's evaluation
-                  setTimeout(() => generateNextMessage('judge'), 500);
-                } else {
-                  // Otherwise, start the next round with llama1
-                  setCurrentTurn('llama1');
-                  // Automatically generate llama1's next message
-                  setTimeout(() => generateNextMessage('llama1'), 500);
-                }
-              } else {
-                // Move to the next debater's turn
-                setCurrentTurn(nextRole);
-                // Automatically generate the next debater's message
-                setTimeout(() => generateNextMessage(nextRole), 500);
-              }
-            } else {
-              // Judge has spoken or debate was stopped
-              setIsDebating(false);
-            }
           }
         } catch (err) {
           retryCount++;
@@ -174,12 +183,18 @@ const DebateArena = () => {
       }
     } catch (error) {
       setError(error instanceof Error ? error.message : "Failed to generate a response");
-      setIsDebating(false);
-    } finally {
-      setIsThinking(false);
-      setIsJudgeThinking(false);
+      stopDiscussion();
     }
-  }, [buildLlamaPrompt, buildJudgePrompt, model1, model2, judgeModel, allModels, currentRound, rounds]);
+    setIsThinking(false);
+    setIsJudgeThinking(false);
+  }, [addMessage, buildLlamaPrompt, buildJudgePrompt, stopDiscussion]);
+
+  // Watch for turn changes
+  useEffect(() => {
+    if (isActive && currentTurn && !isThinking && !isJudgeThinking) {
+      generateNextMessage(currentTurn as 'llama1' | 'llama2' | 'judge');
+    }
+  }, [isActive, currentTurn, isThinking, isJudgeThinking, generateNextMessage]);
 
   const callModelAPI = async (modelRole: 'llama1' | 'llama2' | 'judge', prompt: string): Promise<string> => {
     // Check if debate was already stopped
@@ -381,34 +396,28 @@ const DebateArena = () => {
       });
       return;
     }
-    if (!model1 || !model2 || !judgeModel) {
+    
+    const requiredRoles = ['llama1', 'llama2', 'judge'];
+    const missingRoles = requiredRoles.filter(role => !agents[role]);
+    if (missingRoles.length > 0) {
       toast({ 
-        title: "Models Not Selected", 
-        description: "Please select models for both debaters and the judge.", 
+        title: "Agents Not Selected", 
+        description: `Please select agents for: ${missingRoles.join(', ')}`, 
         variant: "destructive" 
       });
       return;
     }
 
     try {
-      // Reset the debate state
       shouldStopDebateRef.current = false;
       setMessages([]);
-      setCurrentRound(0);
-      setCurrentTurn('llama1');
-      setIsDebating(true);
       setError(null);
       setIsThinking(false);
       setIsJudgeThinking(false);
-
-      // Add a slight delay to allow state to update before starting
-      setTimeout(() => {
-        // Start the debate with the first debater (llama1)
-        generateNextMessage('llama1');
-      }, 100);
+      setInitialDocument(topic);
+      startDiscussion();
     } catch (error) {
       console.error("Failed to start debate:", error);
-      setIsDebating(false);
       toast({
         title: "Failed to Start Debate",
         description: error instanceof Error ? error.message : "An unexpected error occurred",
@@ -418,10 +427,8 @@ const DebateArena = () => {
   };
 
   const stopDebate = () => {
-    // Set the ref to indicate debate should stop
     shouldStopDebateRef.current = true;
-    
-    setIsDebating(false);
+    stopDiscussion();
     setIsThinking(false);
     setIsJudgeThinking(false);
     
@@ -430,20 +437,6 @@ const DebateArena = () => {
       description: "The debate has been manually stopped.",
       variant: "default"
     });
-    
-    // If there are messages already and the judge hasn't provided a final evaluation
-    if (messages.length > 0 && !messages.some(m => m.role === 'judge')) {
-      // Add a final message from the judge
-      const finalJudgement: DebateMessageData = {
-        id: Date.now().toString(),
-        role: 'judge',
-        content: "The debate was manually stopped. I'll evaluate based on the arguments presented so far.",
-        timestamp: new Date(),
-        modelId: judgeModel || '',
-        apiType: allModels.find(m => m.id === judgeModel)?.apiType === 'ollama' ? 'ollama' : 'llmstudio'
-      };
-      setMessages(prev => [...prev, finalJudgement]);
-    }
   };
 
   const saveDebate = () => {
@@ -496,6 +489,13 @@ const DebateArena = () => {
     });
   };
 
+  // Update topic handler
+  const handleTopicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTopic = e.target.value;
+    setTopic(newTopic);
+    onTopicChange(newTopic);
+  };
+
   return (
     <div className="flex flex-col min-h-screen w-full max-w-7xl mx-auto relative p-2 sm:p-4 md:p-6">
       {/* Animated background gradient */}
@@ -509,8 +509,7 @@ const DebateArena = () => {
             LLaMA Debate Arena
           </h1>
           <p className="text-sm sm:text-base text-gray-400 mt-2 max-w-2xl mx-auto">
-            Watch two AI language models engage in a structured debate on any topic. Enter a subject and
-            see how different LLaMA models approach the same conversation.
+            Watch AI language models engage in a structured debate on any topic.
           </p>
         </div>
 
@@ -523,123 +522,66 @@ const DebateArena = () => {
           <Input
             id="topic"
             value={topic}
-            onChange={(e) => setTopic(e.target.value)}
+            onChange={handleTopicChange}
             placeholder="Enter a compelling topic for the debate..."
             className="bg-black/30 border-gray-700 backdrop-blur-sm focus:border-gray-500 focus:ring-1 focus:ring-gray-500 transition-all duration-300 text-base min-h-[2.5rem]"
-            disabled={isDebating}
+            disabled={isActive}
           />
         </div>
         
         {/* Controls */}
-        <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-end">
-          <div className="w-full sm:w-24 flex-shrink-0">
-            <Label htmlFor="rounds" className="text-xs font-medium text-gray-400 block mb-1">Rounds</Label>
-            <Select
-              disabled={isDebating}
-              value={rounds}
-              onValueChange={setRounds}
-            >
-              <SelectTrigger id="rounds" className="bg-black/30 border-gray-700 backdrop-blur-sm h-10 w-full">
-                <SelectValue placeholder="Rounds" />
-              </SelectTrigger>
-              <SelectContent className="bg-gray-900 border-gray-700 backdrop-blur-xl">
-                <SelectGroup>
-                  <SelectItem value="1">1</SelectItem>
-                  <SelectItem value="2">2</SelectItem>
-                  <SelectItem value="3">3</SelectItem>
-                  <SelectItem value="5">5</SelectItem>
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div className="flex flex-wrap gap-2 flex-1 justify-start sm:justify-end">
-            {!isDebating ? (
-              <Button
-                onClick={startDebate}
-                disabled={!topic.trim() || !model1 || !model2 || !judgeModel}
-                className="bg-gradient-to-r from-llama1 to-llama2 hover:opacity-90 text-white relative overflow-hidden group h-10 px-4 flex-1 sm:flex-initial min-w-[120px]"
-              >
-                <span className="absolute inset-0 w-full h-full bg-black/10 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-500"></span>
-                <Brain className="mr-2 h-4 w-4 animate-pulse group-disabled:animate-none" />
-                Start Debate
-              </Button>
-            ) : (
-              <Button
-                onClick={stopDebate}
-                className="bg-red-600 hover:bg-red-700 text-white relative overflow-hidden group h-10 px-4 flex-1 sm:flex-initial min-w-[120px]"
-              >
-                <span className="absolute inset-0 w-full h-full bg-black/10 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-500"></span>
-                <svg className="mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="6" y="6" width="12" height="12" rx="2" />
-                </svg>
-                Stop Debate
-              </Button>
-            )}
-            
+        <div className="flex flex-wrap gap-2 justify-end">
+          {!isActive ? (
             <Button
-              variant="outline"
-              onClick={saveDebate}
-              disabled={messages.length === 0 || isDebating}
-              className="border-gray-700 text-white hover:bg-gray-800 transition-colors duration-300 h-10 px-3 flex-1 sm:flex-initial min-w-[100px]"
-              title="Save Debate"
+              onClick={startDebate}
+              disabled={!topic.trim() || Object.keys(agents).length < 3}
+              className="bg-gradient-to-r from-llama1 to-llama2 hover:opacity-90 text-white relative overflow-hidden group h-10 px-4 flex-1 sm:flex-initial min-w-[120px]"
             >
-              <Save className="mr-2 h-4 w-4" />
-              Save
+              <span className="absolute inset-0 w-full h-full bg-black/10 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-500"></span>
+              <Brain className="mr-2 h-4 w-4 animate-pulse group-disabled:animate-none" />
+              Start Debate
             </Button>
-            
+          ) : (
             <Button
-              variant="outline"
-              onClick={exportDebateAsText}
-              disabled={messages.length === 0}
-              className="border-gray-700 text-white hover:bg-gray-800 transition-colors duration-300 h-10 px-3 flex-1 sm:flex-initial min-w-[100px]"
-              title="Export as Text"
+              onClick={stopDebate}
+              className="bg-red-600 hover:bg-red-700 text-white relative overflow-hidden group h-10 px-4 flex-1 sm:flex-initial min-w-[120px]"
             >
-              <Download className="mr-2 h-4 w-4" />
-              Export
+              <span className="absolute inset-0 w-full h-full bg-black/10 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-500"></span>
+              Stop Debate
             </Button>
-          </div>
+          )}
         </div>
       </div>
       
-      {/* Model Selectors */}
+      {/* Agent Selectors */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4 mb-4 z-10">
-        <ModelSelector
-          side="llama1"
-          selectedModel={model1}
-          onSelectModel={setModel1}
-          disabled={isDebating}
-          allModels={allModels}
-          className="min-h-[60px]"
+        <AgentSelector
+          role="llama1"
+          onSelect={(agent) => handleAgentSelect('llama1', agent)}
+          disabled={isActive}
+          label="First Debater"
         />
-        <ModelSelector
-          side="llama2"
-          selectedModel={model2}
-          onSelectModel={setModel2}
-          disabled={isDebating}
-          allModels={allModels}
-          className="min-h-[60px]"
+        <AgentSelector
+          role="llama2"
+          onSelect={(agent) => handleAgentSelect('llama2', agent)}
+          disabled={isActive}
+          label="Second Debater"
         />
-        <ModelSelector
-          side="judge"
+        <AgentSelector
+          role="judge"
+          onSelect={(agent) => handleAgentSelect('judge', agent)}
+          disabled={isActive}
           label="Judge"
-          icon={Scale}
-          selectedModel={judgeModel}
-          onSelectModel={setJudgeModel}
-          disabled={isDebating}
-          allModels={allModels}
-          className="col-span-1 sm:col-span-2 lg:col-span-1 min-h-[60px]"
         />
       </div>
       
-      {/* Connection Error Alert */}
+      {/* Error Alert */}
       {error && (
         <div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-white flex items-start gap-2 z-10 animate-fade-in">
           <Zap className="h-5 w-5 text-red-400 mt-0.5 flex-shrink-0" />
           <div>
-            <p className="font-medium">API Error</p>
+            <p className="font-medium">Error</p>
             <p className="text-sm text-gray-300">{error}</p>
-            <p className="text-xs text-gray-400 mt-1">Check server status, model selection, and API endpoints.</p>
           </div>
         </div>
       )}
@@ -665,22 +607,6 @@ const DebateArena = () => {
               <p className="text-gray-400 text-sm sm:text-base mb-4">
                 Enter a topic, select your debaters and judge, and watch the AI debate unfold.
               </p>
-              {allModels.length === 0 && !error && (
-                 <div className="flex items-center justify-center space-x-2 text-amber-400">
-                   <div className="animate-spin h-4 w-4 border-2 border-amber-400 rounded-full border-t-transparent"></div>
-                   <p className="text-sm">Fetching available models...</p>
-                 </div>
-              )}
-              {allModels.length === 0 && error && (
-                 <div className="bg-red-900/20 border border-red-700/50 rounded-lg p-3 text-red-400 text-sm">
-                   Could not fetch models. {error}
-                 </div>
-              )}
-               {allModels.length > 0 && (
-                 <div className="mt-4 text-xs bg-green-900/20 border border-green-700/50 rounded-lg p-3 text-green-400">
-                    Models loaded successfully! Ready to start the debate.
-                 </div>
-               )}
             </div>
           </div>
         ) : (
@@ -703,9 +629,9 @@ const DebateArena = () => {
                     >
                       <DebateMessage
                         message={message}
-                        debater1Name={getModelName(model1)}
-                        debater2Name={getModelName(model2)}
-                        judgeName={getModelName(judgeModel)}
+                        debater1Name={agents.llama1?.name || 'Debater 1'}
+                        debater2Name={agents.llama2?.name || 'Debater 2'}
+                        judgeName={agents.judge?.name || 'Judge'}
                       />
                     </div>
                   );
@@ -714,7 +640,7 @@ const DebateArena = () => {
             ) : (
               isThinking && <div className="p-4 text-center">
                 <p className="text-amber-400 animate-pulse">
-                  {thinkingActorName ? `${thinkingActorName} is thinking...` : 'Thinking...'}
+                  {currentTurn ? `${agents[currentTurn]?.name || 'AI'} is thinking...` : 'Thinking...'}
                 </p>
               </div>
             )}
@@ -724,7 +650,7 @@ const DebateArena = () => {
       </div>
       
       {/* Footer - Debate Status */}
-      {(isDebating || isThinking) && (
+      {isActive && (
         <div className="mt-4 text-center z-10">
           <div className={cn(
             "text-sm inline-block py-1 px-3 rounded-full backdrop-blur-sm transition-all duration-300",
@@ -732,20 +658,10 @@ const DebateArena = () => {
             currentTurn === 'llama2' ? "bg-llama2/10 border border-llama2/30 text-llama2" :
             "bg-amber-600/10 border border-amber-500/30 text-amber-400"
           )}>
-             <span className="whitespace-nowrap">
-               {isDebating ? `Round ${currentRound + 1} of ${rounds} • ` : 'Processing... • '}
-               Current turn: <span className="font-semibold">
-                  {currentTurn === 'llama1' ? getModelName(model1) :
-                   currentTurn === 'llama2' ? getModelName(model2) :
-                   getModelName(judgeModel)} ({currentTurn})
-               </span>
-             </span>
+            <span className="whitespace-nowrap">
+              Round {currentRound + 1} • Current turn: {agents[currentTurn || '']?.name || 'AI'}
+            </span>
           </div>
-          {isDebating && (
-            <div className="mt-2 text-xs text-gray-400">
-              If the models are stuck in a loop or not making progress, click the Stop button to end the debate.
-            </div>
-          )}
         </div>
       )}
       
