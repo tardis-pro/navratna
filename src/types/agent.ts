@@ -20,6 +20,27 @@ export interface Message {
   sender: string;
   timestamp: Date;
   type: 'thought' | 'response' | 'question' | 'system';
+  threadRoot?: string;
+  threadDepth?: number;
+  replyTo?: string;
+  mentions?: string[];
+  importance?: number;
+  keywords?: string[];
+  isAgreement?: boolean;
+  isDisagreement?: boolean;
+  summary?: string;
+  sentiment?: {
+    score: number;  // -1 to 1, where -1 is very negative, 1 is very positive
+    keywords: string[];  // Words that influenced the sentiment
+  };
+  logicalAnalysis?: {
+    fallacies: Array<{
+      type: string;
+      confidence: number;
+      snippet: string;
+    }>;
+    hasValidArgument: boolean;
+  };
 }
 
 export interface Persona {

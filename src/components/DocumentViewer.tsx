@@ -91,7 +91,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({ className }) => 
             </div>
           </div>
 
-          <div className="border rounded-lg p-4">
+          <div className="border rounded-lg p-4 overflow-y-scroll h-[300px]">
             <h3 className="font-medium mb-2">Document Content</h3>
             {activeDocument ? (
               <div className="prose prose-sm max-w-none">

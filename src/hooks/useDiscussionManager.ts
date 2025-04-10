@@ -1,6 +1,9 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { DiscussionManager, TurnStrategy } from '../lib/DiscussionManager';
 import { AgentState, Message } from '../types/agent';
+import { useAgents } from '../contexts/AgentContext';
+import { useDocument } from '../contexts/DocumentContext';
+import { softwareDevPersonas } from '../data/personas';
 
 interface UseDiscussionManagerProps {
   topic: string;
@@ -27,56 +30,152 @@ export const useDiscussionManager = ({
   maxRounds = 3,
   turnStrategy = 'round-robin'
 }: UseDiscussionManagerProps): UseDiscussionManagerReturn => {
-  const [manager] = useState(() => new DiscussionManager(topic, maxRounds, turnStrategy));
+  const agentContext = useAgents();
+  const { documents, activeDocumentId } = useDocument();
+  const managerRef = useRef<DiscussionManager | null>(null);
+  
   const [currentTurn, setCurrentTurn] = useState<string | null>(null);
   const [isActive, setIsActive] = useState(false);
   const [history, setHistory] = useState<Message[]>([]);
   const [currentRound, setCurrentRound] = useState(0);
 
+  // Initialize default agents if none exist
+  useEffect(() => {
+    if (Object.keys(agentContext.agents).length === 0) {
+      const defaultAgents: Omit<AgentState, 'persona' | 'systemPrompt'>[] = [
+        {
+          id: 'ter',
+          name: 'ter',
+          role: 'Software Engineer',
+          modelId: 'phi-4-mini-instruct',
+          apiType: 'llmstudio' as const,
+          isThinking: false,
+          currentResponse: null,
+          conversationHistory: [],
+          error: null
+        },
+        {
+          id: 'test',
+          name: 'test',
+          role: 'Junior Developer',
+          modelId: 'cogito:14b',
+          apiType: 'ollama' as const,
+          isThinking: false,
+          currentResponse: null,
+          conversationHistory: [],
+          error: null
+        },
+        {
+          id: 'ssmartest',
+          name: 'ssmartest',
+          role: 'Tech Lead',
+          modelId: 'openthinker2-7b',
+          apiType: 'llmstudio' as const,
+          isThinking: false,
+          currentResponse: null,
+          conversationHistory: [],
+          error: null
+        }
+      ];
+
+      // Add each default agent
+      defaultAgents.forEach(agent => {
+        const persona = softwareDevPersonas.find(p => p.role === agent.role);
+        if (persona) {
+          agentContext.addAgent({
+            ...agent,
+            persona: persona.description,
+            systemPrompt: persona.systemPrompt
+          });
+        }
+      });
+    }
+  }, [agentContext]);
+
+  // Initialize DiscussionManager after agents are set up
+  useEffect(() => {
+    if (Object.keys(agentContext.agents).length > 0 && !managerRef.current) {
+      managerRef.current = new DiscussionManager(
+        agentContext.agents,
+        activeDocumentId ? documents[activeDocumentId] : null,
+        (state) => {
+          // Update local state when manager state changes
+          setCurrentTurn(state.currentSpeakerId);
+          setIsActive(state.isRunning);
+          setHistory(state.messageHistory);
+          setCurrentRound(state.currentRound);
+        },
+        (agentId, response) => {
+          // Handle agent responses
+          if (response) {
+            const agent = agentContext.agents[agentId];
+            if (agent) {
+              agentContext.updateAgentState(agentId, {
+                currentResponse: response,
+                isThinking: false,
+                error: null
+              });
+            }
+          }
+        },
+        agentContext
+      );
+    }
+  }, [agentContext.agents, activeDocumentId, documents, agentContext]);
+
+  // Update document when it changes
+  useEffect(() => {
+    const activeDocument = activeDocumentId ? documents[activeDocumentId] : null;
+    managerRef.current?.updateDocument(activeDocument);
+  }, [documents, activeDocumentId]);
+
   // Update state when manager state changes
   const updateState = useCallback(() => {
-    const context = manager.getContext();
-    setCurrentTurn(manager.getCurrentTurn());
-    setIsActive(context.isActive);
-    setHistory(context.history);
+    if (!managerRef.current) return;
+    
+    const state = managerRef.current.getState();
+    const context = managerRef.current.getContext();
+    setCurrentTurn(state.currentSpeakerId);
+    setIsActive(state.isRunning);
+    setHistory(state.messageHistory);
     setCurrentRound(context.currentRound);
-  }, [manager]);
+  }, []);
 
   // Wrap manager methods to ensure state updates
   const addAgent = useCallback((agentId: string, state: AgentState) => {
-    manager.addAgent(agentId, state);
+    managerRef.current?.addAgent(state);
     updateState();
-  }, [manager, updateState]);
+  }, [updateState]);
 
   const removeAgent = useCallback((agentId: string) => {
-    manager.removeAgent(agentId);
+    managerRef.current?.removeAgent(agentId);
     updateState();
-  }, [manager, updateState]);
+  }, [updateState]);
 
   const setModerator = useCallback((agentId: string) => {
-    manager.setModerator(agentId);
+    managerRef.current?.setModerator(agentId);
     updateState();
-  }, [manager, updateState]);
+  }, [updateState]);
 
   const start = useCallback(() => {
-    manager.start();
+    managerRef.current?.start();
     updateState();
-  }, [manager, updateState]);
+  }, [updateState]);
 
   const stop = useCallback(() => {
-    manager.stop();
+    managerRef.current?.stop();
     updateState();
-  }, [manager, updateState]);
+  }, [updateState]);
 
   const addMessage = useCallback((agentId: string, content: string) => {
-    manager.addMessage(agentId, content);
+    managerRef.current?.addMessage(agentId, content);
     updateState();
-  }, [manager, updateState]);
+  }, [updateState]);
 
   const setInitialDocument = useCallback((document: string) => {
-    manager.setInitialDocument(document);
+    managerRef.current?.setInitialDocument(document);
     updateState();
-  }, [manager, updateState]);
+  }, [updateState]);
 
   // Update state when topic changes
   useEffect(() => {

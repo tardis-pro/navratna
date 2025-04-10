@@ -1,121 +1,107 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { Play, Pause, RotateCcw, Play as Resume, AlertCircle, User2 } from 'lucide-react';
+import { useDiscussion } from '../contexts/DiscussionContext';
 import { useAgents } from '../contexts/AgentContext';
-import { useDocument } from '../contexts/DocumentContext';
-import { DiscussionManager, DiscussionState } from '../lib/DiscussionManager';
 
 interface DiscussionControlsProps {
   className?: string;
 }
 
 export const DiscussionControls: React.FC<DiscussionControlsProps> = ({ className }) => {
-  const agentContext = useAgents();
-  const { documents, activeDocumentId } = useDocument();
-  
-  // Get the active document from the document store
-  const activeDocument = activeDocumentId ? documents[activeDocumentId] : null;
-  
-  const [discussionState, setDiscussionState] = useState<DiscussionState>({
-    isRunning: false,
-    currentSpeakerId: null,
-    turnQueue: [],
-    messageHistory: [],
-    lastError: null,
-  });
+  const { isActive, currentTurn, start, stop } = useDiscussion();
+  const { agents } = useAgents();
 
-  const managerRef = useRef<DiscussionManager | null>(null);
-
-  useEffect(() => {
-    // Initialize discussion manager when agents or document changes
-    managerRef.current = new DiscussionManager(
-      agentContext.agents,
-      activeDocument,
-      setDiscussionState,
-      handleAgentResponse,
-      agentContext
-    );
-  }, [agentContext, activeDocument]);
-
-  const handleAgentResponse = (agentId: string, response: string) => {
-    // This is called when an agent generates a response
-    // In a more complex implementation, you might want to update the agent's state
-    console.log(`Agent ${agentId} responded: ${response}`);
-  };
+  const canStart = Object.keys(agents).length >= 2;
 
   const handleStart = () => {
-    managerRef.current?.start();
+    if (canStart) {
+      start();
+    }
   };
 
   const handlePause = () => {
-    managerRef.current?.pause();
+    stop();
   };
 
   const handleResume = () => {
-    managerRef.current?.resume();
+    start();
   };
 
   const handleReset = () => {
-    managerRef.current?.reset();
+    stop();
   };
 
-  const canStart = Object.keys(agentContext.agents).length >= 2 && activeDocument !== null;
-
   return (
-    <div className={`flex flex-col gap-4 p-4 bg-white rounded-lg shadow ${className}`}>
-      <div className="flex items-center gap-4">
-        {!discussionState.isRunning ? (
-          <button
-            onClick={handleStart}
-            disabled={!canStart}
-            className={`px-4 py-2 rounded ${
-              canStart
-                ? 'bg-blue-500 text-white hover:bg-blue-600'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
-          >
-            Start Discussion
-          </button>
-        ) : (
-          <>
-            <button
-              onClick={handlePause}
-              className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600"
+    <Card className={cn(
+      "bg-gradient-to-br from-gray-50/95 to-gray-100/95 dark:from-gray-900/95 dark:to-gray-800/95",
+      "backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50",
+      "p-4 shadow-sm",
+      className
+    )}>
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center gap-3 flex-wrap">
+          {!isActive ? (
+            <Button
+              onClick={handleStart}
+              disabled={!canStart}
+              variant="default"
+              className="flex items-center gap-2"
             >
-              Pause
-            </button>
-            <button
-              onClick={handleReset}
-              className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+              <Play className="h-4 w-4" />
+              Start Discussion
+            </Button>
+          ) : (
+            <>
+              <Button
+                onClick={handlePause}
+                variant="secondary"
+                className="flex items-center gap-2"
+              >
+                <Pause className="h-4 w-4" />
+                Pause
+              </Button>
+              <Button
+                onClick={handleReset}
+                variant="destructive"
+                className="flex items-center gap-2"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Reset
+              </Button>
+            </>
+          )}
+          
+          {isActive && !currentTurn && (
+            <Button
+              onClick={handleResume}
+              variant="default"
+              className="flex items-center gap-2"
             >
-              Reset
-            </button>
-          </>
+              <Resume className="h-4 w-4" />
+              Resume
+            </Button>
+          )}
+        </div>
+
+        {currentTurn && (
+          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+            <User2 className="h-4 w-4" />
+            Current Speaker: {agents[currentTurn]?.name}
+          </div>
         )}
-        
-        {discussionState.isRunning && !discussionState.currentSpeakerId && (
-          <button
-            onClick={handleResume}
-            className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-          >
-            Resume
-          </button>
+
+        {!canStart && (
+          <div className="flex items-start gap-2 p-3 bg-blue-500/10 dark:bg-blue-900/20 border border-blue-500/20 rounded-lg text-blue-600 dark:text-blue-400">
+            <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+            <p className="text-sm">
+              Please select at least two agents to start the discussion.
+            </p>
+          </div>
         )}
       </div>
-
-      {discussionState.lastError && (
-        <div className="text-red-500 text-sm">{discussionState.lastError}</div>
-      )}
-
-      {discussionState.currentSpeakerId && (
-        <div className="text-sm text-gray-600">
-          Current Speaker: {agentContext.agents[discussionState.currentSpeakerId]?.name}
-        </div>
-      )}
-
-      {!canStart && (
-        <div className="text-sm text-gray-500">
-          Please select at least two agents and upload a document to start the discussion.
-        </div>
-      )}
-    </div>
+    </Card>
   );
 }; 

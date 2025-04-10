@@ -6,6 +6,10 @@ interface LLMResponse {
   error?: string;
 }
 
+// Default URLs - can be overridden by environment variables
+const OLLAMA_URL = 'http://192.168.1.3:11434/api/generate';
+const LLM_STUDIO_URL = 'http://localhost:1234/v1/chat/completions';
+
 export class LLMService {
   private static async callOllama(
     prompt: string,
@@ -13,7 +17,7 @@ export class LLMService {
     modelId: string
   ): Promise<LLMResponse> {
     try {
-      const response = await fetch('http://192.168.1.3:11434/api/generate', {
+      const response = await fetch(OLLAMA_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -31,10 +35,16 @@ export class LLMService {
       }
 
       const data = await response.json();
+      if (!data.response) {
+        throw new Error('No response received from Ollama');
+      }
       return { content: data.response };
     } catch (error) {
       console.error('Error calling Ollama:', error);
-      return { content: '', error: error instanceof Error ? error.message : 'Unknown error' };
+      return { 
+        content: 'I apologize, but I am currently unable to generate a response. Please try again later.',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
     }
   }
 
@@ -44,7 +54,7 @@ export class LLMService {
     modelId: string
   ): Promise<LLMResponse> {
     try {
-      const response = await fetch('http://localhost:1234/v1/chat/completions', {
+      const response = await fetch(LLM_STUDIO_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -64,10 +74,16 @@ export class LLMService {
       }
 
       const data = await response.json();
+      if (!data.choices?.[0]?.message?.content) {
+        throw new Error('Invalid response format from LLM Studio');
+      }
       return { content: data.choices[0].message.content };
     } catch (error) {
       console.error('Error calling LLM Studio:', error);
-      return { content: '', error: error instanceof Error ? error.message : 'Unknown error' };
+      return { 
+        content: 'I apologize, but I am currently unable to generate a response. Please try again later.',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
     }
   }
 
@@ -76,6 +92,13 @@ export class LLMService {
     context: DocumentContext | null,
     messages: Message[]
   ): Promise<LLMResponse> {
+    if (!agent.modelId) {
+      return {
+        content: '',
+        error: 'No model ID specified for agent'
+      };
+    }
+
     // Construct the prompt
     const contextPrompt = context 
       ? `\nContext Document:\nTitle: ${context.title}\nContent: ${context.content}\n`

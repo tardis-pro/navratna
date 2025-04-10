@@ -1,4 +1,4 @@
-import { Message, AgentState } from '../types/agent';
+import { Message, AgentState, Persona } from '../types/agent';
 import { DocumentContext } from '../types/document';
 import { LLMService } from '../services/llm';
 import { generateAgentResponse } from '../services/llm';
@@ -43,6 +43,14 @@ export interface IDiscussionManager {
   getDocuments: () => DocumentContext[];
 }
 
+interface TopicCluster {
+  id: string;
+  topic: string;
+  keywords: string[];
+  messages: string[]; // Message IDs
+  score: number;
+}
+
 export class DiscussionManager implements IDiscussionManager {
   private context: DiscussionContext;
   private turnStrategy: TurnStrategy;
@@ -56,6 +64,7 @@ export class DiscussionManager implements IDiscussionManager {
   private checkpoints: Map<string, DiscussionState> = new Map();
   private documents: DocumentContext[] = [];
   private agentContext: AgentContextValue;
+  private topicClusters: Map<string, TopicCluster> = new Map();
 
   constructor(
     agents: Record<string, AgentState>,
@@ -120,14 +129,21 @@ export class DiscussionManager implements IDiscussionManager {
   }
 
   public start(): void {
-    if (Object.keys(this.agents).length < 2) {
-      this.state.lastError = 'At least two agents are required to start a discussion.';
+    console.log('Starting discussion with agents:', Object.keys(this.agentContext.agents));
+    console.log('Document state:', this.document);
+
+    if (Object.keys(this.agentContext.agents).length < 2) {
+      const error = 'At least two agents are required to start a discussion.';
+      console.error(error);
+      this.state.lastError = error;
       this.updateCallback(this.state);
       return;
     }
 
     if (!this.document) {
-      this.state.lastError = 'A document must be loaded to start a discussion.';
+      const error = 'A document must be loaded to start a discussion.';
+      console.error(error);
+      this.state.lastError = error;
       this.updateCallback(this.state);
       return;
     }
@@ -142,16 +158,49 @@ export class DiscussionManager implements IDiscussionManager {
       lastError: null,
     };
     
+    console.log('Discussion initialized with state:', this.state);
     this.updateCallback(this.state);
-    this.processNextTurn();
+    
+    // Start processing turns
+    console.log('Starting turn processing');
+    this.processNextTurn().catch(error => {
+      console.error('Error processing turn:', error);
+      this.state.lastError = error instanceof Error ? error.message : 'Unknown error occurred';
+      this.updateCallback(this.state);
+    });
   }
 
   public stop(): void {
+    // Cancel any in-progress response generation
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
+    }
+
+    // Reset all state
+    this.state = {
+      ...this.state,
+      isRunning: false,
+      currentSpeakerId: null,
+      turnQueue: [],
+      lastError: null
+    };
     this.context.isActive = false;
     this.currentTurn = null;
+
+    // Reset agent states
+    Object.keys(this.agentContext.agents).forEach(agentId => {
+      this.agentContext.updateAgentState(agentId, {
+        isThinking: false,
+        error: null,
+        currentResponse: null
+      });
+    });
+
+    this.updateCallback(this.state);
   }
 
-  public addMessage(agentId: string, content: string): void {
+  public addMessage(agentId: string, content: string, replyTo?: string): void {
     if (!this.state.isRunning) {
       throw new Error('Discussion is not active');
     }
@@ -164,21 +213,127 @@ export class DiscussionManager implements IDiscussionManager {
       throw new Error('Agent not found');
     }
 
+    // Find thread info if replying
+    let threadRoot: string | undefined;
+    let threadDepth = 0;
+    
+    if (replyTo) {
+      const parentMessage = this.state.messageHistory.find(m => m.id === replyTo);
+      if (parentMessage) {
+        threadRoot = parentMessage.threadRoot || parentMessage.id;
+        threadDepth = (parentMessage.threadDepth || 0) + 1;
+      }
+    }
+
+    // Extract mentions
+    const mentions = Object.values(this.agents)
+      .map(a => a.name)
+      .filter(name => content.includes(name));
+
+    // Analyze sentiment
+    const sentimentKeywords = {
+      positive: ['agree', 'good', 'excellent', 'right', 'correct', 'better', 'best', 'improve', 'helpful', 'effective', 'success', 'benefit', 'advantage', 'support', 'clear', 'well'],
+      negative: ['disagree', 'bad', 'wrong', 'poor', 'worse', 'worst', 'problem', 'issue', 'difficult', 'fail', 'drawback', 'disadvantage', 'oppose', 'unclear', 'confusing']
+    };
+
+    const words = content.toLowerCase().split(/\W+/);
+    let sentimentScore = 0;
+    const matchedKeywords: string[] = [];
+
+    words.forEach(word => {
+      if (sentimentKeywords.positive.includes(word)) {
+        sentimentScore += 0.2;
+        matchedKeywords.push(word);
+      } else if (sentimentKeywords.negative.includes(word)) {
+        sentimentScore -= 0.2;
+        matchedKeywords.push(word);
+      }
+    });
+
+    // Normalize score to -1 to 1 range
+    sentimentScore = Math.max(-1, Math.min(1, sentimentScore));
+
+    // Analyze logical fallacies
+    const fallacyPatterns = {
+      'ad_hominem': {
+        patterns: ['you are', 'you\'re just', 'clearly you', 'obviously you'],
+        confidence: 0.7
+      },
+      'false_dichotomy': {
+        patterns: ['either', 'or else', 'must be either', 'can only be'],
+        confidence: 0.6
+      },
+      'appeal_to_authority': {
+        patterns: ['experts say', 'studies show', 'research proves', 'scientists agree'],
+        confidence: 0.5
+      },
+      'hasty_generalization': {
+        patterns: ['always', 'never', 'everyone', 'nobody', 'all people'],
+        confidence: 0.6
+      },
+      'slippery_slope': {
+        patterns: ['will lead to', 'eventually', 'next thing you know', 'down this path'],
+        confidence: 0.5
+      }
+    };
+
+    const fallacies: Array<{ type: string; confidence: number; snippet: string }> = [];
+    const contentLower = content.toLowerCase();
+    
+    Object.entries(fallacyPatterns).forEach(([fallacyType, { patterns, confidence }]) => {
+      patterns.forEach(pattern => {
+        if (contentLower.includes(pattern)) {
+          // Get surrounding context
+          const words = contentLower.split(' ');
+          const patternIndex = words.findIndex(w => w.includes(pattern));
+          if (patternIndex !== -1) {
+            const start = Math.max(0, patternIndex - 3);
+            const end = Math.min(words.length, patternIndex + 4);
+            const snippet = words.slice(start, end).join(' ');
+            fallacies.push({
+              type: fallacyType,
+              confidence,
+              snippet
+            });
+          }
+        }
+      });
+    });
+
+    // Check for valid argument structure
+    const hasValidArgument = content.toLowerCase().includes('because') || 
+                           content.toLowerCase().includes('therefore') ||
+                           content.toLowerCase().includes('since') ||
+                           content.toLowerCase().includes('consequently');
+
     const message: Message = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       content,
       sender: agent.name,
       timestamp: new Date(),
-      type: 'response'
+      type: 'response',
+      replyTo,
+      threadRoot,
+      threadDepth,
+      mentions,
+      sentiment: {
+        score: sentimentScore,
+        keywords: matchedKeywords
+      },
+      logicalAnalysis: {
+        fallacies,
+        hasValidArgument
+      }
     };
 
-    // Update message history in state
+    // Update message history and topic clusters
     this.state.messageHistory.push(message);
+    this.updateTopicClusters(message);
     
     // Update agent's conversation history
     if (this.agentContext) {
       this.agentContext.updateAgentState(message.sender, {
-        conversationHistory: [...this.state.messages]
+        conversationHistory: [...this.state.messageHistory]
       });
     }
     
@@ -191,22 +346,17 @@ export class DiscussionManager implements IDiscussionManager {
   }
 
   private moveToNextTurn(): void {
-    if (!this.state.isRunning) return;
-
-    // Remove current speaker from queue
+    // Add current speaker back to end of queue
     if (this.state.currentSpeakerId) {
-      this.state.turnQueue = this.state.turnQueue.filter(id => id !== this.state.currentSpeakerId);
+      this.state.turnQueue.push(this.state.currentSpeakerId);
     }
-
-    // If queue is empty, refill it
-    if (this.state.turnQueue.length === 0) {
-      this.state.turnQueue = this.initializeTurnQueue();
-      this.state.currentRound++;
-    }
-
-    // Get next speaker
-    this.state.currentSpeakerId = this.state.turnQueue[0];
+    
+    // Clear current speaker
+    this.state.currentSpeakerId = null;
     this.updateCallback(this.state);
+
+    // Process next turn
+    this.processNextTurn();
   }
 
   private progressDiscussion(): void {
@@ -259,41 +409,68 @@ export class DiscussionManager implements IDiscussionManager {
   }
 
   private handleContextAwareTurn(): void {
-    // Implement more sophisticated turn-taking based on context
     if (this.state.messageHistory.length === 0) {
-      // If this is the first message, start with a random agent
       const agents = Object.keys(this.agents);
       this.currentTurn = agents[Math.floor(Math.random() * agents.length)];
       return;
     }
 
-    // Get the last message
-    const lastMessage = this.state.messageHistory[this.state.messageHistory.length - 1];
+    // Get the last few messages for analysis
+    const recentMessages = this.state.messageHistory.slice(-3);
+    const lastMessage = recentMessages[recentMessages.length - 1];
     
-    // Check if the message explicitly mentions another agent
+    // Check for explicit mentions first
     const agents = Object.values(this.agents);
-    const mentioned = agents.find(agent => {
-      // Check if the message mentions the agent by name
-      if (lastMessage.content.includes(agent.name)) {
-        // Don't select the agent who just spoke
-        return agent.id !== lastMessage.sender;
-      }
-      return false;
-    });
+    const mentioned = agents.find(agent => 
+      lastMessage.mentions?.includes(agent.name) && agent.id !== lastMessage.sender
+    );
 
     if (mentioned) {
-      // If another agent was mentioned, give them the next turn
       this.currentTurn = mentioned.id;
       return;
     }
 
-    // Check if the message ends with a question
-    if (lastMessage.content.trim().endsWith('?')) {
-      // If question, select an agent with expertise related to the question
-      // For now, just select a different agent than the last speaker
-      const otherAgents = Object.keys(this.agents).filter(id => id !== lastMessage.sender);
-      if (otherAgents.length > 0) {
-        this.currentTurn = otherAgents[Math.floor(Math.random() * otherAgents.length)];
+    // Get current topic cluster
+    const currentCluster = this.getTopicClusters()[0];
+    if (currentCluster) {
+      // Find agent most relevant to current topic
+      const agentScores = Object.values(this.agents).map(agent => {
+        if (agent.id === lastMessage.sender) return { agent, score: -1 }; // Exclude last speaker
+        
+        let score = 0;
+        // Check agent's expertise against topic keywords
+        const agentPersona = agent.persona;
+        if (agentPersona && typeof agentPersona === 'object' && 'expertise' in agentPersona) {
+          const expertise = agentPersona.expertise;
+          if (Array.isArray(expertise)) {
+            score += currentCluster.keywords.filter(keyword => 
+              expertise.some(exp => typeof exp === 'string' && exp.toLowerCase().includes(keyword))
+            ).length * 2;
+          }
+        }
+        
+        // Check agent's previous contributions to this topic
+        const agentMessages = this.getClusterMessages(currentCluster.id)
+          .filter(m => m.sender === agent.name);
+        score += agentMessages.length;
+
+        // Bonus for valid arguments, penalty for fallacies
+        const recentAgentMessage = agentMessages[agentMessages.length - 1];
+        if (recentAgentMessage?.logicalAnalysis) {
+          if (recentAgentMessage.logicalAnalysis.hasValidArgument) score += 2;
+          score -= recentAgentMessage.logicalAnalysis.fallacies.length;
+        }
+
+        return { agent, score };
+      });
+
+      // Select agent with highest score
+      const bestAgent = agentScores.reduce((best, current) => 
+        current.score > best.score ? current : best
+      );
+
+      if (bestAgent.score > 0) {
+        this.currentTurn = bestAgent.agent.id;
         return;
       }
     }
@@ -323,34 +500,88 @@ export class DiscussionManager implements IDiscussionManager {
   }
 
   public setInitialDocument(document: string): void {
+    // Create a proper DocumentContext object
+    const documentContext: DocumentContext = {
+      id: 'initial-document',
+      title: 'Discussion Topic',
+      content: document,
+      type: 'general',
+      metadata: {
+        createdAt: new Date(),
+        lastModified: new Date()
+      },
+      tags: []
+    };
+
+    // Update both the document reference and context
+    this.document = documentContext;
     this.context.initialDocument = document;
+    
+    // Add to documents array
+    this.addDocument(documentContext);
   }
 
   private initializeTurnQueue(): string[] {
-    return Object.keys(this.agents);
+    // Get all agent IDs except moderator
+    const agentIds = Object.keys(this.agentContext.agents)
+      .filter(id => id !== this.moderatorId);
+    // Randomize initial order
+    return agentIds.sort(() => Math.random() - 0.5);
   }
 
   private async processNextTurn(): Promise<void> {
-    if (!this.state.isRunning) return;
-    
+    if (!this.state.isRunning) {
+      return;
+    }
+
+    // If queue is empty, reinitialize it
     if (this.state.turnQueue.length === 0) {
       this.state.turnQueue = this.initializeTurnQueue();
-    }
-    
-    const agentId = this.state.turnQueue.shift() as string;
-    this.state.currentSpeakerId = agentId;
-    this.updateCallback(this.state);
-    
-    try {
-      await this.generateResponse(agentId);
+      this.state.currentRound++;
       
-      // Queue the next turn
-      setTimeout(() => this.processNextTurn(), 500);
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        // Handle abort - do nothing, as this is expected during pause
-      } else {
-        this.setError(`Error generating response: ${error instanceof Error ? error.message : String(error)}`);
+      // Check if we've reached max rounds
+      if (this.state.currentRound > this.context.maxRounds) {
+        this.stop();
+        return;
+      }
+    }
+
+    // Get next speaker from queue
+    const nextSpeakerId = this.state.turnQueue.shift();
+    if (!nextSpeakerId) {
+      // No more speakers in queue, end discussion
+      this.stop();
+      return;
+    }
+
+    // Set current speaker in both state and currentTurn
+    this.state.currentSpeakerId = nextSpeakerId;
+    this.currentTurn = nextSpeakerId;
+    this.updateCallback(this.state);
+
+    // Trigger agent response
+    const agent = this.agentContext.agents[nextSpeakerId];
+    if (agent) {
+      try {
+        // Set agent to thinking state
+        this.agentContext.updateAgentState(nextSpeakerId, {
+          isThinking: true,
+          error: null,
+          currentResponse: null
+        });
+
+        // Generate response
+        await this.generateResponse(nextSpeakerId);
+      } catch (error) {
+        // Handle error
+        this.agentContext.updateAgentState(nextSpeakerId, {
+          isThinking: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+          currentResponse: null
+        });
+        
+        // Move to next turn
+        this.moveToNextTurn();
       }
     }
   }
@@ -382,65 +613,65 @@ export class DiscussionManager implements IDiscussionManager {
     this.state.messageHistory.push(thinkingMessage);
     this.updateCallback(this.state);
 
-    return new Promise(async (resolve, reject) => {
-      try {
-        // Generate the agent's response based on context
-        const documentContent = this.getCombinedDocumentContent();
-        
-        // Get optimized conversation history
-        const conversationHistory = this.getOptimizedHistory(agent);
-        
-        const response = await generateAgentResponse(
-          agent,
-          documentContent,
-          conversationHistory,
-          this.abortController?.signal
-        );
-        
-        // Create response message
-        const responseMessage: Message = {
-          id: crypto.randomUUID(),
-          sender: agent.name,
-          content: response,
-          type: "response",
-          timestamp: new Date(),
-        };
-        
-        // Remove thinking message from state
-        this.state.messageHistory = this.state.messageHistory.filter(m => m.id !== thinkingMessage.id);
-        
-        // Add response message to state
-        this.state.messageHistory.push(responseMessage);
-        
-        // Update agent state with new message and response
-        this.agentContext.updateAgentState(agentId, {
-          isThinking: false,
-          currentResponse: response,
-          error: null,
-          conversationHistory: [...(this.agents[agentId]?.conversationHistory || []), responseMessage]
-        });
-        
-        this.updateCallback(this.state);
-        
-        // Notify parent component
-        this.responseCallback(agentId, response);
-        resolve();
-      } catch (error) {
-        // Remove thinking message from state
-        this.state.messageHistory = this.state.messageHistory.filter(m => m.id !== thinkingMessage.id);
-        
-        // Update agent state to error
-        this.agentContext.updateAgentState(agentId, {
-          isThinking: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
-          currentResponse: null
-        });
-        
-        this.updateCallback(this.state);
-        
-        reject(error);
-      }
-    });
+    try {
+      // Generate the agent's response based on context
+      const documentContent = this.getCombinedDocumentContent();
+      
+      // Get optimized conversation history
+      const conversationHistory = this.getOptimizedHistory(agent);
+      
+      const response = await generateAgentResponse(
+        agent,
+        documentContent,
+        conversationHistory,
+        this.abortController?.signal
+      );
+      
+      // Create response message
+      const responseMessage: Message = {
+        id: crypto.randomUUID(),
+        sender: agent.name,
+        content: response,
+        type: "response",
+        timestamp: new Date(),
+      };
+      
+      // Remove thinking message from state
+      this.state.messageHistory = this.state.messageHistory.filter(m => m.id !== thinkingMessage.id);
+      
+      // Add response message to state
+      this.state.messageHistory.push(responseMessage);
+      
+      // Update agent state with new message and response
+      this.agentContext.updateAgentState(agentId, {
+        isThinking: false,
+        currentResponse: response,
+        error: null,
+        conversationHistory: [...(this.agents[agentId]?.conversationHistory || []), responseMessage]
+      });
+      
+      this.updateCallback(this.state);
+      
+      // Notify parent component
+      this.responseCallback(agentId, response);
+      
+      // Move to next turn
+      this.moveToNextTurn();
+    } catch (error) {
+      // Remove thinking message from state
+      this.state.messageHistory = this.state.messageHistory.filter(m => m.id !== thinkingMessage.id);
+      
+      // Update agent state to error
+      this.agentContext.updateAgentState(agentId, {
+        isThinking: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        currentResponse: null
+      });
+      
+      this.updateCallback(this.state);
+      
+      throw error;
+    }
   }
 
   /**
@@ -448,59 +679,73 @@ export class DiscussionManager implements IDiscussionManager {
    * Implements memory management strategies for long discussions
    */
   private getOptimizedHistory(currentAgent: AgentState): Message[] {
-    const MAX_HISTORY_LENGTH = 10; // Maximum number of messages to keep in context
-    const ALWAYS_INCLUDE_LAST = 3; // Always include the most recent messages
+    const MAX_HISTORY_LENGTH = 10;
+    const ALWAYS_INCLUDE_LAST = 3;
     
-    // Filter out thinking messages
     const conversationHistory = this.state.messageHistory.filter(m => m.type !== "thought");
     
-    // If conversation is short enough, return all of it
     if (conversationHistory.length <= MAX_HISTORY_LENGTH) {
       return conversationHistory;
     }
     
-    // Keep the initial context (first message, typically document summary/topic)
     const initialContext = conversationHistory.slice(0, 1);
     
-    // Keep messages relevant to the current agent (directed at them or from them)
-    const relevantMessages = conversationHistory.slice(1, -ALWAYS_INCLUDE_LAST).filter(message => {
-      // Keep messages from the current agent
-      if (message.sender === currentAgent.name) return true;
+    // Enhanced message importance scoring
+    const scoredMessages = conversationHistory.slice(1, -ALWAYS_INCLUDE_LAST).map(message => {
+      let score = 0;
       
-      // Keep messages that mention the current agent
-      if (message.content.includes(currentAgent.name)) return true;
+      // Direct mentions and responses (increased weight)
+      if (message.content.toLowerCase().includes(currentAgent.name.toLowerCase())) score += 4;
+      if (message.sender === currentAgent.name) score += 3;
+      if (message.replyTo && message.replyTo === currentAgent.name) score += 3;
       
-      // Otherwise, only keep messages with high importance
-      // (Could implement importance scoring here)
-      return false;
+      // Thread relevance
+      if (message.threadRoot) {
+        const thread = this.state.messageHistory.filter(m => 
+          m.threadRoot === message.threadRoot || m.id === message.threadRoot
+        );
+        const isThreadRelevant = thread.some(m => 
+          m.sender === currentAgent.name || 
+          m.content.toLowerCase().includes(currentAgent.name.toLowerCase())
+        );
+        if (isThreadRelevant) score += 3;
+      }
+      
+      // Question detection (enhanced)
+      if (message.content.includes('?')) score += 2;
+      if (message.type === 'question') score += 2;
+      
+      // Topic relevance (check for key terms from recent messages)
+      const recentMessages = this.state.messageHistory.slice(-5);
+      const keyTerms = new Set(
+        recentMessages
+          .flatMap(m => m.content.toLowerCase().split(/\W+/))
+          .filter(word => word.length > 4)
+      );
+      const messageTerms = message.content.toLowerCase().split(/\W+/);
+      const termOverlap = messageTerms.filter(term => keyTerms.has(term)).length;
+      score += Math.min(termOverlap, 3); // Cap topic relevance bonus
+      
+      // Recency bonus
+      const messageIndex = conversationHistory.indexOf(message);
+      const recencyBonus = Math.max(0, (conversationHistory.length - messageIndex) / 10);
+      score += recencyBonus;
+      
+      return { message, score };
     });
     
-    // Always include the most recent messages
-    const recentMessages = conversationHistory.slice(-ALWAYS_INCLUDE_LAST);
+    // Sort by score and take top messages
+    const topMessages = scoredMessages
+      .sort((a, b) => b.score - a.score)
+      .slice(0, MAX_HISTORY_LENGTH - ALWAYS_INCLUDE_LAST - 1)
+      .map(item => item.message);
     
-    // Combine optimized history
-    const optimizedHistory = [
+    // Combine initial context, top-scored messages, and most recent messages
+    return [
       ...initialContext,
-      ...relevantMessages.slice(-MAX_HISTORY_LENGTH + initialContext.length + recentMessages.length),
-      ...recentMessages
+      ...topMessages,
+      ...conversationHistory.slice(-ALWAYS_INCLUDE_LAST)
     ];
-    
-    // Add a summary if we had to remove messages
-    if (optimizedHistory.length < conversationHistory.length) {
-      const removedCount = conversationHistory.length - optimizedHistory.length;
-      const summaryMessage: Message = {
-        id: crypto.randomUUID(),
-        sender: "system",
-        content: `[${removedCount} earlier messages omitted for brevity]`,
-        type: "system",
-        timestamp: new Date(),
-      };
-      
-      // Insert the summary after the initial context
-      optimizedHistory.splice(initialContext.length, 0, summaryMessage);
-    }
-    
-    return optimizedHistory;
   }
 
   private setError(errorMessage: string): void {
@@ -819,5 +1064,65 @@ export class DiscussionManager implements IDiscussionManager {
     return this.documents.map(doc => {
       return `## Document: ${doc.title || 'Untitled'}\n\n${doc.content}\n\n`;
     }).join('---\n\n');
+  }
+
+  private updateTopicClusters(message: Message) {
+    const content = message.content.toLowerCase();
+    const words = content.split(/\W+/).filter(w => w.length > 3);
+    
+    // Extract potential keywords (nouns, key terms)
+    const keywords = words.filter(word => 
+      !['this', 'that', 'have', 'been', 'would', 'could', 'should'].includes(word)
+    );
+    
+    // Find matching clusters or create new one
+    let bestCluster: TopicCluster | null = null;
+    let bestScore = 0;
+    
+    this.topicClusters.forEach(cluster => {
+      const score = keywords.filter(word => 
+        cluster.keywords.includes(word)
+      ).length;
+      
+      if (score > bestScore) {
+        bestScore = score;
+        bestCluster = cluster;
+      }
+    });
+    
+    if (bestScore >= 2) { // Threshold for topic similarity
+      // Add to existing cluster
+      bestCluster!.messages.push(message.id);
+      bestCluster!.keywords = [...new Set([...bestCluster!.keywords, ...keywords])];
+      bestCluster!.score += bestScore;
+    } else {
+      // Create new topic cluster
+      const newCluster: TopicCluster = {
+        id: crypto.randomUUID(),
+        topic: keywords.slice(0, 3).join(', '), // Simple topic from first few keywords
+        keywords,
+        messages: [message.id],
+        score: 1
+      };
+      this.topicClusters.set(newCluster.id, newCluster);
+    }
+  }
+
+  public getTopicClusters(): TopicCluster[] {
+    return Array.from(this.topicClusters.values())
+      .sort((a, b) => b.score - a.score);
+  }
+
+  public getClusterMessages(clusterId: string): Message[] {
+    const cluster = this.topicClusters.get(clusterId);
+    if (!cluster) return [];
+    
+    return this.state.messageHistory
+      .filter(message => cluster.messages.includes(message.id))
+      .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+  }
+
+  public getState(): DiscussionState {
+    return { ...this.state };
   }
 } 
