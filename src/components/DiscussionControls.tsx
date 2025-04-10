@@ -1,19 +1,19 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AgentState, Message } from '../types/agent';
-import { DocumentContext } from '../types/document';
+import { useAgents } from '../contexts/AgentContext';
+import { useDocument } from '../contexts/DocumentContext';
 import { DiscussionManager, DiscussionState } from '../lib/DiscussionManager';
 
 interface DiscussionControlsProps {
-  agents: Record<string, AgentState>;
-  activeDocument: DocumentContext | null;
-  onResponse: (agentId: string, response: string) => void;
+  className?: string;
 }
 
-export const DiscussionControls: React.FC<DiscussionControlsProps> = ({
-  agents,
-  activeDocument,
-  onResponse,
-}) => {
+export const DiscussionControls: React.FC<DiscussionControlsProps> = ({ className }) => {
+  const agentContext = useAgents();
+  const { documents, activeDocumentId } = useDocument();
+  
+  // Get the active document from the document store
+  const activeDocument = activeDocumentId ? documents[activeDocumentId] : null;
+  
   const [discussionState, setDiscussionState] = useState<DiscussionState>({
     isRunning: false,
     currentSpeakerId: null,
@@ -27,12 +27,19 @@ export const DiscussionControls: React.FC<DiscussionControlsProps> = ({
   useEffect(() => {
     // Initialize discussion manager when agents or document changes
     managerRef.current = new DiscussionManager(
-      agents,
+      agentContext.agents,
       activeDocument,
       setDiscussionState,
-      onResponse
+      handleAgentResponse,
+      agentContext
     );
-  }, [agents, activeDocument, onResponse]);
+  }, [agentContext, activeDocument]);
+
+  const handleAgentResponse = (agentId: string, response: string) => {
+    // This is called when an agent generates a response
+    // In a more complex implementation, you might want to update the agent's state
+    console.log(`Agent ${agentId} responded: ${response}`);
+  };
 
   const handleStart = () => {
     managerRef.current?.start();
@@ -50,10 +57,10 @@ export const DiscussionControls: React.FC<DiscussionControlsProps> = ({
     managerRef.current?.reset();
   };
 
-  const canStart = Object.keys(agents).length >= 2 && activeDocument !== null;
+  const canStart = Object.keys(agentContext.agents).length >= 2 && activeDocument !== null;
 
   return (
-    <div className="flex flex-col gap-4 p-4 bg-white rounded-lg shadow">
+    <div className={`flex flex-col gap-4 p-4 bg-white rounded-lg shadow ${className}`}>
       <div className="flex items-center gap-4">
         {!discussionState.isRunning ? (
           <button
@@ -83,6 +90,15 @@ export const DiscussionControls: React.FC<DiscussionControlsProps> = ({
             </button>
           </>
         )}
+        
+        {discussionState.isRunning && !discussionState.currentSpeakerId && (
+          <button
+            onClick={handleResume}
+            className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+          >
+            Resume
+          </button>
+        )}
       </div>
 
       {discussionState.lastError && (
@@ -91,7 +107,7 @@ export const DiscussionControls: React.FC<DiscussionControlsProps> = ({
 
       {discussionState.currentSpeakerId && (
         <div className="text-sm text-gray-600">
-          Current Speaker: {agents[discussionState.currentSpeakerId]?.name}
+          Current Speaker: {agentContext.agents[discussionState.currentSpeakerId]?.name}
         </div>
       )}
 

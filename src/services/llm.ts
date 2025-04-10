@@ -13,7 +13,7 @@ export class LLMService {
     modelId: string
   ): Promise<LLMResponse> {
     try {
-      const response = await fetch('http://localhost:11434/api/generate', {
+      const response = await fetch('http://192.168.1.3:11434/api/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -96,5 +96,114 @@ Keep responses concise and focused on the topic at hand.`;
     return agent.apiType === 'ollama'
       ? this.callOllama(prompt, systemPrompt, agent.modelId)
       : this.callLLMStudio(prompt, systemPrompt, agent.modelId);
+  }
+}
+
+// Real implementation that uses the LLMService
+export async function generateAgentResponse(
+  agent: AgentState,
+  documentContent: string,
+  conversationHistory: Message[],
+  abortSignal?: AbortSignal
+): Promise<string> {
+  // Check if the operation was aborted
+  if (abortSignal?.aborted) {
+    throw new Error('Operation aborted');
+  }
+
+  // Create a document context from the content
+  const context: DocumentContext = {
+    id: 'current-discussion',
+    title: 'Current Discussion',
+    content: documentContent,
+    type: 'general',
+    metadata: {
+      createdAt: new Date(),
+      lastModified: new Date(),
+      author: agent.name
+    },
+    tags: ['discussion']
+  };
+
+  try {
+    // Use the LLMService to generate the response
+    const response = await LLMService.generateResponse(agent, context, conversationHistory);
+    
+    if (response.error) {
+      throw new Error(response.error);
+    }
+
+    return response.content;
+  } catch (error) {
+    if (abortSignal?.aborted) {
+      throw new Error('Operation aborted');
+    }
+    throw error;
+  }
+}
+
+function createAgentPrompt(
+  agent: AgentState,
+  documentContent: string,
+  conversationHistory: Message[]
+): string {
+  // Format the conversation history
+  const formattedHistory = conversationHistory
+    .map((message) => `${message.sender}: ${message.content}`)
+    .join('\n');
+
+  // Build the prompt
+  return `
+You are ${agent.name}, a ${agent.role}.
+
+${agent.persona ? `Your persona: ${agent.persona}` : ''}
+
+You are participating in a discussion about the following document:
+
+${documentContent}
+
+Conversation history:
+${formattedHistory}
+
+Please provide your response as ${agent.name}:
+`;
+}
+
+function generateMockResponse(
+  agent: AgentState,
+  documentContent: string,
+  conversationHistory: Message[]
+): string {
+  // Generate different responses based on the agent's role
+  // This is just for demonstration purposes
+  
+  // Extract some content from the document for more realistic responses
+  const documentExcerpt = documentContent.substring(0, 100).replace(/\n/g, ' ');
+  
+  // Get the most recent message for context
+  const lastMessage = conversationHistory[conversationHistory.length - 1];
+  const referenceSender = lastMessage ? lastMessage.sender : '';
+  
+  switch (agent.role.toLowerCase()) {
+    case 'software engineer':
+      return `From a software engineering perspective, I think we should consider the technical implications of ${documentExcerpt}. ${referenceSender ? `As ${referenceSender} pointed out, we need to consider the implementation details carefully.` : ''}`;
+    
+    case 'qa engineer':
+      return `Looking at this from a QA perspective, we need to ensure ${documentExcerpt} is thoroughly tested. ${referenceSender ? `I agree with ${referenceSender}'s points about validation.` : ''}`;
+    
+    case 'tech lead':
+      return `As the tech lead, I suggest we focus on the architecture implications of ${documentExcerpt}. ${referenceSender ? `Building on what ${referenceSender} said, we should also consider scalability.` : ''}`;
+    
+    case 'policy analyst':
+      return `From a policy perspective, ${documentExcerpt} has several implications. ${referenceSender ? `I'd like to expand on ${referenceSender}'s analysis by considering long-term impacts.` : ''}`;
+    
+    case 'economist':
+      return `The economic implications of ${documentExcerpt} are significant. ${referenceSender ? `I see ${referenceSender}'s point, but we should also consider market effects.` : ''}`;
+    
+    case 'legal expert':
+      return `From a legal standpoint, we need to consider compliance with regulations regarding ${documentExcerpt}. ${referenceSender ? `While ${referenceSender} raised good points, there are also legal precedents to consider.` : ''}`;
+    
+    default:
+      return `I've been reviewing ${documentExcerpt} and have some thoughts to share. ${referenceSender ? `I appreciate ${referenceSender}'s input on this matter.` : ''}`;
   }
 } 
