@@ -34,6 +34,9 @@ const DebateArena = () => {
   const { toast } = useToast();
   const messageEndRef = useRef<HTMLDivElement>(null);
   
+  // Add ref to track if debate should be stopped
+  const shouldStopDebateRef = useRef<boolean>(false);
+  
   // State management
   const [topic, setTopic] = useState<string>('');
   const [rounds, setRounds] = useState<string>('3');
@@ -86,6 +89,11 @@ const DebateArena = () => {
   // Optimize message generation with useCallback
   const generateNextMessage = useCallback(async (role: 'llama1' | 'llama2' | 'judge') => {
     try {
+      // Check if debate was stopped
+      if (shouldStopDebateRef.current) {
+        return;
+      }
+      
       setIsThinking(role === 'llama1' || role === 'llama2');
       setIsJudgeThinking(role === 'judge');
       
@@ -94,13 +102,18 @@ const DebateArena = () => {
       let retryCount = 0;
       let success = false;
       
-      while (retryCount < maxRetries && !success) {
+      while (retryCount < maxRetries && !success && !shouldStopDebateRef.current) {
         try {
           const prompt = role === 'judge' 
             ? buildJudgePrompt() 
             : buildLlamaPrompt(role);
           
           const response = await callModelAPI(role, prompt);
+          
+          // Check if debate was stopped during API call
+          if (shouldStopDebateRef.current) {
+            return;
+          }
           
           if (response) {
             const modelForRole = role === 'llama1' ? model1 : role === 'llama2' ? model2 : judgeModel;
@@ -120,7 +133,7 @@ const DebateArena = () => {
             success = true;
             
             // After message is added, progress to next turn
-            if (role !== 'judge') {
+            if (role !== 'judge' && !shouldStopDebateRef.current) {
               const nextRole = role === 'llama1' ? 'llama2' : 'llama1';
               
               // If we've completed a round (both llama1 and llama2 have spoken)
@@ -149,13 +162,13 @@ const DebateArena = () => {
                 setTimeout(() => generateNextMessage(nextRole), 500);
               }
             } else {
-              // Judge has spoken, debate is over
+              // Judge has spoken or debate was stopped
               setIsDebating(false);
             }
           }
         } catch (err) {
           retryCount++;
-          if (retryCount === maxRetries) throw err;
+          if (retryCount === maxRetries || shouldStopDebateRef.current) throw err;
           await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
         }
       }
@@ -169,6 +182,11 @@ const DebateArena = () => {
   }, [buildLlamaPrompt, buildJudgePrompt, model1, model2, judgeModel, allModels, currentRound, rounds]);
 
   const callModelAPI = async (modelRole: 'llama1' | 'llama2' | 'judge', prompt: string): Promise<string> => {
+    // Check if debate was already stopped
+    if (shouldStopDebateRef.current) {
+      throw new Error('Debate was stopped');
+    }
+    
     let modelId: string | undefined;
     switch (modelRole) {
       case 'llama1': modelId = model1; break;
@@ -197,6 +215,20 @@ const DebateArena = () => {
         setTimeout(() => reject(new Error('API request timeout after 30 seconds')), 300000);
       });
 
+      // Add a stop debate promise to abort if user stops the debate
+      const stopDebatePromise = new Promise<never>((_, reject) => {
+        // Check every 100ms if debate should be stopped
+        const checkInterval = setInterval(() => {
+          if (shouldStopDebateRef.current) {
+            clearInterval(checkInterval);
+            reject(new Error('Debate was stopped by user'));
+          }
+        }, 100);
+        
+        // Cleanup interval after 5 minutes max
+        setTimeout(() => clearInterval(checkInterval), 300000);
+      });
+
       if (selectedModel.apiType === 'ollama') {
         const fetchPromise = fetch(selectedModel.apiEndpoint, {
           method: 'POST',
@@ -209,8 +241,8 @@ const DebateArena = () => {
           }),
         });
 
-        // Race between fetch and timeout
-        const response = await Promise.race([fetchPromise, timeout]) as Response;
+        // Race between fetch, timeout and stop debate
+        const response = await Promise.race([fetchPromise, timeout, stopDebatePromise]) as Response;
 
         if (!response.ok) {
           const errorBody = await response.text();
@@ -233,14 +265,14 @@ const DebateArena = () => {
               { role: "system", content: modelRole === 'judge' ? "You are an impartial judge evaluating a debate." : "You are a debater." },
               { role: "user", content: prompt }
             ],
-            max_tokens: 50,
+            max_tokens: 150,
             temperature: 0.7,
             stream: false,
           }),
         });
 
-        // Race between fetch and timeout
-        const response = await Promise.race([fetchPromise, timeout]) as Response;
+        // Race between fetch, timeout and stop debate
+        const response = await Promise.race([fetchPromise, timeout, stopDebatePromise]) as Response;
 
         if (!response.ok) {
           const errorBody = await response.text();
@@ -257,22 +289,53 @@ const DebateArena = () => {
         throw new Error(`Unknown apiType for model ${selectedModel.id}`);
       }
 
-      // Basic validation of response
+      // Check if debate was stopped during processing
+      if (shouldStopDebateRef.current) {
+        throw new Error('Debate was stopped by user');
+      }
+
+      // Enhanced validation of response quality
       if (responseContent.toLowerCase().includes("error") || responseContent.length < 10) {
         console.warn(`Potentially problematic response received from ${modelId}: ${responseContent}`);
         throw new Error(`Invalid response received from ${getModelName(modelId)}`);
+      }
+      
+      // Check for repetitive responses from the same model
+      const previousModelResponses = messages
+        .filter(m => m.role === modelRole)
+        .map(m => m.content);
+      
+      if (previousModelResponses.length > 0) {
+        const lastResponse = previousModelResponses[previousModelResponses.length - 1];
+        
+        // Simple repetition check - could be enhanced
+        if (lastResponse && 
+            (responseContent.substring(0, 20).toLowerCase() === lastResponse.substring(0, 20).toLowerCase() ||
+             responseContent.length < 15)) {
+          console.warn(`Model ${modelId} is generating repetitive content`);
+          throw new Error(`${getModelName(modelId)} is generating repetitive content. Try a different approach.`);
+        }
       }
 
       return responseContent;
 
     } catch (error) {
+      // Check if debate was stopped
+      if (shouldStopDebateRef.current || 
+          (error instanceof Error && error.message.includes('stopped'))) {
+        console.log('API call aborted due to debate being stopped');
+        throw new Error('Debate was stopped');
+      }
+      
       const errorMessage = error instanceof Error ? error.message : "Unknown API error";
       console.error(`API call error for ${modelRole} (${modelId}):`, errorMessage);
       
       // Add specific error message depending on the type of error
       const userFacingError = error instanceof Error && error.message.includes('timeout') 
         ? `Timeout while waiting for response from ${getModelName(modelId)}. Please check your network connection and try again.`
-        : `Error contacting ${getModelName(modelId)}: ${errorMessage}`;
+        : error instanceof Error && error.message.includes('repetitive') 
+          ? `${errorMessage} Try stopping and restarting the debate.`
+          : `Error contacting ${getModelName(modelId)}: ${errorMessage}`;
         
       setError(userFacingError);
       throw error;
@@ -329,6 +392,7 @@ const DebateArena = () => {
 
     try {
       // Reset the debate state
+      shouldStopDebateRef.current = false;
       setMessages([]);
       setCurrentRound(0);
       setCurrentTurn('llama1');
@@ -350,6 +414,35 @@ const DebateArena = () => {
         description: error instanceof Error ? error.message : "An unexpected error occurred",
         variant: "destructive"
       });
+    }
+  };
+
+  const stopDebate = () => {
+    // Set the ref to indicate debate should stop
+    shouldStopDebateRef.current = true;
+    
+    setIsDebating(false);
+    setIsThinking(false);
+    setIsJudgeThinking(false);
+    
+    toast({
+      title: "Debate Stopped",
+      description: "The debate has been manually stopped.",
+      variant: "default"
+    });
+    
+    // If there are messages already and the judge hasn't provided a final evaluation
+    if (messages.length > 0 && !messages.some(m => m.role === 'judge')) {
+      // Add a final message from the judge
+      const finalJudgement: DebateMessageData = {
+        id: Date.now().toString(),
+        role: 'judge',
+        content: "The debate was manually stopped. I'll evaluate based on the arguments presented so far.",
+        timestamp: new Date(),
+        modelId: judgeModel || '',
+        apiType: allModels.find(m => m.id === judgeModel)?.apiType === 'ollama' ? 'ollama' : 'llmstudio'
+      };
+      setMessages(prev => [...prev, finalJudgement]);
     }
   };
 
@@ -461,15 +554,28 @@ const DebateArena = () => {
           </div>
           
           <div className="flex flex-wrap gap-2 flex-1 justify-start sm:justify-end">
-            <Button
-              onClick={startDebate}
-              disabled={isDebating || !topic.trim() || !model1 || !model2 || !judgeModel}
-              className="bg-gradient-to-r from-llama1 to-llama2 hover:opacity-90 text-white relative overflow-hidden group h-10 px-4 flex-1 sm:flex-initial min-w-[120px]"
-            >
-              <span className="absolute inset-0 w-full h-full bg-black/10 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-500"></span>
-              <Brain className="mr-2 h-4 w-4 animate-pulse group-disabled:animate-none" />
-              {isDebating ? 'Debating...' : 'Start Debate'}
-            </Button>
+            {!isDebating ? (
+              <Button
+                onClick={startDebate}
+                disabled={!topic.trim() || !model1 || !model2 || !judgeModel}
+                className="bg-gradient-to-r from-llama1 to-llama2 hover:opacity-90 text-white relative overflow-hidden group h-10 px-4 flex-1 sm:flex-initial min-w-[120px]"
+              >
+                <span className="absolute inset-0 w-full h-full bg-black/10 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-500"></span>
+                <Brain className="mr-2 h-4 w-4 animate-pulse group-disabled:animate-none" />
+                Start Debate
+              </Button>
+            ) : (
+              <Button
+                onClick={stopDebate}
+                className="bg-red-600 hover:bg-red-700 text-white relative overflow-hidden group h-10 px-4 flex-1 sm:flex-initial min-w-[120px]"
+              >
+                <span className="absolute inset-0 w-full h-full bg-black/10 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-500"></span>
+                <svg className="mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="6" y="6" width="12" height="12" rx="2" />
+                </svg>
+                Stop Debate
+              </Button>
+            )}
             
             <Button
               variant="outline"
@@ -539,7 +645,7 @@ const DebateArena = () => {
       )}
       
       {/* Debate Arena */}
-      <div className="flex-1 bg-debateBg rounded-lg border border-gray-800 overflow-hidden backdrop-blur-sm shadow-lg relative z-10 min-h-[400px] max-h-[2600px] lg:max-h-[1800px] flex flex-col">
+      <div className="flex-1 bg-debateBg rounded-lg border border-gray-800 overflow-scroll backdrop-blur-sm shadow-lg relative z-10 min-h-[400px] max-h-[600px] lg:max-h-[800px] flex flex-col">
         <div className="absolute inset-0 bg-gradient-to-br from-llama1/5 via-transparent to-llama2/5 opacity-50 pointer-events-none" />
         
         {messages.length === 0 && !isThinking ? (
@@ -635,6 +741,11 @@ const DebateArena = () => {
                </span>
              </span>
           </div>
+          {isDebating && (
+            <div className="mt-2 text-xs text-gray-400">
+              If the models are stuck in a loop or not making progress, click the Stop button to end the debate.
+            </div>
+          )}
         </div>
       )}
       
