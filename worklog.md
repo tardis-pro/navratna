@@ -237,7 +237,7 @@
 ### Current Tasks in Progress
 
 1. **Discussion Flow Enhancements**
-   - [ ] Add support for parallel discussion threads
+   - [ ] Add support for parallel discussion threads - (Needs fixing)
    - [ ] Implement timed discussion phases
    - [ ] Enhance moderator capabilities
    - [ ] Add support for structured debate formats

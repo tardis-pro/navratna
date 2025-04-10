@@ -113,7 +113,10 @@ export class LLMService {
     // Default system prompt if none provided
     const systemPrompt = agent.systemPrompt || `You are ${agent.name}, a ${agent.role}. 
 Respond in a way that reflects your expertise and role.
-Keep responses concise and focused on the topic at hand.`;
+Keep responses concise and focused on the topic at hand.
+ also speak less as possible only give answers to the question not say everything,
+  if you find they are asking to many questions, please ask the user to break down into 3-4 questions, 
+  and then respond. your answer should be 200 words or less`;
 
     // Call appropriate LLM service
     return agent.apiType === 'ollama'
