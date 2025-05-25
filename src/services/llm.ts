@@ -99,24 +99,34 @@ export class LLMService {
       };
     }
 
-    // Construct the prompt
+    // Construct the prompt with proper message type handling
     const contextPrompt = context 
       ? `\nContext Document:\nTitle: ${context.title}\nContent: ${context.content}\n`
       : '';
 
-    const conversationHistory = messages
-      .map(msg => `${msg.sender}: ${msg.content}`)
-      .join('\n');
+    // Separate system messages from conversation messages
+    const systemMessages = messages.filter(msg => msg.type === 'system');
+    const conversationMessages = messages.filter(msg => msg.type !== 'system');
 
-    const prompt = `${contextPrompt}\n\nConversation History:\n${conversationHistory}\n\n${agent.name}:`;
+    // Include system messages as context (these contain document info, initial setup)
+    const systemContext = systemMessages.length > 0
+      ? `\nSystem Context:\n${systemMessages.map(msg => msg.content).join('\n')}\n`
+      : '';
 
-    // Default system prompt if none provided
+    // Format conversation history
+    const conversationHistory = conversationMessages.length > 0
+      ? conversationMessages.map(msg => `${msg.sender}: ${msg.content}`).join('\n')
+      : 'No previous conversation.';
+
+    const prompt = `${contextPrompt}${systemContext}\n\nConversation History:\n${conversationHistory}\n\n${agent.name}:`;
+
+    // Use agent's system prompt, or fall back to persona-based prompt
     const systemPrompt = agent.systemPrompt || `You are ${agent.name}, a ${agent.role}. 
 Respond in a way that reflects your expertise and role.
 Keep responses concise and focused on the topic at hand.
- also speak less as possible only give answers to the question not say everything,
-  if you find they are asking to many questions, please ask the user to break down into 3-4 questions, 
-  and then respond. your answer should be 200 words or less`;
+Also speak as little as possible - only give answers to the question, not everything.
+If you find they are asking too many questions, please ask the user to break down into 3-4 questions, 
+and then respond. Your answer should be 200 words or less.`;
 
     // Call appropriate LLM service
     return agent.apiType === 'ollama'

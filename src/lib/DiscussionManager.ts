@@ -676,76 +676,37 @@ export class DiscussionManager implements IDiscussionManager {
 
   /**
    * Gets optimized conversation history for context windows
-   * Implements memory management strategies for long discussions
+   * Limits to last 2-3 messages plus original document to reduce token usage
    */
   private getOptimizedHistory(currentAgent: AgentState): Message[] {
-    const MAX_HISTORY_LENGTH = 10;
-    const ALWAYS_INCLUDE_LAST = 3;
+    const MAX_RECENT_MESSAGES = 3; // Limit to last 2-3 messages as requested
     
+    // Filter out thought messages to keep only actual conversation
     const conversationHistory = this.state.messageHistory.filter(m => m.type !== "thought");
     
-    if (conversationHistory.length <= MAX_HISTORY_LENGTH) {
+    // If we have very few messages, return all of them
+    if (conversationHistory.length <= MAX_RECENT_MESSAGES) {
       return conversationHistory;
     }
     
+    // Always include the first message (usually contains initial context/document)
     const initialContext = conversationHistory.slice(0, 1);
     
-    // Enhanced message importance scoring
-    const scoredMessages = conversationHistory.slice(1, -ALWAYS_INCLUDE_LAST).map(message => {
-      let score = 0;
-      
-      // Direct mentions and responses (increased weight)
-      if (message.content.toLowerCase().includes(currentAgent.name.toLowerCase())) score += 4;
-      if (message.sender === currentAgent.name) score += 3;
-      if (message.replyTo && message.replyTo === currentAgent.name) score += 3;
-      
-      // Thread relevance
-      if (message.threadRoot) {
-        const thread = this.state.messageHistory.filter(m => 
-          m.threadRoot === message.threadRoot || m.id === message.threadRoot
-        );
-        const isThreadRelevant = thread.some(m => 
-          m.sender === currentAgent.name || 
-          m.content.toLowerCase().includes(currentAgent.name.toLowerCase())
-        );
-        if (isThreadRelevant) score += 3;
+    // Get the last 2-3 messages for immediate context
+    const recentMessages = conversationHistory.slice(-MAX_RECENT_MESSAGES);
+    
+    // Combine initial context with recent messages
+    // Remove duplicates in case the conversation is very short
+    const optimizedHistory = [...initialContext];
+    
+    recentMessages.forEach(message => {
+      // Only add if not already in initial context
+      if (!optimizedHistory.some(existing => existing.id === message.id)) {
+        optimizedHistory.push(message);
       }
-      
-      // Question detection (enhanced)
-      if (message.content.includes('?')) score += 2;
-      if (message.type === 'question') score += 2;
-      
-      // Topic relevance (check for key terms from recent messages)
-      const recentMessages = this.state.messageHistory.slice(-5);
-      const keyTerms = new Set(
-        recentMessages
-          .flatMap(m => m.content.toLowerCase().split(/\W+/))
-          .filter(word => word.length > 4)
-      );
-      const messageTerms = message.content.toLowerCase().split(/\W+/);
-      const termOverlap = messageTerms.filter(term => keyTerms.has(term)).length;
-      score += Math.min(termOverlap, 3); // Cap topic relevance bonus
-      
-      // Recency bonus
-      const messageIndex = conversationHistory.indexOf(message);
-      const recencyBonus = Math.max(0, (conversationHistory.length - messageIndex) / 10);
-      score += recencyBonus;
-      
-      return { message, score };
     });
     
-    // Sort by score and take top messages
-    const topMessages = scoredMessages
-      .sort((a, b) => b.score - a.score)
-      .slice(0, MAX_HISTORY_LENGTH - ALWAYS_INCLUDE_LAST - 1)
-      .map(item => item.message);
-    
-    // Combine initial context, top-scored messages, and most recent messages
-    return [
-      ...initialContext,
-      ...topMessages,
-      ...conversationHistory.slice(-ALWAYS_INCLUDE_LAST)
-    ];
+    return optimizedHistory;
   }
 
   private setError(errorMessage: string): void {

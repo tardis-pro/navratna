@@ -14,6 +14,8 @@ export interface AgentState {
   maxTokens?: number;
 }
 
+export type ConversationPattern = 'interruption' | 'build-on' | 'clarification' | 'concern' | 'expertise';
+
 export interface Message {
   id: string;
   content: string;
@@ -29,6 +31,8 @@ export interface Message {
   isAgreement?: boolean;
   isDisagreement?: boolean;
   summary?: string;
+  conversationPattern?: ConversationPattern;
+  triggeredPersonas?: string[];
   sentiment?: {
     score: number;  // -1 to 1, where -1 is very negative, 1 is very positive
     keywords: string[];  // Words that influenced the sentiment
@@ -68,4 +72,5 @@ export interface AgentContextValue {
   updateAgentState: (id: string, updates: Partial<AgentState>) => void;
   addMessage: (agentId: string, message: Message) => void;
   removeMessage: (agentId: string, messageId: string) => void;
+  getAllMessages: () => Message[];
 } 
