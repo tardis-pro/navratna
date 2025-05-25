@@ -1,73 +1,166 @@
-# Welcome to your Lovable project
+# Council of Nycea
 
-## Project info
+A sophisticated multi-agent discussion platform that enables AI agents with distinct personas to engage in structured conversations, debates, and collaborative problem-solving. The platform is designed to evolve into a comprehensive agentic startup framework where agents can perform real work beyond discussion.
 
-**URL**: https://lovable.dev/projects/62b3d962-89cd-4d62-9524-c25e5f3e18f8
+## 🎯 Vision
 
-## How can I edit this code?
+Council of Nycea transforms AI agents from simple chatbots into autonomous actors capable of:
+- Engaging in nuanced, multi-perspective discussions
+- Using external tools and APIs to gather information and perform tasks
+- Collaborating on complex problems with human-like reasoning patterns
+- Generating actionable insights and deliverables
 
-There are several ways of editing your application.
+## 🏗️ Current Architecture
 
-**Use Lovable**
+### Core Components
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/62b3d962-89cd-4d62-9524-c25e5f3e18f8) and start prompting.
+- **Agent System**: Multi-persona agents with distinct roles, expertise, and conversation patterns
+- **Discussion Manager**: Orchestrates turn-based conversations with intelligent flow control
+- **Context Management**: Maintains conversation history and document context
+- **UI Framework**: Real-time discussion visualization with agent status indicators
 
-Changes made via Lovable will be committed automatically to this repo.
+### Agent Capabilities
 
-**Use your preferred IDE**
+- **Persona-Driven Behavior**: Each agent has unique traits, expertise areas, and communication styles
+- **Conversation Intelligence**: Agents can detect patterns, build on ideas, raise concerns, and ask clarifying questions
+- **Think Tokens**: Transparent reasoning process with optional visibility controls
+- **Sentiment Analysis**: Real-time emotional intelligence and logical fallacy detection
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## 🚀 Upcoming Features (Epic Roadmap)
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### Epic 1: Backend Integration and API Infrastructure
+- RESTful API endpoints for agent management and discussion lifecycle
+- Scalable server architecture with database integration
+- Authentication, authorization, and comprehensive logging
 
-Follow these steps:
+### Epic 2: Knowledge Graph Integration
+- Semantic search capabilities across documents and conversations
+- Vector embeddings for intelligent content retrieval
+- Integration with external knowledge sources
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
+### Epic 3: Agent Tooling and Automation
+- Function calling capabilities for external API integration
+- Code execution in sandboxed environments
+- Specialized tools for different agent personas
+
+### Epic 4: Artifact Generation and DevOps
+- Automated document generation (PRDs, technical specs, reports)
+- CI/CD pipeline integration for deployment automation
+- Version control and artifact management
+
+### Epic 5: Testing and Documentation
+- Comprehensive testing framework for agent behaviors
+- Automated documentation generation
+- Performance monitoring and optimization
+
+### **Epic 6: Agent Tool Use Framework** ⭐ *Latest Addition*
+- **Comprehensive Tool Ecosystem**: Agents can use external APIs, execute code, query databases, and interact with various services
+- **Security Framework**: Role-based permissions, sandboxing, and approval workflows for high-risk operations
+- **Cost Management**: Budget tracking, usage monitoring, and optimization insights
+- **Tool Categories**: Knowledge & research, development & DevOps, communication, and data analytics tools
+
+## 🛠️ Technology Stack
+
+- **Frontend**: React + TypeScript + Tailwind CSS
+- **State Management**: React Context API with custom hooks
+- **UI Components**: shadcn-ui component library
+- **Build Tool**: Vite for fast development and building
+- **Deployment**: Lovable platform integration
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js & npm ([install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating))
+
+### Installation
+
+```bash
+# Clone the repository
 git clone <YOUR_GIT_URL>
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+# Navigate to project directory
+cd council-of-nycea
 
-# Step 3: Install the necessary dependencies.
-npm i
+# Install dependencies
+npm install
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+### Development Workflow
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+**Using Lovable Platform**
+- Visit the [Lovable Project](https://lovable.dev/projects/62b3d962-89cd-4d62-9524-c25e5f3e18f8)
+- Changes made via Lovable are automatically committed
 
-**Use GitHub Codespaces**
+**Local Development**
+- Make changes locally and push to sync with Lovable
+- Use your preferred IDE for complex development tasks
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## 📋 Current Features
 
-## What technologies are used for this project?
+### Agent Management
+- Create agents with custom personas and expertise
+- Configure conversation patterns and behavioral traits
+- Real-time agent status monitoring
 
-This project is built with:
+### Discussion Controls
+- Start/pause/resume discussions
+- Configure turn strategies (round-robin, expertise-based)
+- Toggle think token visibility for transparency
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Document Integration
+- Upload and reference documents in discussions
+- Agents can analyze and reference document content
+- Context-aware conversation flow
 
-## How can I deploy this project?
+### Advanced Conversation Features
+- **Sentiment Analysis**: Real-time emotional intelligence
+- **Logical Analysis**: Automatic fallacy detection
+- **Conversation Patterns**: Interruption, build-on, clarification, concern, expertise
+- **Thread Management**: Nested conversations and reply chains
 
-Simply open [Lovable](https://lovable.dev/projects/62b3d962-89cd-4d62-9524-c25e5f3e18f8) and click on Share -> Publish.
+## 🔮 Future Roadmap
 
-## Can I connect a custom domain to my Lovable project?
+### Agentic Startup Capabilities
+- **Autonomous Task Execution**: Agents that can complete complex workflows
+- **Business Process Automation**: End-to-end automation of common startup tasks
+- **Intelligent Decision Making**: Multi-agent consensus on strategic decisions
+- **Real-world Integration**: Direct integration with business tools and platforms
 
-Yes it is!
+### Advanced AI Features
+- **Multi-modal Capabilities**: Image, audio, and video processing
+- **Long-term Memory**: Persistent agent knowledge and relationship building
+- **Learning and Adaptation**: Agents that improve through experience
+- **Collaborative Intelligence**: Swarm intelligence for complex problem solving
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## 📖 Documentation
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+- **Epic Documentation**: Detailed planning documents in `/epics/` directory
+- **Type Definitions**: Comprehensive TypeScript interfaces in `/src/types/`
+- **Component Documentation**: Inline documentation for all React components
+- **API Documentation**: OpenAPI specifications (coming with Epic 1)
+
+## 🤝 Contributing
+
+This project is designed for rapid iteration and experimentation. Key areas for contribution:
+
+1. **Agent Personas**: Create new agent types with unique capabilities
+2. **Tool Development**: Build new tools for agent use (Epic 6)
+3. **UI/UX Improvements**: Enhance the discussion interface and user experience
+4. **Performance Optimization**: Improve conversation flow and response times
+5. **Integration Development**: Connect with external APIs and services
+
+## 📄 License
+
+This project is part of the Lovable platform ecosystem. See platform documentation for licensing details.
+
+## 🔗 Links
+
+- **Lovable Project**: https://lovable.dev/projects/62b3d962-89cd-4d62-9524-c25e5f3e18f8
+- **Custom Domain Setup**: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+
+---
+
+*Council of Nycea - Where AI agents collaborate, debate, and create the future.*
