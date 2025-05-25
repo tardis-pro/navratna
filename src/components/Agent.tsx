@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { useAgents } from '../contexts/AgentContext';
 import { useDocument } from '../contexts/DocumentContext';
 import { LLMService } from '../services/llm';
@@ -6,6 +6,7 @@ import { Message } from '../types/agent';
 import { AgentAvatar } from './AgentAvatar';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
+import { shouldPersonaActivate, getPersonaById } from '../data/personas';
 
 interface AgentProps {
   id: string;
@@ -13,11 +14,122 @@ interface AgentProps {
 }
 
 export const Agent: React.FC<AgentProps> = ({ id, className }) => {
-  const { agents, updateAgentState } = useAgents();
+  const { agents, updateAgentState, getAllMessages, addMessage } = useAgents();
   const { documents, activeDocumentId } = useDocument();
   
   const agent = agents[id];
   if (!agent) return null;
+
+  const persona = getPersonaById(id);
+  
+  // Helper function to limit conversation history to recent messages
+  const getOptimizedHistory = (messages: Message[]): Message[] => {
+    const MAX_RECENT_MESSAGES = 5;
+    const MAX_TOTAL_MESSAGES = 15;
+    
+    if (messages.length <= MAX_TOTAL_MESSAGES) {
+      return messages; // No need to optimize if under limit
+    }
+    
+    // Separate different types of messages
+    const systemMessages = messages.filter(m => m.type === "system");
+    const conversationMessages = messages.filter(m => m.type !== "system" && m.type !== "thought");
+    
+    // Always keep system messages (document context, initial prompts)
+    const preservedMessages = [...systemMessages];
+    
+    // Keep the most recent conversation messages
+    const recentConversation = conversationMessages.slice(-MAX_RECENT_MESSAGES);
+    
+    // If we have room, add some earlier important messages (questions, key decisions)
+    const remainingSlots = MAX_TOTAL_MESSAGES - preservedMessages.length - recentConversation.length;
+    
+    if (remainingSlots > 0 && conversationMessages.length > MAX_RECENT_MESSAGES) {
+      const earlierMessages = conversationMessages.slice(0, -MAX_RECENT_MESSAGES);
+      
+      // Prioritize questions and important messages
+      const importantEarlier = earlierMessages.filter(m => 
+        m.content.includes('?') || 
+        m.type === 'question' ||
+        m.importance && m.importance > 0.7
+      ).slice(-remainingSlots);
+      
+      preservedMessages.push(...importantEarlier);
+    }
+    
+    // Add recent conversation
+    preservedMessages.push(...recentConversation);
+    
+    // Sort by timestamp to maintain chronological order
+    return preservedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+  };
+
+  // Helper function to determine if agent should auto-respond
+  const shouldAutoRespond = (lastMessage: Message): boolean => {
+    if (!lastMessage || lastMessage.sender === id) return false;
+    
+    // Check if this persona should be triggered by the content
+    const shouldActivate = shouldPersonaActivate(id, lastMessage.content);
+    
+    // Role-based response logic
+    const isJunior = persona?.role === 'Junior Developer';
+    const isTechLead = persona?.role === 'Tech Lead';
+    const isQA = persona?.role === 'QA Engineer';
+    const isSoftwareEngineer = persona?.role === 'Software Engineer';
+    
+    // Junior developers ask questions when complex topics arise or when they need clarification
+    if (isJunior) {
+      const complexKeywords = ['architecture', 'scalability', 'design patterns', 'system design', 'technical debt'];
+      const hasComplexTopic = complexKeywords.some(keyword => 
+        lastMessage.content.toLowerCase().includes(keyword)
+      );
+      
+      // Also respond if someone mentions implementation without explaining it
+      const needsClarification = lastMessage.content.includes('implement') || 
+                                lastMessage.content.includes('build') ||
+                                lastMessage.content.includes('create');
+      
+      return hasComplexTopic || needsClarification || shouldActivate;
+    }
+    
+    // Tech Lead responds to questions from juniors or when architectural guidance is needed
+    if (isTechLead) {
+      const isQuestionFromJunior = lastMessage.content.includes('?') && 
+        (lastMessage.sender.includes('Junior') || lastMessage.sender.includes('junior'));
+      
+      const needsArchitecturalGuidance = shouldActivate || 
+        lastMessage.content.toLowerCase().includes('how do we') ||
+        lastMessage.content.toLowerCase().includes('what about');
+      
+      return isQuestionFromJunior || needsArchitecturalGuidance;
+    }
+    
+    // QA Engineer interrupts when quality concerns arise
+    if (isQA) {
+      const qualityKeywords = ['feature', 'implement', 'build', 'create', 'change', 'update'];
+      const hasQualityConcern = qualityKeywords.some(keyword => 
+        lastMessage.content.toLowerCase().includes(keyword)
+      );
+      
+      const missingTestingMention = !lastMessage.content.toLowerCase().includes('test') &&
+                                   !lastMessage.content.toLowerCase().includes('quality');
+      
+      return (hasQualityConcern && missingTestingMention) || shouldActivate;
+    }
+    
+    // Software Engineer responds to implementation questions or when code quality is discussed
+    if (isSoftwareEngineer) {
+      const isImplementationQuestion = lastMessage.content.includes('?') && 
+        (lastMessage.content.toLowerCase().includes('implement') ||
+         lastMessage.content.toLowerCase().includes('code') ||
+         lastMessage.content.toLowerCase().includes('how'));
+      
+      return isImplementationQuestion || shouldActivate;
+    }
+    
+    // Other roles respond based on their triggers
+    return shouldActivate;
+  };
 
   const generateResponse = useCallback(async () => {
     if (agent.isThinking) return;
@@ -29,11 +141,17 @@ export const Agent: React.FC<AgentProps> = ({ id, className }) => {
       // Get active document if any
       const activeDocument = activeDocumentId ? documents[activeDocumentId] : null;
 
+      // Get the full conversation history from all agents, not just this agent's messages
+      const allMessages = getAllMessages();
+      const optimizedHistory = getOptimizedHistory(allMessages);
+
+      console.log(`${agent.name} generating response with ${optimizedHistory.length} messages from full conversation`);
+
       // Generate response
       const response = await LLMService.generateResponse(
         agent,
         activeDocument,
-        agent.conversationHistory
+        optimizedHistory
       );
 
       if (response.error) {
@@ -49,11 +167,13 @@ export const Agent: React.FC<AgentProps> = ({ id, className }) => {
         type: 'response',
       };
 
-      // Update agent state with new message
+      // Add message to global conversation so all agents can see it
+      addMessage(id, newMessage);
+
+      // Update agent state (but don't duplicate the conversation history)
       updateAgentState(id, {
         isThinking: false,
         currentResponse: response.content,
-        conversationHistory: [...agent.conversationHistory, newMessage],
       });
     } catch (error) {
       updateAgentState(id, {
@@ -61,7 +181,43 @@ export const Agent: React.FC<AgentProps> = ({ id, className }) => {
         error: error instanceof Error ? error.message : 'Unknown error occurred',
       });
     }
-  }, [agent, id, activeDocumentId, documents, updateAgentState]);
+  }, [agent, id, activeDocumentId, documents, updateAgentState, getAllMessages, addMessage]);
+
+  // Auto-response effect
+  useEffect(() => {
+    const allMessages = getAllMessages();
+    const lastMessage = allMessages[allMessages.length - 1];
+    
+    if (!lastMessage || agent.isThinking) return;
+    
+    // Check if any other agent is currently thinking to avoid simultaneous responses
+    const isAnyAgentThinking = Object.values(agents).some(a => a.isThinking);
+    if (isAnyAgentThinking) return;
+    
+    // Debug logging
+    const shouldRespond = shouldAutoRespond(lastMessage);
+    if (shouldRespond) {
+      console.log(`${agent.name} (${persona?.role}) triggered by: "${lastMessage.content.substring(0, 50)}..."`);
+    }
+    
+    // Add small delay to make conversation feel more natural
+    const baseDelay = persona?.role === 'Junior Developer' ? 1000 : 2000;
+    const randomDelay = Math.random() * 1000; // Add 0-1 second random delay
+    const responseDelay = baseDelay + randomDelay;
+    
+    if (shouldRespond) {
+      const timer = setTimeout(() => {
+        // Double-check no one else started thinking while we were waiting
+        const stillNoOneThinking = !Object.values(agents).some(a => a.isThinking);
+        if (stillNoOneThinking) {
+          console.log(`${agent.name} starting to generate response...`);
+          generateResponse();
+        }
+      }, responseDelay);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [getAllMessages().length, agent.isThinking, generateResponse, agents]);
 
   const lastMessage = agent.conversationHistory[agent.conversationHistory.length - 1];
   const isMyTurn = lastMessage?.sender !== id;

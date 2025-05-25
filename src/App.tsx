@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { AgentProvider } from './contexts/AgentContext';
 import { DocumentProvider } from './contexts/DocumentContext';
 import { DiscussionProvider } from './contexts/DiscussionContext';
@@ -9,6 +9,12 @@ import { DiscussionControls } from './components/DiscussionControls';
 import './App.css';
 
 function App() {
+  const [showThinkTokens, setShowThinkTokens] = useState(false);
+
+  const handleThinkTokensToggle = (visible: boolean) => {
+    setShowThinkTokens(visible);
+  };
+
   return (
     <DocumentProvider>
       <AgentProvider>
@@ -17,7 +23,8 @@ function App() {
             <header className="bg-white shadow">
               <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
                 <h1 className="text-3xl font-bold text-gray-900">
-Council Of Nycea                </h1>
+                  Council Of Nycea
+                </h1>
               </div>
             </header>
 
@@ -31,8 +38,15 @@ Council Of Nycea                </h1>
                 {/* Main content area */}
                 <div className="lg:col-span-2 space-y-6">
                   <DocumentViewer className="bg-white shadow rounded-lg" />
-                  <DiscussionControls className="bg-white shadow rounded-lg" />
-                  <DiscussionLog className="bg-white shadow rounded-lg h-[600px]" />
+                  <DiscussionControls 
+                    className="bg-white shadow rounded-lg" 
+                    showThinkTokens={showThinkTokens}
+                    onThinkTokensToggle={handleThinkTokensToggle}
+                  />
+                  <DiscussionLog 
+                    className="bg-white shadow rounded-lg h-[600px]" 
+                    showThinkTokens={showThinkTokens}
+                  />
                 </div>
               </div>
             </main>
