@@ -84,13 +84,23 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'REMOVE_MESSAGE', payload: { agentId, messageId } });
   };
 
+  const getAllMessages = (): Message[] => {
+    const allMessages: Message[] = [];
+    Object.values(agents).forEach(agent => {
+      allMessages.push(...agent.conversationHistory);
+    });
+    // Sort by timestamp to get chronological order
+    return allMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+  };
+
   const value: AgentContextValue = {
     agents,
     addAgent,
     removeAgent,
     updateAgentState,
     addMessage,
-    removeMessage
+    removeMessage,
+    getAllMessages
   };
 
   return (

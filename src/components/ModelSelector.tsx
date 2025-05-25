@@ -33,8 +33,8 @@ interface ModelSelectorProps {
 }
 
 export const getModels = async (): Promise<ModelOption[]> => {
-  const llmStudioModelsEndpoint = 'http://192.168.1.8:1234/v1/models';
-  const llmStudioApiEndpoint = 'http://192.168.1.8:1234/v1/chat/completions';
+  const llmStudioModelsEndpoint = 'http://localhost:1234/v1/models';
+  const llmStudioApiEndpoint = 'http://localhost:1234/v1/chat/completions';
   const ollamaModelsEndpoint = 'http://192.168.1.3:11434/api/tags';
   const ollamaApiEndpoint = 'http://192.168.1.3:11434/api/generate';
 
