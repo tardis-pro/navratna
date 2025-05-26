@@ -1,9 +1,4 @@
 import React, { useState } from 'react';
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { 
   Play, 
@@ -17,7 +12,8 @@ import {
   Settings,
   Users,
   MessageSquare,
-  Clock
+  Clock,
+  Activity
 } from 'lucide-react';
 import { useDiscussion } from '../contexts/DiscussionContext';
 import { useAgents } from '../contexts/AgentContext';
@@ -64,9 +60,9 @@ export const DiscussionControls: React.FC<DiscussionControlsProps> = ({
   };
 
   const getStatusColor = () => {
-    if (!isActive) return "bg-gray-500";
+    if (!isActive) return "bg-slate-500";
     if (currentTurn) return "bg-green-500";
-    return "bg-yellow-500";
+    return "bg-amber-500";
   };
 
   const getStatusText = () => {
@@ -76,180 +72,177 @@ export const DiscussionControls: React.FC<DiscussionControlsProps> = ({
   };
 
   return (
-    <Card className={cn(
-      "bg-gradient-to-br from-white/95 to-gray-50/95 dark:from-gray-900/95 dark:to-gray-800/95",
-      "backdrop-blur-sm border border-gray-200/60 dark:border-gray-700/60",
-      "shadow-lg shadow-gray-200/20 dark:shadow-gray-900/20",
-      "transition-all duration-200 hover:shadow-xl hover:shadow-gray-200/30 dark:hover:shadow-gray-900/30",
-      className
-    )}>
-      <div className="p-6 space-y-6">
-        {/* Header with Status */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <div className={cn(
-                "w-3 h-3 rounded-full transition-colors duration-200",
-                getStatusColor()
-              )} />
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                Discussion Controls
-              </h3>
-            </div>
-            <Badge variant="outline" className="text-xs">
-              {getStatusText()}
-            </Badge>
+    <div className={`p-6 ${className}`}>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
+            <Activity className="w-4 h-4 text-white" />
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Discussion Controls</h2>
+            <p className="text-sm text-slate-600 dark:text-slate-400">Manage conversation flow and settings</p>
+          </div>
+        </div>
+        
+        <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2 px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-full">
+            <div className={cn("w-2 h-2 rounded-full transition-colors duration-200", getStatusColor())} />
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{getStatusText()}</span>
           </div>
           
-          <Button
-            variant="ghost"
-            size="sm"
+          <button
             onClick={() => setShowAdvanced(!showAdvanced)}
-            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            className="p-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all duration-200"
           >
-            <Settings className="h-4 w-4" />
-          </Button>
+            <Settings className="w-4 h-4" />
+          </button>
         </div>
+      </div>
 
-        {/* Stats Row */}
-        <div className="grid grid-cols-3 gap-4">
-          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-            <Users className="h-4 w-4" />
-            <span>{agentCount} agents</span>
+      {/* Stats Grid */}
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="flex items-center space-x-3 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
+          <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
+            <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />
           </div>
-          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-            <MessageSquare className="h-4 w-4" />
-            <span>{messageCount} messages</span>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-            <Clock className="h-4 w-4" />
-            <span>Round {currentRound || 0}</span>
+          <div>
+            <p className="text-sm font-medium text-slate-900 dark:text-white">{agentCount}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Agents</p>
           </div>
         </div>
-
-        <Separator />
-
-        {/* Main Controls */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 flex-wrap">
-            {!isActive ? (
-              <Button
-                onClick={handleStart}
-                disabled={!canStart}
-                variant="default"
-                size="lg"
-                className={cn(
-                  "flex items-center gap-2 font-medium transition-all duration-200",
-                  "bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800",
-                  "shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40",
-                  "disabled:from-gray-400 disabled:to-gray-500 disabled:shadow-none"
-                )}
-              >
-                <Play className="h-4 w-4" />
-                Start Discussion
-              </Button>
-            ) : (
-              <div className="flex items-center gap-2">
-                <Button
-                  onClick={handlePause}
-                  variant="secondary"
-                  size="lg"
-                  className="flex items-center gap-2 font-medium"
-                >
-                  <Pause className="h-4 w-4" />
-                  Pause
-                </Button>
-                <Button
-                  onClick={handleReset}
-                  variant="destructive"
-                  size="lg"
-                  className="flex items-center gap-2 font-medium"
-                >
-                  <RotateCcw className="h-4 w-4" />
-                  Reset
-                </Button>
-              </div>
-            )}
-            
-            {isActive && !currentTurn && (
-              <Button
-                onClick={handleResume}
-                variant="default"
-                size="lg"
-                className="flex items-center gap-2 font-medium bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
-              >
-                <Resume className="h-4 w-4" />
-                Resume
-              </Button>
-            )}
+        
+        <div className="flex items-center space-x-3 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
+          <div className="w-8 h-8 bg-emerald-100 dark:bg-emerald-900/20 rounded-lg flex items-center justify-center">
+            <MessageSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
           </div>
+          <div>
+            <p className="text-sm font-medium text-slate-900 dark:text-white">{messageCount}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Messages</p>
+          </div>
+        </div>
+        
+        <div className="flex items-center space-x-3 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
+          <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/20 rounded-lg flex items-center justify-center">
+            <Clock className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-slate-900 dark:text-white">{currentRound || 0}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Round</p>
+          </div>
+        </div>
+      </div>
 
-          {/* Current Speaker */}
-          {currentTurn && (
-            <div className="flex items-center gap-3 p-4 bg-blue-50/50 dark:bg-blue-900/20 border border-blue-200/50 dark:border-blue-800/50 rounded-lg">
-              <div className="flex items-center gap-2">
-                <User2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                <span className="font-medium text-blue-900 dark:text-blue-100">
-                  Current Speaker:
-                </span>
-              </div>
-              <Badge variant="secondary" className="bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-200">
-                {agents[currentTurn]?.name}
-              </Badge>
+      {/* Main Controls */}
+      <div className="space-y-4 mb-6">
+        <div className="flex items-center gap-3 flex-wrap">
+          {!isActive ? (
+            <button
+              onClick={handleStart}
+              disabled={!canStart}
+              className={`flex items-center space-x-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 ${
+                canStart
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:scale-[1.02]'
+                  : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed'
+              }`}
+            >
+              <Play className="w-4 h-4" />
+              <span>Start Discussion</span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handlePause}
+                className="flex items-center space-x-2 px-6 py-3 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 rounded-xl font-medium transition-all duration-200"
+              >
+                <Pause className="w-4 h-4" />
+                <span>Pause</span>
+              </button>
+              <button
+                onClick={handleReset}
+                className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-xl font-medium transition-all duration-200 shadow-lg shadow-red-500/25 hover:shadow-red-500/40"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>Reset</span>
+              </button>
             </div>
+          )}
+          
+          {isActive && !currentTurn && (
+            <button
+              onClick={handleResume}
+              className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl font-medium transition-all duration-200 shadow-lg shadow-green-500/25 hover:shadow-green-500/40"
+            >
+              <Resume className="w-4 h-4" />
+              <span>Resume</span>
+            </button>
           )}
         </div>
 
-        {/* Advanced Controls */}
-        {showAdvanced && (
-          <>
-            <Separator />
-            <div className="space-y-4">
-              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Advanced Settings
-              </h4>
-              
-              {/* Think Tokens Toggle */}
-              <div className="flex items-center justify-between p-3 bg-gray-50/50 dark:bg-gray-800/50 rounded-lg border border-gray-200/50 dark:border-gray-700/50">
-                <div className="flex items-center gap-3">
-                  {showThinkTokens ? (
-                    <Eye className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-                  ) : (
-                    <EyeOff className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-                  )}
-                  <div>
-                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Show Think Tokens
-                    </label>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Display internal reasoning processes
-                    </p>
-                  </div>
-                </div>
-                <Switch
-                  checked={showThinkTokens}
-                  onCheckedChange={handleThinkTokensToggle}
-                />
-              </div>
+        {/* Current Speaker */}
+        {currentTurn && (
+          <div className="flex items-center space-x-3 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
+            <div className="w-8 h-8 bg-blue-100 dark:bg-blue-800 rounded-lg flex items-center justify-center">
+              <User2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
             </div>
-          </>
-        )}
-
-        {/* Warning Message */}
-        {!canStart && (
-          <div className="flex items-start gap-3 p-4 bg-amber-50/80 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-800/60 rounded-lg">
-            <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
             <div>
-              <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                Insufficient Agents
-              </p>
-              <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
-                Please select at least two agents to start the discussion.
-              </p>
+              <p className="text-sm font-medium text-blue-900 dark:text-blue-100">Current Speaker</p>
+              <p className="text-xs text-blue-700 dark:text-blue-300">{agents[currentTurn]?.name}</p>
             </div>
           </div>
         )}
       </div>
-    </Card>
+
+      {/* Advanced Controls */}
+      {showAdvanced && (
+        <div className="border-t border-slate-200 dark:border-slate-700 pt-6 space-y-4">
+          <h3 className="font-medium text-slate-900 dark:text-white">Advanced Settings</h3>
+          
+          {/* Think Tokens Toggle */}
+          <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-slate-100 dark:bg-slate-700 rounded-lg flex items-center justify-center">
+                {showThinkTokens ? (
+                  <Eye className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+                ) : (
+                  <EyeOff className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+                )}
+              </div>
+              <div>
+                <p className="text-sm font-medium text-slate-900 dark:text-white">Show Think Tokens</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Display internal reasoning processes</p>
+              </div>
+            </div>
+            <button
+              onClick={() => handleThinkTokensToggle(!showThinkTokens)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
+                showThinkTokens ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-600'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
+                  showThinkTokens ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Warning Message */}
+      {!canStart && (
+        <div className="flex items-start space-x-3 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
+          <div className="w-8 h-8 bg-amber-100 dark:bg-amber-800 rounded-lg flex items-center justify-center flex-shrink-0">
+            <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-amber-800 dark:text-amber-200">Insufficient Agents</p>
+            <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+              Please add at least two agents to start the discussion.
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }; 

@@ -3,7 +3,7 @@ import { DiscussionManager, TurnStrategy } from '../lib/DiscussionManager';
 import { AgentState, Message } from '../types/agent';
 import { useAgents } from '../contexts/AgentContext';
 import { useDocument } from '../contexts/DocumentContext';
-import { softwareDevPersonas } from '../data/personas';
+import { policyDebatePersonas, policyPersonas, softwareDevPersonas } from '../data/personas';
 
 interface UseDiscussionManagerProps {
   topic: string;
@@ -45,7 +45,7 @@ export const useDiscussionManager = ({
       const defaultAgents: Omit<AgentState, 'persona' | 'systemPrompt'>[] = [
         {
           id: 'ter',
-          name: 'ter',
+          name: 'Bhai',
           role: 'Software Engineer',
           modelId: 'qwen3-4b-128k',
           apiType: 'llmstudio' as const,
@@ -56,7 +56,7 @@ export const useDiscussionManager = ({
         },
         {
           id: 'test',
-          name: 'test',
+          name: 'Pronit',
           role: 'Junior Developer',
           modelId: 'qwen3-4b-128k',
           apiType: 'llmstudio' as const,
@@ -67,9 +67,9 @@ export const useDiscussionManager = ({
         },
         {
           id: 'ssmartest',
-          name: 'ssmartest',
+          name: 'Dakshesh',
           role: 'Tech Lead',
-          modelId: 'qwen3-4b-128k',
+          modelId: 'qwen3-30b-a3b-128k',
           apiType: 'llmstudio' as const,
           isThinking: false,
           currentResponse: null,
@@ -80,12 +80,20 @@ export const useDiscussionManager = ({
 
       // Add each default agent
       defaultAgents.forEach(agent => {
-        const persona = softwareDevPersonas.find(p => p.role === agent.role);
-        if (persona) {
+        const devPersona = softwareDevPersonas.find(p => p.role === agent.role);
+        const policyPersona = policyDebatePersonas.find(p => p.role === agent.role);
+        if (devPersona) {
           agentContext.addAgent({
             ...agent,
-            persona: persona.description,
-            systemPrompt: persona.systemPrompt
+            persona: devPersona.description,
+            systemPrompt: devPersona.systemPrompt
+          });
+        }
+        if (policyPersona) {
+          agentContext.addAgent({
+            ...agent,
+            persona: policyPersona.description,
+            systemPrompt: policyPersona.systemPrompt
           });
         }
       });

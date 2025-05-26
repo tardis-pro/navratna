@@ -440,7 +440,7 @@ export class DiscussionManager implements IDiscussionManager {
         let score = 0;
         // Check agent's expertise against topic keywords
         const agentPersona = agent.persona;
-        if (agentPersona && typeof agentPersona === 'object' && 'expertise' in agentPersona) {
+        if (agentPersona && typeof agentPersona === 'object' && 'expertise' in agentPersona && agentPersona.expertise) {
           const expertise = agentPersona.expertise;
           if (Array.isArray(expertise)) {
             score += currentCluster.keywords.filter(keyword => 
@@ -643,11 +643,12 @@ export class DiscussionManager implements IDiscussionManager {
       this.state.messageHistory.push(responseMessage);
       
       // Update agent state with new message and response
+      // Use the full message history to keep all agents in sync
       this.agentContext.updateAgentState(agentId, {
         isThinking: false,
         currentResponse: response,
         error: null,
-        conversationHistory: [...(this.agents[agentId]?.conversationHistory || []), responseMessage]
+        conversationHistory: [...this.state.messageHistory]
       });
       
       this.updateCallback(this.state);
@@ -677,9 +678,12 @@ export class DiscussionManager implements IDiscussionManager {
   /**
    * Gets optimized conversation history for context windows
    * Limits to last 2-3 messages plus original document to reduce token usage
+   * 
+   * NOTE: This is ONLY for LLM context - the UI should show ALL messages
+   * The UI gets the complete history from state.messageHistory via DiscussionContext
    */
   private getOptimizedHistory(currentAgent: AgentState): Message[] {
-    const MAX_RECENT_MESSAGES = 3; // Limit to last 2-3 messages as requested
+    const MAX_RECENT_MESSAGES = 3; // Limit to last 2-3 messages for LLM efficiency
     
     // Filter out thought messages to keep only actual conversation
     const conversationHistory = this.state.messageHistory.filter(m => m.type !== "thought");
