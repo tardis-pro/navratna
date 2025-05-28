@@ -3,10 +3,10 @@ import { useAgents } from '../contexts/AgentContext';
 import { useDocument } from '../contexts/DocumentContext';
 import { LLMService } from '../services/llm';
 import { Message } from '../types/agent';
-import { AgentAvatar } from './AgentAvatar';
-import { Card } from './ui/card';
 import { Badge } from './ui/badge';
-import { shouldPersonaActivate, getPersonaById } from '../data/personas';
+import { Card } from './ui/card';
+import { AgentAvatar } from './AgentAvatar';
+import { Persona } from '../types/persona';
 
 interface AgentProps {
   id: string;
@@ -18,81 +18,61 @@ export const Agent: React.FC<AgentProps> = ({ id, className }) => {
   const { documents, activeDocumentId } = useDocument();
   
   const agent = agents[id];
-  if (!agent) return null;
 
-  const persona = getPersonaById(id);
-  
-  // Helper function to limit conversation history to recent messages
+  // Get persona safely without conditional hook usage
+  const persona: Persona | undefined = agent?.persona as Persona | undefined;
+
   const getOptimizedHistory = (messages: Message[]): Message[] => {
-    const MAX_RECENT_MESSAGES = 5;
-    const MAX_TOTAL_MESSAGES = 15;
+    // Keep last 20 messages to maintain context but not overwhelm the model
+    const recentMessages = messages.slice(-20);
     
-    if (messages.length <= MAX_TOTAL_MESSAGES) {
-      return messages; // No need to optimize if under limit
-    }
+    // Include system messages and important context
+    const systemMessages = messages.filter(msg => msg.type === 'system');
     
-    // Separate different types of messages
-    const systemMessages = messages.filter(m => m.type === "system");
-    const conversationMessages = messages.filter(m => m.type !== "system" && m.type !== "thought");
-    
-    // Always keep system messages (document context, initial prompts)
-    const preservedMessages = [...systemMessages];
-    
-    // Keep the most recent conversation messages
-    const recentConversation = conversationMessages.slice(-MAX_RECENT_MESSAGES);
-    
-    // If we have room, add some earlier important messages (questions, key decisions)
-    const remainingSlots = MAX_TOTAL_MESSAGES - preservedMessages.length - recentConversation.length;
-    
-    if (remainingSlots > 0 && conversationMessages.length > MAX_RECENT_MESSAGES) {
-      const earlierMessages = conversationMessages.slice(0, -MAX_RECENT_MESSAGES);
-      
-      // Prioritize questions and important messages
-      const importantEarlier = earlierMessages.filter(m => 
-        m.content.includes('?') || 
-        m.type === 'question' ||
-        m.importance && m.importance > 0.7
-      ).slice(-remainingSlots);
-      
-      preservedMessages.push(...importantEarlier);
-    }
-    
-    // Add recent conversation
-    preservedMessages.push(...recentConversation);
-    
-    // Sort by timestamp to maintain chronological order
-    return preservedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    // Combine system messages with recent conversation
+    const combinedMessages = [...systemMessages, ...recentMessages]
+      .filter((msg, index, arr) => 
+        // Remove duplicates based on content and timestamp
+        arr.findIndex(m => m.content === msg.content && m.timestamp.getTime() === msg.timestamp.getTime()) === index
+      )
+      .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+    return combinedMessages;
   };
 
-  // Helper function to determine if agent should auto-respond
-  const shouldAutoRespond = (lastMessage: Message): boolean => {
-    if (!lastMessage || lastMessage.sender === id) return false;
+  const shouldAutoRespond = useCallback((lastMessage: Message): boolean => {
+    if (!agent || !persona) return false;
     
-    // Check if this persona should be triggered by the content
-    const shouldActivate = shouldPersonaActivate(id, lastMessage.content);
+    // Skip if it's my own message
+    if (lastMessage.sender === agent.name) return false;
     
-    // Role-based response logic
-    const isJunior = persona?.role === 'Junior Developer';
-    const isTechLead = persona?.role === 'Tech Lead';
-    const isQA = persona?.role === 'QA Engineer';
-    const isSoftwareEngineer = persona?.role === 'Software Engineer';
+    // Skip if no conversation history
+    const allMessages = getAllMessages();
+    if (allMessages.length === 0) return false;
     
-    // Junior developers ask questions when complex topics arise or when they need clarification
-    if (isJunior) {
-      const complexKeywords = ['architecture', 'scalability', 'design patterns', 'system design', 'technical debt'];
-      const hasComplexTopic = complexKeywords.some(keyword => 
-        lastMessage.content.toLowerCase().includes(keyword)
-      );
+    // Basic role-based activation logic
+    const isJuniorDev = persona.role.includes('Junior Developer');
+    const isTechLead = persona.role.includes('Tech Lead') || persona.role.includes('Technical Lead');
+    const isQA = persona.role.includes('QA') || persona.role.includes('Quality');
+    const isSoftwareEngineer = persona.role.includes('Software Engineer');
+    
+    // Check if this agent should naturally respond based on context
+    const shouldActivate = persona.expertise.some(skill => 
+      lastMessage.content.toLowerCase().includes(skill.toLowerCase())
+    );
+    
+    // Junior Developer asks questions and responds to guidance
+    if (isJuniorDev) {
+      const isGuidanceFromSenior = lastMessage.sender.includes('Lead') || 
+                                   lastMessage.sender.includes('Senior') ||
+                                   lastMessage.sender.includes('Architect');
       
-      // Also respond if someone mentions implementation without explaining it
-      const needsClarification = lastMessage.content.includes('implement') || 
-                                lastMessage.content.includes('build') ||
-                                lastMessage.content.includes('create');
+      const shouldAskQuestion = Math.random() < 0.3; // 30% chance to ask follow-up
       
-      return hasComplexTopic || needsClarification || shouldActivate;
+      return (isGuidanceFromSenior && shouldAskQuestion) || shouldActivate;
     }
     
-    // Tech Lead responds to questions from juniors or when architectural guidance is needed
+    // Tech Lead provides guidance when technical decisions need to be made
     if (isTechLead) {
       const isQuestionFromJunior = lastMessage.content.includes('?') && 
         (lastMessage.sender.includes('Junior') || lastMessage.sender.includes('junior'));
@@ -129,10 +109,10 @@ export const Agent: React.FC<AgentProps> = ({ id, className }) => {
     
     // Other roles respond based on their triggers
     return shouldActivate;
-  };
+  }, [agent, persona, getAllMessages]);
 
   const generateResponse = useCallback(async () => {
-    if (agent.isThinking) return;
+    if (!agent || agent.isThinking) return;
 
     try {
       // Set thinking state
@@ -185,6 +165,8 @@ export const Agent: React.FC<AgentProps> = ({ id, className }) => {
 
   // Auto-response effect
   useEffect(() => {
+    if (!agent || !persona) return;
+    
     const allMessages = getAllMessages();
     const lastMessage = allMessages[allMessages.length - 1];
     
@@ -197,11 +179,11 @@ export const Agent: React.FC<AgentProps> = ({ id, className }) => {
     // Debug logging
     const shouldRespond = shouldAutoRespond(lastMessage);
     if (shouldRespond) {
-      console.log(`${agent.name} (${persona?.role}) triggered by: "${lastMessage.content.substring(0, 50)}..."`);
+      console.log(`${agent.name} (${persona.role}) triggered by: "${lastMessage.content.substring(0, 50)}..."`);
     }
     
     // Add small delay to make conversation feel more natural
-    const baseDelay = persona?.role === 'Junior Developer' ? 1000 : 2000;
+    const baseDelay = persona.role === 'Junior Developer' ? 1000 : 2000;
     const randomDelay = Math.random() * 1000; // Add 0-1 second random delay
     const responseDelay = baseDelay + randomDelay;
     
@@ -217,7 +199,12 @@ export const Agent: React.FC<AgentProps> = ({ id, className }) => {
       
       return () => clearTimeout(timer);
     }
-  }, [getAllMessages().length, agent.isThinking, generateResponse, agents]);
+  }, [agent, persona, getAllMessages, shouldAutoRespond, generateResponse, agents]);
+
+  // Early return if agent doesn't exist
+  if (!agent) {
+    return null;
+  }
 
   const lastMessage = agent.conversationHistory[agent.conversationHistory.length - 1];
   const isMyTurn = lastMessage?.sender !== id;

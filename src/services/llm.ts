@@ -1,3 +1,4 @@
+import { getModelInfo } from '@/components/ModelSelector';
 import { AgentState, Message } from '../types/agent';
 import { DocumentContext } from '../types/document';
 
@@ -8,7 +9,7 @@ interface LLMResponse {
 
 // Default URLs - can be overridden by environment variables
 const OLLAMA_URL = 'http://192.168.1.3:1234/chat/completions';
-const LLM_STUDIO_URL = 'http://localhost:1234/v1/chat/completions';
+const LLM_STUDIO_URL = '/v1/chat/completions';
 
 export class LLMService {
   private static async callOllama(
@@ -54,7 +55,8 @@ export class LLMService {
     modelId: string
   ): Promise<LLMResponse> {
     try {
-      const response = await fetch(LLM_STUDIO_URL, {
+      const { serverUrl, modelName } = getModelInfo(modelId);
+      const response = await fetch(serverUrl  +LLM_STUDIO_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -64,7 +66,7 @@ export class LLMService {
             { role: 'system', content: systemPrompt },
             { role: 'user', content: prompt },
           ],
-          model: modelId,
+          model: modelName,
           stream: false,
         }),
       });

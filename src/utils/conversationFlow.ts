@@ -1,5 +1,5 @@
 import { ConversationPattern } from '../types/agent';
-import { shouldPersonaActivate, getActivationPhrase, getConcernFlag, getBuildOnPattern } from '../data/personas';
+import { shouldPersonaActivate, getActivationPhrase, getConcernFlag, getBuildOnPattern, contextualTriggers } from '../data/personas';
 
 export interface ConversationState {
   activePersonas: Set<string>;
@@ -44,7 +44,7 @@ export class ConversationFlowManager {
     ];
     
     personaIds.forEach(personaId => {
-      if (shouldPersonaActivate(personaId, content)) {
+      if (shouldPersonaActivate(personaId, content, contextualTriggers)) {
         triggered.push(personaId);
       }
     });

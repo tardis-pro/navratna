@@ -14,7 +14,9 @@ type DocumentAction =
   | { type: 'SET_ACTIVE_DOCUMENT'; payload: string }
   | { type: 'UPDATE_DOCUMENT'; payload: { id: string; updates: Partial<DocumentContext> } }
   | { type: 'SET_LOADING'; payload: boolean }
-  | { type: 'SET_ERROR'; payload: string | null };
+  | { type: 'SET_ERROR'; payload: string | null }
+  | { type: 'SET_CONTENT'; payload: string }
+  | { type: 'LOAD_DOCUMENT'; payload: { id: string; content: string } };
 
 const documentReducer = (state: DocumentContextState, action: DocumentAction): DocumentContextState => {
   switch (action.type) {
@@ -26,13 +28,14 @@ const documentReducer = (state: DocumentContextState, action: DocumentAction): D
           [action.payload.id]: action.payload,
         },
       };
-    case 'REMOVE_DOCUMENT':
+    case 'REMOVE_DOCUMENT': {
       const { [action.payload]: removed, ...remainingDocs } = state.documents;
       return {
         ...state,
         documents: remainingDocs,
         activeDocumentId: state.activeDocumentId === action.payload ? null : state.activeDocumentId,
       };
+    }
     case 'SET_ACTIVE_DOCUMENT':
       return {
         ...state,
@@ -59,6 +62,33 @@ const documentReducer = (state: DocumentContextState, action: DocumentAction): D
         ...state,
         error: action.payload,
       };
+    case 'SET_CONTENT':
+      return {
+        ...state,
+        content: action.payload
+      };
+    case 'LOAD_DOCUMENT': {
+      const { id, content } = action.payload;
+      return {
+        ...state,
+        documents: {
+          ...state.documents,
+          [id]: {
+            id,
+            title: `Document ${id}`,
+            content,
+            type: 'general',
+            metadata: {
+              createdAt: new Date(),
+              lastModified: new Date(),
+              author: 'User'
+            },
+            tags: ['general']
+          }
+        },
+        activeDocumentId: id
+      };
+    }
     default:
       return state;
   }

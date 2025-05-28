@@ -17,6 +17,7 @@ export interface DocumentContextState {
   activeDocumentId: string | null;
   isLoading: boolean;
   error: string | null;
+  content?: string;
 }
 
 export interface DocumentContextValue extends DocumentContextState {

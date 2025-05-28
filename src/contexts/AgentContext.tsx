@@ -12,7 +12,7 @@ const AgentContext = createContext<AgentContextValue | undefined>(undefined);
 
 function agentReducer(state: Record<string, AgentState>, action: AgentAction): Record<string, AgentState> {
   switch (action.type) {
-    case 'ADD_AGENT':
+    case 'ADD_AGENT': {
       return {
         ...state,
         [action.payload.id]: {
@@ -20,10 +20,12 @@ function agentReducer(state: Record<string, AgentState>, action: AgentAction): R
           conversationHistory: []
         }
       };
-    case 'REMOVE_AGENT':
+    }
+    case 'REMOVE_AGENT': {
       const { [action.payload]: removed, ...rest } = state;
       return rest;
-    case 'UPDATE_AGENT':
+    }
+    case 'UPDATE_AGENT': {
       const existingAgent = state[action.payload.id];
       if (!existingAgent) return state;
       return {
@@ -34,7 +36,8 @@ function agentReducer(state: Record<string, AgentState>, action: AgentAction): R
           conversationHistory: action.payload.updates.conversationHistory || existingAgent.conversationHistory
         }
       };
-    case 'ADD_MESSAGE':
+    }
+    case 'ADD_MESSAGE': {
       const agent = state[action.payload.agentId];
       if (!agent) return state;
       return {
@@ -44,7 +47,8 @@ function agentReducer(state: Record<string, AgentState>, action: AgentAction): R
           conversationHistory: [...agent.conversationHistory, action.payload.message]
         }
       };
-    case 'REMOVE_MESSAGE':
+    }
+    case 'REMOVE_MESSAGE': {
       const targetAgent = state[action.payload.agentId];
       if (!targetAgent) return state;
       return {
@@ -56,6 +60,7 @@ function agentReducer(state: Record<string, AgentState>, action: AgentAction): R
           )
         }
       };
+    }
     default:
       return state;
   }

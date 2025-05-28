@@ -30,7 +30,7 @@ interface PersonaSelectorProps {
 
 // Helper function to get category icon
 const getCategoryIcon = (category: string) => {
-  const iconMap: Record<string, React.ComponentType<any>> = {
+  const iconMap: Record<string, React.ComponentType<React.SVGProps<SVGSVGElement>>> = {
     'Development': Brain,
     'Policy': Target,
     'Creative': Palette,

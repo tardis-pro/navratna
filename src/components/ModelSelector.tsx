@@ -19,6 +19,8 @@ export interface ModelOption {
   name: string;
   description: string;
   source?: string;
+  apiEndpoint?: string;
+  apiType?: 'llmstudio' | 'ollama';
 }
 
 export interface ServiceConfig {
@@ -65,7 +67,7 @@ const fetchModelsFromService = async (
     
     if (apiType === 'llmstudio') {
       if (data.data && Array.isArray(data.data)) {
-        return data.data.map((model: any) => ({
+        return data.data.map((model: { id: string }) => ({
           id: `${baseUrl}:${model.id}`,
           name: model.id,
           description: `LLM Studio (${baseUrl}) - ${model.id}`,
@@ -79,7 +81,7 @@ const fetchModelsFromService = async (
       }
     } else {
       if (data.models && Array.isArray(data.models)) {
-        return data.models.map((model: any) => ({
+        return data.models.map((model: { name: string }) => ({
           id: `${baseUrl}:${model.name}`,
           name: model.name,
           description: `Ollama (${baseUrl}) - ${model.name}`,
@@ -245,6 +247,14 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
     side === 'llama2' ? 'from-llama2/10' :
     'from-amber-600/10';
 
+  const handleModelChange = (modelId: string) => {
+    onSelectModel(modelId);
+  };
+
+  const handleApiTypeChange = (value: string) => {
+    // Implementation of handleApiTypeChange
+  };
+
   return (
     <div className={cn(`relative p-4 rounded-lg border bg-black/20 backdrop-blur-sm transition-all duration-300 ${borderClass}`, className)}>
       <div className={`absolute inset-0 rounded-lg bg-gradient-to-r ${gradientClass} to-transparent opacity-50 pointer-events-none`} />
@@ -256,7 +266,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
       </Label>
       <Select
         value={selectedModel || ""}
-        onValueChange={onSelectModel}
+        onValueChange={handleModelChange}
         disabled={disabled || allModels.length === 0}
       >
         <SelectTrigger id={`${side}-model-select`} className="w-full bg-black/30 border-gray-700 focus:ring-offset-0 focus:ring-transparent z-10 relative">

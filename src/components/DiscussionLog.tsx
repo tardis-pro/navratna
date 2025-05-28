@@ -52,7 +52,7 @@ const getTriggeredPersonas = (content: string): string[] => {
   const triggered: string[] = [];
   
   Object.keys(contextualTriggers).forEach(personaId => {
-    if (shouldPersonaActivate(personaId, content)) {
+    if (shouldPersonaActivate(personaId, content, contextualTriggers)) {
       triggered.push(personaId);
     }
   });

@@ -74,7 +74,7 @@ export const debateReducer = (state: DebateState, action: DebateAction): DebateS
         currentSpeaker: 'llama1',
         currentRound: 1
       };
-    case 'NEXT_TURN':
+    case 'NEXT_TURN': {
       const nextSpeaker = state.currentSpeaker === 'llama1' ? 'llama2' : 'judge';
       const nextRound = nextSpeaker === 'judge' ? state.currentRound + 1 : state.currentRound;
       return {
@@ -82,6 +82,7 @@ export const debateReducer = (state: DebateState, action: DebateAction): DebateS
         currentSpeaker: nextSpeaker,
         currentRound: nextRound
       };
+    }
     case 'FINISH_DEBATE':
       return {
         ...state,
