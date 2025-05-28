@@ -3,12 +3,17 @@ import { DiscussionManager, TurnStrategy } from '../lib/DiscussionManager';
 import { AgentState, Message } from '../types/agent';
 import { useAgents } from '../contexts/AgentContext';
 import { useDocument } from '../contexts/DocumentContext';
-import { policyDebatePersonas, policyPersonas, softwareDevPersonas } from '../data/personas';
+import { getModels, ModelOption } from '../components/ModelSelector';
+import { migrateAgentModelIds, getModelOptionsForAgent } from '../utils/modelMigration';
 
 interface UseDiscussionManagerProps {
   topic: string;
   maxRounds?: number;
   turnStrategy?: TurnStrategy;
+  modelPreferences?: {
+    preferredApiType?: 'ollama' | 'llmstudio';
+    preferredServer?: string;
+  };
 }
 
 interface UseDiscussionManagerReturn {
@@ -16,6 +21,8 @@ interface UseDiscussionManagerReturn {
   isActive: boolean;
   history: Message[];
   currentRound: number;
+  availableModels: ModelOption[];
+  modelsLoading: boolean;
   addAgent: (agentId: string, state: AgentState) => void;
   removeAgent: (agentId: string) => void;
   setModerator: (agentId: string) => void;
@@ -23,12 +30,15 @@ interface UseDiscussionManagerReturn {
   stop: () => void;
   addMessage: (agentId: string, content: string) => void;
   setInitialDocument: (document: string) => void;
+  updateAgentModel: (agentId: string, modelId: string) => void;
+  getAgentModelOptions: (agentId: string) => ModelOption[];
 }
 
 export const useDiscussionManager = ({
   topic,
   maxRounds = 3,
-  turnStrategy = 'round-robin'
+  turnStrategy = 'round-robin',
+  modelPreferences
 }: UseDiscussionManagerProps): UseDiscussionManagerReturn => {
   const agentContext = useAgents();
   const { documents, activeDocumentId } = useDocument();
@@ -38,71 +48,14 @@ export const useDiscussionManager = ({
   const [isActive, setIsActive] = useState(false);
   const [history, setHistory] = useState<Message[]>([]);
   const [currentRound, setCurrentRound] = useState(0);
+  const [availableModels, setAvailableModels] = useState<ModelOption[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(false);
 
-  // Initialize default agents if none exist
+  // Initialize DiscussionManager when agents are available
   useEffect(() => {
-    if (Object.keys(agentContext.agents).length === 0) {
-      const defaultAgents: Omit<AgentState, 'persona' | 'systemPrompt'>[] = [
-        {
-          id: 'ter',
-          name: 'Bhai',
-          role: 'Software Engineer',
-          modelId: 'qwen3-4b-128k',
-          apiType: 'llmstudio' as const,
-          isThinking: false,
-          currentResponse: null,
-          conversationHistory: [],
-          error: null
-        },
-        {
-          id: 'test',
-          name: 'Pronit',
-          role: 'Junior Developer',
-          modelId: 'qwen3-4b-128k',
-          apiType: 'llmstudio' as const,
-          isThinking: false,
-          currentResponse: null,
-          conversationHistory: [],
-          error: null
-        },
-        {
-          id: 'ssmartest',
-          name: 'Dakshesh',
-          role: 'Tech Lead',
-          modelId: 'qwen3-30b-a3b-128k',
-          apiType: 'llmstudio' as const,
-          isThinking: false,
-          currentResponse: null,
-          conversationHistory: [],
-          error: null
-        }
-      ];
-
-      // Add each default agent
-      defaultAgents.forEach(agent => {
-        const devPersona = softwareDevPersonas.find(p => p.role === agent.role);
-        const policyPersona = policyDebatePersonas.find(p => p.role === agent.role);
-        if (devPersona) {
-          agentContext.addAgent({
-            ...agent,
-            persona: devPersona.description,
-            systemPrompt: devPersona.systemPrompt
-          });
-        }
-        if (policyPersona) {
-          agentContext.addAgent({
-            ...agent,
-            persona: policyPersona.description,
-            systemPrompt: policyPersona.systemPrompt
-          });
-        }
-      });
-    }
-  }, [agentContext]);
-
-  // Initialize DiscussionManager after agents are set up
-  useEffect(() => {
-    if (Object.keys(agentContext.agents).length > 0 && !managerRef.current) {
+    // Always recreate the DiscussionManager when agents change
+    // This ensures it sees newly added agents
+    if (Object.keys(agentContext.agents).length > 0) {
       managerRef.current = new DiscussionManager(
         agentContext.agents,
         activeDocumentId ? documents[activeDocumentId] : null,
@@ -128,6 +81,9 @@ export const useDiscussionManager = ({
         },
         agentContext
       );
+    } else {
+      // Clear the manager if no agents
+      managerRef.current = null;
     }
   }, [agentContext.agents, activeDocumentId, documents, agentContext]);
 
@@ -190,17 +146,73 @@ export const useDiscussionManager = ({
     updateState();
   }, [topic, updateState]);
 
+  // Update available models when model preferences change
+  useEffect(() => {
+    const loadModels = async () => {
+      setModelsLoading(true);
+      try {
+        const models = await getModels();
+        setAvailableModels(models);
+        
+        // Migrate existing agents to use server-specific model IDs
+        if (Object.keys(agentContext.agents).length > 0) {
+          const migratedAgents = migrateAgentModelIds(agentContext.agents, models);
+          
+          // Update any agents that were migrated
+          Object.entries(migratedAgents).forEach(([agentId, migratedAgent]) => {
+            const originalAgent = agentContext.agents[agentId];
+            if (originalAgent && originalAgent.modelId !== migratedAgent.modelId) {
+              agentContext.updateAgentState(agentId, { modelId: migratedAgent.modelId });
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Failed to load models:', error);
+      } finally {
+        setModelsLoading(false);
+      }
+    };
+    
+    loadModels();
+  }, [agentContext]);
+
+  const updateAgentModel = useCallback((agentId: string, modelId: string) => {
+    const agent = agentContext.agents[agentId];
+    if (agent) {
+      // Extract API type from the model
+      const selectedModel = availableModels.find(m => m.id === modelId);
+      agentContext.updateAgentState(agentId, {
+        modelId: modelId,
+        isThinking: false,
+        error: null
+      });
+      updateState();
+    }
+  }, [agentContext, availableModels, updateState]);
+
+  const getAgentModelOptions = useCallback((agentId: string) => {
+    const agent = agentContext.agents[agentId];
+    if (agent) {
+      return getModelOptionsForAgent(agent.modelId, availableModels);
+    }
+    return [];
+  }, [agentContext, availableModels]);
+
   return {
     currentTurn,
     isActive,
     history,
     currentRound,
+    availableModels,
+    modelsLoading,
     addAgent,
     removeAgent,
     setModerator,
     start,
     stop,
     addMessage,
-    setInitialDocument
+    setInitialDocument,
+    updateAgentModel,
+    getAgentModelOptions
   };
 }; 

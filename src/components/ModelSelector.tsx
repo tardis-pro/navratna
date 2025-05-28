@@ -12,13 +12,26 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Brain, Sparkles, Zap, Cpu, Server, LucideIcon, Scale } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getModelServiceConfig } from "@/config/modelConfig";
 
 export interface ModelOption {
   id: string;
   name: string;
   description: string;
-  apiEndpoint: string;
-  apiType: 'ollama' | 'llmstudio';
+  source?: string;
+}
+
+export interface ServiceConfig {
+  llmStudio: {
+    baseUrls: string[];
+    modelsPath?: string;
+    chatPath?: string;
+  };
+  ollama: {
+    baseUrls: string[];
+    modelsPath?: string;
+    generatePath?: string;
+  };
 }
 
 interface ModelSelectorProps {
@@ -32,62 +45,163 @@ interface ModelSelectorProps {
   className?: string;
 }
 
-export const getModels = async (): Promise<ModelOption[]> => {
-  const llmStudioModelsEndpoint = 'http://localhost:1234/v1/models';
-  const llmStudioApiEndpoint = 'http://localhost:1234/v1/chat/completions';
-  const ollamaModelsEndpoint = 'http://192.168.1.3:11434/api/tags';
-  const ollamaApiEndpoint = 'http://192.168.1.3:11434/api/generate';
-
-  let fetchedModels: ModelOption[] = [];
-
+const fetchModelsFromService = async (
+  baseUrl: string,
+  modelsPath: string,
+  chatPath: string,
+  apiType: 'llmstudio' | 'ollama'
+): Promise<ModelOption[]> => {
   try {
-    const llmStudioResponse = await fetch(llmStudioModelsEndpoint);
-    if (llmStudioResponse.ok) {
-      const llmStudioData = await llmStudioResponse.json();
-      if (llmStudioData.data && Array.isArray(llmStudioData.data)) {
-        const llmStudioModels = llmStudioData.data.map((model: any) => ({
-          id: model.id,
+    const modelsEndpoint = `${baseUrl}${modelsPath}`;
+    const apiEndpoint = apiType === 'llmstudio' ? `${baseUrl}${chatPath}` : `${baseUrl}${modelsPath.replace('/tags', '/generate')}`;
+    
+    const response = await fetch(modelsEndpoint);
+    if (!response.ok) {
+      console.warn(`Failed to fetch models from ${baseUrl}: ${response.statusText}`);
+      return [];
+    }
+
+    const data = await response.json();
+    
+    if (apiType === 'llmstudio') {
+      if (data.data && Array.isArray(data.data)) {
+        return data.data.map((model: any) => ({
+          id: `${baseUrl}:${model.id}`,
           name: model.id,
-          description: `LLM Studio - ${model.id}`,
-          apiEndpoint: llmStudioApiEndpoint,
+          description: `LLM Studio (${baseUrl}) - ${model.id}`,
+          apiEndpoint,
           apiType: 'llmstudio' as const,
+          source: baseUrl,
         }));
-        fetchedModels = fetchedModels.concat(llmStudioModels);
       } else {
-        console.warn("LLM Studio models response format unexpected:", llmStudioData);
+        console.warn(`LLM Studio models response format unexpected from ${baseUrl}:`, data);
+        return [];
       }
     } else {
-      console.warn(`Failed to fetch models from LLM Studio: ${llmStudioResponse.statusText}`);
-    }
-  } catch (error) {
-    console.error("Error fetching LLM Studio models:", error);
-  }
-
-  try {
-    const ollamaResponse = await fetch(ollamaModelsEndpoint);
-    if (ollamaResponse.ok) {
-      const ollamaData = await ollamaResponse.json();
-       if (ollamaData.models && Array.isArray(ollamaData.models)) {
-         const ollamaModels = ollamaData.models.map((model: any) => ({
-          id: model.name,
+      if (data.models && Array.isArray(data.models)) {
+        return data.models.map((model: any) => ({
+          id: `${baseUrl}:${model.name}`,
           name: model.name,
-          description: `Ollama - ${model.name}`,
-          apiEndpoint: ollamaApiEndpoint,
+          description: `Ollama (${baseUrl}) - ${model.name}`,
+          apiEndpoint,
           apiType: 'ollama' as const,
+          source: baseUrl,
         }));
-        fetchedModels = fetchedModels.concat(ollamaModels);
-       } else {
-         console.warn("Ollama models response format unexpected:", ollamaData);
-       }
-    } else {
-      console.warn(`Failed to fetch models from Ollama: ${ollamaResponse.statusText}`);
+      } else {
+        console.warn(`Ollama models response format unexpected from ${baseUrl}:`, data);
+        return [];
+      }
     }
   } catch (error) {
-    console.error("Error fetching Ollama models:", error);
+    console.error(`Error fetching models from ${baseUrl}:`, error);
+    return [];
   }
+};
+
+export const getModels = async (config?: ServiceConfig): Promise<ModelOption[]> => {
+  const serviceConfig = config || getModelServiceConfig();
+  const fetchPromises: Promise<ModelOption[]>[] = [];
+
+  // Fetch from all LLM Studio instances
+  serviceConfig.llmStudio.baseUrls.forEach(baseUrl => {
+    const modelsPath = serviceConfig.llmStudio.modelsPath || '/v1/models';
+    const chatPath = serviceConfig.llmStudio.chatPath || '/v1/chat/completions';
+    fetchPromises.push(fetchModelsFromService(baseUrl, modelsPath, chatPath, 'llmstudio'));
+  });
+
+  // Fetch from all Ollama instances
+  serviceConfig.ollama.baseUrls.forEach(baseUrl => {
+    const modelsPath = serviceConfig.ollama.modelsPath || '/api/tags';
+    const generatePath = serviceConfig.ollama.generatePath || '/api/generate';
+    fetchPromises.push(fetchModelsFromService(baseUrl, modelsPath, generatePath, 'ollama'));
+  });
+
+  // Wait for all requests to complete
+  const results = await Promise.allSettled(fetchPromises);
   
-  return fetchedModels;
+  // Flatten and combine all successful results
+  const allModels: ModelOption[] = [];
+  results.forEach(result => {
+    if (result.status === 'fulfilled') {
+      allModels.push(...result.value);
+    }
+  });
+
+  return allModels;
 }
+
+// Helper function to create a short server identifier
+const getServerIdentifier = (baseUrl: string): string => {
+  try {
+    const url = new URL(baseUrl);
+    const hostname = url.hostname;
+    const port = url.port;
+    
+    // If it's localhost, use port to differentiate
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return port ? `:${port}` : ':80';
+    }
+    
+    // For IP addresses, use last octet + port
+    if (/^\d+\.\d+\.\d+\.\d+$/.test(hostname)) {
+      const lastOctet = hostname.split('.').pop();
+      return port ? `.${lastOctet}:${port}` : `.${lastOctet}`;
+    }
+    
+    // For hostnames, use first part + port
+    const hostPart = hostname.split('.')[0];
+    return port ? `${hostPart}:${port}` : hostPart;
+  } catch {
+    // Fallback: use last part of URL
+    return baseUrl.split('/').pop() || baseUrl.substring(0, 10);
+  }
+};
+
+// Helper function to get display name with server info
+const getModelDisplayName = (model: ModelOption): string => {
+  if (!model.source) return model.name;
+  
+  const serverInfo = getServerIdentifier(model.source);
+  return `${model.name} (${serverInfo})`;
+};
+
+// Helper function to get group label with cleaner server info
+const getGroupLabel = (apiType: string, source: string): string => {
+  const serviceType = apiType === 'ollama' ? 'Ollama' : 'LLM Studio';
+  const serverInfo = getServerIdentifier(source);
+  return `${serviceType} ${serverInfo}`;
+};
+
+// Helper function to extract just the model name from a server-prefixed ID
+export const extractModelName = (modelId: string): string => {
+  // If it's a server-prefixed ID (contains ":"), extract the part after the last ":"
+  if (modelId.includes(':')) {
+    const parts = modelId.split(':');
+    return parts[parts.length - 1];
+  }
+  return modelId;
+};
+
+// Helper function to find a model by name (without server prefix)
+export const findModelByName = (allModels: ModelOption[], modelName: string): ModelOption | undefined => {
+  return allModels.find(model => extractModelName(model.id) === modelName);
+};
+
+// Helper function to find all models with a specific name across all servers
+export const findModelsByName = (allModels: ModelOption[], modelName: string): ModelOption[] => {
+  return allModels.filter(model => extractModelName(model.id) === modelName);
+};
+
+// Helper function to get model info from a server-prefixed ID
+export const getModelInfo = (modelId: string): { serverUrl: string | null; modelName: string } => {
+  if (modelId.includes(':')) {
+    const lastColonIndex = modelId.lastIndexOf(':');
+    const serverUrl = modelId.substring(0, lastColonIndex);
+    const modelName = modelId.substring(lastColonIndex + 1);
+    return { serverUrl, modelName };
+  }
+  return { serverUrl: null, modelName: modelId };
+};
 
 const ModelSelector: React.FC<ModelSelectorProps> = ({
   side,
@@ -104,8 +218,22 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
   const DefaultIcon = side === 'llama1' ? Cpu : side === 'llama2' ? Server : Scale;
   const Icon = IconComponent || DefaultIcon;
 
-  const ollamaModels = allModels.filter(m => m.apiType === 'ollama');
-  const llmStudioModels = allModels.filter(m => m.apiType === 'llmstudio');
+  // Find the selected model to show its display name
+  const selectedModelObj = allModels.find(model => model.id === selectedModel);
+
+  // Group models by API type and source
+  const groupedModels = allModels.reduce((acc, model) => {
+    const key = `${model.apiType}-${model.source || 'unknown'}`;
+    if (!acc[key]) {
+      acc[key] = {
+        apiType: model.apiType,
+        source: model.source || 'unknown',
+        models: []
+      };
+    }
+    acc[key].models.push(model);
+    return acc;
+  }, {} as Record<string, { apiType: string; source: string; models: ModelOption[] }>);
 
   const borderClass =
     side === 'llama1' ? 'border-llama1/50 focus-within:border-llama1' :
@@ -132,34 +260,28 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
         disabled={disabled || allModels.length === 0}
       >
         <SelectTrigger id={`${side}-model-select`} className="w-full bg-black/30 border-gray-700 focus:ring-offset-0 focus:ring-transparent z-10 relative">
-          <SelectValue placeholder={allModels.length === 0 ? "No models found" : "Select a model..."} />
+          <SelectValue placeholder={allModels.length === 0 ? "No models found" : "Select a model..."}>
+            {selectedModelObj ? getModelDisplayName(selectedModelObj) : ""}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent className="bg-gray-900 border-gray-700 backdrop-blur-xl max-h-60 overflow-y-auto z-50">
-          {ollamaModels.length > 0 && (
-            <SelectGroup>
-              <SelectLabel className="text-gray-400">Ollama Models</SelectLabel>
-              {ollamaModels.map((model) => (
+          {Object.entries(groupedModels).map(([key, group]) => (
+            <SelectGroup key={key}>
+              <SelectLabel className="text-gray-400">
+                {getGroupLabel(group.apiType, group.source)}
+              </SelectLabel>
+              {group.models.map((model) => (
                 <SelectItem key={model.id} value={model.id}>
-                  {model.name}
+                  {getModelDisplayName(model)}
                 </SelectItem>
               ))}
             </SelectGroup>
+          ))}
+          {allModels.length === 0 && (
+            <div className="p-4 text-center text-gray-500 text-sm">
+              No models discovered. Ensure servers are running.
+            </div>
           )}
-          {llmStudioModels.length > 0 && (
-            <SelectGroup>
-              <SelectLabel className="text-gray-400">LLM Studio Models</SelectLabel>
-              {llmStudioModels.map((model) => (
-                <SelectItem key={model.id} value={model.id}>
-                  {model.name}
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          )}
-           {allModels.length === 0 && (
-             <div className="p-4 text-center text-gray-500 text-sm">
-                No models discovered. Ensure servers are running.
-             </div>
-           )}
         </SelectContent>
       </Select>
     </div>

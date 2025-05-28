@@ -7,7 +7,7 @@ interface LLMResponse {
 }
 
 // Default URLs - can be overridden by environment variables
-const OLLAMA_URL = 'http://192.168.1.3:11434/api/generate';
+const OLLAMA_URL = 'http://192.168.1.3:1234/chat/completions';
 const LLM_STUDIO_URL = 'http://localhost:1234/v1/chat/completions';
 
 export class LLMService {
