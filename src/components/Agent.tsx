@@ -19,8 +19,8 @@ export const Agent: React.FC<AgentProps> = ({ id, className }) => {
   
   const agent = agents[id];
 
-  // Get persona safely without conditional hook usage
-  const persona: Persona | undefined = agent?.persona as Persona | undefined;
+  // Get persona safely - now it's properly stored as a Persona object
+  const persona = agent?.persona;
 
   const getOptimizedHistory = (messages: Message[]): Message[] => {
     // Keep last 20 messages to maintain context but not overwhelm the model

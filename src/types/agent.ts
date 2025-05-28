@@ -1,3 +1,5 @@
+import { Persona } from './persona';
+
 export interface AgentState {
   id: string;
   name: string;
@@ -8,7 +10,7 @@ export interface AgentState {
   modelId: string;
   apiType: 'ollama' | 'llmstudio';
   role: string;
-  persona?: string;
+  persona?: Persona;
   systemPrompt?: string;
   temperature?: number;
   maxTokens?: number;
@@ -45,16 +47,6 @@ export interface Message {
     }>;
     hasValidArgument: boolean;
   };
-}
-
-export interface Persona {
-  id: string;
-  name: string;
-  role: string;
-  description: string;
-  traits: string[];
-  expertise: string[];
-  systemPrompt: string;
 }
 
 export interface AgentProps {

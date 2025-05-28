@@ -190,11 +190,16 @@ function createAgentPrompt(
     .map((message) => `${message.sender}: ${message.content}`)
     .join('\n');
 
+  // Build persona description from the Persona object
+  const personaDescription = agent.persona 
+    ? `Your persona: ${agent.persona.name} - ${agent.persona.background}\nExpertise: ${agent.persona.expertise?.join(', ')}\nKey traits: ${agent.persona.traits?.map(t => t.name).join(', ')}`
+    : '';
+
   // Build the prompt
   return `
 You are ${agent.name}, a ${agent.role}.
 
-${agent.persona ? `Your persona: ${agent.persona}` : ''}
+${personaDescription}
 
 You are participating in a discussion about the following document:
 

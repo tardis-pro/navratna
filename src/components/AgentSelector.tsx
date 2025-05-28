@@ -1,18 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useAgents } from '../contexts/AgentContext';
 import { PersonaSelector } from './PersonaSelector';
-import { AgentState, Persona } from '../types/agent';
-import { getModels } from './ModelSelector';
-import { Users, Plus, Trash2, Bot, Cpu, AlertCircle, CheckCircle2, User, Server, Zap, Globe } from 'lucide-react';
-
-interface ModelOption {
-  id: string;
-  name: string;
-  description: string;
-  apiEndpoint: string;
-  apiType: 'ollama' | 'llmstudio';
-  source?: string;
-}
+import { AgentState } from '../types/agent';
+import { Persona } from '../types/persona';
+import { getModels, ModelOption } from './ModelSelector';
+import { Users, Plus, Trash2, Bot, Cpu, AlertCircle, CheckCircle2, User, Server, Zap, Globe, X } from 'lucide-react';
 
 // Helper function to create a short server identifier
 const getServerIdentifier = (baseUrl: string): string => {
@@ -69,9 +62,206 @@ const getServerIcon = (apiType: string) => {
   return apiType === 'ollama' ? Globe : Server;
 };
 
+// Modal component for Add Agent flow
+interface AddAgentModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onAddAgent: (persona: Persona) => void;
+  availableModels: ModelOption[];
+  isLoadingModels: boolean;
+  modelError: string | null;
+  agentName: string;
+  setAgentName: (name: string) => void;
+  selectedModelId: string;
+  setSelectedModelId: (id: string) => void;
+}
+
+const AddAgentModal: React.FC<AddAgentModalProps> = ({
+  isOpen,
+  onClose,
+  onAddAgent,
+  availableModels,
+  isLoadingModels,
+  modelError,
+  agentName,
+  setAgentName,
+  selectedModelId,
+  setSelectedModelId
+}) => {
+  const [showPersonaSelector, setShowPersonaSelector] = useState(false);
+  const groupedModels = groupModelsByServer(availableModels);
+
+  // Reset form when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setShowPersonaSelector(false);
+    }
+  }, [isOpen]);
+
+  const handleAddAgent = (persona: Persona) => {
+    if (!agentName.trim()) {
+      alert('Please enter an agent name');
+      return;
+    }
+
+    if (!selectedModelId) {
+      alert('Please select a model');
+      return;
+    }
+
+    onAddAgent(persona);
+    setShowPersonaSelector(false);
+  };
+
+  const handleClose = () => {
+    setShowPersonaSelector(false);
+    onClose();
+  };
+
+  const canProceed = agentName.trim() && selectedModelId && availableModels.length > 0;
+
+  if (!isOpen) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-6xl h-[90vh] overflow-hidden flex flex-col">
+        {/* Modal Header */}
+        <div className="flex items-center justify-between p-8 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
+          <div className="flex items-center space-x-4">
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/25">
+              <Plus className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+                {showPersonaSelector ? 'Choose Agent Persona' : 'Create New Agent'}
+              </h2>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                {showPersonaSelector ? 'Select a persona to define your agent\'s behavior and expertise' : 'Configure your AI agent\'s name and language model'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleClose}
+            className="p-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all duration-200"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        {/* Modal Content */}
+        <div className="flex-1 p-8 overflow-y-auto">
+          {!showPersonaSelector ? (
+            <div className="max-w-2xl mx-auto space-y-8">
+              <div>
+                <label htmlFor="modalAgentName" className="block text-base font-semibold text-slate-700 dark:text-slate-300 mb-4">
+                  Agent Name
+                </label>
+                <input
+                  id="modalAgentName"
+                  type="text"
+                  value={agentName}
+                  onChange={(e) => setAgentName(e.target.value)}
+                  className="w-full px-6 py-4 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 text-xl"
+                  placeholder="Enter a unique agent name"
+                  autoFocus
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="modalModelSelect" className="block text-base font-semibold text-slate-700 dark:text-slate-300 mb-4">
+                  Language Model
+                </label>
+                {isLoadingModels ? (
+                  <div className="flex items-center space-x-4 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+                    <div className="w-6 h-6 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin"></div>
+                    <span className="text-base font-medium text-blue-700 dark:text-blue-300">Discovering available models...</span>
+                  </div>
+                ) : modelError ? (
+                  <div className="flex items-center space-x-4 p-6 bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 border border-red-200 dark:border-red-800 rounded-xl">
+                    <AlertCircle className="w-6 h-6 text-red-500 flex-shrink-0" />
+                    <span className="text-base font-medium text-red-700 dark:text-red-300">{modelError}</span>
+                  </div>
+                ) : (
+                  <select
+                    id="modalModelSelect"
+                    value={selectedModelId}
+                    onChange={(e) => setSelectedModelId(e.target.value)}
+                    className="w-full px-6 py-4 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 text-xl"
+                    disabled={availableModels.length === 0}
+                  >
+                    <option value="">Select a model...</option>
+                    {Object.entries(groupedModels).map(([serverKey, models]) => {
+                      const [apiType] = serverKey.split(':');
+                      const serverDisplayName = getServerDisplayName(serverKey, models[0]?.source);
+                      
+                      return (
+                        <optgroup 
+                          key={serverKey} 
+                          label={`🖥️ ${serverDisplayName}`}
+                        >
+                          {models.map(model => {
+                            const modelName = model.id.split(':').pop() || model.name;
+                            return (
+                              <option key={model.id} value={model.id}>
+                                {modelName} • {apiType === 'ollama' ? '🌐' : '🖥️'} {getServerIdentifier(model.source || '')}
+                              </option>
+                            );
+                          })}
+                        </optgroup>
+                      );
+                    })}
+                  </select>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="h-full">
+              <PersonaSelector onSelectPersona={handleAddAgent} />
+            </div>
+          )}
+        </div>
+
+        {/* Modal Footer */}
+        <div className="flex justify-end space-x-4 p-8 border-t border-slate-200 dark:border-slate-700 flex-shrink-0">
+          {!showPersonaSelector ? (
+            <>
+              <button
+                onClick={handleClose}
+                className="px-8 py-3 text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all duration-200 font-medium text-lg"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => setShowPersonaSelector(true)}
+                disabled={!canProceed}
+                className={`px-8 py-3 rounded-xl font-semibold text-lg transition-all duration-300 flex items-center space-x-3 ${
+                  canProceed
+                    ? 'bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 hover:from-blue-700 hover:via-purple-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 hover:scale-[1.02]' 
+                    : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed'
+                }`}
+              >
+                <Zap className="w-5 h-5" />
+                <span>Choose Persona</span>
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => setShowPersonaSelector(false)}
+              className="px-8 py-3 text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all duration-200 font-medium text-lg"
+            >
+              ← Back to Configuration
+            </button>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
 export const AgentSelector: React.FC = () => {
   const { agents, addAgent, removeAgent } = useAgents();
-  const [showPersonaSelector, setShowPersonaSelector] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
   const [agentName, setAgentName] = useState('');
   const [availableModels, setAvailableModels] = useState<ModelOption[]>([]);
   const [selectedModelId, setSelectedModelId] = useState<string>('');
@@ -103,7 +293,7 @@ export const AgentSelector: React.FC = () => {
     fetchModels();
   }, []);
 
-  const handleAddAgent = (persona: Persona) => {
+  const handleCreateAgent = (persona: Persona) => {
     if (!agentName.trim()) {
       alert('Please enter an agent name');
       return;
@@ -121,15 +311,17 @@ export const AgentSelector: React.FC = () => {
       return;
     }
 
+    console.log('Creating agent with persona:', persona);
+
     // Create a new agent with the selected persona and model
     const newAgent: AgentState = {
       id: crypto.randomUUID(),
       name: agentName,
       role: persona.role,
-      persona: persona.description,
+      persona: persona,
       systemPrompt: persona.systemPrompt,
       modelId: selectedModel.id,
-      apiType: selectedModel.apiType,
+      apiType: selectedModel.apiType || 'ollama',
       isThinking: false,
       currentResponse: null,
       conversationHistory: [],
@@ -138,17 +330,27 @@ export const AgentSelector: React.FC = () => {
       maxTokens: 2000
     };
 
+    console.log('Created agent:', newAgent);
+
     addAgent(newAgent);
     setAgentName('');
-    setShowPersonaSelector(false);
+    setShowAddModal(false);
   };
 
   const handleRemoveAgent = (id: string) => {
     removeAgent(id);
   };
 
+  const handleOpenModal = () => {
+    setAgentName('');
+    if (availableModels.length > 0) {
+      setSelectedModelId(availableModels[0].id);
+    }
+    setShowAddModal(true);
+  };
+
   const agentCount = Object.values(agents).length;
-  const maxAgents = 4;
+  const maxAgents = 10;
   const groupedModels = groupModelsByServer(availableModels);
 
   return (
@@ -196,9 +398,16 @@ export const AgentSelector: React.FC = () => {
                     <div className="flex-1 min-w-0">
                       <div className="font-bold text-lg text-slate-900 dark:text-white truncate mb-1">{agent.name}</div>
                       <div className="flex flex-col space-y-2">
-                        <span className="inline-flex items-center px-3 py-1 bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 text-blue-700 dark:text-blue-300 text-sm rounded-full font-semibold border border-blue-200 dark:border-blue-800 w-fit">
-                          {agent.role}
-                        </span>
+                        <div className="flex items-center space-x-2">
+                          <span className="inline-flex items-center px-3 py-1 bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 text-blue-700 dark:text-blue-300 text-sm rounded-full font-semibold border border-blue-200 dark:border-blue-800">
+                            {agent.role}
+                          </span>
+                          {agent.persona && (
+                            <span className="inline-flex items-center px-2 py-1 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 text-purple-700 dark:text-purple-300 text-xs rounded-full font-medium border border-purple-200 dark:border-purple-800">
+                              {agent.persona.name}
+                            </span>
+                          )}
+                        </div>
                         <div className="flex items-center space-x-2 px-3 py-2 bg-slate-100 dark:bg-slate-700 rounded-lg w-fit">
                           <ServiceIcon className="w-4 h-4 text-slate-600 dark:text-slate-400 flex-shrink-0" />
                           <div className="flex flex-col min-w-0">
@@ -235,112 +444,36 @@ export const AgentSelector: React.FC = () => {
         )}
       </div>
       
-      {/* Enhanced add new agent form */}
+      {/* Enhanced add new agent button */}
       {agentCount < maxAgents && (
         <div className="border-t border-slate-200 dark:border-slate-700 pt-8">
-          {!showPersonaSelector ? (
-            <div className="space-y-6">
-              <h3 className="font-bold text-xl text-slate-900 dark:text-white flex items-center space-x-3">
-                <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
-                  <Plus className="w-4 h-4 text-white" />
-                </div>
-                <span>Add New Agent</span>
-              </h3>
-              
-              <div className="space-y-5">
-                <div>
-                  <label htmlFor="agentName" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
-                    Agent Name
-                  </label>
-                  <input
-                    id="agentName"
-                    type="text"
-                    value={agentName}
-                    onChange={(e) => setAgentName(e.target.value)}
-                    className="w-full px-4 py-4 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 text-lg"
-                    placeholder="Enter a unique agent name"
-                  />
-                </div>
-                
-                <div>
-                  <label htmlFor="modelSelect" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
-                    Language Model
-                  </label>
-                  {isLoadingModels ? (
-                    <div className="flex items-center space-x-3 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
-                      <div className="w-5 h-5 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin"></div>
-                      <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Discovering available models...</span>
-                    </div>
-                  ) : modelError ? (
-                    <div className="flex items-center space-x-3 p-4 bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 border border-red-200 dark:border-red-800 rounded-xl">
-                      <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-                      <span className="text-sm font-medium text-red-700 dark:text-red-300">{modelError}</span>
-                    </div>
-                  ) : (
-                    <select
-                      id="modelSelect"
-                      value={selectedModelId}
-                      onChange={(e) => setSelectedModelId(e.target.value)}
-                      className="w-full px-4 py-4 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 text-lg"
-                      disabled={availableModels.length === 0}
-                    >
-                      <option value="">Select a model...</option>
-                      {Object.entries(groupedModels).map(([serverKey, models]) => {
-                        const [apiType] = serverKey.split(':');
-                        const serverDisplayName = getServerDisplayName(serverKey, models[0]?.source);
-                        
-                        return (
-                          <optgroup 
-                            key={serverKey} 
-                            label={`🖥️ ${serverDisplayName}`}
-                          >
-                            {models.map(model => {
-                              const modelName = model.id.split(':').pop() || model.name;
-                              const ServiceIcon = getServerIcon(apiType);
-                              return (
-                                <option key={model.id} value={model.id}>
-                                  {modelName} • {apiType === 'ollama' ? '🌐' : '🖥️'} {getServerIdentifier(model.source || '')}
-                                </option>
-                              );
-                            })}
-                          </optgroup>
-                        );
-                      })}
-                    </select>
-                  )}
-                </div>
-                
-                <button
-                  onClick={() => setShowPersonaSelector(true)}
-                  disabled={!agentName.trim() || !selectedModelId || availableModels.length === 0}
-                  className={`w-full py-4 rounded-xl font-semibold text-lg transition-all duration-300 flex items-center justify-center space-x-3 ${
-                    agentName.trim() && selectedModelId && availableModels.length > 0
-                      ? 'bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 hover:from-blue-700 hover:via-purple-700 hover:to-indigo-700 text-white shadow-xl shadow-blue-500/30 hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98]' 
-                      : 'bg-gradient-to-r from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-600 text-slate-500 dark:text-slate-400 cursor-not-allowed'
-                  }`}
-                >
-                  <Zap className="w-5 h-5" />
-                  <span>Select Persona & Create Agent</span>
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h3 className="font-bold text-xl text-slate-900 dark:text-white">Choose Agent Persona</h3>
-                <button
-                  onClick={() => setShowPersonaSelector(false)}
-                  className="px-4 py-2 text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all duration-200"
-                >
-                  Cancel
-                </button>
-              </div>
-              
-              <PersonaSelector onSelectPersona={handleAddAgent} />
-            </div>
-          )}
+          <div className="text-center space-y-4">
+            <h3 className="font-bold text-xl text-slate-900 dark:text-white">Add New Agent</h3>
+            <p className="text-slate-600 dark:text-slate-400 mb-6">Create an AI agent to join the discussion</p>
+            <button
+              onClick={handleOpenModal}
+              className="px-8 py-4 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 hover:from-blue-700 hover:via-purple-700 hover:to-indigo-700 text-white rounded-xl font-semibold text-lg transition-all duration-300 flex items-center space-x-3 mx-auto shadow-xl shadow-blue-500/30 hover:shadow-blue-500/50 hover:scale-[1.02]"
+            >
+              <Plus className="w-5 h-5" />
+              <span>Create Agent</span>
+            </button>
+          </div>
         </div>
       )}
+
+      {/* Add Agent Modal */}
+      <AddAgentModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onAddAgent={handleCreateAgent}
+        availableModels={availableModels}
+        isLoadingModels={isLoadingModels}
+        modelError={modelError}
+        agentName={agentName}
+        setAgentName={setAgentName}
+        selectedModelId={selectedModelId}
+        setSelectedModelId={setSelectedModelId}
+      />
       
       {/* Enhanced status indicators */}
       {agentCount >= maxAgents && (

@@ -338,7 +338,7 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({ onSelectPerson
             onClick={() => onSelectPersona(persona)}
             onMouseEnter={() => setHoveredPersona(persona.id)}
             onMouseLeave={() => setHoveredPersona(null)}
-            className={`group flex flex-col items-start p-6 border-2 rounded-2xl transition-all duration-300 text-left ${
+            className={`group relative flex flex-col items-start p-6 border-2 rounded-2xl transition-all duration-300 text-left ${
               hoveredPersona === persona.id
                 ? 'border-blue-500 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 shadow-xl shadow-blue-500/20 scale-[1.02]'
                 : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-lg'
@@ -400,7 +400,7 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({ onSelectPerson
             </div>
 
             {/* Hover Effect Indicator */}
-            <div className={`absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-indigo-500/5 transition-opacity duration-300 ${
+            <div className={`absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-indigo-500/5 transition-opacity duration-300 pointer-events-none ${
               hoveredPersona === persona.id ? 'opacity-100' : 'opacity-0'
             }`} />
           </button>
