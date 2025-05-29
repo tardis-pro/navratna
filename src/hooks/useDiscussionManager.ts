@@ -53,14 +53,26 @@ export const useDiscussionManager = ({
 
   // Initialize DiscussionManager when agents are available
   useEffect(() => {
+    console.log('🔄 DiscussionManager useEffect triggered:', {
+      agentCount: Object.keys(agentContext.agents).length,
+      activeDocumentId,
+      documentsCount: Object.keys(documents).length
+    });
+    
     // Always recreate the DiscussionManager when agents change
     // This ensures it sees newly added agents
     if (Object.keys(agentContext.agents).length > 0) {
+      console.log('✅ Creating new DiscussionManager instance');
       managerRef.current = new DiscussionManager(
         agentContext.agents,
         activeDocumentId ? documents[activeDocumentId] : null,
         (state) => {
           // Update local state when manager state changes
+          console.log('📝 DiscussionManager state update:', {
+            messageCount: state.messageHistory.length,
+            isRunning: state.isRunning,
+            currentSpeaker: state.currentSpeakerId
+          });
           setCurrentTurn(state.currentSpeakerId);
           setIsActive(state.isRunning);
           setHistory(state.messageHistory);
@@ -68,6 +80,7 @@ export const useDiscussionManager = ({
         },
         (agentId, response) => {
           // Handle agent responses
+          console.log('🗣️ Agent response callback:', { agentId, responseLength: response?.length });
           if (response) {
             const agent = agentContext.agents[agentId];
             if (agent) {
@@ -82,6 +95,7 @@ export const useDiscussionManager = ({
         agentContext
       );
     } else {
+      console.log('❌ Clearing DiscussionManager (no agents)');
       // Clear the manager if no agents
       managerRef.current = null;
     }

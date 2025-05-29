@@ -65,6 +65,7 @@ export class DiscussionManager implements IDiscussionManager {
   private documents: DocumentContext[] = [];
   private agentContext: AgentContextValue;
   private topicClusters: Map<string, TopicCluster> = new Map();
+  private instanceId: string; // Track instance for debugging
 
   constructor(
     agents: Record<string, AgentState>,
@@ -73,6 +74,9 @@ export class DiscussionManager implements IDiscussionManager {
     responseCallback: (agentId: string, response: string) => void,
     agentContext: AgentContextValue
   ) {
+    this.instanceId = crypto.randomUUID().slice(0, 8);
+    console.log(`🏗️ Creating DiscussionManager instance: ${this.instanceId}`);
+    
     this.context = {
       topic: '',
       maxRounds: 3,
@@ -326,20 +330,21 @@ export class DiscussionManager implements IDiscussionManager {
       }
     };
 
-    // Update message history and topic clusters
+    // Add message to state
     this.state.messageHistory.push(message);
-    this.updateTopicClusters(message);
+    console.log(`📤 [${this.instanceId}] Added message:`, {
+      id: message.id,
+      sender: message.sender,
+      type: message.type,
+      totalMessages: this.state.messageHistory.length
+    });
     
-    // Update agent's conversation history
-    if (this.agentContext) {
-      this.agentContext.updateAgentState(message.sender, {
-        conversationHistory: [...this.state.messageHistory]
-      });
-    }
+    // Update agent with new conversation history
+    this.agentContext.updateAgentState(agentId, {
+      conversationHistory: [...this.state.messageHistory]
+    });
     
-    // Notify callbacks
     this.updateCallback(this.state);
-    this.responseCallback(agentId, content);
     
     // Move to next turn
     this.moveToNextTurn();
