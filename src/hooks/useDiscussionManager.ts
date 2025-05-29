@@ -85,7 +85,7 @@ export const useDiscussionManager = ({
       // Clear the manager if no agents
       managerRef.current = null;
     }
-  }, [agentContext.agents, activeDocumentId, documents, agentContext]);
+  }, [agentContext.agents, activeDocumentId, documents]);
 
   // Update document when it changes
   useEffect(() => {

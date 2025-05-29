@@ -327,7 +327,7 @@ export const AgentSelector: React.FC = () => {
       conversationHistory: [],
       error: null,
       temperature: 0.7,
-      maxTokens: 2000
+      maxTokens: 200
     };
 
     console.log('Created agent:', newAgent);

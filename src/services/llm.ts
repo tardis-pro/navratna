@@ -15,7 +15,8 @@ export class LLMService {
   private static async callOllama(
     prompt: string,
     systemPrompt: string,
-    modelId: string
+    modelId: string,
+    maxTokens: number = 200
   ): Promise<LLMResponse> {
     try {
       const response = await fetch(OLLAMA_URL, {
@@ -28,6 +29,9 @@ export class LLMService {
           prompt,
           system: systemPrompt,
           stream: false,
+          options: {
+            num_predict: maxTokens
+          }
         }),
       });
 
@@ -52,11 +56,12 @@ export class LLMService {
   private static async callLLMStudio(
     prompt: string,
     systemPrompt: string,
-    modelId: string
+    modelId: string,
+    maxTokens: number = 200
   ): Promise<LLMResponse> {
     try {
       const { serverUrl, modelName } = getModelInfo(modelId);
-      const response = await fetch(serverUrl  +LLM_STUDIO_URL, {
+      const response = await fetch(serverUrl + LLM_STUDIO_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -68,6 +73,7 @@ export class LLMService {
           ],
           model: modelName,
           stream: false,
+          max_tokens: maxTokens
         }),
       });
 
@@ -124,16 +130,22 @@ export class LLMService {
 
     // Use agent's system prompt, or fall back to persona-based prompt
     const systemPrompt = agent.systemPrompt || `You are ${agent.name}, a ${agent.role}. 
+
+CRITICAL RESPONSE RULES:
+- Keep responses under 100 words maximum
+- Be direct and concise - no fluff or filler
+- Only answer what was asked - don't elaborate unnecessarily  
+- Use bullet points or short sentences
+- If the topic is complex, give a brief answer and offer to elaborate if needed
+
 Respond in a way that reflects your expertise and role.
-Keep responses concise and focused on the topic at hand.
-Also speak as little as possible - only give answers to the question, not everything.
-If you find they are asking too many questions, please ask the user to break down into 3-4 questions, 
-and then respond. Your answer should be 200 words or less.`;
+Focus only on the most important points.`;
 
     // Call appropriate LLM service
+    const maxTokens = agent.maxTokens || 200;
     return agent.apiType === 'ollama'
-      ? this.callOllama(prompt, systemPrompt, agent.modelId)
-      : this.callLLMStudio(prompt, systemPrompt, agent.modelId);
+      ? this.callOllama(prompt, systemPrompt, agent.modelId, maxTokens)
+      : this.callLLMStudio(prompt, systemPrompt, agent.modelId, maxTokens);
   }
 }
 
