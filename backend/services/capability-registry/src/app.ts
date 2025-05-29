@@ -1,0 +1,132 @@
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import compression from 'compression';
+import morgan from 'morgan';
+
+import { logger } from '@uaip/utils';
+import { errorHandler, rateLimiter, metricsMiddleware } from '@uaip/middleware';
+import { DatabaseService, EventBusService } from '@uaip/shared-services';
+import { config } from './config/index';
+import { capabilityRoutes } from './routes/capabilityRoutes';
+import { healthRoutes } from './routes/healthRoutes';
+
+export class CapabilityRegistryApp {
+  private app: express.Application;
+  private databaseService: DatabaseService;
+  private eventBusService: EventBusService;
+  private server?: any;
+
+  constructor() {
+    this.app = express();
+    this.databaseService = new DatabaseService();
+    this.eventBusService = new EventBusService({
+      url: process.env.RABBITMQ_URL || 'amqp://localhost',
+      serviceName: 'capability-registry'
+    }, logger as any);
+    
+    this.setupMiddleware();
+    this.setupRoutes();
+    this.setupErrorHandling();
+  }
+
+  private setupMiddleware(): void {
+    // Security middleware
+    this.app.use(helmet());
+    this.app.use(cors({
+      origin: process.env.CORS_ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
+      credentials: true
+    }));
+
+    // Performance middleware
+    this.app.use(compression());
+    this.app.use(rateLimiter);
+
+    // Logging middleware
+    this.app.use(morgan('combined', {
+      stream: { write: (message: string) => logger.info(message.trim()) }
+    }));
+
+    // Request parsing middleware
+    this.app.use(express.json({ limit: '10mb' }));
+    this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+    // Metrics middleware
+    this.app.use(metricsMiddleware);
+  }
+
+  private setupRoutes(): void {
+    // Health check routes
+    this.app.use('/health', healthRoutes);
+    
+    // API routes
+    this.app.use('/api/v1/capabilities', capabilityRoutes);
+
+    // 404 handler
+    this.app.use('*', (req, res) => {
+      res.status(404).json({
+        success: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Endpoint not found'
+        },
+        meta: {
+          timestamp: new Date(),
+          service: config.service.name,
+          version: process.env.VERSION || '1.0.0'
+        }
+      });
+    });
+  }
+
+  private setupErrorHandling(): void {
+    this.app.use(errorHandler);
+  }
+
+  public async initialize(): Promise<void> {
+    try {
+      // Test database connection
+      await this.databaseService.query('SELECT 1', []);
+      logger.info('Database connection verified');
+
+      // Event bus will connect automatically when needed
+      logger.info('Event bus ready');
+
+      logger.info('Capability Registry service initialized successfully');
+
+    } catch (error) {
+      logger.error('Failed to initialize Capability Registry service:', error);
+      throw error;
+    }
+  }
+
+  public listen(): any {
+    const port = config.service.port;
+    this.server = this.app.listen(port, () => {
+      logger.info(`Capability Registry service started on port ${port}`);
+      logger.info(`Environment: ${config.service.env}`);
+      logger.info(`Version: ${process.env.VERSION || '1.0.0'}`);
+    });
+    
+    return this.server;
+  }
+
+  public async shutdown(): Promise<void> {
+    try {
+      // Close connections if methods exist
+      if (this.eventBusService && typeof this.eventBusService.close === 'function') {
+        await this.eventBusService.close();
+      }
+      if (this.databaseService && typeof this.databaseService.close === 'function') {
+        await this.databaseService.close();
+      }
+      logger.info('Capability Registry service stopped gracefully');
+    } catch (error) {
+      logger.error('Error during service shutdown:', error);
+    }
+  }
+
+  public getApp(): express.Application {
+    return this.app;
+  }
+}
