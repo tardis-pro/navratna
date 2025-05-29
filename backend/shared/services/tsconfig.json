@@ -1,0 +1,43 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "declaration": true,
+    "declarationMap": true,
+    "outDir": "./dist",
+    "rootDir": "./",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "composite": true,
+    "incremental": true,
+    "baseUrl": ".",
+    "paths": {
+      "@uaip/types": ["../types/src/index.ts"],
+      "@uaip/types/*": ["../types/src/*"],
+      "@uaip/utils": ["../utils/index.ts"],
+      "@uaip/utils/*": ["../utils/*"],
+      "@uaip/config": ["../config/index.ts"],
+      "@uaip/config/*": ["../config/*"]
+    }
+  },
+  "include": [
+    "./**/*.ts"
+  ],
+  "exclude": [
+    "dist",
+    "node_modules",
+    "**/*.test.ts"
+  ],
+  "references": [
+    { "path": "../types" },
+    { "path": "../utils" },
+    { "path": "../config" }
+  ]
+} 
