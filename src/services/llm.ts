@@ -1,10 +1,19 @@
 import { getModelInfo } from '@/components/ModelSelector';
 import { AgentState, Message } from '../types/agent';
 import { DocumentContext } from '../types/document';
+import { ToolCall, ToolResult } from '../types/tool';
+import { 
+  enhanceAgentWithTools, 
+  parseToolCalls, 
+  validateAgentToolUsage,
+  LLMToolIntegrationService 
+} from './tools/llm-tool-integration';
 
 interface LLMResponse {
   content: string;
   error?: string;
+  toolCalls?: ToolCall[];
+  toolResults?: ToolResult[];
 }
 
 // Default URLs - can be overridden by environment variables
@@ -107,29 +116,30 @@ export class LLMService {
       };
     }
 
-    // Construct the prompt with proper message type handling
-    const contextPrompt = context 
-      ? `\nContext Document:\nTitle: ${context.title}\nContent: ${context.content}\n`
-      : '';
+    try {
+      // Construct the prompt with proper message type handling
+      const contextPrompt = context 
+        ? `\nContext Document:\nTitle: ${context.title}\nContent: ${context.content}\n`
+        : '';
 
-    // Separate system messages from conversation messages
-    const systemMessages = messages.filter(msg => msg.type === 'system');
-    const conversationMessages = messages.filter(msg => msg.type !== 'system');
+      // Separate system messages from conversation messages
+      const systemMessages = messages.filter(msg => msg.type === 'system');
+      const conversationMessages = messages.filter(msg => msg.type !== 'system');
 
-    // Include system messages as context (these contain document info, initial setup)
-    const systemContext = systemMessages.length > 0
-      ? `\nSystem Context:\n${systemMessages.map(msg => msg.content).join('\n')}\n`
-      : '';
+      // Include system messages as context (these contain document info, initial setup)
+      const systemContext = systemMessages.length > 0
+        ? `\nSystem Context:\n${systemMessages.map(msg => msg.content).join('\n')}\n`
+        : '';
 
-    // Format conversation history
-    const conversationHistory = conversationMessages.length > 0
-      ? conversationMessages.map(msg => `${msg.sender}: ${msg.content}`).join('\n')
-      : 'No previous conversation.';
+      // Format conversation history
+      const conversationHistory = conversationMessages.length > 0
+        ? conversationMessages.map(msg => `${msg.sender}: ${msg.content}`).join('\n')
+        : 'No previous conversation.';
 
-    const prompt = `${contextPrompt}${systemContext}\n\nConversation History:\n${conversationHistory}\n\n${agent.name}:`;
+      const prompt = `${contextPrompt}${systemContext}\n\nConversation History:\n${conversationHistory}\n\n${agent.name}:`;
 
-    // Use agent's system prompt, or fall back to persona-based prompt
-    const systemPrompt = agent.systemPrompt || `You are ${agent.name}, a ${agent.role}. 
+      // Generate tool-aware system prompt
+      const baseSystemPrompt = agent.systemPrompt || `You are ${agent.name}, a ${agent.role}. 
 
 CRITICAL RESPONSE RULES:
 - Keep responses under 100 words maximum
@@ -141,11 +151,54 @@ CRITICAL RESPONSE RULES:
 Respond in a way that reflects your expertise and role.
 Focus only on the most important points.`;
 
-    // Call appropriate LLM service
-    const maxTokens = agent.maxTokens || 200;
-    return agent.apiType === 'ollama'
-      ? this.callOllama(prompt, systemPrompt, agent.modelId, maxTokens)
-      : this.callLLMStudio(prompt, systemPrompt, agent.modelId, maxTokens);
+      // Enhance with tool capabilities if agent has tools
+      const toolAwareSystemPrompt = agent.availableTools && agent.availableTools.length > 0
+        ? await enhanceAgentWithTools({ ...agent, systemPrompt: baseSystemPrompt })
+        : baseSystemPrompt;
+
+      // Call appropriate LLM service
+      const maxTokens = agent.maxTokens || 200;
+      const response = agent.apiType === 'ollama'
+        ? await this.callOllama(prompt, toolAwareSystemPrompt, agent.modelId, maxTokens)
+        : await this.callLLMStudio(prompt, toolAwareSystemPrompt, agent.modelId, maxTokens);
+
+      if (response.error) {
+        return response;
+      }
+
+      // Parse tool calls from response
+      const { cleanContent, toolCalls } = parseToolCalls(response.content);
+      
+      // Validate tool usage if any tool calls were made
+      if (toolCalls.length > 0) {
+        const validation = await validateAgentToolUsage(agent, toolCalls, prompt);
+        
+        if (!validation.valid) {
+          console.warn('Invalid tool usage detected:', validation.errors);
+          // Return response without tool calls but include warning
+          return {
+            content: cleanContent + '\n\n*Note: Some tool calls were invalid and have been skipped.*',
+            error: validation.errors.join(', ')
+          };
+        }
+
+        if (validation.warnings.length > 0) {
+          console.warn('Tool usage warnings:', validation.warnings);
+        }
+      }
+
+      return {
+        content: cleanContent,
+        toolCalls: toolCalls.length > 0 ? toolCalls : undefined
+      };
+
+    } catch (error) {
+      console.error('Error in generateResponse:', error);
+      return {
+        content: 'I apologize, but I encountered an error generating my response. Please try again.',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
   }
 }
 

@@ -1,4 +1,14 @@
 import { Persona } from './persona';
+import { 
+  ToolPermissionSet, 
+  ToolUsageRecord, 
+  ToolExecution, 
+  ToolPreferences, 
+  ToolBudget,
+  ToolCapableMessage,
+  ToolCall,
+  ToolResult
+} from './tool';
 
 export interface AgentState {
   id: string;
@@ -14,16 +24,26 @@ export interface AgentState {
   systemPrompt?: string;
   temperature?: number;
   maxTokens?: number;
+  
+  // Tool-related properties (new)
+  availableTools: string[];
+  toolPermissions: ToolPermissionSet;
+  toolUsageHistory: ToolUsageRecord[];
+  currentToolExecution?: ToolExecution;
+  toolPreferences: ToolPreferences;
+  maxConcurrentTools: number;
+  toolBudget?: ToolBudget;
+  isUsingTool?: boolean; // Indicates if agent is currently executing a tool
 }
 
 export type ConversationPattern = 'interruption' | 'build-on' | 'clarification' | 'concern' | 'expertise';
 
-export interface Message {
+export interface Message extends ToolCapableMessage {
   id: string;
   content: string;
   sender: string;
   timestamp: Date;
-  type: 'thought' | 'response' | 'question' | 'system';
+  type: 'thought' | 'response' | 'question' | 'system' | 'tool-call' | 'tool-result';
   threadRoot?: string;
   threadDepth?: number;
   replyTo?: string;
@@ -65,4 +85,10 @@ export interface AgentContextValue {
   addMessage: (agentId: string, message: Message) => void;
   removeMessage: (agentId: string, messageId: string) => void;
   getAllMessages: () => Message[];
+  
+  // Tool-related methods (new)
+  executeToolCall: (agentId: string, toolCall: ToolCall) => Promise<ToolResult>;
+  approveToolExecution: (executionId: string, approverId: string) => Promise<boolean>;
+  getToolUsageHistory: (agentId: string) => ToolUsageRecord[];
+  updateToolPermissions: (agentId: string, permissions: Partial<ToolPermissionSet>) => void;
 } 
