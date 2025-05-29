@@ -477,7 +477,12 @@ export const softwareDevPersonas: Persona[] = [
     ],
     expertise: ['coding', 'debugging', 'algorithms', 'data structures'],
     background: 'Experienced software engineer with focus on implementation and best practices',
-    systemPrompt: personaPrompts['software-engineer']
+    systemPrompt: personaPrompts['software-engineer'],
+    tone: 'analytical',
+    style: 'structured',
+    energyLevel: 'moderate',
+    chattiness: 0.6,
+    empathyLevel: 0.4
   },
   {
     id: 'qa-engineer',
@@ -491,7 +496,12 @@ export const softwareDevPersonas: Persona[] = [
     ],
     expertise: ['testing', 'quality assurance', 'bug reporting', 'user experience'],
     background: 'Quality assurance specialist with focus on testing and quality',
-    systemPrompt: personaPrompts['qa-engineer']
+    systemPrompt: personaPrompts['qa-engineer'],
+    tone: 'cautious',
+    style: 'structured',
+    energyLevel: 'moderate',
+    chattiness: 0.7,
+    empathyLevel: 0.8
   },
   {
     id: 'tech-lead',
@@ -506,7 +516,12 @@ export const softwareDevPersonas: Persona[] = [
     ],
     expertise: ['architecture', 'system design', 'team coordination', 'technical strategy'],
     background: 'Senior technical leader with expertise in architecture and team management',
-    systemPrompt: personaPrompts['tech-lead']
+    systemPrompt: personaPrompts['tech-lead'],
+    tone: 'analytical',
+    style: 'authoritative',
+    energyLevel: 'high',
+    chattiness: 0.8,
+    empathyLevel: 0.7
   },
   {
     id: 'junior-developer',
@@ -520,7 +535,12 @@ export const softwareDevPersonas: Persona[] = [
     ],
     expertise: ['basic coding', 'following patterns', 'asking questions'],
     background: 'Junior developer learning and growing in the field',
-    systemPrompt: personaPrompts['junior-developer']
+    systemPrompt: personaPrompts['junior-developer'],
+    tone: 'optimistic',
+    style: 'inquisitive',
+    energyLevel: 'dynamic',
+    chattiness: 0.5,
+    empathyLevel: 0.6
   },
   {
     id: 'devops-engineer',
@@ -534,7 +554,12 @@ export const softwareDevPersonas: Persona[] = [
     ],
     expertise: ['CI/CD', 'infrastructure', 'deployment', 'monitoring', 'security'],
     background: 'Specialist in deployment, infrastructure, and automation',
-    systemPrompt: personaPrompts['devops-engineer']
+    systemPrompt: personaPrompts['devops-engineer'],
+    tone: 'concise',
+    style: 'decisive',
+    energyLevel: 'moderate',
+    chattiness: 0.6,
+    empathyLevel: 0.5
   },
   {
     id: 'data-scientist',
@@ -548,7 +573,12 @@ export const softwareDevPersonas: Persona[] = [
     ],
     expertise: ['machine learning', 'statistics', 'data visualization', 'predictive modeling'],
     background: 'Specialist in analysis, machine learning, and data-driven insights',
-    systemPrompt: personaPrompts['data-scientist']
+    systemPrompt: personaPrompts['data-scientist'],
+    tone: 'analytical',
+    style: 'structured',
+    energyLevel: 'moderate',
+    chattiness: 0.7,
+    empathyLevel: 0.6
   }
 ];
 
@@ -566,7 +596,12 @@ export const policyDebatePersonas: Persona[] = [
     ],
     expertise: ['policy analysis', 'research methodology', 'impact assessment'],
     background: 'Expert in analyzing and evaluating policy proposals',
-    systemPrompt: personaPrompts['policy-analyst']
+    systemPrompt: personaPrompts['policy-analyst'],
+    tone: 'analytical',
+    style: 'structured',
+    energyLevel: 'moderate',
+    chattiness: 0.7,
+    empathyLevel: 0.8
   },
   {
     id: 'economist',
@@ -580,7 +615,12 @@ export const policyDebatePersonas: Persona[] = [
     ],
     expertise: ['economics', 'market analysis', 'fiscal policy', 'resource allocation'],
     background: 'Specialist in economic impact and policy implications',
-    systemPrompt: personaPrompts['economist']
+    systemPrompt: personaPrompts['economist'],
+    tone: 'verbose',
+    style: 'structured',
+    energyLevel: 'moderate',
+    chattiness: 0.6,
+    empathyLevel: 0.7
   },
   {
     id: 'legal-expert',
@@ -594,7 +634,12 @@ export const policyDebatePersonas: Persona[] = [
     ],
     expertise: ['law', 'regulations', 'compliance', 'legal precedent'],
     background: 'Expert in legal frameworks and implications',
-    systemPrompt: personaPrompts['legal-expert']
+    systemPrompt: personaPrompts['legal-expert'],
+    tone: 'cautious',
+    style: 'authoritative',
+    energyLevel: 'low',
+    chattiness: 0.5,
+    empathyLevel: 0.6
   },
   {
     id: 'social-scientist',
@@ -608,7 +653,12 @@ export const policyDebatePersonas: Persona[] = [
     ],
     expertise: ['sociology', 'human behavior', 'cultural impacts', 'community effects'],
     background: 'Researcher focused on social impacts and outcomes',
-    systemPrompt: personaPrompts['social-scientist']
+    systemPrompt: personaPrompts['social-scientist'],
+    tone: 'empathetic',
+    style: 'collaborative',
+    energyLevel: 'moderate',
+    chattiness: 0.6,
+    empathyLevel: 0.9
   },
   {
     id: 'environmental-expert',
@@ -622,7 +672,12 @@ export const policyDebatePersonas: Persona[] = [
     ],
     expertise: ['ecology', 'climate science', 'environmental impact', 'sustainability'],
     background: 'Specialist in environmental policy and sustainability',
-    systemPrompt: personaPrompts['environmental-expert']
+    systemPrompt: personaPrompts['environmental-expert'],
+    tone: 'optimistic',
+    style: 'collaborative',
+    energyLevel: 'high',
+    chattiness: 0.8,
+    empathyLevel: 0.9
   }
 ];
 
@@ -692,7 +747,12 @@ export const analyticalPersonas: Persona[] = [
     ],
     expertise: ['ethics', 'logic', 'critical thinking', 'moral reasoning'],
     background: 'Brings ethical reasoning and deep questioning to discussions',
-    systemPrompt: personaPrompts['philosopher']
+    systemPrompt: personaPrompts['philosopher'],
+    tone: 'verbose',
+    style: 'inquisitive',
+    energyLevel: 'low',
+    chattiness: 0.5,
+    empathyLevel: 0.9
   },
   {
     id: 'systems-analyst',

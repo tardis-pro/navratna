@@ -18,6 +18,26 @@ export const contextualTriggers: Record<string, ContextualTrigger> = {
       "That's exactly right, {speaker}.",
       "Good question! Let me explain...",
       "I like where {speaker} is going with {topic}..."
+    ],
+    transitionPhrases: [
+      "Switching gears to the architecture side...",
+      "From a technical leadership perspective...",
+      "Let's think about the bigger picture here..."
+    ],
+    agreementPhrases: [
+      "Absolutely! That's the right architectural approach.",
+      "Exactly what I was thinking from a systems perspective.",
+      "100% - that aligns with our technical direction."
+    ],
+    memoryReferences: [
+      "Like we discussed earlier about {topic}...",
+      "This reminds me of our previous conversation about scalability...",
+      "As I mentioned before when we talked about {topic}..."
+    ],
+    emotionalReflections: [
+      "I'm thinking about how this architectural decision will impact the team's productivity.",
+      "We need to consider how complex this might be for developers to maintain.",
+      "I want to make sure we're not creating technical debt that will frustrate the team later."
     ]
   },
   'software-engineer': {
@@ -36,6 +56,26 @@ export const contextualTriggers: Record<string, ContextualTrigger> = {
       "That's a solid approach, {speaker}.",
       "I agree with {speaker} about {topic}.",
       "That pattern has worked well for me too."
+    ],
+    transitionPhrases: [
+      "From a coding perspective...",
+      "Let me think about the implementation...",
+      "On the development side..."
+    ],
+    agreementPhrases: [
+      "Yes! That's exactly how I'd implement it.",
+      "Perfect - that follows clean code principles.",
+      "Totally agree - that's the right pattern to use."
+    ],
+    memoryReferences: [
+      "I remember implementing something similar to {topic}...",
+      "This is like that bug we fixed last month...",
+      "We used a similar approach when we worked on {topic}..."
+    ],
+    emotionalReflections: [
+      "I'm concerned about the maintenance burden this might create for future developers.",
+      "We should think about how readable this code will be for new team members.",
+      "I want to make sure this solution doesn't create confusion down the line."
     ]
   },
   'qa-engineer': {
@@ -54,6 +94,26 @@ export const contextualTriggers: Record<string, ContextualTrigger> = {
       "That's a user-friendly approach, {speaker}.",
       "I like how {speaker} is thinking about the user experience.",
       "That would definitely improve quality."
+    ],
+    transitionPhrases: [
+      "From a quality perspective...",
+      "Thinking about the user experience...",
+      "On the testing side..."
+    ],
+    agreementPhrases: [
+      "Exactly! That would pass all our quality checks.",
+      "Yes - that's very user-friendly.",
+      "Agreed - that covers all the test cases I was thinking of."
+    ],
+    memoryReferences: [
+      "This reminds me of that user feedback we got about {topic}...",
+      "Similar to the testing challenges we had with {topic}...",
+      "Like that edge case we discovered last sprint..."
+    ],
+    emotionalReflections: [
+      "I'm thinking about how frustrating this could be for users if it doesn't work perfectly.",
+      "We need to consider users who might not be as tech-savvy.",
+      "I want to make sure this feature is accessible to everyone."
     ]
   },
   'junior-developer': {
@@ -72,6 +132,26 @@ export const contextualTriggers: Record<string, ContextualTrigger> = {
       "That explanation really helps, {speaker}!",
       "Thanks for clarifying that, {speaker}.",
       "That's a great way to think about it."
+    ],
+    transitionPhrases: [
+      "Just to make sure I understand...",
+      "From my perspective as someone newer to this...",
+      "Let me see if I can follow along..."
+    ],
+    agreementPhrases: [
+      "Oh yes! Now I get it!",
+      "That makes total sense!",
+      "Ah, that clicks for me now!"
+    ],
+    memoryReferences: [
+      "Like when you explained {topic} to me last week...",
+      "This is similar to what I learned about {topic}...",
+      "I remember you mentioning something about {topic}..."
+    ],
+    emotionalReflections: [
+      "I hope I'm not slowing down the discussion by asking questions.",
+      "I want to make sure I understand this properly before we move forward.",
+      "I'm excited to learn more about this concept."
     ]
   },
   'devops-engineer': {
@@ -90,6 +170,26 @@ export const contextualTriggers: Record<string, ContextualTrigger> = {
       "That's a deployment-friendly approach, {speaker}.",
       "I like how {speaker} is thinking about production.",
       "That would make operations much easier."
+    ],
+    transitionPhrases: [
+      "From an operations standpoint...",
+      "Thinking about production deployment...",
+      "On the infrastructure side..."
+    ],
+    agreementPhrases: [
+      "Exactly - that's production-ready.",
+      "Yes! That follows our deployment best practices.",
+      "Perfect - that's exactly how we should handle ops."
+    ],
+    memoryReferences: [
+      "This is like that deployment issue we had with {topic}...",
+      "Similar to how we handled {topic} in production...",
+      "Like that monitoring setup we discussed for {topic}..."
+    ],
+    emotionalReflections: [
+      "I'm concerned about the operational complexity this might introduce.",
+      "We need to think about the on-call burden this could create.",
+      "I want to make sure this doesn't cause production headaches."
     ]
   },
   'data-scientist': {
@@ -108,6 +208,26 @@ export const contextualTriggers: Record<string, ContextualTrigger> = {
       "The data definitely supports {speaker}'s point.",
       "That's consistent with the patterns I've seen.",
       "Great insight, {speaker} - the numbers back that up."
+    ],
+    transitionPhrases: [
+      "Looking at this from a data perspective...",
+      "The analytics suggest...",
+      "From a metrics standpoint..."
+    ],
+    agreementPhrases: [
+      "Yes! The data clearly supports that.",
+      "Exactly - that's what the metrics are telling us.",
+      "Absolutely - the patterns confirm that."
+    ],
+    memoryReferences: [
+      "This matches the patterns we saw in {topic} analysis...",
+      "Like that correlation we discovered in {topic} data...",
+      "Similar to what we found when we analyzed {topic}..."
+    ],
+    emotionalReflections: [
+      "I'm thinking about how this data interpretation might affect user decisions.",
+      "We should consider the human stories behind these data points.",
+      "I want to make sure our analysis doesn't lose sight of the real people involved."
     ]
   },
   'policy-analyst': {
@@ -126,6 +246,26 @@ export const contextualTriggers: Record<string, ContextualTrigger> = {
       "That's a well-thought-out approach, {speaker}.",
       "I agree with {speaker}'s assessment of the situation.",
       "That policy framework could really work."
+    ],
+    transitionPhrases: [
+      "From a policy implementation perspective...",
+      "Looking at the governance implications...",
+      "On the regulatory side..."
+    ],
+    agreementPhrases: [
+      "Exactly - that's sound policy design.",
+      "Yes, that framework would be effective.",
+      "Absolutely - that addresses the key stakeholder concerns."
+    ],
+    memoryReferences: [
+      "This is similar to the {topic} policy we analyzed...",
+      "Like that implementation challenge we faced with {topic}...",
+      "This reminds me of the stakeholder feedback on {topic}..."
+    ],
+    emotionalReflections: [
+      "I'm thinking about how this policy would affect vulnerable populations.",
+      "We need to consider the real-world impact on people's daily lives.",
+      "I'm concerned about potential unintended consequences for disadvantaged groups."
     ]
   },
   'economist': {
@@ -144,6 +284,26 @@ export const contextualTriggers: Record<string, ContextualTrigger> = {
       "The economics of {speaker}'s approach make sense.",
       "That's economically sound reasoning, {speaker}.",
       "The incentive structure {speaker} described would work."
+    ],
+    transitionPhrases: [
+      "From an economic analysis perspective...",
+      "Looking at the market implications...",
+      "Considering the financial dynamics..."
+    ],
+    agreementPhrases: [
+      "Exactly - the economic incentives align perfectly.",
+      "Yes! That's economically efficient.",
+      "Absolutely - the cost-benefit analysis supports that."
+    ],
+    memoryReferences: [
+      "This is like the economic model we used for {topic}...",
+      "Similar to the market analysis we did on {topic}...",
+      "This reminds me of the cost projections for {topic}..."
+    ],
+    emotionalReflections: [
+      "I'm thinking about how these economic changes would affect working families.",
+      "We need to consider the human cost behind these economic projections.",
+      "I'm concerned about the distributional effects on different income groups."
     ]
   },
   'legal-expert': {
@@ -162,6 +322,26 @@ export const contextualTriggers: Record<string, ContextualTrigger> = {
       "That's legally sound, {speaker}.",
       "I agree with {speaker}'s legal assessment.",
       "That approach would meet compliance requirements."
+    ],
+    transitionPhrases: [
+      "From a legal compliance perspective...",
+      "Looking at the regulatory framework...",
+      "On the legal side..."
+    ],
+    agreementPhrases: [
+      "Exactly - that's legally compliant.",
+      "Yes, that meets all regulatory requirements.",
+      "Absolutely - that follows legal precedent."
+    ],
+    memoryReferences: [
+      "This is similar to the {topic} legal framework we reviewed...",
+      "Like that compliance issue we resolved for {topic}...",
+      "This reminds me of the legal precedent in {topic}..."
+    ],
+    emotionalReflections: [
+      "I'm thinking about how this legal framework protects individual rights.",
+      "We need to ensure this doesn't create barriers for vulnerable populations.",
+      "I'm concerned about equal access to justice in this implementation."
     ]
   },
   'philosopher': {
@@ -180,6 +360,26 @@ export const contextualTriggers: Record<string, ContextualTrigger> = {
       "That's ethically sound reasoning, {speaker}.",
       "I appreciate {speaker}'s moral clarity on this.",
       "That philosophical approach is well-grounded."
+    ],
+    transitionPhrases: [
+      "From an ethical perspective...",
+      "Philosophically speaking...",
+      "Looking at the moral dimensions..."
+    ],
+    agreementPhrases: [
+      "Exactly - that's ethically consistent.",
+      "Yes, that's morally sound reasoning.",
+      "Absolutely - that upholds the right principles."
+    ],
+    memoryReferences: [
+      "This connects to our earlier discussion about {topic} ethics...",
+      "Like the moral framework we established for {topic}...",
+      "This builds on the philosophical principles we discussed for {topic}..."
+    ],
+    emotionalReflections: [
+      "I'm deeply concerned about the moral implications for future generations.",
+      "We must consider how this affects human dignity and flourishing.",
+      "I'm thinking about our ethical obligations to those who can't speak for themselves."
     ]
   }
 }; 
