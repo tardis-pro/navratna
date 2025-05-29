@@ -1,0 +1,63 @@
+{
+  "name": "@uaip/middleware",
+  "version": "1.0.0",
+  "description": "Shared middleware for UAIP backend",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@uaip/config": "workspace:*",
+    "@uaip/types": "workspace:*",
+    "@uaip/utils": "workspace:*",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.5.0",
+    "express-validator": "^7.0.1",
+    "jsonwebtoken": "^9.0.2",
+    "prom-client": "^15.1.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/node": "^20.10.5",
+    "rimraf": "^5.0.5",
+    "typescript": "^5.3.3"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./auth": {
+      "import": "./dist/middleware/authMiddleware.js",
+      "require": "./dist/middleware/authMiddleware.js",
+      "types": "./dist/middleware/authMiddleware.d.ts"
+    },
+    "./validation": {
+      "import": "./dist/middleware/validateRequest.js",
+      "require": "./dist/middleware/validateRequest.js",
+      "types": "./dist/middleware/validateRequest.d.ts"
+    },
+    "./errors": {
+      "import": "./dist/middleware/errorHandler.js",
+      "require": "./dist/middleware/errorHandler.js",
+      "types": "./dist/middleware/errorHandler.d.ts"
+    },
+    "./metrics": {
+      "import": "./dist/middleware/metrics.js",
+      "require": "./dist/middleware/metrics.js",
+      "types": "./dist/middleware/metrics.d.ts"
+    },
+    "./rate-limit": {
+      "import": "./dist/middleware/rateLimiter.js",
+      "require": "./dist/middleware/rateLimiter.js",
+      "types": "./dist/middleware/rateLimiter.d.ts"
+    }
+  }
+}
