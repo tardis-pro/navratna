@@ -19,12 +19,12 @@
     "incremental": true,
     "baseUrl": ".",
     "paths": {
-      "@uaip/types": ["../types/src/index.ts"],
-      "@uaip/types/*": ["../types/src/*"],
-      "@uaip/utils": ["../utils/index.ts"],
-      "@uaip/utils/*": ["../utils/*"],
-      "@uaip/config": ["../config/index.ts"],
-      "@uaip/config/*": ["../config/*"]
+      "@uaip/types": ["../types/dist/index.d.ts"],
+      "@uaip/types/*": ["../types/dist/*"],
+      "@uaip/utils": ["../utils/dist/index.d.ts"],
+      "@uaip/utils/*": ["../utils/dist/*"],
+      "@uaip/config": ["../config/dist/index.d.ts"],
+      "@uaip/config/*": ["../config/dist/*"]
     }
   },
   "include": [

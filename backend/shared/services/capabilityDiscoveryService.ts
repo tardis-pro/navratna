@@ -4,7 +4,7 @@ import {
   Capability, 
   CapabilitySearchQuery, 
   CapabilitySearchResult 
-} from '../types/src/capability.js';
+} from '@uaip/types';
 
 export class CapabilityDiscoveryService {
   private databaseService: DatabaseService;

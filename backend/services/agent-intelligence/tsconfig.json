@@ -23,11 +23,11 @@
       "@/types": ["types/*"],
       "@/controllers": ["controllers/*"],
       "@/routes": ["routes/*"],
-      "@uaip/types/*": ["../../shared/types/src/*"],
-      "@uaip/utils/*": ["../../shared/utils/*"],
-      "@uaip/shared-services/*": ["../../shared/services/*"],
-      "@uaip/config/*": ["../../shared/config/*"],
-      "@uaip/middleware/*": ["../../shared/middleware/*"]
+      "@uaip/types/*": ["../../shared/types/dist/*"],
+      "@uaip/utils/*": ["../../shared/utils/dist/*"],
+      "@uaip/shared-services/*": ["../../shared/services/dist/*"],
+      "@uaip/config/*": ["../../shared/config/dist/*"],
+      "@uaip/middleware/*": ["../../shared/middleware/dist/*"]
     }
   },
   "include": ["src/**/*"],

@@ -90,7 +90,7 @@ export class SecurityValidationService {
         riskLevel: this.convertRiskLevelToSecurityLevel(riskAssessment.overallRisk),
         approvalRequired,
         conditions,
-        reasoning: riskAssessment.factors.map(f => f.description).join('; ')
+        reasoning: riskAssessment.factors.map((f: RiskFactor) => f.description).join('; ')
       };
 
     } catch (error) {
@@ -140,7 +140,7 @@ export class SecurityValidationService {
 
       // Determine if approval is required
       const requiresApproval = overallRisk === RiskLevel.HIGH || 
-        riskFactors.some(f => f.type === 'security_sensitive');
+        riskFactors.some((f: RiskFactor) => f.type === 'security_sensitive');
 
       // Generate mitigation recommendations
       const recommendedMitigations = this.generateMitigations(riskFactors, plan);

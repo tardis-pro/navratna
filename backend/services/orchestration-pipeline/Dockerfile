@@ -10,6 +10,7 @@ WORKDIR /app
 COPY pnpm-workspace.yaml ./
 COPY package.json ./
 COPY pnpm-lock.yaml ./
+COPY tsconfig.json ./
 
 # Copy shared dependencies
 COPY shared/ ./shared/
@@ -19,6 +20,13 @@ COPY services/orchestration-pipeline/package.json ./services/orchestration-pipel
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile
+
+# Build shared packages first in correct dependency order
+RUN pnpm --filter "@uaip/types" build
+RUN pnpm --filter "@uaip/utils" build  
+RUN pnpm --filter "@uaip/config" build
+RUN pnpm --filter "@uaip/shared-services" build
+RUN pnpm --filter "@uaip/middleware" build
 
 # Copy source code
 COPY services/orchestration-pipeline/ ./services/orchestration-pipeline/
@@ -42,6 +50,7 @@ WORKDIR /app
 COPY pnpm-workspace.yaml ./
 COPY package.json ./
 COPY pnpm-lock.yaml ./
+COPY tsconfig.json ./
 
 # Copy shared dependencies
 COPY shared/ ./shared/

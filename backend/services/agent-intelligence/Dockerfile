@@ -10,6 +10,7 @@ WORKDIR /app
 COPY pnpm-workspace.yaml ./
 COPY package.json ./
 COPY pnpm-lock.yaml ./
+COPY tsconfig.json ./
 
 # Copy shared dependencies
 COPY shared/ ./shared/
@@ -19,6 +20,13 @@ COPY services/agent-intelligence/package.json ./services/agent-intelligence/
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile
+
+# Build shared packages first
+RUN pnpm --filter "@uaip/types" build
+RUN pnpm --filter "@uaip/utils" build
+RUN pnpm --filter "@uaip/config" build
+RUN pnpm --filter "@uaip/shared-services" build
+RUN pnpm --filter "@uaip/middleware" build
 
 # Copy source code
 COPY services/agent-intelligence/ ./services/agent-intelligence/
@@ -39,6 +47,7 @@ WORKDIR /app
 COPY pnpm-workspace.yaml ./
 COPY package.json ./
 COPY pnpm-lock.yaml ./
+COPY tsconfig.json ./
 
 # Copy shared dependencies
 COPY shared/ ./shared/

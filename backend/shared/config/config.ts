@@ -95,24 +95,91 @@ export interface Config {
   getStateConfig(): StateConfig;
 }
 console.log(process.env);
-// Default configuration
-const defaultConfig: Config = {
-  database: {
-    postgres: {
+
+// Parse POSTGRES_URL if provided
+function parsePostgresUrl(url?: string) {
+  if (!url) {
+    return {
       host: process.env.DB_HOST || 'localhost',
       port: parseInt(process.env.DB_PORT || '5432'),
       user: process.env.DB_USER || 'postgres',
       password: process.env.DB_PASSWORD || 'password',
-      database: process.env.DB_NAME || 'council_nycea',
+      database: process.env.DB_NAME || 'council_nycea'
+    };
+  }
+
+  try {
+    const parsed = new URL(url);
+    return {
+      host: parsed.hostname,
+      port: parseInt(parsed.port) || 5432,
+      user: parsed.username,
+      password: parsed.password,
+      database: parsed.pathname.slice(1) // Remove leading slash
+    };
+  } catch (error) {
+    console.error('Failed to parse POSTGRES_URL:', error);
+    return {
+      host: 'localhost',
+      port: 5432,
+      user: 'postgres',
+      password: 'password',
+      database: 'council_nycea'
+    };
+  }
+}
+
+// Parse REDIS_URL if provided
+function parseRedisUrl(url?: string) {
+  if (!url) {
+    return {
+      host: process.env.REDIS_HOST || 'localhost',
+      port: parseInt(process.env.REDIS_PORT || '6379'),
+      password: process.env.REDIS_PASSWORD,
+      db: parseInt(process.env.REDIS_DB || '0')
+    };
+  }
+
+  try {
+    const parsed = new URL(url);
+    return {
+      host: parsed.hostname,
+      port: parseInt(parsed.port) || 6379,
+      password: parsed.password || undefined,
+      db: parsed.pathname ? parseInt(parsed.pathname.slice(1)) || 0 : 0
+    };
+  } catch (error) {
+    console.error('Failed to parse REDIS_URL:', error);
+    return {
+      host: 'localhost',
+      port: 6379,
+      password: undefined,
+      db: 0
+    };
+  }
+}
+
+const postgresConfig = parsePostgresUrl(process.env.POSTGRES_URL);
+const redisConfig = parseRedisUrl(process.env.REDIS_URL);
+
+// Default configuration
+const defaultConfig: Config = {
+  database: {
+    postgres: {
+      host: postgresConfig.host,
+      port: postgresConfig.port,
+      user: postgresConfig.user,
+      password: postgresConfig.password,
+      database: postgresConfig.database,
       ssl: process.env.DB_SSL === 'true',
       maxConnections: parseInt(process.env.DB_MAX_CONNECTIONS || '20')
     }
   },
   redis: {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT || '6379'),
-    password: process.env.REDIS_PASSWORD,
-    db: parseInt(process.env.REDIS_DB || '0'),
+    host: redisConfig.host,
+    port: redisConfig.port,
+    password: redisConfig.password,
+    db: redisConfig.db,
     maxRetriesPerRequest: parseInt(process.env.REDIS_MAX_RETRIES || '3'),
     retryDelayOnFailover: parseInt(process.env.REDIS_RETRY_DELAY || '100'),
     enableOfflineQueue: process.env.REDIS_OFFLINE_QUEUE !== 'false'

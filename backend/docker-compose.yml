@@ -1,9 +1,9 @@
-version: '3.8'
+# version: '3.8'  # Removed obsolete version field
 
 services:
   # Database Services
   postgres:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     container_name: uaip-postgres
     environment:
       POSTGRES_DB: uaip
@@ -82,7 +82,7 @@ services:
     networks:
       - uaip-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      test: ["CMD-SHELL", "timeout 5s bash -c '</dev/tcp/localhost/6333'"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -138,9 +138,6 @@ services:
         condition: service_healthy
     networks:
       - uaip-network
-    volumes:
-      - ./services/agent-intelligence:/app
-      - /app/node_modules
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
       interval: 30s
@@ -174,9 +171,6 @@ services:
         condition: service_healthy
     networks:
       - uaip-network
-    volumes:
-      - ./services/orchestration-pipeline:/app
-      - /app/node_modules
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
       interval: 30s
@@ -213,60 +207,58 @@ services:
         condition: service_healthy
     networks:
       - uaip-network
-    volumes:
-      - ./services/capability-registry:/app
-      - /app/node_modules
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
       interval: 30s
       timeout: 10s
       retries: 3
 
-  security-gateway:
-    build:
-      context: .
-      dockerfile: services/security-gateway/Dockerfile
-    container_name: uaip-security-gateway
-    environment:
-      - NODE_ENV=development
-      - PORT=3004
-      - POSTGRES_URL=postgresql://uaip_user:uaip_dev_password@postgres:5432/uaip
-      - REDIS_URL=redis://redis:6379
-      - RABBITMQ_URL=amqp://uaip_user:uaip_dev_password@rabbitmq:5672
-      - JWT_SECRET=uaip_dev_jwt_secret_key_change_in_production
-    ports:
-      - "3004:3004"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - uaip-network
-    volumes:
-      - ./services/security-gateway:/app
-      - /app/node_modules
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3004/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+  # TODO: Uncomment when security-gateway service is implemented
+  # security-gateway:
+  #   build:
+  #     context: .
+  #     dockerfile: services/security-gateway/Dockerfile
+  #   container_name: uaip-security-gateway
+  #   environment:
+  #     - NODE_ENV=development
+  #     - PORT=3004
+  #     - POSTGRES_URL=postgresql://uaip_user:uaip_dev_password@postgres:5432/uaip
+  #     - REDIS_URL=redis://redis:6379
+  #     - RABBITMQ_URL=amqp://uaip_user:uaip_dev_password@rabbitmq:5672
+  #     - JWT_SECRET=uaip_dev_jwt_secret_key_change_in_production
+  #   ports:
+  #     - "3004:3004"
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #     rabbitmq:
+  #       condition: service_healthy
+  #   networks:
+  #     - uaip-network
+  #   volumes:
+  #     - ./services/security-gateway:/app
+  #     - /app/node_modules
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:3004/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
 
   # API Gateway (Nginx as reverse proxy)
   api-gateway:
     image: nginx:alpine
     container_name: uaip-api-gateway
     ports:
-      - "8080:80"
+      - "8081:80"
     volumes:
       - ./api-gateway/nginx.conf:/etc/nginx/nginx.conf
     depends_on:
       - agent-intelligence
       - orchestration-pipeline
       - capability-registry
-      - security-gateway
+      # - security-gateway  # Commented out until implemented
     networks:
       - uaip-network
     healthcheck:
