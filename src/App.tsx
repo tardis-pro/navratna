@@ -7,6 +7,7 @@ import { DiscussionLog } from './components/DiscussionLog';
 import { AgentSelector } from './components/AgentSelector';
 import { DiscussionControls } from './components/DiscussionControls';
 import { UAIPDashboard } from './components/UAIPDashboard';
+import { BackendStatusIndicator } from './components/BackendStatusIndicator';
 import { BoltIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
 import './App.css';
 
@@ -88,11 +89,8 @@ function App() {
                       </button>
                     </div>
                     
-                    {/* Status indicator */}
-                    <div className="flex items-center space-x-3 px-5 py-3 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-full border border-green-200 dark:border-green-800">
-                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                      <span className="text-sm font-semibold text-green-700 dark:text-green-300">System Online</span>
-                    </div>
+                    {/* Dynamic Backend Status Indicator */}
+                    <BackendStatusIndicator />
                   </div>
                 </div>
               </div>

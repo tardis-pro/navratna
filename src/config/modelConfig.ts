@@ -5,7 +5,7 @@ export const modelServiceConfig: ServiceConfig = {
   llmStudio: {
     baseUrls: [
       'http://localhost:1234',
-      'http://192.168.1.216:1234',
+      'http://192.168.1.2:1234',
       // Add more LM Studio instances here
       // 'http://192.168.1.100:1234',
       // 'http://server2:1234',
