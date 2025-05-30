@@ -1,0 +1,167 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Monorepo TypeScript Guide
+
+## Key Principles - NEVER FORGET THESE:
+
+1. **This is a MONOREPO** - always use workspace-based imports, never relative paths across packages
+2. **TypeScript Project References** - each package references others via tsconfig project references
+3. **Path mappings** - use `@shared/*` or similar for shared packages, `@/` for local files
+4. **Build order matters** - shared packages must be built before packages that depend on them
+
+## Monorepo Structure:
+```
+backend/
+├── shared/
+│   ├── types/
+│   ├── utils/
+│   ├── services/
+│   └── config/
+└── services/
+    ├── orchestration-pipeline/
+    └── agent-intelligence/
+```
+
+## Correct Import Patterns:
+
+### ✅ CORRECT (Monorepo-style):
+```typescript
+// From orchestration-pipeline importing shared packages
+import { Operation } from '@shared/types/operation';
+import { logger } from '@shared/utils/logger';
+import { DatabaseService } from '@shared/services/databaseService';
+
+// Local imports within orchestration-pipeline
+import { config } from '@/config/config';
+```
+
+### ❌ WRONG (Relative paths across packages):
+```typescript
+// NEVER DO THIS IN A MONOREPO
+import { Operation } from '../../../shared/types/src/operation';
+import { logger } from '../../../shared/utils/src/logger';
+```
+
+## Required tsconfig.json Setup:
+
+### Service-level tsconfig.json:
+```json
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": "./src",
+    "paths": {
+      "@/*": ["*"],
+      "@shared/types/*": ["../../shared/types/src/*"],
+      "@shared/utils/*": ["../../shared/utils/src/*"],
+      "@shared/services/*": ["../../shared/services/src/*"]
+    }
+  },
+  "references": [
+    { "path": "../../shared/types" },
+    { "path": "../../shared/utils" },
+    { "path": "../../shared/services" }
+  ]
+}
+```
+
+## Troubleshooting Steps:
+1. Check if shared packages have tsconfig.json files
+2. Verify shared packages can be built (`npm run build` in shared dirs)
+3. Ensure path mappings point to correct directories (check if files are in `src/` or root)
+4. Build shared packages before dependent packages
+5. Use `tsc --traceResolution` to debug import resolution
+
+## Build Order:
+1. Shared packages first: `npm run build:shared`
+2. Service packages second: `npm run build:services`
+
+## Remember: 
+- **ALWAYS** use monorepo imports, not relative paths
+- **ALWAYS** check if shared packages need to be built first
+- **ALWAYS** use proper path mappings in tsconfig.json 
+
+# UAIP Backend Monorepo Restructure Plan
+
+## Current Issues Identified
+
+1. **Duplicate Services**: Agent-intelligence has local services that exist in shared/services
+2. **Incorrect Imports**: Mixing local and shared imports incorrectly
+3. **TypeScript Configuration**: Poor project references and path mapping
+4. **Dependency Duplication**: Package dependencies spread across services unnecessarily
+5. **Build Order**: No proper dependency chain for incremental builds
+
+## Target Architecture
+
+```
+uaip-backend/
+├── shared/
+│   ├── types/                 # @uaip/types package
+│   ├── services/             # @uaip/shared-services package  
+│   ├── middleware/           # @uaip/middleware package
+│   ├── utils/               # @uaip/utils package
+│   └── config/              # @uaip/config package
+├── services/
+│   ├── agent-intelligence/   # @uaip/agent-intelligence
+│   ├── orchestration-pipeline/ # @uaip/orchestration-pipeline
+│   ├── capability-registry/  # @uaip/capability-registry
+│   └── security-gateway/     # @uaip/security-gateway
+└── api-gateway/             # @uaip/api-gateway
+```
+
+## Implementation Steps
+
+### Phase 1: Fix Shared Package Structure
+
+1. **Update shared/types package.json**
+   - Ensure proper workspace configuration
+   - Set up build scripts
+
+2. **Create shared packages for services, middleware, utils**
+   - Each as separate workspace package
+   - Proper dependencies and exports
+
+3. **Update TypeScript configurations**
+   - Root tsconfig with proper project references
+   - Shared packages with composite builds
+   - Services referencing shared packages
+
+### Phase 2: Fix Agent Intelligence Service
+
+1. **Remove duplicate services**
+   - Delete local services that exist in shared/
+   - Update imports to use shared packages
+
+2. **Fix TypeScript configuration**
+   - Update tsconfig to reference shared packages
+   - Fix path mapping
+   - Enable project references
+
+3. **Update package.json**
+   - Remove duplicate dependencies
+   - Add workspace references to shared packages
+   - Update build scripts
+
+### Phase 3: Verify and Test
+
+1. **Build verification**
+   - Ensure incremental builds work
+   - Test service isolation
+   - Verify proper imports
+
+2. **Runtime testing**
+   - Test service startup
+   - Verify shared service integration
+   - Check logging and middleware
+
+## Benefits
+
+- **DRY Principle**: No code duplication across services
+- **Type Safety**: Proper TypeScript project references
+- **Build Efficiency**: Incremental builds with dependency caching
+- **Service Isolation**: Each service can run independently
+- **Maintainability**: Centralized shared components
+- **Scalability**: Easy to add new services 

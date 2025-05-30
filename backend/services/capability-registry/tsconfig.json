@@ -1,0 +1,26 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "baseUrl": "./src",
+    "paths": {
+      "@/*": ["*"],
+      "@uaip/types/*": ["../../shared/types/dist/*"],
+      "@uaip/utils/*": ["../../shared/utils/dist/*"],
+      "@uaip/shared-services/*": ["../../shared/services/dist/*"],
+      "@uaip/config/*": ["../../shared/config/dist/*"],
+      "@uaip/middleware/*": ["../../shared/middleware/dist/*"]
+    }
+  },
+  "references": [
+    { "path": "../../shared/types" },
+    { "path": "../../shared/utils" },
+    { "path": "../../shared/services" },
+    { "path": "../../shared/config" },
+    { "path": "../../shared/middleware" }
+  ],
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
+} 

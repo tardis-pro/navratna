@@ -1,0 +1,325 @@
+version: '3.8'
+
+services:
+  # Database Services
+  postgres:
+    image: postgres:15-alpine
+    container_name: uaip-postgres
+    environment:
+      POSTGRES_DB: uaip
+      POSTGRES_USER: uaip_user
+      POSTGRES_PASSWORD: uaip_dev_password
+      POSTGRES_MULTIPLE_DATABASES: uaip,uaip_test
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/database/init:/docker-entrypoint-initdb.d
+    networks:
+      - uaip-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U uaip_user -d uaip"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  neo4j:
+    image: neo4j:5.15-community
+    container_name: uaip-neo4j
+    environment:
+      NEO4J_AUTH: neo4j/uaip_dev_password
+      NEO4J_PLUGINS: '["apoc", "graph-data-science"]'
+      NEO4J_apoc_export_file_enabled: true
+      NEO4J_apoc_import_file_enabled: true
+      NEO4J_apoc_import_file_use__neo4j__config: true
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*,gds.*
+      NEO4J_dbms_memory_heap_initial__size: 512m
+      NEO4J_dbms_memory_heap_max__size: 1G
+    ports:
+      - "7474:7474"  # HTTP
+      - "7687:7687"  # Bolt
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+      - neo4j_import:/var/lib/neo4j/import
+      - neo4j_plugins:/plugins
+      - ./backend/database/neo4j/init:/docker-entrypoint-initdb.d
+    networks:
+      - uaip-network
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "uaip_dev_password", "RETURN 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: uaip-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - uaip-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Embedding Engine (Qdrant for vector storage)
+  qdrant:
+    image: qdrant/qdrant:v1.7.4
+    container_name: uaip-qdrant
+    ports:
+      - "6333:6333"  # HTTP API
+      - "6334:6334"  # gRPC API
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__HTTP_PORT: 6333
+      QDRANT__SERVICE__GRPC_PORT: 6334
+    networks:
+      - uaip-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Message Queue
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: uaip-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: uaip_user
+      RABBITMQ_DEFAULT_PASS: uaip_dev_password
+    ports:
+      - "5672:5672"   # AMQP
+      - "15672:15672" # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - uaip-network
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 30s
+      retries: 3
+
+  # Core Backend Services
+  agent-intelligence:
+    build:
+      context: ./backend
+      dockerfile: services/agent-intelligence/Dockerfile
+    container_name: uaip-agent-intelligence
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - POSTGRES_URL=postgresql://uaip_user:uaip_dev_password@postgres:5432/uaip
+      - NEO4J_URL=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=uaip_dev_password
+      - REDIS_URL=redis://redis:6379
+      - QDRANT_URL=http://qdrant:6333
+      - RABBITMQ_URL=amqp://uaip_user:uaip_dev_password@rabbitmq:5672
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - uaip-network
+    volumes:
+      - ./backend/services/agent-intelligence:/app
+      - /app/node_modules
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  orchestration-pipeline:
+    build:
+      context: ./backend
+      dockerfile: services/orchestration-pipeline/Dockerfile
+    container_name: uaip-orchestration
+    environment:
+      - NODE_ENV=development
+      - PORT=3002
+      - POSTGRES_URL=postgresql://uaip_user:uaip_dev_password@postgres:5432/uaip
+      - NEO4J_URL=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=uaip_dev_password
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://uaip_user:uaip_dev_password@rabbitmq:5672
+    ports:
+      - "3002:3002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - uaip-network
+    volumes:
+      - ./backend/services/orchestration-pipeline:/app
+      - /app/node_modules
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  capability-registry:
+    build:
+      context: ./backend
+      dockerfile: services/capability-registry/Dockerfile
+    container_name: uaip-capability-registry
+    environment:
+      - NODE_ENV=development
+      - PORT=3003
+      - POSTGRES_URL=postgresql://uaip_user:uaip_dev_password@postgres:5432/uaip
+      - NEO4J_URL=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=uaip_dev_password
+      - REDIS_URL=redis://redis:6379
+      - QDRANT_URL=http://qdrant:6333
+      - RABBITMQ_URL=amqp://uaip_user:uaip_dev_password@rabbitmq:5672
+    ports:
+      - "3003:3003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - uaip-network
+    volumes:
+      - ./backend/services/capability-registry:/app
+      - /app/node_modules
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  security-gateway:
+    build:
+      context: ./backend
+      dockerfile: services/security-gateway/Dockerfile
+    container_name: uaip-security-gateway
+    environment:
+      - NODE_ENV=development
+      - PORT=3004
+      - POSTGRES_URL=postgresql://uaip_user:uaip_dev_password@postgres:5432/uaip
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://uaip_user:uaip_dev_password@rabbitmq:5672
+      - JWT_SECRET=uaip_dev_jwt_secret_key_change_in_production
+    ports:
+      - "3004:3004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - uaip-network
+    volumes:
+      - ./backend/services/security-gateway:/app
+      - /app/node_modules
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # API Gateway (Nginx as reverse proxy)
+  api-gateway:
+    image: nginx:alpine
+    container_name: uaip-api-gateway
+    ports:
+      - "8080:80"
+    volumes:
+      - ./backend/api-gateway/nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - agent-intelligence
+      - orchestration-pipeline
+      - capability-registry
+      - security-gateway
+    networks:
+      - uaip-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Monitoring Stack
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: uaip-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./backend/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    networks:
+      - uaip-network
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: uaip-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./backend/monitoring/grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    networks:
+      - uaip-network
+    depends_on:
+      - prometheus
+
+volumes:
+  postgres_data:
+  neo4j_data:
+  neo4j_logs:
+  neo4j_import:
+  neo4j_plugins:
+  redis_data:
+  qdrant_data:
+  rabbitmq_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  uaip-network:
+    driver: bridge 
