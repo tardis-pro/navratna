@@ -1,79 +1,58 @@
-# Model Service Configuration
+# Frontend API Configuration
 
-This directory contains configuration for connecting to multiple LM Studio and Ollama instances.
+This directory contains the API configuration for the UAIP frontend application.
 
-## Configuration Options
+## Environment Variables
 
-### Static Configuration
-
-Edit `modelConfig.ts` to add base URLs directly:
-
-```typescript
-export const modelServiceConfig: ServiceConfig = {
-  llmStudio: {
-    baseUrls: [
-      'http://localhost:1234',
-      'http://192.168.1.100:1234',
-      'http://server2:1234',
-    ],
-    // ... other options
-  },
-  ollama: {
-    baseUrls: [
-      'http://192.168.1.3:11434',
-      'http://localhost:11434',
-      'http://192.168.1.101:11434',
-    ],
-    // ... other options
-  }
-};
-```
-
-### Environment Variables
-
-You can also configure base URLs using environment variables:
+The frontend uses Vite environment variables. Create a `.env.local` file in the project root to override defaults:
 
 ```bash
-# LM Studio instances (comma-separated)
-VITE_LLM_STUDIO_URLS=http://localhost:1234,http://192.168.1.100:1234,http://server2:1234
+# API Base URL (leave empty to use Vite proxy - recommended for development)
+VITE_API_BASE_URL=
 
-# Ollama instances (comma-separated)
-VITE_OLLAMA_URLS=http://192.168.1.3:11434,http://localhost:11434,http://192.168.1.101:11434
+# Individual service URLs (optional - only needed if not using proxy)
+VITE_AGENT_SERVICE_URL=http://localhost:3001
+VITE_CAPABILITY_SERVICE_URL=http://localhost:3003
+VITE_ORCHESTRATION_SERVICE_URL=http://localhost:3002
 ```
 
-### Example Configurations
+## Configuration Modes
 
-#### Development (Local Only)
-```bash
-VITE_LLM_STUDIO_URLS=http://localhost:1234
-VITE_OLLAMA_URLS=http://localhost:11434
-```
+### Development with Proxy (Default - Recommended)
+- Set `VITE_API_BASE_URL=` (empty string)
+- All API calls go through Vite proxy to avoid CORS
+- Proxy forwards to API Gateway at `localhost:8081`
 
-#### Production (Multiple Servers)
-```bash
-VITE_LLM_STUDIO_URLS=http://llm-server1:1234,http://llm-server2:1234
-VITE_OLLAMA_URLS=http://ollama-server1:11434,http://ollama-server2:11434
-```
+### Development without Proxy
+- Set `VITE_API_BASE_URL=http://localhost:8081`
+- Direct calls to API Gateway
+- Requires proper CORS configuration on backend
 
-## Features
+### Production
+- Set `VITE_API_BASE_URL=https://your-api-domain.com`
+- Or leave empty to use same origin as frontend
 
-- **Multiple Base URLs**: Connect to multiple instances of each service type
-- **Automatic Discovery**: Models from all configured instances are automatically discovered
-- **Error Resilience**: Failed connections to individual instances don't prevent others from working
-- **Source Tracking**: Models are grouped by their source instance in the UI
-- **Conflict Resolution**: Model IDs are prefixed with base URL to avoid naming conflicts
+## Files
+
+- `apiConfig.ts` - Main configuration file with environment detection
+- `README.md` - This documentation file
 
 ## Usage
 
-The configuration is automatically loaded when calling `getModels()`:
-
 ```typescript
-import { getModels } from '@/components/ModelSelector';
+import { uaipAPI } from '@/services/uaip-api';
 
-// Uses default configuration
-const models = await getModels();
+// Check backend availability
+const isAvailable = await uaipAPI.isBackendAvailable();
 
-// Or provide custom configuration
-const customConfig = { /* ... */ };
-const models = await getModels(customConfig);
-``` 
+// Get environment info
+const envInfo = uaipAPI.getEnvironmentInfo();
+console.log('Proxy enabled:', envInfo.proxyEnabled);
+console.log('Base URL:', envInfo.baseURL);
+```
+
+## Troubleshooting
+
+1. **CORS Errors**: Use proxy mode (default) or ensure backend has proper CORS headers
+2. **Connection Refused**: Check if backend services are running
+3. **Environment Variables**: Ensure they start with `VITE_` prefix for Vite to include them 

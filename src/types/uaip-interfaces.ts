@@ -19,7 +19,7 @@ export type {
   ExecuteOperationRequest,
   APIResponse,
   HealthStatus
-} from '../../backend/api';
+} from '../services/api';
 
 // Enhanced frontend-specific interfaces
 export interface EnhancedAgentState {
