@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
-import { Persona, DEFAULT_PERSONAS } from '../types/persona';
+import { Persona } from '../types/persona';
+import { allPersonas } from '../data/personas';
 
 interface UsePersonaReturn {
   availablePersonas: Persona[];
@@ -14,19 +15,25 @@ export function usePersona(): UsePersonaReturn {
   const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const allPersonas = {
-    ...DEFAULT_PERSONAS,
+  // Flatten all default personas into a single object
+  const defaultPersonas = Object.values(allPersonas).flat().reduce((acc, persona) => {
+    acc[persona.id] = persona;
+    return acc;
+  }, {} as Record<string, Persona>);
+
+  const allAvailablePersonas = {
+    ...defaultPersonas,
     ...customPersonas
   };
 
   const selectPersona = useCallback((personaId: string) => {
-    if (allPersonas[personaId]) {
+    if (allAvailablePersonas[personaId]) {
       setSelectedPersonaId(personaId);
       setError(null);
     } else {
       setError(`Persona with ID ${personaId} not found`);
     }
-  }, [allPersonas]);
+  }, [allAvailablePersonas]);
 
   const loadCustomPersona = useCallback((persona: Persona) => {
     if (!persona.id || !persona.name || !persona.role) {
@@ -42,8 +49,8 @@ export function usePersona(): UsePersonaReturn {
   }, []);
 
   return {
-    availablePersonas: Object.values(allPersonas),
-    selectedPersona: selectedPersonaId ? allPersonas[selectedPersonaId] : null,
+    availablePersonas: Object.values(allAvailablePersonas),
+    selectedPersona: selectedPersonaId ? allAvailablePersonas[selectedPersonaId] : null,
     selectPersona,
     loadCustomPersona,
     error

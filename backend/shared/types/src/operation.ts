@@ -2,12 +2,18 @@ import { z } from 'zod';
 import { BaseEntitySchema, UUIDSchema } from './common';
 import { ExecutionPlanSchema } from './agent';
 
-// Operation types
+// Operation types - EXTENDED for discussions
 export enum OperationType {
   TOOL_EXECUTION = 'tool_execution',
   ARTIFACT_GENERATION = 'artifact_generation',
   HYBRID_WORKFLOW = 'hybrid_workflow',
-  ANALYSIS = 'analysis'
+  ANALYSIS = 'analysis',
+  // New discussion-related operations
+  DISCUSSION_ORCHESTRATION = 'discussion_orchestration',
+  PERSONA_INTELLIGENCE = 'persona_intelligence',
+  DISCUSSION_ANALYSIS = 'discussion_analysis',
+  TURN_MANAGEMENT = 'turn_management',
+  CONSENSUS_BUILDING = 'consensus_building'
 }
 
 export enum OperationStatus {
@@ -466,4 +472,287 @@ export const StepExecutionResultSchema = z.object({
   metadata: z.record(z.any()).optional()
 });
 
-export type StepExecutionResult = z.infer<typeof StepExecutionResultSchema>; 
+export type StepExecutionResult = z.infer<typeof StepExecutionResultSchema>;
+
+// ===== DISCUSSION-SPECIFIC OPERATION EXTENSIONS =====
+
+// Discussion operation context
+export const DiscussionOperationContextSchema = ExecutionContextSchema.extend({
+  discussionId: UUIDSchema,
+  participantIds: z.array(UUIDSchema),
+  turnStrategy: z.string(),
+  moderatorId: UUIDSchema.optional(),
+  discussionSettings: z.record(z.any()).optional()
+});
+
+export type DiscussionOperationContext = z.infer<typeof DiscussionOperationContextSchema>;
+
+// Discussion orchestration step types
+export enum DiscussionStepType {
+  INITIALIZE_DISCUSSION = 'initialize_discussion',
+  ADD_PARTICIPANT = 'add_participant',
+  REMOVE_PARTICIPANT = 'remove_participant',
+  SEND_MESSAGE = 'send_message',
+  ADVANCE_TURN = 'advance_turn',
+  MODERATE_CONTENT = 'moderate_content',
+  ANALYZE_SENTIMENT = 'analyze_sentiment',
+  BUILD_CONSENSUS = 'build_consensus',
+  GENERATE_SUMMARY = 'generate_summary',
+  END_DISCUSSION = 'end_discussion'
+}
+
+// Discussion operation step
+export const DiscussionOperationStepSchema = ExecutionStepSchema.extend({
+  type: z.nativeEnum(DiscussionStepType),
+  discussionContext: z.object({
+    discussionId: UUIDSchema,
+    participantId: UUIDSchema.optional(),
+    messageId: UUIDSchema.optional(),
+    turnNumber: z.number().min(0).optional(),
+    expectedOutcome: z.string().optional()
+  }).optional(),
+  discussionInput: z.object({
+    content: z.string().optional(),
+    messageType: z.string().optional(),
+    targetParticipants: z.array(UUIDSchema).optional(),
+    moderationRules: z.array(z.string()).optional(),
+    analysisType: z.string().optional()
+  }).optional(),
+  discussionOutput: z.object({
+    messageId: UUIDSchema.optional(),
+    sentimentScore: z.number().min(-1).max(1).optional(),
+    consensusLevel: z.number().min(0).max(1).optional(),
+    moderationResult: z.object({
+      approved: z.boolean(),
+      reason: z.string().optional(),
+      suggestedChanges: z.array(z.string()).optional()
+    }).optional(),
+    summaryData: z.object({
+      keyPoints: z.array(z.string()),
+      decisions: z.array(z.string()),
+      actionItems: z.array(z.string())
+    }).optional()
+  }).optional()
+});
+
+export type DiscussionOperationStep = z.infer<typeof DiscussionOperationStepSchema>;
+
+// Persona intelligence operation
+export const PersonaIntelligenceOperationSchema = OperationSchema.extend({
+  type: z.literal(OperationType.PERSONA_INTELLIGENCE),
+  personaContext: z.object({
+    personaId: UUIDSchema,
+    analysisType: z.enum(['compatibility', 'recommendation', 'optimization', 'validation']),
+    targetContext: z.string().optional(),
+    comparisonPersonas: z.array(UUIDSchema).optional(),
+    optimizationGoals: z.array(z.string()).optional()
+  }),
+  intelligenceResults: z.object({
+    compatibilityScore: z.number().min(0).max(1).optional(),
+    recommendations: z.array(z.object({
+      type: z.string(),
+      suggestion: z.string(),
+      confidence: z.number().min(0).max(1),
+      impact: z.enum(['low', 'medium', 'high'])
+    })).optional(),
+    optimizations: z.array(z.object({
+      field: z.string(),
+      currentValue: z.any(),
+      suggestedValue: z.any(),
+      reason: z.string()
+    })).optional(),
+    validationResults: z.object({
+      isValid: z.boolean(),
+      issues: z.array(z.string()),
+      suggestions: z.array(z.string())
+    }).optional()
+  }).optional()
+});
+
+export type PersonaIntelligenceOperation = z.infer<typeof PersonaIntelligenceOperationSchema>;
+
+// Discussion analysis operation
+export const DiscussionAnalysisOperationSchema = OperationSchema.extend({
+  type: z.literal(OperationType.DISCUSSION_ANALYSIS),
+  analysisContext: z.object({
+    discussionId: UUIDSchema,
+    analysisType: z.enum(['sentiment', 'engagement', 'consensus', 'quality', 'comprehensive']),
+    timeframe: z.object({
+      start: z.date(),
+      end: z.date()
+    }).optional(),
+    participants: z.array(UUIDSchema).optional(),
+    metrics: z.array(z.string()).optional()
+  }),
+  analysisResults: z.object({
+    sentimentAnalysis: z.object({
+      overallSentiment: z.enum(['positive', 'neutral', 'negative', 'mixed']),
+      sentimentProgression: z.array(z.object({
+        timestamp: z.date(),
+        sentiment: z.number().min(-1).max(1),
+        confidence: z.number().min(0).max(1)
+      })),
+      participantSentiments: z.record(z.number())
+    }).optional(),
+    engagementAnalysis: z.object({
+      overallEngagement: z.number().min(0).max(100),
+      participationBalance: z.number().min(0).max(1),
+      messageFrequency: z.array(z.object({
+        timestamp: z.date(),
+        count: z.number()
+      })),
+      dominanceIndex: z.number().min(0).max(1)
+    }).optional(),
+    consensusAnalysis: z.object({
+      consensusLevel: z.number().min(0).max(1),
+      agreementPoints: z.array(z.string()),
+      disagreementPoints: z.array(z.string()),
+      convergenceRate: z.number()
+    }).optional(),
+    qualityAnalysis: z.object({
+      coherenceScore: z.number().min(0).max(100),
+      relevanceScore: z.number().min(0).max(100),
+      productivityScore: z.number().min(0).max(100),
+      insightfulness: z.number().min(0).max(100)
+    }).optional()
+  }).optional()
+});
+
+export type DiscussionAnalysisOperation = z.infer<typeof DiscussionAnalysisOperationSchema>;
+
+// Turn management operation
+export const TurnManagementOperationSchema = OperationSchema.extend({
+  type: z.literal(OperationType.TURN_MANAGEMENT),
+  turnContext: z.object({
+    discussionId: UUIDSchema,
+    currentParticipantId: UUIDSchema.optional(),
+    turnStrategy: z.string(),
+    turnNumber: z.number().min(0),
+    expectedDuration: z.number().min(0).optional(),
+    turnRules: z.array(z.string()).optional()
+  }),
+  turnDecision: z.object({
+    nextParticipantId: UUIDSchema.optional(),
+    turnDuration: z.number().min(0).optional(),
+    skipReason: z.string().optional(),
+    moderationRequired: z.boolean().default(false),
+    specialInstructions: z.array(z.string()).optional()
+  }).optional()
+});
+
+export type TurnManagementOperation = z.infer<typeof TurnManagementOperationSchema>;
+
+// Consensus building operation
+export const ConsensusBuildingOperationSchema = OperationSchema.extend({
+  type: z.literal(OperationType.CONSENSUS_BUILDING),
+  consensusContext: z.object({
+    discussionId: UUIDSchema,
+    topic: z.string(),
+    participants: z.array(UUIDSchema),
+    currentPositions: z.array(z.object({
+      participantId: UUIDSchema,
+      position: z.string(),
+      confidence: z.number().min(0).max(1),
+      reasoning: z.string().optional()
+    })),
+    targetConsensusLevel: z.number().min(0).max(1).default(0.8),
+    maxIterations: z.number().min(1).default(10)
+  }),
+  consensusProgress: z.object({
+    currentConsensusLevel: z.number().min(0).max(1),
+    convergenceRate: z.number(),
+    remainingDivergences: z.array(z.object({
+      topic: z.string(),
+      positions: z.array(z.string()),
+      participantCount: z.number()
+    })),
+    suggestedActions: z.array(z.object({
+      action: z.string(),
+      rationale: z.string(),
+      expectedImpact: z.number().min(0).max(1)
+    })),
+    consensusAchieved: z.boolean().default(false)
+  }).optional()
+});
+
+export type ConsensusBuildingOperation = z.infer<typeof ConsensusBuildingOperationSchema>;
+
+// Discussion orchestration operation (main orchestration type)
+export const DiscussionOrchestrationOperationSchema = OperationSchema.extend({
+  type: z.literal(OperationType.DISCUSSION_ORCHESTRATION),
+  orchestrationContext: z.object({
+    discussionId: UUIDSchema,
+    orchestrationMode: z.enum(['automatic', 'semi_automatic', 'manual']),
+    objectives: z.array(z.string()),
+    constraints: z.array(z.string()),
+    qualityThresholds: z.object({
+      minEngagement: z.number().min(0).max(100).default(60),
+      minConsensus: z.number().min(0).max(1).default(0.7),
+      maxDuration: z.number().min(0).optional(),
+      maxMessages: z.number().min(0).optional()
+    }).optional()
+  }),
+  orchestrationState: z.object({
+    currentPhase: z.enum(['initialization', 'discussion', 'synthesis', 'conclusion']),
+    completedObjectives: z.array(z.string()),
+    activeConstraints: z.array(z.string()),
+    qualityMetrics: z.object({
+      currentEngagement: z.number().min(0).max(100),
+      currentConsensus: z.number().min(0).max(1),
+      currentDuration: z.number().min(0),
+      currentMessageCount: z.number().min(0)
+    }),
+    nextActions: z.array(z.object({
+      action: z.string(),
+      priority: z.enum(['low', 'medium', 'high', 'urgent']),
+      scheduledFor: z.date().optional()
+    })),
+    interventionsRequired: z.array(z.object({
+      type: z.string(),
+      reason: z.string(),
+      urgency: z.enum(['low', 'medium', 'high', 'critical'])
+    }))
+  }).optional()
+});
+
+export type DiscussionOrchestrationOperation = z.infer<typeof DiscussionOrchestrationOperationSchema>;
+
+// Union type for all discussion operations
+export type DiscussionOperation = 
+  | PersonaIntelligenceOperation
+  | DiscussionAnalysisOperation
+  | TurnManagementOperation
+  | ConsensusBuildingOperation
+  | DiscussionOrchestrationOperation;
+
+// Discussion operation factory
+export const createDiscussionOperation = (
+  type: OperationType,
+  context: any,
+  agentId: string,
+  userId: string
+): any => {
+  const baseOperation = {
+    status: OperationStatus.PENDING,
+    priority: OperationPriority.MEDIUM,
+    agentId,
+    userId,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  };
+
+  switch (type) {
+    case OperationType.PERSONA_INTELLIGENCE:
+      return { ...baseOperation, type, personaContext: context };
+    case OperationType.DISCUSSION_ANALYSIS:
+      return { ...baseOperation, type, analysisContext: context };
+    case OperationType.TURN_MANAGEMENT:
+      return { ...baseOperation, type, turnContext: context };
+    case OperationType.CONSENSUS_BUILDING:
+      return { ...baseOperation, type, consensusContext: context };
+    case OperationType.DISCUSSION_ORCHESTRATION:
+      return { ...baseOperation, type, orchestrationContext: context };
+    default:
+      return { ...baseOperation, type };
+  }
+}; 

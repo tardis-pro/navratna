@@ -15,4 +15,8 @@ export { StateManagerService } from './stateManagerService.js';
 // Workflow Services
 export { StepExecutorService } from './stepExecutorService.js';
 export { CompensationService } from './compensationService.js';
-export { ResourceManagerService } from './resourceManagerService.js'; 
+export { ResourceManagerService } from './resourceManagerService.js';
+
+// Persona and Discussion Services - NEW
+export { PersonaService } from './personaService.js';
+export { DiscussionService } from './discussionService.js'; 

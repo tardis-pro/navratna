@@ -7,14 +7,27 @@ import path from 'path';
 
 import { logger } from '@uaip/utils';
 import { errorHandler, rateLimiter, metricsMiddleware } from '@uaip/middleware';
-import { DatabaseService, EventBusService } from '@uaip/shared-services';
+import { 
+  DatabaseService, 
+  EventBusService, 
+  PersonaService, 
+  DiscussionService 
+} from '@uaip/shared-services';
 import { agentRoutes } from './routes/agentRoutes.js';
+import { createPersonaRoutes } from './routes/personaRoutes.js';
+import { createDiscussionRoutes } from './routes/discussionRoutes.js';
 import { healthRoutes } from './routes/healthRoutes.js';
+import { PersonaController } from './controllers/personaController.js';
+import { DiscussionController } from './controllers/discussionController.js';
 
 class AgentIntelligenceService {
   private app: express.Application;
   private databaseService: DatabaseService;
   private eventBusService: EventBusService;
+  private personaService: PersonaService;
+  private discussionService: DiscussionService;
+  private personaController: PersonaController;
+  private discussionController: DiscussionController;
 
   constructor() {
     this.app = express();
@@ -23,6 +36,28 @@ class AgentIntelligenceService {
       url: process.env.RABBITMQ_URL || 'amqp://localhost',
       serviceName: 'agent-intelligence'
     }, logger as any);
+    
+    // Initialize persona and discussion services
+    this.personaService = new PersonaService({
+      databaseService: this.databaseService,
+      eventBusService: this.eventBusService,
+      enableCaching: true,
+      enableAnalytics: true
+    });
+    
+    this.discussionService = new DiscussionService({
+      databaseService: this.databaseService,
+      eventBusService: this.eventBusService,
+      personaService: this.personaService,
+      enableRealTimeEvents: true,
+      enableAnalytics: true,
+      maxParticipants: 20,
+      defaultTurnTimeout: 300
+    });
+
+    // Initialize controllers with service dependencies
+    this.personaController = new PersonaController(this.personaService);
+    this.discussionController = new DiscussionController(this.discussionService);
     
     this.setupMiddleware();
     this.setupRoutes();
@@ -60,6 +95,8 @@ class AgentIntelligenceService {
     
     // API routes
     this.app.use('/api/v1/agents', agentRoutes);
+    this.app.use('/api/v1/personas', createPersonaRoutes(this.personaController));
+    this.app.use('/api/v1/discussions', createDiscussionRoutes(this.discussionController));
 
     // 404 handler
     this.app.use('*', (req, res) => {
@@ -90,12 +127,19 @@ class AgentIntelligenceService {
       // Event bus will connect automatically when needed
       logger.info('Event bus ready');
 
+      // Initialize persona and discussion services
+      logger.info('Persona and Discussion services initialized');
+
       // Start HTTP server
       const port = parseInt(process.env.PORT || '3001', 10);
       this.app.listen(port, () => {
         logger.info(`Agent Intelligence Service started on port ${port}`);
         logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
         logger.info(`Version: ${process.env.VERSION || '1.0.0'}`);
+        logger.info('Available endpoints:');
+        logger.info('  - /api/v1/agents - Agent management');
+        logger.info('  - /api/v1/personas - Persona management');
+        logger.info('  - /api/v1/discussions - Discussion orchestration');
       });
 
     } catch (error) {
