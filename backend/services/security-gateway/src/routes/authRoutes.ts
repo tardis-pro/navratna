@@ -1,15 +1,18 @@
-import express from 'express';
-import jwt from 'jsonwebtoken';
+import express, { Router } from 'express';
+import { Request, Response } from 'express';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import { z } from 'zod';
+import Joi from 'joi';
 import { config } from '@uaip/config';
-import { logger } from '@uaip/utils/logger';
-import { DatabaseService } from '@uaip/services/databaseService';
-import { AuditService } from '@/services/auditService';
-import { authenticateToken } from '@uaip/middleware/auth';
+import { logger } from '@uaip/utils/src/logger';
+import { DatabaseService } from '@uaip/shared-services';
+import { AuditService } from '@/services/auditService.js';
+import { authMiddleware, requireAdmin } from '@uaip/middleware';
 import { validateRequest } from '@uaip/middleware';
+import { AuditEventType } from '@uaip/types';
 
-const router = express.Router();
+const router: Router = express.Router();
 const databaseService = new DatabaseService();
 const auditService = new AuditService(databaseService);
 
@@ -58,17 +61,20 @@ const resetPasswordSchema = z.object({
 
 // Helper functions
 const generateTokens = (userId: string, email: string, role: string) => {
-  const accessToken = jwt.sign(
-    { userId, email, role },
-    config.jwt.secret,
-    { expiresIn: config.jwt.accessTokenExpiry || '15m' }
-  );
+  const jwtSecret = config.jwt.secret as string;
+  const refreshSecret = config.jwt.refreshSecret as string;
+  
+  if (!jwtSecret || !refreshSecret) {
+    throw new Error('JWT secrets not configured');
+  }
 
-  const refreshToken = jwt.sign(
-    { userId, email, type: 'refresh' },
-    config.jwt.refreshSecret,
-    { expiresIn: config.jwt.refreshTokenExpiry || '7d' }
-  );
+  const accessTokenPayload = { userId, email, role };
+  const accessTokenOptions: SignOptions = { expiresIn: config.jwt.accessTokenExpiry || '15m' };
+  const accessToken = jwt.sign(accessTokenPayload, jwtSecret, accessTokenOptions);
+
+  const refreshTokenPayload = { userId, email, type: 'refresh' };
+  const refreshTokenOptions: SignOptions = { expiresIn: config.jwt.refreshTokenExpiry || '7d' };
+  const refreshToken = jwt.sign(refreshTokenPayload, refreshSecret, refreshTokenOptions);
 
   return { accessToken, refreshToken };
 };
@@ -107,8 +113,8 @@ router.post('/login',
       
       if (resultUser.rows.length === 0) {
         await auditService.logSecurityEvent({
-          eventType: 'LOGIN_FAILED',
-          userId: null,
+          eventType: AuditEventType.LOGIN_FAILED,
+          userId: undefined,
           details: { email, reason: 'User not found' },
           ipAddress: req.ip,
           userAgent: req.headers['user-agent']
@@ -125,7 +131,7 @@ router.post('/login',
       // Check if account is active
       if (!user.is_active) {
         await auditService.logSecurityEvent({
-          eventType: 'LOGIN_FAILED',
+          eventType: AuditEventType.LOGIN_FAILED,
           userId: user.id,
           details: { email, reason: 'Account inactive' },
           ipAddress: req.ip,
@@ -141,7 +147,7 @@ router.post('/login',
       // Check if account is locked
       if (user.locked_until && new Date(user.locked_until) > new Date()) {
         await auditService.logSecurityEvent({
-          eventType: 'LOGIN_FAILED',
+          eventType: AuditEventType.LOGIN_FAILED,
           userId: user.id,
           details: { email, reason: 'Account locked' },
           ipAddress: req.ip,
@@ -183,7 +189,7 @@ router.post('/login',
         await databaseService.query(updateQuery, updateParams);
 
         await auditService.logSecurityEvent({
-          eventType: 'LOGIN_FAILED',
+          eventType: AuditEventType.LOGIN_FAILED,
           userId: user.id,
           details: { 
             email, 
@@ -222,7 +228,7 @@ router.post('/login',
       ]);
 
       await auditService.logSecurityEvent({
-        eventType: 'LOGIN_SUCCESS',
+        eventType: AuditEventType.LOGIN_SUCCESS,
         userId: user.id,
         details: { email, rememberMe },
         ipAddress: req.ip,
@@ -303,16 +309,19 @@ router.post('/refresh',
       }
 
       // Generate new access token
-      const newAccessToken = jwt.sign(
-        { userId: decoded.userId, email: tokenData.email, role: tokenData.role },
-        config.jwt.secret,
-        { expiresIn: config.jwt.accessTokenExpiry || '15m' }
-      );
+      const jwtSecret = config.jwt.secret as string;
+      if (!jwtSecret) {
+        throw new Error('JWT secret not configured');
+      }
+
+      const newTokenPayload = { userId: decoded.userId, email: decoded.email, role: tokenData.role };
+      const newTokenOptions: SignOptions = { expiresIn: config.jwt.accessTokenExpiry || '15m' };
+      const newAccessToken = jwt.sign(newTokenPayload, jwtSecret, newTokenOptions);
 
       await auditService.logSecurityEvent({
-        eventType: 'TOKEN_REFRESH',
+        eventType: AuditEventType.TOKEN_REFRESH,
         userId: decoded.userId,
-        details: { email: tokenData.email },
+        details: { email: decoded.email },
         ipAddress: req.ip,
         userAgent: req.headers['user-agent']
       });
@@ -337,7 +346,7 @@ router.post('/refresh',
  * @desc Logout user and revoke refresh token
  * @access Private
  */
-router.post('/logout', authenticateToken, async (req, res) => {
+router.post('/logout', authMiddleware, async (req, res) => {
   try {
     const { refreshToken } = req.body;
     const userId = (req as any).user.userId;
@@ -359,7 +368,7 @@ router.post('/logout', authenticateToken, async (req, res) => {
     }
 
     await auditService.logSecurityEvent({
-      eventType: 'LOGOUT',
+      eventType: AuditEventType.LOGOUT,
       userId,
       details: { revokedAllTokens: !refreshToken },
       ipAddress: req.ip,
@@ -385,7 +394,7 @@ router.post('/logout', authenticateToken, async (req, res) => {
  * @access Private
  */
 router.post('/change-password', 
-  authenticateToken, 
+  authMiddleware, 
   validateRequest({ body: changePasswordSchema }),
   async (req, res) => {
     try {
@@ -409,9 +418,9 @@ router.post('/change-password',
       const isValidPassword = await verifyPassword(currentPassword, user.password_hash);
       if (!isValidPassword) {
         await auditService.logSecurityEvent({
-          eventType: 'PASSWORD_CHANGE_FAILED',
+          eventType: AuditEventType.PASSWORD_CHANGE_FAILED,
           userId,
-          details: { reason: 'Invalid current password' },
+          details: { email: user.email, reason: 'Invalid current password' },
           ipAddress: req.ip,
           userAgent: req.headers['user-agent']
         });
@@ -440,9 +449,9 @@ router.post('/change-password',
       `, [userId]);
 
       await auditService.logSecurityEvent({
-        eventType: 'PASSWORD_CHANGED',
+        eventType: AuditEventType.PASSWORD_CHANGED,
         userId,
-        details: { revokedAllTokens: true },
+        details: { email: user.email },
         ipAddress: req.ip,
         userAgent: req.headers['user-agent']
       });
@@ -465,7 +474,7 @@ router.post('/change-password',
  * @desc Get current user information
  * @access Private
  */
-router.get('/me', authenticateToken, async (req, res) => {
+router.get('/me', authMiddleware, async (req, res) => {
   try {
     const userId = (req as any).user.userId;
 
@@ -544,9 +553,9 @@ router.post('/forgot-password',
         `, [user.id, resetToken, new Date(Date.now() + 60 * 60 * 1000)]); // 1 hour
 
         await auditService.logSecurityEvent({
-          eventType: 'PASSWORD_RESET_REQUESTED',
+          eventType: AuditEventType.PASSWORD_RESET_REQUESTED,
           userId: user.id,
-          details: { email },
+          details: { email: user.email },
           ipAddress: req.ip,
           userAgent: req.headers['user-agent']
         });

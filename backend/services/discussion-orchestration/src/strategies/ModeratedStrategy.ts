@@ -6,7 +6,7 @@ import {
   ParticipantRole 
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
-import { TurnStrategyInterface } from './RoundRobinStrategy';
+import { TurnStrategyInterface } from '@/strategies/RoundRobinStrategy';
 
 export class ModeratedStrategy implements TurnStrategyInterface {
   private readonly strategyType = TurnStrategy.MODERATED;
@@ -108,28 +108,11 @@ export class ModeratedStrategy implements TurnStrategyInterface {
         return true;
       }
 
-      // Check if moderator approval is required
-      if (config?.restrictions?.requiresModeratorApproval) {
-        const hasApproval = this.hasModeratorApproval(participant, discussion);
-        if (!hasApproval) {
-          return false;
-        }
-      }
-
-      // Additional restrictions
-      if (config?.restrictions) {
-        // Check cooldown period
-        if (config.restrictions.cooldownPeriod && participant.lastActiveAt) {
-          const cooldownEnd = new Date(participant.lastActiveAt.getTime() + (config.restrictions.cooldownPeriod * 1000));
-          if (new Date() < cooldownEnd) {
-            return false;
-          }
-        }
-
-        // Check message limits
-        if (config.restrictions.maxMessagesPerTurn && participant.messageCount >= config.restrictions.maxMessagesPerTurn) {
-          return false;
-        }
+      // Check if moderator approval is required for this strategy
+      if (config?.config.type === 'moderated' && config.config.requireApproval) {
+        // For moderated strategy, check if participant has permission
+        // Note: MODERATOR role was already handled above, so check for other privileged roles
+        return participant.role === ParticipantRole.FACILITATOR;
       }
 
       return true;
@@ -169,7 +152,7 @@ export class ModeratedStrategy implements TurnStrategyInterface {
 
       // Check timeout (longer timeout for moderated discussions)
       const turnDuration = now.getTime() - new Date(turnStartTime).getTime();
-      const timeoutMs = (config?.timeout || discussion.settings.turnTimeout || 600) * 1000; // Default 10 minutes
+      const timeoutMs = (discussion.settings.turnTimeout || 600) * 1000; // Default 10 minutes
       
       if (turnDuration >= timeoutMs) {
         logger.info('Turn timeout reached in moderated discussion', {
@@ -204,7 +187,7 @@ export class ModeratedStrategy implements TurnStrategyInterface {
   ): Promise<number> {
     try {
       // Base duration (longer for moderated discussions)
-      let baseDuration = config?.timeout || discussion.settings.turnTimeout || 600; // 10 minutes default
+      let baseDuration = discussion.settings.turnTimeout || 600; // 10 minutes default
 
       // Moderators might need more time to facilitate
       if (participant.role === ParticipantRole.MODERATOR) {
@@ -231,7 +214,7 @@ export class ModeratedStrategy implements TurnStrategyInterface {
         discussionId: discussion.id,
         participantRole: participant.role,
         estimatedDuration: baseDuration,
-        baseDuration: config?.timeout || discussion.settings.turnTimeout || 600
+        baseDuration: discussion.settings.turnTimeout || 600
       });
 
       return Math.round(baseDuration);
@@ -241,7 +224,7 @@ export class ModeratedStrategy implements TurnStrategyInterface {
         participantId: participant.id,
         discussionId: discussion.id
       });
-      return config?.timeout || discussion.settings.turnTimeout || 600;
+      return discussion.settings.turnTimeout || 600;
     }
   }
 
@@ -361,16 +344,14 @@ export class ModeratedStrategy implements TurnStrategyInterface {
     return 'Moderated: A moderator controls turn flow and participant selection';
   }
 
-  getStrategyConfig(): Partial<TurnStrategyConfig> {
+  getStrategyConfig(): TurnStrategyConfig {
     return {
-      type: this.strategyType,
-      timeout: 600, // 10 minutes default
-      allowSkip: true,
-      allowOverride: true,
-      restrictions: {
-        cooldownPeriod: 60, // 1 minute cooldown
-        maxMessagesPerTurn: undefined,
-        requiresModeratorApproval: true
+      strategy: this.strategyType,
+      config: {
+        type: 'moderated',
+        moderatorId: '',
+        requireApproval: true,
+        autoAdvance: false
       }
     };
   }

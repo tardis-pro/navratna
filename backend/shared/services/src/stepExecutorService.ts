@@ -102,7 +102,7 @@ export class StepExecutorService extends EventEmitter {
       }
 
       const result: StepResult = {
-        stepId: step.id,
+        stepId: step.id || `unknown_${Date.now()}`,
         status: StepStatus.COMPLETED,
         data: stepData,
         executionTime: Date.now() - startTime,
@@ -122,7 +122,7 @@ export class StepExecutorService extends EventEmitter {
 
     } catch (error) {
       const result: StepResult = {
-        stepId: step.id,
+        stepId: step.id || `unknown_${Date.now()}`,
         status: StepStatus.FAILED,
         data: {},
         error: error instanceof Error ? error.message : String(error),

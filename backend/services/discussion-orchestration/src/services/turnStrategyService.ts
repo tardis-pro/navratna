@@ -47,12 +47,12 @@ export class TurnStrategyService {
     config?: TurnStrategyConfig
   ): Promise<DiscussionParticipant | null> {
     try {
-      const strategy = this.getStrategy(discussion.turnStrategy);
+      const strategy = this.getStrategy(discussion.turnStrategy.strategy);
       const nextParticipant = await strategy.getNextParticipant(discussion, participants, config);
 
       logger.debug('Next participant determined', {
         discussionId: discussion.id,
-        strategy: discussion.turnStrategy,
+        strategy: discussion.turnStrategy.strategy,
         nextParticipantId: nextParticipant?.id,
         totalParticipants: participants.length,
         activeParticipants: participants.filter(p => p.isActive).length
@@ -63,7 +63,7 @@ export class TurnStrategyService {
       logger.error('Error getting next participant', {
         error: error instanceof Error ? error.message : 'Unknown error',
         discussionId: discussion.id,
-        strategy: discussion.turnStrategy
+        strategy: discussion.turnStrategy.strategy
       });
       
       // Fallback to default strategy
@@ -80,13 +80,13 @@ export class TurnStrategyService {
     config?: TurnStrategyConfig
   ): Promise<boolean> {
     try {
-      const strategy = this.getStrategy(discussion.turnStrategy);
+      const strategy = this.getStrategy(discussion.turnStrategy.strategy);
       const canTakeTurn = await strategy.canParticipantTakeTurn(participant, discussion, config);
 
       logger.debug('Participant turn eligibility checked', {
         participantId: participant.id,
         discussionId: discussion.id,
-        strategy: discussion.turnStrategy,
+        strategy: discussion.turnStrategy.strategy,
         canTakeTurn,
         participantRole: participant.role,
         isActive: participant.isActive
@@ -98,7 +98,7 @@ export class TurnStrategyService {
         error: error instanceof Error ? error.message : 'Unknown error',
         participantId: participant.id,
         discussionId: discussion.id,
-        strategy: discussion.turnStrategy
+        strategy: discussion.turnStrategy.strategy
       });
       return false;
     }
@@ -113,13 +113,13 @@ export class TurnStrategyService {
     config?: TurnStrategyConfig
   ): Promise<boolean> {
     try {
-      const strategy = this.getStrategy(discussion.turnStrategy);
+      const strategy = this.getStrategy(discussion.turnStrategy.strategy);
       const shouldAdvance = await strategy.shouldAdvanceTurn(discussion, currentParticipant, config);
 
       logger.debug('Turn advance check completed', {
         discussionId: discussion.id,
         participantId: currentParticipant.id,
-        strategy: discussion.turnStrategy,
+        strategy: discussion.turnStrategy.strategy,
         shouldAdvance,
         turnStartTime: discussion.state.currentTurn.startedAt,
         turnNumber: discussion.state.currentTurn.turnNumber
@@ -131,7 +131,7 @@ export class TurnStrategyService {
         error: error instanceof Error ? error.message : 'Unknown error',
         discussionId: discussion.id,
         participantId: currentParticipant.id,
-        strategy: discussion.turnStrategy
+        strategy: discussion.turnStrategy.strategy
       });
       return true; // Default to advancing on error
     }
@@ -146,13 +146,13 @@ export class TurnStrategyService {
     config?: TurnStrategyConfig
   ): Promise<number> {
     try {
-      const strategy = this.getStrategy(discussion.turnStrategy);
+      const strategy = this.getStrategy(discussion.turnStrategy.strategy);
       const duration = await strategy.getEstimatedTurnDuration(participant, discussion, config);
 
       logger.debug('Turn duration estimated', {
         participantId: participant.id,
         discussionId: discussion.id,
-        strategy: discussion.turnStrategy,
+        strategy: discussion.turnStrategy.strategy,
         estimatedDuration: duration,
         participantRole: participant.role
       });
@@ -163,9 +163,9 @@ export class TurnStrategyService {
         error: error instanceof Error ? error.message : 'Unknown error',
         participantId: participant.id,
         discussionId: discussion.id,
-        strategy: discussion.turnStrategy
+        strategy: discussion.turnStrategy.strategy
       });
-      return config?.timeout || discussion.settings.turnTimeout || 300;
+      return discussion.settings.turnTimeout || 300;
     }
   }
 
@@ -199,7 +199,7 @@ export class TurnStrategyService {
         newTurnNumber: turnNumber,
         nextParticipantId: nextParticipant?.id,
         estimatedDuration,
-        strategy: discussion.turnStrategy
+        strategy: discussion.turnStrategy.strategy
       });
 
       return {
@@ -211,7 +211,7 @@ export class TurnStrategyService {
       logger.error('Error advancing turn', {
         error: error instanceof Error ? error.message : 'Unknown error',
         discussionId: discussion.id,
-        strategy: discussion.turnStrategy
+        strategy: discussion.turnStrategy.strategy
       });
       throw error;
     }
@@ -254,44 +254,57 @@ export class TurnStrategyService {
         return { isValid: false, errors };
       }
 
-      // Timeout validation
-      if (config.timeout !== undefined) {
-        if (config.timeout < 10) {
-          errors.push('Timeout must be at least 10 seconds');
-        }
-        if (config.timeout > 3600) {
-          errors.push('Timeout cannot exceed 1 hour');
-        }
+      // Validate that strategy matches config type
+      if (config.strategy !== strategyType) {
+        errors.push(`Strategy type mismatch: expected ${strategyType}, got ${config.strategy}`);
       }
 
-      // Strategy-specific validation
-      switch (strategyType) {
-        case TurnStrategy.MODERATED:
-          if (config.restrictions?.requiresModeratorApproval === false) {
-            errors.push('Moderated strategy requires moderator approval');
+      // Strategy-specific validation based on config type
+      switch (config.config.type) {
+        case 'round_robin':
+          if (config.config.maxSkips < 0) {
+            errors.push('Max skips cannot be negative');
           }
           break;
 
-        case TurnStrategy.CONTEXT_AWARE:
-          if (config.contextAware) {
-            if (config.contextAware.minRelevanceThreshold < 0 || config.contextAware.minRelevanceThreshold > 1) {
-              errors.push('Relevance threshold must be between 0 and 1');
-            }
-            if (config.contextAware.minEngagementThreshold < 0 || config.contextAware.minEngagementThreshold > 1) {
-              errors.push('Engagement threshold must be between 0 and 1');
-            }
+        case 'moderated':
+          if (!config.config.moderatorId) {
+            errors.push('Moderated strategy requires a moderator ID');
           }
           break;
-      }
 
-      // Restrictions validation
-      if (config.restrictions) {
-        if (config.restrictions.cooldownPeriod !== undefined && config.restrictions.cooldownPeriod < 0) {
-          errors.push('Cooldown period cannot be negative');
-        }
-        if (config.restrictions.maxMessagesPerTurn !== undefined && config.restrictions.maxMessagesPerTurn < 1) {
-          errors.push('Max messages per turn must be at least 1');
-        }
+        case 'context_aware':
+          if (config.config.relevanceThreshold < 0 || config.config.relevanceThreshold > 1) {
+            errors.push('Relevance threshold must be between 0 and 1');
+          }
+          if (config.config.expertiseWeight < 0 || config.config.expertiseWeight > 1) {
+            errors.push('Expertise weight must be between 0 and 1');
+          }
+          if (config.config.engagementWeight < 0 || config.config.engagementWeight > 1) {
+            errors.push('Engagement weight must be between 0 and 1');
+          }
+          break;
+
+        case 'priority_based':
+          if (!config.config.priorities || config.config.priorities.length === 0) {
+            errors.push('Priority-based strategy requires participant priorities');
+          }
+          break;
+
+        case 'free_form':
+          if (config.config.cooldownPeriod < 0) {
+            errors.push('Cooldown period cannot be negative');
+          }
+          break;
+
+        case 'expertise_driven':
+          if (!config.config.topicKeywords || config.config.topicKeywords.length === 0) {
+            errors.push('Expertise-driven strategy requires topic keywords');
+          }
+          if (config.config.expertiseThreshold < 0 || config.config.expertiseThreshold > 1) {
+            errors.push('Expertise threshold must be between 0 and 1');
+          }
+          break;
       }
 
       return { isValid: errors.length === 0, errors };
@@ -320,7 +333,7 @@ export class TurnStrategyService {
     const actions = [];
 
     try {
-      const strategy = this.getStrategy(discussion.turnStrategy);
+      const strategy = this.getStrategy(discussion.turnStrategy.strategy);
 
       // Common actions
       actions.push({
@@ -342,7 +355,7 @@ export class TurnStrategyService {
       });
 
       // Strategy-specific actions
-      if (discussion.turnStrategy === TurnStrategy.MODERATED) {
+      if (discussion.turnStrategy.strategy === TurnStrategy.MODERATED) {
         const moderatedStrategy = strategy as ModeratedStrategy;
         
         actions.push({
@@ -379,7 +392,7 @@ export class TurnStrategyService {
     params?: any
   ): Promise<{ success: boolean; message: string; data?: any }> {
     try {
-      const strategy = this.getStrategy(discussion.turnStrategy);
+      const strategy = this.getStrategy(discussion.turnStrategy.strategy);
 
       switch (action) {
         case 'advance_turn':
@@ -387,7 +400,7 @@ export class TurnStrategyService {
           return { success: true, message: 'Turn advance initiated' };
 
         case 'select_next_participant':
-          if (discussion.turnStrategy === TurnStrategy.MODERATED && params?.participantId) {
+          if (discussion.turnStrategy.strategy === TurnStrategy.MODERATED && params?.participantId) {
             const moderatedStrategy = strategy as ModeratedStrategy;
             const success = await moderatedStrategy.selectNextParticipant(
               moderatorId,
@@ -437,7 +450,7 @@ export class TurnStrategyService {
     try {
       logger.warn('Falling back to default strategy', {
         discussionId: discussion.id,
-        originalStrategy: discussion.turnStrategy,
+        originalStrategy: discussion.turnStrategy.strategy,
         fallbackStrategy: this.defaultStrategy
       });
 
@@ -483,8 +496,8 @@ export class TurnStrategyService {
   ): Promise<{ success: boolean; errors: string[] }> {
     try {
       // Validate the new configuration
-      const fullConfig = { ...discussion.settings.turnStrategyConfig, ...newConfig } as TurnStrategyConfig;
-      const validation = this.validateStrategyConfig(discussion.turnStrategy, fullConfig);
+      const fullConfig = { ...discussion.turnStrategy, ...newConfig } as TurnStrategyConfig;
+      const validation = this.validateStrategyConfig(discussion.turnStrategy.strategy, fullConfig);
 
       if (!validation.isValid) {
         return { success: false, errors: validation.errors };
@@ -492,7 +505,7 @@ export class TurnStrategyService {
 
       logger.info('Strategy configuration updated', {
         discussionId: discussion.id,
-        strategy: discussion.turnStrategy,
+        strategy: discussion.turnStrategy.strategy,
         updatedFields: Object.keys(newConfig)
       });
 

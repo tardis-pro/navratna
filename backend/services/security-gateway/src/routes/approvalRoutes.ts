@@ -1,13 +1,13 @@
-import { Router, Request, Response, NextFunction } from 'express';
-import Joi from 'joi';
-import { logger } from '@uaip/utils/logger';
-import { ApiError } from '@uaip/utils/errors';
-import { validateRequest } from '@uaip/middleware/validateRequest';
-import { authMiddleware, requireOperator } from '@uaip/middleware/authMiddleware';
+import express, { Router, Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
+import { logger } from '@uaip/utils';
+import { ApiError } from '@uaip/utils';
+import { validateRequest } from '@uaip/middleware';
+import { authMiddleware, requireOperator } from '@uaip/middleware';
 import { ApprovalWorkflowService } from '@/services/approvalWorkflowService';
 import { AuditService } from '@/services/auditService';
-import { DatabaseService } from '@uaip/services/databaseService';
-import { EventBusService } from '@uaip/services/eventBusService';
+import { DatabaseService } from '@uaip/shared-services';
+import { EventBusService } from '@uaip/shared-services';
 import { NotificationService } from '@/services/notificationService';
 import {
   ApprovalDecision,
@@ -15,12 +15,19 @@ import {
   SecurityLevel,
   AuditEventType
 } from '@uaip/types';
+import { config } from '@uaip/config';
 
-const router = Router();
+const router: Router = express.Router();
 
 // Initialize services
 const databaseService = new DatabaseService();
-const eventBusService = new EventBusService();
+const eventBusService = new EventBusService(
+  {
+    url: process.env.RABBITMQ_URL || 'amqp://localhost:5672',
+    serviceName: 'security-gateway'
+  },
+  logger
+);
 const notificationService = new NotificationService();
 const auditService = new AuditService(databaseService);
 const approvalWorkflowService = new ApprovalWorkflowService(
@@ -30,32 +37,32 @@ const approvalWorkflowService = new ApprovalWorkflowService(
   auditService
 );
 
-// Validation schemas
-const createWorkflowSchema = Joi.object({
-  operationId: Joi.string().uuid().required(),
-  operationType: Joi.string().required(),
-  requiredApprovers: Joi.array().items(Joi.string().uuid()).min(1).max(10).required(),
-  securityLevel: Joi.string().valid(...Object.values(SecurityLevel)).required(),
-  context: Joi.object().required(),
-  expirationHours: Joi.number().min(1).max(168).optional(), // Max 1 week
-  metadata: Joi.object().optional()
+// Validation schemas using Zod
+const createWorkflowSchema = z.object({
+  operationId: z.string().uuid(),
+  operationType: z.string(),
+  requiredApprovers: z.array(z.string().uuid()).min(1).max(10),
+  securityLevel: z.nativeEnum(SecurityLevel),
+  context: z.record(z.any()),
+  expirationHours: z.number().min(1).max(168).optional(), // Max 1 week
+  metadata: z.record(z.any()).optional()
 });
 
-const approvalDecisionSchema = Joi.object({
-  workflowId: Joi.string().uuid().required(),
-  decision: Joi.string().valid('approve', 'reject').required(),
-  conditions: Joi.array().items(Joi.string()).optional(),
-  feedback: Joi.string().max(1000).optional()
+const approvalDecisionSchema = z.object({
+  workflowId: z.string().uuid(),
+  decision: z.enum(['approve', 'reject']),
+  conditions: z.array(z.string()).optional(),
+  feedback: z.string().max(1000).optional()
 });
 
-const queryWorkflowsSchema = Joi.object({
-  status: Joi.string().valid(...Object.values(ApprovalStatus)).optional(),
-  operationType: Joi.string().optional(),
-  securityLevel: Joi.string().valid(...Object.values(SecurityLevel)).optional(),
-  startDate: Joi.date().optional(),
-  endDate: Joi.date().optional(),
-  limit: Joi.number().min(1).max(100).default(20),
-  offset: Joi.number().min(0).default(0)
+const queryWorkflowsSchema = z.object({
+  status: z.nativeEnum(ApprovalStatus).optional(),
+  operationType: z.string().optional(),
+  securityLevel: z.nativeEnum(SecurityLevel).optional(),
+  startDate: z.coerce.date().optional(),
+  endDate: z.coerce.date().optional(),
+  limit: z.coerce.number().min(1).max(100).default(20),
+  offset: z.coerce.number().min(0).default(0)
 });
 
 /**
@@ -65,7 +72,7 @@ const queryWorkflowsSchema = Joi.object({
 router.post('/workflows',
   authMiddleware,
   requireOperator,
-  validateRequest(createWorkflowSchema),
+  validateRequest({ body: createWorkflowSchema }),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       logger.info('Creating approval workflow', {
@@ -130,7 +137,7 @@ router.post('/workflows',
  */
 router.post('/:workflowId/decisions',
   authMiddleware,
-  validateRequest(approvalDecisionSchema, 'body'),
+  validateRequest({ body: approvalDecisionSchema }),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { workflowId } = req.params;
@@ -245,7 +252,7 @@ router.get('/:workflowId',
  */
 router.get('/workflows',
   authMiddleware,
-  validateRequest(queryWorkflowsSchema, 'query'),
+  validateRequest({ query: queryWorkflowsSchema }),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { status, operationType, securityLevel, startDate, endDate, limit, offset } = req.query;
@@ -360,7 +367,7 @@ router.get('/pending',
             workflow,
             status,
             isPendingForUser: status.pendingApprovers.includes(req.user!.id),
-            urgency: this.calculateUrgency(workflow)
+            urgency: workflow ? calculateUrgency(workflow) : 50 // Default medium urgency as number
           };
         })
       );
@@ -489,10 +496,7 @@ router.get('/stats',
           medium: filteredWorkflows.filter(w => w.metadata?.securityLevel === SecurityLevel.MEDIUM).length,
           low: filteredWorkflows.filter(w => w.metadata?.securityLevel === SecurityLevel.LOW).length
         },
-        averageApprovalTime: this.calculateAverageApprovalTime(filteredWorkflows),
-        approvalRate: filteredWorkflows.length > 0 
-          ? (filteredWorkflows.filter(w => w.status === ApprovalStatus.APPROVED).length / filteredWorkflows.length) * 100
-          : 0
+        averageApprovalTime: filteredWorkflows.length > 0 ? calculateAverageApprovalTime(filteredWorkflows) : 0
       };
 
       res.json({

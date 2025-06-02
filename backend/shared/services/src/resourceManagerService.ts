@@ -50,8 +50,8 @@ export class ResourceManagerService extends EventEmitter {
     try {
       const currentUsage = this.getCurrentSystemUsage();
       
-      const availableMemory = this.systemLimits.maxMemory - currentUsage.memory;
-      const availableCpu = this.systemLimits.maxCpu - currentUsage.cpu;
+      const availableMemory = this.systemLimits.maxMemory - (currentUsage.memory || 0);
+      const availableCpu = this.systemLimits.maxCpu - (currentUsage.cpu || 0);
 
       if (requiredLimits.maxMemory > availableMemory) {
         return {
@@ -181,7 +181,7 @@ export class ResourceManagerService extends EventEmitter {
       allocation.currentUsage = usage;
 
       // Check if usage exceeds limits
-      if (usage.memory > allocation.limits.maxMemory) {
+      if ((usage.memory || 0) > allocation.limits.maxMemory) {
         logger.warn('Memory usage exceeds allocated limit', {
           operationId,
           usage: usage.memory,
@@ -190,7 +190,7 @@ export class ResourceManagerService extends EventEmitter {
         this.emit('resourceLimitExceeded', { operationId, type: 'memory', usage, limit: allocation.limits.maxMemory });
       }
 
-      if (usage.cpu > allocation.limits.maxCpu) {
+      if ((usage.cpu || 0) > allocation.limits.maxCpu) {
         logger.warn('CPU usage exceeds allocated limit', {
           operationId,
           usage: usage.cpu,
@@ -224,9 +224,9 @@ export class ResourceManagerService extends EventEmitter {
 
     for (const allocation of this.allocatedResources.values()) {
       if (!allocation.released) {
-        totalMemory += allocation.currentUsage.memory;
-        totalCpu += allocation.currentUsage.cpu;
-        totalNetwork += allocation.currentUsage.network;
+        totalMemory += allocation.currentUsage?.memory || 0;
+        totalCpu += allocation.currentUsage?.cpu || 0;
+        totalNetwork += allocation.currentUsage?.network || 0;
       }
     }
 
@@ -247,19 +247,16 @@ export class ResourceManagerService extends EventEmitter {
     systemLimits: ResourceLimits;
     availableResources: { memory: number; cpu: number };
   } {
-    const activeAllocations = Array.from(this.allocatedResources.values())
-      .filter(allocation => !allocation.released);
-    
     const systemUsage = this.getCurrentSystemUsage();
     
     return {
       totalAllocations: this.allocatedResources.size,
-      activeAllocations: activeAllocations.length,
+      activeAllocations: Array.from(this.allocatedResources.values()).filter(a => !a.released).length,
       systemUsage,
       systemLimits: this.systemLimits,
       availableResources: {
-        memory: this.systemLimits.maxMemory - systemUsage.memory,
-        cpu: this.systemLimits.maxCpu - systemUsage.cpu
+        memory: this.systemLimits.maxMemory - (systemUsage.memory || 0),
+        cpu: this.systemLimits.maxCpu - (systemUsage.cpu || 0)
       }
     };
   }

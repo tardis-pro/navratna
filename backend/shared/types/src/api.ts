@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { PaginatedResult, APIError } from './common';
-import { ConversationContext, AgentAnalysis, ExecutionPlan, Agent } from './agent';
-import { SecurityValidationResult, RiskAssessment } from './security';
-import { Capability } from './capability';
+import { PaginatedResult, APIError } from './common.js';
+import { ConversationContext, AgentAnalysis, ExecutionPlan, Agent } from './agent.js';
+import { SecurityValidationResult, RiskAssessment } from './security.js';
+import { Capability } from './capability.js';
 
 // Standard API response wrapper
 export const APIResponseSchema = z.object({

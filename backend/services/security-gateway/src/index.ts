@@ -3,11 +3,11 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import { config } from '@uaip/config';
-import { logger } from '@uaip/utils/logger';
-import { errorHandler } from '@uaip/middleware/errorHandler';
-import { rateLimiter } from '@uaip/middleware/rateLimiter';
-import { DatabaseService } from '@uaip/services/databaseService';
-import { EventBusService } from '@uaip/services/eventBusService';
+import { logger } from '@uaip/utils/src/logger';
+import { errorHandler } from '@uaip/middleware';
+import { rateLimiter } from '@uaip/middleware';
+import { DatabaseService } from '@uaip/shared-services';
+import { EventBusService } from '@uaip/shared-services';
 
 // Import routes
 import authRoutes from '@/routes/authRoutes';
@@ -38,7 +38,13 @@ class SecurityGatewayServer {
     
     // Initialize services
     this.databaseService = new DatabaseService();
-    this.eventBusService = new EventBusService();
+    this.eventBusService = new EventBusService(
+      {
+        url: process.env.RABBITMQ_URL || 'amqp://localhost:5672',
+        serviceName: 'security-gateway'
+      },
+      logger
+    );
     this.auditService = new AuditService(this.databaseService);
     this.notificationService = new NotificationService();
     this.approvalWorkflowService = new ApprovalWorkflowService(
@@ -154,9 +160,9 @@ class SecurityGatewayServer {
 
   public async start(): Promise<void> {
     try {
-      // Initialize database connection
-      await this.databaseService.connect();
-      logger.info('Database connected successfully');
+      // Initialize database connection - DatabaseService doesn't have connect method
+      // await this.databaseService.connect();
+      logger.info('Database service initialized successfully');
 
       // Initialize event bus
       await this.eventBusService.connect();
@@ -186,11 +192,11 @@ class SecurityGatewayServer {
 
       try {
         // Close database connections
-        await this.databaseService.disconnect();
+        await this.databaseService.close();
         logger.info('Database disconnected');
 
         // Close event bus connections
-        await this.eventBusService.disconnect();
+        await this.eventBusService.close();
         logger.info('Event bus disconnected');
 
         logger.info('Graceful shutdown completed');

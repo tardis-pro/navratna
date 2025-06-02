@@ -78,7 +78,7 @@ export const errorHandler = (
     meta: {
       timestamp: new Date(),
       requestId: req.headers['x-request-id'] as string,
-      version: config.app.version
+      version: config.environment
     }
   };
 

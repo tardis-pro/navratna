@@ -7,7 +7,7 @@ import {
   DiscussionMessage 
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
-import { TurnStrategyInterface } from './RoundRobinStrategy';
+import { TurnStrategyInterface } from '@/strategies/RoundRobinStrategy';
 
 interface ContextAnalysis {
   topicRelevance: Map<string, number>; // participant ID -> relevance score
@@ -136,7 +136,7 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
       
       // Check if participant is contextually relevant
       const relevanceScore = contextAnalysis.topicRelevance.get(participant.id) || 0;
-      const minRelevanceThreshold = config?.contextAware?.minRelevanceThreshold || 0.3;
+      const minRelevanceThreshold = (config?.config.type === 'context_aware' ? config.config.relevanceThreshold : 0.3);
       
       if (relevanceScore < minRelevanceThreshold) {
         logger.debug('Participant below relevance threshold', {
@@ -150,7 +150,7 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
 
       // Check engagement level
       const engagementScore = contextAnalysis.engagementLevel.get(participant.id) || 0;
-      const minEngagementThreshold = config?.contextAware?.minEngagementThreshold || 0.2;
+      const minEngagementThreshold = (config?.config.type === 'context_aware' ? config.config.engagementWeight : 0.2);
       
       if (engagementScore < minEngagementThreshold) {
         logger.debug('Participant below engagement threshold', {
@@ -160,20 +160,6 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
           threshold: minEngagementThreshold
         });
         return false;
-      }
-
-      // Additional restrictions
-      if (config?.restrictions) {
-        if (config.restrictions.cooldownPeriod && participant.lastActiveAt) {
-          const cooldownEnd = new Date(participant.lastActiveAt.getTime() + (config.restrictions.cooldownPeriod * 1000));
-          if (new Date() < cooldownEnd) {
-            return false;
-          }
-        }
-
-        if (config.restrictions.maxMessagesPerTurn && participant.messageCount >= config.restrictions.maxMessagesPerTurn) {
-          return false;
-        }
       }
 
       return true;
@@ -236,7 +222,7 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
 
       // Check timeout with context-aware adjustments
       const turnDuration = now.getTime() - new Date(turnStartTime).getTime();
-      const baseTimeout = config?.timeout || discussion.settings.turnTimeout || 300;
+      const baseTimeout = discussion.settings.turnTimeout || 300;
       
       // Adjust timeout based on context
       const adjustedTimeout = this.calculateContextAwareTimeout(
@@ -273,7 +259,7 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
     config?: TurnStrategyConfig
   ): Promise<number> {
     try {
-      const baseDuration = config?.timeout || discussion.settings.turnTimeout || 300;
+      const baseDuration = discussion.settings.turnTimeout || 300;
       
       // Get context analysis
       const contextAnalysis = await this.getOrCreateContextAnalysis(discussion, [participant]);
@@ -301,7 +287,7 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
         participantId: participant.id,
         discussionId: discussion.id
       });
-      return config?.timeout || discussion.settings.turnTimeout || 300;
+      return discussion.settings.turnTimeout || 300;
     }
   }
 
@@ -564,7 +550,7 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
     config?: TurnStrategyConfig
   ): Promise<boolean> {
     const currentRelevance = contextAnalysis.topicRelevance.get(currentParticipant.id) || 0;
-    const threshold = config?.contextAware?.yieldThreshold || 0.3;
+    const threshold = 0.3; // Default threshold since config.contextAware doesn't exist
     
     // Check if any other participant has significantly higher relevance
     for (const [participantId, relevance] of contextAnalysis.topicRelevance) {
@@ -629,19 +615,12 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
 
   getStrategyConfig(): Partial<TurnStrategyConfig> {
     return {
-      type: this.strategyType,
-      timeout: 300,
-      allowSkip: true,
-      allowOverride: true,
-      contextAware: {
-        minRelevanceThreshold: 0.3,
-        minEngagementThreshold: 0.2,
-        yieldThreshold: 0.3
-      },
-      restrictions: {
-        cooldownPeriod: 30,
-        maxMessagesPerTurn: undefined,
-        requiresModeratorApproval: false
+      strategy: this.strategyType,
+      config: {
+        type: 'context_aware',
+        relevanceThreshold: 0.3,
+        expertiseWeight: 0.4,
+        engagementWeight: 0.3
       }
     };
   }

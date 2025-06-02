@@ -1,4 +1,4 @@
-import { DatabaseService } from './databaseService.js';
+import { DatabaseService } from './databaseService';
 import { logger, ApiError } from '@uaip/utils';
 import { 
   Capability, 
@@ -251,7 +251,7 @@ export class CapabilityDiscoveryService {
 
       // Filter by relevant types and rank by intent relevance
       return searchResults
-        .filter(cap => relevantTypes.includes(cap.type))
+        .filter(cap => cap.type && relevantTypes.includes(cap.type))
         .sort((a, b) => this.calculateIntentRelevance(b, intent) - this.calculateIntentRelevance(a, intent))
         .slice(0, 10);
         
@@ -349,12 +349,12 @@ export class CapabilityDiscoveryService {
     let score = 0;
 
     // Exact name match
-    if (capability.name.toLowerCase().includes(query.query.toLowerCase())) {
+    if (capability.name && query.query && capability.name.toLowerCase().includes(query.query.toLowerCase())) {
       score += 10;
     }
 
     // Description match
-    if (capability.description.toLowerCase().includes(query.query.toLowerCase())) {
+    if (capability.description && query.query && capability.description.toLowerCase().includes(query.query.toLowerCase())) {
       score += 5;
     }
 
@@ -366,7 +366,7 @@ export class CapabilityDiscoveryService {
     // Agent context relevance
     if (query.agentContext) {
       const agentSpecializations = query.agentContext.specializations || [];
-      const capabilityTags = capability.metadata.tags || [];
+      const capabilityTags = capability.metadata?.tags || [];
       
       const commonTags = agentSpecializations.filter((spec: string) => 
         capabilityTags.some((tag: string) => tag.toLowerCase().includes(spec.toLowerCase()))
@@ -387,13 +387,15 @@ export class CapabilityDiscoveryService {
     let score = 0;
 
     // Direct name/description matching
-    const text = `${capability.name} ${capability.description}`.toLowerCase();
+    const name = capability.name || '';
+    const description = capability.description || '';
+    const text = `${name} ${description}`.toLowerCase();
     if (text.includes(intent.toLowerCase())) {
       score += 10;
     }
 
     // Tag matching
-    const tags = capability.metadata.tags || [];
+    const tags = capability.metadata?.tags || [];
     if (tags.some((tag: string) => tag.toLowerCase().includes(intent.toLowerCase()))) {
       score += 7;
     }
@@ -406,7 +408,7 @@ export class CapabilityDiscoveryService {
       'generate': { 'artifact': 10, 'hybrid': 4, 'tool': 1 }
     };
 
-    if (typeScores[intent] && typeScores[intent][capability.type]) {
+    if (capability.type && typeScores[intent] && typeScores[intent][capability.type]) {
       score += typeScores[intent][capability.type];
     }
 

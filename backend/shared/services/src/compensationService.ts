@@ -7,8 +7,8 @@ import {
   OperationState
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
-import { DatabaseService } from './databaseService.js';
-import { EventBusService } from './eventBusService.js';
+import { DatabaseService } from './databaseService';
+import { EventBusService } from './eventBusService';
 
 export interface CompensationStep {
   id: string;
@@ -185,9 +185,9 @@ export class CompensationService extends EventEmitter {
   ): Promise<CompensationStep[]> {
     const compensationSteps: CompensationStep[] = [];
 
-    // Get the original steps that were completed
-    const completedSteps = operation.executionPlan.steps.filter((step: ExecutionStep) =>
-      completedStepIds.includes(step.id)
+    // Find completed steps that need compensation
+    const completedSteps = operation.executionPlan.steps.filter((step: ExecutionStep) => 
+      step.id && completedStepIds.includes(step.id)
     );
 
     for (const step of completedSteps) {
@@ -221,7 +221,7 @@ export class CompensationService extends EventEmitter {
   private createToolCompensationStep(originalStep: ExecutionStep): CompensationStep {
     return {
       id: `comp_${originalStep.id}`,
-      stepId: originalStep.id,
+      stepId: originalStep.id || `unknown_${Date.now()}`,
       action: 'undo_tool_execution',
       description: `Undo tool execution for ${originalStep.name}`,
       compensationData: {
@@ -241,7 +241,7 @@ export class CompensationService extends EventEmitter {
   private createArtifactCompensationStep(originalStep: ExecutionStep): CompensationStep {
     return {
       id: `comp_${originalStep.id}`,
-      stepId: originalStep.id,
+      stepId: originalStep.id || `unknown_${Date.now()}`,
       action: 'cleanup_artifact',
       description: `Cleanup artifact created by ${originalStep.name}`,
       compensationData: {
@@ -261,7 +261,7 @@ export class CompensationService extends EventEmitter {
   private createApprovalCompensationStep(originalStep: ExecutionStep): CompensationStep {
     return {
       id: `comp_${originalStep.id}`,
-      stepId: originalStep.id,
+      stepId: originalStep.id || `unknown_${Date.now()}`,
       action: 'notify_approval_cancelled',
       description: `Notify that approval for ${originalStep.name} was cancelled`,
       compensationData: {

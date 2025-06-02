@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BaseEntitySchema, UUIDSchema } from './common';
+import { BaseEntitySchema, UUIDSchema } from './common.js';
 
 // Persona trait types
 export enum PersonaTraitType {

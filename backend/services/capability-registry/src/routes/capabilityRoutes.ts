@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authMiddleware } from '@uaip/middleware';
-import { CapabilityController } from '../controllers/capabilityController';
+import { CapabilityController } from '../controllers/capabilityController.js';
 
 const router: Router = Router();
 const capabilityController = new CapabilityController();

@@ -13,30 +13,37 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
     "composite": true,
     "incremental": true,
     "baseUrl": "./src",
     "paths": {
-      "@/*": ["*"],
-      "@/types": ["types/*"],
-      "@/controllers": ["controllers/*"],
-      "@/routes": ["routes/*"],
-      "@uaip/types/*": ["../../shared/types/dist/*"],
-      "@uaip/utils/*": ["../../shared/utils/dist/*"],
-      "@uaip/shared-services/*": ["../../shared/services/dist/*"],
-      "@uaip/config/*": ["../../shared/config/dist/*"],
-      "@uaip/middleware/*": ["../../shared/middleware/dist/*"]
+      "@/*": ["./*"],
+      "@uaip/types": ["../../shared/types/src"],
+      "@uaip/types/*": ["../../shared/types/src/*"],
+      "@uaip/utils": ["../../shared/utils/src"],
+      "@uaip/utils/*": ["../../shared/utils/src/*"],
+      "@uaip/config": ["../../shared/config/src"],
+      "@uaip/config/*": ["../../shared/config/src/*"],
+      "@uaip/shared-services": ["../../shared/services/src"],
+      "@uaip/shared-services/*": ["../../shared/services/src/*"],
+      "@uaip/middleware": ["../../shared/middleware/src"],
+      "@uaip/middleware/*": ["../../shared/middleware/src/*"]
     }
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts"],
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ],
   "references": [
     { "path": "../../shared/types" },
     { "path": "../../shared/utils" },
-    { "path": "../../shared/services" },
     { "path": "../../shared/config" },
+    { "path": "../../shared/services" },
     { "path": "../../shared/middleware" }
   ]
 } 

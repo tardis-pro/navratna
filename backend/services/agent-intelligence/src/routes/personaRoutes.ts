@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { PersonaController } from '../controllers/personaController.js';
+import { PersonaController } from '../controllers/personaController';
 import { 
   validateRequest, 
   validateUUID, 

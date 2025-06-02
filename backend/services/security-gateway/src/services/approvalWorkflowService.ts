@@ -1,9 +1,9 @@
 import { v4 as uuidv4 } from 'uuid';
 import cron from 'node-cron';
-import { logger } from '@uaip/utils/logger';
-import { ApiError } from '@uaip/utils/errors';
-import { DatabaseService } from '@uaip/services/databaseService';
-import { EventBusService } from '@uaip/services/eventBusService';
+import { logger } from '@uaip/utils';
+import { ApiError } from '@uaip/utils';
+import { DatabaseService } from '@uaip/shared-services';
+import { EventBusService } from '@uaip/shared-services';
 import {
   ApprovalWorkflow,
   ApprovalDecision,

@@ -104,22 +104,6 @@ export class RoundRobinStrategy implements TurnStrategyInterface {
       }
 
       // In round robin, any active participant can take turn when it's their turn
-      // Additional checks can be added based on config
-      if (config?.restrictions) {
-        // Check cooldown period
-        if (config.restrictions.cooldownPeriod && participant.lastActiveAt) {
-          const cooldownEnd = new Date(participant.lastActiveAt.getTime() + (config.restrictions.cooldownPeriod * 1000));
-          if (new Date() < cooldownEnd) {
-            return false;
-          }
-        }
-
-        // Check message limits
-        if (config.restrictions.maxMessagesPerTurn && participant.messageCount >= config.restrictions.maxMessagesPerTurn) {
-          return false;
-        }
-      }
-
       return true;
     } catch (error) {
       logger.error('Error checking if participant can take turn', {
@@ -147,7 +131,7 @@ export class RoundRobinStrategy implements TurnStrategyInterface {
 
       // Check if turn timeout has been reached
       const turnDuration = now.getTime() - new Date(turnStartTime).getTime();
-      const timeoutMs = (config?.timeout || discussion.settings.turnTimeout || 300) * 1000;
+      const timeoutMs = (discussion.settings.turnTimeout || 300) * 1000;
       
       if (turnDuration >= timeoutMs) {
         logger.info('Turn timeout reached, advancing turn', {
@@ -179,8 +163,8 @@ export class RoundRobinStrategy implements TurnStrategyInterface {
     config?: TurnStrategyConfig
   ): Promise<number> {
     try {
-      // Base duration from config or discussion settings
-      let baseDuration = config?.timeout || discussion.settings.turnTimeout || 300;
+      // Base duration from discussion settings (no timeout in config for round robin)
+      let baseDuration = discussion.settings.turnTimeout || 300;
 
       // Adjust based on participant's historical performance
       if (participant.messageCount > 0) {
@@ -207,7 +191,7 @@ export class RoundRobinStrategy implements TurnStrategyInterface {
         participantId: participant.id,
         discussionId: discussion.id,
         estimatedDuration: baseDuration,
-        baseDuration: config?.timeout || discussion.settings.turnTimeout || 300
+        baseDuration: discussion.settings.turnTimeout || 300
       });
 
       return Math.round(baseDuration);
@@ -217,7 +201,7 @@ export class RoundRobinStrategy implements TurnStrategyInterface {
         participantId: participant.id,
         discussionId: discussion.id
       });
-      return config?.timeout || discussion.settings.turnTimeout || 300;
+      return discussion.settings.turnTimeout || 300;
     }
   }
 
@@ -240,16 +224,13 @@ export class RoundRobinStrategy implements TurnStrategyInterface {
     return 'Round Robin: Participants take turns in a fixed order based on join time';
   }
 
-  getStrategyConfig(): Partial<TurnStrategyConfig> {
+  getStrategyConfig(): TurnStrategyConfig {
     return {
-      type: this.strategyType,
-      timeout: 300, // 5 minutes default
-      allowSkip: true,
-      allowOverride: false,
-      restrictions: {
-        cooldownPeriod: 0,
-        maxMessagesPerTurn: undefined,
-        requiresModeratorApproval: false
+      strategy: this.strategyType,
+      config: {
+        type: 'round_robin',
+        skipInactive: true,
+        maxSkips: 3
       }
     };
   }

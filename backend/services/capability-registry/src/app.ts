@@ -7,9 +7,9 @@ import morgan from 'morgan';
 import { logger } from '@uaip/utils';
 import { errorHandler, rateLimiter, metricsMiddleware } from '@uaip/middleware';
 import { DatabaseService, EventBusService } from '@uaip/shared-services';
-import { config } from './config/index';
-import { capabilityRoutes } from './routes/capabilityRoutes';
-import { healthRoutes } from './routes/healthRoutes';
+import { config } from './config/index.js';
+import { capabilityRoutes } from './routes/capabilityRoutes.js';
+import { healthRoutes } from './routes/healthRoutes.js';
 
 export class CapabilityRegistryApp {
   private app: express.Application;

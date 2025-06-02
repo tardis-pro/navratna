@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
-import { logger } from '@uaip/utils/logger';
-import { ApiError } from '@uaip/utils/errors';
-import { DatabaseService } from '@uaip/services/databaseService';
+import { logger } from '@uaip/utils';
+import { ApiError } from '@uaip/utils';
+import { DatabaseService } from '@uaip/shared-services';
 import {
   AuditEvent,
   AuditEventType,
@@ -794,5 +794,170 @@ export class AuditService {
   private async setupAuditTables(): Promise<void> {
     // This would be handled by migrations in a real application
     logger.info('Audit service initialized');
+  }
+
+  /**
+   * Log a security event (alias for logEvent)
+   */
+  public async logSecurityEvent(request: AuditLogRequest): Promise<AuditEvent> {
+    return this.logEvent(request);
+  }
+
+  /**
+   * Export audit logs (alias for exportLogs)
+   */
+  public async exportAuditLogs(
+    startDate: Date,
+    endDate: Date,
+    format: 'json' | 'csv' | 'xml' = 'json'
+  ): Promise<string> {
+    return this.exportLogs(startDate, endDate, format);
+  }
+
+  /**
+   * Generate compliance report
+   */
+  public async generateComplianceReport(options: {
+    startDate: Date;
+    endDate: Date;
+    includeDetails?: boolean;
+    complianceFramework?: string;
+  }): Promise<{
+    summary: {
+      totalEvents: number;
+      complianceScore: number;
+      criticalViolations: number;
+      recommendations: string[];
+    };
+    violations: Array<{
+      type: string;
+      severity: string;
+      count: number;
+      description: string;
+    }>;
+    trends: {
+      complianceScoreOverTime: Array<{
+        date: string;
+        score: number;
+      }>;
+    };
+  }> {
+    try {
+      const events = await this.queryEvents({
+        startDate: options.startDate,
+        endDate: options.endDate
+      });
+
+      const complianceScore = this.calculateComplianceScore(events);
+      const criticalViolations = events.filter(e => 
+        e.riskLevel === 'critical' && 
+        [AuditEventType.PERMISSION_DENIED, AuditEventType.SECURITY_VIOLATION, AuditEventType.UNAUTHORIZED_ACCESS].includes(e.eventType)
+      ).length;
+
+      const violations = this.analyzeViolations(events);
+      const trends = this.generateComplianceTrends(events, options.startDate, options.endDate);
+
+      return {
+        summary: {
+          totalEvents: events.length,
+          complianceScore,
+          criticalViolations,
+          recommendations: this.generateComplianceRecommendations(events)
+        },
+        violations,
+        trends
+      };
+    } catch (error) {
+      logger.error('Failed to generate compliance report', { error });
+      throw new ApiError(500, 'Failed to generate compliance report');
+    }
+  }
+
+  /**
+   * Clean up old logs (alias for archiveOldLogs)
+   */
+  public async cleanupOldLogs(options?: {
+    retentionDays?: number;
+    dryRun?: boolean;
+  }): Promise<{ archived: number; deleted: number }> {
+    return this.archiveOldLogs();
+  }
+
+  private analyzeViolations(events: AuditEvent[]) {
+    const violationTypes = new Map<string, { count: number; severity: string; description: string }>();
+
+    events.forEach(event => {
+      if ([AuditEventType.PERMISSION_DENIED, AuditEventType.SECURITY_VIOLATION, AuditEventType.UNAUTHORIZED_ACCESS, AuditEventType.FAILED_LOGIN].includes(event.eventType)) {
+        const key = event.eventType;
+        const existing = violationTypes.get(key) || { count: 0, severity: 'medium', description: '' };
+        
+        existing.count++;
+        
+        switch (event.eventType) {
+          case AuditEventType.PERMISSION_DENIED:
+            existing.severity = 'medium';
+            existing.description = 'User attempted to access resources without proper permissions';
+            break;
+          case AuditEventType.SECURITY_VIOLATION:
+            existing.severity = 'high';
+            existing.description = 'Security policy violation detected';
+            break;
+          case AuditEventType.UNAUTHORIZED_ACCESS:
+            existing.severity = 'critical';
+            existing.description = 'Unauthorized access attempt detected';
+            break;
+          case AuditEventType.FAILED_LOGIN:
+            existing.severity = 'low';
+            existing.description = 'Failed login attempts';
+            break;
+        }
+        
+        violationTypes.set(key, existing);
+      }
+    });
+
+    return Array.from(violationTypes.entries()).map(([type, data]) => ({
+      type,
+      severity: data.severity,
+      count: data.count,
+      description: data.description
+    }));
+  }
+
+  private generateComplianceTrends(events: AuditEvent[], startDate: Date, endDate: Date) {
+    const dailyEvents = this.groupEventsByTime(events, 'day');
+    
+    return {
+      complianceScoreOverTime: dailyEvents.map(({ date, count, riskEvents }) => ({
+        date,
+        score: count > 0 ? Math.max(0, 100 - (riskEvents / count) * 100) : 100
+      }))
+    };
+  }
+
+  private generateComplianceRecommendations(events: AuditEvent[]): string[] {
+    const recommendations: string[] = [];
+    
+    const failedLogins = events.filter(e => e.eventType === AuditEventType.FAILED_LOGIN).length;
+    const permissionDenials = events.filter(e => e.eventType === AuditEventType.PERMISSION_DENIED).length;
+    const securityViolations = events.filter(e => e.eventType === AuditEventType.SECURITY_VIOLATION).length;
+
+    if (failedLogins > 100) {
+      recommendations.push('Consider implementing stronger password policies and account lockout mechanisms');
+    }
+    
+    if (permissionDenials > 50) {
+      recommendations.push('Review and optimize role-based access control (RBAC) policies');
+    }
+    
+    if (securityViolations > 10) {
+      recommendations.push('Investigate and address recurring security policy violations');
+    }
+
+    if (recommendations.length === 0) {
+      recommendations.push('Security posture appears healthy. Continue monitoring.');
+    }
+
+    return recommendations;
   }
 } 

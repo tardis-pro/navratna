@@ -1,8 +1,9 @@
 import nodemailer from 'nodemailer';
-import { logger } from '@uaip/utils/logger';
+import crypto from 'crypto';
+import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
-import { DatabaseService } from '@uaip/services/databaseService';
-import { EventBusService } from '@uaip/services/eventBusService';
+import { DatabaseService } from '@uaip/shared-services';
+import { EventBusService } from '@uaip/shared-services';
 
 export interface ApprovalNotification {
   type: string;
@@ -414,7 +415,6 @@ export class NotificationService {
   private generateWebhookSignature(payload: any, secret?: string): string {
     if (!secret) return '';
     
-    const crypto = require('crypto');
     const hmac = crypto.createHmac('sha256', secret);
     hmac.update(JSON.stringify(payload));
     return `sha256=${hmac.digest('hex')}`;
@@ -433,7 +433,7 @@ export class NotificationService {
   private initializeEmailTransporter(): void {
     try {
       if (config.email?.smtp) {
-        this.emailTransporter = nodemailer.createTransporter({
+        this.emailTransporter = nodemailer.createTransport({
           host: config.email.smtp.host,
           port: config.email.smtp.port,
           secure: config.email.smtp.secure,
@@ -594,5 +594,46 @@ export class NotificationService {
     logger.info('Notification channels configured', {
       enabledChannels: this.channels.filter(c => c.enabled).map(c => c.type)
     });
+  }
+
+  /**
+   * Send general notification
+   */
+  public async sendNotification(notification: {
+    type: string;
+    recipient: string;
+    subject: string;
+    message: string;
+    data?: Record<string, any>;
+  }): Promise<void> {
+    try {
+      logger.info('Sending general notification', {
+        type: notification.type,
+        recipient: notification.recipient
+      });
+
+      // Convert to approval notification format for compatibility
+      const approvalNotification: ApprovalNotification = {
+        type: notification.type,
+        recipientId: notification.recipient,
+        workflowId: notification.data?.workflowId || '',
+        operationId: notification.data?.operationId || '',
+        metadata: {
+          subject: notification.subject,
+          message: notification.message,
+          ...notification.data
+        }
+      };
+
+      await this.sendApprovalNotification(approvalNotification);
+
+    } catch (error) {
+      logger.error('Failed to send general notification', {
+        type: notification.type,
+        recipient: notification.recipient,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    }
   }
 } 

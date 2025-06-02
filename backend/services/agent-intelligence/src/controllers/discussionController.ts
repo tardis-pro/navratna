@@ -26,7 +26,7 @@ export class DiscussionController {
       logger.info('Creating new discussion', { 
         title: createRequest.title,
         createdBy: createRequest.createdBy,
-        participantCount: createRequest.initialParticipants.length
+        participantCount: createRequest.initialParticipants?.length || 0
       });
 
       const discussion = await this.discussionService.createDiscussion(createRequest);

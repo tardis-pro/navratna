@@ -30,7 +30,7 @@
   "include": [
     "**/*.ts",
     "**/*.tsx"
-, "../services/orchestration-pipeline/src/orchestrationEngine.ts"  ],
+  ],
   "exclude": [
     "node_modules",
     "dist",

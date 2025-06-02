@@ -13,9 +13,9 @@ import {
   ExpertiseDomain,
   PersonaTrait
 } from '@uaip/types';
-import { DatabaseService } from './databaseService.js';
-import { EventBusService } from './eventBusService.js';
-import { logger } from '@uaip/utils/logger';
+import { DatabaseService } from './databaseService';
+import { EventBusService } from './eventBusService';
+import { logger } from '@uaip/utils';
 
 export interface PersonaServiceConfig {
   databaseService: DatabaseService;
@@ -54,7 +54,7 @@ export class PersonaService {
       // Validate persona data
       const validation = await this.validatePersona(request);
       if (!validation.isValid) {
-        throw new Error(`Persona validation failed: ${validation.errors.join(', ')}`);
+        throw new Error(`Persona validation failed: ${validation.errors?.join(', ') || 'Unknown validation error'}`);
       }
 
       // Create persona in database
@@ -135,7 +135,7 @@ export class PersonaService {
       const persona = await this.databaseService.update<Persona>('personas', id, {
         ...updates,
         validation,
-        version: existingPersona.version + 1,
+        version: (existingPersona.version || 0) + 1,
         updatedAt: new Date()
       });
 
@@ -306,7 +306,7 @@ export class PersonaService {
       // Conversational style validation
       if (persona.conversationalStyle) {
         const style = persona.conversationalStyle;
-        if (style.empathy < 0.1 && style.assertiveness > 0.9) {
+        if ((style.empathy || 0) < 0.1 && (style.assertiveness || 0) > 0.9) {
           warnings.push('Very low empathy with high assertiveness may create harsh interactions');
         }
       }
@@ -402,11 +402,11 @@ export class PersonaService {
       // Update usage statistics
       const updatedStats: PersonaUsageStats = {
         ...currentStats,
-        totalUsages: currentStats.totalUsages + 1,
+        totalUsages: (currentStats.totalUsages || 0) + 1,
         lastUsedAt: new Date(),
         averageSessionDuration: this.calculateNewAverage(
-          currentStats.averageSessionDuration,
-          currentStats.totalUsages,
+          currentStats.averageSessionDuration || 0,
+          currentStats.totalUsages || 0,
           sessionData.duration
         )
       };
@@ -415,10 +415,10 @@ export class PersonaService {
       if (sessionData.satisfactionScore !== undefined) {
         updatedStats.feedbackScore = this.calculateNewAverage(
           currentStats.feedbackScore || 0,
-          currentStats.feedbackCount,
+          currentStats.feedbackCount || 0,
           sessionData.satisfactionScore
         );
-        updatedStats.feedbackCount = currentStats.feedbackCount + 1;
+        updatedStats.feedbackCount = (currentStats.feedbackCount || 0) + 1;
       }
 
       // Recalculate popularity score
@@ -482,7 +482,7 @@ export class PersonaService {
 
       // Update template usage count
       await this.databaseService.update('persona_templates', templateId, {
-        usageCount: template.usageCount + 1
+        usageCount: (template.usageCount || 0) + 1
       });
 
       return persona;
@@ -496,7 +496,7 @@ export class PersonaService {
   // ===== PRIVATE HELPER METHODS =====
 
   private cachePersona(persona: Persona): void {
-    this.personaCache.set(persona.id, {
+    this.personaCache.set(persona.id!, {
       persona,
       timestamp: Date.now()
     });
@@ -658,20 +658,19 @@ export class PersonaService {
   }
 
   private calculatePopularityScore(stats: PersonaUsageStats): number {
-    // Calculate popularity score based on usage statistics
     let score = 0;
-
-    // Base score from usage count
-    score += Math.min(stats.totalUsages * 2, 50);
-
-    // Bonus for unique users
-    score += Math.min(stats.uniqueUsers * 3, 30);
-
-    // Bonus for feedback score
-    if (stats.feedbackScore && stats.feedbackCount > 0) {
-      score += (stats.feedbackScore / 5) * 20;
+    
+    // Usage frequency (max 50 points)
+    score += Math.min((stats.totalUsages || 0) * 2, 50);
+    
+    // User diversity (max 30 points)
+    score += Math.min((stats.uniqueUsers || 0) * 3, 30);
+    
+    // Feedback quality (max 20 points)
+    if (stats.feedbackScore && (stats.feedbackCount || 0) > 0) {
+      score += stats.feedbackScore * 20;
     }
-
-    return Math.min(100, score);
+    
+    return Math.min(score, 100);
   }
 } 

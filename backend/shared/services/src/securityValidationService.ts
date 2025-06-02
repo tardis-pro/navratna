@@ -1,4 +1,4 @@
-import { DatabaseService } from './databaseService.js';
+import { DatabaseService } from './databaseService';
 import { logger, ApiError } from '@uaip/utils';
 import {
   SecurityValidationResult,
@@ -33,7 +33,7 @@ export class SecurityValidationService {
       });
 
       // Step 1: Validate user authentication and authorization
-      const authValidation = await this.validateUserAuth(securityContext.userId);
+      const authValidation = await this.validateUserAuth(securityContext.userId || '');
       if (!authValidation.valid) {
         return {
           allowed: false,
@@ -46,7 +46,7 @@ export class SecurityValidationService {
 
       // Step 2: Check user permissions for the operation
       const permissions = await this.getUserPermissions(
-        securityContext.userId,
+        securityContext.userId || '',
         operation,
         resources
       );
@@ -87,10 +87,10 @@ export class SecurityValidationService {
 
       return {
         allowed: true,
-        riskLevel: this.convertRiskLevelToSecurityLevel(riskAssessment.overallRisk),
+        riskLevel: this.convertRiskLevelToSecurityLevel(riskAssessment.overallRisk || RiskLevel.MEDIUM),
         approvalRequired,
         conditions,
-        reasoning: riskAssessment.factors.map((f: RiskFactor) => f.description).join('; ')
+        reasoning: riskAssessment.factors?.map((f: RiskFactor) => f.description).join('; ') || 'No specific risk factors identified'
       };
 
     } catch (error) {
@@ -325,7 +325,7 @@ export class SecurityValidationService {
     const riskFactors: RiskFactor[] = [];
 
     // Assess user risk level
-    const userRisk = await this.assessUserRisk(securityContext.userId);
+    const userRisk = await this.assessUserRisk(securityContext.userId || '');
     if (userRisk.level !== RiskLevel.LOW) {
       riskFactors.push(userRisk);
     }
@@ -480,24 +480,24 @@ export class SecurityValidationService {
   }
 
   private assessComplexityRisk(plan: ExecutionPlan): RiskFactor {
-    const stepCount = plan.steps.length;
+    const stepCount = plan.steps?.length || 0;
     const duration = plan.estimatedDuration;
 
-    if (stepCount > 10 || duration > 3600) { // More than 10 steps or 1 hour
+    if (stepCount > 10 || (duration && duration > 3600)) { // More than 10 steps or 1 hour
       return {
         type: 'complexity',
         level: RiskLevel.HIGH,
-        score: 7,
-        description: 'Complex operation with many steps or long duration'
+        score: 8,
+        description: 'High complexity operation with many steps or long duration'
       };
     }
 
-    if (stepCount > 5 || duration > 1800) { // More than 5 steps or 30 minutes
+    if (stepCount > 5 || (duration && duration > 1800)) { // More than 5 steps or 30 minutes
       return {
         type: 'complexity',
         level: RiskLevel.MEDIUM,
-        score: 4,
-        description: 'Moderately complex operation'
+        score: 5,
+        description: 'Medium complexity operation'
       };
     }
 
@@ -505,27 +505,27 @@ export class SecurityValidationService {
       type: 'complexity',
       level: RiskLevel.LOW,
       score: 2,
-      description: 'Simple operation'
+      description: 'Low complexity operation'
     };
   }
 
   private assessDurationRisk(plan: ExecutionPlan): RiskFactor {
     const duration = plan.estimatedDuration;
 
-    if (duration > 7200) { // More than 2 hours
+    if (duration && duration > 7200) { // More than 2 hours
       return {
         type: 'duration',
         level: RiskLevel.HIGH,
-        score: 8,
+        score: 7,
         description: 'Very long running operation'
       };
     }
 
-    if (duration > 3600) { // More than 1 hour
+    if (duration && duration > 3600) { // More than 1 hour
       return {
         type: 'duration',
         level: RiskLevel.MEDIUM,
-        score: 5,
+        score: 4,
         description: 'Long running operation'
       };
     }
@@ -533,28 +533,28 @@ export class SecurityValidationService {
     return {
       type: 'duration',
       level: RiskLevel.LOW,
-      score: 2,
+      score: 1,
       description: 'Short duration operation'
     };
   }
 
   private assessResourceRisk(plan: ExecutionPlan): RiskFactor {
-    // Check for resource-intensive operations
-    const resourceIntensiveTypes = ['artifact_generation', 'hybrid_workflow'];
+    // Check if plan involves resource-intensive operations
+    const resourceIntensiveTypes = ['data_processing', 'ml_training', 'bulk_operations'];
     
-    if (resourceIntensiveTypes.includes(plan.type)) {
+    if (plan.type && resourceIntensiveTypes.includes(plan.type)) {
       return {
-        type: 'resource_usage',
+        type: 'resource',
         level: RiskLevel.MEDIUM,
-        score: 4,
+        score: 5,
         description: 'Resource-intensive operation type'
       };
     }
 
     return {
-      type: 'resource_usage',
+      type: 'resource',
       level: RiskLevel.LOW,
-      score: 1,
+      score: 2,
       description: 'Standard resource usage'
     };
   }
@@ -596,9 +596,8 @@ export class SecurityValidationService {
   }
 
   private calculateRiskScore(riskFactors: RiskFactor[]): number {
-    if (riskFactors.length === 0) return 0;
-    const totalScore = riskFactors.reduce((sum, factor) => sum + factor.score, 0);
-    return Math.min(10, totalScore / riskFactors.length);
+    const totalScore = riskFactors.reduce((sum, factor) => sum + (factor.score || 0), 0);
+    return Math.min(totalScore, 100); // Cap at 100
   }
 
   private async isApprovalRequired(

@@ -1,68 +1,103 @@
-import express from 'express';
-import Joi from 'joi';
-import { logger } from '@uaip/utils/logger';
-import { authenticateToken, requireRole } from '@uaip/middleware/auth';
-import { SecurityGatewayService } from '@/services/securityGatewayService';
+import express, { Router } from 'express';
+import { Request, Response } from 'express';
+import { z } from 'zod';
+import { logger } from '@uaip/utils/src/logger';
+import { ApiError } from '@uaip/utils';
+import { authMiddleware, requireAdmin } from '@uaip/middleware';
+import { validateRequest } from '@uaip/middleware';
+import { DatabaseService } from '@uaip/shared-services';
 import { AuditService } from '@/services/auditService';
-import { DatabaseService } from '@uaip/services/databaseService';
+import { NotificationService } from '@/services/notificationService';
+import { AuditEventType } from '@uaip/types';
+import { SecurityGatewayService } from '@/services/securityGatewayService';
+import { ApprovalWorkflowService } from '@/services/approvalWorkflowService';
+import { EventBusService } from '@uaip/shared-services';
 
-const router = express.Router();
+const router: Router = express.Router();
 const databaseService = new DatabaseService();
 const auditService = new AuditService(databaseService);
-const securityGatewayService = new SecurityGatewayService(databaseService, null, auditService);
+const notificationService = new NotificationService();
+const eventBusService = new EventBusService(
+  {
+    url: process.env.RABBITMQ_URL || 'amqp://localhost:5672',
+    serviceName: 'security-gateway'
+  },
+  logger
+);
+const approvalWorkflowService = new ApprovalWorkflowService(
+  databaseService,
+  eventBusService,
+  notificationService,
+  auditService
+);
+const securityGatewayService = new SecurityGatewayService(databaseService, approvalWorkflowService, auditService);
 
-// Validation schemas
-const riskAssessmentSchema = Joi.object({
-  operationType: Joi.string().valid(
-    'CREATE', 'READ', 'UPDATE', 'DELETE', 'EXECUTE', 'DEPLOY', 'CONFIGURE'
-  ).required(),
-  resourceType: Joi.string().valid(
-    'AGENT', 'WORKFLOW', 'DATA', 'SYSTEM', 'USER', 'POLICY', 'CONFIGURATION'
-  ).required(),
-  resourceId: Joi.string().optional(),
-  context: Joi.object({
-    environment: Joi.string().valid('development', 'staging', 'production').optional(),
-    urgency: Joi.string().valid('low', 'medium', 'high', 'critical').optional(),
-    businessJustification: Joi.string().optional(),
-    additionalContext: Joi.object().optional()
+// Validation schemas using Zod
+const riskAssessmentSchema = z.object({
+  operationType: z.enum(['CREATE', 'READ', 'UPDATE', 'DELETE', 'EXECUTE', 'DEPLOY', 'CONFIGURE']),
+  resourceType: z.enum(['AGENT', 'WORKFLOW', 'DATA', 'SYSTEM', 'USER', 'POLICY', 'CONFIGURATION']),
+  resourceId: z.string().optional(),
+  context: z.object({
+    environment: z.enum(['development', 'staging', 'production']).optional(),
+    urgency: z.enum(['low', 'medium', 'high', 'critical']).optional(),
+    businessJustification: z.string().optional(),
+    additionalContext: z.record(z.any()).optional()
   }).optional()
 });
 
-const securityPolicySchema = Joi.object({
-  name: Joi.string().min(3).max(100).required(),
-  description: Joi.string().max(500).required(),
-  priority: Joi.number().integer().min(1).max(100).required(),
-  isActive: Joi.boolean().default(true),
-  conditions: Joi.object({
-    operationTypes: Joi.array().items(Joi.string()).optional(),
-    resourceTypes: Joi.array().items(Joi.string()).optional(),
-    userRoles: Joi.array().items(Joi.string()).optional(),
-    timeRestrictions: Joi.object({
-      allowedHours: Joi.array().items(Joi.number().min(0).max(23)).optional(),
-      allowedDays: Joi.array().items(Joi.number().min(0).max(6)).optional(),
-      timezone: Joi.string().optional()
+const securityPolicySchema = z.object({
+  name: z.string().min(3).max(100),
+  description: z.string().max(500),
+  priority: z.number().int().min(1).max(100),
+  isActive: z.boolean().default(true),
+  conditions: z.object({
+    operationTypes: z.array(z.string()).optional(),
+    resourceTypes: z.array(z.string()).optional(),
+    userRoles: z.array(z.string()).optional(),
+    timeRestrictions: z.object({
+      allowedHours: z.array(z.number().min(0).max(23)).optional(),
+      allowedDays: z.array(z.number().min(0).max(6)).optional(),
+      timezone: z.string().optional()
     }).optional(),
-    environmentRestrictions: Joi.array().items(Joi.string()).optional(),
-    riskThresholds: Joi.object({
-      minRiskScore: Joi.number().min(0).max(100).optional(),
-      maxRiskScore: Joi.number().min(0).max(100).optional()
+    environmentRestrictions: z.array(z.string()).optional(),
+    riskThresholds: z.object({
+      minRiskScore: z.number().min(0).max(100).optional(),
+      maxRiskScore: z.number().min(0).max(100).optional()
     }).optional()
-  }).required(),
-  actions: Joi.object({
-    requireApproval: Joi.boolean().default(false),
-    approvalRequirements: Joi.object({
-      minimumApprovers: Joi.number().integer().min(1).optional(),
-      requiredRoles: Joi.array().items(Joi.string()).optional(),
-      timeoutHours: Joi.number().min(1).max(168).optional() // 1 hour to 1 week
+  }),
+  actions: z.object({
+    requireApproval: z.boolean().default(false),
+    approvalRequirements: z.object({
+      minimumApprovers: z.number().int().min(1).optional(),
+      requiredRoles: z.array(z.string()).optional(),
+      timeoutHours: z.number().min(1).max(168).optional() // 1 hour to 1 week
     }).optional(),
-    blockOperation: Joi.boolean().default(false),
-    logLevel: Joi.string().valid('info', 'warn', 'error').default('info'),
-    notificationChannels: Joi.array().items(Joi.string()).optional(),
-    additionalActions: Joi.object().optional()
-  }).required()
+    blockOperation: z.boolean().default(false),
+    logLevel: z.enum(['info', 'warn', 'error']).default('info'),
+    notificationChannels: z.array(z.string()).optional(),
+    additionalActions: z.record(z.any()).optional()
+  })
 });
 
-const updatePolicySchema = securityPolicySchema.fork(['name'], (schema) => schema.optional());
+const updatePolicySchema = securityPolicySchema.partial({ name: true });
+
+// Helper function for Zod validation
+const validateWithZod = (schema: z.ZodSchema, data: any) => {
+  const result = schema.safeParse(data);
+  if (result.success) {
+    return { error: null, value: result.data };
+  } else {
+    return {
+      error: {
+        details: result.error.errors.map(err => ({
+          message: err.message,
+          path: err.path.join('.')
+        }))
+      },
+      value: null
+    };
+  }
+};
 
 // Routes
 
@@ -71,9 +106,9 @@ const updatePolicySchema = securityPolicySchema.fork(['name'], (schema) => schem
  * @desc Assess risk for a specific operation
  * @access Private
  */
-router.post('/assess-risk', authenticateToken, async (req, res) => {
+router.post('/assess-risk', authMiddleware, async (req, res) => {
   try {
-    const { error, value } = riskAssessmentSchema.validate(req.body);
+    const { error, value } = validateWithZod(riskAssessmentSchema, req.body);
     if (error) {
       return res.status(400).json({
         error: 'Validation Error',
@@ -94,14 +129,14 @@ router.post('/assess-risk', authenticateToken, async (req, res) => {
     });
 
     await auditService.logSecurityEvent({
-      eventType: 'RISK_ASSESSMENT',
+      eventType: AuditEventType.RISK_ASSESSMENT,
       userId,
       details: {
         operationType: value.operationType,
         resourceType: value.resourceType,
         resourceId: value.resourceId,
-        riskScore: riskAssessment.riskScore,
-        riskLevel: riskAssessment.riskLevel
+        riskScore: riskAssessment.score,
+        riskLevel: riskAssessment.overallRisk
       },
       ipAddress: req.ip,
       userAgent: req.headers['user-agent']
@@ -126,9 +161,9 @@ router.post('/assess-risk', authenticateToken, async (req, res) => {
  * @desc Check if an operation requires approval
  * @access Private
  */
-router.post('/check-approval-required', authenticateToken, async (req, res) => {
+router.post('/check-approval-required', authMiddleware, async (req, res) => {
   try {
-    const { error, value } = riskAssessmentSchema.validate(req.body);
+    const { error, value } = validateWithZod(riskAssessmentSchema, req.body);
     if (error) {
       return res.status(400).json({
         error: 'Validation Error',
@@ -169,7 +204,7 @@ router.post('/check-approval-required', authenticateToken, async (req, res) => {
  * @desc Get all security policies
  * @access Private - Admin/Security roles only
  */
-router.get('/policies', authenticateToken, requireRole(['admin', 'security_admin']), async (req, res) => {
+router.get('/policies', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { page = 1, limit = 20, active, search } = req.query;
     
@@ -253,7 +288,7 @@ router.get('/policies', authenticateToken, requireRole(['admin', 'security_admin
  * @desc Get a specific security policy
  * @access Private - Admin/Security roles only
  */
-router.get('/policies/:policyId', authenticateToken, requireRole(['admin', 'security_admin']), async (req, res) => {
+router.get('/policies/:policyId', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { policyId } = req.params;
 
@@ -292,9 +327,9 @@ router.get('/policies/:policyId', authenticateToken, requireRole(['admin', 'secu
  * @desc Create a new security policy
  * @access Private - Admin/Security roles only
  */
-router.post('/policies', authenticateToken, requireRole(['admin', 'security_admin']), async (req, res) => {
+router.post('/policies', authMiddleware, requireAdmin, async (req, res) => {
   try {
-    const { error, value } = securityPolicySchema.validate(req.body);
+    const { error, value } = validateWithZod(securityPolicySchema, req.body);
     if (error) {
       return res.status(400).json({
         error: 'Validation Error',
@@ -304,10 +339,14 @@ router.post('/policies', authenticateToken, requireRole(['admin', 'security_admi
 
     const userId = (req as any).user.userId;
 
+    // Create policy
     const query = `
-      INSERT INTO security_policies (name, description, priority, is_active, conditions, actions, created_by, created_at, updated_at)
+      INSERT INTO security_policies (
+        name, description, priority, is_active, conditions, actions, 
+        created_by, created_at, updated_at
+      )
       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
-      RETURNING id, name, description, priority, is_active, conditions, actions, created_at, updated_at, created_by
+      RETURNING *
     `;
 
     const result = await databaseService.query(query, [
@@ -323,12 +362,13 @@ router.post('/policies', authenticateToken, requireRole(['admin', 'security_admi
     const newPolicy = result.rows[0];
 
     await auditService.logSecurityEvent({
-      eventType: 'POLICY_CREATED',
+      eventType: AuditEventType.POLICY_CREATED,
       userId,
       details: {
         policyId: newPolicy.id,
         policyName: newPolicy.name,
-        priority: newPolicy.priority
+        priority: newPolicy.priority,
+        isActive: newPolicy.is_active
       },
       ipAddress: req.ip,
       userAgent: req.headers['user-agent']
@@ -353,10 +393,10 @@ router.post('/policies', authenticateToken, requireRole(['admin', 'security_admi
  * @desc Update a security policy
  * @access Private - Admin/Security roles only
  */
-router.put('/policies/:policyId', authenticateToken, requireRole(['admin', 'security_admin']), async (req, res) => {
+router.put('/policies/:policyId', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { policyId } = req.params;
-    const { error, value } = updatePolicySchema.validate(req.body);
+    const { error, value } = validateWithZod(updatePolicySchema, req.body);
     if (error) {
       return res.status(400).json({
         error: 'Validation Error',
@@ -368,7 +408,7 @@ router.put('/policies/:policyId', authenticateToken, requireRole(['admin', 'secu
 
     // Check if policy exists
     const existingPolicy = await databaseService.query(
-      'SELECT id, name FROM security_policies WHERE id = $1',
+      'SELECT * FROM security_policies WHERE id = $1',
       [policyId]
     );
 
@@ -429,25 +469,28 @@ router.put('/policies/:policyId', authenticateToken, requireRole(['admin', 'secu
 
     paramCount++;
     updateFields.push(`updated_at = NOW()`);
-    updateValues.push(policyId);
-
-    const query = `
+    
+    paramCount++;
+    const updateQuery = `
       UPDATE security_policies 
       SET ${updateFields.join(', ')}
       WHERE id = $${paramCount}
-      RETURNING id, name, description, priority, is_active, conditions, actions, created_at, updated_at, created_by
+      RETURNING *
     `;
+    updateValues.push(policyId);
 
-    const result = await databaseService.query(query, updateValues);
+    const result = await databaseService.query(updateQuery, updateValues);
     const updatedPolicy = result.rows[0];
 
     await auditService.logSecurityEvent({
-      eventType: 'POLICY_UPDATED',
+      eventType: AuditEventType.POLICY_UPDATED,
       userId,
       details: {
         policyId: updatedPolicy.id,
         policyName: updatedPolicy.name,
-        updatedFields: Object.keys(value)
+        changes: Object.keys(value),
+        priority: updatedPolicy.priority,
+        isActive: updatedPolicy.is_active
       },
       ipAddress: req.ip,
       userAgent: req.headers['user-agent']
@@ -472,14 +515,14 @@ router.put('/policies/:policyId', authenticateToken, requireRole(['admin', 'secu
  * @desc Delete a security policy
  * @access Private - Admin only
  */
-router.delete('/policies/:policyId', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.delete('/policies/:policyId', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { policyId } = req.params;
     const userId = (req as any).user.userId;
 
     // Check if policy exists
     const existingPolicy = await databaseService.query(
-      'SELECT id, name FROM security_policies WHERE id = $1',
+      'SELECT * FROM security_policies WHERE id = $1',
       [policyId]
     );
 
@@ -492,18 +535,20 @@ router.delete('/policies/:policyId', authenticateToken, requireRole(['admin']), 
 
     const policy = existingPolicy.rows[0];
 
-    // Soft delete by setting is_active to false
+    // Delete policy
     await databaseService.query(
-      'UPDATE security_policies SET is_active = false, updated_at = NOW() WHERE id = $1',
+      'DELETE FROM security_policies WHERE id = $1',
       [policyId]
     );
 
     await auditService.logSecurityEvent({
-      eventType: 'POLICY_DELETED',
+      eventType: AuditEventType.POLICY_DELETED,
       userId,
       details: {
         policyId: policy.id,
-        policyName: policy.name
+        policyName: policy.name,
+        priority: policy.priority,
+        wasActive: policy.is_active
       },
       ipAddress: req.ip,
       userAgent: req.headers['user-agent']
@@ -527,7 +572,7 @@ router.delete('/policies/:policyId', authenticateToken, requireRole(['admin']), 
  * @desc Get security statistics and metrics
  * @access Private - Admin/Security roles only
  */
-router.get('/stats', authenticateToken, requireRole(['admin', 'security_admin']), async (req, res) => {
+router.get('/stats', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { timeframe = '24h' } = req.query;
     

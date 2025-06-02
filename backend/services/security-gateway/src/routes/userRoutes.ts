@@ -1,14 +1,17 @@
-import express from 'express';
+import express, { Router } from 'express';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
-import { logger } from '@uaip/utils/logger';
-import { authenticateToken, requireRole } from '@uaip/middleware/auth';
+import { logger } from '@uaip/utils/src/logger';
+import { authMiddleware, requireAdmin } from '@uaip/middleware';
 import { validateRequest } from '@uaip/middleware';
-import { AuditService } from '@/services/auditService';
-import { NotificationService } from '@/services/notificationService';
-import { DatabaseService } from '@uaip/services/databaseService';
+import { AuditService } from '@/services/auditService.js';
+import { NotificationService } from '@/services/notificationService.js';
+import { DatabaseService } from '@uaip/shared-services';
+import { Request, Response } from 'express';
+import { config } from '@uaip/config';
+import { AuditEventType } from '@uaip/types';
 
-const router = express.Router();
+const router: Router = express.Router();
 const databaseService = new DatabaseService();
 const auditService = new AuditService(databaseService);
 const notificationService = new NotificationService();
@@ -65,6 +68,24 @@ const bulkActionSchema = z.object({
   reason: z.string().max(500).optional()
 });
 
+// Helper function for Zod validation
+const validateWithZod = (schema: z.ZodSchema, data: any) => {
+  const result = schema.safeParse(data);
+  if (result.success) {
+    return { error: null, value: result.data };
+  } else {
+    return {
+      error: {
+        details: result.error.errors.map(err => ({
+          message: err.message,
+          path: err.path.join('.')
+        }))
+      },
+      value: null
+    };
+  }
+};
+
 // Helper functions
 const hashPassword = async (password: string): Promise<string> => {
   const saltRounds = 12;
@@ -99,8 +120,8 @@ const generateRandomPassword = (): string => {
  * @access Private - Admin/Security roles only
  */
 router.get('/', 
-  authenticateToken, 
-  requireRole(['admin', 'security_admin']), 
+  authMiddleware,
+  requireAdmin,
   validateRequest({ query: userQuerySchema }),
   async (req, res) => {
     try {
@@ -155,18 +176,23 @@ router.get('/',
         params.push(`%${search}%`);
       }
 
-      // Add sorting
-      query += ` ORDER BY ${sortBy} ${sortOrder.toUpperCase()}`;
+      // Parse and validate query parameters
+      const sortByQuery = sortBy as string || 'created_at';
+      const sortOrderQuery = sortOrder as string || 'desc';
+      const pageQuery = parseInt(page as string) || 1;
+      const limitQuery = parseInt(limit as string) || 20;
 
-      // Add pagination
-      const offset = (page - 1) * limit;
-      paramCount++;
-      query += ` LIMIT $${paramCount}`;
-      params.push(limit);
+      // Validate sort order
+      const validSortOrder = ['asc', 'desc'].includes(sortOrderQuery.toLowerCase()) ? sortOrderQuery : 'desc';
 
-      paramCount++;
-      query += ` OFFSET $${paramCount}`;
-      params.push(offset);
+      if (sortByQuery) {
+        query += ` ORDER BY ${sortByQuery} ${validSortOrder.toUpperCase()}`;
+      }
+
+      if (pageQuery && limitQuery) {
+        const offset = (pageQuery - 1) * limitQuery;
+        query += ` LIMIT ${limitQuery} OFFSET ${offset}`;
+      }
 
       const result = await databaseService.query(query, params);
 
@@ -201,10 +227,10 @@ router.get('/',
         message: 'Users retrieved successfully',
         users: result.rows,
         pagination: {
-          page,
-          limit,
+          page: pageQuery,
+          limit: limitQuery,
           total: totalCount,
-          pages: Math.ceil(totalCount / limit)
+          pages: Math.ceil(totalCount / (limitQuery || 20))
         },
         filters: {
           role,
@@ -227,7 +253,7 @@ router.get('/',
  * @desc Get a specific user
  * @access Private - Admin/Security roles only
  */
-router.get('/:userId', authenticateToken, requireRole(['admin', 'security_admin']), async (req, res) => {
+router.get('/:userId', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { userId } = req.params;
 
@@ -278,9 +304,9 @@ router.get('/:userId', authenticateToken, requireRole(['admin', 'security_admin'
  * @desc Create a new user
  * @access Private - Admin only
  */
-router.post('/', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.post('/', authMiddleware, requireAdmin, async (req, res) => {
   try {
-    const { error, value } = createUserSchema.validate(req.body);
+    const { error, value } = validateWithZod(createUserSchema, req.body);
     if (error) {
       return res.status(400).json({
         error: 'Validation Error',
@@ -332,15 +358,15 @@ router.post('/', authenticateToken, requireRole(['admin']), async (req, res) => 
     if (value.sendWelcomeEmail) {
       try {
         await notificationService.sendNotification({
-          type: 'email',
+          type: 'user_welcome',
           recipient: value.email,
-          subject: 'Welcome to UAIP Security Gateway',
-          template: 'user_welcome',
+          subject: 'Welcome to UAIP',
+          message: `Welcome ${value.firstName || 'User'}! Your account has been created successfully.`,
           data: {
-            firstName: value.firstName || 'User',
+            name: value.firstName || 'User',
             email: value.email,
             role: value.role,
-            loginUrl: process.env.FRONTEND_URL || 'http://localhost:3000'
+            loginUrl: `${config.frontend.baseUrl}/login`
           }
         });
       } catch (emailError) {
@@ -349,7 +375,7 @@ router.post('/', authenticateToken, requireRole(['admin']), async (req, res) => 
     }
 
     await auditService.logSecurityEvent({
-      eventType: 'USER_CREATED',
+      eventType: AuditEventType.USER_CREATED,
       userId: adminUserId,
       details: {
         createdUserId: newUser.id,
@@ -383,10 +409,10 @@ router.post('/', authenticateToken, requireRole(['admin']), async (req, res) => 
  * @desc Update a user
  * @access Private - Admin only
  */
-router.put('/:userId', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.put('/:userId', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { userId } = req.params;
-    const { error, value } = updateUserSchema.validate(req.body);
+    const { error, value } = validateWithZod(updateUserSchema, req.body);
     if (error) {
       return res.status(400).json({
         error: 'Validation Error',
@@ -489,7 +515,7 @@ router.put('/:userId', authenticateToken, requireRole(['admin']), async (req, re
     const updatedUser = result.rows[0];
 
     await auditService.logSecurityEvent({
-      eventType: 'USER_UPDATED',
+      eventType: AuditEventType.USER_UPDATED,
       userId: adminUserId,
       details: {
         updatedUserId: updatedUser.id,
@@ -523,7 +549,7 @@ router.put('/:userId', authenticateToken, requireRole(['admin']), async (req, re
  * @desc Delete a user (soft delete)
  * @access Private - Admin only
  */
-router.delete('/:userId', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.delete('/:userId', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { userId } = req.params;
     const adminUserId = (req as any).user.userId;
@@ -564,7 +590,7 @@ router.delete('/:userId', authenticateToken, requireRole(['admin']), async (req,
     );
 
     await auditService.logSecurityEvent({
-      eventType: 'USER_DELETED',
+      eventType: AuditEventType.USER_DELETED,
       userId: adminUserId,
       details: {
         deletedUserId: user.id,
@@ -593,10 +619,10 @@ router.delete('/:userId', authenticateToken, requireRole(['admin']), async (req,
  * @desc Reset user password
  * @access Private - Admin only
  */
-router.post('/:userId/reset-password', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.post('/:userId/reset-password', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { userId } = req.params;
-    const { error, value } = resetPasswordSchema.validate(req.body);
+    const { error, value } = validateWithZod(resetPasswordSchema, req.body);
     if (error) {
       return res.status(400).json({
         error: 'Validation Error',
@@ -643,14 +669,15 @@ router.post('/:userId/reset-password', authenticateToken, requireRole(['admin'])
     if (value.sendNotification) {
       try {
         await notificationService.sendNotification({
-          type: 'email',
+          type: 'password_reset',
           recipient: user.email,
-          subject: 'Password Reset - UAIP Security Gateway',
-          template: 'password_reset',
+          subject: 'Password Reset - UAIP',
+          message: `Your password has been reset by an administrator.`,
           data: {
+            name: user.first_name || 'User',
             email: user.email,
-            newPassword: value.newPassword ? '[Set by admin]' : newPassword,
-            loginUrl: process.env.FRONTEND_URL || 'http://localhost:3000'
+            newPassword: newPassword,
+            loginUrl: `${config.frontend.baseUrl}/login`
           }
         });
       } catch (emailError) {
@@ -659,7 +686,7 @@ router.post('/:userId/reset-password', authenticateToken, requireRole(['admin'])
     }
 
     await auditService.logSecurityEvent({
-      eventType: 'PASSWORD_RESET_BY_ADMIN',
+      eventType: AuditEventType.PASSWORD_RESET_BY_ADMIN,
       userId: adminUserId,
       details: {
         targetUserId: userId,
@@ -689,7 +716,7 @@ router.post('/:userId/reset-password', authenticateToken, requireRole(['admin'])
  * @desc Unlock a locked user account
  * @access Private - Admin only
  */
-router.post('/:userId/unlock', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.post('/:userId/unlock', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { userId } = req.params;
     const adminUserId = (req as any).user.userId;
@@ -717,7 +744,7 @@ router.post('/:userId/unlock', authenticateToken, requireRole(['admin']), async 
     `, [userId]);
 
     await auditService.logSecurityEvent({
-      eventType: 'USER_UNLOCKED',
+      eventType: AuditEventType.USER_UNLOCKED,
       userId: adminUserId,
       details: {
         unlockedUserId: userId,
@@ -747,9 +774,9 @@ router.post('/:userId/unlock', authenticateToken, requireRole(['admin']), async 
  * @desc Perform bulk actions on multiple users
  * @access Private - Admin only
  */
-router.post('/bulk-action', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.post('/bulk-action', authMiddleware, requireAdmin, async (req, res) => {
   try {
-    const { error, value } = bulkActionSchema.validate(req.body);
+    const { error, value } = validateWithZod(bulkActionSchema, req.body);
     if (error) {
       return res.status(400).json({
         error: 'Validation Error',
@@ -768,10 +795,12 @@ router.post('/bulk-action', authenticateToken, requireRole(['admin']), async (re
       });
     }
 
-    const results = {
+    const results: {
+      successful: Array<{ userId: string; email: string }>;
+      failed: Array<{ userId: string; reason: string }>;
+    } = {
       successful: [],
-      failed: [],
-      total: userIds.length
+      failed: []
     };
 
     for (const userId of userIds) {
@@ -842,9 +871,9 @@ router.post('/bulk-action', authenticateToken, requireRole(['admin']), async (re
 
         results.successful.push({ userId, email: user.email });
 
-        // Log the action
+        // Log audit event
         await auditService.logSecurityEvent({
-          eventType: 'BULK_USER_ACTION',
+          eventType: AuditEventType.BULK_USER_ACTION,
           userId: adminUserId,
           details: {
             action,
@@ -881,7 +910,7 @@ router.post('/bulk-action', authenticateToken, requireRole(['admin']), async (re
  * @desc Get user statistics
  * @access Private - Admin/Security roles only
  */
-router.get('/stats', authenticateToken, requireRole(['admin', 'security_admin']), async (req, res) => {
+router.get('/stats', authMiddleware, requireAdmin, async (req, res) => {
   try {
     // Get user counts by role
     const roleStatsQuery = `

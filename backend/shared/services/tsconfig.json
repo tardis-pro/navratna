@@ -6,7 +6,7 @@
     "declaration": true,
     "declarationMap": true,
     "outDir": "./dist",
-    "rootDir": "./",
+    "rootDir": "./src",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -17,18 +17,19 @@
     "emitDecoratorMetadata": true,
     "composite": true,
     "incremental": true,
-    "baseUrl": ".",
+    "baseUrl": "./src",
     "paths": {
-      "@uaip/types": ["../types/dist/index.d.ts"],
+      "@/*": ["./*"],
+      "@uaip/types": ["../types/dist"],
       "@uaip/types/*": ["../types/dist/*"],
-      "@uaip/utils": ["../utils/dist/index.d.ts"],
+      "@uaip/utils": ["../utils/dist"],
       "@uaip/utils/*": ["../utils/dist/*"],
-      "@uaip/config": ["../config/dist/index.d.ts"],
+      "@uaip/config": ["../config/dist"],
       "@uaip/config/*": ["../config/dist/*"]
     }
   },
   "include": [
-    "./**/*.ts"
+    "src/**/*.ts"
   ],
   "exclude": [
     "dist",

@@ -1,6 +1,6 @@
-import { logger } from '@uaip/utils/logger';
-import { ApiError } from '@uaip/utils/errors';
-import { DatabaseService } from '@uaip/services/databaseService';
+import { logger } from '@uaip/utils/src/logger.js';
+import { ApiError } from '@uaip/utils/src/errors.js';
+import { DatabaseService } from '@uaip/shared-services';
 import {
   SecurityValidationRequest,
   SecurityValidationResult,
@@ -12,8 +12,8 @@ import {
   AuditEventType,
   Operation
 } from '@uaip/types';
-import { ApprovalWorkflowService, ApprovalRequest } from './approvalWorkflowService';
-import { AuditService } from './auditService';
+import { ApprovalWorkflowService, ApprovalRequest } from './approvalWorkflowService.js';
+import { AuditService } from './auditService.js';
 
 export interface SecurityPolicy {
   id: string;
@@ -199,9 +199,9 @@ export class SecurityGatewayService {
   }
 
   /**
-   * Assess risk for an operation
+   * Public method to assess risk for an operation
    */
-  private async assessRisk(request: SecurityValidationRequest): Promise<RiskAssessment> {
+  public async assessRisk(request: SecurityValidationRequest): Promise<RiskAssessment> {
     const factors: RiskFactor[] = [];
     let totalScore = 0;
 
@@ -252,6 +252,52 @@ export class SecurityGatewayService {
       assessedAt: new Date(),
       assessedBy: 'security-gateway-service'
     };
+  }
+
+  /**
+   * Check if an operation requires approval
+   */
+  public async requiresApproval(request: SecurityValidationRequest): Promise<{
+    required: boolean;
+    requirements?: {
+      minimumApprovers: number;
+      requiredRoles: string[];
+      timeoutHours: number;
+    };
+    matchedPolicies: string[];
+  }> {
+    try {
+      const riskAssessment = await this.assessRisk(request);
+      const policyResult = await this.applySecurityPolicies(request, riskAssessment);
+      const approvalRequired = this.determineApprovalRequirement(request, riskAssessment, policyResult);
+
+      if (!approvalRequired) {
+        return {
+          required: false,
+          matchedPolicies: policyResult.appliedPolicies
+        };
+      }
+
+      const requiredApprovers = await this.getRequiredApprovers(request, riskAssessment);
+      const expirationHours = this.calculateApprovalExpirationHours(riskAssessment);
+
+      return {
+        required: true,
+        requirements: {
+          minimumApprovers: requiredApprovers.length,
+          requiredRoles: ['admin', 'security-admin'], // Default roles
+          timeoutHours: expirationHours
+        },
+        matchedPolicies: policyResult.appliedPolicies
+      };
+
+    } catch (error) {
+      logger.error('Failed to check approval requirement', {
+        operationType: request.operation.type,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    }
   }
 
   /**

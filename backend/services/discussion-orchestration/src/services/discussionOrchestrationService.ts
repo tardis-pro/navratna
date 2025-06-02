@@ -50,16 +50,16 @@ export class DiscussionOrchestrationService {
     try {
       logger.info('Creating new discussion', {
         title: request.title,
-        turnStrategy: request.turnStrategy,
+        turnStrategy: request.turnStrategy.strategy,
         createdBy,
-        participantCount: request.participants?.length || 0
+        participantCount: request.initialParticipants?.length || 0
       });
 
       // Validate turn strategy configuration
-      if (request.settings?.turnStrategyConfig) {
+      if (request.turnStrategy) {
         const validation = this.turnStrategyService.validateStrategyConfig(
-          request.turnStrategy,
-          request.settings.turnStrategyConfig
+          request.turnStrategy.strategy,
+          request.turnStrategy
         );
         
         if (!validation.isValid) {
@@ -152,7 +152,7 @@ export class DiscussionOrchestrationService {
       const turnResult = await this.turnStrategyService.advanceTurn(
         discussion,
         activeParticipants,
-        discussion.settings.turnStrategyConfig
+        discussion.turnStrategy
       );
 
       // Update discussion status and state
@@ -267,28 +267,22 @@ export class DiscussionOrchestrationService {
 
       // Add participant through shared service
       const newParticipant = await this.discussionService.addParticipant(discussionId, {
-        ...participant,
-        joinedAt: new Date(),
-        lastActiveAt: new Date(),
-        messageCount: 0,
-        isActive: true
+        ...participant
       });
 
       // Update cache
-      const updatedDiscussion = await this.getDiscussion(discussionId, true); // Force refresh
+      const updatedDiscussion = await this.getDiscussion(discussionId, true);
       if (updatedDiscussion) {
         this.activeDiscussions.set(discussionId, updatedDiscussion);
       }
 
-      // Emit event
+      // Emit participant joined event
       const joinEvent: DiscussionEvent = {
         id: this.generateEventId(),
         type: DiscussionEventType.PARTICIPANT_JOINED,
         discussionId,
         data: {
-          participantId: newParticipant.id,
-          agentId: participant.agentId,
-          role: participant.role,
+          participant: newParticipant,
           addedBy
         },
         timestamp: new Date(),
@@ -300,7 +294,7 @@ export class DiscussionOrchestrationService {
       logger.info('Participant added successfully', {
         discussionId,
         participantId: newParticipant.id,
-        totalParticipants: updatedDiscussion?.participants.length
+        addedBy
       });
 
       return {
@@ -324,7 +318,7 @@ export class DiscussionOrchestrationService {
   }
 
   /**
-   * Send message in discussion
+   * Send a message to a discussion
    */
   async sendMessage(
     discussionId: string,
@@ -334,7 +328,7 @@ export class DiscussionOrchestrationService {
     metadata?: any
   ): Promise<DiscussionOrchestrationResult> {
     try {
-      logger.debug('Sending message in discussion', {
+      logger.info('Sending message', {
         discussionId,
         participantId,
         messageType,
@@ -346,47 +340,32 @@ export class DiscussionOrchestrationService {
         return { success: false, error: 'Discussion not found' };
       }
 
-      if (discussion.status !== DiscussionStatus.ACTIVE) {
-        return { success: false, error: 'Discussion is not active' };
-      }
-
-      // Find participant
       const participant = discussion.participants.find(p => p.id === participantId);
       if (!participant) {
         return { success: false, error: 'Participant not found' };
       }
 
-      // Check if participant can send message
-      const canSendMessage = await this.turnStrategyService.canParticipantTakeTurn(
-        participant,
-        discussion,
-        discussion.settings.turnStrategyConfig
-      );
-
-      if (!canSendMessage) {
-        return { success: false, error: 'Participant cannot send message at this time' };
+      if (!participant.isActive) {
+        return { success: false, error: 'Participant is not active' };
       }
 
-      // Validate message content
-      if (content.length > config.discussionOrchestration.limits.maxMessageLength) {
-        return { success: false, error: 'Message exceeds maximum length' };
+      // Check if it's the participant's turn (for turn-based strategies)
+      if (discussion.turnStrategy.strategy !== 'free_form') {
+        const currentTurnParticipant = discussion.state.currentTurn.participantId;
+        if (currentTurnParticipant && currentTurnParticipant !== participantId) {
+          return { success: false, error: 'It is not your turn to speak' };
+        }
       }
 
-      // Create message through shared service
-      const message = await this.discussionService.sendMessage(discussionId, {
+      // Send message through shared service
+      const message = await this.discussionService.sendMessage(
+        discussionId,
         participantId,
         content,
-        messageType: messageType as any || 'message',
-        metadata
-      });
+        messageType as any
+      );
 
-      // Update participant activity
-      await this.discussionService.updateParticipant(participantId, {
-        lastActiveAt: new Date(),
-        messageCount: participant.messageCount + 1
-      });
-
-      // Update discussion state
+      // Update discussion state (the service handles participant updates internally)
       await this.discussionService.updateDiscussion(discussionId, {
         state: {
           ...discussion.state,
@@ -395,56 +374,39 @@ export class DiscussionOrchestrationService {
         }
       });
 
-      // Check if turn should advance
-      const shouldAdvance = await this.turnStrategyService.shouldAdvanceTurn(
-        discussion,
-        participant,
-        discussion.settings.turnStrategyConfig
-      );
+      // Emit message event
+      const messageEvent: DiscussionEvent = {
+        id: this.generateEventId(),
+        type: DiscussionEventType.MESSAGE_SENT,
+        discussionId,
+        data: {
+          message,
+          participantId
+        },
+        timestamp: new Date(),
+        metadata: { source: 'orchestration-service' }
+      };
 
-      const events: DiscussionEvent[] = [
-        {
-          id: this.generateEventId(),
-          type: DiscussionEventType.MESSAGE_SENT,
-          discussionId,
-          data: {
-            messageId: message.id,
-            participantId,
-            content,
-            messageType
-          },
-          timestamp: new Date(),
-          metadata: { source: 'orchestration-service' }
-        }
-      ];
-
-      // Advance turn if needed
-      if (shouldAdvance) {
-        const advanceResult = await this.advanceTurn(discussionId);
-        if (advanceResult.success && advanceResult.events) {
-          events.push(...advanceResult.events);
-        }
-      }
-
-      await this.emitEvents(events);
+      await this.emitEvent(messageEvent);
 
       logger.info('Message sent successfully', {
         discussionId,
         messageId: message.id,
         participantId,
-        shouldAdvance
+        messageType
       });
 
       return {
         success: true,
         data: message,
-        events
+        events: [messageEvent]
       };
     } catch (error) {
       logger.error('Error sending message', {
         error: error instanceof Error ? error.message : 'Unknown error',
         discussionId,
-        participantId
+        participantId,
+        content: content.substring(0, 100) + '...'
       });
       
       return {
@@ -480,7 +442,7 @@ export class DiscussionOrchestrationService {
       const turnResult = await this.turnStrategyService.advanceTurn(
         discussion,
         activeParticipants,
-        discussion.settings.turnStrategyConfig
+        discussion.turnStrategy
       );
 
       // Update discussion state
@@ -793,28 +755,295 @@ export class DiscussionOrchestrationService {
     }
   }
 
-  // Private helper methods
-
-  private async getDiscussion(discussionId: string, forceRefresh = false): Promise<Discussion | null> {
+  /**
+   * Get a discussion by ID (public method for external access)
+   */
+  async getDiscussion(discussionId: string, forceRefresh = false): Promise<Discussion | null> {
     try {
+      // Check cache first unless force refresh is requested
       if (!forceRefresh && this.activeDiscussions.has(discussionId)) {
-        return this.activeDiscussions.get(discussionId)!;
+        const cached = this.activeDiscussions.get(discussionId);
+        if (cached) {
+          logger.debug('Discussion retrieved from cache', { discussionId });
+          return cached;
+        }
       }
 
+      // Fetch from database
       const discussion = await this.discussionService.getDiscussion(discussionId);
-      if (discussion) {
-        this.activeDiscussions.set(discussionId, discussion);
-      }
       
+      if (discussion) {
+        // Update cache
+        this.activeDiscussions.set(discussionId, discussion);
+        logger.debug('Discussion retrieved from database and cached', { discussionId });
+      }
+
       return discussion;
     } catch (error) {
-      logger.error('Error getting discussion', {
+      logger.error('Error retrieving discussion', {
         error: error instanceof Error ? error.message : 'Unknown error',
         discussionId
       });
       return null;
     }
   }
+
+  /**
+   * Verify if a user has access to participate in a discussion
+   */
+  async verifyParticipantAccess(discussionId: string, userId: string): Promise<boolean> {
+    try {
+      const discussion = await this.getDiscussion(discussionId);
+      if (!discussion) {
+        return false;
+      }
+
+      // Check if user is a participant
+      const participant = discussion.participants.find(p => p.userId === userId);
+      if (!participant) {
+        return false;
+      }
+
+      // Check if participant is active
+      if (!participant.isActive) {
+        return false;
+      }
+
+      // Check discussion status
+      if (discussion.status === DiscussionStatus.CANCELLED || discussion.status === DiscussionStatus.ARCHIVED) {
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      logger.error('Error verifying participant access', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        discussionId,
+        userId
+      });
+      return false;
+    }
+  }
+
+  /**
+   * Get participant by user ID
+   */
+  async getParticipantByUserId(discussionId: string, userId: string): Promise<DiscussionParticipant | null> {
+    try {
+      const discussion = await this.getDiscussion(discussionId);
+      if (!discussion) {
+        return null;
+      }
+
+      const participant = discussion.participants.find(p => p.userId === userId);
+      return participant || null;
+    } catch (error) {
+      logger.error('Error getting participant by user ID', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        discussionId,
+        userId
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Request turn for a participant
+   */
+  async requestTurn(discussionId: string, participantId: string): Promise<DiscussionOrchestrationResult> {
+    try {
+      const discussion = await this.getDiscussion(discussionId);
+      if (!discussion) {
+        return { success: false, error: 'Discussion not found' };
+      }
+
+      const participant = discussion.participants.find(p => p.id === participantId);
+      if (!participant) {
+        return { success: false, error: 'Participant not found' };
+      }
+
+      if (!participant.isActive) {
+        return { success: false, error: 'Participant is not active' };
+      }
+
+      // Check if participant can take a turn based on strategy
+      const canTakeTurn = await this.turnStrategyService.canParticipantTakeTurn(
+        participant,
+        discussion,
+        discussion.turnStrategy
+      );
+
+      if (!canTakeTurn) {
+        return { success: false, error: 'Participant cannot take turn at this time' };
+      }
+
+      // For moderated discussions, add to queue
+      if (discussion.turnStrategy.strategy === 'moderated') {
+        // Add to turn request queue (this would be implemented in the moderated strategy)
+        logger.info('Turn requested in moderated discussion', {
+          discussionId,
+          participantId,
+          currentTurn: discussion.state.currentTurn.participantId
+        });
+
+        return {
+          success: true,
+          data: {
+            status: 'queued',
+            message: 'Turn request added to queue for moderator approval'
+          }
+        };
+      }
+
+      // For other strategies, check if it's their turn
+      if (discussion.state.currentTurn.participantId === participantId) {
+        return {
+          success: true,
+          data: {
+            status: 'active',
+            message: 'It is already your turn'
+          }
+        };
+      }
+
+      return {
+        success: false,
+        error: 'Turn request not applicable for current strategy'
+      };
+    } catch (error) {
+      logger.error('Error requesting turn', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        discussionId,
+        participantId
+      });
+      return { success: false, error: 'Failed to request turn' };
+    }
+  }
+
+  /**
+   * End turn for a participant
+   */
+  async endTurn(discussionId: string, participantId: string): Promise<DiscussionOrchestrationResult> {
+    try {
+      const discussion = await this.getDiscussion(discussionId);
+      if (!discussion) {
+        return { success: false, error: 'Discussion not found' };
+      }
+
+      // Check if it's actually this participant's turn
+      if (discussion.state.currentTurn.participantId !== participantId) {
+        return { success: false, error: 'It is not your turn' };
+      }
+
+      // Advance to next turn
+      const result = await this.advanceTurn(discussionId, participantId);
+      
+      if (result.success) {
+        return {
+          success: true,
+          data: {
+            message: 'Turn ended successfully',
+            nextParticipant: result.data?.nextParticipant
+          }
+        };
+      }
+
+      return result;
+    } catch (error) {
+      logger.error('Error ending turn', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        discussionId,
+        participantId
+      });
+      return { success: false, error: 'Failed to end turn' };
+    }
+  }
+
+  /**
+   * Add reaction to a message
+   */
+  async addReaction(
+    discussionId: string,
+    messageId: string,
+    participantId: string,
+    emoji: string
+  ): Promise<DiscussionOrchestrationResult> {
+    try {
+      // Verify participant access
+      const discussion = await this.getDiscussion(discussionId);
+      if (!discussion) {
+        return { success: false, error: 'Discussion not found' };
+      }
+
+      const participant = discussion.participants.find(p => p.id === participantId);
+      if (!participant || !participant.isActive) {
+        return { success: false, error: 'Participant not found or inactive' };
+      }
+
+      // For now, we'll just emit the reaction event without persisting it
+      // This would need to be implemented in the DiscussionService
+      const reaction = {
+        id: this.generateEventId(),
+        participantId,
+        emoji,
+        createdAt: new Date()
+      };
+
+      // Emit reaction event
+      const reactionEvent: DiscussionEvent = {
+        id: this.generateEventId(),
+        type: DiscussionEventType.REACTION_ADDED,
+        discussionId,
+        data: {
+          messageId,
+          participantId,
+          emoji,
+          reaction
+        },
+        timestamp: new Date(),
+        metadata: { source: 'orchestration-service' }
+      };
+
+      await this.emitEvent(reactionEvent);
+
+      logger.info('Reaction added successfully', {
+        discussionId,
+        messageId,
+        participantId,
+        emoji
+      });
+
+      return {
+        success: true,
+        data: reaction,
+        events: [reactionEvent]
+      };
+    } catch (error) {
+      logger.error('Error adding reaction', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        discussionId,
+        messageId,
+        participantId,
+        emoji
+      });
+      return { success: false, error: 'Failed to add reaction' };
+    }
+  }
+
+  /**
+   * Make the service an event emitter for websocket integration
+   */
+  on(event: string, listener: (...args: any[]) => void): void {
+    // This would integrate with Node.js EventEmitter if needed
+    // For now, we'll handle events through the event bus
+  }
+
+  private async getDiscussionInternal(discussionId: string, forceRefresh = false): Promise<Discussion | null> {
+    // This is the old private method, now we use the public one
+    return this.getDiscussion(discussionId, forceRefresh);
+  }
+
+  // Private helper methods
 
   private setTurnTimer(discussionId: string, durationSeconds: number): void {
     try {

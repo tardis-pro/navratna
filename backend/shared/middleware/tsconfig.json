@@ -2,12 +2,12 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
-    "moduleResolution": "bundler",
+    "moduleResolution": "node",
     "declaration": true,
     "declarationMap": true,
     "outDir": "./dist",
-    "rootDir": "./",
-    "strict": false,
+    "rootDir": "./src",
+    "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
@@ -15,18 +15,18 @@
     "allowSyntheticDefaultImports": true,
     "composite": true,
     "incremental": true,
-    "baseUrl": ".",
+    "baseUrl": "./src",
     "paths": {
-      "@uaip/types": ["../types/src/index.ts"],
-      "@uaip/types/*": ["../types/src/*"],
-      "@uaip/utils": ["../utils/index.ts"],
-      "@uaip/utils/*": ["../utils/*"],
-      "@uaip/config": ["../config/index.ts"],
-      "@uaip/config/*": ["../config/*"]
+      "@uaip/types": ["../../types/src/index.ts"],
+      "@uaip/types/*": ["../../types/src/*"],
+      "@uaip/utils": ["../../utils/src/index.ts"],
+      "@uaip/utils/*": ["../../utils/src/*"],
+      "@uaip/config": ["../../config/src/index.ts"],
+      "@uaip/config/*": ["../../config/src/*"]
     }
   },
   "include": [
-    "./**/*.ts"
+    "src/**/*.ts"
   ],
   "exclude": [
     "dist",

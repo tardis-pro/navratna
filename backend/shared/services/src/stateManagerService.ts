@@ -8,7 +8,7 @@ import {
 } from '@uaip/types';
 import { logger, ApiError } from '@uaip/utils';
 import { config } from '@uaip/config';
-import { DatabaseService } from './databaseService.js';
+import { DatabaseService } from './databaseService';
 
 export interface StateUpdateOptions {
   status?: string;
@@ -201,6 +201,10 @@ export class StateManagerService {
         : checkpoint;
 
       // Save to Redis with expiration
+      if (!checkpoint.id) {
+        throw new Error('Checkpoint ID is required');
+      }
+      
       const cacheKey = this.getCheckpointCacheKey(operationId, checkpoint.id);
       await this.redis.setex(
         cacheKey,
@@ -213,7 +217,11 @@ export class StateManagerService {
 
       // Update state to include checkpoint reference
       const currentState = await this.getOperationState(operationId);
-      if (currentState) {
+      if (currentState && checkpoint.id) {
+        // Initialize checkpoints array if it doesn't exist
+        if (!currentState.checkpoints) {
+          currentState.checkpoints = [];
+        }
         // Add checkpoint ID to the checkpoints array (assuming it's an array of IDs)
         if (!currentState.checkpoints.includes(checkpoint.id)) {
           currentState.checkpoints.push(checkpoint.id);
@@ -335,7 +343,7 @@ export class StateManagerService {
         throw new Error(`Checkpoint ${checkpointId} not found for operation ${operationId}`);
       }
 
-      if (!checkpoint.data.operationState) {
+      if (!checkpoint.data || !checkpoint.data.operationState) {
         throw new Error(`Checkpoint ${checkpointId} does not contain operation state`);
       }
 
@@ -355,8 +363,8 @@ export class StateManagerService {
         checkpointId,
         restoredState: {
           currentStep: restoredState.currentStep,
-          completedSteps: restoredState.completedSteps.length,
-          failedSteps: restoredState.failedSteps.length
+          completedSteps: restoredState.completedSteps?.length || 0,
+          failedSteps: restoredState.failedSteps?.length || 0
         }
       });
 

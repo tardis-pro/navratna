@@ -251,12 +251,12 @@ export const validateParameter = (parameterDefinition: z.ZodTypeAny, value: any)
       value: parameterDefinition.parse(value),
       errors: []
     };
-  } catch (error) {
+  } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return {
         isValid: false,
         value: null,
-        errors: error.issues.map(issue => issue.message)
+        errors: error.issues.map((issue: z.ZodIssue) => issue.message)
       };
     }
     return {

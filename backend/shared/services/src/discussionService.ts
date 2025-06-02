@@ -16,10 +16,10 @@ import {
   MessageSentiment
 } from '@uaip/types';
 import { Persona } from '@uaip/types';
-import { DatabaseService } from './databaseService.js';
-import { EventBusService } from './eventBusService.js';
-import { PersonaService } from './personaService.js';
-import { logger } from '@uaip/utils/logger';
+import { DatabaseService } from './databaseService';
+import { EventBusService } from './eventBusService';
+import { PersonaService } from './personaService';
+import { logger } from '@uaip/utils';
 
 export interface DiscussionServiceConfig {
   databaseService: DatabaseService;
@@ -56,10 +56,10 @@ export class DiscussionService {
 
   async createDiscussion(request: CreateDiscussionRequest): Promise<Discussion> {
     try {
-      logger.info('Creating new discussion', { 
+      logger.info('Creating discussion', { 
         title: request.title, 
         createdBy: request.createdBy,
-        participantCount: request.initialParticipants.length 
+        participantCount: request.initialParticipants?.length || 0
       });
 
       // Validate discussion request
@@ -101,15 +101,24 @@ export class DiscussionService {
       });
 
       // Add initial participants
-      for (const participantRequest of request.initialParticipants) {
-        await this.addParticipant(discussion.id, participantRequest);
+      if (request.initialParticipants) {
+        for (const participantRequest of request.initialParticipants) {
+          if (participantRequest && participantRequest.personaId && participantRequest.agentId) {
+            await this.addParticipant(discussion.id!, participantRequest as {
+              personaId: string;
+              agentId: string;
+              role?: ParticipantRole;
+              userId?: string;
+            });
+          }
+        }
       }
 
       // Cache active discussion
-      this.activeDiscussions.set(discussion.id, discussion);
+      this.activeDiscussions.set(discussion.id!, discussion);
 
       // Emit creation event
-      await this.emitDiscussionEvent(discussion.id, DiscussionEventType.STATUS_CHANGED, {
+      await this.emitDiscussionEvent(discussion.id!, DiscussionEventType.STATUS_CHANGED, {
         oldStatus: null,
         newStatus: DiscussionStatus.DRAFT,
         createdBy: discussion.createdBy
@@ -201,7 +210,7 @@ export class DiscussionService {
       }
 
       // Validate minimum participants
-      if (discussion.participants.length < 2) {
+      if (!discussion.participants || discussion.participants.length < 2) {
         throw new Error('Discussion requires at least 2 participants to start');
       }
 
@@ -212,7 +221,7 @@ export class DiscussionService {
         state: {
           ...discussion.state,
           phase: 'discussion',
-          activeParticipants: discussion.participants.filter((p: DiscussionParticipant) => p.isActive).length
+          activeParticipants: (discussion.state?.activeParticipants || 0) + 1
         }
       });
 
@@ -310,7 +319,7 @@ export class DiscussionService {
       }
 
       // Check participant limit
-      if (discussion.participants.length >= this.maxParticipants) {
+      if (!discussion.participants || discussion.participants.length >= this.maxParticipants) {
         throw new Error(`Discussion has reached maximum participants limit: ${this.maxParticipants}`);
       }
 
@@ -323,7 +332,7 @@ export class DiscussionService {
       }
 
       // Validate persona exists
-      const persona = await this.personaService.getPersona(participantRequest.personaId);
+      const persona = await this.personaService.getPersona(participantRequest.personaId || '');
       if (!persona) {
         throw new Error(`Persona not found: ${participantRequest.personaId}`);
       }
@@ -348,7 +357,7 @@ export class DiscussionService {
       await this.updateDiscussion(discussionId, {
         state: {
           ...discussion.state,
-          activeParticipants: discussion.state.activeParticipants + 1
+          activeParticipants: (discussion.state?.activeParticipants || 0) + 1
         }
       });
 
@@ -389,11 +398,11 @@ export class DiscussionService {
 
       // Update discussion state
       const discussion = await this.getDiscussion(discussionId);
-      if (discussion) {
+      if (discussion && discussion.state) {
         await this.updateDiscussion(discussionId, {
           state: {
             ...discussion.state,
-            activeParticipants: Math.max(0, discussion.state.activeParticipants - 1)
+            activeParticipants: Math.max(0, (discussion.state.activeParticipants || 0) - 1)
           }
         });
       }
@@ -459,7 +468,7 @@ export class DiscussionService {
         tokens: this.estimateTokenCount(content),
         processingTime: 0, // Will be updated by processing service
         attachments: [],
-        mentions: this.extractMentions(content, discussion.participants),
+        mentions: this.extractMentions(content, discussion.participants || []),
         tags: this.extractTags(content),
         reactions: [],
         editHistory: [],
@@ -471,7 +480,7 @@ export class DiscussionService {
 
       // Update participant message count
       await this.databaseService.update('discussion_participants', participantId, {
-        messageCount: participant.messageCount + 1,
+        messageCount: (participant.messageCount || 0) + 1,
         lastActiveAt: new Date()
       });
 
@@ -479,7 +488,7 @@ export class DiscussionService {
       await this.updateDiscussion(discussionId, {
         state: {
           ...discussion.state,
-          messageCount: discussion.state.messageCount + 1,
+          messageCount: (discussion.state?.messageCount || 0) + 1,
           lastActivity: new Date()
         }
       });
@@ -567,16 +576,16 @@ export class DiscussionService {
             participantId: nextParticipantId,
             startedAt: new Date(),
             expectedEndAt: new Date(Date.now() + this.defaultTurnTimeout * 1000),
-            turnNumber: discussion.state.currentTurn.turnNumber + 1
+            turnNumber: (discussion.state?.currentTurn?.turnNumber || 0) + 1
           }
         }
       });
 
       // Emit turn changed event
       await this.emitDiscussionEvent(discussionId, DiscussionEventType.TURN_CHANGED, {
-        previousParticipantId: discussion.state.currentTurn.participantId,
+        previousParticipantId: discussion.state?.currentTurn?.participantId,
         nextParticipantId,
-        turnNumber: discussion.state.currentTurn.turnNumber + 1,
+        turnNumber: (discussion.state?.currentTurn?.turnNumber || 0) + 1,
         forcedBy
       });
 
@@ -641,35 +650,35 @@ export class DiscussionService {
         },
         overview: {
           totalMessages: discussion.analytics?.totalMessages || 0,
-          totalParticipants: discussion.participants.length,
+          totalParticipants: discussion.participants?.length || 0,
           averageMessageLength: discussion.analytics?.averageMessageLength || 0,
           totalDuration: discussion.actualDuration || 0,
-          engagementScore: discussion.state.engagementScore,
-          consensusLevel: discussion.state.consensusLevel,
-          objectivesAchieved: discussion.outcomes.length,
-          actionItemsCreated: discussion.state.actionItems.length
+          engagementScore: discussion.state?.engagementScore || 0,
+          consensusLevel: discussion.state?.consensusLevel || 0,
+          objectivesAchieved: discussion.outcomes?.length || 0,
+          actionItemsCreated: discussion.state?.actionItems?.length || 0
         },
         participation: {
           distribution: discussion.analytics?.participationDistribution || {},
-          balance: discussion.state.metrics?.participationBalance || 0,
+          balance: discussion.state?.metrics?.participationBalance || 0,
           dominanceIndex: 0,
           silenceRatio: 0
         },
         communication: {
-          averageResponseTime: discussion.state.metrics?.averageResponseTime || 0,
+          averageResponseTime: discussion.state?.metrics?.averageResponseTime || 0,
           messageFrequency: [],
           sentimentProgression: [],
           topicEvolution: []
         },
         outcomes: {
-          decisionsReached: discussion.state.decisions.length,
-          consensusAchieved: discussion.state.consensusLevel >= 0.8,
-          actionItemsGenerated: discussion.state.actionItems.length,
-          keyInsights: discussion.state.keyPoints.map((kp: any) => kp.point),
+          decisionsReached: discussion.state?.decisions?.length || 0,
+          consensusAchieved: (discussion.state?.consensusLevel || 0) >= 0.8,
+          actionItemsGenerated: discussion.state?.actionItems?.length || 0,
+          keyInsights: discussion.state?.keyPoints?.map((kp: any) => kp.point) || [],
           unresolvedIssues: []
         },
         quality: {
-          coherenceScore: discussion.state.metrics?.qualityScore || 0,
+          coherenceScore: discussion.state?.metrics?.qualityScore || 0,
           relevanceScore: 0,
           productivityScore: 0,
           satisfactionScore: undefined
@@ -699,9 +708,13 @@ export class DiscussionService {
 
     // Validate personas exist
     for (const participant of request.initialParticipants) {
-      const persona = await this.personaService.getPersona(participant.personaId);
-      if (!persona) {
-        throw new Error(`Persona not found: ${participant.personaId}`);
+      if (participant.personaId) {
+        const persona = await this.personaService.getPersona(participant.personaId);
+        if (!persona) {
+          throw new Error(`Persona not found: ${participant.personaId}`);
+        }
+      } else {
+        throw new Error('Participant personaId is required');
       }
     }
   }
@@ -726,16 +739,16 @@ export class DiscussionService {
   }
 
   private async determineNextParticipant(discussion: Discussion): Promise<string | undefined> {
-    const activeParticipants = discussion.participants.filter((p: DiscussionParticipant) => p.isActive);
+    const activeParticipants = (discussion.participants || []).filter((p: DiscussionParticipant) => p.isActive);
     if (activeParticipants.length === 0) return undefined;
 
     // Simple round-robin for now
     // In a full implementation, this would use the turn strategy configuration
-    const currentIndex = discussion.state.currentTurn.participantId ? 
-      activeParticipants.findIndex((p: DiscussionParticipant) => p.id === discussion.state.currentTurn.participantId) : -1;
+    const currentIndex = discussion.state?.currentTurn?.participantId ? 
+      activeParticipants.findIndex((p: DiscussionParticipant) => p.id === discussion.state?.currentTurn?.participantId) : -1;
     
     const nextIndex = (currentIndex + 1) % activeParticipants.length;
-    return activeParticipants[nextIndex].id;
+    return activeParticipants[nextIndex]?.id;
   }
 
   private async checkTurnAdvancement(discussionId: string): Promise<void> {
@@ -771,9 +784,9 @@ export class DiscussionService {
       const mentionedName = match[1];
       // Find participant by name or agent ID
       const participant = participants.find(
-        (p: DiscussionParticipant) => p.agentId.toLowerCase().includes(mentionedName.toLowerCase())
+        (p: DiscussionParticipant) => p.agentId && p.agentId.toLowerCase().includes(mentionedName.toLowerCase())
       );
-      if (participant) {
+      if (participant && participant.id) {
         mentions.push(participant.id);
       }
     }
@@ -806,8 +819,8 @@ export class DiscussionService {
 
     return {
       ...discussion.analytics,
-      totalMessages: discussion.state.messageCount,
-      uniqueParticipants: discussion.participants.length,
+      totalMessages: discussion.state?.messageCount || 0,
+      uniqueParticipants: discussion.participants?.length || 0,
       // Additional final calculations would go here
     };
   }

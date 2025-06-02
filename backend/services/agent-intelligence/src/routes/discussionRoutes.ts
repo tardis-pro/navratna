@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { DiscussionController } from '../controllers/discussionController.js';
+import { DiscussionController } from '../controllers/discussionController';
 import { 
   validateRequest, 
   validateUUID, 

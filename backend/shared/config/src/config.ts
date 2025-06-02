@@ -9,6 +9,7 @@ const __dirname = path.dirname(__filename);
 // Load environment variables from root .env file
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 console.log( path.resolve(__dirname, '../../../.env'));
+
 export interface DatabaseConfig {
   postgres: {
     host: string;
@@ -77,6 +78,136 @@ export interface AppConfig {
   version: string;
 }
 
+export interface ServicesConfig {
+  agentIntelligence: {
+    port: number;
+    url: string;
+  };
+  orchestrationPipeline: {
+    port: number;
+    url: string;
+  };
+  capabilityRegistry: {
+    port: number;
+    url: string;
+  };
+  discussionOrchestration: {
+    port: number;
+    url: string;
+  };
+  securityGateway: {
+    port: number;
+    url: string;
+  };
+}
+
+
+  type Unit =
+      | "Years"
+      | "Year"
+      | "Yrs"
+      | "Yr"
+      | "Y"
+      | "Weeks"
+      | "Week"
+      | "W"
+      | "Days"
+      | "Day"
+      | "D"
+      | "Hours"
+      | "Hour"
+      | "Hrs"
+      | "Hr"
+      | "H"
+      | "Minutes"
+      | "Minute"
+      | "Mins"
+      | "Min"
+      | "M"
+      | "Seconds"
+      | "Second"
+      | "Secs"
+      | "Sec"
+      | "s"
+      | "Milliseconds"
+      | "Millisecond"
+      | "Msecs"
+      | "Msec"
+      | "Ms";
+
+  type UnitAnyCase = Unit | Uppercase<Unit> | Lowercase<Unit>;
+
+  type StringValue =
+      | `${number}`
+      | `${number}${UnitAnyCase}`
+      | `${number} ${UnitAnyCase}`;
+
+
+const fullString = (value: string | undefined) => {
+  return value as StringValue;
+}
+export interface CorsConfig {
+  allowedOrigins: string[];
+  credentials: boolean;
+  methods: string[];
+  allowedHeaders: string[];
+}
+
+export interface JwtConfig {
+  secret: string;
+  expiresIn: string;
+  refreshExpiresIn: StringValue;
+  issuer: string;
+  audience: string;
+  accessTokenExpiry: StringValue;
+  refreshSecret: string;
+  refreshTokenExpiry: StringValue;
+}
+
+export interface EmailConfig {
+  host: string;
+  port: number;
+  secure: boolean;
+  user: string;
+  password: string;
+  from: string;
+  // SMTP configuration used by security gateway
+  smtp?: {
+    host: string;
+    port: number;
+    secure: boolean;
+    user: string;
+    password: string;
+  };
+}
+
+export interface FrontendConfig {
+  url: string;
+  resetPasswordPath: string;
+  verifyEmailPath: string;
+  // Base URL used by security gateway
+  baseUrl: string;
+}
+
+export interface NotificationsConfig {
+  enabled: boolean;
+  channels: {
+    email: boolean;
+    push: boolean;
+    sms: boolean;
+  };
+  retryAttempts: number;
+  retryDelay: number;
+  // Additional properties used by security gateway
+  webhook?: {
+    url: string;
+    secret: string;
+  };
+  sms?: {
+    provider: string;
+  };
+}
+
 export interface Config {
   database: DatabaseConfig;
   redis: RedisConfig;
@@ -87,6 +218,12 @@ export interface Config {
   rateLimit: RateLimitConfig;
   monitoring: MonitoringConfig;
   app: AppConfig;
+  services: ServicesConfig;
+  cors: CorsConfig;
+  jwt: JwtConfig;
+  email: EmailConfig;
+  frontend: FrontendConfig;
+  notifications: NotificationsConfig;
   port: number;
   environment: string;
   
@@ -222,6 +359,77 @@ const defaultConfig: Config = {
   },
   app: {
     version: process.env.SERVICE_VERSION || '1.0.0'
+  },
+  services: {
+    agentIntelligence: {
+      port: parseInt(process.env.AGENT_INTELLIGENCE_PORT || '3001'),
+      url: process.env.AGENT_INTELLIGENCE_URL || 'http://localhost:3001'
+    },
+    orchestrationPipeline: {
+      port: parseInt(process.env.ORCHESTRATION_PIPELINE_PORT || '3002'),
+      url: process.env.ORCHESTRATION_PIPELINE_URL || 'http://localhost:3002'
+    },
+    capabilityRegistry: {
+      port: parseInt(process.env.CAPABILITY_REGISTRY_PORT || '3003'),
+      url: process.env.CAPABILITY_REGISTRY_URL || 'http://localhost:3003'
+    },
+    discussionOrchestration: {
+      port: parseInt(process.env.DISCUSSION_ORCHESTRATION_PORT || '3005'),
+      url: process.env.DISCUSSION_ORCHESTRATION_URL || 'http://localhost:3005'
+    },
+    securityGateway: {
+      port: parseInt(process.env.SECURITY_GATEWAY_PORT || '3004'),
+      url: process.env.SECURITY_GATEWAY_URL || 'http://localhost:3004'
+    }
+  },
+  cors: {
+    allowedOrigins: process.env.CORS_ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:8080'],
+    credentials: process.env.CORS_CREDENTIALS !== 'false',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  },
+  jwt: {
+    secret: process.env.JWT_SECRET || 'uaip_dev_jwt_secret_key_change_in_production',
+    expiresIn: process.env.JWT_EXPIRES_IN || '1h',
+    refreshExpiresIn: fullString(process.env.JWT_REFRESH_EXPIRES_IN) || '1h',
+    issuer: process.env.JWT_ISSUER || 'uaip-security-gateway',
+    audience: process.env.JWT_AUDIENCE || 'uaip-services',
+    accessTokenExpiry: fullString(process.env.JWT_ACCESS_TOKEN_EXPIRY) || '1h',
+    refreshSecret: process.env.JWT_REFRESH_SECRET || 'uaip_dev_jwt_refresh_secret_key_change_in_production',
+    refreshTokenExpiry: fullString(process.env.JWT_REFRESH_TOKEN_EXPIRY) || '2h'
+  },
+  email: {
+    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.EMAIL_PORT || '587'),
+    secure: process.env.EMAIL_SECURE === 'true',
+    user: process.env.EMAIL_USER || '',
+    password: process.env.EMAIL_PASSWORD || '',
+    from: process.env.EMAIL_FROM || 'noreply@uaip.dev'
+  },
+  frontend: {
+    url: process.env.FRONTEND_URL || 'http://localhost:3000',
+    resetPasswordPath: process.env.FRONTEND_RESET_PASSWORD_PATH || '/reset-password',
+    verifyEmailPath: process.env.FRONTEND_VERIFY_EMAIL_PATH || '/verify-email',
+    // Base URL used by security gateway
+    baseUrl: process.env.FRONTEND_BASE_URL || 'http://localhost:3000'
+  },
+  notifications: {
+    enabled: process.env.NOTIFICATIONS_ENABLED !== 'false',
+    channels: {
+      email: process.env.NOTIFICATIONS_EMAIL !== 'false',
+      push: process.env.NOTIFICATIONS_PUSH === 'true',
+      sms: process.env.NOTIFICATIONS_SMS === 'true'
+    },
+    retryAttempts: parseInt(process.env.NOTIFICATIONS_RETRY_ATTEMPTS || '3'),
+    retryDelay: parseInt(process.env.NOTIFICATIONS_RETRY_DELAY || '5000'),
+    // Additional properties used by security gateway
+    webhook: process.env.NOTIFICATIONS_WEBHOOK_URL ? {
+      url: process.env.NOTIFICATIONS_WEBHOOK_URL,
+      secret: process.env.NOTIFICATIONS_WEBHOOK_SECRET || ''
+    } : undefined,
+    sms: process.env.NOTIFICATIONS_SMS_PROVIDER ? {
+      provider: process.env.NOTIFICATIONS_SMS_PROVIDER
+    } : undefined
   },
   port: parseInt(process.env.PORT || '3000'),
   environment: process.env.NODE_ENV || 'development',

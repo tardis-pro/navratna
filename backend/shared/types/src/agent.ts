@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BaseEntitySchema, UUIDSchema } from './common';
+import { BaseEntitySchema, UUIDSchema } from './common.js';
 
 // Agent types
 export enum AgentRole {

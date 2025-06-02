@@ -64,22 +64,22 @@ export class AgentController {
       const analysis = await this.agentIntelligenceService.analyzeContext(
         agent,
         analysisRequest.conversationContext,
-        analysisRequest.userRequest,
+        analysisRequest.userRequest || '',
         analysisRequest.constraints
       );
 
       // Discover available capabilities
       const capabilities = await this.capabilityDiscoveryService.searchCapabilities({
-        query: analysisRequest.userRequest,
+        query: analysisRequest.userRequest || '',
         agentContext: {
           agentId: agent.id,
-          specializations: agent.persona.capabilities || []
+          specializations: agent.persona?.capabilities || []
         },
         securityContext: {
-          securityLevel: agent.securityContext.securityLevel,
-          allowedCapabilities: agent.securityContext.allowedCapabilities
+          securityLevel: agent.securityContext?.securityLevel || 'medium',
+          allowedCapabilities: agent.securityContext?.allowedCapabilities || []
         },
-        limit: 10 // Added limit property
+        limit: 10
       });
 
       // Build response
@@ -102,7 +102,7 @@ export class AgentController {
         agentId, 
         requestId: 'unknown', 
         confidence: analysis.confidence,
-        actionsCount: analysis.recommendedActions.length,
+        actionsCount: analysis.recommendedActions?.length || 0,
         capabilitiesCount: capabilities.length
       });
 
@@ -167,7 +167,7 @@ export class AgentController {
         agentId, 
         requestId: 'unknown', 
         planType: plan.type,
-        stepsCount: plan.steps.length,
+        stepsCount: plan.steps?.length || 0,
         requiresApproval: approvalRequired
       });
 

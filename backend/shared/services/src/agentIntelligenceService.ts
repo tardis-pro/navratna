@@ -783,7 +783,7 @@ export class AgentIntelligenceService {
 
   private async validatePlanSecurity(plan: ExecutionPlan, securityContext: any): Promise<void> {
     // Validate plan doesn't violate security constraints
-    if (securityContext?.maxDuration && plan.estimatedDuration > securityContext.maxDuration) {
+    if (securityContext?.maxDuration && plan.estimatedDuration && plan.estimatedDuration > securityContext.maxDuration) {
       throw new ApiError(403, 'Plan exceeds maximum allowed duration', 'SECURITY_VIOLATION');
     }
   }

@@ -1,9 +1,10 @@
 {
-  "extends": "../../tsconfig.json",
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "node",
+    "declaration": true,
+    "declarationMap": true,
     "outDir": "./dist",
     "rootDir": "./src",
     "strict": true,
@@ -11,20 +12,22 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
+    "allowSyntheticDefaultImports": true,
+    "composite": true,
+    "incremental": true,
     "baseUrl": "./src",
     "paths": {
-      "@/*": ["*"],
-      "@/config/*": ["config/*"],
+      "@/*": ["./*"],
+      "@uaip/types": ["../../shared/types/src"],
       "@uaip/types/*": ["../../shared/types/src/*"],
-      "@uaip/utils/*": ["../../shared/utils/*"],
-      "@uaip/shared-services/*": ["../../shared/services/*"],
-      "@uaip/config/*": ["../../shared/config/*"],
-      "@uaip/middleware/*": ["../../shared/middleware/*"]
+      "@uaip/utils": ["../../shared/utils/src"],
+      "@uaip/utils/*": ["../../shared/utils/src/*"],
+      "@uaip/config": ["../../shared/config/src"],
+      "@uaip/config/*": ["../../shared/config/src/*"],
+      "@uaip/shared-services": ["../../shared/services/src"],
+      "@uaip/shared-services/*": ["../../shared/services/src/*"],
+      "@uaip/middleware": ["../../shared/middleware/src"],
+      "@uaip/middleware/*": ["../../shared/middleware/src/*"]
     }
   },
   "include": [
@@ -39,8 +42,8 @@
   "references": [
     { "path": "../../shared/types" },
     { "path": "../../shared/utils" },
-    { "path": "../../shared/services" },
     { "path": "../../shared/config" },
+    { "path": "../../shared/services" },
     { "path": "../../shared/middleware" }
   ]
 } 

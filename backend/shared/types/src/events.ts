@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { UUIDSchema } from './common';
+import { UUIDSchema } from './common.js';
 
 // Event types
 export enum EventType {

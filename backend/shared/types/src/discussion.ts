@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { BaseEntitySchema, UUIDSchema } from './common';
-import { PersonaSchema } from './persona';
+import { BaseEntitySchema, UUIDSchema } from './common.js';
+import { PersonaSchema } from './persona.js';
 
 // Discussion status
 export enum DiscussionStatus {

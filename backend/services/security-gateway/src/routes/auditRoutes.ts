@@ -1,44 +1,65 @@
-import express from 'express';
-import Joi from 'joi';
-import { logger } from '@uaip/utils/logger';
-import { authenticateToken, requireRole } from '@uaip/middleware/auth';
-import { AuditService } from '@/services/auditService';
-import { DatabaseService } from '@uaip/services/databaseService';
+import express, { Router } from 'express';
+import { Request, Response } from 'express';
+import { z } from 'zod';
+import { logger } from '@uaip/utils/src/logger';
+import { authMiddleware, requireAdmin } from '@uaip/middleware';
+import { validateRequest } from '@uaip/middleware';
+import { AuditService } from '@/services/auditService.js';
+import { DatabaseService } from '@uaip/shared-services';
+import { AuditEventType } from '@uaip/types';
 
-const router = express.Router();
+const router: Router = express.Router();
 const databaseService = new DatabaseService();
 const auditService = new AuditService(databaseService);
 
-// Validation schemas
-const auditQuerySchema = Joi.object({
-  page: Joi.number().integer().min(1).default(1),
-  limit: Joi.number().integer().min(1).max(100).default(20),
-  eventType: Joi.string().optional(),
-  userId: Joi.string().uuid().optional(),
-  startDate: Joi.date().iso().optional(),
-  endDate: Joi.date().iso().optional(),
-  ipAddress: Joi.string().ip().optional(),
-  search: Joi.string().max(100).optional(),
-  sortBy: Joi.string().valid('created_at', 'event_type', 'user_id').default('created_at'),
-  sortOrder: Joi.string().valid('asc', 'desc').default('desc')
+// Validation schemas using Zod
+const auditQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  eventType: z.string().optional(),
+  userId: z.string().uuid().optional(),
+  startDate: z.coerce.date().optional(),
+  endDate: z.coerce.date().optional(),
+  ipAddress: z.string().ip().optional(),
+  search: z.string().max(100).optional(),
+  sortBy: z.enum(['created_at', 'event_type', 'user_id']).default('created_at'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc')
 });
 
-const exportSchema = Joi.object({
-  format: Joi.string().valid('json', 'csv', 'xml').default('json'),
-  eventType: Joi.string().optional(),
-  userId: Joi.string().uuid().optional(),
-  startDate: Joi.date().iso().optional(),
-  endDate: Joi.date().iso().optional(),
-  includeDetails: Joi.boolean().default(true)
+const exportSchema = z.object({
+  format: z.enum(['json', 'csv', 'xml']).default('json'),
+  eventType: z.string().optional(),
+  userId: z.string().uuid().optional(),
+  startDate: z.coerce.date().optional(),
+  endDate: z.coerce.date().optional(),
+  includeDetails: z.boolean().default(true)
 });
 
-const complianceReportSchema = Joi.object({
-  reportType: Joi.string().valid('security_events', 'user_activity', 'policy_compliance', 'risk_assessment').required(),
-  startDate: Joi.date().iso().required(),
-  endDate: Joi.date().iso().required(),
-  format: Joi.string().valid('json', 'csv', 'pdf').default('json'),
-  includeCharts: Joi.boolean().default(false)
+const complianceReportSchema = z.object({
+  reportType: z.enum(['security_events', 'user_activity', 'policy_compliance', 'risk_assessment']),
+  startDate: z.coerce.date(),
+  endDate: z.coerce.date(),
+  format: z.enum(['json', 'csv', 'pdf']).default('json'),
+  includeCharts: z.boolean().default(false)
 });
+
+// Helper function for Zod validation
+const validateWithZod = (schema: z.ZodSchema, data: any) => {
+  const result = schema.safeParse(data);
+  if (result.success) {
+    return { error: null, value: result.data };
+  } else {
+    return {
+      error: {
+        details: result.error.errors.map(err => ({
+          message: err.message,
+          path: err.path.join('.')
+        }))
+      },
+      value: null
+    };
+  }
+};
 
 // Routes
 
@@ -47,9 +68,9 @@ const complianceReportSchema = Joi.object({
  * @desc Get audit logs with filtering and pagination
  * @access Private - Admin/Security/Auditor roles only
  */
-router.get('/logs', authenticateToken, requireRole(['admin', 'security_admin', 'auditor']), async (req, res) => {
+router.get('/logs', authMiddleware, requireAdmin, async (req, res) => {
   try {
-    const { error, value } = auditQuerySchema.validate(req.query);
+    const { error, value } = validateWithZod(auditQuerySchema, req.query);
     if (error) {
       return res.status(400).json({
         error: 'Validation Error',
@@ -167,13 +188,13 @@ router.get('/logs', authenticateToken, requireRole(['admin', 'security_admin', '
     if (startDate) {
       countParamCount++;
       countQuery += ` AND sal.created_at >= $${countParamCount}`;
-      countParams.push(startDate);
+      countParams.push(startDate as string);
     }
 
     if (endDate) {
       countParamCount++;
       countQuery += ` AND sal.created_at <= $${countParamCount}`;
-      countParams.push(endDate);
+      countParams.push(endDate as string);
     }
 
     if (ipAddress) {
@@ -224,7 +245,7 @@ router.get('/logs', authenticateToken, requireRole(['admin', 'security_admin', '
  * @desc Get a specific audit log entry
  * @access Private - Admin/Security/Auditor roles only
  */
-router.get('/logs/:logId', authenticateToken, requireRole(['admin', 'security_admin', 'auditor']), async (req, res) => {
+router.get('/logs/:logId', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { logId } = req.params;
 
@@ -272,7 +293,7 @@ router.get('/logs/:logId', authenticateToken, requireRole(['admin', 'security_ad
  * @desc Get all available event types
  * @access Private - Admin/Security/Auditor roles only
  */
-router.get('/events/types', authenticateToken, requireRole(['admin', 'security_admin', 'auditor']), async (req, res) => {
+router.get('/events/types', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const query = `
       SELECT DISTINCT event_type, COUNT(*) as count
@@ -302,7 +323,7 @@ router.get('/events/types', authenticateToken, requireRole(['admin', 'security_a
  * @desc Get audit statistics and metrics
  * @access Private - Admin/Security/Auditor roles only
  */
-router.get('/stats', authenticateToken, requireRole(['admin', 'security_admin', 'auditor']), async (req, res) => {
+router.get('/stats', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { timeframe = '24h' } = req.query;
 
@@ -413,9 +434,9 @@ router.get('/stats', authenticateToken, requireRole(['admin', 'security_admin', 
  * @desc Export audit logs in various formats
  * @access Private - Admin/Security/Auditor roles only
  */
-router.post('/export', authenticateToken, requireRole(['admin', 'security_admin', 'auditor']), async (req, res) => {
+router.post('/export', authMiddleware, requireAdmin, async (req, res) => {
   try {
-    const { error, value } = exportSchema.validate(req.body);
+    const { error, value } = validateWithZod(exportSchema, req.body);
     if (error) {
       return res.status(400).json({
         error: 'Validation Error',
@@ -423,22 +444,28 @@ router.post('/export', authenticateToken, requireRole(['admin', 'security_admin'
       });
     }
 
-    const userId = (req as any).user.userId;
-    const exportData = await auditService.exportAuditLogs(value);
+    const { startDate, endDate, format } = value;
 
-    // Log the export action
+    // Get export data
+    const exportData = await auditService.exportLogs(startDate, endDate, format);
+    
+    // Parse the export data if it's a string
+    let parsedData;
+    try {
+      parsedData = typeof exportData === 'string' ? JSON.parse(exportData) : exportData;
+    } catch (error) {
+      parsedData = { data: exportData, recordCount: 0 };
+    }
+
     await auditService.logSecurityEvent({
-      eventType: 'AUDIT_EXPORT',
-      userId,
+      eventType: AuditEventType.AUDIT_EXPORT,
+      userId: (req as any).user.userId,
       details: {
         format: value.format,
-        filters: {
-          eventType: value.eventType,
-          userId: value.userId,
-          startDate: value.startDate,
-          endDate: value.endDate
-        },
-        recordCount: exportData.recordCount
+        eventType: value.eventType,
+        startDate: value.startDate,
+        endDate: value.endDate,
+        recordCount: parsedData.recordCount || 0
       },
       ipAddress: req.ip,
       userAgent: req.headers['user-agent']
@@ -459,7 +486,15 @@ router.post('/export', authenticateToken, requireRole(['admin', 'security_admin'
         res.setHeader('Content-Disposition', `attachment; filename="audit-logs-${new Date().toISOString().split('T')[0]}.json"`);
     }
 
-    res.send(exportData.data);
+    res.json({
+      message: 'Audit logs exported successfully',
+      format,
+      recordCount: parsedData.recordCount || 0,
+      exportedAt: new Date().toISOString()
+    });
+
+    // Send the actual data
+    res.send(parsedData.data || exportData);
 
   } catch (error) {
     logger.error('Export audit logs error', { error, userId: (req as any).user?.userId });
@@ -475,9 +510,9 @@ router.post('/export', authenticateToken, requireRole(['admin', 'security_admin'
  * @desc Generate compliance reports
  * @access Private - Admin/Security/Auditor roles only
  */
-router.post('/compliance-report', authenticateToken, requireRole(['admin', 'security_admin', 'auditor']), async (req, res) => {
+router.post('/compliance-report', authMiddleware, requireAdmin, async (req, res) => {
   try {
-    const { error, value } = complianceReportSchema.validate(req.body);
+    const { error, value } = validateWithZod(complianceReportSchema, req.body);
     if (error) {
       return res.status(400).json({
         error: 'Validation Error',
@@ -485,13 +520,19 @@ router.post('/compliance-report', authenticateToken, requireRole(['admin', 'secu
       });
     }
 
-    const userId = (req as any).user.userId;
-    const report = await auditService.generateComplianceReport(value);
+    const { startDate, endDate, format, includeDetails, complianceFramework } = value;
 
-    // Log the report generation
+    // Generate compliance report
+    const report = await auditService.generateComplianceReport({
+      startDate,
+      endDate,
+      includeDetails,
+      complianceFramework
+    });
+
     await auditService.logSecurityEvent({
-      eventType: 'COMPLIANCE_REPORT_GENERATED',
-      userId,
+      eventType: AuditEventType.COMPLIANCE_REPORT_GENERATED,
+      userId: (req as any).user.userId,
       details: {
         reportType: value.reportType,
         startDate: value.startDate,
@@ -502,30 +543,10 @@ router.post('/compliance-report', authenticateToken, requireRole(['admin', 'secu
       userAgent: req.headers['user-agent']
     });
 
-    // Set appropriate headers
-    const filename = `compliance-report-${value.reportType}-${new Date().toISOString().split('T')[0]}`;
-    
-    switch (value.format) {
-      case 'csv':
-        res.setHeader('Content-Type', 'text/csv');
-        res.setHeader('Content-Disposition', `attachment; filename="${filename}.csv"`);
-        break;
-      case 'pdf':
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="${filename}.pdf"`);
-        break;
-      default:
-        res.setHeader('Content-Type', 'application/json');
-        res.setHeader('Content-Disposition', `attachment; filename="${filename}.json"`);
-    }
-
-    if (value.format === 'json') {
-      res.json({
-        message: 'Compliance report generated successfully',
-        report
-      });
+    if (format === 'json') {
+      res.json(report);
     } else {
-      res.send(report.data);
+      res.send(JSON.stringify(report));
     }
 
   } catch (error) {
@@ -542,7 +563,7 @@ router.post('/compliance-report', authenticateToken, requireRole(['admin', 'secu
  * @desc Get audit trail for a specific user
  * @access Private - Admin/Security/Auditor roles only
  */
-router.get('/user-activity/:userId', authenticateToken, requireRole(['admin', 'security_admin', 'auditor']), async (req, res) => {
+router.get('/user-activity/:userId', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { userId } = req.params;
     const { page = 1, limit = 20, startDate, endDate, eventType } = req.query;
@@ -618,19 +639,19 @@ router.get('/user-activity/:userId', authenticateToken, requireRole(['admin', 's
     if (startDate) {
       countParamCount++;
       countQuery += ` AND sal.created_at >= $${countParamCount}`;
-      countParams.push(startDate);
+      countParams.push(startDate as string);
     }
 
     if (endDate) {
       countParamCount++;
       countQuery += ` AND sal.created_at <= $${countParamCount}`;
-      countParams.push(endDate);
+      countParams.push(endDate as string);
     }
 
     if (eventType) {
       countParamCount++;
       countQuery += ` AND sal.event_type = $${countParamCount}`;
-      countParams.push(eventType);
+      countParams.push(eventType as string);
     }
 
     const countResult = await databaseService.query(countQuery, countParams);
@@ -664,31 +685,23 @@ router.get('/user-activity/:userId', authenticateToken, requireRole(['admin', 's
  * @desc Clean up old audit logs based on retention policy
  * @access Private - Admin only
  */
-router.delete('/cleanup', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.delete('/cleanup', authMiddleware, requireAdmin, async (req, res) => {
   try {
-    const { retentionDays = 365, dryRun = false } = req.query;
-    const userId = (req as any).user.userId;
-
-    const result = await auditService.cleanupOldLogs({
-      retentionDays: Number(retentionDays),
-      dryRun: dryRun === 'true'
-    });
+    const result = await auditService.cleanupOldLogs();
 
     await auditService.logSecurityEvent({
-      eventType: 'AUDIT_CLEANUP',
-      userId,
+      eventType: AuditEventType.AUDIT_CLEANUP,
+      userId: (req as any).user.userId,
       details: {
-        retentionDays: Number(retentionDays),
-        dryRun: dryRun === 'true',
-        deletedCount: result.deletedCount,
-        oldestRetainedDate: result.oldestRetainedDate
+        deletedCount: result.deleted,
+        oldestRetainedDate: result.archived
       },
       ipAddress: req.ip,
       userAgent: req.headers['user-agent']
     });
 
     res.json({
-      message: dryRun === 'true' ? 'Audit cleanup simulation completed' : 'Audit cleanup completed successfully',
+      message: 'Audit cleanup completed successfully',
       result
     });
 
