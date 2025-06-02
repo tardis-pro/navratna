@@ -4,95 +4,140 @@
 -- ===== ADDITIONAL PERFORMANCE INDEXES =====
 
 -- Cross-table relationship indexes
-CREATE INDEX idx_personas_usage_stats_popularity ON personas((usage_stats->>'popularityScore')::numeric) WHERE (usage_stats->>'popularityScore')::numeric > 0;
-CREATE INDEX idx_personas_usage_stats_total_usages ON personas((usage_stats->>'totalUsages')::integer) WHERE (usage_stats->>'totalUsages')::integer > 0;
-CREATE INDEX idx_personas_validation_score ON personas((validation->>'score')::numeric) WHERE validation IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_personas_usage_stats_popularity ON personas(CAST(usage_stats->>'popularityScore' AS numeric)) WHERE CAST(usage_stats->>'popularityScore' AS numeric) > 0;
+CREATE INDEX IF NOT EXISTS idx_personas_usage_stats_total_usages ON personas(CAST(usage_stats->>'totalUsages' AS integer)) WHERE CAST(usage_stats->>'totalUsages' AS integer) > 0;
+CREATE INDEX IF NOT EXISTS idx_personas_validation_score ON personas(CAST(validation->>'score' AS numeric)) WHERE validation IS NOT NULL;
 
 -- Discussion analytics indexes
-CREATE INDEX idx_discussions_analytics_total_messages ON discussions((analytics->>'totalMessages')::integer) WHERE (analytics->>'totalMessages')::integer > 0;
-CREATE INDEX idx_discussions_state_consensus ON discussions((state->>'consensusLevel')::numeric) WHERE (state->>'consensusLevel')::numeric > 0;
-CREATE INDEX idx_discussions_state_engagement ON discussions((state->>'engagementScore')::numeric) WHERE (state->>'engagementScore')::numeric > 0;
+CREATE INDEX IF NOT EXISTS idx_discussions_analytics_total_messages ON discussions(CAST(analytics->>'totalMessages' AS integer)) WHERE CAST(analytics->>'totalMessages' AS integer) > 0;
+CREATE INDEX IF NOT EXISTS idx_discussions_state_consensus ON discussions(CAST(state->>'consensusLevel' AS numeric)) WHERE CAST(state->>'consensusLevel' AS numeric) > 0;
+CREATE INDEX IF NOT EXISTS idx_discussions_state_engagement ON discussions(CAST(state->>'engagementScore' AS numeric)) WHERE CAST(state->>'engagementScore' AS numeric) > 0;
 
 -- Message performance indexes
-CREATE INDEX idx_discussion_messages_tokens ON discussion_messages(tokens) WHERE tokens IS NOT NULL;
-CREATE INDEX idx_discussion_messages_processing_time ON discussion_messages(processing_time) WHERE processing_time IS NOT NULL;
-CREATE INDEX idx_discussion_messages_confidence ON discussion_messages(confidence) WHERE confidence IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_discussion_messages_tokens ON discussion_messages(tokens) WHERE tokens IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_discussion_messages_processing_time ON discussion_messages(processing_time) WHERE processing_time IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_discussion_messages_confidence ON discussion_messages(confidence) WHERE confidence IS NOT NULL;
 
 -- ===== DATA INTEGRITY CONSTRAINTS =====
 
 -- Ensure persona validation scores are within valid range
-ALTER TABLE personas ADD CONSTRAINT check_persona_validation_score 
-    CHECK (validation IS NULL OR (validation->>'score')::numeric BETWEEN 0 AND 100);
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_persona_validation_score') THEN
+        ALTER TABLE personas ADD CONSTRAINT check_persona_validation_score 
+            CHECK (validation IS NULL OR CAST(validation->>'score' AS numeric) BETWEEN 0 AND 100);
+    END IF;
+END $$;
 
 -- Ensure persona usage stats are non-negative
-ALTER TABLE personas ADD CONSTRAINT check_persona_usage_stats_non_negative
-    CHECK (
-        (usage_stats->>'totalUsages')::integer >= 0 AND
-        (usage_stats->>'uniqueUsers')::integer >= 0 AND
-        (usage_stats->>'averageSessionDuration')::numeric >= 0 AND
-        (usage_stats->>'popularityScore')::numeric >= 0 AND
-        (usage_stats->>'feedbackCount')::integer >= 0
-    );
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_persona_usage_stats_non_negative') THEN
+        ALTER TABLE personas ADD CONSTRAINT check_persona_usage_stats_non_negative
+            CHECK (
+                CAST(usage_stats->>'totalUsages' AS integer) >= 0 AND
+                CAST(usage_stats->>'uniqueUsers' AS integer) >= 0 AND
+                CAST(usage_stats->>'averageSessionDuration' AS numeric) >= 0 AND
+                CAST(usage_stats->>'popularityScore' AS numeric) >= 0 AND
+                CAST(usage_stats->>'feedbackCount' AS integer) >= 0
+            );
+    END IF;
+END $$;
 
 -- Ensure persona configuration values are within valid ranges
-ALTER TABLE personas ADD CONSTRAINT check_persona_configuration_ranges
-    CHECK (
-        configuration IS NULL OR (
-            (configuration->>'maxTokens')::integer > 0 AND
-            (configuration->>'temperature')::numeric BETWEEN 0 AND 2 AND
-            (configuration->>'topP')::numeric BETWEEN 0 AND 1 AND
-            (configuration->>'frequencyPenalty')::numeric BETWEEN -2 AND 2 AND
-            (configuration->>'presencePenalty')::numeric BETWEEN -2 AND 2
-        )
-    );
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_persona_configuration_ranges') THEN
+        ALTER TABLE personas ADD CONSTRAINT check_persona_configuration_ranges
+            CHECK (
+                configuration IS NULL OR (
+                    CAST(configuration->>'maxTokens' AS integer) > 0 AND
+                    CAST(configuration->>'temperature' AS numeric) BETWEEN 0 AND 2 AND
+                    CAST(configuration->>'topP' AS numeric) BETWEEN 0 AND 1 AND
+                    CAST(configuration->>'frequencyPenalty' AS numeric) BETWEEN -2 AND 2 AND
+                    CAST(configuration->>'presencePenalty' AS numeric) BETWEEN -2 AND 2
+                )
+            );
+    END IF;
+END $$;
 
 -- Ensure discussion analytics are non-negative
-ALTER TABLE discussions ADD CONSTRAINT check_discussion_analytics_non_negative
-    CHECK (
-        analytics IS NULL OR (
-            (analytics->>'totalMessages')::integer >= 0 AND
-            (analytics->>'uniqueParticipants')::integer >= 0 AND
-            (analytics->>'averageMessageLength')::numeric >= 0
-        )
-    );
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_discussion_analytics_non_negative') THEN
+        ALTER TABLE discussions ADD CONSTRAINT check_discussion_analytics_non_negative
+            CHECK (
+                analytics IS NULL OR (
+                    CAST(analytics->>'totalMessages' AS integer) >= 0 AND
+                    CAST(analytics->>'uniqueUsers' AS integer) >= 0 AND
+                    CAST(analytics->>'averageMessageLength' AS numeric) >= 0
+                )
+            );
+    END IF;
+END $$;
 
 -- Ensure discussion state values are within valid ranges
-ALTER TABLE discussions ADD CONSTRAINT check_discussion_state_ranges
-    CHECK (
-        state IS NULL OR (
-            (state->>'messageCount')::integer >= 0 AND
-            (state->>'activeParticipants')::integer >= 0 AND
-            (state->>'consensusLevel')::numeric BETWEEN 0 AND 1 AND
-            (state->>'engagementScore')::numeric BETWEEN 0 AND 100 AND
-            (state->>'topicDrift')::numeric BETWEEN 0 AND 1
-        )
-    );
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_discussion_state_ranges') THEN
+        ALTER TABLE discussions ADD CONSTRAINT check_discussion_state_ranges
+            CHECK (
+                state IS NULL OR (
+                    CAST(state->>'messageCount' AS integer) >= 0 AND
+                    CAST(state->>'activeParticipants' AS integer) >= 0 AND
+                    CAST(state->>'consensusLevel' AS numeric) BETWEEN 0 AND 1 AND
+                    CAST(state->>'engagementScore' AS numeric) BETWEEN 0 AND 100 AND
+                    CAST(state->>'topicDrift' AS numeric) BETWEEN 0 AND 1
+                )
+            );
+    END IF;
+END $$;
 
 -- Ensure discussion settings are valid
-ALTER TABLE discussions ADD CONSTRAINT check_discussion_settings_valid
-    CHECK (
-        settings IS NULL OR (
-            (settings->>'maxParticipants')::integer BETWEEN 2 AND 50 AND
-            (settings->>'turnTimeout')::integer >= 0 AND
-            (settings->>'responseTimeout')::integer >= 0
-        )
-    );
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_discussion_settings_valid') THEN
+        ALTER TABLE discussions ADD CONSTRAINT check_discussion_settings_valid
+            CHECK (
+                settings IS NULL OR (
+                    CAST(settings->>'maxParticipants' AS integer) BETWEEN 2 AND 50 AND
+                    CAST(settings->>'turnTimeout' AS integer) >= 0 AND
+                    CAST(settings->>'responseTimeout' AS integer) >= 0
+                )
+            );
+    END IF;
+END $$;
 
 -- Ensure discussion dates are logical
-ALTER TABLE discussions ADD CONSTRAINT check_discussion_dates_logical
-    CHECK (
-        (started_at IS NULL OR ended_at IS NULL OR started_at <= ended_at) AND
-        (scheduled_start IS NULL OR scheduled_end IS NULL OR scheduled_start <= scheduled_end)
-    );
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_discussion_dates_logical') THEN
+        ALTER TABLE discussions ADD CONSTRAINT check_discussion_dates_logical
+            CHECK (
+                (started_at IS NULL OR ended_at IS NULL OR started_at <= ended_at) AND
+                (scheduled_start IS NULL OR scheduled_end IS NULL OR scheduled_start <= scheduled_end)
+            );
+    END IF;
+END $$;
 
 -- Ensure participant message count matches actual messages
 -- Note: This will be maintained by triggers, but we add a constraint for safety
-ALTER TABLE discussion_participants ADD CONSTRAINT check_participant_message_count_non_negative
-    CHECK (message_count >= 0);
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_participant_message_count_non_negative') THEN
+        ALTER TABLE discussion_participants ADD CONSTRAINT check_participant_message_count_non_negative
+            CHECK (message_count >= 0);
+    END IF;
+END $$;
 
 -- Ensure participant dates are logical
-ALTER TABLE discussion_participants ADD CONSTRAINT check_participant_dates_logical
-    CHECK (joined_at <= last_active_at);
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_participant_dates_logical') THEN
+        ALTER TABLE discussion_participants ADD CONSTRAINT check_participant_dates_logical
+            CHECK (joined_at <= last_active_at);
+    END IF;
+END $$;
 
 -- ===== REFERENTIAL INTEGRITY ENHANCEMENTS =====
 
@@ -104,6 +149,7 @@ ALTER TABLE discussion_participants ADD CONSTRAINT check_participant_dates_logic
 -- ===== PERFORMANCE VIEWS =====
 
 -- View for active discussions with participant counts
+DROP VIEW IF EXISTS active_discussions_summary;
 CREATE VIEW active_discussions_summary AS
 SELECT 
     d.id,
@@ -114,9 +160,9 @@ SELECT
     d.started_at,
     COUNT(dp.id) as participant_count,
     COUNT(CASE WHEN dp.is_active THEN 1 END) as active_participant_count,
-    (d.state->>'messageCount')::integer as message_count,
-    (d.state->>'consensusLevel')::numeric as consensus_level,
-    (d.state->>'engagementScore')::numeric as engagement_score,
+    CAST(d.state->>'messageCount' AS integer) as message_count,
+    CAST(d.state->>'consensusLevel' AS numeric) as consensus_level,
+    CAST(d.state->>'engagementScore' AS numeric) as engagement_score,
     d.created_at,
     d.updated_at
 FROM discussions d
@@ -125,6 +171,7 @@ WHERE d.status IN ('active', 'paused')
 GROUP BY d.id;
 
 -- View for persona usage statistics
+DROP VIEW IF EXISTS persona_usage_summary;
 CREATE VIEW persona_usage_summary AS
 SELECT 
     p.id,
@@ -133,17 +180,18 @@ SELECT
     p.status,
     p.visibility,
     p.created_by,
-    (p.usage_stats->>'totalUsages')::integer as total_usages,
-    (p.usage_stats->>'uniqueUsers')::integer as unique_users,
-    (p.usage_stats->>'popularityScore')::numeric as popularity_score,
-    (p.usage_stats->>'feedbackCount')::integer as feedback_count,
-    (p.validation->>'score')::numeric as validation_score,
+    CAST(p.usage_stats->>'totalUsages' AS integer) as total_usages,
+    CAST(p.usage_stats->>'uniqueUsers' AS integer) as unique_users,
+    CAST(p.usage_stats->>'popularityScore' AS numeric) as popularity_score,
+    CAST(p.usage_stats->>'feedbackCount' AS integer) as feedback_count,
+    CAST(p.validation->>'score' AS numeric) as validation_score,
     p.created_at,
     p.updated_at
 FROM personas p
 WHERE p.status = 'active';
 
 -- View for discussion message statistics
+DROP VIEW IF EXISTS discussion_message_stats;
 CREATE VIEW discussion_message_stats AS
 SELECT 
     dm.discussion_id,
@@ -189,9 +237,9 @@ BEGIN
         usage_stats,
         '{popularityScore}',
         LEAST(100, (
-            COALESCE((usage_stats->>'totalUsages')::integer, 0) * 0.4 +
-            COALESCE((usage_stats->>'uniqueUsers')::integer, 0) * 0.3 +
-            COALESCE((usage_stats->>'feedbackCount')::integer, 0) * 0.3
+            COALESCE(CAST(usage_stats->>'totalUsages' AS integer), 0) * 0.4 +
+            COALESCE(CAST(usage_stats->>'uniqueUsers' AS integer), 0) * 0.3 +
+            COALESCE(CAST(usage_stats->>'feedbackCount' AS integer), 0) * 0.3
         ))::text::jsonb
     )
     WHERE status = 'active';
@@ -199,4 +247,96 @@ BEGIN
     GET DIAGNOSTICS updated_count = ROW_COUNT;
     RETURN updated_count;
 END;
-$$ LANGUAGE plpgsql; 
+$$ LANGUAGE plpgsql;
+
+-- ===== TRIGGERS FOR AUTOMATIC MAINTENANCE =====
+
+-- Trigger to update discussion analytics when messages are added
+CREATE OR REPLACE FUNCTION update_discussion_analytics()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Update discussion state with new message count and analytics
+    UPDATE discussions 
+    SET 
+        state = jsonb_set(
+            COALESCE(state, '{}'::jsonb),
+            '{messageCount}',
+            (
+                SELECT COUNT(*)::text::jsonb 
+                FROM discussion_messages 
+                WHERE discussion_id = NEW.discussion_id 
+                AND is_deleted = false
+            )
+        ),
+        analytics = jsonb_set(
+            jsonb_set(
+                COALESCE(analytics, '{}'::jsonb),
+                '{totalMessages}',
+                (
+                    SELECT COUNT(*)::text::jsonb 
+                    FROM discussion_messages 
+                    WHERE discussion_id = NEW.discussion_id 
+                    AND is_deleted = false
+                )
+            ),
+            '{uniqueParticipants}',
+            (
+                SELECT COUNT(DISTINCT participant_id)::text::jsonb 
+                FROM discussion_messages 
+                WHERE discussion_id = NEW.discussion_id 
+                AND is_deleted = false
+            )
+        ),
+        updated_at = NOW()
+    WHERE id = NEW.discussion_id;
+    
+    -- Update participant message count
+    UPDATE discussion_participants 
+    SET 
+        message_count = (
+            SELECT COUNT(*) 
+            FROM discussion_messages 
+            WHERE discussion_id = NEW.discussion_id 
+            AND participant_id = NEW.participant_id 
+            AND is_deleted = false
+        ),
+        last_active_at = NOW()
+    WHERE discussion_id = NEW.discussion_id 
+    AND participant_id = NEW.participant_id;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger for discussion message analytics
+DROP TRIGGER IF EXISTS trigger_update_discussion_analytics ON discussion_messages;
+CREATE TRIGGER trigger_update_discussion_analytics
+    AFTER INSERT OR UPDATE ON discussion_messages
+    FOR EACH ROW
+    EXECUTE FUNCTION update_discussion_analytics();
+
+-- Trigger to update persona usage statistics
+CREATE OR REPLACE FUNCTION update_persona_usage_stats()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- This would be called when a persona is used in a discussion
+    -- Implementation depends on how persona usage is tracked
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ===== INDEXES FOR PERFORMANCE =====
+
+-- Additional composite indexes for common query patterns
+CREATE INDEX IF NOT EXISTS idx_discussions_status_created_by ON discussions(status, created_by);
+CREATE INDEX IF NOT EXISTS idx_discussions_status_started_at ON discussions(status, started_at) WHERE started_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_discussion_participants_active ON discussion_participants(discussion_id, is_active) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_discussion_messages_discussion_created ON discussion_messages(discussion_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_personas_status_visibility ON personas(status, visibility);
+CREATE INDEX IF NOT EXISTS idx_personas_created_by_status ON personas(created_by, status);
+
+-- Partial indexes for better performance on filtered queries
+CREATE INDEX IF NOT EXISTS idx_active_discussions ON discussions(id, title, created_at) WHERE status = 'active';
+CREATE INDEX IF NOT EXISTS idx_public_personas ON personas(id, name, role) WHERE visibility = 'public' AND status = 'active';
+-- Note: Removed idx_recent_messages as NOW() function is not immutable and cannot be used in index predicates
+-- For recent messages queries, use a regular index on created_at and filter in the WHERE clause 
