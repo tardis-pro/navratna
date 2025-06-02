@@ -74,7 +74,7 @@ class AgentIntelligenceService {
 
     // Performance middleware
     this.app.use(compression());
-    // this.app.use(rateLimiter);
+    this.app.use(rateLimiter);
 
     // Logging middleware
     this.app.use(morgan('combined', {
@@ -86,7 +86,7 @@ class AgentIntelligenceService {
     this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
     // Metrics middleware
-    // this.app.use(metricsMiddleware);
+    this.app.use(metricsMiddleware);
   }
 
   private setupRoutes(): void {
@@ -115,7 +115,7 @@ class AgentIntelligenceService {
   }
 
   private setupErrorHandling(): void {
-    // this.app.use(errorHandler);
+    this.app.use(errorHandler);
   }
 
   public async start(): Promise<void> {

@@ -1,5 +1,5 @@
 // Authentication middleware
-export { authMiddleware } from './authMiddleware.js';
+export { authMiddleware, requireAdmin, requireOperator, optionalAuth } from './authMiddleware.js';
 
 // Validation middleware
 export { 

@@ -1,343 +1,291 @@
-import Joi from 'joi';
+import { z } from 'zod';
 
 // Base schema components
-const uuidSchema = Joi.string().uuid().required();
-const timestampSchema = Joi.date().iso();
+const uuidSchema = z.string().uuid();
+const timestampSchema = z.string().datetime();
 
 // Resource Limits Schema
-export const resourceLimitsSchema = Joi.object({
-  maxMemory: Joi.number().integer().min(0).required(),
-  maxCpu: Joi.number().min(0).required(),
-  maxDuration: Joi.number().integer().min(0).required(),
-  maxConcurrency: Joi.number().integer().min(1).required()
+export const resourceLimitsSchema = z.object({
+  maxMemory: z.number().int().min(0),
+  maxCpu: z.number().min(0),
+  maxDuration: z.number().int().min(0),
+  maxConcurrency: z.number().int().min(1)
 });
 
 // Retry Policy Schema
-export const retryPolicySchema = Joi.object({
-  maxAttempts: Joi.number().integer().min(0).max(10).required(),
-  backoffStrategy: Joi.string().valid('linear', 'exponential', 'custom').required(),
-  baseDelay: Joi.number().integer().min(0).required(),
-  maxDelay: Joi.number().integer().min(0).required(),
-  retryableErrors: Joi.array().items(Joi.string()).default([])
+export const retryPolicySchema = z.object({
+  maxAttempts: z.number().int().min(0).max(10),
+  backoffStrategy: z.enum(['linear', 'exponential', 'custom']),
+  baseDelay: z.number().int().min(0),
+  maxDelay: z.number().int().min(0),
+  retryableErrors: z.array(z.string()).default([])
 });
 
 // Security Context Schema
-export const securityContextSchema = Joi.object({
+export const securityContextSchema = z.object({
   userId: uuidSchema,
   agentId: uuidSchema,
-  permissions: Joi.array().items(Joi.string()).required(),
-  riskLevel: Joi.string().valid('low', 'medium', 'high', 'critical').required(),
-  requiresApproval: Joi.boolean().required(),
-  approvalWorkflowId: Joi.string().uuid().optional()
+  permissions: z.array(z.string()),
+  riskLevel: z.enum(['low', 'medium', 'high', 'critical']),
+  requiresApproval: z.boolean(),
+  approvalWorkflowId: z.string().uuid().optional()
 });
 
 // Execution Context Schema
-export const executionContextSchema = Joi.object({
-  resourceLimits: resourceLimitsSchema.required(),
-  timeout: Joi.number().integer().min(0).required(),
-  retryPolicy: retryPolicySchema.required(),
-  priority: Joi.string().valid('low', 'normal', 'high', 'critical').required(),
-  executionMode: Joi.string().valid('synchronous', 'asynchronous', 'streaming').required()
+export const executionContextSchema = z.object({
+  resourceLimits: resourceLimitsSchema,
+  timeout: z.number().int().min(0),
+  retryPolicy: retryPolicySchema,
+  priority: z.enum(['low', 'normal', 'high', 'critical']),
+  executionMode: z.enum(['synchronous', 'asynchronous', 'streaming'])
 });
 
 // Operation Context Schema
-export const operationContextSchema = Joi.object({
+export const operationContextSchema = z.object({
   conversationId: uuidSchema,
   sessionId: uuidSchema,
-  userRequest: Joi.string().min(1).max(10000).required(),
-  environment: Joi.string().valid('development', 'staging', 'production').required(),
-  constraints: Joi.object().pattern(Joi.string(), Joi.any()).default({}),
-  securityContext: securityContextSchema.required(),
-  executionContext: executionContextSchema.required()
+  userRequest: z.string().min(1).max(10000),
+  environment: z.enum(['development', 'staging', 'production']),
+  constraints: z.record(z.string(), z.any()).default({}),
+  securityContext: securityContextSchema,
+  executionContext: executionContextSchema
 });
 
 // Step Configuration Schema
-export const stepConfigurationSchema = Joi.object({
-  toolId: Joi.string().optional(),
-  artifactTemplateId: Joi.string().optional(),
-  apiEndpoint: Joi.string().uri().optional(),
-  transformFunction: Joi.string().optional(),
-  conditionExpression: Joi.string().optional(),
-  delayDuration: Joi.number().integer().min(0).optional(),
-  approvalRequirements: Joi.object({
-    requiredApprovers: Joi.array().items(uuidSchema).required(),
-    minimumApprovals: Joi.number().integer().min(1).required(),
-    approvalTimeout: Joi.number().integer().min(0).required(),
-    escalationRules: Joi.array().items(Joi.object({
-      condition: Joi.string().required(),
-      escalateToRoles: Joi.array().items(Joi.string()).required(),
-      delayMinutes: Joi.number().integer().min(0).required()
+export const stepConfigurationSchema = z.object({
+  toolId: z.string().optional(),
+  artifactTemplateId: z.string().optional(),
+  apiEndpoint: z.string().url().optional(),
+  transformFunction: z.string().optional(),
+  conditionExpression: z.string().optional(),
+  delayDuration: z.number().int().min(0).optional(),
+  approvalRequirements: z.object({
+    requiredApprovers: z.array(uuidSchema),
+    minimumApprovals: z.number().int().min(1),
+    approvalTimeout: z.number().int().min(0),
+    escalationRules: z.array(z.object({
+      condition: z.string(),
+      escalateToRoles: z.array(z.string()),
+      delayMinutes: z.number().int().min(0)
     })).default([])
   }).optional(),
-  customConfig: Joi.object().pattern(Joi.string(), Joi.any()).optional()
+  customConfig: z.record(z.string(), z.any()).optional()
 });
 
 // Step Condition Schema
-export const stepConditionSchema = Joi.object({
-  expression: Joi.string().required(),
-  variables: Joi.object().pattern(Joi.string(), Joi.any()).default({}),
-  defaultValue: Joi.boolean().required()
+export const stepConditionSchema = z.object({
+  expression: z.string(),
+  variables: z.record(z.string(), z.any()).default({}),
+  defaultValue: z.boolean()
 });
 
 // Compensation Step Schema
-export const compensationStepSchema = Joi.object({
+export const compensationStepSchema = z.object({
   id: uuidSchema,
   stepId: uuidSchema,
-  action: Joi.string().valid('rollback', 'cleanup', 'notify', 'custom').required(),
-  configuration: Joi.object().pattern(Joi.string(), Joi.any()).default({})
+  action: z.enum(['rollback', 'cleanup', 'notify', 'custom']),
+  configuration: z.record(z.string(), z.any()).default({})
 });
 
 // Execution Step Schema
-export const executionStepSchema = Joi.object({
+export const executionStepSchema = z.object({
   id: uuidSchema,
-  name: Joi.string().min(1).max(255).required(),
-  type: Joi.string().valid(
+  name: z.string().min(1).max(255),
+  type: z.enum([
     'tool_call', 'artifact_generate', 'api_request', 'data_transform',
     'condition_check', 'delay', 'parallel_group', 'approval_request'
-  ).required(),
-  order: Joi.number().integer().min(0).required(),
-  description: Joi.string().max(1000).default(''),
-  configuration: stepConfigurationSchema.required(),
-  inputMapping: Joi.object().pattern(Joi.string(), Joi.string()).default({}),
-  outputMapping: Joi.object().pattern(Joi.string(), Joi.string()).default({}),
+  ]),
+  order: z.number().int().min(0),
+  description: z.string().max(1000).default(''),
+  configuration: stepConfigurationSchema,
+  inputMapping: z.record(z.string(), z.string()).default({}),
+  outputMapping: z.record(z.string(), z.string()).default({}),
   condition: stepConditionSchema.optional(),
-  timeout: Joi.number().integer().min(0).required(),
-  retryPolicy: retryPolicySchema.required(),
-  compensation: compensationStepSchema.required()
+  timeout: z.number().int().min(0),
+  retryPolicy: retryPolicySchema,
+  compensation: compensationStepSchema
 });
 
 // Step Dependency Schema
-export const stepDependencySchema = Joi.object({
+export const stepDependencySchema = z.object({
   stepId: uuidSchema,
-  dependsOn: Joi.array().items(uuidSchema).required(),
-  dependencyType: Joi.string().valid('sequential', 'data', 'resource').required()
+  dependsOn: z.array(uuidSchema),
+  dependencyType: z.enum(['sequential', 'data', 'resource'])
 });
 
 // Parallel Group Schema
-export const parallelGroupSchema = Joi.object({
+export const parallelGroupSchema = z.object({
   id: uuidSchema,
-  stepIds: Joi.array().items(uuidSchema).min(2).required(),
-  executionPolicy: Joi.string().valid('all_success', 'any_success', 'best_effort').required(),
-  maxConcurrency: Joi.number().integer().min(1).required(),
-  failurePolicy: Joi.string().valid('fail_fast', 'continue', 'retry_failed').required()
+  stepIds: z.array(uuidSchema).min(2),
+  executionPolicy: z.enum(['all_success', 'any_success', 'best_effort']),
+  maxConcurrency: z.number().int().min(1),
+  failurePolicy: z.enum(['fail_fast', 'continue', 'retry_failed'])
 });
 
 // Checkpoint Schema
-export const checkpointSchema = Joi.object({
+export const checkpointSchema = z.object({
   id: uuidSchema,
   stepId: uuidSchema,
-  type: Joi.string().valid('state_snapshot', 'progress_marker', 'recovery_point').required(),
-  data: Joi.object().pattern(Joi.string(), Joi.any()).default({}),
-  timestamp: timestampSchema.required()
+  type: z.enum(['state_snapshot', 'progress_marker', 'recovery_point']),
+  data: z.record(z.string(), z.any()).default({}),
+  timestamp: timestampSchema
 });
 
 // Execution Plan Schema
-export const executionPlanSchema = Joi.object({
-  steps: Joi.array().items(executionStepSchema).min(1).required(),
-  dependencies: Joi.array().items(stepDependencySchema).default([]),
-  compensationSteps: Joi.array().items(compensationStepSchema).default([]),
-  parallelGroups: Joi.array().items(parallelGroupSchema).default([]),
-  checkpoints: Joi.array().items(checkpointSchema).default([])
+export const executionPlanSchema = z.object({
+  steps: z.array(executionStepSchema).min(1),
+  dependencies: z.array(stepDependencySchema).default([]),
+  compensationSteps: z.array(compensationStepSchema).default([]),
+  parallelGroups: z.array(parallelGroupSchema).default([]),
+  checkpoints: z.array(checkpointSchema).default([])
 });
 
 // Business Impact Schema
-export const businessImpactSchema = Joi.object({
-  category: Joi.string().required(),
-  severity: Joi.string().valid('low', 'medium', 'high').required(),
-  affectedSystems: Joi.array().items(Joi.string()).default([]),
-  estimatedUsers: Joi.number().integer().min(0).default(0)
+export const businessImpactSchema = z.object({
+  category: z.string(),
+  severity: z.enum(['low', 'medium', 'high']),
+  affectedSystems: z.array(z.string()).default([]),
+  estimatedUsers: z.number().int().min(0).default(0)
 });
 
 // Operation Metadata Schema
-export const operationMetadataSchema = Joi.object({
-  version: Joi.string().required(),
-  source: Joi.string().required(),
-  tags: Joi.array().items(Joi.string()).default([]),
-  priority: Joi.string().valid('low', 'normal', 'high', 'critical').required(),
-  estimatedCost: Joi.number().min(0).default(0),
-  actualCost: Joi.number().min(0).optional(),
-  businessImpact: businessImpactSchema.required()
+export const operationMetadataSchema = z.object({
+  version: z.string(),
+  source: z.string(),
+  tags: z.array(z.string()).default([]),
+  priority: z.enum(['low', 'normal', 'high', 'critical']),
+  estimatedCost: z.number().min(0).default(0),
+  actualCost: z.number().min(0).optional(),
+  businessImpact: businessImpactSchema
 });
 
 // Operation Schema
-export const operationSchema = Joi.object({
+export const operationSchema = z.object({
   id: uuidSchema,
-  type: Joi.string().valid(
+  type: z.enum([
     'tool_execution', 'artifact_generation', 'hybrid_workflow',
     'approval_workflow', 'composite_operation'
-  ).required(),
-  status: Joi.string().valid(
+  ]),
+  status: z.enum([
     'queued', 'running', 'paused', 'completed', 'failed',
     'cancelled', 'waiting_approval', 'compensating'
-  ).required(),
+  ]),
   agentId: uuidSchema,
   userId: uuidSchema,
-  name: Joi.string().min(1).max(255).required(),
-  description: Joi.string().max(1000).default(''),
-  context: operationContextSchema.required(),
-  executionPlan: executionPlanSchema.required(),
-  results: Joi.object().optional(),
-  metadata: operationMetadataSchema.required(),
-  createdAt: timestampSchema.required(),
+  name: z.string().min(1).max(255),
+  description: z.string().max(1000).default(''),
+  context: operationContextSchema,
+  executionPlan: executionPlanSchema,
+  results: z.record(z.string(), z.any()).optional(),
+  metadata: operationMetadataSchema,
+  createdAt: timestampSchema,
   startedAt: timestampSchema.optional(),
   completedAt: timestampSchema.optional(),
-  estimatedDuration: Joi.number().integer().min(0).optional(),
-  actualDuration: Joi.number().integer().min(0).optional()
+  estimatedDuration: z.number().int().min(0).optional(),
+  actualDuration: z.number().int().min(0).optional()
 });
 
 // API Request Schemas
 
 // Execute Operation Request
-export const executeOperationRequestSchema = Joi.object({
-  operation: Joi.object({
-    type: Joi.string().valid(
+export const executeOperationRequestSchema = z.object({
+  operation: z.object({
+    type: z.enum([
       'tool_execution', 'artifact_generation', 'hybrid_workflow',
       'approval_workflow', 'composite_operation'
-    ).required(),
+    ]),
     agentId: uuidSchema,
     userId: uuidSchema,
-    name: Joi.string().min(1).max(255).required(),
-    description: Joi.string().max(1000).default(''),
-    context: operationContextSchema.required(),
-    executionPlan: executionPlanSchema.required(),
-    metadata: operationMetadataSchema.required()
-  }).required(),
-  options: Joi.object({
-    priority: Joi.string().valid('low', 'normal', 'high', 'critical').default('normal'),
-    async: Joi.boolean().default(true),
-    webhookUrl: Joi.string().uri().optional(),
-    tags: Joi.array().items(Joi.string()).default([])
-  }).default({})
+    name: z.string().min(1).max(255),
+    description: z.string().max(1000).default(''),
+    context: operationContextSchema,
+    executionPlan: executionPlanSchema,
+    metadata: operationMetadataSchema
+  })
 });
 
-// Update Operation Status Request
-export const updateOperationStatusRequestSchema = Joi.object({
-  status: Joi.string().valid(
-    'queued', 'running', 'paused', 'completed', 'failed',
-    'cancelled', 'waiting_approval', 'compensating'
-  ).required(),
-  reason: Joi.string().max(500).optional(),
-  metadata: Joi.object().pattern(Joi.string(), Joi.any()).optional()
-});
-
-// Create Checkpoint Request
-export const createCheckpointRequestSchema = Joi.object({
-  operationId: uuidSchema,
-  stepId: uuidSchema,
-  type: Joi.string().valid('state_snapshot', 'progress_marker', 'recovery_point').required(),
-  data: Joi.object().pattern(Joi.string(), Joi.any()).required()
+// Pause Operation Request
+export const pauseOperationRequestSchema = z.object({
+  reason: z.string().min(1).max(500),
+  createCheckpoint: z.boolean().default(true)
 });
 
 // Resume Operation Request
-export const resumeOperationRequestSchema = Joi.object({
-  operationId: uuidSchema,
-  checkpointId: Joi.string().uuid().optional(),
-  stepId: Joi.string().uuid().optional(),
-  modifications: Joi.object({
-    context: Joi.object().optional(),
-    executionPlan: Joi.object().optional(),
-    metadata: Joi.object().optional()
-  }).optional()
+export const resumeOperationRequestSchema = z.object({
+  checkpointId: z.string().uuid().optional(),
+  modifiedSteps: z.array(executionStepSchema).default([])
 });
 
 // Cancel Operation Request
-export const cancelOperationRequestSchema = Joi.object({
-  operationId: uuidSchema,
-  reason: Joi.string().max(500).required(),
-  compensate: Joi.boolean().default(true),
-  force: Joi.boolean().default(false)
+export const cancelOperationRequestSchema = z.object({
+  reason: z.string().min(1).max(500),
+  compensate: z.boolean().default(true),
+  force: z.boolean().default(false)
 });
 
-// Search Operations Request
-export const searchOperationsRequestSchema = Joi.object({
-  filters: Joi.object({
-    status: Joi.array().items(Joi.string().valid(
-      'queued', 'running', 'paused', 'completed', 'failed',
-      'cancelled', 'waiting_approval', 'compensating'
-    )).optional(),
-    type: Joi.array().items(Joi.string().valid(
-      'tool_execution', 'artifact_generation', 'hybrid_workflow',
-      'approval_workflow', 'composite_operation'
-    )).optional(),
-    agentId: Joi.array().items(uuidSchema).optional(),
-    userId: Joi.array().items(uuidSchema).optional(),
-    priority: Joi.array().items(Joi.string().valid('low', 'normal', 'high', 'critical')).optional(),
-    tags: Joi.array().items(Joi.string()).optional(),
-    dateRange: Joi.object({
-      startDate: timestampSchema.required(),
-      endDate: timestampSchema.required()
+// Get Operation Status Response
+export const operationStatusResponseSchema = z.object({
+  operation: operationSchema,
+  currentStep: executionStepSchema.optional(),
+  progress: z.object({
+    completedSteps: z.number().int().min(0),
+    totalSteps: z.number().int().min(0),
+    percentage: z.number().min(0).max(100)
+  }),
+  metrics: z.object({
+    startTime: timestampSchema.optional(),
+    endTime: timestampSchema.optional(),
+    duration: z.number().int().min(0).optional(),
+    resourceUsage: z.object({
+      memory: z.number().min(0),
+      cpu: z.number().min(0)
     }).optional()
-  }).default({}),
-  pagination: Joi.object({
-    page: Joi.number().integer().min(1).default(1),
-    limit: Joi.number().integer().min(1).max(100).default(20),
-    sortBy: Joi.string().valid('createdAt', 'updatedAt', 'status', 'priority').default('createdAt'),
-    sortOrder: Joi.string().valid('asc', 'desc').default('desc')
-  }).default({})
+  })
 });
 
-// Bulk Operations Request
-export const bulkOperationsRequestSchema = Joi.object({
-  operationIds: Joi.array().items(uuidSchema).min(1).max(50).required(),
-  action: Joi.string().valid('cancel', 'pause', 'resume', 'retry').required(),
-  options: Joi.object({
-    reason: Joi.string().max(500).optional(),
-    force: Joi.boolean().default(false),
-    compensate: Joi.boolean().default(true)
-  }).default({})
-});
-
-// Workflow Templates
-export const workflowTemplateSchema = Joi.object({
-  id: uuidSchema,
-  name: Joi.string().min(1).max(255).required(),
-  description: Joi.string().max(1000).default(''),
-  category: Joi.string().required(),
-  version: Joi.string().required(),
-  executionPlan: executionPlanSchema.required(),
-  parameters: Joi.array().items(Joi.object({
-    name: Joi.string().required(),
-    type: Joi.string().valid('string', 'number', 'boolean', 'object', 'array').required(),
-    required: Joi.boolean().default(false),
-    defaultValue: Joi.any().optional(),
-    description: Joi.string().optional()
-  })).default([]),
-  metadata: operationMetadataSchema.required(),
-  createdAt: timestampSchema.required(),
-  updatedAt: timestampSchema.required()
-});
-
-// Parameter Validation
-export const validateParameter = (parameterDefinition: any, value: any) => {
-  const { type, required } = parameterDefinition;
-  
-  let schema: Joi.Schema;
-  
-  switch (type) {
-    case 'string':
-      schema = Joi.string();
-      break;
-    case 'number':
-      schema = Joi.number();
-      break;
-    case 'boolean':
-      schema = Joi.boolean();
-      break;
-    case 'object':
-      schema = Joi.object();
-      break;
-    case 'array':
-      schema = Joi.array();
-      break;
-    default:
-      schema = Joi.any();
+// Validation helper functions
+export const validateParameter = (parameterDefinition: z.ZodTypeAny, value: any) => {
+  try {
+    return {
+      isValid: true,
+      value: parameterDefinition.parse(value),
+      errors: []
+    };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return {
+        isValid: false,
+        value: null,
+        errors: error.issues.map(issue => issue.message)
+      };
+    }
+    return {
+      isValid: false,
+      value: null,
+      errors: ['Unknown validation error']
+    };
   }
-  
-  if (required) {
-    schema = schema.required();
-  } else {
-    schema = schema.optional();
-  }
-  
-  return schema.validate(value);
-}; 
+};
+
+// Type exports for TypeScript
+export type ResourceLimits = z.infer<typeof resourceLimitsSchema>;
+export type RetryPolicy = z.infer<typeof retryPolicySchema>;
+export type SecurityContext = z.infer<typeof securityContextSchema>;
+export type ExecutionContext = z.infer<typeof executionContextSchema>;
+export type OperationContext = z.infer<typeof operationContextSchema>;
+export type StepConfiguration = z.infer<typeof stepConfigurationSchema>;
+export type StepCondition = z.infer<typeof stepConditionSchema>;
+export type CompensationStep = z.infer<typeof compensationStepSchema>;
+export type ExecutionStep = z.infer<typeof executionStepSchema>;
+export type StepDependency = z.infer<typeof stepDependencySchema>;
+export type ParallelGroup = z.infer<typeof parallelGroupSchema>;
+export type Checkpoint = z.infer<typeof checkpointSchema>;
+export type ExecutionPlan = z.infer<typeof executionPlanSchema>;
+export type BusinessImpact = z.infer<typeof businessImpactSchema>;
+export type OperationMetadata = z.infer<typeof operationMetadataSchema>;
+export type Operation = z.infer<typeof operationSchema>;
+export type ExecuteOperationRequest = z.infer<typeof executeOperationRequestSchema>;
+export type PauseOperationRequest = z.infer<typeof pauseOperationRequestSchema>;
+export type ResumeOperationRequest = z.infer<typeof resumeOperationRequestSchema>;
+export type CancelOperationRequest = z.infer<typeof cancelOperationRequestSchema>;
+export type OperationStatusResponse = z.infer<typeof operationStatusResponseSchema>; 

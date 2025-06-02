@@ -1,21 +1,28 @@
 import { Router } from 'express';
 import { PersonaController } from '../controllers/personaController.js';
-import { validateRequest, validateUUID, validateJSON } from '@uaip/middleware';
+import { 
+  validateRequest, 
+  validateUUID, 
+  validateJSON,
+  authMiddleware,
+  requireOperator 
+} from '@uaip/middleware';
 import { 
   CreatePersonaRequestSchema,
-  UpdatePersonaRequestSchema
+  UpdatePersonaRequestSchema,
+  PersonaSchema 
 } from '@uaip/types';
 
 const router: Router = Router();
 
 // Note: PersonaController will be initialized with PersonaService in the main service
 // This is a factory function that takes the service instances
-export const createPersonaRoutes = (personaController: PersonaController): Router => {
+export function createPersonaRoutes(personaController: PersonaController): Router {
   // Apply JSON validation middleware to all routes
   router.use(validateJSON());
 
   // Apply authentication middleware to all routes
-  // router.use(authMiddleware);
+  router.use(authMiddleware);
 
   // POST /api/v1/personas
   router.post(
@@ -79,7 +86,7 @@ export const createPersonaRoutes = (personaController: PersonaController): Route
   );
 
   return router;
-};
+}
 
 // For backward compatibility, export a default router
 // This will be replaced when the service is properly initialized

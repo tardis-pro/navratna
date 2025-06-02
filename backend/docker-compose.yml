@@ -3,24 +3,26 @@
 services:
   # Database Services
   postgres:
-    image: postgres:16-alpine
+    image: postgres:15
     container_name: uaip-postgres
     environment:
       POSTGRES_DB: uaip
       POSTGRES_USER: uaip_user
-      POSTGRES_PASSWORD: uaip_dev_password
+      POSTGRES_PASSWORD: uaip_password
       POSTGRES_MULTIPLE_DATABASES: uaip,uaip_test
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./database/init:/docker-entrypoint-initdb.d
+      - ./database/init/01-init-database.sql:/docker-entrypoint-initdb.d/01-init-database.sql
+      - ./database/init/02-persona-discussion-schema.sql:/docker-entrypoint-initdb.d/02-persona-discussion-schema.sql
+      - ./database/init/03-seed-data.sql:/docker-entrypoint-initdb.d/03-seed-data.sql
     networks:
       - uaip-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U uaip_user -d uaip"]
-      interval: 10s
-      timeout: 5s
+      interval: 30s
+      timeout: 10s
       retries: 5
 
   neo4j:
@@ -213,38 +215,71 @@ services:
       timeout: 10s
       retries: 3
 
-  # TODO: Uncomment when security-gateway service is implemented
-  # security-gateway:
-  #   build:
-  #     context: .
-  #     dockerfile: services/security-gateway/Dockerfile
-  #   container_name: uaip-security-gateway
-  #   environment:
-  #     - NODE_ENV=development
-  #     - PORT=3004
-  #     - POSTGRES_URL=postgresql://uaip_user:uaip_dev_password@postgres:5432/uaip
-  #     - REDIS_URL=redis://redis:6379
-  #     - RABBITMQ_URL=amqp://uaip_user:uaip_dev_password@rabbitmq:5672
-  #     - JWT_SECRET=uaip_dev_jwt_secret_key_change_in_production
-  #   ports:
-  #     - "3004:3004"
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #     redis:
-  #       condition: service_healthy
-  #     rabbitmq:
-  #       condition: service_healthy
-  #   networks:
-  #     - uaip-network
-  #   volumes:
-  #     - ./services/security-gateway:/app
-  #     - /app/node_modules
-  #   healthcheck:
-  #     test: ["CMD", "curl", "-f", "http://localhost:3004/health"]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 3
+  discussion-orchestration:
+    build:
+      context: .
+      dockerfile: services/discussion-orchestration/Dockerfile
+    container_name: uaip-discussion-orchestration
+    environment:
+      - NODE_ENV=development
+      - PORT=3005
+      - POSTGRES_URL=postgresql://uaip_user:uaip_dev_password@postgres:5432/uaip
+      - NEO4J_URL=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=uaip_dev_password
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://uaip_user:uaip_dev_password@rabbitmq:5672
+    ports:
+      - "3005:3005"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - uaip-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3005/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  TODO: Uncomment when security-gateway service is implemented
+  security-gateway:
+    build:
+      context: .
+      dockerfile: services/security-gateway/Dockerfile
+    container_name: uaip-security-gateway
+    environment:
+      - NODE_ENV=development
+      - PORT=3004
+      - POSTGRES_URL=postgresql://uaip_user:uaip_dev_password@postgres:5432/uaip
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://uaip_user:uaip_dev_password@rabbitmq:5672
+      - JWT_SECRET=uaip_dev_jwt_secret_key_change_in_production
+    ports:
+      - "3004:3004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - uaip-network
+    volumes:
+      - ./services/security-gateway:/app
+      - /app/node_modules
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   # API Gateway (Nginx as reverse proxy)
   api-gateway:
@@ -258,6 +293,7 @@ services:
       - agent-intelligence
       - orchestration-pipeline
       - capability-registry
+      - discussion-orchestration
       # - security-gateway  # Commented out until implemented
     networks:
       - uaip-network

@@ -4,7 +4,7 @@ import helmet from 'helmet';
 import compression from 'compression';
 
 import { logger } from '@uaip/utils';
-// import { errorHandler, rateLimiter, metricsMiddleware } from '@uaip/middleware';
+import { errorHandler, rateLimiter, metricsMiddleware, authMiddleware } from '@uaip/middleware';
 import { 
   DatabaseService, 
   EventBusService, 
@@ -70,7 +70,7 @@ class OrchestrationPipelineService {
 
     // Performance middleware
     this.app.use(compression());
-    // this.app.use(rateLimiter);
+    this.app.use(rateLimiter);
 
     // Logging middleware - simple console logging instead of morgan
     this.app.use((req, res, next) => {
@@ -86,11 +86,11 @@ class OrchestrationPipelineService {
     this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
     // Metrics middleware
-    // this.app.use(metricsMiddleware);
+    this.app.use(metricsMiddleware);
   }
 
   private setupRoutes(): void {
-    // Health check routes
+    // Health check routes (no auth required)
     this.app.get('/health', (req, res) => {
       res.json({
         success: true,
@@ -103,6 +103,9 @@ class OrchestrationPipelineService {
       });
     });
     
+    // Apply auth middleware to all API routes
+    this.app.use('/api/v1', authMiddleware);
+
     // API routes
     // this.app.use('/api/v1/orchestration', orchestrationRoutes);
 
@@ -222,7 +225,7 @@ class OrchestrationPipelineService {
   }
 
   private setupErrorHandling(): void {
-    // this.app.use(errorHandler);
+    this.app.use(errorHandler);
     
     // Global error handler
     this.app.use((error: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

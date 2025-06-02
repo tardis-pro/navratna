@@ -1,21 +1,28 @@
 import { Router } from 'express';
 import { DiscussionController } from '../controllers/discussionController.js';
-import { validateRequest, validateUUID, validateJSON } from '@uaip/middleware';
+import { 
+  validateRequest, 
+  validateUUID, 
+  validateJSON,
+  authMiddleware,
+  requireOperator 
+} from '@uaip/middleware';
 import { 
   CreateDiscussionRequestSchema,
-  UpdateDiscussionRequestSchema
+  UpdateDiscussionRequestSchema,
+  DiscussionSchema 
 } from '@uaip/types';
 
 const router: Router = Router();
 
 // Note: DiscussionController will be initialized with DiscussionService in the main service
 // This is a factory function that takes the service instances
-export const createDiscussionRoutes = (discussionController: DiscussionController): Router => {
+export function createDiscussionRoutes(discussionController: DiscussionController): Router {
   // Apply JSON validation middleware to all routes
   router.use(validateJSON());
 
   // Apply authentication middleware to all routes
-  // router.use(authMiddleware);
+  router.use(authMiddleware);
 
   // POST /api/v1/discussions
   router.post(
@@ -104,7 +111,7 @@ export const createDiscussionRoutes = (discussionController: DiscussionControlle
   );
 
   return router;
-};
+}
 
 // For backward compatibility, export a default router
 // This will be replaced when the service is properly initialized
