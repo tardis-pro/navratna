@@ -476,12 +476,24 @@ export class UAIPAPIClient {
     const url = `${this.config.baseURL || ''}${endpoint}`;
     const token = this.getStoredToken();
 
+    // Handle body serialization and Content-Type header
+    let processedOptions = { ...options };
+    
+    if (options.body && typeof options.body === 'object' && !(options.body instanceof FormData)) {
+      // Automatically serialize objects to JSON and set Content-Type
+      processedOptions.body = JSON.stringify(options.body);
+      processedOptions.headers = {
+        'Content-Type': 'application/json',
+        ...processedOptions.headers,
+      };
+    }
+
     const config: RequestInit = {
-      ...options,
+      ...processedOptions,
       headers: {
         ...this.config.headers,
         ...(token && { Authorization: `Bearer ${token}` }),
-        ...options.headers,
+        ...processedOptions.headers,
       },
       signal: AbortSignal.timeout(this.config.timeout || 30000),
     };
@@ -1028,8 +1040,17 @@ export class UAIPAPIClient {
       title: string;
       description: string;
       topic: string;
-      participants: Array<{ personaId: string; role: string }>;
-      settings: any;
+      turnStrategy: {
+        type: 'round_robin' | 'moderated' | 'context_aware';
+        settings?: Record<string, any>;
+      };
+      createdBy: string;
+      initialParticipants: Array<{ 
+        personaId: string;
+        agentId: string;
+        role: string; 
+      }>;
+      settings?: any;
     }): Promise<APIResponse<any>> => {
       return this.request('/api/v1/discussions', {
         method: 'POST',

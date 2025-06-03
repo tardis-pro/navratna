@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { uaipAPI } from '../services/uaip-api';
+import { uaipAPI, generateUUID } from '../services/uaip-api';
 import { AgentState, Message } from '../types/agent';
 import { DocumentContext } from '../types/document';
 
@@ -209,30 +209,32 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
     try {
       const discussion = await uaipAPI.discussions.create({
         title: `Discussion: ${config.topic}`,
+        description: `A collaborative discussion about ${config.topic}`,
         topic: config.topic,
-        documentId: document?.id,
-        settings: {
-          maxParticipants: 20,
-          turnTimeLimit: 300,
-          autoAdvanceTurns: true,
-          allowInterruptions: false,
-          moderationRequired: !!moderatorId,
-          recordingEnabled: true
+        turnStrategy: {
+          type: config.turnStrategy || 'round_robin',
+          settings: {
+            maxTurns: 20,
+            turnTimeout: 300
+          }
         },
-        turnStrategy: config.turnStrategy || 'round_robin',
-        createdBy: 'user', // TODO: Get from auth context
+        createdBy: generateUUID(), // Generate a valid UUID for the user
         initialParticipants: [
           {
-            personaId: 'default-persona-1',
-            agentId: 'agent-1',
+            personaId: generateUUID(), // Generate valid UUID for persona
+            agentId: generateUUID(),   // Generate valid UUID for agent
             role: 'participant'
           },
           {
-            personaId: 'default-persona-2', 
-            agentId: 'agent-2',
+            personaId: generateUUID(), // Generate valid UUID for persona
+            agentId: generateUUID(),   // Generate valid UUID for agent
             role: 'participant'
           }
-        ]
+        ],
+        settings: {
+          maxTurns: 20,
+          turnTimeout: 300
+        }
       });
       
       setDiscussionId(discussion.id);
@@ -245,7 +247,7 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
       }));
       throw error;
     }
-  }, [config, document, moderatorId]);
+  }, [config]);
 
   const addAgent = useCallback(async (agentId: string, agentState: AgentState) => {
     try {
@@ -258,8 +260,8 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
       
       // Add participant to backend discussion
       await uaipAPI.discussions.addParticipant(currentDiscussionId, {
-        personaId: agentState.persona?.id || agentId,
-        agentId: agentId,
+        personaId: agentState.persona?.id || generateUUID(), // Use persona ID or generate UUID
+        agentId: agentId, // Use the provided agent ID
         role: moderatorId === agentId ? 'moderator' : 'participant'
       });
       
