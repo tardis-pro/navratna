@@ -47,6 +47,23 @@ export class PersonaService {
 
   // ===== PERSONA CRUD OPERATIONS =====
 
+  // Helper function to safely parse JSON or return object if already parsed
+  private safeJsonParse(value: any, defaultValue: any = null): any {
+    if (value === null || value === undefined) {
+      return defaultValue;
+    }
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value);
+      } catch (error) {
+        logger.warn('Failed to parse JSON string', { value, error: (error as Error).message });
+        return defaultValue;
+      }
+    }
+    // If it's already an object, return as-is
+    return value;
+  }
+
   async createPersona(request: CreatePersonaRequest): Promise<Persona> {
     try {
       logger.info('Creating new persona', { name: request.name, createdBy: request.createdBy });
@@ -57,29 +74,112 @@ export class PersonaService {
         throw new Error(`Persona validation failed: ${validation.errors?.join(', ') || 'Unknown validation error'}`);
       }
 
-      // Create persona in database
-      const persona = await this.databaseService.create<Persona>('personas', {
-        ...request,
+      // Map camelCase fields to snake_case for database
+      const dbData = {
         id: crypto.randomUUID(),
-        status: PersonaStatus.DRAFT,
+        name: request.name,
+        role: request.role,
+        description: request.description,
+        traits: JSON.stringify(request.traits || []),
+        expertise: JSON.stringify(request.expertise || []),
+        background: request.background,
+        system_prompt: request.systemPrompt, // camelCase to snake_case
+        conversational_style: JSON.stringify(request.conversationalStyle), // camelCase to snake_case
+        status: request.status || PersonaStatus.DRAFT,
+        visibility: request.visibility || PersonaVisibility.PRIVATE,
+        created_by: request.createdBy, // camelCase to snake_case
+        organization_id: request.organizationId, // camelCase to snake_case
+        team_id: request.teamId, // camelCase to snake_case
         version: 1,
-        usageStats: {
+        parent_persona_id: request.parentPersonaId, // camelCase to snake_case
+        tags: request.tags || [],
+        validation: JSON.stringify(validation),
+        usage_stats: JSON.stringify({
           totalUsages: 0,
           uniqueUsers: 0,
           averageSessionDuration: 0,
           popularityScore: 0,
           feedbackCount: 0
-        },
-        validation,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      });
+        }),
+        configuration: JSON.stringify(request.configuration || {
+          maxTokens: 4000,
+          temperature: 0.7,
+          topP: 0.9,
+          frequencyPenalty: 0,
+          presencePenalty: 0,
+          stopSequences: []
+        }),
+        capabilities: request.capabilities || [],
+        restrictions: JSON.stringify(request.restrictions || {
+          allowedTopics: [],
+          forbiddenTopics: [],
+          requiresApproval: false
+        }),
+        metadata: request.metadata ? JSON.stringify(request.metadata) : null,
+        created_at: new Date(),
+        updated_at: new Date()
+      };
+
+      // Create persona in database using raw query to handle field mapping
+      const query = `
+        INSERT INTO personas (
+          id, name, role, description, traits, expertise, background, 
+          system_prompt, conversational_style, status, visibility, created_by,
+          organization_id, team_id, version, parent_persona_id, tags, validation,
+          usage_stats, configuration, capabilities, restrictions, metadata,
+          created_at, updated_at
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 
+          $16, $17, $18, $19, $20, $21, $22, $23, $24, $25
+        ) RETURNING *
+      `;
+
+      const values = [
+        dbData.id, dbData.name, dbData.role, dbData.description, dbData.traits,
+        dbData.expertise, dbData.background, dbData.system_prompt, dbData.conversational_style,
+        dbData.status, dbData.visibility, dbData.created_by, dbData.organization_id,
+        dbData.team_id, dbData.version, dbData.parent_persona_id, dbData.tags,
+        dbData.validation, dbData.usage_stats, dbData.configuration, dbData.capabilities,
+        dbData.restrictions, dbData.metadata, dbData.created_at, dbData.updated_at
+      ];
+
+      const result = await this.databaseService.query(query, values);
+      const row = result.rows[0];
+
+      // Map database result back to camelCase Persona object
+      const persona: Persona = {
+        id: row.id,
+        name: row.name,
+        role: row.role,
+        description: row.description,
+        traits: this.safeJsonParse(row.traits, []),
+        expertise: this.safeJsonParse(row.expertise, []),
+        background: row.background,
+        systemPrompt: row.system_prompt,
+        conversationalStyle: this.safeJsonParse(row.conversational_style),
+        status: row.status,
+        visibility: row.visibility,
+        createdBy: row.created_by,
+        organizationId: row.organization_id,
+        teamId: row.team_id,
+        version: row.version,
+        parentPersonaId: row.parent_persona_id,
+        tags: row.tags || [],
+        validation: this.safeJsonParse(row.validation),
+        usageStats: this.safeJsonParse(row.usage_stats, {}),
+        configuration: this.safeJsonParse(row.configuration, {}),
+        capabilities: row.capabilities || [],
+        restrictions: this.safeJsonParse(row.restrictions, {}),
+        metadata: this.safeJsonParse(row.metadata),
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      };
 
       // Cache the persona
       this.cachePersona(persona);
 
       // Emit creation event
-      await this.eventBusService.publish('persona.created', {
+      await this.safePublishEvent('persona.created', {
         personaId: persona.id,
         createdBy: persona.createdBy,
         name: persona.name,
@@ -103,8 +203,45 @@ export class PersonaService {
         return cached;
       }
 
-      // Fetch from database
-      const persona = await this.databaseService.findById<Persona>('personas', id);
+      // Fetch from database using raw query to handle field mapping
+      const query = 'SELECT * FROM personas WHERE id = $1';
+      const result = await this.databaseService.query(query, [id]);
+      
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      const row = result.rows[0];
+
+      // Map database result back to camelCase Persona object
+      const persona: Persona = {
+        id: row.id,
+        name: row.name,
+        role: row.role,
+        description: row.description,
+        traits: this.safeJsonParse(row.traits, []),
+        expertise: this.safeJsonParse(row.expertise, []),
+        background: row.background,
+        systemPrompt: row.system_prompt,
+        conversationalStyle: this.safeJsonParse(row.conversational_style),
+        status: row.status,
+        visibility: row.visibility,
+        createdBy: row.created_by,
+        organizationId: row.organization_id,
+        teamId: row.team_id,
+        version: row.version,
+        parentPersonaId: row.parent_persona_id,
+        tags: row.tags || [],
+        validation: this.safeJsonParse(row.validation),
+        usageStats: this.safeJsonParse(row.usage_stats, {}),
+        configuration: this.safeJsonParse(row.configuration, {}),
+        capabilities: row.capabilities || [],
+        restrictions: this.safeJsonParse(row.restrictions, {}),
+        metadata: this.safeJsonParse(row.metadata),
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      };
+
       if (persona) {
         this.cachePersona(persona);
       }
@@ -147,7 +284,7 @@ export class PersonaService {
       this.cachePersona(persona);
 
       // Emit update event
-      await this.eventBusService.publish('persona.updated', {
+      await this.safePublishEvent('persona.updated', {
         personaId: persona.id,
         updatedBy: existingPersona.createdBy,
         changes: Object.keys(updates),
@@ -192,7 +329,7 @@ export class PersonaService {
       this.personaCache.delete(id);
 
       // Emit deletion event
-      await this.eventBusService.publish('persona.deleted', {
+      await this.safePublishEvent('persona.deleted', {
         personaId: id,
         deletedBy,
         timestamp: new Date()
@@ -427,7 +564,7 @@ export class PersonaService {
       await this.updatePersona(personaId, { usageStats: updatedStats });
 
       // Emit usage event
-      await this.eventBusService.publish('persona.used', {
+      await this.safePublishEvent('persona.used', {
         personaId,
         userId: sessionData.userId,
         duration: sessionData.duration,
@@ -672,5 +809,14 @@ export class PersonaService {
     }
     
     return Math.min(score, 100);
+  }
+
+  private async safePublishEvent(eventType: string, data: any): Promise<void> {
+    try {
+      await this.eventBusService.publish(eventType, data);
+    } catch (error) {
+      logger.warn(`Failed to publish event ${eventType}, continuing without event:`, error);
+      // Don't throw - allow operation to continue even if event publishing fails
+    }
   }
 } 

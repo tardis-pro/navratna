@@ -99,7 +99,7 @@ services:
     container_name: uaip-rabbitmq
     environment:
       RABBITMQ_DEFAULT_USER: uaip_user
-      RABBITMQ_DEFAULT_PASS: uaip_dev_password
+      RABBITMQ_DEFAULT_PASS: uaip_password
     ports:
       - "5672:5672"   # AMQP
       - "15672:15672" # Management UI
@@ -130,7 +130,7 @@ services:
       - NEO4J_PASSWORD=uaip_dev_password
       - REDIS_URL=redis://:uaip_redis_password@redis:6379
       - QDRANT_URL=http://qdrant:6333
-      - RABBITMQ_URL=amqp://uaip_user:uaip_dev_password@rabbitmq:5672
+      - RABBITMQ_URL=amqp://uaip_user:uaip_password@rabbitmq:5672
     ports:
       - "3001:3001"
     depends_on:
@@ -167,7 +167,7 @@ services:
       - NEO4J_USER=neo4j
       - NEO4J_PASSWORD=uaip_dev_password
       - REDIS_URL=redis://:uaip_redis_password@redis:6379
-      - RABBITMQ_URL=amqp://uaip_user:uaip_dev_password@rabbitmq:5672
+      - RABBITMQ_URL=amqp://uaip_user:uaip_password@rabbitmq:5672
     ports:
       - "3002:3002"
     depends_on:
@@ -203,7 +203,7 @@ services:
       - NEO4J_PASSWORD=uaip_dev_password
       - REDIS_URL=redis://:uaip_redis_password@redis:6379
       - QDRANT_URL=http://qdrant:6333
-      - RABBITMQ_URL=amqp://uaip_user:uaip_dev_password@rabbitmq:5672
+      - RABBITMQ_URL=amqp://uaip_user:uaip_password@rabbitmq:5672
     ports:
       - "3003:3003"
     depends_on:
@@ -240,7 +240,7 @@ services:
       - NEO4J_USER=neo4j
       - NEO4J_PASSWORD=uaip_dev_password
       - REDIS_URL=redis://:uaip_redis_password@redis:6379
-      - RABBITMQ_URL=amqp://uaip_user:uaip_dev_password@rabbitmq:5672
+      - RABBITMQ_URL=amqp://uaip_user:uaip_password@rabbitmq:5672
     ports:
       - "3005:3005"
     depends_on:
@@ -272,7 +272,7 @@ services:
       - PORT=3004
       - POSTGRES_URL=postgresql://uaip_user:uaip_password@postgres:5432/uaip
       - REDIS_URL=redis://:uaip_redis_password@redis:6379
-      - RABBITMQ_URL=amqp://uaip_user:uaip_dev_password@rabbitmq:5672
+      - RABBITMQ_URL=amqp://uaip_user:uaip_password@rabbitmq:5672
       - JWT_SECRET=uaip_dev_jwt_secret_key_change_in_production
     ports:
       - "3004:3004"

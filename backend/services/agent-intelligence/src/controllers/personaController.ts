@@ -19,7 +19,17 @@ export class PersonaController {
 
   public async createPersona(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const createRequest: CreatePersonaRequest = req.body;
+      // Extract user ID from authenticated user
+      const userId = req.user?.id;
+      if (!userId) {
+        throw new Error('User authentication required');
+      }
+
+      // Create request with authenticated user ID
+      const createRequest: CreatePersonaRequest = {
+        ...req.body,
+        createdBy: userId // Override any createdBy in request body with authenticated user ID
+      };
 
       logger.info('Creating new persona', { 
         name: createRequest.name,

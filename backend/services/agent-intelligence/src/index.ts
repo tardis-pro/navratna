@@ -125,8 +125,14 @@ class AgentIntelligenceService {
       await this.databaseService.query('SELECT 1', []);
       logger.info('Database connection verified');
 
-      // Event bus will connect automatically when needed
-      logger.info('Event bus ready');
+      // Connect to event bus with retry logic
+      try {
+        await this.eventBusService.connect();
+        logger.info('Event bus connected successfully');
+      } catch (error) {
+        logger.warn('Event bus connection failed, continuing without event publishing:', error);
+        // Service can still function without event bus for basic operations
+      }
 
       // Initialize persona and discussion services
       logger.info('Persona and Discussion services initialized');
