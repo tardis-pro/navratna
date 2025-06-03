@@ -16,9 +16,9 @@ import {
   MessageSentiment
 } from '@uaip/types';
 import { Persona } from '@uaip/types';
-import { DatabaseService } from './databaseService';
-import { EventBusService } from './eventBusService';
-import { PersonaService } from './personaService';
+import { DatabaseService } from './databaseService.js';
+import { EventBusService } from './eventBusService.js';
+import { PersonaService } from './personaService.js';
 import { logger } from '@uaip/utils';
 
 export interface DiscussionServiceConfig {

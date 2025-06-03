@@ -1,5 +1,5 @@
-import { logger } from '@uaip/utils/src/logger.js';
-import { ApiError } from '@uaip/utils/src/errors.js';
+import { logger } from '@uaip/utils';
+import { ApiError } from '@uaip/utils';
 import { DatabaseService } from '@uaip/shared-services';
 import {
   SecurityValidationRequest,

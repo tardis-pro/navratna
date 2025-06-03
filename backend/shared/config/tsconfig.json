@@ -1,4 +1,5 @@
 {
+  "extends": "../../tsconfig.build_shared.json",
   "compilerOptions": {
     "composite": true,
     "rootDir": "src",
@@ -9,11 +10,6 @@
     "src"
   ],
   "references": [
-    {
-      "path": "../types"
-    },
-    {
-      "path": "../utils"
-    },
+   
   ] // if it has imports from others
 }

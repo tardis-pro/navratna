@@ -1,10 +1,10 @@
 import express, { Router } from 'express';
 import { Request, Response } from 'express';
 import { z } from 'zod';
-import { logger } from '@uaip/utils/src/logger';
+import { logger } from '@uaip/utils';
 import { authMiddleware, requireAdmin } from '@uaip/middleware';
 import { validateRequest } from '@uaip/middleware';
-import { AuditService } from '@/services/auditService';
+import { AuditService } from '../services/auditService.js';
 import { DatabaseService } from '@uaip/shared-services';
 import { AuditEventType } from '@uaip/types';
 

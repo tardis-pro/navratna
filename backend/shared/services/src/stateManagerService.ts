@@ -8,7 +8,7 @@ import {
 } from '@uaip/types';
 import { logger, ApiError } from '@uaip/utils';
 import { config } from '@uaip/config';
-import { DatabaseService } from './databaseService';
+import { DatabaseService } from './databaseService.js';
 
 export interface StateUpdateOptions {
   status?: string;

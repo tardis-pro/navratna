@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "UAIP Discussion Orchestration Service - Manages discussion lifecycle, turn strategies, and real-time coordination",
   "main": "dist/index.js",
-  "type": "module",
   "scripts": {
     "build": "tsc --build && tsc-alias",
     "dev": "concurrently \"npm run build:watch\" \"npm run start:watch\"",

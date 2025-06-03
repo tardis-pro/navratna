@@ -3,24 +3,24 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import { config } from '@uaip/config';
-import { logger } from '@uaip/utils/src/logger';
+import { logger } from '@uaip/utils';
 import { errorHandler } from '@uaip/middleware';
 import { rateLimiter } from '@uaip/middleware';
 import { DatabaseService } from '@uaip/shared-services';
 import { EventBusService } from '@uaip/shared-services';
 
 // Import routes
-import authRoutes from '@/routes/authRoutes';
-import securityRoutes from '@/routes/securityRoutes';
-import approvalRoutes from '@/routes/approvalRoutes';
-import auditRoutes from '@/routes/auditRoutes';
-import userRoutes from '@/routes/userRoutes';
+import authRoutes from './routes/authRoutes.js';
+import securityRoutes from './routes/securityRoutes.js';
+import approvalRoutes from './routes/approvalRoutes.js';
+import auditRoutes from './routes/auditRoutes.js';
+import userRoutes from './routes/userRoutes.js';
 
 // Import services
-import { SecurityGatewayService } from '@/services/securityGatewayService';
-import { ApprovalWorkflowService } from '@/services/approvalWorkflowService';
-import { AuditService } from '@/services/auditService';
-import { NotificationService } from '@/services/notificationService';
+import { SecurityGatewayService } from './services/securityGatewayService.js';
+import { ApprovalWorkflowService } from './services/approvalWorkflowService.js';
+import { AuditService } from './services/auditService.js';
+import { NotificationService } from './services/notificationService.js';
 
 class SecurityGatewayServer {
   private app: express.Application;

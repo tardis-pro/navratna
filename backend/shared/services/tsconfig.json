@@ -3,7 +3,8 @@
   "compilerOptions": {
     "outDir": "dist",          // relative to package root
     "rootDir": "src",
-    "baseUrl": ".",            // enables clean import paths within the package
+    "baseUrl": ".",
+    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
   },
   "include": ["src/**/*"],
   

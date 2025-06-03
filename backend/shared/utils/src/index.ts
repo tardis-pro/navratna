@@ -1,5 +1,5 @@
 // Logging utilities
-export { logger, logError, logSecurityEvent, logAudit, logMetric, logRequest, logPerformance } from './logger';
+export { logger, logError, logSecurityEvent, logAudit, logMetric, logRequest, logPerformance } from './loggers.js';
 
 // Error handling utilities
 export { 
@@ -14,4 +14,4 @@ export {
   InternalServerError,
   ExternalServiceError,
   SecurityError
-} from './errors'; 
+} from './errors.js'; 

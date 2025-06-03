@@ -1,4 +1,4 @@
-import { DatabaseService } from './databaseService';
+import { DatabaseService } from './databaseService.js';
 import { logger, ApiError } from '@uaip/utils';
 import {
   SecurityValidationResult,

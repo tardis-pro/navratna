@@ -4,11 +4,11 @@ import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
 import { validateRequest } from '@uaip/middleware';
 import { authMiddleware, requireOperator } from '@uaip/middleware';
-import { ApprovalWorkflowService } from '@/services/approvalWorkflowService';
-import { AuditService } from '@/services/auditService';
+import { ApprovalWorkflowService } from '../services/approvalWorkflowService.js';
+import { AuditService } from '../services/auditService.js';
 import { DatabaseService } from '@uaip/shared-services';
 import { EventBusService } from '@uaip/shared-services';
-import { NotificationService } from '@/services/notificationService';
+import { NotificationService } from '../services/notificationService.js';
 import {
   ApprovalDecision,
   ApprovalStatus,

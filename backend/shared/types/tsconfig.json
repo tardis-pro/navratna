@@ -1,9 +1,11 @@
 {
   "extends": "../../tsconfig.json",
    "compilerOptions": {
-     "outDir": "dist",          // relative to package root
+     "outDir": "dist", 
+     "composite": true,
      "rootDir": "src",
-     "baseUrl": ".",            // enables clean import paths within the package
+     "baseUrl": ".",
+     "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
    },
    "include": ["src/**/*"]
  } 

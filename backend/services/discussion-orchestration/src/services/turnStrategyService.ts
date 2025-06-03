@@ -5,10 +5,10 @@ import {
   TurnStrategyConfig 
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
-import { TurnStrategyInterface } from '@/strategies/RoundRobinStrategy';
-import { RoundRobinStrategy } from '@/strategies/RoundRobinStrategy';
-import { ModeratedStrategy } from '@/strategies/ModeratedStrategy';
-import { ContextAwareStrategy } from '@/strategies/ContextAwareStrategy';
+import { TurnStrategyInterface } from '../strategies/RoundRobinStrategy.js';
+import { RoundRobinStrategy } from '../strategies/RoundRobinStrategy.js';
+import { ModeratedStrategy } from '../strategies/ModeratedStrategy.js';
+import { ContextAwareStrategy } from '../strategies/ContextAwareStrategy.js';
 
 export class TurnStrategyService {
   private strategies: Map<TurnStrategy, TurnStrategyInterface>;

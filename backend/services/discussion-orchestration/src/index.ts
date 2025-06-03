@@ -10,9 +10,9 @@ import { logger } from '@uaip/utils';
 import { DatabaseService, EventBusService } from '@uaip/shared-services';
 import { authMiddleware, errorHandler, defaultRequestLogger } from '@uaip/middleware';
 
-import { config } from '@/config';
-import { DiscussionOrchestrationService } from '@/services/discussionOrchestrationService';
-import { setupWebSocketHandlers } from '@/websocket/discussionSocket';
+import { config } from './config/index.js';
+import { DiscussionOrchestrationService } from './services/discussionOrchestrationService.js';
+import { setupWebSocketHandlers } from './websocket/discussionSocket.js';
 
 class DiscussionOrchestrationServer {
   private app: express.Application;
@@ -316,14 +316,14 @@ class DiscussionOrchestrationServer {
 const server = new DiscussionOrchestrationServer();
 
 // Handle startup
-if (require.main === module) {
-  server.start().catch((error) => {
-    logger.error('Failed to start server', {
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
-    process.exit(1);
-  });
-}
+// if (require.main === module) {
+//   server.start().catch((error) => {
+//     logger.error('Failed to start server', {
+//       error: error instanceof Error ? error.message : 'Unknown error'
+//     });
+//     process.exit(1);
+//   });
+// }
 
 export { server as discussionOrchestrationServer };
 export default server; 

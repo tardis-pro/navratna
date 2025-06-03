@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { AgentController } from '../controllers/agentController';
+import { AgentController } from '../controllers/agentController.js';
 import { validateRequest, validateUUID, validateJSON, authMiddleware } from '@uaip/middleware';
 import { AgentAnalysisSchema, AgentSchema, AgentUpdateSchema, AgentCreateSchema } from '@uaip/types';
 import { AgentPlanRequestSchema } from '@uaip/types';

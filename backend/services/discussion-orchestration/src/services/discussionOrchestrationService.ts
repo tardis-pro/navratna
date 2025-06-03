@@ -11,8 +11,7 @@ import {
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { DiscussionService, EventBusService } from '@uaip/shared-services';
-import { TurnStrategyService } from '@/services/turnStrategyService';
-import { config } from '@/config';
+import { TurnStrategyService } from './turnStrategyService.js';
 
 export interface DiscussionOrchestrationResult {
   success: boolean;
@@ -265,9 +264,17 @@ export class DiscussionOrchestrationService {
         return { success: false, error: 'Discussion has reached maximum participant limit' };
       }
 
-      // Add participant through shared service
+      // Validate required fields
+      if (!participant.personaId || !participant.agentId) {
+        return { success: false, error: 'personaId and agentId are required' };
+      }
+
+      // Add participant through shared service - only pass the fields it expects
       const newParticipant = await this.discussionService.addParticipant(discussionId, {
-        ...participant
+        personaId: participant.personaId,
+        agentId: participant.agentId,
+        role: participant.role,
+        userId: participant.userId
       });
 
       // Update cache

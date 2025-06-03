@@ -13,8 +13,8 @@ import {
   ExpertiseDomain,
   PersonaTrait
 } from '@uaip/types';
-import { DatabaseService } from './databaseService';
-import { EventBusService } from './eventBusService';
+import { DatabaseService } from './databaseService.js';
+import { EventBusService } from './eventBusService.js';
 import { logger } from '@uaip/utils';
 
 export interface PersonaServiceConfig {

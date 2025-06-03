@@ -1,16 +1,16 @@
 import express, { Router } from 'express';
 import { Request, Response } from 'express';
 import { z } from 'zod';
-import { logger } from '@uaip/utils/src/logger';
+import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
 import { authMiddleware, requireAdmin } from '@uaip/middleware';
 import { validateRequest } from '@uaip/middleware';
 import { DatabaseService } from '@uaip/shared-services';
-import { AuditService } from '@/services/auditService';
-import { NotificationService } from '@/services/notificationService';
+import { AuditService } from '../services/auditService.js';
+import { NotificationService } from '../services/notificationService.js';
 import { AuditEventType } from '@uaip/types';
-import { SecurityGatewayService } from '@/services/securityGatewayService';
-import { ApprovalWorkflowService } from '@/services/approvalWorkflowService';
+import { SecurityGatewayService } from '../services/securityGatewayService.js';
+import { ApprovalWorkflowService } from '../services/approvalWorkflowService.js';
 import { EventBusService } from '@uaip/shared-services';
 
 const router: Router = express.Router();

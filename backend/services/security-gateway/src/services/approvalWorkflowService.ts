@@ -12,8 +12,8 @@ import {
   AuditEventType,
   Operation
 } from '@uaip/types';
-import { NotificationService } from './notificationService';
-import { AuditService } from './auditService';
+import { NotificationService } from './notificationService.js';
+import { AuditService } from './auditService.js';
 
 export interface ApprovalWorkflowConfig {
   defaultExpirationHours: number;
