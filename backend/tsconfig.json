@@ -3,23 +3,19 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "node",
-    "baseUrl": ".",                  // << added
+    "baseUrl": ".",      
+    // "moduleSuffixes": [".js"],            // << added
     "paths": {
-      "@uaip/types": ["shared/types/src"],
-      "@uaip/types/*": ["shared/types/src/*"],
-      "@uaip/utils": ["shared/utils/src"],
-      "@uaip/utils/*": ["shared/utils/src/*"],
-      "@uaip/config": ["shared/config/src"],
-      "@uaip/config/*": ["shared/config/src/*"],
-      "@uaip/shared-services": ["shared/services/src"],
-      "@uaip/shared-services/*": ["shared/services/src/*"],
-      "@uaip/middleware": ["shared/middleware/src"],
-      "@uaip/middleware/*": ["shared/middleware/src/*"],
-      "@uaip/agent-intelligence": ["services/agent-intelligence/src"],
-      "@uaip/capability-registry": ["services/capability-registry/src"],
-      "@uaip/orchestration-pipeline": ["services/orchestration-pipeline/src"],
-      "@uaip/security-gateway": ["services/security-gateway/src"],
-      "@uaip/discussion-orchestration": ["services/discussion-orchestration/src"]
+      "@uaip/types": ["shared/types"],
+     "@uaip/utils": ["shared/utils"],
+      "@uaip/config": ["shared/config"],
+      "@uaip/shared-services": ["shared/services"],
+      "@uaip/middleware": ["shared/middleware"],
+      "@uaip/agent-intelligence": ["services/agent-intelligence"],
+      "@uaip/capability-registry": ["services/capability-registry"],
+      "@uaip/orchestration-pipeline": ["services/orchestration-pipeline"],
+      "@uaip/security-gateway": ["services/security-gateway"],
+      "@uaip/discussion-orchestration": ["services/discussion-orchestration"]
     },
 
     /* safety + DX */
