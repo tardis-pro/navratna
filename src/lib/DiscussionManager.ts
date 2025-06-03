@@ -1,4 +1,4 @@
-import { Message, AgentState, Persona } from '../types/agent';
+import { Message, AgentState } from '../types/agent';
 import { DocumentContext } from '../types/document';
 import { LLMService } from '../services/llm';
 import { generateAgentResponse } from '../services/llm';

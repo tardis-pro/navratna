@@ -25,7 +25,8 @@ import {
 } from 'lucide-react';
 
 interface PersonaSelectorProps {
-  onSelectPersona: (persona: Persona | HybridPersona) => void;
+  onSelectPersona: (persona: Persona | HybridPersona) => Promise<void>;
+  disabled?: boolean;
 }
 
 // Helper function to get category icon
@@ -41,7 +42,10 @@ const getCategoryIcon = (category: string) => {
   return iconMap[category] || Users;
 };
 
-export const PersonaSelector: React.FC<PersonaSelectorProps> = ({ onSelectPersona }) => {
+export const PersonaSelector: React.FC<PersonaSelectorProps> = ({ 
+  onSelectPersona, 
+  disabled = false 
+}) => {
   const [activeCategory, setActiveCategory] = useState<string>(Object.keys(allPersonas)[0]);
   const [hoveredPersona, setHoveredPersona] = useState<string | null>(null);
   const [showCrossBreeding, setShowCrossBreeding] = useState(false);
@@ -49,32 +53,67 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({ onSelectPerson
   const [selectedParent2, setSelectedParent2] = useState<Persona | null>(null);
   const [hybridName, setHybridName] = useState('');
   const [dominantParent, setDominantParent] = useState<'parent1' | 'parent2'>('parent1');
+  const [isCreating, setIsCreating] = useState(false);
 
   const allPersonasFlat = getAllPersonasFlat(allPersonas);
 
-  const handleCrossBreed = () => {
+  const handleCrossBreed = async () => {
     if (!selectedParent1 || !selectedParent2 || !hybridName.trim()) {
       alert('Please select two personas and enter a name for the hybrid');
       return;
     }
 
-    const hybrid = crossBreedPersonas(selectedParent1, selectedParent2, hybridName, dominantParent);
-    onSelectPersona(hybrid);
-    
-    // Reset state
-    setSelectedParent1(null);
-    setSelectedParent2(null);
-    setHybridName('');
-    setShowCrossBreeding(false);
+    if (disabled || isCreating) return;
+
+    setIsCreating(true);
+    try {
+      const hybrid = crossBreedPersonas(selectedParent1, selectedParent2, hybridName, dominantParent);
+      await onSelectPersona(hybrid);
+      
+      // Reset state
+      setSelectedParent1(null);
+      setSelectedParent2(null);
+      setHybridName('');
+      setShowCrossBreeding(false);
+    } catch (error) {
+      console.error('Failed to create hybrid persona:', error);
+      alert('Failed to create hybrid persona. Please try again.');
+    } finally {
+      setIsCreating(false);
+    }
   };
 
-  const handleSuggestedHybrid = (suggestion: typeof suggestedHybrids[0]) => {
-    const parent1 = allPersonasFlat.find(p => p.id === suggestion.parent1);
-    const parent2 = allPersonasFlat.find(p => p.id === suggestion.parent2);
-    
-    if (parent1 && parent2) {
-      const hybrid = crossBreedPersonas(parent1, parent2, suggestion.name, 'parent1');
-      onSelectPersona(hybrid);
+  const handleSuggestedHybrid = async (suggestion: typeof suggestedHybrids[0]) => {
+    if (disabled || isCreating) return;
+
+    setIsCreating(true);
+    try {
+      const parent1 = allPersonasFlat.find(p => p.id === suggestion.parent1);
+      const parent2 = allPersonasFlat.find(p => p.id === suggestion.parent2);
+      
+      if (parent1 && parent2) {
+        const hybrid = crossBreedPersonas(parent1, parent2, suggestion.name, 'parent1');
+        await onSelectPersona(hybrid);
+      }
+    } catch (error) {
+      console.error('Failed to create suggested hybrid:', error);
+      alert('Failed to create hybrid persona. Please try again.');
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handlePersonaSelect = async (persona: Persona) => {
+    if (disabled || isCreating) return;
+
+    setIsCreating(true);
+    try {
+      await onSelectPersona(persona);
+    } catch (error) {
+      console.error('Failed to select persona:', error);
+      alert('Failed to create agent with this persona. Please try again.');
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -94,7 +133,8 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({ onSelectPerson
           </div>
           <button
             onClick={() => setShowCrossBreeding(false)}
-            className="px-4 py-2 text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all duration-200"
+            disabled={disabled || isCreating}
+            className="px-4 py-2 text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Back to Personas
           </button>
@@ -111,7 +151,8 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({ onSelectPerson
               <button
                 key={index}
                 onClick={() => handleSuggestedHybrid(suggestion)}
-                className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border border-purple-200 dark:border-purple-800 rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all duration-200 text-left"
+                disabled={disabled || isCreating}
+                className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border border-purple-200 dark:border-purple-800 rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all duration-200 text-left disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
               >
                 <div className="font-semibold text-purple-700 dark:text-purple-300 mb-1">{suggestion.name}</div>
                 <div className="text-sm text-purple-600 dark:text-purple-400">{suggestion.description}</div>
@@ -140,7 +181,8 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({ onSelectPerson
                   const persona = allPersonasFlat.find(p => p.id === e.target.value);
                   setSelectedParent1(persona || null);
                 }}
-                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                disabled={disabled || isCreating}
+                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <option value="">Select first parent...</option>
                 {allPersonasFlat.map(persona => (
@@ -175,7 +217,8 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({ onSelectPerson
                   const persona = allPersonasFlat.find(p => p.id === e.target.value);
                   setSelectedParent2(persona || null);
                 }}
-                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                disabled={disabled || isCreating}
+                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <option value="">Select second parent...</option>
                 {allPersonasFlat.filter(p => p.id !== selectedParent1?.id).map(persona => (
@@ -209,7 +252,8 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({ onSelectPerson
               <div className="flex space-x-4">
                 <button
                   onClick={() => setDominantParent('parent1')}
-                  className={`flex-1 p-3 rounded-lg border-2 transition-all duration-200 ${
+                  disabled={disabled || isCreating}
+                  className={`flex-1 p-3 rounded-lg border-2 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
                     dominantParent === 'parent1'
                       ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300'
                       : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
@@ -220,7 +264,8 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({ onSelectPerson
                 </button>
                 <button
                   onClick={() => setDominantParent('parent2')}
-                  className={`flex-1 p-3 rounded-lg border-2 transition-all duration-200 ${
+                  disabled={disabled || isCreating}
+                  className={`flex-1 p-3 rounded-lg border-2 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
                     dominantParent === 'parent2'
                       ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300'
                       : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
@@ -242,8 +287,9 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({ onSelectPerson
               type="text"
               value={hybridName}
               onChange={(e) => setHybridName(e.target.value)}
+              disabled={disabled || isCreating}
               placeholder={selectedParent1 && selectedParent2 ? `${selectedParent1.role}/${selectedParent2.role} Specialist` : 'Enter hybrid name...'}
-              className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
 
@@ -267,15 +313,24 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({ onSelectPerson
 
               <button
                 onClick={handleCrossBreed}
-                disabled={!hybridName.trim()}
+                disabled={!hybridName.trim() || disabled || isCreating}
                 className={`w-full py-3 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center space-x-3 ${
-                  hybridName.trim()
+                  hybridName.trim() && !disabled && !isCreating
                     ? 'bg-gradient-to-r from-purple-600 via-pink-600 to-orange-600 hover:from-purple-700 hover:via-pink-700 hover:to-orange-700 text-white shadow-xl shadow-purple-500/30 hover:shadow-purple-500/50 hover:scale-[1.02]' 
                     : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed'
                 }`}
               >
-                <Heart className="w-5 h-5" />
-                <span>Create Hybrid Persona</span>
+                {isCreating ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Creating Hybrid...</span>
+                  </>
+                ) : (
+                  <>
+                    <Heart className="w-5 h-5" />
+                    <span>Create Hybrid Persona</span>
+                  </>
+                )}
               </button>
             </div>
           )}
@@ -300,7 +355,8 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({ onSelectPerson
         
         <button
           onClick={() => setShowCrossBreeding(true)}
-          className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-lg transition-all duration-200 hover:scale-105 shadow-lg shadow-purple-500/25"
+          disabled={disabled || isCreating}
+          className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-lg transition-all duration-200 hover:scale-105 shadow-lg shadow-purple-500/25 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
         >
           <Shuffle className="w-4 h-4" />
           <span>Cross-Breed</span>
@@ -316,7 +372,8 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({ onSelectPerson
             <button
               key={category}
               onClick={() => setActiveCategory(category)}
-              className={`flex items-center space-x-2 px-4 py-3 text-sm font-semibold rounded-xl whitespace-nowrap transition-all duration-200 ${
+              disabled={disabled || isCreating}
+              className={`flex items-center space-x-2 px-4 py-3 text-sm font-semibold rounded-xl whitespace-nowrap transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
                 activeCategory === category
                   ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 scale-105'
                   : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 hover:scale-105'
@@ -335,11 +392,12 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({ onSelectPerson
         {allPersonas[activeCategory].map((persona) => (
           <button
             key={persona.id}
-            onClick={() => onSelectPersona(persona)}
-            onMouseEnter={() => setHoveredPersona(persona.id)}
+            onClick={() => handlePersonaSelect(persona)}
+            onMouseEnter={() => !disabled && !isCreating && setHoveredPersona(persona.id)}
             onMouseLeave={() => setHoveredPersona(null)}
-            className={`group relative flex flex-col items-start p-6 border-2 rounded-2xl transition-all duration-300 text-left ${
-              hoveredPersona === persona.id
+            disabled={disabled || isCreating}
+            className={`group relative flex flex-col items-start p-6 border-2 rounded-2xl transition-all duration-300 text-left disabled:opacity-50 disabled:cursor-not-allowed ${
+              hoveredPersona === persona.id && !disabled && !isCreating
                 ? 'border-blue-500 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 shadow-xl shadow-blue-500/20 scale-[1.02]'
                 : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-lg'
             }`}
@@ -353,9 +411,13 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({ onSelectPerson
                 <div className="font-bold text-lg text-slate-900 dark:text-white">{persona.name}</div>
                 <div className="text-sm text-slate-600 dark:text-slate-400 font-medium">{persona.role}</div>
               </div>
-              <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <div className={`transition-opacity duration-200 ${hoveredPersona === persona.id && !disabled && !isCreating ? 'opacity-100' : 'opacity-0'}`}>
                 <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
-                  <Sparkles className="w-4 h-4 text-white" />
+                  {isCreating ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <Sparkles className="w-4 h-4 text-white" />
+                  )}
                 </div>
               </div>
             </div>
@@ -401,7 +463,7 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({ onSelectPerson
 
             {/* Hover Effect Indicator */}
             <div className={`absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-indigo-500/5 transition-opacity duration-300 pointer-events-none ${
-              hoveredPersona === persona.id ? 'opacity-100' : 'opacity-0'
+              hoveredPersona === persona.id && !disabled && !isCreating ? 'opacity-100' : 'opacity-0'
             }`} />
           </button>
         ))}
@@ -424,6 +486,18 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({ onSelectPerson
           </div>
         </div>
       </div>
+
+      {/* Loading overlay */}
+      {(disabled || isCreating) && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-xl flex items-center space-x-4">
+            <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <span className="text-slate-700 dark:text-slate-300 font-medium">
+              {isCreating ? 'Creating agent...' : 'Please wait...'}
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }; 
