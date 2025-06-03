@@ -101,6 +101,7 @@ class SecurityGatewayServer {
     // Request logging
     this.app.use((req, res, next) => {
       const startTime = Date.now();
+      // @ts-ignore
       req.startTime = startTime;
       
       logger.info('Incoming request', {

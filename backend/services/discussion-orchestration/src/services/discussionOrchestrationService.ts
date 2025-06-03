@@ -12,7 +12,7 @@ import {
 import { logger } from '@uaip/utils';
 import { DiscussionService, EventBusService } from '@uaip/shared-services';
 import { TurnStrategyService } from '@/services/turnStrategyService';
-import { config } from '@/config/config';
+import { config } from '@/config';
 
 export interface DiscussionOrchestrationResult {
   success: boolean;

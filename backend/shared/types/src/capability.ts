@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BaseEntitySchema, UUIDSchema } from './common.js';
+import { BaseEntitySchema, UUIDSchema } from './common';
 
 // Capability types
 export enum CapabilityType {

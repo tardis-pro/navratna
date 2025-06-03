@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { logger } from '@uaip/utils/src/logger';
 import { authMiddleware, requireAdmin } from '@uaip/middleware';
 import { validateRequest } from '@uaip/middleware';
-import { AuditService } from '@/services/auditService.js';
+import { AuditService } from '@/services/auditService';
 import { DatabaseService } from '@uaip/shared-services';
 import { AuditEventType } from '@uaip/types';
 

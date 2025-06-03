@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
-import { logger, logError } from '@uaip/utils/logger';
+import { logger, logError } from '@uaip/utils';
 import { config } from '@uaip/config';
 
 // Custom error class

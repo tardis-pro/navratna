@@ -7,7 +7,9 @@
   "scripts": {
     "build": "tsc && tsc-alias",
     "start": "node dist/index.js",
-    "dev": "ts-node-dev --respawn --transpile-only --esm src/index.ts",
+    "dev": "concurrently \"npm run build:watch\" \"npm run start:watch\"",
+    "build:watch": "tsc --watch",
+    "start:watch": "nodemon --watch dist --delay 1000ms dist/index.js",
     "test": "jest",
     "test:watch": "jest --watch",
     "lint": "eslint src/**/*.ts",
@@ -42,7 +44,8 @@
     "ts-jest": "^29.1.1",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.3.3",
-    "tsc-alias": "^1.8.8"
+    "tsc-alias": "^1.8.8",
+    "concurrently": "^8.2.2"
   },
   "keywords": [
     "uaip",

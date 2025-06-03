@@ -1,11 +1,11 @@
 import express, { Router } from 'express';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
-import { logger } from '@uaip/utils/src/logger';
+import { logger } from '@uaip/utils';
 import { authMiddleware, requireAdmin } from '@uaip/middleware';
 import { validateRequest } from '@uaip/middleware';
-import { AuditService } from '@/services/auditService.js';
-import { NotificationService } from '@/services/notificationService.js';
+import { AuditService } from '@/services/auditService';
+import { NotificationService } from '@/services/notificationService';
 import { DatabaseService } from '@uaip/shared-services';
 import { Request, Response } from 'express';
 import { config } from '@uaip/config';

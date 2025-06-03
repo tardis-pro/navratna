@@ -10,6 +10,13 @@ export interface DatabaseConfig {
     };
 }
 
+
+declare module 'express-rate-limit' {
+    export interface RateLimitRequestHandler {
+        (req: Request, res: Response, next: NextFunction): void;
+    }
+}
+
 export interface RedisConfig {
     host: string;
     port: number;

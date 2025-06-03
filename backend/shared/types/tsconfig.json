@@ -1,21 +1,10 @@
 {
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "node",
-    "declaration": true,
-    "declarationMap": true,
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "allowSyntheticDefaultImports": true,
-    "composite": true,
-    "incremental": true
-  },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
-} 
+  "extends": "../../tsconfig.json",
+   "compilerOptions": {
+     "outDir": "dist",          // relative to package root
+     "rootDir": "src",
+     "baseUrl": ".",            // enables clean import paths within the package
+   },
+   "include": ["src/**/*"]
+ } 
+  

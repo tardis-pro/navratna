@@ -3,12 +3,13 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 // Get the directory of this module
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// const __filename = fileURLToPath(import.meta.url);
+
+const __dirname = '/app/';
 
 // Load environment variables from root .env file
-dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
-console.log( path.resolve(__dirname, '../../../.env'));
+dotenv.config({ path: path.resolve(__dirname, '.env') });
+console.log( path.resolve(__dirname, '.env'));
 
 export interface DatabaseConfig {
   postgres: {

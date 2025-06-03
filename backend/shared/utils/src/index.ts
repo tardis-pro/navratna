@@ -1,5 +1,5 @@
 // Logging utilities
-export { logger } from './logger';
+export { logger, logError, logSecurityEvent, logAudit, logMetric, logRequest, logPerformance } from './logger';
 
 // Error handling utilities
 export { 

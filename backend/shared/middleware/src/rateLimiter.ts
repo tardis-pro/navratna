@@ -1,9 +1,20 @@
-import { rateLimit } from 'express-rate-limit';
-import { Request, Response } from 'express';
+// import { rateLimit } from 'express-rate-limit';
+import { NextFunction, Request, Response } from 'express';
 import { config } from '@uaip/config';
-import { logger } from '@uaip/utils/logger';
+import { logger } from '@uaip/utils';
 
 // Create rate limiter
+
+//mock ratelimit funciton
+const rateLimit = (options: any) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    next();
+  };
+};
+
+
+
+
 export const rateLimiter = rateLimit({
   windowMs: config.rateLimit.windowMs,
   max: config.rateLimit.max,

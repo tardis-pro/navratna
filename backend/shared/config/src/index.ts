@@ -1,2 +1,2 @@
 // Configuration exports
-export { config } from './config.js'; 
+export { config } from './config'; 

@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { logger } from '@uaip/utils/logger';
-import { ApiError } from '@uaip/utils/errors';
+import { logger } from '@uaip/utils';
+import { ApiError } from '@uaip/utils';
 import { User, SecurityLevel } from '@uaip/types';
 
 // Extend Express Request interface

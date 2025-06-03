@@ -24,7 +24,9 @@
     { "path": "./shared/services" },
     { "path": "./shared/middleware" },
     { "path": "./services/agent-intelligence" },
+    { "path": "./services/capability-registry" },
     { "path": "./services/orchestration-pipeline" },
-    { "path": "./services/capability-registry" }
+    { "path": "./services/security-gateway" },
+    { "path": "./services/discussion-orchestration" }
   ]
 } 

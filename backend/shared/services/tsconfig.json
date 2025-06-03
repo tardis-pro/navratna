@@ -1,44 +1,11 @@
 {
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "node",
-    "declaration": true,
-    "declarationMap": true,
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "allowSyntheticDefaultImports": true,
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    "composite": true,
-    "incremental": true,
-    "baseUrl": "./src",
-    "paths": {
-      "@/*": ["./*"],
-      "@uaip/types": ["../types/dist"],
-      "@uaip/types/*": ["../types/dist/*"],
-      "@uaip/utils": ["../utils/dist"],
-      "@uaip/utils/*": ["../utils/dist/*"],
-      "@uaip/config": ["../config/dist"],
-      "@uaip/config/*": ["../config/dist/*"]
-    }
+    "outDir": "dist",          // relative to package root
+    "rootDir": "src",
+    "baseUrl": ".",            // enables clean import paths within the package
   },
-  "include": [
-    "src/**/*.ts"
-  ],
-  "exclude": [
-    "dist",
-    "node_modules",
-    "**/*.test.ts"
-  ],
-  "references": [
-    { "path": "../types" },
-    { "path": "../utils" },
-    { "path": "../config" }
-  ]
+  "include": ["src/**/*"],
+  
+
 } 

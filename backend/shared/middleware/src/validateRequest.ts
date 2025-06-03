@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { logger } from '@uaip/utils/logger';
-import { ApiError } from '@uaip/utils/errors';
+import { logger } from '@uaip/utils';
+import { ApiError } from '@uaip/utils';
 
 interface ValidationSchemas {
   body?: z.ZodTypeAny;

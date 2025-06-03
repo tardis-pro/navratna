@@ -10,7 +10,7 @@ import { logger } from '@uaip/utils';
 import { DatabaseService, EventBusService } from '@uaip/shared-services';
 import { authMiddleware, errorHandler, defaultRequestLogger } from '@uaip/middleware';
 
-import { config } from '@/config/config';
+import { config } from '@/config';
 import { DiscussionOrchestrationService } from '@/services/discussionOrchestrationService';
 import { setupWebSocketHandlers } from '@/websocket/discussionSocket';
 
