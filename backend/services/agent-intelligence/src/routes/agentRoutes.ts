@@ -17,6 +17,12 @@ router.post(
   agentController.createAgent.bind(agentController)
 );
 
+// GET /api/v1/agents
+router.get(
+  '/',
+  agentController.getAgents.bind(agentController)
+);
+
 // POST /api/v1/agents/:agentId/analyze
 router.post(
   '/:agentId/analyze',

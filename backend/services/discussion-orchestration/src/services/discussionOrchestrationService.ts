@@ -12,6 +12,7 @@ import {
 import { logger } from '@uaip/utils';
 import { DiscussionService, EventBusService } from '@uaip/shared-services';
 import { TurnStrategyService } from './turnStrategyService.js';
+import { DiscussionWebSocketHandler } from '../websocket/discussionWebSocketHandler.js';
 
 export interface DiscussionOrchestrationResult {
   success: boolean;
@@ -24,19 +25,29 @@ export class DiscussionOrchestrationService {
   private turnStrategyService: TurnStrategyService;
   private discussionService: DiscussionService;
   private eventBusService: EventBusService;
+  private webSocketHandler?: DiscussionWebSocketHandler;
   private turnTimers: Map<string, NodeJS.Timeout> = new Map();
   private activeDiscussions: Map<string, Discussion> = new Map();
 
   constructor(
     discussionService: DiscussionService,
-    eventBusService: EventBusService
+    eventBusService: EventBusService,
+    webSocketHandler?: DiscussionWebSocketHandler
   ) {
     this.discussionService = discussionService;
     this.eventBusService = eventBusService;
+    this.webSocketHandler = webSocketHandler;
     this.turnStrategyService = new TurnStrategyService();
     
     this.initializeEventHandlers();
     this.startPeriodicTasks();
+  }
+
+  /**
+   * Set WebSocket handler (can be set after construction)
+   */
+  setWebSocketHandler(handler: DiscussionWebSocketHandler): void {
+    this.webSocketHandler = handler;
   }
 
   /**
@@ -1090,7 +1101,14 @@ export class DiscussionOrchestrationService {
 
   private async emitEvent(event: DiscussionEvent): Promise<void> {
     try {
+      // Emit to event bus
       await this.eventBusService.publish('discussion.events', event);
+      
+      // Broadcast to WebSocket connections
+      if (this.webSocketHandler) {
+        this.webSocketHandler.broadcastToDiscussion(event.discussionId, event);
+      }
+      
       logger.debug('Event emitted', { eventType: event.type, discussionId: event.discussionId });
     } catch (error) {
       logger.error('Error emitting event', {

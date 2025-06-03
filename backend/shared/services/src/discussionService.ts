@@ -599,20 +599,109 @@ export class DiscussionService {
 
   // ===== SEARCH AND ANALYTICS =====
 
+  private buildDiscussionSearchQuery(filters: DiscussionSearchFilters): {
+    conditions: Record<string, any>;
+    textSearchQuery?: string;
+  } {
+    const conditions: Record<string, any> = {};
+    let textSearchQuery: string | undefined;
+
+    // Handle text search across multiple fields
+    if (filters.query) {
+      textSearchQuery = `%${filters.query}%`;
+      // We'll handle this in the searchDiscussions method with a custom query
+    }
+
+    if (filters.status && filters.status.length > 0) {
+      conditions.status = filters.status.length === 1 ? filters.status[0] : filters.status;
+    }
+
+    if (filters.visibility && filters.visibility.length > 0) {
+      conditions.visibility = filters.visibility.length === 1 ? filters.visibility[0] : filters.visibility;
+    }
+
+    if (filters.createdBy && filters.createdBy.length > 0) {
+      conditions.created_by = filters.createdBy.length === 1 ? filters.createdBy[0] : filters.createdBy;
+    }
+
+    if (filters.organizationId) {
+      conditions.organization_id = filters.organizationId;
+    }
+
+    if (filters.teamId) {
+      conditions.team_id = filters.teamId;
+    }
+
+    // Date range filters
+    if (filters.createdAfter) {
+      conditions.created_at_gte = filters.createdAfter;
+    }
+
+    if (filters.createdBefore) {
+      conditions.created_at_lte = filters.createdBefore;
+    }
+
+    return { conditions, textSearchQuery };
+  }
+
   async searchDiscussions(filters: DiscussionSearchFilters, limit = 20, offset = 0): Promise<{
     discussions: Discussion[];
     total: number;
     hasMore: boolean;
   }> {
     try {
-      const query = this.buildDiscussionSearchQuery(filters);
-      const discussions = await this.databaseService.findMany<Discussion>('discussions', query, {
-        limit,
-        offset,
-        orderBy: 'createdAt DESC'
-      });
+      const { conditions, textSearchQuery } = this.buildDiscussionSearchQuery(filters);
+      
+      let discussions: Discussion[];
+      let total: number;
 
-      const total = await this.databaseService.count('discussions', query);
+      if (textSearchQuery) {
+        // Custom query for text search
+        const searchQuery = `
+          SELECT * FROM discussions 
+          WHERE (
+            title ILIKE $1 OR 
+            topic ILIKE $1 OR 
+            description ILIKE $1
+          )
+          ${Object.keys(conditions).length > 0 ? 'AND' : ''}
+          ${this.buildWhereClause(conditions, 2)}
+          ORDER BY created_at DESC
+          LIMIT $${Object.keys(conditions).length + 2}
+          OFFSET $${Object.keys(conditions).length + 3}
+        `;
+
+        const countQuery = `
+          SELECT COUNT(*) as count FROM discussions 
+          WHERE (
+            title ILIKE $1 OR 
+            topic ILIKE $1 OR 
+            description ILIKE $1
+          )
+          ${Object.keys(conditions).length > 0 ? 'AND' : ''}
+          ${this.buildWhereClause(conditions, 2)}
+        `;
+
+        const params = [textSearchQuery, ...Object.values(conditions), limit, offset];
+        const countParams = [textSearchQuery, ...Object.values(conditions)];
+
+        const [searchResult, countResult] = await Promise.all([
+          this.databaseService.query<Discussion>(searchQuery, params),
+          this.databaseService.query(countQuery, countParams)
+        ]);
+
+        discussions = searchResult.rows;
+        total = parseInt(countResult.rows[0].count);
+      } else {
+        // Use the standard findMany method
+        discussions = await this.databaseService.findMany<Discussion>('discussions', conditions, {
+          limit,
+          offset,
+          orderBy: 'created_at DESC'
+        });
+
+        total = await this.databaseService.count('discussions', conditions);
+      }
 
       return {
         discussions,
@@ -624,6 +713,30 @@ export class DiscussionService {
       logger.error('Failed to search discussions', { error: (error as Error).message, filters });
       throw error;
     }
+  }
+
+  private buildWhereClause(conditions: Record<string, any>, startIndex: number): string {
+    if (Object.keys(conditions).length === 0) return '';
+
+    const clauses: string[] = [];
+    let paramIndex = startIndex;
+
+    for (const [key, value] of Object.entries(conditions)) {
+      if (key.endsWith('_gte')) {
+        const column = key.replace('_gte', '');
+        clauses.push(`${column} >= $${paramIndex++}`);
+      } else if (key.endsWith('_lte')) {
+        const column = key.replace('_lte', '');
+        clauses.push(`${column} <= $${paramIndex++}`);
+      } else if (Array.isArray(value)) {
+        const placeholders = value.map(() => `$${paramIndex++}`).join(', ');
+        clauses.push(`${key} IN (${placeholders})`);
+      } else {
+        clauses.push(`${key} = $${paramIndex++}`);
+      }
+    }
+
+    return clauses.join(' AND ');
   }
 
   async getDiscussionAnalytics(discussionId: string, timeframe?: {
@@ -829,61 +942,6 @@ export class DiscussionService {
     // Generate AI-powered discussion summary
     // This would use LLM services to create comprehensive summaries
     return null;
-  }
-
-  private buildDiscussionSearchQuery(filters: DiscussionSearchFilters): any {
-    const query: any = {};
-
-    if (filters.query) {
-      query.$or = [
-        { title: { $regex: filters.query, $options: 'i' } },
-        { topic: { $regex: filters.query, $options: 'i' } },
-        { description: { $regex: filters.query, $options: 'i' } }
-      ];
-    }
-
-    if (filters.status && filters.status.length > 0) {
-      query.status = { $in: filters.status };
-    }
-
-    if (filters.visibility && filters.visibility.length > 0) {
-      query.visibility = { $in: filters.visibility };
-    }
-
-    if (filters.createdBy && filters.createdBy.length > 0) {
-      query.createdBy = { $in: filters.createdBy };
-    }
-
-    if (filters.organizationId) {
-      query.organizationId = filters.organizationId;
-    }
-
-    if (filters.teamId) {
-      query.teamId = filters.teamId;
-    }
-
-    if (filters.tags && filters.tags.length > 0) {
-      query.tags = { $in: filters.tags };
-    }
-
-    if (filters.participants && filters.participants.length > 0) {
-      query['participants.personaId'] = { $in: filters.participants };
-    }
-
-    if (filters.turnStrategy && filters.turnStrategy.length > 0) {
-      query['turnStrategy.strategy'] = { $in: filters.turnStrategy };
-    }
-
-    // Date range filters
-    if (filters.createdAfter) {
-      query.createdAt = { ...query.createdAt, $gte: filters.createdAfter };
-    }
-
-    if (filters.createdBefore) {
-      query.createdAt = { ...query.createdAt, $lte: filters.createdBefore };
-    }
-
-    return query;
   }
 
   private async emitDiscussionEvent(

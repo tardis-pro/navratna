@@ -1,0 +1,34 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "baseUrl": "./src",
+    "paths": {
+      "@/*": ["*"],
+      "@uaip/types/*": ["../../shared/types/src/*"],
+      "@uaip/utils/*": ["../../shared/utils/src/*"],
+      "@uaip/config/*": ["../../shared/config/src/*"],
+      "@uaip/shared-services/*": ["../../shared/services/src/*"]
+    },
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true
+  },
+  "references": [
+    { "path": "../../shared/types" },
+    { "path": "../../shared/utils" },
+    { "path": "../../shared/config" },
+    { "path": "../../shared/services" }
+  ],
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ]
+} 

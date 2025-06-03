@@ -2,7 +2,7 @@ import { Pool } from 'pg';
 import { DatabaseService } from './databaseService.js';
 import { EventBusService } from './eventBusService.js';
 import { logger, ApiError } from '@uaip/utils';
-import { Agent, AgentAnalysis, ExecutionPlan, LearningResult } from '@uaip/types';
+import { Agent, AgentAnalysis, AgentRole, ExecutionPlan, LearningResult } from '@uaip/types';
 import { v4 as uuidv4, validate as isValidUUID } from 'uuid';
 
 interface MessageWithContent {
@@ -88,6 +88,50 @@ export class AgentIntelligenceService {
   private validateUUIDParam(uuid: string, paramName: string = 'id'): void {
     if (!this.isValidUUID(uuid)) {
       throw new ApiError(400, `Invalid ${paramName} format. Expected UUID.`, 'INVALID_UUID_FORMAT');
+    }
+  }
+
+  public async getAgents(): Promise<Agent[] | null> {
+    if (!this.isInitialized) {
+      await this.initialize();
+    }
+    
+    try {
+      // Validate UUID format
+      
+
+      const query = `
+        SELECT 
+          id, name, role, persona, intelligence_config, 
+          security_context, is_active, created_by, 
+          last_active_at, created_at, updated_at
+        FROM agents where is_active = true limit 6
+      `;
+      
+      const result = await this.databaseService.query(query, []);
+      
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      const rows = result.rows;
+      
+      // Map database snake_case to TypeScript camelCase
+      const agents: Agent[] = rows.map(row => ({
+        id: row.id,
+        name: row.name,
+        role: row.role as AgentRole,
+        persona: row.persona,
+        intelligenceConfig: row.intelligence_config,
+        securityContext: row.security_context,
+        isActive: row.is_active
+      }));
+
+      return agents;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error getting agent', { error: errorMessage });
+      throw new ApiError(500, 'Failed to retrieve agent', 'DATABASE_ERROR');
     }
   }
 
