@@ -31,6 +31,7 @@ class SecurityGatewayServer {
   private approvalWorkflowService: ApprovalWorkflowService;
   private auditService: AuditService;
   private notificationService: NotificationService;
+  private isShuttingDown: boolean = false;
 
   constructor() {
     this.app = express();
@@ -189,23 +190,32 @@ class SecurityGatewayServer {
 
   private setupGracefulShutdown(): void {
     const gracefulShutdown = async (signal: string) => {
+      if (this.isShuttingDown) {
+        logger.debug(`Shutdown already in progress for ${signal}, skipping`);
+        return;
+      }
+
+      this.isShuttingDown = true;
       logger.info(`Received ${signal}, starting graceful shutdown`);
 
+      // Close database connections
       try {
-        // Close database connections
         await this.databaseService.close();
         logger.info('Database disconnected');
+      } catch (error) {
+        logger.error('Error closing database connection', { error });
+      }
 
-        // Close event bus connections
+      // Close event bus connections
+      try {
         await this.eventBusService.close();
         logger.info('Event bus disconnected');
-
-        logger.info('Graceful shutdown completed');
-        process.exit(0);
       } catch (error) {
-        logger.error('Error during graceful shutdown', { error });
-        process.exit(1);
+        logger.error('Error closing event bus connection', { error });
       }
+
+      logger.info('Graceful shutdown completed');
+      process.exit(0);
     };
 
     process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));

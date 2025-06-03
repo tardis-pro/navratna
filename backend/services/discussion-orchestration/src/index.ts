@@ -21,6 +21,7 @@ class DiscussionOrchestrationServer {
   private orchestrationService: DiscussionOrchestrationService;
   private databaseService: DatabaseService;
   private eventBusService: EventBusService;
+  private isShuttingDown: boolean = false;
 
   constructor() {
     this.app = express();
@@ -209,12 +210,22 @@ class DiscussionOrchestrationServer {
     // Graceful shutdown signals
     process.on('SIGTERM', () => {
       logger.info('SIGTERM received, starting graceful shutdown');
-      this.shutdown();
+      this.shutdown().then(() => {
+        process.exit(0);
+      }).catch((error) => {
+        logger.error('Error during SIGTERM shutdown', { error: error instanceof Error ? error.message : 'Unknown error' });
+        process.exit(1);
+      });
     });
 
     process.on('SIGINT', () => {
       logger.info('SIGINT received, starting graceful shutdown');
-      this.shutdown();
+      this.shutdown().then(() => {
+        process.exit(0);
+      }).catch((error) => {
+        logger.error('Error during SIGINT shutdown', { error: error instanceof Error ? error.message : 'Unknown error' });
+        process.exit(1);
+      });
     });
   }
 
@@ -257,39 +268,61 @@ class DiscussionOrchestrationServer {
   }
 
   public async shutdown(): Promise<void> {
+    if (this.isShuttingDown) {
+      logger.debug('Shutdown already in progress, skipping');
+      return;
+    }
+
+    this.isShuttingDown = true;
     logger.info('Starting graceful shutdown of Discussion Orchestration Service');
 
+    // Close WebSocket server
     try {
-      // Close WebSocket server
       if (this.io) {
         this.io.close();
         logger.info('WebSocket server closed');
       }
+    } catch (error) {
+      logger.error('Error closing WebSocket server', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
 
-      // Close HTTP server
+    // Close HTTP server
+    try {
       await new Promise<void>((resolve) => {
         this.server.close(() => {
           logger.info('HTTP server closed');
           resolve();
         });
       });
-
-      // Close event bus connection
-      await this.eventBusService.close();
-      logger.info('Event bus connection closed');
-
-      // Close database connection
-      await this.databaseService.close();
-      logger.info('Database connection closed');
-
-      logger.info('Discussion Orchestration Service shutdown completed');
-
     } catch (error) {
-      logger.error('Error during shutdown', {
+      logger.error('Error closing HTTP server', {
         error: error instanceof Error ? error.message : 'Unknown error'
       });
-      throw error;
     }
+
+    // Close event bus connection
+    try {
+      await this.eventBusService.close();
+      logger.info('Event bus connection closed');
+    } catch (error) {
+      logger.error('Error closing event bus connection', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+
+    // Close database connection
+    try {
+      await this.databaseService.close();
+      logger.info('Database connection closed');
+    } catch (error) {
+      logger.error('Error closing database connection', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+
+    logger.info('Discussion Orchestration Service shutdown completed');
   }
 
   public getStatus(): any {

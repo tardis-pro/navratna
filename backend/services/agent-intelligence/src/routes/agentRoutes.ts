@@ -1,14 +1,11 @@
 import { Router } from 'express';
 import { AgentController } from '../controllers/agentController.js';
-import { validateRequest, validateUUID, validateJSON, authMiddleware } from '@uaip/middleware';
-import { AgentAnalysisSchema, AgentSchema, AgentUpdateSchema, AgentCreateSchema } from '@uaip/types';
+import { validateRequest, validateUUID, authMiddleware } from '@uaip/middleware';
+import { AgentAnalysisSchema, AgentSchema, AgentUpdateSchema, AgentCreateRequestSchema } from '@uaip/types';
 import { AgentPlanRequestSchema } from '@uaip/types';
 
 const router: Router = Router();
 const agentController = new AgentController();
-
-// Apply JSON validation middleware to all routes
-router.use(validateJSON());
 
 // Apply authentication middleware to all routes
 router.use(authMiddleware);
@@ -16,7 +13,7 @@ router.use(authMiddleware);
 // POST /api/v1/agents
 router.post(
   '/',
-  validateRequest({ body: AgentCreateSchema }),
+  validateRequest({ body: AgentCreateRequestSchema }),
   agentController.createAgent.bind(agentController)
 );
 

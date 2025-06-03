@@ -9,6 +9,8 @@
     "build-services": "pnpm exec tsc -b tsconfig.build.json",
     "build-shared": "pnpm exec tsc -b tsconfig.build_shared.json ",
     "dev": "pnpm -r run dev",
+    "dev:agent": "concurrently \"pnpm exec tsc -b tsconfig.build_shared.json --watch\" \"cd services/agent-intelligence && pnpm run dev\"",
+    "dev:security-gateway": "concurrently \"pnpm exec tsc -b tsconfig.build_shared.json --watch\" \"cd services/security-gateway && pnpm run dev\"",
     "lint": "pnpm -r exec eslint . --ext .ts"
   },
   "devDependencies": {

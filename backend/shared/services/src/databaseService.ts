@@ -5,6 +5,7 @@ import { logger, DatabaseError } from '@uaip/utils';
 export class DatabaseService {
   private pool: Pool;
   private static instance: DatabaseService;
+  private isClosing: boolean = false;
 
   constructor() {
     // Debug: Log the actual config values being used
@@ -385,6 +386,13 @@ export class DatabaseService {
 
   // Close the pool (for graceful shutdown)
   public async close(): Promise<void> {
+    if (this.isClosing) {
+      logger.debug('Database pool close already in progress, skipping');
+      return;
+    }
+
+    this.isClosing = true;
+    
     try {
       await this.pool.end();
       logger.info('Database connection pool closed');

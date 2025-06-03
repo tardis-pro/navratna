@@ -23,12 +23,26 @@ export const validateRequest = (
   return (req: Request, res: Response, next: NextFunction): void => {
     try {
       const errors: string[] = [];
-
+      
       // Validate request body
-      if (schemas.body && req.body) {
+      if (schemas.body && req.body !== undefined) {
         const result = schemas.body.safeParse(req.body);
         if (!result.success) {
-          errors.push(...result.error.issues.map(issue => `Body: ${issue.message}`));
+          // Add detailed schema debugging
+          const schemaShape = schemas.body._def?.shape ? Object.keys(schemas.body._def.shape()) : 'unknown';
+          const receivedFields = Object.keys(req.body || {});
+          
+          logger.warn('Body validation failed - schema mismatch', {
+            path: req.path,
+            method: req.method,
+            expectedFields: schemaShape,
+            receivedFields,
+            receivedData: req.body,
+            validationIssues: result.error.issues,
+            requestId: req.id
+          });
+          
+          errors.push(...result.error.issues.map(issue => `Body: ${issue.message} (path: ${issue.path.join('.')})`));
         } else {
           req.body = result.data; // Use validated and potentially converted values
         }
@@ -71,11 +85,14 @@ export const validateRequest = (
           path: req.path,
           method: req.method,
           errors,
+          validationErrors: errors.join('; '),
           userId: req.user?.id,
-          requestId: req.id
+          requestId: req.id,
+          bodyReceived: req.body,
+          schemasApplied: Object.keys(schemas)
         });
 
-        throw new ApiError(400, 'Validation failed', 'VALIDATION_ERROR', {
+        throw new ApiError(400, `Validation failed: ${errors.join('; ')}`, 'VALIDATION_ERROR', {
           errors,
           details: errors
         });
@@ -130,22 +147,45 @@ export const validatePagination = () => {
 
 export const validateJSON = () => {
   return (req: Request, res: Response, next: NextFunction): void => {
-    if (req.is('application/json')) {
-      try {
-        // Express should have already parsed JSON, but let's validate it's valid
-        if (typeof req.body === 'string') {
-          req.body = JSON.parse(req.body);
-        }
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Invalid JSON';
-        logger.warn('Invalid JSON in request body', {
+    // Only check for JSON content type on POST, PUT, PATCH requests
+    if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
+      if (!req.is('application/json')) {
+        logger.warn('Missing or invalid content type for JSON request', {
           path: req.path,
           method: req.method,
-          error: errorMessage,
+          contentType: req.get('Content-Type'),
           requestId: req.id
         });
 
-        return next(new ApiError(400, 'Invalid JSON format', 'INVALID_JSON'));
+        return next(new ApiError(415, 'Content-Type must be application/json', 'INVALID_CONTENT_TYPE'));
+      }
+
+      // Validate that body exists and is an object (Express should have already parsed it)
+      if (req.body === undefined || req.body === null) {
+        logger.warn('Missing request body for JSON request', {
+          path: req.path,
+          method: req.method,
+          requestId: req.id
+        });
+
+        return next(new ApiError(400, 'Request body is required', 'MISSING_BODY'));
+      }
+
+      // If body is still a string, it means Express didn't parse it (shouldn't happen with proper setup)
+      if (typeof req.body === 'string') {
+        try {
+          req.body = JSON.parse(req.body);
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Invalid JSON';
+          logger.warn('Invalid JSON in request body', {
+            path: req.path,
+            method: req.method,
+            error: errorMessage,
+            requestId: req.id
+          });
+
+          return next(new ApiError(400, 'Invalid JSON format', 'INVALID_JSON'));
+        }
       }
     }
     next();

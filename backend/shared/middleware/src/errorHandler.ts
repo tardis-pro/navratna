@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
-import { logger, logError } from '@uaip/utils';
+import { logger, logError, ApiError } from '@uaip/utils';
 import { config } from '@uaip/config';
 
 // Custom error class
@@ -42,6 +42,11 @@ export const errorHandler = (
   if (error instanceof AppError) {
     statusCode = error.statusCode;
     errorCode = error.code || 'APPLICATION_ERROR';
+    message = error.message;
+    details = error.details;
+  } else if (error instanceof ApiError) {
+    statusCode = error.statusCode;
+    errorCode = error.code;
     message = error.message;
     details = error.details;
   } else if (error instanceof ZodError) {
