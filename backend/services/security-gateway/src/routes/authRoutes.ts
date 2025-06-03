@@ -3,7 +3,6 @@ import { Request, Response } from 'express';
 import jwt, { SignOptions } from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import { z } from 'zod';
-import Joi from 'joi';
 import { config } from '@uaip/config';
 import { logger } from '@uaip/utils';
 import { DatabaseService } from '@uaip/shared-services';
@@ -349,7 +348,7 @@ router.post('/refresh',
 router.post('/logout', authMiddleware, async (req, res) => {
   try {
     const { refreshToken } = req.body;
-    const userId = (req as any).user.userId;
+    const userId = (req as any).user.id;
 
     if (refreshToken) {
       // Revoke the specific refresh token
@@ -380,7 +379,7 @@ router.post('/logout', authMiddleware, async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Logout error', { error, userId: (req as any).user?.userId });
+    logger.error('Logout error', { error, userId: (req as any).user?.id });
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'An error occurred during logout'
@@ -399,7 +398,7 @@ router.post('/change-password',
   async (req, res) => {
     try {
       const { currentPassword, newPassword } = req.body;
-      const userId = (req as any).user.userId;
+      const userId = (req as any).user.id;
 
       // Get current password hash
       const userQuery = `SELECT password_hash FROM users WHERE id = $1`;
@@ -461,7 +460,7 @@ router.post('/change-password',
       });
 
     } catch (error) {
-      logger.error('Change password error', { error, userId: (req as any).user?.userId });
+      logger.error('Change password error', { error, userId: (req as any).user?.id });
       res.status(500).json({
         error: 'Internal Server Error',
         message: 'An error occurred while changing password'
@@ -476,7 +475,7 @@ router.post('/change-password',
  */
 router.get('/me', authMiddleware, async (req, res) => {
   try {
-    const userId = (req as any).user.userId;
+    const userId = (req as any).user.id;
 
     const userQuery = `
       SELECT id, email, role, is_active, created_at, last_login_at, password_changed_at
@@ -508,7 +507,7 @@ router.get('/me', authMiddleware, async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Get user info error', { error, userId: (req as any).user?.userId });
+    logger.error('Get user info error', { error, userId: (req as any).user?.id });
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'An error occurred while fetching user information'

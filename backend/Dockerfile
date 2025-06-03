@@ -14,6 +14,7 @@ COPY tsconfig.json ./
 COPY tsconfig.build.json ./
 COPY tsconfig.build_shared.json ./
 COPY esbuild.config.js ./
+COPY .env ./
 RUN echo "Checking workspace packages..." && \
     find . -name "package.json" && \
     echo "Workspace file:" && cat pnpm-workspace.yaml

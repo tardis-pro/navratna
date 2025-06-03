@@ -1,0 +1,1984 @@
+{
+  "info": {
+    "name": "UAIP Backend API Collection",
+    "description": "Complete API collection for the UAIP (Universal Agent Intelligence Platform) backend services",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:80",
+      "description": "API Gateway base URL"
+    },
+    {
+      "key": "agentIntelligenceUrl",
+      "value": "http://localhost:3001",
+      "description": "Agent Intelligence Service direct URL"
+    },
+    {
+      "key": "orchestrationUrl",
+      "value": "http://localhost:3002",
+      "description": "Orchestration Pipeline Service direct URL"
+    },
+    {
+      "key": "capabilityUrl",
+      "value": "http://localhost:3003",
+      "description": "Capability Registry Service direct URL"
+    },
+    {
+      "key": "securityUrl",
+      "value": "http://localhost:3004",
+      "description": "Security Gateway Service direct URL"
+    },
+    {
+      "key": "discussionUrl",
+      "value": "http://localhost:3005",
+      "description": "Discussion Orchestration Service direct URL"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "description": "JWT Access Token"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "description": "JWT Refresh Token"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Health Checks",
+      "item": [
+        {
+          "name": "API Gateway Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "Agent Intelligence Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{agentIntelligenceUrl}}/health",
+              "host": ["{{agentIntelligenceUrl}}"],
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "Agent Intelligence Health Detailed",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{agentIntelligenceUrl}}/health/detailed",
+              "host": ["{{agentIntelligenceUrl}}"],
+              "path": ["health", "detailed"]
+            }
+          }
+        },
+        {
+          "name": "Orchestration Pipeline Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{orchestrationUrl}}/health",
+              "host": ["{{orchestrationUrl}}"],
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "Capability Registry Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{capabilityUrl}}/health",
+              "host": ["{{capabilityUrl}}"],
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "Security Gateway Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{securityUrl}}/health",
+              "host": ["{{securityUrl}}"],
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "Discussion Orchestration Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{discussionUrl}}/health",
+              "host": ["{{discussionUrl}}"],
+              "path": ["health"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('accessToken', response.tokens.accessToken);",
+                  "    pm.collectionVariables.set('refreshToken', response.tokens.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"password123\",\n  \"rememberMe\": false\n}"
+            },
+            "url": {
+              "raw": "{{securityUrl}}/api/v1/auth/login",
+              "host": ["{{securityUrl}}"],
+              "path": ["api", "v1", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('accessToken', response.tokens.accessToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{securityUrl}}/api/v1/auth/refresh",
+              "host": ["{{securityUrl}}"],
+              "path": ["api", "v1", "auth", "refresh"]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{securityUrl}}/api/v1/auth/logout",
+              "host": ["{{securityUrl}}"],
+              "path": ["api", "v1", "auth", "logout"]
+            }
+          }
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{securityUrl}}/api/v1/auth/me",
+              "host": ["{{securityUrl}}"],
+              "path": ["api", "v1", "auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"oldPassword123\",\n  \"newPassword\": \"newPassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{securityUrl}}/api/v1/auth/change-password",
+              "host": ["{{securityUrl}}"],
+              "path": ["api", "v1", "auth", "change-password"]
+            }
+          }
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{securityUrl}}/api/v1/auth/forgot-password",
+              "host": ["{{securityUrl}}"],
+              "path": ["api", "v1", "auth", "forgot-password"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Agent Intelligence",
+      "item": [
+        {
+          "name": "Agents",
+          "item": [
+            {
+              "name": "Create Agent",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Test Agent\",\n  \"description\": \"A test agent for demonstration\",\n  \"capabilities\": [\"analysis\", \"planning\"],\n  \"configuration\": {\n    \"model\": \"gpt-4\",\n    \"temperature\": 0.7\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/agents",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "agents"]
+                }
+              }
+            },
+            {
+              "name": "Get Agent",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/agents/:agentId",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "agents", ":agentId"],
+                  "variable": [
+                    {
+                      "key": "agentId",
+                      "value": "{{agentId}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Update Agent",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Updated Agent\",\n  \"description\": \"Updated description\",\n  \"capabilities\": [\"analysis\", \"planning\", \"execution\"]\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/agents/:agentId",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "agents", ":agentId"],
+                  "variable": [
+                    {
+                      "key": "agentId",
+                      "value": "{{agentId}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Delete Agent",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/agents/:agentId",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "agents", ":agentId"],
+                  "variable": [
+                    {
+                      "key": "agentId",
+                      "value": "{{agentId}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Analyze Context",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"context\": \"Analyze this business scenario\",\n  \"analysisType\": \"comprehensive\",\n  \"parameters\": {\n    \"depth\": \"detailed\",\n    \"focus\": [\"risks\", \"opportunities\"]\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/agents/:agentId/analyze",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "agents", ":agentId", "analyze"],
+                  "variable": [
+                    {
+                      "key": "agentId",
+                      "value": "{{agentId}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Generate Plan",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"objective\": \"Complete project analysis\",\n  \"constraints\": {\n    \"timeframe\": \"2 weeks\",\n    \"resources\": [\"team\", \"budget\"]\n  },\n  \"preferences\": {\n    \"approach\": \"agile\",\n    \"priority\": \"quality\"\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/agents/:agentId/plan",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "agents", ":agentId", "plan"],
+                  "variable": [
+                    {
+                      "key": "agentId",
+                      "value": "{{agentId}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Agent Capabilities",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/agents/:agentId/capabilities",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "agents", ":agentId", "capabilities"],
+                  "variable": [
+                    {
+                      "key": "agentId",
+                      "value": "{{agentId}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Learn from Operation",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"operationId\": \"op-123\",\n  \"outcome\": \"success\",\n  \"feedback\": \"Operation completed successfully\",\n  \"metrics\": {\n    \"duration\": 300,\n    \"accuracy\": 0.95\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/agents/:agentId/learn",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "agents", ":agentId", "learn"],
+                  "variable": [
+                    {
+                      "key": "agentId",
+                      "value": "{{agentId}}"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Personas",
+          "item": [
+            {
+              "name": "Create Persona",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Business Analyst\",\n  \"description\": \"Expert in business analysis and strategy\",\n  \"expertise\": [\"business analysis\", \"strategy\", \"market research\"],\n  \"personality\": {\n    \"traits\": [\"analytical\", \"detail-oriented\", \"strategic\"]\n  },\n  \"communicationStyle\": \"professional\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/personas",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "personas"]
+                }
+              }
+            },
+            {
+              "name": "Search Personas",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/personas/search?query=analyst&expertise=business",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "personas", "search"],
+                  "query": [
+                    {
+                      "key": "query",
+                      "value": "analyst"
+                    },
+                    {
+                      "key": "expertise",
+                      "value": "business"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Persona Recommendations",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/personas/recommendations?context=business_meeting",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "personas", "recommendations"],
+                  "query": [
+                    {
+                      "key": "context",
+                      "value": "business_meeting"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Persona Templates",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/personas/templates",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "personas", "templates"]
+                }
+              }
+            },
+            {
+              "name": "Get Persona",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/personas/:personaId",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "personas", ":personaId"],
+                  "variable": [
+                    {
+                      "key": "personaId",
+                      "value": "{{personaId}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Update Persona",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Senior Business Analyst\",\n  \"description\": \"Senior expert in business analysis and strategy\",\n  \"expertise\": [\"business analysis\", \"strategy\", \"market research\", \"leadership\"]\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/personas/:personaId",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "personas", ":personaId"],
+                  "variable": [
+                    {
+                      "key": "personaId",
+                      "value": "{{personaId}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Delete Persona",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/personas/:personaId",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "personas", ":personaId"],
+                  "variable": [
+                    {
+                      "key": "personaId",
+                      "value": "{{personaId}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Persona Analytics",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/personas/:personaId/analytics",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "personas", ":personaId", "analytics"],
+                  "variable": [
+                    {
+                      "key": "personaId",
+                      "value": "{{personaId}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Validate Persona",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"validationType\": \"comprehensive\",\n  \"context\": \"business_discussion\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/personas/:personaId/validate",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "personas", ":personaId", "validate"],
+                  "variable": [
+                    {
+                      "key": "personaId",
+                      "value": "{{personaId}}"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Orchestration Pipeline",
+      "item": [
+        {
+          "name": "Create Operation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Business Analysis Operation\",\n  \"description\": \"Comprehensive business analysis workflow\",\n  \"steps\": [\n    {\n      \"id\": \"step1\",\n      \"name\": \"Data Collection\",\n      \"type\": \"data_collection\",\n      \"parameters\": {\n        \"sources\": [\"database\", \"api\"]\n      }\n    },\n    {\n      \"id\": \"step2\",\n      \"name\": \"Analysis\",\n      \"type\": \"analysis\",\n      \"dependencies\": [\"step1\"]\n    }\n  ],\n  \"metadata\": {\n    \"priority\": \"high\",\n    \"timeout\": 3600\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/operations",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "operations"]
+            }
+          }
+        },
+        {
+          "name": "Get Operation Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/operations/:operationId/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "operations", ":operationId", "status"],
+              "variable": [
+                {
+                  "key": "operationId",
+                  "value": "{{operationId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Pause Operation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Manual pause for review\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/operations/:operationId/pause",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "operations", ":operationId", "pause"],
+              "variable": [
+                {
+                  "key": "operationId",
+                  "value": "{{operationId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Resume Operation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"checkpointId\": \"checkpoint-123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/operations/:operationId/resume",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "operations", ":operationId", "resume"],
+              "variable": [
+                {
+                  "key": "operationId",
+                  "value": "{{operationId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Cancel Operation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Operation no longer needed\",\n  \"compensate\": true,\n  \"force\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/operations/:operationId/cancel",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "operations", ":operationId", "cancel"],
+              "variable": [
+                {
+                  "key": "operationId",
+                  "value": "{{operationId}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Capability Registry",
+      "item": [
+        {
+          "name": "Search Capabilities",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/capabilities/search?query=analysis&category=business",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "capabilities", "search"],
+              "query": [
+                {
+                  "key": "query",
+                  "value": "analysis"
+                },
+                {
+                  "key": "category",
+                  "value": "business"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/capabilities/categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "capabilities", "categories"]
+            }
+          }
+        },
+        {
+          "name": "Get Recommendations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/capabilities/recommendations?context=business_analysis",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "capabilities", "recommendations"],
+              "query": [
+                {
+                  "key": "context",
+                  "value": "business_analysis"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Register Capability",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Advanced Analytics\",\n  \"description\": \"Advanced data analytics and visualization capability\",\n  \"category\": \"analytics\",\n  \"version\": \"1.0.0\",\n  \"provider\": \"Internal\",\n  \"capabilities\": {\n    \"inputs\": [\"data\", \"parameters\"],\n    \"outputs\": [\"insights\", \"visualizations\"],\n    \"requirements\": [\"python\", \"pandas\"]\n  },\n  \"metadata\": {\n    \"tags\": [\"analytics\", \"visualization\", \"data\"]\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/capabilities/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "capabilities", "register"]
+            }
+          }
+        },
+        {
+          "name": "Get Capability",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/capabilities/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "capabilities", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{capabilityId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Capability",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Advanced Analytics Pro\",\n  \"description\": \"Enhanced advanced data analytics and visualization capability\",\n  \"version\": \"1.1.0\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/capabilities/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "capabilities", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{capabilityId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Capability",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/capabilities/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "capabilities", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{capabilityId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Capability Dependencies",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/capabilities/:id/dependencies",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "capabilities", ":id", "dependencies"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{capabilityId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Validate Capability",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"validationType\": \"full\",\n  \"environment\": \"production\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/capabilities/:id/validate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "capabilities", ":id", "validate"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{capabilityId}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Discussion Orchestration",
+      "item": [
+        {
+          "name": "Service Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{discussionUrl}}/api/v1/info",
+              "host": ["{{discussionUrl}}"],
+              "path": ["api", "v1", "info"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Security Gateway",
+      "item": [
+        {
+          "name": "Security",
+          "item": [
+            {
+              "name": "Assess Risk",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"operation\": {\n    \"type\": \"data_access\",\n    \"resource\": \"customer_database\",\n    \"action\": \"read\"\n  },\n  \"context\": {\n    \"userId\": \"user-123\",\n    \"department\": \"analytics\",\n    \"purpose\": \"business_analysis\"\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{securityUrl}}/api/v1/security/assess-risk",
+                  "host": ["{{securityUrl}}"],
+                  "path": ["api", "v1", "security", "assess-risk"]
+                }
+              }
+            },
+            {
+              "name": "Check Approval Required",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"operation\": {\n    \"type\": \"system_modification\",\n    \"resource\": \"production_database\",\n    \"action\": \"write\"\n  },\n  \"requestor\": {\n    \"userId\": \"user-123\",\n    \"role\": \"analyst\"\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{securityUrl}}/api/v1/security/check-approval-required",
+                  "host": ["{{securityUrl}}"],
+                  "path": ["api", "v1", "security", "check-approval-required"]
+                }
+              }
+            },
+            {
+              "name": "Get Policies",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{securityUrl}}/api/v1/security/policies?category=data_access",
+                  "host": ["{{securityUrl}}"],
+                  "path": ["api", "v1", "security", "policies"],
+                  "query": [
+                    {
+                      "key": "category",
+                      "value": "data_access"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Policy",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{securityUrl}}/api/v1/security/policies/:policyId",
+                  "host": ["{{securityUrl}}"],
+                  "path": ["api", "v1", "security", "policies", ":policyId"],
+                  "variable": [
+                    {
+                      "key": "policyId",
+                      "value": "{{policyId}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create Policy",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Data Access Policy\",\n  \"description\": \"Policy for controlling data access\",\n  \"category\": \"data_access\",\n  \"rules\": [\n    {\n      \"condition\": \"resource.type == 'sensitive_data'\",\n      \"action\": \"require_approval\",\n      \"approvers\": [\"data_steward\", \"security_officer\"]\n    }\n  ],\n  \"priority\": 100,\n  \"active\": true\n}"
+                },
+                "url": {
+                  "raw": "{{securityUrl}}/api/v1/security/policies",
+                  "host": ["{{securityUrl}}"],
+                  "path": ["api", "v1", "security", "policies"]
+                }
+              }
+            },
+            {
+              "name": "Update Policy",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Updated Data Access Policy\",\n  \"description\": \"Updated policy for controlling data access\",\n  \"priority\": 110\n}"
+                },
+                "url": {
+                  "raw": "{{securityUrl}}/api/v1/security/policies/:policyId",
+                  "host": ["{{securityUrl}}"],
+                  "path": ["api", "v1", "security", "policies", ":policyId"],
+                  "variable": [
+                    {
+                      "key": "policyId",
+                      "value": "{{policyId}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Delete Policy",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{securityUrl}}/api/v1/security/policies/:policyId",
+                  "host": ["{{securityUrl}}"],
+                  "path": ["api", "v1", "security", "policies", ":policyId"],
+                  "variable": [
+                    {
+                      "key": "policyId",
+                      "value": "{{policyId}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Security Stats",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{securityUrl}}/api/v1/security/stats",
+                  "host": ["{{securityUrl}}"],
+                  "path": ["api", "v1", "security", "stats"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Approvals",
+          "item": [
+            {
+              "name": "Create Approval Workflow",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"operation\": {\n    \"type\": \"data_access\",\n    \"resource\": \"sensitive_customer_data\",\n    \"action\": \"read\",\n    \"description\": \"Access customer data for analysis\"\n  },\n  \"requestor\": {\n    \"userId\": \"user-123\",\n    \"name\": \"John Analyst\",\n    \"department\": \"analytics\"\n  },\n  \"justification\": \"Need to analyze customer behavior patterns for quarterly report\",\n  \"urgency\": \"medium\",\n  \"expectedDuration\": \"2 hours\"\n}"
+                },
+                "url": {
+                  "raw": "{{securityUrl}}/api/v1/approvals/workflows",
+                  "host": ["{{securityUrl}}"],
+                  "path": ["api", "v1", "approvals", "workflows"]
+                }
+              }
+            },
+            {
+              "name": "Submit Approval Decision",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"decision\": \"approved\",\n  \"comments\": \"Request approved with conditions\",\n  \"conditions\": [\n    \"Access limited to read-only\",\n    \"Must complete within 2 hours\",\n    \"Log all queries\"\n  ]\n}"
+                },
+                "url": {
+                  "raw": "{{securityUrl}}/api/v1/approvals/:workflowId/decisions",
+                  "host": ["{{securityUrl}}"],
+                  "path": ["api", "v1", "approvals", ":workflowId", "decisions"],
+                  "variable": [
+                    {
+                      "key": "workflowId",
+                      "value": "{{workflowId}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Approval Workflow",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{securityUrl}}/api/v1/approvals/:workflowId",
+                  "host": ["{{securityUrl}}"],
+                  "path": ["api", "v1", "approvals", ":workflowId"],
+                  "variable": [
+                    {
+                      "key": "workflowId",
+                      "value": "{{workflowId}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get All Workflows",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{securityUrl}}/api/v1/approvals/workflows?status=pending&limit=10",
+                  "host": ["{{securityUrl}}"],
+                  "path": ["api", "v1", "approvals", "workflows"],
+                  "query": [
+                    {
+                      "key": "status",
+                      "value": "pending"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "10"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Pending Approvals",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{securityUrl}}/api/v1/approvals/pending",
+                  "host": ["{{securityUrl}}"],
+                  "path": ["api", "v1", "approvals", "pending"]
+                }
+              }
+            },
+            {
+              "name": "Cancel Workflow",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"reason\": \"Request no longer needed\"\n}"
+                },
+                "url": {
+                  "raw": "{{securityUrl}}/api/v1/approvals/:workflowId/cancel",
+                  "host": ["{{securityUrl}}"],
+                  "path": ["api", "v1", "approvals", ":workflowId", "cancel"],
+                  "variable": [
+                    {
+                      "key": "workflowId",
+                      "value": "{{workflowId}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Approval Stats",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{securityUrl}}/api/v1/approvals/stats",
+                  "host": ["{{securityUrl}}"],
+                  "path": ["api", "v1", "approvals", "stats"]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "User Management",
+      "item": [
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{securityUrl}}/api/v1/users?page=1&limit=10&role=analyst",
+              "host": ["{{securityUrl}}"],
+              "path": ["api", "v1", "users"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "role",
+                  "value": "analyst"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get User",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{securityUrl}}/api/v1/users/:userId",
+              "host": ["{{securityUrl}}"],
+              "path": ["api", "v1", "users", ":userId"],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": "{{userId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"newuser@example.com\",\n  \"password\": \"SecurePassword123!\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"role\": \"analyst\",\n  \"department\": \"analytics\",\n  \"permissions\": [\"read_data\", \"create_reports\"]\n}"
+            },
+            "url": {
+              "raw": "{{securityUrl}}/api/v1/users",
+              "host": ["{{securityUrl}}"],
+              "path": ["api", "v1", "users"]
+            }
+          }
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Smith\",\n  \"department\": \"senior_analytics\",\n  \"permissions\": [\"read_data\", \"create_reports\", \"manage_team\"]\n}"
+            },
+            "url": {
+              "raw": "{{securityUrl}}/api/v1/users/:userId",
+              "host": ["{{securityUrl}}"],
+              "path": ["api", "v1", "users", ":userId"],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": "{{userId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{securityUrl}}/api/v1/users/:userId",
+              "host": ["{{securityUrl}}"],
+              "path": ["api", "v1", "users", ":userId"],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": "{{userId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Reset User Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"newPassword\": \"NewSecurePassword123!\",\n  \"forcePasswordChange\": true\n}"
+            },
+            "url": {
+              "raw": "{{securityUrl}}/api/v1/users/:userId/reset-password",
+              "host": ["{{securityUrl}}"],
+              "path": ["api", "v1", "users", ":userId", "reset-password"],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": "{{userId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Unlock User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Account unlocked by administrator\"\n}"
+            },
+            "url": {
+              "raw": "{{securityUrl}}/api/v1/users/:userId/unlock",
+              "host": ["{{securityUrl}}"],
+              "path": ["api", "v1", "users", ":userId", "unlock"],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": "{{userId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Bulk User Action",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"deactivate\",\n  \"userIds\": [\"user-1\", \"user-2\", \"user-3\"],\n  \"reason\": \"Department restructuring\"\n}"
+            },
+            "url": {
+              "raw": "{{securityUrl}}/api/v1/users/bulk-action",
+              "host": ["{{securityUrl}}"],
+              "path": ["api", "v1", "users", "bulk-action"]
+            }
+          }
+        },
+        {
+          "name": "Get User Stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{securityUrl}}/api/v1/users/stats",
+              "host": ["{{securityUrl}}"],
+              "path": ["api", "v1", "users", "stats"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Audit & Logging",
+      "item": [
+        {
+          "name": "Get Audit Logs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{securityUrl}}/api/v1/audit/logs?eventType=LOGIN_SUCCESS&startDate=2024-01-01&endDate=2024-12-31&limit=50",
+              "host": ["{{securityUrl}}"],
+              "path": ["api", "v1", "audit", "logs"],
+              "query": [
+                {
+                  "key": "eventType",
+                  "value": "LOGIN_SUCCESS"
+                },
+                {
+                  "key": "startDate",
+                  "value": "2024-01-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2024-12-31"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Audit Log",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{securityUrl}}/api/v1/audit/logs/:logId",
+              "host": ["{{securityUrl}}"],
+              "path": ["api", "v1", "audit", "logs", ":logId"],
+              "variable": [
+                {
+                  "key": "logId",
+                  "value": "{{logId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Event Types",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{securityUrl}}/api/v1/audit/events/types",
+              "host": ["{{securityUrl}}"],
+              "path": ["api", "v1", "audit", "events", "types"]
+            }
+          }
+        },
+        {
+          "name": "Get Audit Stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{securityUrl}}/api/v1/audit/stats?period=last_30_days",
+              "host": ["{{securityUrl}}"],
+              "path": ["api", "v1", "audit", "stats"],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "last_30_days"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Export Audit Logs",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"format\": \"csv\",\n  \"filters\": {\n    \"eventTypes\": [\"LOGIN_SUCCESS\", \"LOGIN_FAILED\"],\n    \"startDate\": \"2024-01-01\",\n    \"endDate\": \"2024-12-31\",\n    \"userId\": \"user-123\"\n  },\n  \"includeDetails\": true\n}"
+            },
+            "url": {
+              "raw": "{{securityUrl}}/api/v1/audit/export",
+              "host": ["{{securityUrl}}"],
+              "path": ["api", "v1", "audit", "export"]
+            }
+          }
+        },
+        {
+          "name": "Generate Compliance Report",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reportType\": \"security_compliance\",\n  \"period\": {\n    \"startDate\": \"2024-01-01\",\n    \"endDate\": \"2024-12-31\"\n  },\n  \"includeMetrics\": true,\n  \"includeRecommendations\": true,\n  \"format\": \"pdf\"\n}"
+            },
+            "url": {
+              "raw": "{{securityUrl}}/api/v1/audit/compliance-report",
+              "host": ["{{securityUrl}}"],
+              "path": ["api", "v1", "audit", "compliance-report"]
+            }
+          }
+        },
+        {
+          "name": "Get User Activity",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{securityUrl}}/api/v1/audit/user-activity/:userId?startDate=2024-01-01&endDate=2024-12-31",
+              "host": ["{{securityUrl}}"],
+              "path": ["api", "v1", "audit", "user-activity", ":userId"],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2024-01-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2024-12-31"
+                }
+              ],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": "{{userId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Cleanup Old Logs",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"retentionDays\": 365,\n  \"dryRun\": false,\n  \"eventTypes\": [\"LOGIN_SUCCESS\", \"LOGOUT\"]\n}"
+            },
+            "url": {
+              "raw": "{{securityUrl}}/api/v1/audit/cleanup",
+              "host": ["{{securityUrl}}"],
+              "path": ["api", "v1", "audit", "cleanup"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Discussions (Agent Intelligence)",
+      "item": [
+        {
+          "name": "Create Discussion",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Business Strategy Discussion\",\n  \"description\": \"Quarterly business strategy planning session\",\n  \"topic\": \"Q4 Business Strategy\",\n  \"participants\": [\n    {\n      \"personaId\": \"persona-1\",\n      \"role\": \"facilitator\"\n    },\n    {\n      \"personaId\": \"persona-2\",\n      \"role\": \"participant\"\n    }\n  ],\n  \"settings\": {\n    \"turnStrategy\": \"round_robin\",\n    \"maxTurns\": 20,\n    \"turnTimeout\": 300\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/discussions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "discussions"]
+            }
+          }
+        },
+        {
+          "name": "Search Discussions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/discussions/search?query=strategy&status=active",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "discussions", "search"],
+              "query": [
+                {
+                  "key": "query",
+                  "value": "strategy"
+                },
+                {
+                  "key": "status",
+                  "value": "active"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Discussion",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/discussions/:discussionId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "discussions", ":discussionId"],
+              "variable": [
+                {
+                  "key": "discussionId",
+                  "value": "{{discussionId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Discussion",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated Business Strategy Discussion\",\n  \"description\": \"Updated quarterly business strategy planning session\",\n  \"settings\": {\n    \"maxTurns\": 25\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/discussions/:discussionId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "discussions", ":discussionId"],
+              "variable": [
+                {
+                  "key": "discussionId",
+                  "value": "{{discussionId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Start Discussion",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/discussions/:discussionId/start",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "discussions", ":discussionId", "start"],
+              "variable": [
+                {
+                  "key": "discussionId",
+                  "value": "{{discussionId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "End Discussion",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Discussion completed successfully\",\n  \"summary\": \"Key decisions made regarding Q4 strategy\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/discussions/:discussionId/end",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "discussions", ":discussionId", "end"],
+              "variable": [
+                {
+                  "key": "discussionId",
+                  "value": "{{discussionId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Add Participant",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"personaId\": \"persona-3\",\n  \"role\": \"participant\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/discussions/:discussionId/participants",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "discussions", ":discussionId", "participants"],
+              "variable": [
+                {
+                  "key": "discussionId",
+                  "value": "{{discussionId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Remove Participant",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/discussions/:discussionId/participants/:participantId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "discussions", ":discussionId", "participants", ":participantId"],
+              "variable": [
+                {
+                  "key": "discussionId",
+                  "value": "{{discussionId}}"
+                },
+                {
+                  "key": "participantId",
+                  "value": "{{participantId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Send Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"I believe we should focus on digital transformation initiatives for Q4.\",\n  \"messageType\": \"contribution\",\n  \"metadata\": {\n    \"confidence\": 0.8,\n    \"reasoning\": \"Based on market trends and competitor analysis\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/discussions/:discussionId/participants/:participantId/messages",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "discussions", ":discussionId", "participants", ":participantId", "messages"],
+              "variable": [
+                {
+                  "key": "discussionId",
+                  "value": "{{discussionId}}"
+                },
+                {
+                  "key": "participantId",
+                  "value": "{{participantId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Messages",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/discussions/:discussionId/messages?limit=50&offset=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "discussions", ":discussionId", "messages"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ],
+              "variable": [
+                {
+                  "key": "discussionId",
+                  "value": "{{discussionId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Advance Turn",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"force\": false,\n  \"reason\": \"Natural turn progression\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/discussions/:discussionId/advance-turn",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "discussions", ":discussionId", "advance-turn"],
+              "variable": [
+                {
+                  "key": "discussionId",
+                  "value": "{{discussionId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Discussion Analytics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/discussions/:discussionId/analytics",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "discussions", ":discussionId", "analytics"],
+              "variable": [
+                {
+                  "key": "discussionId",
+                  "value": "{{discussionId}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+} 

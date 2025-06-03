@@ -1,27 +1,40 @@
-// Authentication middleware
-export { authMiddleware, requireAdmin, requireOperator, optionalAuth } from './authMiddleware.js';
-
-// Validation middleware
+// Authentication middleware exports
 export { 
-  validateRequest, 
-  validateUUID, 
-  validateJSON, 
+  authMiddleware, 
+  requireAdmin, 
+  requireOperator, 
+  optionalAuth,
+  validateJWTConfiguration,
+  validateJWTSetup,
+  diagnoseJWTSignatureError,
+  testJWTToken
+} from './authMiddleware.js';
+
+// Request validation middleware exports  
+export { 
+  validateRequest,
+  validateUUID,
   validatePagination,
+  validateJSON,
   requireContentType,
   validateRequestSize,
   createCustomValidator
 } from './validateRequest.js';
 
-// Error handling middleware
-export { errorHandler } from './errorHandler.js';
+// Error handling middleware exports
+export { errorHandler, AppError } from './errorHandler.js';
 
-// Metrics middleware
-export { metricsMiddleware } from './metrics.js';
-
-// Rate limiting middleware
+// Rate limiting middleware exports
 export { rateLimiter } from './rateLimiter.js';
 
-// Request logging middleware
+// Metrics middleware exports
+export { 
+  metricsMiddleware, 
+  recordAgentAnalysis, 
+  metricsEndpoint 
+} from './metrics.js';
+
+// Request logging middleware exports
 export { requestLogger, defaultRequestLogger } from './requestLogger.js';
 
 // Type extensions
