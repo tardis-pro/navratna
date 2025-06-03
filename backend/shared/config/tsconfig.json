@@ -1,27 +1,15 @@
 {
+  "extends": "../../tsconfig.build_shared.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "node",
-    "declaration": true,
-    "declarationMap": true,
-    "outDir": "./dist",
-    "rootDir": "./",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "allowSyntheticDefaultImports": true,
     "composite": true,
-    "incremental": true
+    "rootDir": "src",
+    "outDir": "dist",
+    "esModuleInterop": true
   },
   "include": [
-    "./**/*.ts"
+    "src"
   ],
-  "exclude": [
-    "dist",
-    "node_modules",
-    "**/*.test.ts"
-  ]
-} 
+  "references": [
+   
+  ] // if it has imports from others
+}

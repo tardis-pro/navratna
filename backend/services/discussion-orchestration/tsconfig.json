@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.json",
+    "compilerOptions": {
+      "outDir": "dist",          // relative to package root
+      "rootDir": "src",
+      "baseUrl": ".",            // enables clean import paths within the package
+      "paths": {
+        "@/config": ["src/config/index.ts"],
+        "@/services/*": ["src/services/*"],
+        "@/websocket/*": ["src/websocket/*"],
+        "@/strategies/*": ["src/strategies/*"],
+      }
+    },
+    "include": ["src/**/*"],
+   
+  } 

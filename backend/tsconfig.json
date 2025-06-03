@@ -3,28 +3,35 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "node",
-    "declaration": true,
-    "declarationMap": true,
-    "strict": true,
+    "baseUrl": ".",      
+    // "moduleSuffixes": [".js"],            // << added
+    "paths": {
+      "@uaip/types": ["shared/types"],
+     "@uaip/utils": ["shared/utils"],
+      "@uaip/config": ["shared/config"],
+      "@uaip/shared-services": ["shared/services"],
+      "@uaip/middleware": ["shared/middleware"],
+      "@uaip/agent-intelligence": ["services/agent-intelligence"],
+      "@uaip/capability-registry": ["services/capability-registry"],
+      "@uaip/orchestration-pipeline": ["services/orchestration-pipeline"],
+      "@uaip/security-gateway": ["services/security-gateway"],
+      "@uaip/discussion-orchestration": ["services/discussion-orchestration"]
+    },
+
+    /* safety + DX */
+    "strict": false,
+    "resolveJsonModule": true,
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "allowSyntheticDefaultImports": true,
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
+
+    /* build params */
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
     "composite": true,
     "incremental": true
-  },
-  "files": [],
-  "references": [
-    { "path": "./shared/types" },
-    { "path": "./shared/utils" },
-    { "path": "./shared/config" },
-    { "path": "./shared/services" },
-    { "path": "./shared/middleware" },
-    { "path": "./services/agent-intelligence" },
-    { "path": "./services/orchestration-pipeline" },
-    { "path": "./services/capability-registry" }
-  ]
-} 
+    // no outDir / rootDir here – keep those per-package
+  }
+}

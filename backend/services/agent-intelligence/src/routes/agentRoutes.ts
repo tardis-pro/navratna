@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { AgentController } from '../controllers/agentController.js';
-import { validateRequest, validateUUID, validateJSON } from '@uaip/middleware';
+import { validateRequest, validateUUID, validateJSON, authMiddleware } from '@uaip/middleware';
 import { AgentAnalysisSchema, AgentSchema, AgentUpdateSchema, AgentCreateSchema } from '@uaip/types';
 import { AgentPlanRequestSchema } from '@uaip/types';
 
@@ -11,7 +11,7 @@ const agentController = new AgentController();
 router.use(validateJSON());
 
 // Apply authentication middleware to all routes
-// router.use(authMiddleware);
+router.use(authMiddleware);
 
 // POST /api/v1/agents
 router.post(

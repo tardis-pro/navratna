@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.json",
+    "compilerOptions": {
+      "outDir": "dist",          // relative to package root
+      "rootDir": "src",
+      "baseUrl": ".",            // enables clean import paths within the package
+      "paths": {
+        "@/services/*": ["src/services/*"],
+        "@/routes/*": ["src/routes/*"],
+      }
+    },
+    "include": ["src/**/*"],
+  } 

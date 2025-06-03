@@ -6,7 +6,7 @@
   "types": "./dist/index.d.ts",
   "type": "module",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && tsc-alias",
     "dev": "tsc --watch",
     "clean": "rimraf dist"
   },
@@ -14,6 +14,7 @@
     "@uaip/types": "workspace:*",
     "@uaip/utils": "workspace:*",
     "@uaip/config": "workspace:*",
+    "@uaip/middleware": "workspace:*",
     "pg": "^8.11.3",
     "ioredis": "^5.3.2",
     "amqplib": "^0.10.3",
@@ -28,7 +29,8 @@
     "@types/uuid": "^9.0.7",
     "@types/node": "^20.10.5",
     "typescript": "^5.3.3",
-    "rimraf": "^5.0.5"
+    "rimraf": "^5.0.5",
+    "tsc-alias": "^1.8.8"
   },
   "exports": {
     ".": {
@@ -36,35 +38,60 @@
       "require": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
-    "./database": {
+    "./databaseService": {
       "import": "./dist/databaseService.js",
       "require": "./dist/databaseService.js",
       "types": "./dist/databaseService.d.ts"
     },
-    "./agent-intelligence": {
+    "./agentIntelligenceService": {
       "import": "./dist/agentIntelligenceService.js",
       "require": "./dist/agentIntelligenceService.js",
       "types": "./dist/agentIntelligenceService.d.ts"
     },
-    "./capability-discovery": {
+    "./capabilityDiscoveryService": {
       "import": "./dist/capabilityDiscoveryService.js",
       "require": "./dist/capabilityDiscoveryService.js",
       "types": "./dist/capabilityDiscoveryService.d.ts"
     },
-    "./security-validation": {
+    "./securityValidationService": {
       "import": "./dist/securityValidationService.js",
       "require": "./dist/securityValidationService.js",
       "types": "./dist/securityValidationService.d.ts"
     },
-    "./event-bus": {
+    "./eventBusService": {
       "import": "./dist/eventBusService.js",
       "require": "./dist/eventBusService.js",
       "types": "./dist/eventBusService.d.ts"
     },
-    "./state-manager": {
+    "./stateManagerService": {
       "import": "./dist/stateManagerService.js",
       "require": "./dist/stateManagerService.js",
       "types": "./dist/stateManagerService.d.ts"
+    },
+    "./stepExecutorService": {
+      "import": "./dist/stepExecutorService.js",
+      "require": "./dist/stepExecutorService.js",
+      "types": "./dist/stepExecutorService.d.ts"
+    },
+    "./resourceManagerService": {
+      "import": "./dist/resourceManagerService.js",
+      "require": "./dist/resourceManagerService.js",
+      "types": "./dist/resourceManagerService.d.ts"
+    },
+    "./compensationService": {
+      "import": "./dist/compensationService.js",
+      "require": "./dist/compensationService.js",
+      "types": "./dist/compensationService.d.ts"
+    },
+    "./personaService": {
+      "import": "./dist/personaService.js",
+      "require": "./dist/personaService.js",
+      "types": "./dist/personaService.d.ts"
+    },
+    "./discussionService": {
+      "import": "./dist/discussionService.js",
+      "require": "./dist/discussionService.js",
+      "types": "./dist/discussionService.d.ts"
     }
   }
 } 

@@ -6,14 +6,14 @@
   "types": "./dist/index.d.ts",
   "type": "module",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && tsc-alias",
     "dev": "tsc --watch",
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@uaip/config": "workspace:*",
     "@uaip/types": "workspace:*",
     "@uaip/utils": "workspace:*",
+    "@uaip/config": "workspace:*",
     "express": "^4.18.2",
     "express-rate-limit": "^7.5.0",
     "express-validator": "^7.0.1",
@@ -34,30 +34,35 @@
       "require": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
-    "./auth": {
-      "import": "./dist/middleware/authMiddleware.js",
-      "require": "./dist/middleware/authMiddleware.js",
-      "types": "./dist/middleware/authMiddleware.d.ts"
+    "./authMiddleware": {
+      "import": "./dist/authMiddleware.js",
+      "require": "./dist/authMiddleware.js",
+      "types": "./dist/authMiddleware.d.ts"
     },
-    "./validation": {
-      "import": "./dist/middleware/validateRequest.js",
-      "require": "./dist/middleware/validateRequest.js",
-      "types": "./dist/middleware/validateRequest.d.ts"
+    "./validateRequest": {
+      "import": "./dist/validateRequest.js",
+      "require": "./dist/validateRequest.js",
+      "types": "./dist/validateRequest.d.ts"
     },
-    "./errors": {
-      "import": "./dist/middleware/errorHandler.js",
-      "require": "./dist/middleware/errorHandler.js",
-      "types": "./dist/middleware/errorHandler.d.ts"
+    "./errorHandler": {
+      "import": "./dist/errorHandler.js",
+      "require": "./dist/errorHandler.js",
+      "types": "./dist/errorHandler.d.ts"
     },
     "./metrics": {
-      "import": "./dist/middleware/metrics.js",
-      "require": "./dist/middleware/metrics.js",
-      "types": "./dist/middleware/metrics.d.ts"
+      "import": "./dist/metrics.js",
+      "require": "./dist/metrics.js",
+      "types": "./dist/metrics.d.ts"
     },
-    "./rate-limit": {
-      "import": "./dist/middleware/rateLimiter.js",
-      "require": "./dist/middleware/rateLimiter.js",
-      "types": "./dist/middleware/rateLimiter.d.ts"
+    "./rateLimiter": {
+      "import": "./dist/rateLimiter.js",
+      "require": "./dist/rateLimiter.js",
+      "types": "./dist/rateLimiter.d.ts"
+    },
+    "./requestLogger": {
+      "import": "./dist/requestLogger.js",
+      "require": "./dist/requestLogger.js",
+      "types": "./dist/requestLogger.d.ts"
     }
   }
 }

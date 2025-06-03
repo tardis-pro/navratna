@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-import { CapabilityRegistryApp } from './app';
+import { CapabilityRegistryApp } from './app.js';
 import { logger } from '@uaip/utils';
 
 async function main() {

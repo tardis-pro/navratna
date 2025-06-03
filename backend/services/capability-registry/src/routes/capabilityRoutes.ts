@@ -1,8 +1,12 @@
 import { Router } from 'express';
-import { CapabilityController } from '../controllers/capabilityController';
+import { authMiddleware } from '@uaip/middleware';
+import { CapabilityController } from '../controllers/capabilityController.js';
 
 const router: Router = Router();
 const capabilityController = new CapabilityController();
+
+// Apply auth middleware to all routes
+router.use(authMiddleware);
 
 // Search capabilities
 router.get('/search', capabilityController.searchCapabilities);

@@ -5,46 +5,11 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm run dev:agent-intelligence\" \"npm run dev:orchestration\" \"npm run dev:capability-registry\"",
-    "dev:agent-intelligence": "cd services/agent-intelligence && npm run dev",
-    "dev:orchestration": "cd services/orchestration-pipeline && npm run dev",
-    "dev:capability-registry": "cd services/capability-registry && npm run dev",
-    "dev:local": "npm run infrastructure:up && npm run dev:wait-infrastructure && npm run dev",
-    "dev:local:agent": "cd services/agent-intelligence && npm run dev",
-    "dev:local:orchestration": "cd services/orchestration-pipeline && npm run dev",
-    "dev:local:capability": "cd services/capability-registry && npm run dev",
-    "infrastructure:up": "docker-compose -f docker-compose.infrastructure.yml up -d",
-    "infrastructure:down": "docker-compose -f docker-compose.infrastructure.yml down",
-    "infrastructure:logs": "docker-compose -f docker-compose.infrastructure.yml logs -f",
-    "infrastructure:status": "docker-compose -f docker-compose.infrastructure.yml ps",
-    "infrastructure:restart": "npm run infrastructure:down && npm run infrastructure:up",
-    "monitoring:up": "docker-compose -f docker-compose.infrastructure.yml --profile monitoring up -d",
-    "monitoring:down": "docker-compose -f docker-compose.infrastructure.yml --profile monitoring down",
-    "dev:wait-infrastructure": "node scripts/wait-for-infrastructure.js",
-    "dev:setup": "npm run config:dev && npm run infrastructure:up && npm run dev:wait-infrastructure",
-    "config:dev": "node config.development.js",
-    "test:setup": "node scripts/test-setup.js",
-    "build": "npm run build:shared && npm run build:services",
-    "build:shared": "npm run build:types && npm run build:utils && npm run build:config && npm run build:services-shared && npm run build:middleware",
-    "build:types": "cd shared/types && npm run build",
-    "build:utils": "cd shared/utils && npm run build",
-    "build:config": "cd shared/config && npm run build",
-    "build:services-shared": "cd shared/services && npm run build",
-    "build:middleware": "cd shared/middleware && npm run build",
-    "build:services": "cd services/agent-intelligence && npm run build && cd ../orchestration-pipeline && npm run build && cd ../capability-registry && npm run build",
-    "build:bundle": "node esbuild.config.js",
-    "clean": "rimraf dist shared/*/dist services/*/dist",
-    "type-check": "tsc --build",
-    "lint": "eslint shared/**/*.ts services/**/*.ts --ext .ts",
-    "lint:fix": "eslint shared/**/*.ts services/**/*.ts --ext .ts --fix",
-    "test": "npm run test:services",
-    "test:services": "cd services/agent-intelligence && npm test && cd ../orchestration-pipeline && npm test && cd ../capability-registry && npm test",
-    "docker:build": "docker-compose build",
-    "docker:up": "docker-compose up -d",
-    "docker:down": "docker-compose down",
-    "docker:logs": "docker-compose logs -f",
-    "db:migrate": "cd services/agent-intelligence && npm run db:migrate",
-    "db:seed": "cd services/agent-intelligence && npm run db:seed"
+    "clean": "pnpm exec tsc -b tsconfig.build.json --clean && pnpm exec tsc -b tsconfig.build_shared.json --clean",
+    "build-services": "pnpm exec tsc -b tsconfig.build.json",
+    "build-shared": "pnpm exec tsc -b tsconfig.build_shared.json ",
+    "dev": "pnpm -r run dev",
+    "lint": "pnpm -r exec eslint . --ext .ts"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^6.15.0",
@@ -54,11 +19,19 @@
     "eslint": "^8.56.0",
     "glob": "^10.3.10",
     "rimraf": "^5.0.5",
+    "tsc-alias": "^1.8.8",
     "typescript": "^5.3.3"
   },
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=9.0.0"
   },
-  "license": "MIT"
-} 
+  "license": "MIT",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "bcrypt",
+      "esbuild",
+      "msgpackr-extract"
+    ]
+  }
+}

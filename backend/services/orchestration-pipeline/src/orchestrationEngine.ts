@@ -85,9 +85,17 @@ export class OrchestrationEngine extends EventEmitter {
       await this.validateOperation(operation);
 
       // Check resource availability
-      const resourceCheck = await this.resourceManagerService.checkResourceAvailability(
-        operation.context.executionContext.resourceLimits
-      );
+      const defaultResourceLimits = {
+        maxMemory: 1024 * 1024 * 1024,
+        maxCpu: 2,
+        maxDuration: 3600000
+      };
+      const resourceLimits = {
+        maxMemory: operation.context?.executionContext?.resourceLimits?.maxMemory || defaultResourceLimits.maxMemory,
+        maxCpu: operation.context?.executionContext?.resourceLimits?.maxCpu || defaultResourceLimits.maxCpu,
+        maxDuration: operation.context?.executionContext?.resourceLimits?.maxDuration || defaultResourceLimits.maxDuration
+      };
+      const resourceCheck = await this.resourceManagerService.checkResourceAvailability(resourceLimits);
       
       if (!resourceCheck.available) {
         throw new Error(`Insufficient resources: ${resourceCheck.reason}`);
@@ -95,13 +103,13 @@ export class OrchestrationEngine extends EventEmitter {
 
       // Allocate resources
       const resourceAllocation = await this.resourceManagerService.allocateResources(
-        operation.id,
-        operation.context.executionContext.resourceLimits
+        operation.id || '',
+        resourceLimits
       );
 
       // Create workflow instance
       const workflowInstance = await this.createWorkflowInstance(operation);
-      this.activeOperations.set(operation.id, workflowInstance);
+      this.activeOperations.set(operation.id || '', workflowInstance);
 
       // Set operation timeout
       this.setOperationTimeout(operation);
@@ -115,7 +123,7 @@ export class OrchestrationEngine extends EventEmitter {
         estimatedDuration: operation.estimatedDuration
       });
 
-      return workflowInstance.id;
+      return workflowInstance.id || '';
 
     } catch (error) {
       logger.error('Failed to execute operation', {
@@ -124,7 +132,7 @@ export class OrchestrationEngine extends EventEmitter {
         duration: Date.now() - startTime
       });
 
-      await this.handleOperationFailure(operation.id, error);
+      await this.handleOperationFailure(operation.id || '', error);
       throw error;
     }
   }
@@ -293,8 +301,8 @@ export class OrchestrationEngine extends EventEmitter {
       const state = await this.stateManagerService.getOperationState(operationId);
       const workflowInstance = this.activeOperations.get(operationId);
 
-      const totalSteps = operation.executionPlan.steps.length;
-      const completedSteps = state?.completedSteps.length || 0;
+      const totalSteps = operation.executionPlan?.steps?.length || 0;
+      const completedSteps = state?.completedSteps?.length || 0;
       const percentage = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
 
       const metrics = await this.calculateOperationMetrics(operationId);
@@ -361,7 +369,7 @@ export class OrchestrationEngine extends EventEmitter {
         stepId
       });
 
-      return checkpoint.id;
+      return checkpoint.id!;
 
     } catch (error) {
       logger.error('Failed to create checkpoint', { operationId, error: error instanceof Error ? error.message : String(error) });
@@ -375,13 +383,13 @@ export class OrchestrationEngine extends EventEmitter {
 
   private async validateOperation(operation: Operation): Promise<void> {
     // Validate execution plan
-    if (!operation.executionPlan.steps || operation.executionPlan.steps.length === 0) {
+    if (!operation.executionPlan?.steps || operation.executionPlan.steps.length === 0) {
       throw new Error('Operation execution plan must contain at least one step');
     }
 
     // Validate step dependencies
     const stepIds = new Set(operation.executionPlan.steps.map((step: any) => step.id));
-    for (const dependency of operation.executionPlan.dependencies) {
+    for (const dependency of operation.executionPlan?.dependencies || []) {
       if (typeof dependency === 'string') {
         // Simple string dependency format
         if (!stepIds.has(dependency)) {
@@ -404,14 +412,15 @@ export class OrchestrationEngine extends EventEmitter {
     }
 
     // Validate resource limits
-    const limits = operation.context.executionContext.resourceLimits;
-    if (limits.maxMemory <= 0 || limits.maxCpu <= 0 || limits.maxDuration <= 0) {
+    const limits = operation.context?.executionContext?.resourceLimits;
+    if (!limits || (limits.maxMemory || 0) <= 0 || (limits.maxCpu || 0) <= 0 || (limits.maxDuration || 0) <= 0) {
       throw new Error('Resource limits must be positive values');
     }
 
     // Validate timeouts
     const executionConfig = config.getExecutionConfig();
-    if (operation.context.executionContext.timeout > executionConfig.operationTimeoutMax) {
+    const timeout = operation.context?.executionContext?.timeout || 300000;
+    if (timeout > executionConfig.operationTimeoutMax) {
       throw new Error(`Operation timeout exceeds maximum allowed: ${executionConfig.operationTimeoutMax}ms`);
     }
   }
@@ -419,12 +428,22 @@ export class OrchestrationEngine extends EventEmitter {
   private async createWorkflowInstance(operation: Operation): Promise<WorkflowInstance> {
     const workflowInstance: WorkflowInstance = {
       id: uuidv4(),
-      operationId: operation.id,
+      operationId: operation.id || '',
       status: OperationStatus.QUEUED,
       currentStepIndex: 0,
-      executionContext: operation.context.executionContext,
+      executionContext: operation.context?.executionContext || {
+        agentId: '',
+        userId: '',
+        environment: 'development' as const,
+        timeout: 300000,
+        resourceLimits: {
+          maxMemory: 1024 * 1024 * 1024,
+          maxCpu: 2,
+          maxDuration: 3600000
+        }
+      },
       state: {
-        operationId: operation.id,
+        operationId: operation.id || '',
         completedSteps: [],
         failedSteps: [],
         variables: {},
@@ -439,7 +458,14 @@ export class OrchestrationEngine extends EventEmitter {
     await this.databaseService.createWorkflowInstance(workflowInstance);
     
     // Initialize state
-    await this.stateManagerService.initializeOperationState(operation.id, workflowInstance.state);
+    await this.stateManagerService.initializeOperationState(operation.id || '', workflowInstance.state || {
+      operationId: operation.id || '',
+      completedSteps: [],
+      failedSteps: [],
+      variables: {},
+      checkpoints: [],
+      lastUpdated: new Date()
+    });
 
     return workflowInstance;
   }
@@ -450,14 +476,14 @@ export class OrchestrationEngine extends EventEmitter {
       workflowInstance.status = OperationStatus.RUNNING;
       workflowInstance.updatedAt = new Date();
 
-      await this.stateManagerService.updateOperationState(workflowInstance.operationId, {
+      await this.stateManagerService.updateOperationState(workflowInstance.operationId || '', {
         status: OperationStatus.RUNNING,
         startedAt: new Date()
       });
 
       // Emit operation started event
       await this.emitOperationEvent(
-        workflowInstance.operationId,
+        workflowInstance.operationId || '',
         OperationEventType.OPERATION_STARTED,
         { workflowInstanceId: workflowInstance.id }
       );
@@ -470,26 +496,27 @@ export class OrchestrationEngine extends EventEmitter {
         operationId: workflowInstance.operationId,
         error: error instanceof Error ? error.message : String(error)
       });
-      await this.handleOperationFailure(workflowInstance.operationId, error);
+      await this.handleOperationFailure(workflowInstance.operationId || '', error);
     }
   }
 
   private async continueOperationExecution(workflowInstance: WorkflowInstance): Promise<void> {
     try {
-      const operation = await this.databaseService.getOperation(workflowInstance.operationId);
+      const operation = await this.databaseService.getOperation(workflowInstance.operationId || '');
       if (!operation) {
         throw new Error(`Operation ${workflowInstance.operationId} not found`);
       }
 
+      // Get next executable steps
       const nextSteps = await this.getNextExecutableSteps(operation, workflowInstance);
-      
+
       if (nextSteps.length === 0) {
-        // No more steps to execute - check if operation is complete
+        // No more steps to execute, check if operation is complete
         await this.checkOperationCompletion(workflowInstance);
         return;
       }
 
-      // Execute next steps
+      // Execute steps
       await this.executeSteps(operation, workflowInstance, nextSteps);
 
     } catch (error) {
@@ -497,7 +524,7 @@ export class OrchestrationEngine extends EventEmitter {
         operationId: workflowInstance.operationId,
         error: error instanceof Error ? error.message : String(error)
       });
-      await this.handleOperationFailure(workflowInstance.operationId, error);
+      await this.handleOperationFailure(workflowInstance.operationId || '', error);
     }
   }
 
@@ -505,23 +532,22 @@ export class OrchestrationEngine extends EventEmitter {
     operation: Operation,
     workflowInstance: WorkflowInstance
   ): Promise<any[]> {
-    const { steps, dependencies } = operation.executionPlan;
-    const parallelGroups = (operation.executionPlan as any).parallelGroups || [];
-    const { completedSteps, failedSteps } = workflowInstance.state;
+    const { steps, dependencies } = operation.executionPlan || { steps: [], dependencies: [] };
+    const { completedSteps, failedSteps } = workflowInstance.state || { completedSteps: [], failedSteps: [] };
     
     const executableSteps: any[] = [];
     const completedStepIds = new Set(completedSteps);
     const failedStepIds = new Set(failedSteps);
 
     // Find steps that can be executed
-    for (const step of steps) {
+    for (const step of steps || []) {
       // Skip if already completed or failed
-      if (completedStepIds.has(step.id) || failedStepIds.has(step.id)) {
+      if (completedStepIds.has(step.id || '') || failedStepIds.has(step.id || '')) {
         continue;
       }
 
       // Check if all dependencies are satisfied
-      const stepDependencies = dependencies.filter((dep: any) => {
+      const stepDependencies = (dependencies || []).filter((dep: any) => {
         if (typeof dep === 'string') return false;
         return dep.stepId === step.id;
       });
@@ -533,7 +559,7 @@ export class OrchestrationEngine extends EventEmitter {
         // Check step condition if present
         const stepCondition = (step as any).condition;
         if (stepCondition) {
-          const conditionResult = await this.evaluateStepCondition(stepCondition, workflowInstance.state.variables);
+          const conditionResult = await this.evaluateStepCondition(stepCondition, workflowInstance.state?.variables || {});
           if (!conditionResult) {
             continue;
           }
@@ -544,7 +570,7 @@ export class OrchestrationEngine extends EventEmitter {
     }
 
     // Handle parallel groups
-    const filteredSteps = this.filterStepsForParallelExecution(executableSteps, parallelGroups);
+    const filteredSteps = this.filterStepsForParallelExecution(executableSteps, (operation.executionPlan as any).parallelGroups || []);
     
     return filteredSteps;
   }
@@ -586,17 +612,19 @@ export class OrchestrationEngine extends EventEmitter {
       });
 
       // Update current step
-      workflowInstance.state.currentStep = step.id;
-      await this.stateManagerService.updateOperationState(workflowInstance.operationId, {
+      if (workflowInstance.state) {
+        workflowInstance.state.currentStep = step.id;
+      }
+      await this.stateManagerService.updateOperationState(workflowInstance.operationId || '', {
         currentStep: step.id
       });
 
       // Set step timeout
-      this.setStepTimeout(workflowInstance.operationId, step);
+      this.setStepTimeout(workflowInstance.operationId || '', step);
 
       // Emit step started event
       await this.emitOperationEvent(
-        workflowInstance.operationId,
+        workflowInstance.operationId || '',
         OperationEventType.STEP_STARTED,
         { stepId: step.id, stepName: step.name }
       );
@@ -604,12 +632,24 @@ export class OrchestrationEngine extends EventEmitter {
       // Execute the step
       const stepResult = await this.stepExecutorService.executeStep(
         step,
-        workflowInstance.state.variables,
-        operation.context
+        workflowInstance.state?.variables || {},
+        {
+          executionContext: operation.context?.executionContext || {
+            agentId: '',
+            userId: '',
+            environment: 'development' as const,
+            timeout: 300000,
+            resourceLimits: {
+              maxMemory: 1024 * 1024 * 1024,
+              maxCpu: 2,
+              maxDuration: 3600000
+            }
+          }
+        }
       );
 
       // Clear step timeout
-      this.clearStepTimeout(workflowInstance.operationId, step.id);
+      this.clearStepTimeout(workflowInstance.operationId || '', step.id);
 
       // Process step result
       await this.processStepResult(workflowInstance, step, stepResult, startTime);
@@ -617,7 +657,7 @@ export class OrchestrationEngine extends EventEmitter {
       // Create progress checkpoint
       if (step.type !== 'delay') {
         await this.createCheckpoint(
-          workflowInstance.operationId,
+          workflowInstance.operationId || '',
           CheckpointType.PROGRESS_MARKER,
           step.id
         );
@@ -628,7 +668,7 @@ export class OrchestrationEngine extends EventEmitter {
 
     } catch (error) {
       // Clear step timeout
-      this.clearStepTimeout(workflowInstance.operationId, step.id);
+      this.clearStepTimeout(workflowInstance.operationId || '', step.id);
 
       await this.handleStepFailure(workflowInstance, step, error, startTime);
     }
@@ -681,14 +721,16 @@ export class OrchestrationEngine extends EventEmitter {
     const duration = Date.now() - startTime;
 
     // Update step result in database
-    await this.databaseService.saveStepResult(workflowInstance.operationId, result);
+    await this.databaseService.saveStepResult(workflowInstance.operationId || '', result);
 
     if (result.status === StepStatus.COMPLETED) {
       // Add to completed steps
-      workflowInstance.state.completedSteps.push(step.id);
+      if (workflowInstance.state?.completedSteps) {
+        workflowInstance.state.completedSteps.push(step.id);
+      }
       
       // Update variables with step output
-      if (step.outputMapping) {
+      if (step.outputMapping && workflowInstance.state?.variables) {
         for (const [outputKey, variableName] of Object.entries(step.outputMapping)) {
           if (result.data && typeof result.data === 'object' && outputKey in result.data) {
             workflowInstance.state.variables[variableName as string] = (result.data as any)[outputKey];
@@ -704,11 +746,10 @@ export class OrchestrationEngine extends EventEmitter {
 
       // Emit step completed event
       await this.emitOperationEvent(
-        workflowInstance.operationId,
+        workflowInstance.operationId || '',
         OperationEventType.STEP_COMPLETED,
         { 
           stepId: step.id,
-          stepName: step.name,
           duration,
           result: result.data
         }
@@ -719,8 +760,10 @@ export class OrchestrationEngine extends EventEmitter {
     }
 
     // Update state
-    workflowInstance.state.lastUpdated = new Date();
-    await this.stateManagerService.updateOperationState(workflowInstance.operationId, workflowInstance.state);
+    if (workflowInstance.state) {
+      workflowInstance.state.lastUpdated = new Date();
+      await this.stateManagerService.updateOperationState(workflowInstance.operationId || '', workflowInstance.state);
+    }
   }
 
   private async handleStepFailure(
@@ -731,54 +774,66 @@ export class OrchestrationEngine extends EventEmitter {
   ): Promise<void> {
     const duration = Date.now() - startTime;
 
-    logger.error('Step execution failed', {
-      operationId: workflowInstance.operationId,
-      stepId: step.id,
-      stepName: step.name,
-      error: error instanceof Error ? error.message : String(error),
-      duration
-    });
-
-    // Add to failed steps
-    workflowInstance.state.failedSteps.push(step.id);
-
-    // Check retry policy
-    const shouldRetry = await this.shouldRetryStep(step, workflowInstance.operationId, error);
-    
-    if (shouldRetry) {
-      logger.info('Retrying step', {
+    try {
+      logger.error('Step failed', {
         operationId: workflowInstance.operationId,
-        stepId: step.id
-      });
-
-      // Remove from failed steps for retry
-      workflowInstance.state.failedSteps = workflowInstance.state.failedSteps.filter((id: string) => id !== step.id);
-      
-      // Schedule retry with backoff
-      await this.scheduleStepRetry(workflowInstance, step);
-      return;
-    }
-
-    // Emit step failed event
-    await this.emitOperationEvent(
-      workflowInstance.operationId,
-      OperationEventType.STEP_FAILED,
-      {
         stepId: step.id,
-        stepName: step.name,
         error: error instanceof Error ? error.message : String(error),
         duration
-      }
-    );
+      });
 
-    // Check if operation should fail
-    const shouldFailOperation = await this.shouldFailOperation(workflowInstance, step);
-    
-    if (shouldFailOperation) {
-      await this.handleOperationFailure(workflowInstance.operationId, error);
-    } else {
-      // Continue with remaining steps
-      await this.continueOperationExecution(workflowInstance);
+      // Add to failed steps
+      if (workflowInstance.state?.failedSteps) {
+        workflowInstance.state.failedSteps.push(step.id);
+      }
+
+      // Check retry policy
+      const shouldRetry = await this.shouldRetryStep(step, workflowInstance.operationId || '', error);
+      
+      if (shouldRetry) {
+        logger.info('Retrying failed step', {
+          operationId: workflowInstance.operationId,
+          stepId: step.id,
+          attempt: (step.retryCount || 0) + 1
+        });
+
+        // Remove from failed steps for retry
+        if (workflowInstance.state?.failedSteps) {
+          workflowInstance.state.failedSteps = workflowInstance.state.failedSteps.filter((id: string) => id !== step.id);
+        }
+        
+        // Schedule retry with backoff
+        await this.scheduleStepRetry(workflowInstance, step);
+      } else {
+        // Check if operation should fail
+        const shouldFailOp = await this.shouldFailOperation(workflowInstance, step);
+        if (shouldFailOp) {
+          await this.handleOperationFailure(
+            workflowInstance.operationId || '',
+            new Error(`Critical step failed: ${step.id}`)
+          );
+        }
+      }
+
+      // Emit step failed event
+      await this.emitOperationEvent(
+        workflowInstance.operationId || '',
+        OperationEventType.STEP_FAILED,
+        { 
+          stepId: step.id,
+          error: error instanceof Error ? error.message : String(error),
+          duration
+        }
+      );
+
+    } catch (handlingError: any) {
+      logger.error('Failed to handle step failure', {
+        operationId: workflowInstance.operationId,
+        stepId: step.id,
+        originalError: error instanceof Error ? error.message : String(error),
+        handlingError: handlingError instanceof Error ? handlingError.message : String(handlingError)
+      });
+      await this.handleOperationFailure(workflowInstance.operationId || '', handlingError);
     }
   }
 
@@ -803,18 +858,22 @@ export class OrchestrationEngine extends EventEmitter {
       // Update state
       await this.stateManagerService.updateOperationState(operationId, {
         status: OperationStatus.FAILED,
-        completedAt: new Date(),
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
+        completedAt: new Date()
       });
 
       // Clear timeouts
       this.clearOperationTimeout(operationId);
 
       // Emit event
-      await this.emitOperationEvent(operationId, OperationEventType.OPERATION_FAILED, {
-        error: error instanceof Error ? error.message : String(error),
-        timestamp: new Date()
-      });
+      await this.emitOperationEvent(
+        operationId,
+        OperationEventType.OPERATION_FAILED,
+        { 
+          error: error instanceof Error ? error.message : String(error),
+          timestamp: new Date()
+        }
+      );
 
     } catch (cleanupError) {
       logger.error('Failed to handle operation failure', {
@@ -831,66 +890,73 @@ export class OrchestrationEngine extends EventEmitter {
         reason
       });
 
-      workflowInstance.status = OperationStatus.COMPENSATING;
-      await this.stateManagerService.updateOperationState(workflowInstance.operationId, {
-        status: OperationStatus.COMPENSATING
+      // Update operation status
+      await this.stateManagerService.updateOperationState(workflowInstance.operationId || '', {
+        status: OperationStatus.FAILED,
+        error: reason,
+        completedAt: new Date()
       });
 
-      await this.compensationService.runCompensation(
-        workflowInstance.operationId,
-        workflowInstance.state.completedSteps,
-        reason
+      // Emit operation failed event
+      await this.emitOperationEvent(
+        workflowInstance.operationId || '',
+        OperationEventType.OPERATION_FAILED,
+        { 
+          error: reason,
+          timestamp: new Date()
+        }
       );
 
     } catch (error) {
-      logger.error('Compensation failed', {
+      logger.error('Failed to run compensation', {
         operationId: workflowInstance.operationId,
         error: error instanceof Error ? error.message : String(error)
       });
+      throw error;
     }
   }
 
   private async checkOperationCompletion(workflowInstance: WorkflowInstance): Promise<void> {
-    const operation = await this.databaseService.getOperation(workflowInstance.operationId);
+    const operation = await this.databaseService.getOperation(workflowInstance.operationId || '');
     if (!operation) {
       throw new Error(`Operation ${workflowInstance.operationId} not found`);
     }
 
-    const totalSteps = operation.executionPlan.steps.length;
-    const completedSteps = workflowInstance.state.completedSteps.length;
-    const failedSteps = workflowInstance.state.failedSteps.length;
+    const completedSteps = workflowInstance.state?.completedSteps?.length || 0;
+    const failedSteps = workflowInstance.state?.failedSteps?.length || 0;
+    const totalSteps = operation.executionPlan?.steps?.length || 0;
 
     if (completedSteps + failedSteps >= totalSteps) {
       // Operation is complete
-      workflowInstance.status = OperationStatus.COMPLETED;
-      
-      // Generate operation result
       const operationResult = await this.generateOperationResult(workflowInstance);
-      
-      // Update database
-      await this.databaseService.updateOperationResult(workflowInstance.operationId, operationResult);
-      
+
+      // Update operation status
+      await this.databaseService.updateOperationResult(workflowInstance.operationId || '', operationResult);
+
       // Update state
-      await this.stateManagerService.updateOperationState(workflowInstance.operationId, {
+      await this.stateManagerService.updateOperationState(workflowInstance.operationId || '', {
         status: OperationStatus.COMPLETED,
         completedAt: new Date(),
-        result: operationResult
+        result: operationResult.result
       });
 
-      // Clean up resources
-      await this.resourceManagerService.releaseResources(workflowInstance.operationId);
+      // Release resources
+      await this.resourceManagerService.releaseResources(workflowInstance.operationId || '');
 
       // Remove from active operations
-      this.activeOperations.delete(workflowInstance.operationId);
+      this.activeOperations.delete(workflowInstance.operationId || '');
 
       // Clear timeouts
-      this.clearOperationTimeout(workflowInstance.operationId);
+      this.clearOperationTimeout(workflowInstance.operationId || '');
 
-      // Emit completion event
+      // Emit operation completed event
       await this.emitOperationEvent(
-        workflowInstance.operationId,
+        workflowInstance.operationId || '',
         OperationEventType.OPERATION_COMPLETED,
-        { result: operationResult }
+        { 
+          result: operationResult,
+          timestamp: new Date()
+        }
       );
 
       logger.info('Operation completed', {
@@ -955,22 +1021,27 @@ export class OrchestrationEngine extends EventEmitter {
   
   private setOperationTimeout(operation: Operation): void {
     const timeout = setTimeout(async () => {
+      logger.warn('Operation timeout reached', { 
+        operationId: operation.id,
+        timeout: operation.context?.executionContext?.timeout || 300000
+      });
+      
       try {
         await this.cancelOperation(
-          operation.id,
-          'Operation timeout exceeded',
-          true,
-          false
+          operation.id || '',
+          'Operation timeout',
+          true, // compensate
+          true  // force
         );
       } catch (error) {
-        logger.error('Failed to handle operation timeout', {
+        logger.error('Failed to cancel timed out operation', { 
           operationId: operation.id,
           error: error instanceof Error ? error.message : String(error)
         });
       }
-    }, operation.context.executionContext.timeout);
+    }, operation.context?.executionContext?.timeout || 300000);
 
-    this.operationTimeouts.set(operation.id, timeout);
+    this.operationTimeouts.set(operation.id || '', timeout);
   }
 
   private clearOperationTimeout(operationId: string): void {
@@ -1100,11 +1171,20 @@ export class OrchestrationEngine extends EventEmitter {
     
     setTimeout(async () => {
       step.metadata = { ...step.metadata, retryCount: retryCount + 1 };
-      await this.executeSingleStep(
-        await this.databaseService.getOperation(workflowInstance.operationId),
-        workflowInstance,
-        step
-      );
+      
+      const operationId = workflowInstance.operationId;
+      if (!operationId) {
+        logger.error('Cannot retry step: workflowInstance.operationId is undefined', { stepId: step.id });
+        return;
+      }
+      
+      const operation = await this.databaseService.getOperation(operationId);
+      if (!operation) {
+        logger.error('Cannot retry step: operation not found', { operationId, stepId: step.id });
+        return;
+      }
+      
+      await this.executeSingleStep(operation, workflowInstance, step);
     }, delay);
   }
 
@@ -1114,13 +1194,20 @@ export class OrchestrationEngine extends EventEmitter {
   }
 
   private async generateOperationResult(workflowInstance: WorkflowInstance): Promise<OperationResult> {
-    return {
-      operationId: workflowInstance.operationId,
-      status: workflowInstance.status,
-      result: workflowInstance.state.variables,
-      metrics: await this.calculateOperationMetrics(workflowInstance.operationId),
+    const operation = await this.databaseService.getOperation(workflowInstance.operationId || '');
+    if (!operation) {
+      throw new Error(`Operation ${workflowInstance.operationId} not found`);
+    }
+
+    const operationResult = {
+      operationId: workflowInstance.operationId || '',
+      status: OperationStatus.COMPLETED,
+      result: workflowInstance.state?.variables || {},
+      metrics: await this.calculateOperationMetrics(workflowInstance.operationId || ''),
       completedAt: new Date()
     };
+
+    return operationResult;
   }
 
   private async cleanupOrphanedOperations(): Promise<void> {
@@ -1128,9 +1215,17 @@ export class OrchestrationEngine extends EventEmitter {
     const cutoffTime = Date.now() - (24 * 60 * 60 * 1000); // 24 hours
     
     for (const [operationId, workflowInstance] of this.activeOperations) {
-      if (workflowInstance.createdAt.getTime() < cutoffTime) {
+      if (workflowInstance.createdAt && workflowInstance.createdAt.getTime() < cutoffTime) {
         logger.warn('Cleaning up orphaned operation', { operationId });
-        await this.cancelOperation(operationId, 'Orphaned operation cleanup', false, true);
+        
+        try {
+          await this.cancelOperation(operationId, 'Orphaned operation cleanup', false, true);
+        } catch (error) {
+          logger.error('Failed to cleanup orphaned operation', { 
+            operationId,
+            error: error instanceof Error ? error.message : String(error)
+          });
+        }
       }
     }
   }

@@ -1,0 +1,14 @@
+{
+  "files": [],               // leave empty
+  "references": [
+    { "path": "./shared/types" },
+    { "path": "./shared/utils" },
+    { "path": "./shared/config" },
+    { "path": "./shared/middleware" },
+    { "path": "./shared/services" },
+    
+  ],
+  "compilerOptions": {
+    "outDir": "./dist" // ✅ Required for tsc-alias to function
+  }
+}

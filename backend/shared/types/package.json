@@ -4,9 +4,11 @@
   "description": "Shared TypeScript types for UAIP services",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "type": "module",
   "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch"
+    "build": "tsc && tsc-alias",
+    "dev": "tsc --watch",
+    "clean": "rimraf dist"
   },
   "dependencies": {
     "zod": "^3.22.4"
