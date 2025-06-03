@@ -1,0 +1,15 @@
+{
+  "files": [],               // leave empty
+  "references": [
+    { "path": "./shared/types" },
+    { "path": "./shared/utils" },
+    { "path": "./shared/config" },
+    { "path": "./shared/middleware" },
+    { "path": "./shared/services" },
+    { "path": "./services/agent-intelligence" },
+    { "path": "./services/capability-registry" },
+    { "path": "./services/orchestration-pipeline" },
+    { "path": "./services/security-gateway" },
+    { "path": "./services/discussion-orchestration" }
+  ]
+}
