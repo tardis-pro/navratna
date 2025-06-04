@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 // Get the directory of this module
 // const __filename = fileURLToPath(import.meta.url);
 
-const __dirname = '/app/';
+const __dirname = '/home/pronit/workspace/council-of-nycea/backend/';
 
 // Load environment variables from root .env file
 dotenv.config({ path: path.resolve(__dirname, '.env') });

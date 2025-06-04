@@ -88,6 +88,12 @@ function createDefaultToolProperties(): {
 function agentReducer(state: Record<string, AgentState>, action: AgentAction): Record<string, AgentState> {
   switch (action.type) {
     case 'ADD_AGENT': {
+      // Validate payload
+      if (!action.payload || !action.payload.id) {
+        console.error('ADD_AGENT: Invalid payload - missing agent or id', action.payload);
+        return state;
+      }
+      
       // Ensure new agents have tool properties
       const toolProperties = createDefaultToolProperties();
       return {
@@ -100,10 +106,18 @@ function agentReducer(state: Record<string, AgentState>, action: AgentAction): R
       };
     }
     case 'REMOVE_AGENT': {
+      if (!action.payload) {
+        console.error('REMOVE_AGENT: Invalid payload - missing agent id', action.payload);
+        return state;
+      }
       const { [action.payload]: removed, ...rest } = state;
       return rest;
     }
     case 'UPDATE_AGENT': {
+      if (!action.payload || !action.payload.id) {
+        console.error('UPDATE_AGENT: Invalid payload - missing id', action.payload);
+        return state;
+      }
       const existingAgent = state[action.payload.id];
       if (!existingAgent) return state;
       return {
@@ -173,6 +187,17 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   const [agents, dispatch] = useReducer(agentReducer, {});
 
   const addAgent = (agent: AgentState) => {
+    if (!agent) {
+      console.error('addAgent: Cannot add undefined agent');
+      return;
+    }
+    
+    if (!agent.id) {
+      console.error('addAgent: Agent missing required id property', agent);
+      return;
+    }
+    
+    console.log('Adding agent:', agent);
     dispatch({ type: 'ADD_AGENT', payload: agent });
   };
 

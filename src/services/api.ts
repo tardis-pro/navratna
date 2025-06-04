@@ -1,16 +1,26 @@
 /**
- * UAIP Backend API Client
- * 
+ * UAIP Backend API Client and Types
+ *
  * This file serves as a bridge between the frontend and backend services.
  * It provides typed interfaces and methods for all available API endpoints.
- * 
+ *
  * All requests go through the API Gateway which routes to appropriate services:
  * - Agent Intelligence Service (via /api/v1/agents)
- * - Capability Registry Service (via /api/v1/capabilities) 
+ * - Capability Registry Service (via /api/v1/capabilities)
  * - Orchestration Pipeline Service (via /api/v1/operations)
+ * - Persona Management Service (via /api/v1/personas)
  */
 
 import { API_ROUTES, buildAPIURL } from '@/config/apiConfig';
+
+
+// Re-export types
+export type {
+  PersonaAnalytics,
+  PersonaValidation,
+  AgentCapabilityMetrics
+};
+import { PersonaAnalytics, PersonaValidation, AgentCapabilityMetrics } from '@/types/uaip-interfaces';
 
 // Base configuration
 export interface APIConfig {
@@ -464,21 +474,199 @@ export class UAIPAPIClient {
     options: RequestInit = {}
   ): Promise<APIResponse<T>> {
     const url = `${this.config.baseURL || ''}${endpoint}`;
-    
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        ...this.config.headers,
-        ...options.headers,
-      },
-      signal: AbortSignal.timeout(this.config.timeout || 30000),
-    });
+    const token = this.getStoredToken();
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    // Handle body serialization and Content-Type header
+    let processedOptions = { ...options };
+    
+    if (options.body && typeof options.body === 'object' && !(options.body instanceof FormData)) {
+      // Automatically serialize objects to JSON and set Content-Type
+      processedOptions.body = JSON.stringify(options.body);
+      processedOptions.headers = {
+        'Content-Type': 'application/json',
+        ...processedOptions.headers,
+      };
     }
 
-    return response.json();
+    const config: RequestInit = {
+      ...processedOptions,
+      headers: {
+        ...this.config.headers,
+        ...(token && { Authorization: `Bearer ${token}` }),
+        ...processedOptions.headers,
+      },
+      signal: AbortSignal.timeout(this.config.timeout || 30000),
+    };
+
+    try {
+      let response = await fetch(url, config);
+
+      // Handle token expiration
+      if (response.status === 401 && token) {
+        try {
+          const newToken = await this.refreshAuthToken();
+          if (newToken) {
+            // Retry with new token
+            config.headers = {
+              ...config.headers,
+              Authorization: `Bearer ${newToken}`,
+            };
+            response = await fetch(url, config);
+          }
+        } catch (refreshError) {
+          // Token refresh failed, redirect to login
+          this.handleAuthFailure();
+          throw new Error('Authentication failed');
+        }
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      // Ensure response follows APIResponse format
+      if (data && typeof data === 'object' && 'success' in data) {
+        return data;
+      }
+      
+      // Wrap raw data in APIResponse format
+      return {
+        success: true,
+        data,
+        meta: {
+          timestamp: new Date(),
+          requestId: response.headers.get('x-request-id') || undefined,
+          version: response.headers.get('x-api-version') || undefined,
+        },
+      };
+    } catch (error) {
+      console.error('API Request failed:', error);
+      
+      // Return error in APIResponse format
+      return {
+        success: false,
+        error: {
+          code: 'REQUEST_FAILED',
+          message: error instanceof Error ? error.message : 'Unknown error occurred',
+          details: { endpoint, options },
+        },
+        meta: {
+          timestamp: new Date(),
+        },
+      };
+    }
+  }
+
+  /**
+   * Get stored authentication token
+   */
+  private getStoredToken(): string | null {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken');
+    }
+    return null;
+  }
+
+  /**
+   * Store authentication token
+   */
+  private storeToken(token: string, rememberMe = false): void {
+    if (typeof window !== 'undefined') {
+      if (rememberMe) {
+        localStorage.setItem('accessToken', token);
+      } else {
+        sessionStorage.setItem('accessToken', token);
+      }
+    }
+  }
+
+  /**
+   * Remove stored authentication token
+   */
+  private removeStoredToken(): void {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      sessionStorage.removeItem('accessToken');
+      sessionStorage.removeItem('refreshToken');
+    }
+  }
+
+  /**
+   * Refresh authentication token
+   */
+  private async refreshAuthToken(): Promise<string | null> {
+    const refreshToken = typeof window !== 'undefined' 
+      ? localStorage.getItem('refreshToken') || sessionStorage.getItem('refreshToken')
+      : null;
+
+    if (!refreshToken) {
+      throw new Error('No refresh token available');
+    }
+
+    try {
+      const response = await fetch(`${this.config.baseURL || ''}/api/v1/auth/refresh`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refreshToken }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Token refresh failed');
+      }
+
+      const data = await response.json();
+      const newToken = data.tokens?.accessToken;
+
+      if (newToken) {
+        this.storeToken(newToken);
+        return newToken;
+      }
+
+      throw new Error('No access token in refresh response');
+    } catch (error) {
+      this.removeStoredToken();
+      throw error;
+    }
+  }
+
+  /**
+   * Handle authentication failure
+   */
+  private handleAuthFailure(): void {
+    this.removeStoredToken();
+    
+    // Redirect to login if in browser environment
+    if (typeof window !== 'undefined' && window.location) {
+      window.location.href = '/login';
+    }
+  }
+
+  /**
+   * Set authentication token
+   */
+  public setAuthToken(token: string, refreshToken?: string, rememberMe = false): void {
+    this.storeToken(token, rememberMe);
+    
+    if (refreshToken && typeof window !== 'undefined') {
+      if (rememberMe) {
+        localStorage.setItem('refreshToken', refreshToken);
+      } else {
+        sessionStorage.setItem('refreshToken', refreshToken);
+      }
+    }
+  }
+
+  /**
+   * Clear authentication
+   */
+  public clearAuth(): void {
+    this.removeStoredToken();
   }
 
   // ============================================================================
@@ -497,6 +685,13 @@ export class UAIPAPIClient {
         method: 'POST',
         body: JSON.stringify(agentData),
       });
+    },
+
+    /**
+     * List all agents
+     */
+    list: async (): Promise<APIResponse<Agent[]>> => {
+      return this.request<Agent[]>(buildAPIURL(API_ROUTES.AGENTS));
     },
 
     /**
@@ -570,7 +765,7 @@ export class UAIPAPIClient {
         return this.request<HealthStatus>(buildAPIURL(API_ROUTES.HEALTH));
       },
       detailed: async (): Promise<APIResponse<HealthStatus & { dependencies: Record<string, any> }>> => {
-        return this.request<HealthStatus & { dependencies: Record<string, any> }>>(buildAPIURL(`${API_ROUTES.HEALTH}/detailed`));
+        return this.request<HealthStatus & { dependencies: Record<string, any> }>(buildAPIURL(`${API_ROUTES.HEALTH}/detailed`));
       },
       ready: async (): Promise<APIResponse<{ ready: boolean }>> => {
         return this.request<{ ready: boolean }>(buildAPIURL(`${API_ROUTES.HEALTH}/ready`));
@@ -582,6 +777,92 @@ export class UAIPAPIClient {
         return this.request<Record<string, any>>(buildAPIURL(`${API_ROUTES.HEALTH}/metrics`));
       },
     },
+  };
+
+  // ============================================================================
+  // PERSONA MANAGEMENT SERVICE METHODS
+  // ============================================================================
+
+  /**
+   * Persona Management Service API methods
+   */
+  personas = {
+    /**
+     * Create a new persona
+     */
+    create: async (personaData: any): Promise<APIResponse<any>> => {
+      return this.request('/api/v1/personas', {
+        method: 'POST',
+        body: JSON.stringify(personaData),
+      });
+    },
+
+    /**
+     * Search personas
+     */
+    search: async (query?: string, expertise?: string): Promise<APIResponse<any[]>> => {
+      const params = new URLSearchParams();
+      if (query) params.append('query', query);
+      if (expertise) params.append('expertise', expertise);
+      return this.request(`/api/v1/personas/search?${params}`);
+    },
+
+    /**
+     * Get persona recommendations
+     */
+    getRecommendations: async (context: string): Promise<APIResponse<any[]>> => {
+      return this.request(`/api/v1/personas/recommendations?context=${encodeURIComponent(context)}`);
+    },
+
+    /**
+     * Get persona templates
+     */
+    getTemplates: async (): Promise<APIResponse<any[]>> => {
+      return this.request('/api/v1/personas/templates');
+    },
+
+    /**
+     * Get persona by ID
+     */
+    get: async (personaId: string): Promise<APIResponse<any>> => {
+      return this.request(`/api/v1/personas/${personaId}`);
+    },
+
+    /**
+     * Update persona
+     */
+    update: async (personaId: string, updates: any): Promise<APIResponse<any>> => {
+      return this.request(`/api/v1/personas/${personaId}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates),
+      });
+    },
+
+    /**
+     * Delete persona
+     */
+    delete: async (personaId: string): Promise<APIResponse<void>> => {
+      return this.request(`/api/v1/personas/${personaId}`, {
+        method: 'DELETE',
+      });
+    },
+
+    /**
+     * Get persona analytics
+     */
+    getAnalytics: async (personaId: string): Promise<APIResponse<any>> => {
+      return this.request(`/api/v1/personas/${personaId}/analytics`);
+    },
+
+    /**
+     * Validate persona
+     */
+    validatePersona: async (personaId: string, validationData: any): Promise<APIResponse<any>> => {
+      return this.request(`/api/v1/personas/${personaId}/validate`, {
+        method: 'POST',
+        body: JSON.stringify(validationData),
+      });
+    }
   };
 
   // ============================================================================
@@ -597,7 +878,7 @@ export class UAIPAPIClient {
      */
     search: async (searchParams: CapabilitySearchRequest): Promise<APIResponse<CapabilitySearchResponse>> => {
       const params = new URLSearchParams();
-      
+
       if (searchParams.query) params.append('query', searchParams.query);
       if (searchParams.type) params.append('type', searchParams.type);
       if (searchParams.category) params.append('category', searchParams.category);
@@ -608,7 +889,7 @@ export class UAIPAPIClient {
       if (searchParams.sortOrder) params.append('sortOrder', searchParams.sortOrder);
       if (searchParams.limit) params.append('limit', searchParams.limit.toString());
       if (searchParams.offset) params.append('offset', searchParams.offset.toString());
-      
+
       return this.request<CapabilitySearchResponse>(buildAPIURL(`${API_ROUTES.CAPABILITIES}/search?${params}`));
     },
 
@@ -679,24 +960,6 @@ export class UAIPAPIClient {
         body: JSON.stringify(validationData || {}),
       });
     },
-
-    /**
-     * Health check endpoints
-     */
-    health: {
-      basic: async (): Promise<APIResponse<HealthStatus>> => {
-        return this.request<HealthStatus>(buildAPIURL(API_ROUTES.HEALTH));
-      },
-      detailed: async (): Promise<APIResponse<HealthStatus & { dependencies: Record<string, any> }>> => {
-        return this.request<HealthStatus & { dependencies: Record<string, any> }>>(buildAPIURL(`${API_ROUTES.HEALTH}/detailed`));
-      },
-      ready: async (): Promise<APIResponse<{ ready: boolean }>> => {
-        return this.request<{ ready: boolean }>(buildAPIURL(`${API_ROUTES.HEALTH}/ready`));
-      },
-      live: async (): Promise<APIResponse<{ alive: boolean }>> => {
-        return this.request<{ alive: boolean }>(buildAPIURL(`${API_ROUTES.HEALTH}/live`));
-      },
-    },
   };
 
   // ============================================================================
@@ -711,24 +974,31 @@ export class UAIPAPIClient {
      * Execute operation
      */
     execute: async (operationRequest: ExecuteOperationRequest): Promise<APIResponse<{ workflowInstanceId: string }>> => {
-      return this.request<{ workflowInstanceId: string }>(buildAPIURL(API_ROUTES.OPERATIONS), {
+      return this.request<{ workflowInstanceId: string }>('/api/v1/operations', {
         method: 'POST',
         body: JSON.stringify(operationRequest),
       });
     },
 
     /**
+     * List operations
+     */
+    list: async (): Promise<APIResponse<Operation[]>> => {
+      return this.request<Operation[]>('/api/v1/operations');
+    },
+
+    /**
      * Get operation status
      */
-    getStatus: async (operationId: string): Promise<APIResponse<OperationStatusResponse>> => {
-      return this.request<OperationStatusResponse>(buildAPIURL(`${API_ROUTES.OPERATIONS}/${operationId}/status`));
+    getStatus: async (operationId: string): Promise<APIResponse<any>> => {
+      return this.request(`/api/v1/operations/${operationId}/status`);
     },
 
     /**
      * Pause operation
      */
-    pause: async (operationId: string, pauseRequest: PauseOperationRequest): Promise<APIResponse<{ message: string }>> => {
-      return this.request<{ message: string }>(buildAPIURL(`${API_ROUTES.OPERATIONS}/${operationId}/pause`), {
+    pause: async (operationId: string, pauseRequest: PauseOperationRequest): Promise<APIResponse<any>> => {
+      return this.request(`/api/v1/operations/${operationId}/pause`, {
         method: 'POST',
         body: JSON.stringify(pauseRequest),
       });
@@ -737,8 +1007,8 @@ export class UAIPAPIClient {
     /**
      * Resume operation
      */
-    resume: async (operationId: string, resumeRequest: ResumeOperationRequest): Promise<APIResponse<{ message: string }>> => {
-      return this.request<{ message: string }>(buildAPIURL(`${API_ROUTES.OPERATIONS}/${operationId}/resume`), {
+    resume: async (operationId: string, resumeRequest: ResumeOperationRequest): Promise<APIResponse<any>> => {
+      return this.request(`/api/v1/operations/${operationId}/resume`, {
         method: 'POST',
         body: JSON.stringify(resumeRequest),
       });
@@ -747,19 +1017,609 @@ export class UAIPAPIClient {
     /**
      * Cancel operation
      */
-    cancel: async (operationId: string, cancelRequest: CancelOperationRequest): Promise<APIResponse<{ message: string }>> => {
-      return this.request<{ message: string }>(buildAPIURL(`${API_ROUTES.OPERATIONS}/${operationId}/cancel`), {
+    cancel: async (operationId: string, cancelRequest: CancelOperationRequest): Promise<APIResponse<any>> => {
+      return this.request(`/api/v1/operations/${operationId}/cancel`, {
         method: 'POST',
         body: JSON.stringify(cancelRequest),
+      });
+    }
+  };
+
+  // ============================================================================
+  // DISCUSSION MANAGEMENT METHODS
+  // ============================================================================
+
+  /**
+   * Discussion Management Service API methods
+   */
+  discussions = {
+    /**
+     * Create discussion
+     */
+    create: async (discussionData: {
+      title: string;
+      description: string;
+      topic: string;
+      turnStrategy: {
+        type: 'round_robin' | 'moderated' | 'context_aware';
+        settings?: Record<string, any>;
+      };
+      createdBy: string;
+      initialParticipants: Array<{ 
+        personaId: string;
+        agentId: string;
+        role: string; 
+      }>;
+      settings?: any;
+    }): Promise<APIResponse<any>> => {
+      return this.request('/api/v1/discussions', {
+        method: 'POST',
+        body: JSON.stringify(discussionData),
       });
     },
 
     /**
-     * Health check
+     * Search discussions
      */
-    health: async (): Promise<APIResponse<HealthStatus>> => {
-      return this.request<HealthStatus>(buildAPIURL(API_ROUTES.HEALTH));
+    search: async (query?: string, status?: string): Promise<APIResponse<any[]>> => {
+      const params = new URLSearchParams();
+      if (query) params.append('query', query);
+      if (status) params.append('status', status);
+      return this.request(`/api/v1/discussions/search?${params}`);
     },
+
+    /**
+     * Get discussion
+     */
+    get: async (discussionId: string): Promise<APIResponse<any>> => {
+      return this.request(`/api/v1/discussions/${discussionId}`);
+    },
+
+    /**
+     * Update discussion
+     */
+    update: async (discussionId: string, updates: any): Promise<APIResponse<any>> => {
+      return this.request(`/api/v1/discussions/${discussionId}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates),
+      });
+    },
+
+    /**
+     * Start discussion
+     */
+    start: async (discussionId: string): Promise<APIResponse<any>> => {
+      return this.request(`/api/v1/discussions/${discussionId}/start`, {
+        method: 'POST',
+      });
+    },
+
+    /**
+     * End discussion
+     */
+    end: async (discussionId: string, endData: {
+      reason: string;
+      summary: string;
+    }): Promise<APIResponse<any>> => {
+      return this.request(`/api/v1/discussions/${discussionId}/end`, {
+        method: 'POST',
+        body: JSON.stringify(endData),
+      });
+    },
+
+    /**
+     * Add participant
+     */
+    addParticipant: async (discussionId: string, participantData: {
+      personaId: string;
+      role: string;
+    }): Promise<APIResponse<any>> => {
+      return this.request(`/api/v1/discussions/${discussionId}/participants`, {
+        method: 'POST',
+        body: JSON.stringify(participantData),
+      });
+    },
+
+    /**
+     * Remove participant
+     */
+    removeParticipant: async (discussionId: string, participantId: string): Promise<APIResponse<void>> => {
+      return this.request(`/api/v1/discussions/${discussionId}/participants/${participantId}`, {
+        method: 'DELETE',
+      });
+    },
+
+    /**
+     * Send message
+     */
+    sendMessage: async (discussionId: string, participantId: string, messageData: {
+      content: string;
+      messageType: string;
+      metadata?: any;
+    }): Promise<APIResponse<any>> => {
+      return this.request(`/api/v1/discussions/${discussionId}/participants/${participantId}/messages`, {
+        method: 'POST',
+        body: JSON.stringify(messageData),
+      });
+    },
+
+    /**
+     * Get messages
+     */
+    getMessages: async (discussionId: string, limit = 50, offset = 0): Promise<APIResponse<any[]>> => {
+      return this.request(`/api/v1/discussions/${discussionId}/messages?limit=${limit}&offset=${offset}`);
+    },
+
+    /**
+     * Advance turn
+     */
+    advanceTurn: async (discussionId: string, turnData: {
+      force: boolean;
+      reason: string;
+    }): Promise<APIResponse<any>> => {
+      return this.request(`/api/v1/discussions/${discussionId}/advance-turn`, {
+        method: 'POST',
+        body: JSON.stringify(turnData),
+      });
+    },
+
+    /**
+     * Get discussion analytics
+     */
+    getAnalytics: async (discussionId: string): Promise<APIResponse<any>> => {
+      return this.request(`/api/v1/discussions/${discussionId}/analytics`);
+    }
+  };
+
+  // ============================================================================
+  // SECURITY GATEWAY SERVICE METHODS
+  // ============================================================================
+
+  /**
+   * Authentication Service API methods
+   */
+  auth = {
+    /**
+     * Login
+     */
+    login: async (credentials: {
+      email: string;
+      password: string;
+      rememberMe?: boolean;
+    }): Promise<APIResponse<{ user: any; tokens: { accessToken: string; refreshToken: string } }>> => {
+      return this.request('/api/v1/auth/login', {
+        method: 'POST',
+        body: JSON.stringify(credentials),
+      });
+    },
+
+    /**
+     * Refresh token
+     */
+    refresh: async (refreshToken: string): Promise<APIResponse<{ tokens: { accessToken: string } }>> => {
+      return this.request('/api/v1/auth/refresh', {
+        method: 'POST',
+        body: JSON.stringify({ refreshToken }),
+      });
+    },
+
+    /**
+     * Logout
+     */
+    logout: async (): Promise<APIResponse<void>> => {
+      return this.request('/api/v1/auth/logout', {
+        method: 'POST',
+      });
+    },
+
+    /**
+     * Get current user
+     */
+    me: async (): Promise<APIResponse<any>> => {
+      return this.request('/api/v1/auth/me');
+    },
+
+    /**
+     * Change password
+     */
+    changePassword: async (passwordData: {
+      currentPassword: string;
+      newPassword: string;
+    }): Promise<APIResponse<void>> => {
+      return this.request('/api/v1/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify(passwordData),
+      });
+    },
+
+    /**
+     * Forgot password
+     */
+    forgotPassword: async (email: string): Promise<APIResponse<void>> => {
+      return this.request('/api/v1/auth/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      });
+    }
+  };
+
+  /**
+   * Security Service API methods
+   */
+  security = {
+    /**
+     * Assess risk
+     */
+    assessRisk: async (riskData: {
+      operation: {
+        type: string;
+        resource: string;
+        action: string;
+      };
+      context: {
+        userId: string;
+        department: string;
+        purpose: string;
+      };
+    }): Promise<APIResponse<any>> => {
+      return this.request('/api/v1/security/assess-risk', {
+        method: 'POST',
+        body: JSON.stringify(riskData),
+      });
+    },
+
+    /**
+     * Check approval required
+     */
+    checkApprovalRequired: async (operationData: {
+      operation: {
+        type: string;
+        resource: string;
+        action: string;
+      };
+      requestor: {
+        userId: string;
+        role: string;
+      };
+    }): Promise<APIResponse<{ required: boolean; approvers?: string[] }>> => {
+      return this.request('/api/v1/security/check-approval-required', {
+        method: 'POST',
+        body: JSON.stringify(operationData),
+      });
+    },
+
+    /**
+     * Get policies
+     */
+    getPolicies: async (category?: string): Promise<APIResponse<any[]>> => {
+      const params = category ? `?category=${encodeURIComponent(category)}` : '';
+      return this.request(`/api/v1/security/policies${params}`);
+    },
+
+    /**
+     * Get policy by ID
+     */
+    getPolicy: async (policyId: string): Promise<APIResponse<any>> => {
+      return this.request(`/api/v1/security/policies/${policyId}`);
+    },
+
+    /**
+     * Create policy
+     */
+    createPolicy: async (policyData: any): Promise<APIResponse<any>> => {
+      return this.request('/api/v1/security/policies', {
+        method: 'POST',
+        body: JSON.stringify(policyData),
+      });
+    },
+
+    /**
+     * Update policy
+     */
+    updatePolicy: async (policyId: string, updates: any): Promise<APIResponse<any>> => {
+      return this.request(`/api/v1/security/policies/${policyId}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates),
+      });
+    },
+
+    /**
+     * Delete policy
+     */
+    deletePolicy: async (policyId: string): Promise<APIResponse<void>> => {
+      return this.request(`/api/v1/security/policies/${policyId}`, {
+        method: 'DELETE',
+      });
+    },
+
+    /**
+     * Get security stats
+     */
+    getStats: async (): Promise<APIResponse<any>> => {
+      return this.request('/api/v1/security/stats');
+    }
+  };
+
+  /**
+   * Approval Workflow Service API methods
+   */
+  approvals = {
+    /**
+     * Create approval workflow
+     */
+    createWorkflow: async (workflowData: {
+      operation: any;
+      requestor: any;
+      justification: string;
+      urgency: string;
+      expectedDuration: string;
+    }): Promise<APIResponse<any>> => {
+      return this.request('/api/v1/approvals/workflows', {
+        method: 'POST',
+        body: JSON.stringify(workflowData),
+      });
+    },
+
+    /**
+     * Submit approval decision
+     */
+    submitDecision: async (workflowId: string, decision: {
+      decision: 'approved' | 'rejected';
+      comments: string;
+      conditions?: string[];
+    }): Promise<APIResponse<any>> => {
+      return this.request(`/api/v1/approvals/${workflowId}/decisions`, {
+        method: 'POST',
+        body: JSON.stringify(decision),
+      });
+    },
+
+    /**
+     * Get approval workflow
+     */
+    getWorkflow: async (workflowId: string): Promise<APIResponse<any>> => {
+      return this.request(`/api/v1/approvals/${workflowId}`);
+    },
+
+    /**
+     * Get all workflows
+     */
+    getWorkflows: async (status?: string, limit?: number): Promise<APIResponse<any[]>> => {
+      const params = new URLSearchParams();
+      if (status) params.append('status', status);
+      if (limit) params.append('limit', limit.toString());
+      return this.request(`/api/v1/approvals/workflows?${params}`);
+    },
+
+    /**
+     * Get pending approvals
+     */
+    getPendingApprovals: async (): Promise<APIResponse<any[]>> => {
+      return this.request('/api/v1/approvals/pending');
+    },
+
+    /**
+     * Cancel workflow
+     */
+    cancelWorkflow: async (workflowId: string, reason: string): Promise<APIResponse<any>> => {
+      return this.request(`/api/v1/approvals/${workflowId}/cancel`, {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      });
+    },
+
+    /**
+     * Get approval stats
+     */
+    getStats: async (): Promise<APIResponse<any>> => {
+      return this.request('/api/v1/approvals/stats');
+    }
+  };
+
+  /**
+   * User Management Service API methods
+   */
+  users = {
+    /**
+     * Get all users
+     */
+    getAll: async (params?: {
+      page?: number;
+      limit?: number;
+      role?: string;
+    }): Promise<APIResponse<any[]>> => {
+      const searchParams = new URLSearchParams();
+      if (params?.page) searchParams.append('page', params.page.toString());
+      if (params?.limit) searchParams.append('limit', params.limit.toString());
+      if (params?.role) searchParams.append('role', params.role);
+      return this.request(`/api/v1/users?${searchParams}`);
+    },
+
+    /**
+     * Get user by ID
+     */
+    get: async (userId: string): Promise<APIResponse<any>> => {
+      return this.request(`/api/v1/users/${userId}`);
+    },
+
+    /**
+     * Create user
+     */
+    create: async (userData: {
+      email: string;
+      password: string;
+      firstName: string;
+      lastName: string;
+      role: string;
+      department: string;
+      permissions: string[];
+    }): Promise<APIResponse<any>> => {
+      return this.request('/api/v1/users', {
+        method: 'POST',
+        body: JSON.stringify(userData),
+      });
+    },
+
+    /**
+     * Update user
+     */
+    update: async (userId: string, updates: any): Promise<APIResponse<any>> => {
+      return this.request(`/api/v1/users/${userId}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates),
+      });
+    },
+
+    /**
+     * Delete user
+     */
+    delete: async (userId: string): Promise<APIResponse<void>> => {
+      return this.request(`/api/v1/users/${userId}`, {
+        method: 'DELETE',
+      });
+    },
+
+    /**
+     * Reset user password
+     */
+    resetPassword: async (userId: string, passwordData: {
+      newPassword: string;
+      forcePasswordChange: boolean;
+    }): Promise<APIResponse<any>> => {
+      return this.request(`/api/v1/users/${userId}/reset-password`, {
+        method: 'POST',
+        body: JSON.stringify(passwordData),
+      });
+    },
+
+    /**
+     * Unlock user
+     */
+    unlock: async (userId: string, reason: string): Promise<APIResponse<any>> => {
+      return this.request(`/api/v1/users/${userId}/unlock`, {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      });
+    },
+
+    /**
+     * Bulk user action
+     */
+    bulkAction: async (actionData: {
+      action: string;
+      userIds: string[];
+      reason: string;
+    }): Promise<APIResponse<any>> => {
+      return this.request('/api/v1/users/bulk-action', {
+        method: 'POST',
+        body: JSON.stringify(actionData),
+      });
+    },
+
+    /**
+     * Get user stats
+     */
+    getStats: async (): Promise<APIResponse<any>> => {
+      return this.request('/api/v1/users/stats');
+    }
+  };
+
+  /**
+   * Audit & Logging Service API methods
+   */
+  audit = {
+    /**
+     * Get audit logs
+     */
+    getLogs: async (params?: {
+      eventType?: string;
+      startDate?: string;
+      endDate?: string;
+      limit?: number;
+    }): Promise<APIResponse<any[]>> => {
+      const searchParams = new URLSearchParams();
+      if (params?.eventType) searchParams.append('eventType', params.eventType);
+      if (params?.startDate) searchParams.append('startDate', params.startDate);
+      if (params?.endDate) searchParams.append('endDate', params.endDate);
+      if (params?.limit) searchParams.append('limit', params.limit.toString());
+      return this.request(`/api/v1/audit/logs?${searchParams}`);
+    },
+
+    /**
+     * Get audit log by ID
+     */
+    getLog: async (logId: string): Promise<APIResponse<any>> => {
+      return this.request(`/api/v1/audit/logs/${logId}`);
+    },
+
+    /**
+     * Get event types
+     */
+    getEventTypes: async (): Promise<APIResponse<string[]>> => {
+      return this.request('/api/v1/audit/events/types');
+    },
+
+    /**
+     * Get audit stats
+     */
+    getStats: async (period?: string): Promise<APIResponse<any>> => {
+      const params = period ? `?period=${encodeURIComponent(period)}` : '';
+      return this.request(`/api/v1/audit/stats${params}`);
+    },
+
+    /**
+     * Export audit logs
+     */
+    exportLogs: async (exportData: {
+      format: string;
+      filters: any;
+      includeDetails: boolean;
+    }): Promise<APIResponse<any>> => {
+      return this.request('/api/v1/audit/export', {
+        method: 'POST',
+        body: JSON.stringify(exportData),
+      });
+    },
+
+    /**
+     * Generate compliance report
+     */
+    generateComplianceReport: async (reportData: {
+      reportType: string;
+      period: { startDate: string; endDate: string };
+      includeMetrics: boolean;
+      includeRecommendations: boolean;
+      format: string;
+    }): Promise<APIResponse<any>> => {
+      return this.request('/api/v1/audit/compliance-report', {
+        method: 'POST',
+        body: JSON.stringify(reportData),
+      });
+    },
+
+    /**
+     * Get user activity
+     */
+    getUserActivity: async (userId: string, startDate?: string, endDate?: string): Promise<APIResponse<any[]>> => {
+      const params = new URLSearchParams();
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      return this.request(`/api/v1/audit/user-activity/${userId}?${params}`);
+    },
+
+    /**
+     * Cleanup old logs
+     */
+    cleanupLogs: async (cleanupData: {
+      retentionDays: number;
+      dryRun: boolean;
+      eventTypes?: string[];
+    }): Promise<APIResponse<any>> => {
+      return this.request('/api/v1/audit/cleanup', {
+        method: 'DELETE',
+        body: JSON.stringify(cleanupData),
+      });
+    }
   };
 }
 

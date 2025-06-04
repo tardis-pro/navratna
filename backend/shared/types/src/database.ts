@@ -64,8 +64,15 @@ export const DbUserSchema = z.object({
   email: z.string().email(),
   name: z.string(),
   role: z.string(),
+  password_hash: z.string().nullable(),
   security_clearance: z.string(),
   is_active: z.boolean(),
+  first_name: z.string().nullable(),
+  last_name: z.string().nullable(),
+  department: z.string().nullable(),
+  failed_login_attempts: z.number().int().min(0).default(0),
+  locked_until: z.date().nullable(),
+  password_changed_at: z.date().nullable(),
   last_login_at: z.date().nullable(),
   created_at: z.date(),
   updated_at: z.date()
@@ -187,6 +194,31 @@ export const UserSessionSchema = z.object({
 });
 
 export type UserSession = z.infer<typeof UserSessionSchema>;
+
+// Refresh token entity
+export const RefreshTokenSchema = z.object({
+  id: z.string().uuid(),
+  user_id: z.string().uuid(),
+  token: z.string(),
+  expires_at: z.date(),
+  revoked_at: z.date().nullable(),
+  created_at: z.date(),
+  updated_at: z.date()
+});
+
+export type RefreshToken = z.infer<typeof RefreshTokenSchema>;
+
+// Password reset token entity
+export const PasswordResetTokenSchema = z.object({
+  id: z.string().uuid(),
+  user_id: z.string().uuid(),
+  token: z.string(),
+  expires_at: z.date(),
+  used_at: z.date().nullable(),
+  created_at: z.date()
+});
+
+export type PasswordResetToken = z.infer<typeof PasswordResetTokenSchema>;
 
 // Rate limit entity
 export const DbRateLimitSchema = z.object({

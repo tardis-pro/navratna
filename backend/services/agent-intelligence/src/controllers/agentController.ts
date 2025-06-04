@@ -237,6 +237,16 @@ export class AgentController {
     }
   }
 
+  public async getAgents(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const agents = await this.agentIntelligenceService.getAgents();
+      res.status(200).json({ success: true, data: agents });
+    } catch (error) {
+      logger.error('Error getting agents', { requestId: 'unknown', error: error instanceof Error ? error.message : 'Unknown error' });
+      next(error);    
+    }
+  }
+
   public async updateAgent(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { agentId } = req.params;

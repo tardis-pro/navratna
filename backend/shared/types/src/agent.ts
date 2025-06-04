@@ -65,6 +65,27 @@ export const AgentCreateSchema = z.object({
 
 export type AgentCreate = z.infer<typeof AgentCreateSchema>;
 
+// Agent Create Request Schema - for API requests (user-friendly format)
+export const AgentCreateRequestSchema = z.object({
+  name: z.string().min(1).max(255),
+  description: z.string().min(1),
+  capabilities: z.array(z.string()).min(1),
+  role: z.nativeEnum(AgentRole).optional().default(AgentRole.ASSISTANT),
+  configuration: z.object({
+    model: z.string().optional(),
+    temperature: z.number().min(0).max(2).optional(),
+    analysisDepth: z.enum(['basic', 'intermediate', 'advanced']).optional(),
+    contextWindowSize: z.number().positive().optional(),
+    decisionThreshold: z.number().min(0).max(1).optional(),
+    learningEnabled: z.boolean().optional(),
+    collaborationMode: z.enum(['independent', 'collaborative', 'supervised']).optional()
+  }).optional(),
+  securityLevel: z.enum(['low', 'medium', 'high', 'critical']).optional().default('medium'),
+  isActive: z.boolean().optional().default(true)
+});
+
+export type AgentCreateRequest = z.infer<typeof AgentCreateRequestSchema>;
+
 // Agent Update Schema - for updating existing agents (all fields optional except constraints)
 export const AgentUpdateSchema = z.object({
   name: z.string().min(1).max(255).optional(),

@@ -57,8 +57,15 @@ export const UserSchema = BaseEntitySchema.extend({
   email: z.string().email(),
   name: z.string().min(1).max(255),
   role: z.string(),
+  passwordHash: z.string().optional(),
   securityClearance: z.nativeEnum(SecurityLevel).default(SecurityLevel.MEDIUM),
   isActive: z.boolean().default(true),
+  firstName: z.string().min(1).max(100).optional(),
+  lastName: z.string().min(1).max(100).optional(),
+  department: z.string().max(100).optional(),
+  failedLoginAttempts: z.number().int().min(0).default(0),
+  lockedUntil: z.date().optional(),
+  passwordChangedAt: z.date().optional(),
   lastLoginAt: z.date().optional()
 });
 

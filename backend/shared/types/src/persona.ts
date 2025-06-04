@@ -150,7 +150,10 @@ export const CreatePersonaRequestSchema = PersonaSchema.omit({
   updatedAt: true,
   version: true,
   usageStats: true,
-  validation: true
+  validation: true,
+  createdBy: true
+}).extend({
+  createdBy: UUIDSchema.optional() // Make createdBy optional since it's set from auth
 });
 
 export type CreatePersonaRequest = z.infer<typeof CreatePersonaRequestSchema>;

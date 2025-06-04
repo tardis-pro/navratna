@@ -43,6 +43,7 @@ export class EventBusService {
   private reconnectDelay: number;
   private config: EventBusConfig;
   private logger: winston.Logger;
+  private isClosing: boolean = false;
 
   constructor(config: EventBusConfig, logger: winston.Logger) {
     this.config = config;
@@ -472,6 +473,12 @@ export class EventBusService {
   }
 
   private async gracefulShutdown(signal: string): Promise<void> {
+    if (this.isClosing) {
+      this.logger.debug(`Event bus shutdown already in progress for ${signal}, skipping`);
+      return;
+    }
+
+    this.isClosing = true;
     this.logger.info(`Received ${signal}, shutting down event bus gracefully`);
     
     try {

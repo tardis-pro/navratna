@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import { 
   EnhancedAgentState, 
   Operation, 
@@ -16,7 +17,7 @@ import { uaipAPI } from '../services/uaip-api';
 // Enhanced error handling with backend availability context
 const createUIError = (error: any, context: string, isBackendUnavailable = false): UIError => ({
   id: Date.now().toString(),
-  type: isBackendUnavailable ? 'backend_unavailable' : 'api_error',
+  type: isBackendUnavailable ? 'api_error' : 'api_error',
   message: isBackendUnavailable 
     ? `Backend services unavailable - using mock data for ${context}`
     : (error instanceof Error ? error.message : 'Unknown error'),
@@ -56,7 +57,8 @@ export function useAsyncData<T>(
             'data fetch', 
             true
           ),
-          lastUpdated: new Date()
+          lastUpdated: new Date(),
+          refetch: fetchData
         });
         return;
       }
@@ -67,7 +69,8 @@ export function useAsyncData<T>(
         data,
         isLoading: false,
         error: undefined,
-        lastUpdated: new Date()
+        lastUpdated: new Date(),
+        refetch: fetchData
       });
     } catch (error) {
       // If real fetch fails and we have mock data, use it
@@ -77,14 +80,16 @@ export function useAsyncData<T>(
           data: mockData,
           isLoading: false,
           error: createUIError(error, 'data fetch', true),
-          lastUpdated: new Date()
+          lastUpdated: new Date(),
+          refetch: fetchData
         });
       } else {
         // No mock data available, show error
         setState(prev => ({
           ...prev,
           isLoading: false,
-          error: createUIError(error, 'data fetch', false)
+          error: createUIError(error, 'data fetch', false),
+          refetch: fetchData
         }));
       }
     }
@@ -146,36 +151,114 @@ const generateMockAgents = (): EnhancedAgentState[] => [
 const generateMockOperations = (): Operation[] => [
   {
     id: 'mock-op-1',
-    type: 'analysis',
+    type: 'tool_execution',
     status: 'running',
     agentId: 'mock-agent-1',
-    title: 'Code Architecture Review',
+    userId: 'user-1',
+    name: 'Code Architecture Review',
     description: 'Analyzing system architecture for scalability improvements',
+    context: {
+      executionContext: {
+        agentId: 'mock-agent-1',
+        userId: 'user-1',
+        environment: 'development',
+        timeout: 3600,
+        resourceLimits: {
+          maxMemory: 1024,
+          maxCpu: 2,
+          maxDuration: 3600
+        }
+      }
+    },
+    executionPlan: {
+      id: 'plan-1',
+      type: 'analysis',
+      agentId: 'mock-agent-1',
+      steps: [
+        {
+          id: 'step-1',
+          type: 'data_collection',
+          description: 'Collect code metrics',
+          estimatedDuration: 300
+        }
+      ],
+      dependencies: [],
+      estimatedDuration: 900,
+      metadata: {}
+    },
+    metadata: {
+      priority: 'medium',
+      tags: ['architecture', 'analysis'],
+      estimatedDuration: 900,
+      resourceRequirements: {
+        cpu: 2,
+        memory: 1024,
+        network: true,
+        gpu: false
+      }
+    },
     progress: 0.65,
     startTime: new Date(Date.now() - 10 * 60 * 1000),
     estimatedDuration: 15 * 60 * 1000,
     priority: 'medium',
-    metadata: {
-      complexity: 'high',
-      domain: 'software-engineering'
-    }
+    createdAt: new Date(Date.now() - 10 * 60 * 1000),
+    updatedAt: new Date()
   },
   {
     id: 'mock-op-2',
-    type: 'generation',
+    type: 'artifact_generation',
     status: 'completed',
     agentId: 'mock-agent-2',
-    title: 'UI Component Design',
+    userId: 'user-1',
+    name: 'UI Component Design',
     description: 'Creating responsive dashboard components',
+    context: {
+      executionContext: {
+        agentId: 'mock-agent-2',
+        userId: 'user-1',
+        environment: 'development',
+        timeout: 1800,
+        resourceLimits: {
+          maxMemory: 512,
+          maxCpu: 1,
+          maxDuration: 1800
+        }
+      }
+    },
+    executionPlan: {
+      id: 'plan-2',
+      type: 'generation',
+      agentId: 'mock-agent-2',
+      steps: [
+        {
+          id: 'step-1',
+          type: 'design',
+          description: 'Create UI components',
+          estimatedDuration: 1500
+        }
+      ],
+      dependencies: [],
+      estimatedDuration: 1500,
+      metadata: {}
+    },
+    metadata: {
+      priority: 'high',
+      tags: ['ui', 'design'],
+      estimatedDuration: 1500,
+      resourceRequirements: {
+        cpu: 1,
+        memory: 512,
+        network: false,
+        gpu: false
+      }
+    },
     progress: 1.0,
     startTime: new Date(Date.now() - 30 * 60 * 1000),
     endTime: new Date(Date.now() - 5 * 60 * 1000),
     estimatedDuration: 25 * 60 * 1000,
     priority: 'high',
-    metadata: {
-      complexity: 'medium',
-      domain: 'design'
-    }
+    createdAt: new Date(Date.now() - 30 * 60 * 1000),
+    updatedAt: new Date()
   }
 ];
 
@@ -184,29 +267,108 @@ const generateMockCapabilities = (): Capability[] => [
     id: 'mock-cap-1',
     name: 'Code Analysis',
     description: 'Advanced static code analysis and quality assessment',
+    type: 'tool',
+    status: 'active',
     category: 'development',
     version: '1.2.0',
     provider: 'UAIP Core',
-    status: 'active',
     metadata: {
-      languages: ['typescript', 'javascript', 'python'],
-      complexity: 'high'
-    }
+      tags: ['typescript', 'javascript', 'python'],
+      category: 'development',
+      trustScore: 9.2,
+      usageCount: 156
+    },
+    securityRequirements: {
+      minimumSecurityLevel: 'medium',
+      requiredPermissions: ['read_code'],
+      sensitiveData: false,
+      auditRequired: true
+    },
+    createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+    updatedAt: new Date()
   },
   {
     id: 'mock-cap-2',
     name: 'UI Design Generation',
     description: 'Automated UI component and layout generation',
+    type: 'artifact',
+    status: 'active',
     category: 'design',
     version: '2.1.0',
     provider: 'UAIP Design',
-    status: 'active',
     metadata: {
-      frameworks: ['react', 'vue', 'angular'],
-      complexity: 'medium'
-    }
+      tags: ['react', 'vue', 'angular'],
+      category: 'design',
+      trustScore: 8.7,
+      usageCount: 89
+    },
+    artifactConfig: {
+      templateEngine: 'handlebars',
+      template: '<div class="component">{{content}}</div>',
+      outputFormat: 'html',
+      variables: [
+        {
+          name: 'content',
+          type: 'string',
+          required: true,
+          description: 'Component content'
+        }
+      ]
+    },
+    securityRequirements: {
+      minimumSecurityLevel: 'low',
+      requiredPermissions: ['create_artifacts'],
+      sensitiveData: false,
+      auditRequired: false
+    },
+    createdAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000),
+    updatedAt: new Date()
   }
 ];
+
+// Type adapters to convert between backend and frontend types
+const adaptBackendOperationToFrontend = (backendOp: any): Operation => ({
+  id: backendOp.id,
+  type: backendOp.type,
+  status: backendOp.status,
+  agentId: backendOp.agentId,
+  userId: backendOp.userId,
+  name: backendOp.name,
+  description: backendOp.description,
+  context: backendOp.context,
+  executionPlan: backendOp.executionPlan,
+  metadata: backendOp.metadata,
+  progress: backendOp.progress,
+  startTime: backendOp.startTime,
+  endTime: backendOp.endTime,
+  estimatedDuration: backendOp.estimatedDuration,
+  priority: backendOp.priority || 'medium', // Add default priority
+  createdAt: backendOp.createdAt,
+  updatedAt: backendOp.updatedAt
+});
+
+const adaptBackendCapabilityToFrontend = (backendCap: any): Capability => ({
+  id: backendCap.id,
+  name: backendCap.name,
+  description: backendCap.description,
+  type: backendCap.type,
+  status: backendCap.status,
+  category: backendCap.category || 'general', // Add default category
+  version: backendCap.version || '1.0.0', // Add default version
+  provider: backendCap.provider || 'Unknown', // Add default provider
+  metadata: {
+    ...backendCap.metadata,
+    version: backendCap.metadata?.version || '1.0.0', // Ensure version is present
+    category: backendCap.metadata?.category || backendCap.category || 'general',
+    tags: backendCap.metadata?.tags || [],
+    trustScore: backendCap.metadata?.trustScore || 5.0,
+    usageCount: backendCap.metadata?.usageCount || 0
+  },
+  securityRequirements: backendCap.securityRequirements,
+  artifactConfig: backendCap.artifactConfig,
+  createdAt: backendCap.createdAt,
+  updatedAt: backendCap.updatedAt
+});
 
 // Hook for managing agents
 export function useAgents() {
@@ -214,7 +376,7 @@ export function useAgents() {
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
   const fetchAgents = useCallback(async () => {
-    const response = await uaipAPI.client.agent.list();
+    const response = await uaipAPI.client.agents.list();
     if (response.success && response.data) {
       // Transform backend agents to enhanced frontend state
       const enhancedAgents: EnhancedAgentState[] = response.data.map(agent => ({
@@ -265,9 +427,9 @@ export function useAgents() {
         return { success: true, data: null };
       }
       
-      const response = await uaipAPI.client.agent.update(agentId, updates);
+      const response = await uaipAPI.client.agents.update(agentId, updates);
       if (response.success) {
-        await agentsState.refetch();
+        await agentsState.refetch?.();
       }
       return response;
     } catch (error) {
@@ -292,10 +454,12 @@ export function useOperations() {
   const [selectedOperation, setSelectedOperation] = useState<string | null>(null);
 
   const fetchOperations = useCallback(async () => {
-    const response = await uaipAPI.client.orchestration.listOperations();
+    const response = await uaipAPI.client.orchestration.list();
     if (response.success && response.data) {
-      setOperations(response.data);
-      return response.data;
+      // Adapt backend operations to frontend format
+      const adaptedOperations = response.data.map(adaptBackendOperationToFrontend);
+      setOperations(adaptedOperations);
+      return adaptedOperations;
     }
     throw new Error('Failed to fetch operations');
   }, []);
@@ -317,25 +481,60 @@ export function useOperations() {
         // Simulate operation execution in mock data
         const newOperation: Operation = {
           id: `mock-op-${Date.now()}`,
-          type: operationRequest.type || 'analysis',
+          type: operationRequest.type || 'tool_execution',
           status: 'running',
           agentId: operationRequest.agentId || 'mock-agent-1',
-          title: operationRequest.title || 'Mock Operation',
+          userId: operationRequest.userId || 'user-1',
+          name: operationRequest.title || 'Mock Operation',
           description: operationRequest.description || 'Simulated operation execution',
+          context: {
+            executionContext: {
+              agentId: operationRequest.agentId || 'mock-agent-1',
+              userId: operationRequest.userId || 'user-1',
+              environment: 'development',
+              timeout: 3600,
+              resourceLimits: {
+                maxMemory: 1024,
+                maxCpu: 2,
+                maxDuration: 3600
+              }
+            }
+          },
+          executionPlan: {
+            id: `plan-${Date.now()}`,
+            type: operationRequest.type || 'tool_execution',
+            agentId: operationRequest.agentId || 'mock-agent-1',
+            steps: [],
+            dependencies: [],
+            estimatedDuration: 300,
+            metadata: {}
+          },
+          metadata: {
+            priority: operationRequest.priority || 'medium',
+            tags: [],
+            estimatedDuration: 300,
+            resourceRequirements: {
+              cpu: 1,
+              memory: 512,
+              network: true,
+              gpu: false
+            }
+          },
           progress: 0,
           startTime: new Date(),
           estimatedDuration: 5 * 60 * 1000, // 5 minutes
           priority: operationRequest.priority || 'medium',
-          metadata: operationRequest.metadata || {}
+          createdAt: new Date(),
+          updatedAt: new Date()
         };
         
         setOperations(prev => [newOperation, ...prev]);
         return { success: true, data: newOperation };
       }
       
-      const response = await uaipAPI.client.orchestration.executeOperation(operationRequest);
+      const response = await uaipAPI.client.orchestration.execute(operationRequest);
       if (response.success) {
-        await operationsState.refetch();
+        await operationsState.refetch?.();
       }
       return response;
     } catch (error) {
@@ -356,9 +555,9 @@ export function useOperations() {
         return { success: true, data: null };
       }
       
-      const response = await uaipAPI.client.orchestration.pauseOperation(operationId, { reason });
+      const response = await uaipAPI.client.orchestration.pause(operationId, { reason });
       if (response.success) {
-        await operationsState.refetch();
+        await operationsState.refetch?.();
       }
       return response;
     } catch (error) {
@@ -379,9 +578,9 @@ export function useOperations() {
         return { success: true, data: null };
       }
       
-      const response = await uaipAPI.client.orchestration.cancelOperation(operationId, { reason });
+      const response = await uaipAPI.client.orchestration.cancel(operationId, { reason });
       if (response.success) {
-        await operationsState.refetch();
+        await operationsState.refetch?.();
       }
       return response;
     } catch (error) {
@@ -407,10 +606,12 @@ export function useCapabilities() {
   const [capabilities, setCapabilities] = useState<Capability[]>([]);
 
   const fetchCapabilities = useCallback(async () => {
-    const response = await uaipAPI.client.capability.search({});
+    const response = await uaipAPI.client.capabilities.search({});
     if (response.success && response.data) {
-      setCapabilities(response.data.capabilities);
-      return response.data.capabilities;
+      // Adapt backend capabilities to frontend format
+      const adaptedCapabilities = response.data.capabilities.map(adaptBackendCapabilityToFrontend);
+      setCapabilities(adaptedCapabilities);
+      return adaptedCapabilities;
     }
     throw new Error('Failed to fetch capabilities');
   }, []);
@@ -437,7 +638,7 @@ export function useCapabilities() {
         return { success: true, data: { capabilities: mockResults } };
       }
       
-      return await uaipAPI.client.capability.search({ query });
+      return await uaipAPI.client.capabilities.search({ query });
     } catch (error) {
       console.error('Failed to search capabilities:', error);
       throw error;
@@ -454,20 +655,34 @@ export function useCapabilities() {
           id: `mock-cap-${Date.now()}`,
           name: capability.name,
           description: capability.description,
+          type: capability.type || 'tool',
+          status: 'active',
           category: capability.category || 'general',
           version: '1.0.0',
           provider: 'User',
-          status: 'active',
-          metadata: capability.metadata || {}
+          metadata: {
+            tags: capability.metadata?.tags || [],
+            category: capability.category || 'general',
+            trustScore: 5.0,
+            usageCount: 0
+          },
+          securityRequirements: capability.securityRequirements || {
+            minimumSecurityLevel: 'low',
+            requiredPermissions: [],
+            sensitiveData: false,
+            auditRequired: false
+          },
+          createdAt: new Date(),
+          updatedAt: new Date()
         };
         
         setCapabilities(prev => [newCapability, ...prev]);
         return { success: true, data: newCapability };
       }
       
-      const response = await uaipAPI.client.capability.register(capability);
+      const response = await uaipAPI.client.capabilities.register(capability);
       if (response.success) {
-        await capabilitiesState.refetch();
+        await capabilitiesState.refetch?.();
       }
       return response;
     } catch (error) {
@@ -652,7 +867,7 @@ export function useSystemMetrics() {
   // Auto-refresh metrics every 30 seconds
   useEffect(() => {
     const interval = setInterval(() => {
-      metricsState.refetch();
+      metricsState.refetch?.();
     }, 30000);
     return () => clearInterval(interval);
   }, [metricsState.refetch]);
@@ -673,16 +888,22 @@ export function useApprovals() {
       {
         id: 'approval-1',
         operationId: 'mock-op-1',
-        type: 'security_review',
+        type: 'tool_execution',
         status: 'pending',
         requestedBy: 'mock-agent-1',
         requestedAt: new Date(Date.now() - 5 * 60 * 1000),
         priority: 'medium',
         description: 'Security review required for external API access',
-        metadata: {
-          securityLevel: 'high',
-          riskFactors: ['external_api', 'data_access']
-        }
+        riskLevel: 'medium',
+        requiredApprovers: ['security-officer-1'],
+        approvals: [],
+        context: {
+          agentId: 'mock-agent-1',
+          resourcesAccessed: ['external_api'],
+          estimatedImpact: 'Low risk data access',
+          securityImplications: ['external_api', 'data_access']
+        },
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours from now
       }
     ];
     setApprovals(mockApprovals);
@@ -724,7 +945,7 @@ export function useApprovals() {
       
       // TODO: Implement actual approval processing
       console.log('Processing approval:', { workflowId, decision, reason });
-      await approvalsState.refetch();
+      await approvalsState.refetch?.();
       return { success: true, data: null };
     } catch (error) {
       console.error('Failed to process approval:', error);

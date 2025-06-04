@@ -3,7 +3,6 @@ import { PersonaController } from '../controllers/personaController';
 import { 
   validateRequest, 
   validateUUID, 
-  validateJSON,
   authMiddleware,
   requireOperator 
 } from '@uaip/middleware';
@@ -18,9 +17,6 @@ const router: Router = Router();
 // Note: PersonaController will be initialized with PersonaService in the main service
 // This is a factory function that takes the service instances
 export function createPersonaRoutes(personaController: PersonaController): Router {
-  // Apply JSON validation middleware to all routes
-  router.use(validateJSON());
-
   // Apply authentication middleware to all routes
   router.use(authMiddleware);
 
