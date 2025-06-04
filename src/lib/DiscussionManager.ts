@@ -14,7 +14,7 @@ export interface DiscussionContext {
   history: Message[];
 }
 
-export type TurnStrategy = 'round-robin' | 'moderated' | 'context-aware';
+export type TurnStrategy = 'round_robin' | 'moderated' | 'context_aware';
 
 export interface DiscussionState {
   isRunning: boolean;
@@ -85,7 +85,7 @@ export class DiscussionManager implements IDiscussionManager {
       agents: new Map(),  // We'll use agentContext instead
       history: []
     };
-    this.turnStrategy = 'round-robin';
+    this.turnStrategy = 'round_robin';
     this.currentTurn = null;
     this.document = document;
     this.updateCallback = updateCallback;
@@ -377,10 +377,10 @@ export class DiscussionManager implements IDiscussionManager {
     if (!this.context.isActive) return;
 
     switch (this.turnStrategy) {
-      case 'round-robin':
+      case 'round_robin':
         this.handleRoundRobinTurn();
         break;
-      case 'context-aware':
+      case 'context_aware':
         this.handleContextAwareTurn();
         break;
       case 'moderated':

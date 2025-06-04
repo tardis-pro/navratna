@@ -3,11 +3,13 @@
 
 import { 
   Artifact, 
-  ConversationContext, 
-  GenerationResult, 
+  ArtifactConversationContext, 
+  OperationResult, 
   Participant,
-  ArtifactType,
-  ValidationStatus
+  ValidationStatus,
+  ValidationResult as SharedValidationResult,
+  ValidationError,
+  ValidationWarning
 } from '@uaip/types';
 
 import { logger } from '@uaip/utils';
@@ -19,15 +21,53 @@ import {
   ConversationAnalyzer 
 } from './interfaces';
 
-import { ConversationAnalyzerImpl } from './analysis/ConversationAnalyzer';
-import { SecurityManagerImpl } from './security/SecurityManager';
-import { ArtifactValidatorImpl } from './validation/ArtifactValidator';
+import { ConversationAnalyzerImpl } from './analysis/ConversationAnalyzer.js';
+import { SecurityManagerImpl } from './security/SecurityManager.js';
+import { ArtifactValidator as ArtifactValidatorImpl } from './validation/ArtifactValidator.js';
 
 // Generator imports
-import { CodeGenerator } from './generators/CodeGenerator';
-import { TestGenerator } from './generators/TestGenerator';
-import { PRDGenerator } from './generators/PRDGenerator';
-import { DocumentationGenerator } from './generators/DocumentationGenerator';
+import { CodeGenerator } from './generators/CodeGenerator.js';
+import { TestGenerator } from './generators/TestGenerator.js';
+import { PRDGenerator } from './generators/PRDGenerator.js';
+import { DocumentationGenerator } from './generators/DocumentationGenerator.js';
+
+// Local types
+import { ValidationResult as LocalValidationResult } from './types/artifact.js';
+
+// Define proper result types for this service
+export interface ArtifactResult {
+  success: boolean;
+  data?: Artifact;
+  error?: {
+    code: string;
+    message: string;
+    details?: any;
+  };
+}
+
+export interface AnalysisResult {
+  success: boolean;
+  data?: {
+    summary: any;
+    triggers: any[];
+    requirements: any[];
+  };
+  error?: {
+    code: string;
+    message: string;
+    details?: any;
+  };
+}
+
+export interface InsightsResult {
+  success: boolean;
+  data?: any;
+  error?: {
+    code: string;
+    message: string;
+    details?: any;
+  };
+}
 
 export class ArtifactFactory {
   private generators: Map<string, ArtifactGenerator> = new Map();
@@ -75,191 +115,176 @@ export class ArtifactFactory {
   }
 
   /**
-   * Analyze conversation to detect generation opportunities
+   * Convert local ValidationResult to shared ValidationResult format
    */
-  public async analyzeConversation(context: ConversationContext): Promise<{
-    triggers: any[];
-    phase: any;
-    summary: any;
-    suggestions: string[];
-  }> {
-    try {
-      const triggers = this.conversationAnalyzer.detectTriggers(context);
-      const phase = this.conversationAnalyzer.analyzePhase(context);
-      const summary = this.conversationAnalyzer.summarize(context);
+  private mapValidationResult(localResult: LocalValidationResult): SharedValidationResult {
+    // Convert ValidationIssues to ValidationErrors and ValidationWarnings
+    const errors: ValidationError[] = localResult.errors
+      .filter(issue => issue.severity === 'error' || issue.severity === 'warning')
+      .map(issue => ({
+        code: issue.code,
+        message: issue.message,
+        severity: issue.severity as 'error' | 'warning'
+      }));
 
-      // Generate suggestions based on analysis
-      const suggestions = this.generateSuggestions(triggers, phase, summary);
+    const warnings: ValidationWarning[] = localResult.warnings
+      .filter(issue => issue.severity === 'warning')
+      .map(issue => ({
+        code: issue.code,
+        message: issue.message,
+        severity: 'warning' as const
+      }));
 
-      return {
-        triggers,
-        phase,
-        summary,
-        suggestions
-      };
-    } catch (error) {
-      logger.error('Conversation analysis failed:', error);
-      return {
-        triggers: [],
-        phase: { current: 'unknown', confidence: 0, suggestedActions: [] },
-        summary: { keyPoints: [], decisions: [], actionItems: [], participants: [], phase: 'unknown', confidence: 0 },
-        suggestions: ['Unable to analyze conversation - please try again']
-      };
-    }
+    return {
+      status: localResult.status,
+      isValid: localResult.isValid,
+      errors,
+      warnings,
+      suggestions: localResult.suggestions,
+      score: localResult.score
+    };
   }
 
   /**
-   * Generate an artifact from conversation context
+   * Main artifact generation method
    */
   public async generateArtifact(
-    type: ArtifactType,
-    context: ConversationContext,
-    user: Participant,
-    parameters: Record<string, any> = {}
-  ): Promise<GenerationResult> {
+    type: string, 
+    context: ArtifactConversationContext
+  ): Promise<ArtifactResult> {
     try {
-      // Security check
-      const hasAccess = await this.securityManager.validateAccess(
-        user.id, 
-        'generate', 
-        type
-      );
+      logger.info('Starting artifact generation', { 
+        type, 
+        conversationId: context.conversationId 
+      });
 
-      if (!hasAccess) {
+      // 1. Security validation
+      const isSecure = await this.securityManager.validateContent(
+        JSON.stringify(context)
+      );
+      
+      if (!isSecure) {
         return {
           success: false,
-          errors: [`User ${user.id} not authorized to generate ${type} artifacts`],
-          warnings: [],
-          confidence: 0
+          error: {
+            code: 'SECURITY_VIOLATION',
+            message: 'Content failed security validation'
+          }
         };
       }
 
-      // Find appropriate generator
+      // 2. Get appropriate generator
       const generator = this.generators.get(type);
       if (!generator) {
         return {
           success: false,
-          errors: [`No generator available for type: ${type}`],
-          warnings: [],
-          confidence: 0
+          error: {
+            code: 'UNSUPPORTED_TYPE',
+            message: `No generator available for type: ${type}`
+          }
         };
       }
 
-      // Check if generator can handle this context
+      // 3. Check if generator can handle this context
       if (!generator.canHandle(context)) {
         return {
           success: false,
-          errors: [`Generator cannot handle current context for type: ${type}`],
-          warnings: ['Context may be missing required information'],
-          confidence: 0
+          error: {
+            code: 'CONTEXT_INCOMPATIBLE',
+            message: `Generator cannot handle the provided context`
+          }
         };
       }
 
-      // Generate artifact
-      const artifact = await generator.generate(context);
-      
-      // Add traceability information
-      artifact.traceability = {
-        conversationId: context.conversationId,
-        generatedBy: user.id,
-        generatedAt: new Date().toISOString(),
-        generator: type,
-        confidence: generator.getConfidence?.(context) || 0.8,
-        sourceMessages: context.messages.map(m => m.id)
+      // 4. Generate content
+      const content = await generator.generate(context);
+
+      // 5. Validate generated content
+      const validation = this.validator.validate(content, type);
+
+      // 6. Create artifact
+      const artifact: Artifact = {
+        type,
+        content: this.securityManager.sanitizeContent(content),
+        metadata: {
+          id: `artifact_${Date.now()}`,
+          title: `Generated ${type}`,
+          description: `Auto-generated ${type} artifact`,
+          estimatedEffort: 'medium',
+          tags: [type, 'auto-generated']
+        },
+        validation: this.mapValidationResult(validation)
       };
 
-      // Validate artifact
-      const validation = this.validator.validate(artifact);
-      artifact.validation = validation;
-
-      if (!validation.isValid) {
-        return {
-          success: false,
-          artifact,
-          errors: validation.errors.map(e => e.message),
-          warnings: validation.warnings.map(w => w.message),
-          confidence: validation.score
-        };
-      }
-
-      // Security validation
-      const securityValidation = this.validator.validateSecurity(artifact);
-      if (securityValidation.status === 'fail') {
-        return {
-          success: false,
-          artifact,
-          errors: securityValidation.findings.map(f => `Security: ${f.message}`),
-          warnings: validation.warnings.map(w => w.message),
-          confidence: 0
-        };
-      }
-
-      // Audit log
-      await this.securityManager.auditLog({
-        type: 'artifact_generated',
-        userId: user.id,
-        resource: type,
-        operation: 'generate',
-        timestamp: new Date().toISOString(),
-        metadata: {
-          artifactId: artifact.metadata.id,
-          confidence: artifact.traceability.confidence
-        }
+      logger.info('Artifact generation completed', { 
+        type, 
+        conversationId: context.conversationId,
+        validationStatus: validation.status
       });
 
       return {
         success: true,
-        artifact,
-        errors: [],
-        warnings: validation.warnings.map(w => w.message),
-        confidence: artifact.traceability.confidence
+        data: artifact
       };
 
     } catch (error) {
-      logger.error('Artifact generation failed:', error);
-      
-      // Audit error
-      await this.securityManager.auditLog({
-        type: 'generation_failed',
-        userId: user.id,
-        resource: type,
-        operation: 'generate',
-        timestamp: new Date().toISOString(),
-        metadata: {
-          error: error instanceof Error ? error.message : 'Unknown error'
-        }
+      logger.error('Artifact generation failed', { 
+        type, 
+        conversationId: context.conversationId, 
+        error 
       });
 
       return {
         success: false,
-        errors: [error instanceof Error ? error.message : 'Unknown error occurred'],
-        warnings: [],
-        confidence: 0
+        error: {
+          code: 'GENERATION_FAILED',
+          message: error instanceof Error ? error.message : 'Unknown error'
+        }
       };
     }
   }
 
   /**
-   * Validate an existing artifact
+   * Analyze conversation for generation opportunities
    */
-  public validateArtifact(artifact: Artifact): ValidationResult {
+  public async analyzeConversation(
+    context: ArtifactConversationContext
+  ): Promise<AnalysisResult> {
     try {
-      return this.validator.validate(artifact);
-    } catch (error) {
-      logger.error('Artifact validation failed:', error);
+      const analysis = await this.conversationAnalyzer.analyzeConversation(context);
+      const triggers = await this.conversationAnalyzer.detectGenerationTriggers(context);
+      const requirements = await this.conversationAnalyzer.extractRequirements(context);
+
       return {
-        status: 'invalid' as ValidationStatus,
-        isValid: false,
-        errors: [{
-          code: 'VALIDATION_ERROR',
-          message: error instanceof Error ? error.message : 'Unknown validation error',
-          severity: 'error' as const
-        }],
-        warnings: [],
-        suggestions: ['Please check artifact format and try again'],
-        score: 0
+        success: true,
+        data: {
+          summary: analysis,
+          triggers,
+          requirements
+        }
+      };
+
+    } catch (error) {
+      logger.error('Conversation analysis failed', { 
+        conversationId: context.conversationId, 
+        error 
+      });
+
+      return {
+        success: false,
+        error: {
+          code: 'ANALYSIS_FAILED',
+          message: error instanceof Error ? error.message : 'Unknown error'
+        }
       };
     }
+  }
+
+  /**
+   * Validate artifact content
+   */
+  public validateArtifact(content: string, type: string) {
+    return this.validator.validate(content, type);
   }
 
   /**
@@ -267,7 +292,7 @@ export class ArtifactFactory {
    */
   public getGeneratorInfo(type: string): {
     available: boolean;
-    canHandleContext?: (context: ConversationContext) => boolean;
+    canHandleContext?: (context: ArtifactConversationContext) => boolean;
     getSupportedType?: () => string;
   } {
     const generator = this.generators.get(type);
@@ -283,42 +308,42 @@ export class ArtifactFactory {
   }
 
   /**
-   * Generate suggestions based on conversation analysis
+   * Get conversation analysis
    */
-  private generateSuggestions(triggers: any[], phase: any, summary: any): string[] {
-    const suggestions: string[] = [];
+  public async getConversationInsights(
+    context: ArtifactConversationContext
+  ): Promise<InsightsResult> {
+    try {
+      const triggers = await this.conversationAnalyzer.detectGenerationTriggers(context);
+      const requirements = await this.conversationAnalyzer.extractRequirements(context);
 
-    // Suggest based on triggers
-    triggers.forEach(trigger => {
-      if (trigger.confidence > 0.7) {
-        suggestions.push(`Consider generating ${trigger.artifactType} based on recent discussion`);
-      }
-    });
+      return {
+        success: true,
+        data: {
+          triggers,
+          requirements,
+          suggestedArtifacts: triggers.map(t => ({
+            type: t.artifactType,
+            confidence: t.confidence,
+            reason: t.context
+          }))
+        }
+      };
 
-    // Suggest based on phase
-    if (phase.current === 'decision' && phase.confidence > 0.8) {
-      suggestions.push('Decisions have been made - consider generating documentation');
+    } catch (error) {
+      logger.error('Conversation insights failed', { 
+        conversationId: context.conversationId, 
+        error 
+      });
+
+      return {
+        success: false,
+        error: {
+          code: 'INSIGHTS_FAILED',
+          message: error instanceof Error ? error.message : 'Unknown error'
+        }
+      };
     }
-
-    if (phase.current === 'implementation' && phase.confidence > 0.8) {
-      suggestions.push('Implementation phase detected - consider generating code or tests');
-    }
-
-    // Suggest based on summary
-    if (summary.decisions.length > 0) {
-      suggestions.push('Multiple decisions detected - consider creating a PRD section');
-    }
-
-    if (summary.actionItems.length > 0) {
-      suggestions.push('Action items identified - consider generating implementation artifacts');
-    }
-
-    // Default suggestions if none found
-    if (suggestions.length === 0) {
-      suggestions.push('Continue the conversation to identify generation opportunities');
-    }
-
-    return suggestions;
   }
 
   /**
@@ -346,22 +371,4 @@ export class ArtifactFactory {
 }
 
 // Export singleton instance
-export const artifactFactory = new ArtifactFactory();
-
-// Additional types needed for the artifact factory
-interface ValidationResult {
-  status: ValidationStatus;
-  isValid: boolean;
-  errors: Array<{
-    code: string;
-    message: string;
-    severity: 'error' | 'warning';
-  }>;
-  warnings: Array<{
-    code: string;
-    message: string;
-    severity: 'warning';
-  }>;
-  suggestions: string[];
-  score: number;
-} 
+export const artifactFactory = new ArtifactFactory(); 

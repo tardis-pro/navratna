@@ -8,6 +8,7 @@
     { "path": "./shared/services" },
     { "path": "./services/agent-intelligence" },
     { "path": "./services/capability-registry" },
+    { "path": "./services/artifact-service" },
     { "path": "./services/orchestration-pipeline" },
     { "path": "./services/security-gateway" },
     { "path": "./services/discussion-orchestration" }

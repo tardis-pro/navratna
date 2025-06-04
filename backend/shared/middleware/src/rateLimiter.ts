@@ -12,45 +12,62 @@ const rateLimit = (options: any) => {
   };
 };
 
+// Rate limiter configuration interface
+interface RateLimiterOptions {
+  windowMs?: number;
+  max?: number;
+  message?: any;
+  standardHeaders?: boolean;
+  legacyHeaders?: boolean;
+  keyGenerator?: (req: Request) => string;
+  handler?: (req: Request, res: Response) => void;
+  skip?: (req: Request) => boolean;
+}
 
-
-
-export const rateLimiter = rateLimit({
-  windowMs: config.rateLimit.windowMs,
-  max: config.rateLimit.max,
-  standardHeaders: config.rateLimit.standardHeaders,
-  legacyHeaders: config.rateLimit.legacyHeaders,
-  
-  // Custom key generator (can be enhanced for user-specific limits)
-  keyGenerator: (req: Request) => {
-    return req.ip || 'unknown';
-  },
-  
-  // Custom handler for rate limit exceeded
-  handler: (req: Request, res: Response) => {
-    logger.warn('Rate limit exceeded', {
-      ip: req.ip,
-      userAgent: req.headers['user-agent'],
-      url: req.url,
-      method: req.method
-    });
+// Function to create rate limiter middleware with custom options
+export const createRateLimiter = (options: RateLimiterOptions = {}) => {
+  return rateLimit({
+    windowMs: options.windowMs || config.rateLimit.windowMs,
+    max: options.max || config.rateLimit.max,
+    standardHeaders: options.standardHeaders ?? config.rateLimit.standardHeaders,
+    legacyHeaders: options.legacyHeaders ?? config.rateLimit.legacyHeaders,
     
-    res.status(429).json({
-      success: false,
-      error: {
-        code: 'RATE_LIMIT_EXCEEDED',
-        message: 'Too many requests, please try again later'
-      },
-      meta: {
-        timestamp: new Date(),
-        retryAfter: Math.round(config.rateLimit.windowMs / 1000)
-      }
-    });
-  },
-  
-  // Skip successful requests in some cases
-  skip: (req: Request) => {
-    // Skip rate limiting for health checks
-    return req.path === '/health';
-  }
-}); 
+    // Custom key generator (can be enhanced for user-specific limits)
+    keyGenerator: options.keyGenerator || ((req: Request) => {
+      return req.ip || 'unknown';
+    }),
+    
+    // Custom handler for rate limit exceeded
+    handler: options.handler || ((req: Request, res: Response) => {
+      logger.warn('Rate limit exceeded', {
+        ip: req.ip,
+        userAgent: req.headers['user-agent'],
+        url: req.url,
+        method: req.method
+      });
+      
+      const message = options.message || {
+        success: false,
+        error: {
+          code: 'RATE_LIMIT_EXCEEDED',
+          message: 'Too many requests, please try again later'
+        },
+        meta: {
+          timestamp: new Date(),
+          retryAfter: Math.round((options.windowMs || config.rateLimit.windowMs) / 1000)
+        }
+      };
+      
+      res.status(429).json(message);
+    }),
+    
+    // Skip successful requests in some cases
+    skip: options.skip || ((req: Request) => {
+      // Skip rate limiting for health checks
+      return req.path === '/health';
+    })
+  });
+};
+
+// Default rate limiter middleware
+export const rateLimiter = createRateLimiter(); 

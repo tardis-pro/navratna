@@ -6,8 +6,7 @@ import morgan from 'morgan';
 import path from 'path';
 
 import { logger } from '@uaip/utils';
-import { config } from '@uaip/config';
-import { errorHandler, rateLimiter, metricsMiddleware } from '@uaip/middleware';
+import { errorHandler, rateLimiter, metricsMiddleware, metricsEndpoint } from '@uaip/middleware';
 import { 
   DatabaseService, 
   EventBusService, 
@@ -91,6 +90,9 @@ class AgentIntelligenceService {
   }
 
   private setupRoutes(): void {
+    // Metrics endpoint for Prometheus
+    this.app.get('/metrics', metricsEndpoint);
+    
     // Health check routes
     this.app.use('/health', healthRoutes);
     

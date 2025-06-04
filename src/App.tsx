@@ -135,7 +135,7 @@ const AppContent: React.FC = () => {
   const discussionManager = useDiscussionManager({
     topic: 'AI Agent Collaboration',
     maxRounds: 5,
-    turnStrategy: 'round-robin'
+    turnStrategy: 'round_robin'
   });
 
   const analytics = discussionManager.getDiscussionAnalytics();
@@ -403,7 +403,7 @@ function App() {
       <ProtectedRoute>
         <DocumentProvider>
           <AgentProvider>
-            <DiscussionProvider topic="AI Agent Collaboration" maxRounds={5} turnStrategy="round-robin">
+            <DiscussionProvider topic="AI Agent Collaboration" maxRounds={5} turnStrategy="round_robin">
               <AppContent />
             </DiscussionProvider>
           </AgentProvider>

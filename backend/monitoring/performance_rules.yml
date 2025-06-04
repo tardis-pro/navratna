@@ -1,0 +1,225 @@
+groups:
+  - name: performance.rules
+    rules:
+      # Response Time Metrics
+      - record: http_request_duration_p95
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))
+        labels:
+          quantile: "0.95"
+          metric_type: "response_time"
+
+      - record: http_request_duration_p99
+        expr: histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m]))
+        labels:
+          quantile: "0.99"
+          metric_type: "response_time"
+
+      # Request Rate Metrics
+      - record: http_requests_per_second
+        expr: rate(http_requests_total[5m])
+        labels:
+          metric_type: "request_rate"
+
+      # Error Rate Metrics
+      - record: http_error_rate
+        expr: |
+          rate(http_requests_total{status=~"5.."}[5m]) / 
+          rate(http_requests_total[5m])
+        labels:
+          metric_type: "error_rate"
+
+      # Service Availability
+      - record: service_availability
+        expr: |
+          (
+            rate(http_requests_total{status!~"5.."}[5m]) / 
+            rate(http_requests_total[5m])
+          ) * 100
+        labels:
+          metric_type: "availability"
+
+  - name: service_performance.rules
+    rules:
+      # Agent Intelligence Performance
+      - record: agent_intelligence_response_time_p95
+        expr: |
+          histogram_quantile(0.95, 
+            rate(http_request_duration_seconds_bucket{service="agent-intelligence"}[5m])
+          )
+        labels:
+          service: "agent-intelligence"
+          metric_type: "response_time_p95"
+
+      - record: agent_intelligence_throughput
+        expr: rate(http_requests_total{service="agent-intelligence"}[5m])
+        labels:
+          service: "agent-intelligence"
+          metric_type: "throughput"
+
+      # Orchestration Pipeline Performance
+      - record: orchestration_pipeline_response_time_p95
+        expr: |
+          histogram_quantile(0.95, 
+            rate(http_request_duration_seconds_bucket{service="orchestration-pipeline"}[5m])
+          )
+        labels:
+          service: "orchestration-pipeline"
+          metric_type: "response_time_p95"
+
+      - record: orchestration_pipeline_throughput
+        expr: rate(http_requests_total{service="orchestration-pipeline"}[5m])
+        labels:
+          service: "orchestration-pipeline"
+          metric_type: "throughput"
+
+      # Capability Registry Performance
+      - record: capability_registry_response_time_p95
+        expr: |
+          histogram_quantile(0.95, 
+            rate(http_request_duration_seconds_bucket{service="capability-registry"}[5m])
+          )
+        labels:
+          service: "capability-registry"
+          metric_type: "response_time_p95"
+
+      - record: capability_registry_throughput
+        expr: rate(http_requests_total{service="capability-registry"}[5m])
+        labels:
+          service: "capability-registry"
+          metric_type: "throughput"
+
+      # Security Gateway Performance
+      - record: security_gateway_response_time_p95
+        expr: |
+          histogram_quantile(0.95, 
+            rate(http_request_duration_seconds_bucket{service="security-gateway"}[5m])
+          )
+        labels:
+          service: "security-gateway"
+          metric_type: "response_time_p95"
+
+      - record: security_gateway_throughput
+        expr: rate(http_requests_total{service="security-gateway"}[5m])
+        labels:
+          service: "security-gateway"
+          metric_type: "throughput"
+
+      # API Gateway Performance
+      - record: api_gateway_response_time_p95
+        expr: |
+          histogram_quantile(0.95, 
+            rate(http_request_duration_seconds_bucket{service="api-gateway"}[5m])
+          )
+        labels:
+          service: "api-gateway"
+          metric_type: "response_time_p95"
+
+      - record: api_gateway_throughput
+        expr: rate(http_requests_total{service="api-gateway"}[5m])
+        labels:
+          service: "api-gateway"
+          metric_type: "throughput"
+
+  - name: resource_utilization.rules
+    rules:
+      # CPU Utilization
+      - record: cpu_utilization_avg
+        expr: |
+          100 - (avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+        labels:
+          metric_type: "cpu_utilization"
+
+      # Memory Utilization
+      - record: memory_utilization_percent
+        expr: |
+          (
+            (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / 
+            node_memory_MemTotal_bytes
+          ) * 100
+        labels:
+          metric_type: "memory_utilization"
+
+      # Disk Utilization
+      - record: disk_utilization_percent
+        expr: |
+          (
+            (node_filesystem_size_bytes - node_filesystem_avail_bytes) / 
+            node_filesystem_size_bytes
+          ) * 100
+        labels:
+          metric_type: "disk_utilization"
+
+      # Network I/O
+      - record: network_receive_rate
+        expr: rate(node_network_receive_bytes_total[5m])
+        labels:
+          metric_type: "network_receive"
+
+      - record: network_transmit_rate
+        expr: rate(node_network_transmit_bytes_total[5m])
+        labels:
+          metric_type: "network_transmit"
+
+  - name: database_performance.rules
+    rules:
+      # PostgreSQL Performance
+      - record: postgres_connections_active
+        expr: pg_stat_activity_count{state="active"}
+        labels:
+          component: "postgres"
+          metric_type: "active_connections"
+
+      - record: postgres_query_duration_p95
+        expr: |
+          histogram_quantile(0.95, 
+            rate(pg_stat_statements_mean_time_seconds_bucket[5m])
+          )
+        labels:
+          component: "postgres"
+          metric_type: "query_duration_p95"
+
+      - record: postgres_transactions_per_second
+        expr: rate(pg_stat_database_xact_commit_total[5m]) + rate(pg_stat_database_xact_rollback_total[5m])
+        labels:
+          component: "postgres"
+          metric_type: "transactions_per_second"
+
+      # Redis Performance
+      - record: redis_operations_per_second
+        expr: rate(redis_commands_processed_total[5m])
+        labels:
+          component: "redis"
+          metric_type: "operations_per_second"
+
+      - record: redis_memory_usage_percent
+        expr: |
+          (redis_memory_used_bytes / redis_memory_max_bytes) * 100
+        labels:
+          component: "redis"
+          metric_type: "memory_usage_percent"
+
+      # RabbitMQ Performance
+      - record: rabbitmq_messages_per_second
+        expr: rate(rabbitmq_queue_messages_published_total[5m])
+        labels:
+          component: "rabbitmq"
+          metric_type: "messages_per_second"
+
+      - record: rabbitmq_queue_depth
+        expr: rabbitmq_queue_messages_ready + rabbitmq_queue_messages_unacknowledged
+        labels:
+          component: "rabbitmq"
+          metric_type: "queue_depth"
+
+      # Qdrant Performance
+      - record: qdrant_search_operations_per_second
+        expr: rate(qdrant_search_requests_total[5m])
+        labels:
+          component: "qdrant"
+          metric_type: "search_operations_per_second"
+
+      - record: qdrant_index_operations_per_second
+        expr: rate(qdrant_index_requests_total[5m])
+        labels:
+          component: "qdrant"
+          metric_type: "index_operations_per_second" 

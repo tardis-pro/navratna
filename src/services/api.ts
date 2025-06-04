@@ -13,6 +13,37 @@
 
 import { API_ROUTES, buildAPIURL } from '@/config/apiConfig';
 
+// Define frontend types that match backend expectations
+export enum TurnStrategy {
+  ROUND_ROBIN = 'round_robin',
+  MODERATED = 'moderated',
+  FREE_FORM = 'free_form',
+  CONTEXT_AWARE = 'context_aware',
+  PRIORITY_BASED = 'priority_based',
+  EXPERTISE_DRIVEN = 'expertise_driven'
+}
+
+export interface TurnStrategyConfig {
+  strategy: TurnStrategy;
+  config: {
+    type: 'round_robin' | 'moderated' | 'context_aware' | 'priority_based' | 'free_form' | 'expertise_driven';
+    skipInactive?: boolean;
+    maxSkips?: number;
+    moderatorId?: string;
+    requireApproval?: boolean;
+    autoAdvance?: boolean;
+    relevanceThreshold?: number;
+    expertiseWeight?: number;
+    engagementWeight?: number;
+    priorities?: Array<{
+      participantId: string;
+      priority: number;
+    }>;
+    cooldownPeriod?: number;
+    topicKeywords?: string[];
+    expertiseThreshold?: number;
+  };
+}
 
 // Re-export types
 export type {
@@ -1040,10 +1071,7 @@ export class UAIPAPIClient {
       title: string;
       description: string;
       topic: string;
-      turnStrategy: {
-        type: 'round_robin' | 'moderated' | 'context_aware';
-        settings?: Record<string, any>;
-      };
+      turnStrategy?: TurnStrategyConfig;
       createdBy: string;
       initialParticipants: Array<{ 
         personaId: string;

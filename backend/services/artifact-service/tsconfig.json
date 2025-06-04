@@ -4,13 +4,7 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "baseUrl": "./src",
-    "paths": {
-      "@/*": ["*"],
-      "@uaip/types/*": ["../../shared/types/src/*"],
-      "@uaip/utils/*": ["../../shared/utils/src/*"],
-      "@uaip/config/*": ["../../shared/config/src/*"],
-      "@uaip/shared-services/*": ["../../shared/services/src/*"]
-    },
+    
     "composite": true,
     "declaration": true,
     "declarationMap": true,

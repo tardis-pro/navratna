@@ -25,7 +25,7 @@ export {
 export { errorHandler, AppError } from './errorHandler.js';
 
 // Rate limiting middleware exports
-export { rateLimiter } from './rateLimiter.js';
+export { rateLimiter, createRateLimiter } from './rateLimiter.js';
 
 // Metrics middleware exports
 export { 

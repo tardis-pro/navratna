@@ -1,5 +1,16 @@
 # version: '3.8'  # Removed obsolete version field
 
+# =============================================================================
+# UAIP Backend Services - Docker Compose Configuration
+# =============================================================================
+# 
+# Database Initialization Order:
+# 1. PostgreSQL: 01-init-database.sql → 02-persona-discussion-schema.sql → 03-seed-data.sql
+# 2. Neo4j: 01-init-graph.cypher → 04-neo4j-tools-schema.cypher
+# 3. All migration files are available in /docker-entrypoint-initdb.d/migrations/
+# 
+# =============================================================================
+
 services:
   # Database Services
   postgres:
@@ -14,9 +25,11 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # PostgreSQL initialization files (executed in alphabetical order)
       - ./database/init/01-init-database.sql:/docker-entrypoint-initdb.d/01-init-database.sql
       - ./database/init/02-persona-discussion-schema.sql:/docker-entrypoint-initdb.d/02-persona-discussion-schema.sql
       - ./database/init/03-seed-data.sql:/docker-entrypoint-initdb.d/03-seed-data.sql
+      # Migration files (referenced by 02-persona-discussion-schema.sql)
       - ./database/migrations:/docker-entrypoint-initdb.d/migrations
     networks:
       - uaip-network
@@ -46,6 +59,7 @@ services:
       - neo4j_logs:/logs
       - neo4j_import:/var/lib/neo4j/import
       - neo4j_plugins:/plugins
+      # Neo4j initialization files (executed in alphabetical order)
       - ./database/neo4j/init:/docker-entrypoint-initdb.d
     networks:
       - uaip-network
@@ -291,6 +305,38 @@ services:
       timeout: 10s
       retries: 3
 
+  artifact-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: uaip-artifact-service
+    environment:
+      - SERVICE_NAME=artifact-service
+      - SERVICE_PORT=3006
+      - NODE_ENV=development
+      - PORT=3006
+      - POSTGRES_URL=postgresql://uaip_user:uaip_password@postgres:5432/uaip
+      - REDIS_URL=redis://:uaip_redis_password@redis:6379
+      - RABBITMQ_URL=amqp://uaip_user:uaip_password@rabbitmq:5672
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    ports:
+      - "3006:3006"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - uaip-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3006/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   # API Gateway (Nginx as reverse proxy)
   api-gateway:
     image: nginx:alpine
@@ -305,6 +351,7 @@ services:
       - capability-registry
       - discussion-orchestration
       - security-gateway
+      - artifact-service
     networks:
       - uaip-network
     healthcheck:

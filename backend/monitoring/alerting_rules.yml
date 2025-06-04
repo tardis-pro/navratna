@@ -1,0 +1,214 @@
+groups:
+  - name: logging.alerts
+    rules:
+      # High Error Log Rate
+      - alert: HighErrorLogRate
+        expr: error_log_rate > 0.1
+        for: 2m
+        labels:
+          severity: warning
+          category: logging
+        annotations:
+          summary: "High error log rate detected"
+          description: "Error log rate is {{ $value }} errors/second for {{ $labels.service }}"
+
+      # Critical Error Spike
+      - alert: CriticalErrorSpike
+        expr: critical_log_rate > 0.01
+        for: 1m
+        labels:
+          severity: critical
+          category: logging
+        annotations:
+          summary: "Critical errors detected"
+          description: "Critical error rate is {{ $value }} errors/second for {{ $labels.service }}"
+
+      # Log Volume Spike
+      - alert: LogVolumeSpike
+        expr: |
+          (
+            service_log_volume > 
+            (avg_over_time(service_log_volume[1h]) * 3)
+          ) and service_log_volume > 10
+        for: 5m
+        labels:
+          severity: warning
+          category: logging
+        annotations:
+          summary: "Unusual log volume spike"
+          description: "Log volume for {{ $labels.service }} is {{ $value }} logs/second, 3x higher than normal"
+
+      # High Error Ratio
+      - alert: HighErrorRatio
+        expr: log_error_ratio > 0.05
+        for: 3m
+        labels:
+          severity: warning
+          category: logging
+        annotations:
+          summary: "High error ratio in logs"
+          description: "Error ratio is {{ $value | humanizePercentage }} for {{ $labels.service }}"
+
+      # No Logs Received
+      - alert: NoLogsReceived
+        expr: |
+          (
+            time() - max(timestamp(log_entries_total)) by (service)
+          ) > 300
+        for: 5m
+        labels:
+          severity: critical
+          category: logging
+        annotations:
+          summary: "No logs received from service"
+          description: "No logs received from {{ $labels.service }} for over 5 minutes"
+
+  - name: service_logging.alerts
+    rules:
+      # Agent Intelligence Service Alerts
+      - alert: AgentIntelligenceHighErrors
+        expr: agent_intelligence_error_rate > 0.05
+        for: 2m
+        labels:
+          severity: warning
+          service: agent-intelligence
+          category: service_logging
+        annotations:
+          summary: "High error rate in Agent Intelligence service"
+          description: "Agent Intelligence error rate: {{ $value }} errors/second"
+
+      # Orchestration Pipeline Service Alerts
+      - alert: OrchestrationPipelineHighErrors
+        expr: orchestration_pipeline_error_rate > 0.05
+        for: 2m
+        labels:
+          severity: warning
+          service: orchestration-pipeline
+          category: service_logging
+        annotations:
+          summary: "High error rate in Orchestration Pipeline service"
+          description: "Orchestration Pipeline error rate: {{ $value }} errors/second"
+
+      # Capability Registry Service Alerts
+      - alert: CapabilityRegistryHighErrors
+        expr: capability_registry_error_rate > 0.05
+        for: 2m
+        labels:
+          severity: warning
+          service: capability-registry
+          category: service_logging
+        annotations:
+          summary: "High error rate in Capability Registry service"
+          description: "Capability Registry error rate: {{ $value }} errors/second"
+
+      # Security Gateway Service Alerts
+      - alert: SecurityGatewayHighErrors
+        expr: security_gateway_error_rate > 0.02
+        for: 1m
+        labels:
+          severity: critical
+          service: security-gateway
+          category: service_logging
+        annotations:
+          summary: "High error rate in Security Gateway service"
+          description: "Security Gateway error rate: {{ $value }} errors/second - SECURITY CONCERN"
+
+      # API Gateway Service Alerts
+      - alert: ApiGatewayHighErrors
+        expr: api_gateway_error_rate > 0.1
+        for: 2m
+        labels:
+          severity: warning
+          service: api-gateway
+          category: service_logging
+        annotations:
+          summary: "High error rate in API Gateway service"
+          description: "API Gateway error rate: {{ $value }} errors/second"
+
+  - name: infrastructure_logging.alerts
+    rules:
+      # Database Logging Alerts
+      - alert: PostgresHighErrors
+        expr: postgres_log_error_rate > 0.01
+        for: 3m
+        labels:
+          severity: warning
+          component: postgres
+          category: infrastructure_logging
+        annotations:
+          summary: "High error rate in PostgreSQL"
+          description: "PostgreSQL error rate: {{ $value }} errors/second"
+
+      # Redis Logging Alerts
+      - alert: RedisHighErrors
+        expr: redis_log_error_rate > 0.01
+        for: 3m
+        labels:
+          severity: warning
+          component: redis
+          category: infrastructure_logging
+        annotations:
+          summary: "High error rate in Redis"
+          description: "Redis error rate: {{ $value }} errors/second"
+
+      # RabbitMQ Logging Alerts
+      - alert: RabbitMQHighErrors
+        expr: rabbitmq_log_error_rate > 0.01
+        for: 3m
+        labels:
+          severity: warning
+          component: rabbitmq
+          category: infrastructure_logging
+        annotations:
+          summary: "High error rate in RabbitMQ"
+          description: "RabbitMQ error rate: {{ $value }} errors/second"
+
+      # Qdrant Logging Alerts
+      - alert: QdrantHighErrors
+        expr: qdrant_log_error_rate > 0.01
+        for: 3m
+        labels:
+          severity: warning
+          component: qdrant
+          category: infrastructure_logging
+        annotations:
+          summary: "High error rate in Qdrant"
+          description: "Qdrant error rate: {{ $value }} errors/second"
+
+  - name: log_patterns.alerts
+    rules:
+      # Authentication Failures
+      - alert: HighAuthenticationFailures
+        expr: |
+          rate(log_entries_total{message=~".*authentication.*failed.*|.*login.*failed.*|.*unauthorized.*"}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+          category: security_logging
+        annotations:
+          summary: "High authentication failure rate"
+          description: "Authentication failure rate: {{ $value }} failures/second"
+
+      # Database Connection Issues
+      - alert: DatabaseConnectionErrors
+        expr: |
+          rate(log_entries_total{message=~".*database.*connection.*error.*|.*db.*timeout.*|.*connection.*refused.*"}[5m]) > 0.05
+        for: 3m
+        labels:
+          severity: critical
+          category: database_logging
+        annotations:
+          summary: "Database connection errors detected"
+          description: "Database connection error rate: {{ $value }} errors/second"
+
+      # Memory Issues
+      - alert: MemoryIssuesInLogs
+        expr: |
+          rate(log_entries_total{message=~".*out.*of.*memory.*|.*memory.*leak.*|.*heap.*overflow.*"}[5m]) > 0.01
+        for: 1m
+        labels:
+          severity: critical
+          category: performance_logging
+        annotations:
+          summary: "Memory issues detected in logs"
+          description: "Memory-related error rate: {{ $value }} errors/second" 

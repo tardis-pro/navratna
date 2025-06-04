@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { uaipAPI, generateUUID } from '../services/uaip-api';
+import { uaipAPI, generateUUID, TurnStrategy } from '../services/uaip-api';
 import { AgentState, Message } from '../types/agent';
 import { DocumentContext } from '../types/document';
 
@@ -207,18 +207,57 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
 
   const createDiscussion = useCallback(async () => {
     try {
+      // Create proper TurnStrategyConfig based on the strategy
+      const turnStrategyConfig = (() => {
+        const strategy = config.turnStrategy || 'round_robin';
+        switch (strategy) {
+          case 'round_robin':
+            return {
+              strategy: TurnStrategy.ROUND_ROBIN,
+              config: {
+                type: 'round_robin' as const,
+                skipInactive: true,
+                maxSkips: 3
+              }
+            };
+          case 'moderated':
+            return {
+              strategy: TurnStrategy.MODERATED,
+              config: {
+                type: 'moderated' as const,
+                moderatorId: generateUUID(), // Will be updated when moderator is set
+                requireApproval: true,
+                autoAdvance: false
+              }
+            };
+          case 'context_aware':
+            return {
+              strategy: TurnStrategy.CONTEXT_AWARE,
+              config: {
+                type: 'context_aware' as const,
+                relevanceThreshold: 0.7,
+                expertiseWeight: 0.3,
+                engagementWeight: 0.2
+              }
+            };
+          default:
+            return {
+              strategy: TurnStrategy.ROUND_ROBIN,
+              config: {
+                type: 'round_robin' as const,
+                skipInactive: true,
+                maxSkips: 3
+              }
+            };
+        }
+      })();
+
       const discussion = await uaipAPI.discussions.create({
         title: `Discussion: ${config.topic}`,
         description: `A collaborative discussion about ${config.topic}`,
         topic: config.topic,
-        turnStrategy: {
-          type: config.turnStrategy || 'round_robin',
-          settings: {
-            maxTurns: 20,
-            turnTimeout: 300
-          }
-        },
         createdBy: generateUUID(), // Generate a valid UUID for the user
+        turnStrategy: turnStrategyConfig,
         initialParticipants: [
           {
             personaId: generateUUID(), // Generate valid UUID for persona
@@ -230,11 +269,7 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
             agentId: generateUUID(),   // Generate valid UUID for agent
             role: 'participant'
           }
-        ],
-        settings: {
-          maxTurns: 20,
-          turnTimeout: 300
-        }
+        ]
       });
       
       setDiscussionId(discussion.id);

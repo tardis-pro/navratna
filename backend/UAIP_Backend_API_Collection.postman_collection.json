@@ -37,6 +37,11 @@
       "description": "Discussion Orchestration Service direct URL"
     },
     {
+      "key": "artifactUrl",
+      "value": "http://localhost:3006",
+      "description": "Artifact Service direct URL"
+    },
+    {
       "key": "accessToken",
       "value": "",
       "description": "JWT Access Token"
@@ -983,6 +988,426 @@
               ]
             }
           }
+        },
+        {
+          "name": "Tools",
+          "item": [
+            {
+              "name": "Get All Tools",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{capabilityUrl}}/api/v1/tools",
+                  "host": ["{{capabilityUrl}}"],
+                  "path": ["api", "v1", "tools"]
+                }
+              }
+            },
+            {
+              "name": "Get Tool Categories",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{capabilityUrl}}/api/v1/tools/categories",
+                  "host": ["{{capabilityUrl}}"],
+                  "path": ["api", "v1", "tools", "categories"]
+                }
+              }
+            },
+            {
+              "name": "Get Tool Recommendations",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{capabilityUrl}}/api/v1/tools/recommendations?context=data_analysis",
+                  "host": ["{{capabilityUrl}}"],
+                  "path": ["api", "v1", "tools", "recommendations"],
+                  "query": [
+                    {
+                      "key": "context",
+                      "value": "data_analysis"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Tool",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{capabilityUrl}}/api/v1/tools/:id",
+                  "host": ["{{capabilityUrl}}"],
+                  "path": ["api", "v1", "tools", ":id"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "{{toolId}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Related Tools",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{capabilityUrl}}/api/v1/tools/:id/related",
+                  "host": ["{{capabilityUrl}}"],
+                  "path": ["api", "v1", "tools", ":id", "related"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "{{toolId}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Similar Tools",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{capabilityUrl}}/api/v1/tools/:id/similar",
+                  "host": ["{{capabilityUrl}}"],
+                  "path": ["api", "v1", "tools", ":id", "similar"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "{{toolId}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Tool Dependencies",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{capabilityUrl}}/api/v1/tools/:id/dependencies",
+                  "host": ["{{capabilityUrl}}"],
+                  "path": ["api", "v1", "tools", ":id", "dependencies"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "{{toolId}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Register Tool",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Data Analyzer\",\n  \"description\": \"Advanced data analysis tool with ML capabilities\",\n  \"category\": \"analytics\",\n  \"version\": \"1.0.0\",\n  \"provider\": \"Internal\",\n  \"capabilities\": {\n    \"inputs\": [\"csv\", \"json\", \"database\"],\n    \"outputs\": [\"insights\", \"charts\", \"reports\"],\n    \"requirements\": [\"python\", \"pandas\", \"scikit-learn\"]\n  },\n  \"metadata\": {\n    \"tags\": [\"analytics\", \"ml\", \"data\"],\n    \"documentation\": \"https://docs.example.com/data-analyzer\"\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{capabilityUrl}}/api/v1/tools",
+                  "host": ["{{capabilityUrl}}"],
+                  "path": ["api", "v1", "tools"]
+                }
+              }
+            },
+            {
+              "name": "Update Tool",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Advanced Data Analyzer\",\n  \"description\": \"Enhanced data analysis tool with advanced ML capabilities\",\n  \"version\": \"1.1.0\"\n}"
+                },
+                "url": {
+                  "raw": "{{capabilityUrl}}/api/v1/tools/:id",
+                  "host": ["{{capabilityUrl}}"],
+                  "path": ["api", "v1", "tools", ":id"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "{{toolId}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Unregister Tool",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{capabilityUrl}}/api/v1/tools/:id",
+                  "host": ["{{capabilityUrl}}"],
+                  "path": ["api", "v1", "tools", ":id"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "{{toolId}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Validate Tool",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Test Tool\",\n  \"description\": \"A test tool for validation\",\n  \"category\": \"testing\",\n  \"version\": \"1.0.0\",\n  \"provider\": \"Internal\",\n  \"capabilities\": {\n    \"inputs\": [\"test_data\"],\n    \"outputs\": [\"results\"]\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{capabilityUrl}}/api/v1/tools/validate",
+                  "host": ["{{capabilityUrl}}"],
+                  "path": ["api", "v1", "tools", "validate"]
+                }
+              }
+            },
+            {
+              "name": "Add Tool Relationship",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"relatedToolId\": \"tool-456\",\n  \"relationshipType\": \"depends_on\",\n  \"description\": \"This tool depends on the related tool for data processing\"\n}"
+                },
+                "url": {
+                  "raw": "{{capabilityUrl}}/api/v1/tools/:id/relationships",
+                  "host": ["{{capabilityUrl}}"],
+                  "path": ["api", "v1", "tools", ":id", "relationships"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "{{toolId}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Execute Tool",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"parameters\": {\n    \"input_data\": \"sample_data.csv\",\n    \"analysis_type\": \"regression\",\n    \"output_format\": \"json\"\n  },\n  \"context\": {\n    \"agentId\": \"agent-123\",\n    \"sessionId\": \"session-456\"\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{capabilityUrl}}/api/v1/tools/:id/execute",
+                  "host": ["{{capabilityUrl}}"],
+                  "path": ["api", "v1", "tools", ":id", "execute"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "{{toolId}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get All Executions",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{capabilityUrl}}/api/v1/executions?status=running&limit=20",
+                  "host": ["{{capabilityUrl}}"],
+                  "path": ["api", "v1", "executions"],
+                  "query": [
+                    {
+                      "key": "status",
+                      "value": "running"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Execution",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{capabilityUrl}}/api/v1/executions/:id",
+                  "host": ["{{capabilityUrl}}"],
+                  "path": ["api", "v1", "executions", ":id"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "{{executionId}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Approve Execution",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"approver\": \"admin-user\",\n  \"comments\": \"Execution approved for production use\"\n}"
+                },
+                "url": {
+                  "raw": "{{capabilityUrl}}/api/v1/executions/:id/approve",
+                  "host": ["{{capabilityUrl}}"],
+                  "path": ["api", "v1", "executions", ":id", "approve"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "{{executionId}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Cancel Execution",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"reason\": \"Execution cancelled due to resource constraints\",\n  \"force\": false\n}"
+                },
+                "url": {
+                  "raw": "{{capabilityUrl}}/api/v1/executions/:id/cancel",
+                  "host": ["{{capabilityUrl}}"],
+                  "path": ["api", "v1", "executions", ":id", "cancel"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "{{executionId}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Usage Analytics",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{capabilityUrl}}/api/v1/analytics/usage?period=last_30_days",
+                  "host": ["{{capabilityUrl}}"],
+                  "path": ["api", "v1", "analytics", "usage"],
+                  "query": [
+                    {
+                      "key": "period",
+                      "value": "last_30_days"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Popular Tools",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{capabilityUrl}}/api/v1/analytics/popular?limit=10",
+                  "host": ["{{capabilityUrl}}"],
+                  "path": ["api", "v1", "analytics", "popular"],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "10"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Agent Preferences",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{capabilityUrl}}/api/v1/analytics/agent/:agentId/preferences",
+                  "host": ["{{capabilityUrl}}"],
+                  "path": ["api", "v1", "analytics", "agent", ":agentId", "preferences"],
+                  "variable": [
+                    {
+                      "key": "agentId",
+                      "value": "{{agentId}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Tools Health Check",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{capabilityUrl}}/api/v1/health",
+                  "host": ["{{capabilityUrl}}"],
+                  "path": ["api", "v1", "health"]
+                }
+              }
+            }
+          ]
         }
       ]
     },
@@ -1704,7 +2129,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Business Strategy Discussion\",\n  \"description\": \"Quarterly business strategy planning session\",\n  \"topic\": \"Q4 Business Strategy\",\n  \"participants\": [\n    {\n      \"personaId\": \"persona-1\",\n      \"role\": \"facilitator\"\n    },\n    {\n      \"personaId\": \"persona-2\",\n      \"role\": \"participant\"\n    }\n  ],\n  \"settings\": {\n    \"turnStrategy\": \"round_robin\",\n    \"maxTurns\": 20,\n    \"turnTimeout\": 300\n  }\n}"
+              "raw": "{\n  \"title\": \"Business Strategy Discussion\",\n  \"description\": \"Quarterly business strategy planning session\",\n  \"topic\": \"Q4 Business Strategy\",\n  \"turnStrategy\": {\n    \"strategy\": \"round_robin\",\n    \"config\": {\n      \"type\": \"round_robin\",\n      \"skipInactive\": true,\n      \"maxSkips\": 3\n    }\n  },\n  \"initialParticipants\": [\n    {\n      \"personaId\": \"persona-1\",\n      \"agentId\": \"agent-1\",\n      \"role\": \"facilitator\"\n    },\n    {\n      \"personaId\": \"persona-2\",\n      \"agentId\": \"agent-2\",\n      \"role\": \"participant\"\n    }\n  ],\n  \"settings\": {\n    \"maxParticipants\": 10,\n    \"turnTimeout\": 300,\n    \"autoModeration\": true\n  }\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/discussions",
@@ -1975,6 +2400,121 @@
                   "value": "{{discussionId}}"
                 }
               ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Artifact Service",
+      "item": [
+        {
+          "name": "Generate Artifact",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"code\",\n  \"context\": {\n    \"agent\": {\n      \"id\": \"agent-123\",\n      \"name\": \"Development Agent\",\n      \"capabilities\": [\"coding\", \"testing\"]\n    },\n    \"persona\": {\n      \"id\": \"persona-456\",\n      \"role\": \"Senior Developer\",\n      \"expertise\": [\"javascript\", \"typescript\", \"react\"]\n    },\n    \"discussion\": {\n      \"id\": \"discussion-789\",\n      \"topic\": \"User Authentication System\",\n      \"requirements\": [\"JWT tokens\", \"password hashing\", \"role-based access\"]\n    }\n  },\n  \"requirements\": {\n    \"language\": \"typescript\",\n    \"framework\": \"express\",\n    \"features\": [\"authentication\", \"authorization\", \"validation\"]\n  },\n  \"options\": {\n    \"includeTests\": true,\n    \"includeDocumentation\": true,\n    \"codeStyle\": \"clean\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{artifactUrl}}/api/v1/artifacts/generate",
+              "host": ["{{artifactUrl}}"],
+              "path": ["api", "v1", "artifacts", "generate"]
+            }
+          }
+        },
+        {
+          "name": "Get Artifact Templates",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{artifactUrl}}/api/v1/artifacts/templates?type=code&language=typescript&framework=express",
+              "host": ["{{artifactUrl}}"],
+              "path": ["api", "v1", "artifacts", "templates"],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "code"
+                },
+                {
+                  "key": "language",
+                  "value": "typescript"
+                },
+                {
+                  "key": "framework",
+                  "value": "express"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Artifact Template",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{artifactUrl}}/api/v1/artifacts/templates/:id",
+              "host": ["{{artifactUrl}}"],
+              "path": ["api", "v1", "artifacts", "templates", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{templateId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Validate Artifact",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"import express from 'express';\\n\\nconst app = express();\\n\\napp.get('/health', (req, res) => {\\n  res.json({ status: 'ok' });\\n});\\n\\nexport default app;\",\n  \"type\": \"code\",\n  \"language\": \"typescript\"\n}"
+            },
+            "url": {
+              "raw": "{{artifactUrl}}/api/v1/artifacts/validate",
+              "host": ["{{artifactUrl}}"],
+              "path": ["api", "v1", "artifacts", "validate"]
+            }
+          }
+        },
+        {
+          "name": "Get Supported Types",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{artifactUrl}}/api/v1/artifacts/types",
+              "host": ["{{artifactUrl}}"],
+              "path": ["api", "v1", "artifacts", "types"]
+            }
+          }
+        },
+        {
+          "name": "Artifact Service Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{artifactUrl}}/api/v1/artifacts/health",
+              "host": ["{{artifactUrl}}"],
+              "path": ["api", "v1", "artifacts", "health"]
             }
           }
         }

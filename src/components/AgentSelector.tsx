@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useAgents } from '../contexts/AgentContext';
 import { PersonaSelector } from './PersonaSelector';
-import { AgentState } from '../types/agent';
+import { AgentState, toBackendAgent, fromBackendAgent } from '../types/agent';
 import { Persona } from '../types/persona';
 import { ModelOption, getModels } from './ModelSelector';
 import { useDiscussion } from '../contexts/DiscussionContext';
@@ -400,72 +400,9 @@ export const AgentSelector: React.FC = () => {
       if (apiResponse.success && apiResponse.data) {
         console.log('Loaded agents from API:', apiResponse.data);
         
-        // Convert backend agents to frontend AgentState objects
+        // Convert backend agents to frontend AgentState objects using the new serialization function
         const frontendAgents = apiResponse.data.map(backendAgent => {
-          const agentState: AgentState = {
-            id: backendAgent.id,
-            name: backendAgent.name,
-            currentResponse: null,
-            conversationHistory: [],
-            isThinking: false,
-            error: null,
-            modelId: backendAgent.persona.constraints?.modelId || 'unknown',
-            apiType: (backendAgent.persona.constraints?.apiType as 'ollama' | 'llmstudio') || 'ollama',
-            role: backendAgent.role,
-            persona: {
-              id: `persona-${backendAgent.id}`,
-              name: backendAgent.persona.name,
-              role: backendAgent.role,
-              description: backendAgent.persona.description,
-              background: backendAgent.persona.description,
-              expertise: backendAgent.persona.capabilities,
-              systemPrompt: backendAgent.persona.preferences?.systemPrompt || '',
-              traits: [],
-              createdAt: backendAgent.createdAt,
-              updatedAt: backendAgent.updatedAt,
-              createdBy: backendAgent.createdBy,
-              isPublic: false,
-              usageCount: 0,
-              version: 1
-            },
-            systemPrompt: backendAgent.persona.preferences?.systemPrompt,
-            temperature: backendAgent.persona.preferences?.temperature || 0.7,
-            maxTokens: backendAgent.persona.preferences?.maxTokens || 2048,
-            // Tool properties will be added by AgentContext
-            availableTools: [],
-            toolPermissions: {
-              allowedTools: [],
-              deniedTools: [],
-              requireApprovalFor: [],
-              canApproveTools: false,
-              maxCostPerHour: 100,
-              maxExecutionsPerHour: 50
-            },
-            toolUsageHistory: [],
-            toolPreferences: {
-              preferredTools: {
-                'api': [],
-                'computation': [],
-                'file-system': [],
-                'database': [],
-                'web-search': [],
-                'code-execution': [],
-                'communication': [],
-                'knowledge-graph': [],
-                'deployment': [],
-                'monitoring': [],
-                'analysis': [],
-                'generation': []
-              },
-              fallbackTools: {},
-              timeoutPreference: 30000,
-              costLimit: 10
-            },
-            maxConcurrentTools: 1,
-            isUsingTool: false
-          };
-          
-          return agentState;
+          return fromBackendAgent(backendAgent);
         });
 
         // Add all loaded agents to the context
@@ -536,71 +473,42 @@ export const AgentSelector: React.FC = () => {
         return roleMapping[normalizedRole] || 'assistant';
       };
 
-      // First, create the agent via the UAIP API for backend persistence
-      const apiAgentData = {
+      // Create a complete AgentState object first
+      const newAgentState: AgentState = {
+        id: '', // Will be set by backend
         name: agentName.trim(),
-        description: persona.description || persona.background || `AI agent with ${persona.name} persona`,
         role: mapPersonaRoleToBackendRole(persona.role || 'assistant'),
-        capabilities: persona.expertise && persona.expertise.length > 0 ? persona.expertise : ['general_assistance'],
-        persona: {
-          name: persona.name,
-          description: persona.description || persona.background || `AI agent with ${persona.name} persona`,
-          capabilities: persona.expertise && persona.expertise.length > 0 ? persona.expertise : ['general_assistance'],
-          constraints: {
-            modelId: selectedModelId,
-            apiType: selectedModel.apiType
-          },
-          preferences: {
-            temperature: 0.7,
-            maxTokens: 2048,
-            systemPrompt: persona.systemPrompt || `You are ${persona.name}. ${persona.description || persona.background || ''}`
-          }
-        },
-        intelligenceConfig: {
-          analysisDepth: 'intermediate' as const,
-          contextWindowSize: 4096,
-          decisionThreshold: 0.7,
-          learningEnabled: true,
-          collaborationMode: 'collaborative' as const
-        },
-        securityContext: {
-          securityLevel: 'medium' as const,
-          allowedCapabilities: persona.expertise && persona.expertise.length > 0 ? persona.expertise : ['general_assistance'],
-          approvalRequired: false,
-          auditLevel: 'standard' as const
-        },
-        isActive: true,
-        createdBy: 'frontend-user' // TODO: Get actual user ID from auth context
-      };
-
-      console.log('Creating agent via API:', apiAgentData);
-      const apiResponse = await uaipAPI.client.agents.create(apiAgentData);
-
-      if (!apiResponse.success || !apiResponse.data) {
-        throw new Error(apiResponse.error?.message || 'Failed to create agent via API');
-      }
-
-      const backendAgent = apiResponse.data;
-      console.log('Agent created via API:', backendAgent);
-
-      // Create AgentState object for frontend context
-      const newAgent: AgentState = {
-        id: backendAgent.id, // Use the backend-generated ID
-        name: agentName.trim(),
         currentResponse: null,
         conversationHistory: [],
         isThinking: false,
         error: null,
         modelId: selectedModelId,
         apiType: selectedModel.apiType as 'ollama' | 'llmstudio',
-        role: mapPersonaRoleToBackendRole(persona.role || 'assistant'),
-        persona: {
-          ...persona,
-        },
+        persona: persona,
         systemPrompt: persona.systemPrompt || `You are ${persona.name}. ${persona.description || persona.background || ''}`,
         temperature: 0.7,
         maxTokens: 2048,
-        // Tool properties will be added by AgentContext
+        
+        // Backend properties
+        description: persona.description || persona.background || `AI agent with ${persona.name} persona`,
+        capabilities: persona.expertise && persona.expertise.length > 0 ? persona.expertise : ['general_assistance'],
+        intelligenceConfig: {
+          analysisDepth: 'intermediate',
+          contextWindowSize: 4096,
+          decisionThreshold: 0.7,
+          learningEnabled: true,
+          collaborationMode: 'collaborative'
+        },
+        securityContext: {
+          securityLevel: 'medium',
+          allowedCapabilities: persona.expertise && persona.expertise.length > 0 ? persona.expertise : ['general_assistance'],
+          approvalRequired: false,
+          auditLevel: 'standard'
+        },
+        isActive: true,
+        createdBy: 'frontend-user', // TODO: Get actual user ID from auth context
+        
+        // Tool properties
         availableTools: [],
         toolPermissions: {
           allowedTools: [],
@@ -634,10 +542,26 @@ export const AgentSelector: React.FC = () => {
         isUsingTool: false
       };
 
-      console.log('Created frontend agent state:', newAgent);
+      // Convert to backend format using the serialization function
+      const apiAgentData = toBackendAgent(newAgentState);
+
+      console.log('Creating agent via API:', apiAgentData);
+      const apiResponse = await uaipAPI.client.agents.create(apiAgentData);
+
+      if (!apiResponse.success || !apiResponse.data) {
+        throw new Error(apiResponse.error?.message || 'Failed to create agent via API');
+      }
+
+      const backendAgent = apiResponse.data;
+      console.log('Agent created via API:', backendAgent);
+
+      // Convert the backend response back to a complete AgentState using the serialization function
+      const finalAgentState = fromBackendAgent(backendAgent, newAgentState);
+
+      console.log('Created frontend agent state:', finalAgentState);
 
       // Add to local context
-      addAgent(newAgent);
+      addAgent(finalAgentState);
       
       // Reset form
       setAgentName('');

@@ -1,0 +1,242 @@
+# Centralized Logging Configuration for UAIP Backend
+# This configuration should be used across all services for consistent logging
+
+logging:
+  # Global logging settings
+  global:
+    level: "info"
+    format: "json"
+    timestamp_format: "2006-01-02T15:04:05.000Z07:00"
+    include_caller: true
+    include_stack_trace: true
+    
+  # Service-specific configurations
+  services:
+    agent-intelligence:
+      level: "debug"
+      outputs:
+        - type: "stdout"
+          format: "json"
+        - type: "file"
+          path: "/var/log/agent-intelligence/app.log"
+          max_size: "100MB"
+          max_backups: 5
+          max_age: 30
+        - type: "prometheus"
+          metrics_path: "/metrics"
+      fields:
+        service: "agent-intelligence"
+        version: "${APP_VERSION}"
+        environment: "${ENVIRONMENT}"
+        
+    orchestration-pipeline:
+      level: "info"
+      outputs:
+        - type: "stdout"
+          format: "json"
+        - type: "file"
+          path: "/var/log/orchestration-pipeline/app.log"
+          max_size: "100MB"
+          max_backups: 5
+          max_age: 30
+        - type: "prometheus"
+          metrics_path: "/metrics"
+      fields:
+        service: "orchestration-pipeline"
+        version: "${APP_VERSION}"
+        environment: "${ENVIRONMENT}"
+        
+    capability-registry:
+      level: "info"
+      outputs:
+        - type: "stdout"
+          format: "json"
+        - type: "file"
+          path: "/var/log/capability-registry/app.log"
+          max_size: "100MB"
+          max_backups: 5
+          max_age: 30
+        - type: "prometheus"
+          metrics_path: "/metrics"
+      fields:
+        service: "capability-registry"
+        version: "${APP_VERSION}"
+        environment: "${ENVIRONMENT}"
+        
+    security-gateway:
+      level: "warn"  # More restrictive for security service
+      outputs:
+        - type: "stdout"
+          format: "json"
+        - type: "file"
+          path: "/var/log/security-gateway/app.log"
+          max_size: "100MB"
+          max_backups: 10  # Keep more backups for security logs
+          max_age: 90      # Keep longer for compliance
+        - type: "syslog"
+          facility: "auth"
+          severity: "info"
+        - type: "prometheus"
+          metrics_path: "/metrics"
+      fields:
+        service: "security-gateway"
+        version: "${APP_VERSION}"
+        environment: "${ENVIRONMENT}"
+        security_context: true
+        
+    api-gateway:
+      level: "info"
+      outputs:
+        - type: "stdout"
+          format: "json"
+        - type: "file"
+          path: "/var/log/api-gateway/app.log"
+          max_size: "100MB"
+          max_backups: 5
+          max_age: 30
+        - type: "prometheus"
+          metrics_path: "/metrics"
+      fields:
+        service: "api-gateway"
+        version: "${APP_VERSION}"
+        environment: "${ENVIRONMENT}"
+
+  # Log categories and their configurations
+  categories:
+    http:
+      level: "info"
+      fields:
+        category: "http"
+        include_request_id: true
+        include_user_agent: true
+        include_ip_address: true
+        sanitize_headers: true
+        
+    database:
+      level: "warn"
+      fields:
+        category: "database"
+        include_query_time: true
+        sanitize_queries: true
+        
+    security:
+      level: "info"
+      fields:
+        category: "security"
+        include_user_context: true
+        include_session_id: true
+        audit_trail: true
+        
+    performance:
+      level: "info"
+      fields:
+        category: "performance"
+        include_metrics: true
+        include_timing: true
+        
+    business:
+      level: "info"
+      fields:
+        category: "business"
+        include_correlation_id: true
+        include_workflow_context: true
+
+  # Structured log formats
+  formats:
+    json:
+      timestamp: "timestamp"
+      level: "level"
+      message: "message"
+      service: "service"
+      version: "version"
+      environment: "environment"
+      request_id: "request_id"
+      correlation_id: "correlation_id"
+      user_id: "user_id"
+      session_id: "session_id"
+      error: "error"
+      stack_trace: "stack_trace"
+      duration_ms: "duration_ms"
+      
+    text:
+      template: "[{{.timestamp}}] {{.level}} {{.service}} - {{.message}} {{if .error}}({{.error}}){{end}}"
+
+  # Sampling configuration for high-volume logs
+  sampling:
+    enabled: true
+    initial: 100      # Log first 100 entries per second
+    thereafter: 100   # Then log every 100th entry
+    
+  # Log rotation and retention
+  rotation:
+    max_size: "100MB"
+    max_age: 30       # days
+    max_backups: 5
+    compress: true
+    
+  # Metrics configuration for log monitoring
+  metrics:
+    enabled: true
+    namespace: "logging"
+    subsystem: "entries"
+    labels:
+      - "service"
+      - "level"
+      - "category"
+    counters:
+      - name: "total"
+        help: "Total number of log entries"
+      - name: "errors_total"
+        help: "Total number of error log entries"
+    histograms:
+      - name: "processing_duration_seconds"
+        help: "Time spent processing log entries"
+        buckets: [0.001, 0.01, 0.1, 1.0, 10.0]
+
+  # Alerting thresholds
+  alerting:
+    error_rate_threshold: 0.05      # 5% error rate
+    critical_rate_threshold: 0.01   # 1% critical rate
+    volume_spike_multiplier: 3      # 3x normal volume
+    no_logs_timeout: 300           # 5 minutes
+
+  # Security and compliance
+  security:
+    sanitize_sensitive_data: true
+    pii_fields:
+      - "password"
+      - "token"
+      - "api_key"
+      - "credit_card"
+      - "ssn"
+      - "email"
+      - "phone"
+    hash_user_identifiers: true
+    encrypt_at_rest: true
+    
+  # Integration configurations
+  integrations:
+    prometheus:
+      enabled: true
+      port: 9090
+      path: "/metrics"
+      
+    grafana:
+      enabled: true
+      dashboard_refresh: "30s"
+      
+    elasticsearch:
+      enabled: false
+      hosts: ["elasticsearch:9200"]
+      index_pattern: "logs-{{.service}}-{{.date}}"
+      
+    fluentd:
+      enabled: false
+      host: "fluentd"
+      port: 24224
+      
+    syslog:
+      enabled: true
+      protocol: "udp"
+      host: "syslog-server"
+      port: 514 

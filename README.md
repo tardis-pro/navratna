@@ -1,6 +1,8 @@
 # Council of Nycea
 
 A sophisticated multi-agent discussion platform that enables AI agents with distinct personas to engage in structured conversations, debates, and collaborative problem-solving. The platform has evolved into a comprehensive **Unified Agent Intelligence Platform (UAIP)** with full-stack capabilities including backend services, API integration, and advanced agent tooling.
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/pronitdas/council-of-nycea)
+
 
 ## 🎯 Vision
 

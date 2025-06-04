@@ -9,7 +9,7 @@ const Index = () => {
     <div className="min-h-screen bg-gradient-to-b from-gray-950 to-gray-900 text-white p-4 md:p-8">
       <div className="container mx-auto flex flex-col h-[calc(100vh-2rem)] md:h-[calc(100vh-4rem)]">
         <div className="flex-1">
-          <DiscussionProvider topic={topic} maxRounds={3} turnStrategy="round-robin">
+          <DiscussionProvider topic={topic} maxRounds={3} turnStrategy="round_robin">
             <DebateArena onTopicChange={setTopic} />
           </DiscussionProvider>
         </div>

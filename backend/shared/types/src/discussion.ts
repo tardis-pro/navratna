@@ -319,7 +319,30 @@ export const CreateDiscussionRequestSchema = DiscussionSchema.omit({
     personaId: UUIDSchema,
     agentId: z.string(),
     role: z.nativeEnum(ParticipantRole).default(ParticipantRole.PARTICIPANT)
-  })).min(2)
+  })).min(2),
+  // Make turnStrategy optional with default
+  turnStrategy: TurnStrategyConfigSchema.optional().default({
+    strategy: TurnStrategy.ROUND_ROBIN,
+    config: {
+      type: 'round_robin',
+      skipInactive: true,
+      maxSkips: 3
+    }
+  }),
+  // Make settings optional with default
+  settings: DiscussionSettingsSchema.optional().default({
+    maxParticipants: 10,
+    autoModeration: true,
+    requireApproval: false,
+    allowInvites: true,
+    allowFileSharing: true,
+    allowAnonymous: false,
+    recordTranscript: true,
+    enableAnalytics: true,
+    turnTimeout: 300,
+    responseTimeout: 60,
+    moderationRules: []
+  })
 });
 
 export type CreateDiscussionRequest = z.infer<typeof CreateDiscussionRequestSchema>;

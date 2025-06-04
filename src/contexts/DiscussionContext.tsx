@@ -62,7 +62,7 @@ export const useDiscussion = (): DiscussionContextValue => {
 export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
   topic,
   maxRounds,
-  turnStrategy,
+  turnStrategy = 'round_robin',
   children
 }) => {
   const [operationId, setOperationId] = useState<string | null>(null);
