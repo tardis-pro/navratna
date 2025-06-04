@@ -17,18 +17,6 @@ export interface CapabilityRegistrySpecificConfig {
 // Combined configuration interface
 export interface CapabilityRegistryConfig extends Config {
   tools: CapabilityRegistrySpecificConfig['tools'];
-  // Ensure postgresql is available (from base Config)
-  postgresql?: {
-    host: string;
-    port: number;
-    database: string;
-    user: string;
-    password: string;
-    ssl?: boolean;
-    max?: number;
-    idleTimeoutMillis?: number;
-    connectionTimeoutMillis?: number;
-  };
 }
 
 // Service-specific configuration values
@@ -48,18 +36,6 @@ export const config: CapabilityRegistryConfig = {
   port: parseInt(process.env.PORT || '3003'),
   // Add service-specific configurations
   ...serviceSpecificConfig,
-  // Add postgresql config for backward compatibility
-  postgresql: {
-    host: process.env.PG_HOST || baseConfig.database.postgres.host,
-    port: parseInt(process.env.PG_PORT || baseConfig.database.postgres.port.toString()),
-    database: process.env.PG_DATABASE || baseConfig.database.postgres.database,
-    user: process.env.PG_USER || baseConfig.database.postgres.user,
-    password: process.env.PG_PASSWORD || baseConfig.database.postgres.password,
-    ssl: process.env.PG_SSL === 'true' || baseConfig.database.postgres.ssl,
-    max: parseInt(process.env.PG_MAX_CONNECTIONS || baseConfig.database.postgres.maxConnections.toString()),
-    idleTimeoutMillis: parseInt(process.env.PG_IDLE_TIMEOUT || '30000'),
-    connectionTimeoutMillis: parseInt(process.env.PG_CONNECTION_TIMEOUT || '2000')
-  },
   // Override logging service name
   logging: {
     ...baseConfig.logging,

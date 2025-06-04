@@ -1,10 +1,10 @@
-import { ITemplateManager } from '../interfaces/ArtifactTypes';
+import { ITemplateManager } from '../interfaces/ArtifactTypes.js';
 import { 
   ArtifactTemplate, 
   GenerationContext, 
   TemplateFilters, 
   ArtifactType 
-} from '../types/artifact';
+} from '../types/artifact.js';
 import { logger } from '@uaip/utils';
 
 export class TemplateManager implements ITemplateManager {

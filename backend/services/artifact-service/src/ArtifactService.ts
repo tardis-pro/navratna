@@ -1,4 +1,4 @@
-import { IArtifactService } from './interfaces/ArtifactTypes';
+import { IArtifactService } from './interfaces/ArtifactTypes.js';
 import { 
   ArtifactGenerationRequest, 
   ArtifactGenerationResponse, 
@@ -7,13 +7,13 @@ import {
   GeneratedArtifact,
   ArtifactMetadata,
   ArtifactType
-} from './types/artifact';
-import { CodeGenerator } from './generators/CodeGenerator';
-import { TestGenerator } from './generators/TestGenerator';
-import { DocumentationGenerator } from './generators/DocumentationGenerator';
-import { PRDGenerator } from './generators/PRDGenerator';
-import { TemplateManager } from './templates/TemplateManager';
-import { ArtifactValidator } from './validation/ArtifactValidator';
+} from './types/artifact.js';
+import { CodeGenerator } from './generators/CodeGenerator.js';
+import { TestGenerator } from './generators/TestGenerator.js';
+import { DocumentationGenerator } from './generators/DocumentationGenerator.js';
+import { PRDGenerator } from './generators/PRDGenerator.js';
+import { TemplateManager } from './templates/TemplateManager.js';
+import { ArtifactValidator } from './validation/ArtifactValidator.js';
 import { logger } from '@uaip/utils';
 import { v4 as uuidv4 } from 'uuid';
 

@@ -294,9 +294,10 @@ function parseNeo4jUrl(url?: string) {
     const parsed = new URL(url);
     return {
       uri: `${parsed.protocol}//${parsed.host}`,
-      user: parsed.username,
-      password: parsed.password,
-      database: parsed.pathname ? parsed.pathname.slice(1) : 'neo4j'
+      // If URL has credentials, use them; otherwise fall back to env vars
+      user: parsed.username || process.env.NEO4J_USER || 'neo4j',
+      password: parsed.password || process.env.NEO4J_PASSWORD || 'password',
+      database: parsed.pathname ? parsed.pathname.slice(1) : (process.env.NEO4J_DATABASE || 'neo4j')
     };
   } catch (error) {
     console.error('Failed to parse NEO4J_URL:', error);

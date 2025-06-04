@@ -21,18 +21,18 @@ import {
   ConversationAnalyzer 
 } from './interfaces';
 
-import { ConversationAnalyzerImpl } from './analysis/ConversationAnalyzer';
-import { SecurityManagerImpl } from './security/SecurityManager';
-import { ArtifactValidator as ArtifactValidatorImpl } from './validation/ArtifactValidator';
+import { ConversationAnalyzerImpl } from './analysis/ConversationAnalyzer.js';
+import { SecurityManagerImpl } from './security/SecurityManager.js';
+import { ArtifactValidator as ArtifactValidatorImpl } from './validation/ArtifactValidator.js';
 
 // Generator imports
-import { CodeGenerator } from './generators/CodeGenerator';
-import { TestGenerator } from './generators/TestGenerator';
-import { PRDGenerator } from './generators/PRDGenerator';
-import { DocumentationGenerator } from './generators/DocumentationGenerator';
+import { CodeGenerator } from './generators/CodeGenerator.js';
+import { TestGenerator } from './generators/TestGenerator.js';
+import { PRDGenerator } from './generators/PRDGenerator.js';
+import { DocumentationGenerator } from './generators/DocumentationGenerator.js';
 
 // Local types
-import { ValidationResult as LocalValidationResult } from './types/artifact';
+import { ValidationResult as LocalValidationResult } from './types/artifact.js';
 
 // Define proper result types for this service
 export interface ArtifactResult {
