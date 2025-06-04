@@ -1,94 +1,36 @@
-import { 
-  Artifact, 
-  ConversationContext, 
-  ValidationStatus 
-} from '@uaip/types';
+// Main interfaces export file
+export * from './ArtifactTypes';
+export * from './ServiceTypes';
 
 // Core interfaces for the artifact service
+import { 
+  ArtifactConversationContext, 
+  GenerationTrigger,
+  ConversationSummary 
+} from '@uaip/types';
+
+// Import local ValidationResult that matches shared structure
+import { ValidationResult } from '../types/artifact';
+
 export interface ArtifactGenerator {
   getSupportedType(): string;
-  canHandle(context: ConversationContext): boolean;
-  generate(context: ConversationContext): Promise<Artifact>;
-  getConfidence?(context: ConversationContext): number;
+  getSupportedTypes(): string[];
+  canHandle(context: ArtifactConversationContext): boolean;
+  generate(context: ArtifactConversationContext): Promise<string>;
 }
 
 export interface ArtifactValidator {
-  validate(artifact: Artifact): ValidationResult;
-  validateSecurity(artifact: Artifact): SecurityValidationResult;
+  validate(content: string, type: string): ValidationResult;
 }
 
 export interface SecurityManager {
-  validateAccess(userId: string, operation: string, resource: string): Promise<boolean>;
-  auditLog(event: AuditEvent): Promise<void>;
+  validateContent(content: string): Promise<boolean>;
+  sanitizeContent(content: string): string;
+  checkPermissions(userId: string, action: string): boolean;
 }
 
 export interface ConversationAnalyzer {
-  detectTriggers(context: ConversationContext): TriggerResult[];
-  analyzePhase(context: ConversationContext): PhaseAnalysis;
-  summarize(context: ConversationContext): ConversationSummary;
-}
-
-// Supporting types
-export interface ValidationResult {
-  status: ValidationStatus;
-  isValid: boolean;
-  errors: ValidationError[];
-  warnings: ValidationWarning[];
-  suggestions: string[];
-  score: number;
-}
-
-export interface ValidationError {
-  code: string;
-  message: string;
-  severity: 'error' | 'warning';
-}
-
-export interface ValidationWarning {
-  code: string;
-  message: string;
-  severity: 'warning';
-}
-
-export interface SecurityValidationResult {
-  status: 'pass' | 'fail' | 'warning';
-  findings: SecurityFinding[];
-}
-
-export interface SecurityFinding {
-  type: string;
-  severity: 'low' | 'medium' | 'high' | 'critical';
-  message: string;
-  recommendation?: string;
-}
-
-export interface AuditEvent {
-  type: string;
-  userId: string;
-  resource: string;
-  operation: string;
-  timestamp: string;
-  metadata?: Record<string, any>;
-}
-
-export interface TriggerResult {
-  artifactType: string;
-  confidence: number;
-  reason: string;
-  context: Record<string, any>;
-}
-
-export interface PhaseAnalysis {
-  current: string;
-  confidence: number;
-  suggestedActions: string[];
-}
-
-export interface ConversationSummary {
-  keyPoints: string[];
-  decisions: string[];
-  actionItems: string[];
-  participants: string[];
-  phase: string;
-  confidence: number;
+  analyzeConversation(context: ArtifactConversationContext): Promise<ConversationSummary>;
+  detectGenerationTriggers(context: ArtifactConversationContext): Promise<GenerationTrigger[]>;
+  extractRequirements(context: ArtifactConversationContext): Promise<any[]>;
 } 

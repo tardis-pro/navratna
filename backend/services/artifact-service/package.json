@@ -5,15 +5,9 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc",
-    "build:watch": "tsc --watch",
-    "start": "node dist/index.js",
-    "dev": "ts-node src/index.ts",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "clean": "rm -rf dist",
-    "lint": "eslint src/**/*.ts",
-    "lint:fix": "eslint src/**/*.ts --fix"
+    "build": "tsc && tsc-alias",
+    "dev": "nodemon --exec tsx src/index.ts",
+    "clean": "rimraf dist"
   },
   "dependencies": {
     "@uaip/types": "workspace:*",
