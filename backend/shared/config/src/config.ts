@@ -100,6 +100,10 @@ export interface ServicesConfig {
     port: number;
     url: string;
   };
+  artifactService: {
+    port: number;
+    url: string;
+  };
 }
 
 
@@ -381,6 +385,10 @@ const defaultConfig: Config = {
     securityGateway: {
       port: parseInt(process.env.SECURITY_GATEWAY_PORT || '3004'),
       url: process.env.SECURITY_GATEWAY_URL || 'http://localhost:3004'
+    },
+    artifactService: {
+      port: parseInt(process.env.ARTIFACT_SERVICE_PORT || '3006'),
+      url: process.env.ARTIFACT_SERVICE_URL || 'http://localhost:3006'
     }
   },
   cors: {

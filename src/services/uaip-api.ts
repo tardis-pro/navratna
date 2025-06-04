@@ -11,6 +11,58 @@ export * from './api';
 import { UAIPAPIClient, createAPIClient, APIConfig } from './api';
 import { API_CONFIG, getEffectiveAPIBaseURL, isProxyEnabled, getEnvironmentConfig, buildAPIURL, API_ROUTES } from '@/config/apiConfig';
 
+// Define frontend types that match backend expectations
+export enum TurnStrategy {
+  ROUND_ROBIN = 'round_robin',
+  MODERATED = 'moderated',
+  FREE_FORM = 'free_form',
+  CONTEXT_AWARE = 'context_aware',
+  PRIORITY_BASED = 'priority_based',
+  EXPERTISE_DRIVEN = 'expertise_driven'
+}
+
+export interface TurnStrategyConfig {
+  strategy: TurnStrategy;
+  config: {
+    type: 'round_robin' | 'moderated' | 'context_aware' | 'priority_based' | 'free_form' | 'expertise_driven';
+    skipInactive?: boolean;
+    maxSkips?: number;
+    moderatorId?: string;
+    requireApproval?: boolean;
+    autoAdvance?: boolean;
+    relevanceThreshold?: number;
+    expertiseWeight?: number;
+    engagementWeight?: number;
+    priorities?: Array<{
+      participantId: string;
+      priority: number;
+    }>;
+    cooldownPeriod?: number;
+    topicKeywords?: string[];
+    expertiseThreshold?: number;
+  };
+}
+
+export interface DiscussionSettings {
+  maxParticipants?: number;
+  maxDuration?: number;
+  maxMessages?: number;
+  autoModeration?: boolean;
+  requireApproval?: boolean;
+  allowInvites?: boolean;
+  allowFileSharing?: boolean;
+  allowAnonymous?: boolean;
+  recordTranscript?: boolean;
+  enableAnalytics?: boolean;
+  turnTimeout?: number;
+  responseTimeout?: number;
+  moderationRules?: Array<{
+    rule: string;
+    action: 'warn' | 'mute' | 'remove' | 'flag';
+    severity: 'low' | 'medium' | 'high';
+  }>;
+}
+
 // Environment detection
 const isDevelopment = import.meta.env.DEV;
 const isProduction = import.meta.env.PROD;
@@ -161,36 +213,20 @@ export interface DiscussionState {
   lastActivity: Date;
 }
 
-export interface DiscussionSettings {
-  maxParticipants: number;
-  turnTimeLimit?: number;
-  autoAdvanceTurns: boolean;
-  allowInterruptions: boolean;
-  moderationRequired: boolean;
-  recordingEnabled: boolean;
-}
-
-export type TurnStrategy = 'round_robin' | 'moderated' | 'context_aware';
 export type DiscussionStatus = 'draft' | 'active' | 'paused' | 'ended' | 'archived';
 
 export interface DiscussionCreate {
   title: string;
   description: string;
   topic: string;
-  turnStrategy: {
-    type: TurnStrategy;
-    settings?: Record<string, any>;
-  };
   createdBy: string;
+  turnStrategy?: TurnStrategyConfig;
   initialParticipants: Array<{ 
     personaId: string;
     agentId: string;
     role: string; 
   }>;
-  settings?: {
-    maxTurns?: number;
-    turnTimeout?: number;
-  };
+  settings?: Partial<DiscussionSettings>;
 }
 
 export interface DiscussionUpdate {
@@ -637,8 +673,8 @@ export const uaipAPI = {
         title: discussion.title,
         description: discussion.description,
         topic: discussion.topic,
-        turnStrategy: discussion.turnStrategy,
         createdBy: discussion.createdBy,
+        turnStrategy: discussion.turnStrategy,
         initialParticipants: discussion.initialParticipants,
         settings: discussion.settings
       });
