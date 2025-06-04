@@ -25,10 +25,9 @@ export { DiscussionService } from './discussionService.js';
 
 // Tool Services - NEW
 export type { 
-  ToolDatabaseConfig
 } from './database/toolDatabase.js';
 export type { 
-  ToolGraphDatabaseConfig,
+  
   ToolRelationship,
   ToolRecommendation,
   UsagePattern

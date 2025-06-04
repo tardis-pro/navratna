@@ -1704,7 +1704,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Business Strategy Discussion\",\n  \"description\": \"Quarterly business strategy planning session\",\n  \"topic\": \"Q4 Business Strategy\",\n  \"participants\": [\n    {\n      \"personaId\": \"persona-1\",\n      \"role\": \"facilitator\"\n    },\n    {\n      \"personaId\": \"persona-2\",\n      \"role\": \"participant\"\n    }\n  ],\n  \"settings\": {\n    \"turnStrategy\": \"round_robin\",\n    \"maxTurns\": 20,\n    \"turnTimeout\": 300\n  }\n}"
+              "raw": "{\n  \"title\": \"Business Strategy Discussion\",\n  \"description\": \"Quarterly business strategy planning session\",\n  \"topic\": \"Q4 Business Strategy\",\n  \"turnStrategy\": {\n    \"strategy\": \"round_robin\",\n    \"config\": {\n      \"type\": \"round_robin\",\n      \"skipInactive\": true,\n      \"maxSkips\": 3\n    }\n  },\n  \"initialParticipants\": [\n    {\n      \"personaId\": \"persona-1\",\n      \"agentId\": \"agent-1\",\n      \"role\": \"facilitator\"\n    },\n    {\n      \"personaId\": \"persona-2\",\n      \"agentId\": \"agent-2\",\n      \"role\": \"participant\"\n    }\n  ],\n  \"settings\": {\n    \"maxParticipants\": 10,\n    \"turnTimeout\": 300,\n    \"autoModeration\": true\n  }\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/discussions",

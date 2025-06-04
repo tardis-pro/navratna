@@ -291,6 +291,38 @@ services:
       timeout: 10s
       retries: 3
 
+  artifact-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: uaip-artifact-service
+    environment:
+      - SERVICE_NAME=artifact-service
+      - SERVICE_PORT=3006
+      - NODE_ENV=development
+      - PORT=3006
+      - POSTGRES_URL=postgresql://uaip_user:uaip_password@postgres:5432/uaip
+      - REDIS_URL=redis://:uaip_redis_password@redis:6379
+      - RABBITMQ_URL=amqp://uaip_user:uaip_password@rabbitmq:5672
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    ports:
+      - "3006:3006"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - uaip-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3006/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   # API Gateway (Nginx as reverse proxy)
   api-gateway:
     image: nginx:alpine
@@ -305,6 +337,7 @@ services:
       - capability-registry
       - discussion-orchestration
       - security-gateway
+      - artifact-service
     networks:
       - uaip-network
     healthcheck:

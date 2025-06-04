@@ -6,7 +6,6 @@ import morgan from 'morgan';
 import path from 'path';
 
 import { logger } from '@uaip/utils';
-import { config } from '@uaip/config';
 import { errorHandler, rateLimiter, metricsMiddleware } from '@uaip/middleware';
 import { 
   DatabaseService, 

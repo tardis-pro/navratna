@@ -5,33 +5,25 @@
 import { Pool, PoolClient } from 'pg';
 import { ToolDefinition, ToolExecution, ToolUsageRecord } from '@uaip/types';
 import { logger } from '@uaip/utils';
-
-export interface ToolDatabaseConfig {
-  host: string;
-  port: number;
-  database: string;
-  user: string;
-  password: string;
-  ssl?: boolean;
-  max?: number;
-  idleTimeoutMillis?: number;
-  connectionTimeoutMillis?: number;
-}
+import { config, DatabaseConfig } from '@uaip/config';
 
 export class ToolDatabase {
   private pool: Pool;
 
-  constructor(config: ToolDatabaseConfig) {
+  constructor(dbConfig?: DatabaseConfig['postgres']) {
+    // Use shared config if no specific config provided
+    const pgConfig = dbConfig || config.database.postgres;
+    
     this.pool = new Pool({
-      host: config.host,
-      port: config.port,
-      database: config.database,
-      user: config.user,
-      password: config.password,
-      ssl: config.ssl,
-      max: config.max || 20,
-      idleTimeoutMillis: config.idleTimeoutMillis || 30000,
-      connectionTimeoutMillis: config.connectionTimeoutMillis || 2000,
+      host: pgConfig.host,
+      port: pgConfig.port,
+      database: pgConfig.database,
+      user: pgConfig.user,
+      password: pgConfig.password,
+      ssl: pgConfig.ssl,
+      max: pgConfig.maxConnections,
+      idleTimeoutMillis: 30000, // Default from original
+      connectionTimeoutMillis: 2000, // Default from original
     });
 
     this.pool.on('error', (err) => {

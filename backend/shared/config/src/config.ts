@@ -21,6 +21,14 @@ export interface DatabaseConfig {
     ssl: boolean;
     maxConnections: number;
   };
+  neo4j: {
+    uri: string;
+    user: string;
+    password: string;
+    database?: string;
+    maxConnectionPoolSize?: number;
+    connectionTimeout?: number;
+  };
 }
 
 export interface RedisConfig {
@@ -271,6 +279,36 @@ function parsePostgresUrl(url?: string) {
   }
 }
 
+// Parse NEO4J_URL if provided
+function parseNeo4jUrl(url?: string) {
+  if (!url) {
+    return {
+      uri: process.env.NEO4J_URI || 'bolt://localhost:7687',
+      user: process.env.NEO4J_USER || 'neo4j',
+      password: process.env.NEO4J_PASSWORD || 'password',
+      database: process.env.NEO4J_DATABASE || 'neo4j'
+    };
+  }
+
+  try {
+    const parsed = new URL(url);
+    return {
+      uri: `${parsed.protocol}//${parsed.host}`,
+      user: parsed.username,
+      password: parsed.password,
+      database: parsed.pathname ? parsed.pathname.slice(1) : 'neo4j'
+    };
+  } catch (error) {
+    console.error('Failed to parse NEO4J_URL:', error);
+    return {
+      uri: 'bolt://localhost:7687',
+      user: 'neo4j',
+      password: 'password',
+      database: 'neo4j'
+    };
+  }
+}
+
 // Parse REDIS_URL if provided
 function parseRedisUrl(url?: string) {
   if (!url) {
@@ -303,6 +341,7 @@ function parseRedisUrl(url?: string) {
 
 const postgresConfig = parsePostgresUrl(process.env.POSTGRES_URL);
 const redisConfig = parseRedisUrl(process.env.REDIS_URL);
+const neo4jConfig = parseNeo4jUrl(process.env.NEO4J_URL);
 
 // Default configuration
 const defaultConfig: Config = {
@@ -315,6 +354,14 @@ const defaultConfig: Config = {
       database: postgresConfig.database,
       ssl: process.env.DB_SSL === 'true',
       maxConnections: parseInt(process.env.DB_MAX_CONNECTIONS || '20')
+    },
+    neo4j: {
+      uri: neo4jConfig.uri,
+      user: neo4jConfig.user,
+      password: neo4jConfig.password,
+      database: neo4jConfig.database,
+      maxConnectionPoolSize: parseInt(process.env.NEO4J_MAX_CONNECTIONS || '50'),
+      connectionTimeout: parseInt(process.env.NEO4J_CONNECTION_TIMEOUT || '5000')
     }
   },
   redis: {

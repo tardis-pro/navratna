@@ -4,9 +4,9 @@ import helmet from 'helmet';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
 
-import { ArtifactFactory } from './ArtifactFactory';
-import { ArtifactService } from './ArtifactService';
-import { artifactRoutes } from './routes/artifactRoutes';
+import { ArtifactFactory } from './ArtifactFactory.js';
+import { ArtifactService } from './ArtifactService.js';
+import { artifactRoutes } from './routes/artifactRoutes.js';
 
 const app: Express = express();
 const PORT = config.services?.artifactService?.port || 3004;

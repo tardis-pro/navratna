@@ -359,8 +359,9 @@ async function seedTools(): Promise<void> {
 
   try {
     // Initialize databases
-    const postgresql = new ToolDatabase(config.postgresql);
-    const neo4j = new ToolGraphDatabase(config.neo4j);
+    // Both databases now use shared config format
+    const postgresql = new ToolDatabase(config.database.postgres);
+    const neo4j = new ToolGraphDatabase(config.database.neo4j);
     await neo4j.verifyConnectivity();
 
     // Initialize tool registry

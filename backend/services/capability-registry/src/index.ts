@@ -100,11 +100,11 @@ class CapabilityRegistryService {
     logger.info('Initializing databases...');
 
     // Initialize PostgreSQL
-    this.postgresql = new ToolDatabase(config.postgresql);
+    this.postgresql = new ToolDatabase(config.database.postgres);
     logger.info('PostgreSQL database initialized');
 
     // Initialize Neo4j
-    this.neo4j = new ToolGraphDatabase(config.neo4j);
+    this.neo4j = new ToolGraphDatabase(config.database.neo4j);
     await this.neo4j.verifyConnectivity();
     logger.info('Neo4j database initialized');
   }
@@ -212,8 +212,8 @@ class CapabilityRegistryService {
 
       const server = this.app.listen(config.port, () => {
         logger.info(`🚀 Capability Registry Service running on port ${config.port}`);
-        logger.info(`📊 PostgreSQL: ${config.postgresql.host}:${config.postgresql.port}`);
-        logger.info(`🔗 Neo4j: ${config.neo4j.uri}`);
+        logger.info(`📊 PostgreSQL: ${config.database.postgres.host}:${config.database.postgres.port}`);
+        logger.info(`🔗 Neo4j: ${config.database.neo4j.uri}`);
         logger.info(`🛡️  Security Level: ${config.tools.enableApprovalWorkflow ? 'High (Approval Required)' : 'Standard'}`);
         logger.info(`⚡ Max Concurrent Executions: ${config.tools.maxConcurrentExecutions}`);
         logger.info(`💰 Default Cost Limit: $${config.tools.defaultCostLimit}`);

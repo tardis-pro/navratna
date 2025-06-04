@@ -5,15 +5,7 @@
 import neo4j, { Driver, Session, Result } from 'neo4j-driver';
 import { ToolDefinition } from '@uaip/types';
 import { logger } from '@uaip/utils';
-
-export interface ToolGraphDatabaseConfig {
-  uri: string;
-  user: string;
-  password: string;
-  database?: string;
-  maxConnectionPoolSize?: number;
-  connectionTimeout?: number;
-}
+import { config, DatabaseConfig } from '@uaip/config';
 
 export interface ToolRelationship {
   type: 'DEPENDS_ON' | 'SIMILAR_TO' | 'REPLACES' | 'ENHANCES' | 'REQUIRES';
@@ -42,16 +34,19 @@ export class ToolGraphDatabase {
   private driver: Driver;
   private database: string;
 
-  constructor(config: ToolGraphDatabaseConfig) {
+  constructor(neo4jConfig?: DatabaseConfig['neo4j']) {
+    // Use shared config if no specific config provided
+    const dbConfig = neo4jConfig || config.database.neo4j;
+    
     this.driver = neo4j.driver(
-      config.uri,
-      neo4j.auth.basic(config.user, config.password),
+      dbConfig.uri,
+      neo4j.auth.basic(dbConfig.user, dbConfig.password),
       {
-        maxConnectionPoolSize: config.maxConnectionPoolSize || 50,
-        connectionTimeout: config.connectionTimeout || 5000,
+        maxConnectionPoolSize: dbConfig.maxConnectionPoolSize || 50,
+        connectionTimeout: dbConfig.connectionTimeout || 5000,
       }
     );
-    this.database = config.database || 'neo4j';
+    this.database = dbConfig.database || 'neo4j';
   }
 
   async close(): Promise<void> {

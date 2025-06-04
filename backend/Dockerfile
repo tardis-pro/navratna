@@ -51,7 +51,7 @@ SERVICE_PORT=${SERVICE_PORT:-3002}
 
 # Validate service name
 case "$SERVICE_NAME" in
-  "orchestration-pipeline"|"security-gateway"|"capability-registry"|"agent-intelligence"|"discussion-orchestration")
+  "artifact-service"|"orchestration-pipeline"|"security-gateway"|"capability-registry"|"agent-intelligence"|"discussion-orchestration")
     echo "Starting service: $SERVICE_NAME on port: $SERVICE_PORT"
     ;;
   *)
