@@ -1,19 +1,32 @@
 {
   "extends": "../../tsconfig.json",
-    "compilerOptions": {
-      "outDir": "dist",          // relative to package root
-      "rootDir": "src",
-      "baseUrl": ".",            // enables clean import paths within the package
-      "paths": {
-        "@uaip/*": ["../*/src"]  // optional: workspace-wide path aliases
-      }
-    },
-    "include": ["src/**/*"],
-    "references": [
-      { "path": "../../shared/types" },
-      { "path": "../../shared/utils" },
-      { "path": "../../shared/config" },
-      { "path": "../../shared/services" },
-      { "path": "../../shared/middleware" }
-    ]
-  } 
+  "compilerOptions": {
+    "baseUrl": "./src",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "paths": {
+      "@/*": ["*"],
+      "@uaip/types/*": ["../../shared/types/src/*"],
+      "@uaip/utils/*": ["../../shared/utils/src/*"],
+      "@uaip/shared-services/*": ["../../shared/services/src/*"],
+      "@uaip/middleware/*": ["../../shared/middleware/src/*"],
+      "@uaip/config/*": ["../../shared/config/src/*"]
+    }
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ],
+  "references": [
+    { "path": "../../shared/types" },
+    { "path": "../../shared/utils" },
+    { "path": "../../shared/services" },
+    { "path": "../../shared/middleware" },
+    { "path": "../../shared/config" }
+  ]
+} 

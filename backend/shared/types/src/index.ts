@@ -10,3 +10,5 @@ export * from './events.js';
 export * from './persona.js';
 export * from './discussion.js'; 
 export * from './artifact.js';
+// Tool types - NEW
+export * from './tools.js';
