@@ -1,0 +1,118 @@
+groups:
+  - name: logging.rules
+    rules:
+      # Log Level Distribution
+      - record: log_level_rate
+        expr: rate(log_entries_total[5m])
+        labels:
+          metric_type: "log_rate"
+
+      # Error Log Rate
+      - record: error_log_rate
+        expr: rate(log_entries_total{level="error"}[5m])
+        labels:
+          metric_type: "error_rate"
+
+      # Warning Log Rate
+      - record: warning_log_rate
+        expr: rate(log_entries_total{level="warning"}[5m])
+        labels:
+          metric_type: "warning_rate"
+
+      # Critical Log Rate
+      - record: critical_log_rate
+        expr: rate(log_entries_total{level="critical"}[5m])
+        labels:
+          metric_type: "critical_rate"
+
+      # Service Log Volume
+      - record: service_log_volume
+        expr: sum(rate(log_entries_total[5m])) by (service, instance)
+        labels:
+          metric_type: "log_volume"
+
+      # Log Error Ratio
+      - record: log_error_ratio
+        expr: |
+          (
+            rate(log_entries_total{level="error"}[5m]) + 
+            rate(log_entries_total{level="critical"}[5m])
+          ) / rate(log_entries_total[5m])
+        labels:
+          metric_type: "error_ratio"
+
+      # High Frequency Log Sources
+      - record: high_frequency_log_sources
+        expr: |
+          topk(10, 
+            sum(rate(log_entries_total[5m])) by (service, source_file, function)
+          )
+        labels:
+          metric_type: "high_frequency_sources"
+
+  - name: application_logging.rules
+    rules:
+      # Agent Intelligence Logging
+      - record: agent_intelligence_error_rate
+        expr: rate(log_entries_total{service="agent-intelligence", level="error"}[5m])
+        labels:
+          service: "agent-intelligence"
+          metric_type: "service_error_rate"
+
+      # Orchestration Pipeline Logging
+      - record: orchestration_pipeline_error_rate
+        expr: rate(log_entries_total{service="orchestration-pipeline", level="error"}[5m])
+        labels:
+          service: "orchestration-pipeline"
+          metric_type: "service_error_rate"
+
+      # Capability Registry Logging
+      - record: capability_registry_error_rate
+        expr: rate(log_entries_total{service="capability-registry", level="error"}[5m])
+        labels:
+          service: "capability-registry"
+          metric_type: "service_error_rate"
+
+      # Security Gateway Logging
+      - record: security_gateway_error_rate
+        expr: rate(log_entries_total{service="security-gateway", level="error"}[5m])
+        labels:
+          service: "security-gateway"
+          metric_type: "service_error_rate"
+
+      # API Gateway Logging
+      - record: api_gateway_error_rate
+        expr: rate(log_entries_total{service="api-gateway", level="error"}[5m])
+        labels:
+          service: "api-gateway"
+          metric_type: "service_error_rate"
+
+  - name: infrastructure_logging.rules
+    rules:
+      # Database Logging
+      - record: postgres_log_error_rate
+        expr: rate(postgres_log_entries_total{level="error"}[5m])
+        labels:
+          component: "postgres"
+          metric_type: "db_error_rate"
+
+      # Redis Logging
+      - record: redis_log_error_rate
+        expr: rate(redis_log_entries_total{level="error"}[5m])
+        labels:
+          component: "redis"
+          metric_type: "cache_error_rate"
+
+      # RabbitMQ Logging
+      - record: rabbitmq_log_error_rate
+        expr: rate(rabbitmq_log_entries_total{level="error"}[5m])
+        labels:
+          component: "rabbitmq"
+          metric_type: "queue_error_rate"
+
+      # Qdrant Logging
+      - record: qdrant_log_error_rate
+        expr: rate(qdrant_log_entries_total{level="error"}[5m])
+        labels:
+          component: "qdrant"
+          metric_type: "vector_db_error_rate" 

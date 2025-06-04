@@ -1,0 +1,30 @@
+# Nginx Prometheus Exporter Configuration
+# This service converts nginx stub_status to Prometheus format
+
+version: '3.8'
+
+services:
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:latest
+    container_name: nginx-exporter
+    command:
+      - '-nginx.scrape-uri=http://api-gateway:80/metrics'
+      - '-web.listen-address=:9113'
+      - '-web.telemetry-path=/metrics'
+    ports:
+      - "9113:9113"
+    depends_on:
+      - api-gateway
+    networks:
+      - monitoring
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9113/metrics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+networks:
+  monitoring:
+    external: true 

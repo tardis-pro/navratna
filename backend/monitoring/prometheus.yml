@@ -3,56 +3,110 @@ global:
   evaluation_interval: 15s
 
 rule_files:
-  # - "first_rules.yml"
-  # - "second_rules.yml"
+  - "logging_rules.yml"
+  - "alerting_rules.yml"
+  - "performance_rules.yml"
 
 scrape_configs:
+  # Prometheus self-monitoring
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
 
+  # Application Services
   - job_name: 'agent-intelligence'
     static_configs:
       - targets: ['agent-intelligence:3001']
     metrics_path: '/metrics'
     scrape_interval: 30s
+    scrape_timeout: 10s
+    honor_labels: true
+    params:
+      format: ['prometheus']
 
   - job_name: 'orchestration-pipeline'
     static_configs:
       - targets: ['orchestration-pipeline:3002']
     metrics_path: '/metrics'
     scrape_interval: 30s
+    scrape_timeout: 10s
+    honor_labels: true
+    params:
+      format: ['prometheus']
 
   - job_name: 'capability-registry'
     static_configs:
       - targets: ['capability-registry:3003']
     metrics_path: '/metrics'
     scrape_interval: 30s
+    scrape_timeout: 10s
+    honor_labels: true
+    params:
+      format: ['prometheus']
 
   - job_name: 'security-gateway'
     static_configs:
       - targets: ['security-gateway:3004']
     metrics_path: '/metrics'
     scrape_interval: 30s
+    scrape_timeout: 10s
+    honor_labels: true
+    params:
+      format: ['prometheus']
 
-  - job_name: 'api-gateway'
+  - job_name: 'api-gateway-stub'
     static_configs:
       - targets: ['api-gateway:80']
     metrics_path: '/metrics'
-    scrape_interval: 30s
+    scrape_interval: 300s  # Reduced frequency since nginx stub_status is not Prometheus-compatible
+    scrape_timeout: 10s
+    honor_labels: true
+    # Note: This job will likely fail because nginx stub_status format is not Prometheus-compatible
+    # Use nginx-exporter job instead for proper Prometheus metrics
 
+  # Infrastructure Services with proper metrics endpoints
   - job_name: 'postgres'
     static_configs:
-      - targets: ['postgres:5432']
+      - targets: ['postgres-exporter:9187']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s
 
   - job_name: 'redis'
     static_configs:
-      - targets: ['redis:6379']
+      - targets: ['redis-exporter:9121']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s
 
   - job_name: 'rabbitmq'
     static_configs:
       - targets: ['rabbitmq:15692']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s
 
   - job_name: 'qdrant'
     static_configs:
-      - targets: ['qdrant:6333'] 
+      - targets: ['qdrant:6333']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # Node/System metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # Nginx Prometheus Exporter for API Gateway (Preferred method)
+  - job_name: 'nginx-exporter'
+    static_configs:
+      - targets: ['nginx-exporter:9113']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s 

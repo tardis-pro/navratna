@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { ServiceStatus } from '@uaip/types';
+import { metricsEndpoint } from '@uaip/middleware';
 
 const router: Router = Router();
 
@@ -109,20 +110,6 @@ router.get('/live', async (req: Request, res: Response) => {
 });
 
 // Metrics endpoint
-router.get('/metrics', async (req: Request, res: Response) => {
-  const metricsEnabled = process.env.METRICS_ENABLED === 'true';
-  
-  if (!metricsEnabled) {
-    return res.status(404).json({
-      success: false,
-      error: { code: 'METRICS_DISABLED', message: 'Metrics collection is disabled' },
-      meta: { timestamp: new Date() }
-    });
-  }
-
-  // TODO: Implement metrics collection
-  res.set('Content-Type', 'text/plain');
-  res.send('# Metrics endpoint - implementation pending');
-});
+router.get('/metrics', metricsEndpoint);
 
 export { router as healthRoutes }; 

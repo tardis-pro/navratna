@@ -4,7 +4,7 @@ import helmet from 'helmet';
 import compression from 'compression';
 
 import { logger } from '@uaip/utils';
-import { errorHandler, rateLimiter, metricsMiddleware, authMiddleware } from '@uaip/middleware';
+import { errorHandler, rateLimiter, metricsMiddleware, authMiddleware, metricsEndpoint } from '@uaip/middleware';
 import { 
   DatabaseService, 
   EventBusService, 
@@ -90,6 +90,9 @@ class OrchestrationPipelineService {
   }
 
   private setupRoutes(): void {
+    // Metrics endpoint for Prometheus
+    this.app.get('/metrics', metricsEndpoint);
+    
     // Health check routes (no auth required)
     this.app.get('/health', (req, res) => {
       res.json({

@@ -4,8 +4,7 @@ import helmet from 'helmet';
 import compression from 'compression';
 import { config } from '@uaip/config';
 import { logger } from '@uaip/utils';
-import { errorHandler } from '@uaip/middleware';
-import { rateLimiter } from '@uaip/middleware';
+import { errorHandler, rateLimiter, metricsMiddleware, metricsEndpoint } from '@uaip/middleware';
 import { DatabaseService } from '@uaip/shared-services';
 import { EventBusService } from '@uaip/shared-services';
 
@@ -99,6 +98,9 @@ class SecurityGatewayServer {
     // Rate limiting
     this.app.use(rateLimiter);
 
+    // Metrics middleware
+    this.app.use(metricsMiddleware);
+
     // Request logging
     this.app.use((req, res, next) => {
       const startTime = Date.now();
@@ -129,6 +131,9 @@ class SecurityGatewayServer {
   }
 
   private setupRoutes(): void {
+    // Metrics endpoint for Prometheus
+    this.app.get('/metrics', metricsEndpoint);
+    
     // Health check
     this.app.get('/health', (req, res) => {
       res.json({

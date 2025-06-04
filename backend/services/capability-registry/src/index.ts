@@ -15,7 +15,7 @@ import { BaseToolExecutor } from './services/baseToolExecutor.js';
 import { ToolController } from './controllers/toolController.js';
 import { createToolRoutes } from './routes/toolRoutes.js';
 import { logger } from '@uaip/utils';
-import { errorHandler } from '@uaip/middleware';
+import { errorHandler, metricsMiddleware, metricsEndpoint } from '@uaip/middleware';
 
 class CapabilityRegistryService {
   private app: express.Application;
@@ -63,6 +63,9 @@ class CapabilityRegistryService {
         write: (message: string) => logger.info(message.trim())
       }
     }));
+
+    // Metrics middleware
+    this.app.use(metricsMiddleware);
 
     // Request ID middleware
     this.app.use((req, res, next) => {
@@ -135,7 +138,20 @@ class CapabilityRegistryService {
   private setupRoutes(): void {
     logger.info('Setting up routes...');
 
+    // Metrics endpoint for Prometheus
+    this.app.get('/metrics', metricsEndpoint);
+
     // Health check endpoint
+    this.app.get('/health', (req, res) => {
+      res.json({
+        status: 'healthy',
+        service: 'capability-registry',
+        timestamp: new Date().toISOString(),
+        version: process.env.VERSION || '1.0.0'
+      });
+    });
+
+    // Root endpoint
     this.app.get('/', (req, res) => {
       res.json({
         service: 'Capability Registry',
