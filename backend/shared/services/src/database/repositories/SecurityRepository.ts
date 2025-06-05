@@ -157,11 +157,35 @@ export class ApprovalWorkflowRepository extends BaseRepository<ApprovalWorkflow>
    * Get expired workflows
    */
   public async getExpiredWorkflows(): Promise<ApprovalWorkflow[]> {
-    return await this.repository
-      .createQueryBuilder('workflow')
-      .where('workflow.status = :status', { status: 'pending' })
-      .andWhere('workflow.expiresAt <= :now', { now: new Date() })
-      .getMany();
+    try {
+      const now = new Date();
+      logger.debug('Querying for expired workflows', { 
+        currentTime: now.toISOString(),
+        query: 'status = pending AND expiresAt <= now'
+      });
+
+      const workflows = await this.repository
+        .createQueryBuilder('workflow')
+        .where('workflow.status = :status', { status: 'pending' })
+        .andWhere('workflow.expiresAt <= :now', { now })
+        .getMany();
+
+      logger.debug('Expired workflows query result', { 
+        count: workflows.length,
+        workflowIds: workflows.map(w => w.id)
+      });
+
+      return workflows;
+    } catch (error) {
+      logger.error('Failed to query expired workflows', {
+        error: error instanceof Error ? {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        } : error
+      });
+      throw error;
+    }
   }
 }
 

@@ -284,6 +284,9 @@ importers:
       jest:
         specifier: ^29.7.0
         version: 29.7.0(@types/node@20.17.57)(ts-node@10.9.2(@types/node@20.17.57)(typescript@5.8.3))
+      nodemon:
+        specifier: ^3.0.2
+        version: 3.1.10
       ts-jest:
         specifier: ^29.1.1
         version: 29.3.4(@babel/core@7.27.4)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.27.4))(esbuild@0.19.12)(jest@29.7.0(@types/node@20.17.57)(ts-node@10.9.2(@types/node@20.17.57)(typescript@5.8.3)))(typescript@5.8.3)
@@ -293,6 +296,9 @@ importers:
       tsc-alias:
         specifier: ^1.8.8
         version: 1.8.16
+      tsx:
+        specifier: ^4.6.2
+        version: 4.19.4
       typescript:
         specifier: ^5.3.3
         version: 5.8.3
@@ -632,12 +638,18 @@ importers:
       jest:
         specifier: ^29.7.0
         version: 29.7.0(@types/node@20.17.57)(ts-node@10.9.2(@types/node@20.17.57)(typescript@5.8.3))
+      nodemon:
+        specifier: ^3.0.2
+        version: 3.1.10
       ts-node-dev:
         specifier: ^2.0.0
         version: 2.0.0(@types/node@20.17.57)(typescript@5.8.3)
       tsc-alias:
         specifier: ^1.8.8
         version: 1.8.16
+      tsx:
+        specifier: ^4.6.2
+        version: 4.19.4
       typescript:
         specifier: ^5.3.2
         version: 5.8.3
@@ -798,6 +810,9 @@ importers:
 
   shared/utils:
     dependencies:
+      '@uaip/types':
+        specifier: workspace:*
+        version: link:../types
       winston:
         specifier: ^3.11.0
         version: 3.17.0

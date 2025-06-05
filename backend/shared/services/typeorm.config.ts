@@ -14,7 +14,7 @@ const CLIDataSource = new DataSource({
   entities: ['src/entities/**/*.ts'],
   migrations: ['src/migrations/**/*.ts'],
   subscribers: ['src/subscribers/**/*.ts'],
-  
+  synchronize: true,
   // CLI-specific logging
   logging: ['query', 'error', 'warn', 'migration'],
   logger: 'advanced-console',

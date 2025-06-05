@@ -112,10 +112,16 @@ class CapabilityRegistryService {
     this.postgresql = new ToolDatabase(config.database.postgres);
     logger.info('PostgreSQL database initialized');
 
-    // Initialize Neo4j
+    // Initialize Neo4j with fallback
     this.neo4j = new ToolGraphDatabase(config.database.neo4j);
-    await this.neo4j.verifyConnectivity();
-    logger.info('Neo4j database initialized');
+    try {
+      await this.neo4j.verifyConnectivity();
+      logger.info('Neo4j database initialized');
+    } catch (error) {
+      logger.warn('Neo4j initialization failed, continuing with degraded functionality:', error.message);
+      logger.warn('Graph-based features (recommendations, relationships) will be unavailable');
+      // Don't throw - allow service to start without Neo4j
+    }
   }
 
   private async initializeServices(): Promise<void> {
@@ -150,11 +156,28 @@ class CapabilityRegistryService {
 
     // Health check endpoint
     this.app.get('/health', (req, res) => {
+      const neo4jConnectionStatus = this.neo4j?.getConnectionStatus();
+      const neo4jStatus = neo4jConnectionStatus?.isConnected ? 'connected' : 'disconnected';
+      
       res.json({
         status: 'healthy',
         service: 'capability-registry',
         timestamp: new Date().toISOString(),
-        version: process.env.VERSION || '1.0.0'
+        version: process.env.VERSION || '1.0.0',
+        databases: {
+          postgresql: 'connected', // Assuming PostgreSQL is working if we got this far
+          neo4j: {
+            status: neo4jStatus,
+            database: neo4jConnectionStatus?.database || 'unknown',
+            retries: neo4jConnectionStatus?.retries || 0
+          }
+        },
+        features: {
+          toolManagement: 'available',
+          toolExecution: 'available',
+          graphRelationships: neo4jStatus === 'connected' ? 'available' : 'degraded',
+          recommendations: neo4jStatus === 'connected' ? 'available' : 'degraded'
+        }
       });
     });
 

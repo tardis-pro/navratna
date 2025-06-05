@@ -62,6 +62,13 @@ export class ApprovalWorkflowService {
       requireAllApprovers: false
     };
 
+    // Don't start cron jobs in constructor - they will be started after database initialization
+  }
+
+  /**
+   * Start the cron jobs (should be called after database is initialized)
+   */
+  public startCronJobs(): void {
     this.setupCronJobs();
   }
 
@@ -397,14 +404,44 @@ export class ApprovalWorkflowService {
   private async expireWorkflows(): Promise<void> {
     try {
       const now = new Date();
+      logger.debug('Starting workflow expiration check', { timestamp: now.toISOString() });
+      
       const workflows = await this.databaseService.getExpiredWorkflows();
+      logger.debug('Found expired workflows', { count: workflows.length });
+
+      if (workflows.length === 0) {
+        logger.debug('No expired workflows found');
+        return;
+      }
 
       for (const workflowEntity of workflows) {
-        await this.expireWorkflow(workflowEntity.id);
+        try {
+          logger.debug('Expiring workflow', { workflowId: workflowEntity.id });
+          await this.expireWorkflow(workflowEntity.id);
+          logger.info('Successfully expired workflow', { workflowId: workflowEntity.id });
+        } catch (workflowError) {
+          logger.error('Failed to expire individual workflow', {
+            workflowId: workflowEntity.id,
+            error: workflowError instanceof Error ? {
+              message: workflowError.message,
+              stack: workflowError.stack,
+              name: workflowError.name
+            } : workflowError
+          });
+          // Continue with other workflows even if one fails
+        }
       }
 
     } catch (error) {
-      logger.error('Failed to expire workflows', { error });
+      logger.error('Failed to expire workflows', {
+        error: error instanceof Error ? {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        } : error,
+        errorType: typeof error,
+        errorString: String(error)
+      });
     }
   }
 
@@ -412,28 +449,76 @@ export class ApprovalWorkflowService {
    * Expire a specific workflow
    */
   private async expireWorkflow(workflowId: string): Promise<void> {
-    await this.databaseService.updateApprovalWorkflow(workflowId, {
-      status: 'expired' as any
-    });
+    try {
+      // Update workflow status to expired
+      const updatedWorkflow = await this.databaseService.updateApprovalWorkflow(workflowId, {
+        status: 'expired' as any
+      });
 
-    const workflow = await this.getWorkflow(workflowId);
-    if (workflow) {
-      // Notify approvers
-      await this.notifyApprovers(workflow, 'approval_expired');
+      if (!updatedWorkflow) {
+        logger.warn('Workflow not found during expiration', { workflowId });
+        return;
+      }
 
-      // Publish event
-      await this.eventBusService.publish('approval.workflow.expired', {
+      const workflow = await this.getWorkflow(workflowId);
+      if (!workflow) {
+        logger.warn('Could not retrieve workflow after expiration update', { workflowId });
+        return;
+      }
+
+      // Notify approvers (don't let notification failures stop the process)
+      try {
+        await this.notifyApprovers(workflow, 'approval_expired');
+      } catch (notificationError) {
+        logger.error('Failed to notify approvers of workflow expiration', {
+          workflowId,
+          error: notificationError instanceof Error ? notificationError.message : notificationError
+        });
+      }
+
+      // Publish event (don't let event publishing failures stop the process)
+      try {
+        await this.eventBusService.publish('approval.workflow.expired', {
+          workflowId,
+          operationId: workflow.operationId
+        });
+      } catch (eventError) {
+        logger.error('Failed to publish workflow expiration event', {
+          workflowId,
+          error: eventError instanceof Error ? eventError.message : eventError
+        });
+      }
+
+      // Audit log (don't let audit failures stop the process)
+      try {
+        await this.auditService.logEvent({
+          eventType: AuditEventType.APPROVAL_DENIED,
+          resourceType: 'approval_workflow',
+          resourceId: workflowId,
+          details: { reason: 'expired', action: 'auto_expired' }
+        });
+      } catch (auditError) {
+        logger.error('Failed to log workflow expiration audit event', {
+          workflowId,
+          error: auditError instanceof Error ? auditError.message : auditError
+        });
+      }
+
+      logger.info('Workflow expired successfully', {
         workflowId,
         operationId: workflow.operationId
       });
 
-      // Audit log
-      await this.auditService.logEvent({
-        eventType: AuditEventType.APPROVAL_DENIED,
-        resourceType: 'approval_workflow',
-        resourceId: workflowId,
-        details: { reason: 'expired', action: 'auto_expired' }
+    } catch (error) {
+      logger.error('Failed to expire workflow', {
+        workflowId,
+        error: error instanceof Error ? {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        } : error
       });
+      throw error; // Re-throw to be caught by the calling method
     }
   }
 

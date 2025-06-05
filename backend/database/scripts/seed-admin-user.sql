@@ -12,17 +12,8 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 DO $$
 DECLARE
     new_user_id UUID := uuid_generate_v4();
-    admin_role_id UUID := '10000000-0000-0000-0000-000000000002';
     user_exists INTEGER;
-    role_exists INTEGER;
 BEGIN
-    -- Check if admin role exists
-    SELECT COUNT(*) INTO role_exists FROM roles WHERE id = admin_role_id;
-    
-    IF role_exists = 0 THEN
-        RAISE EXCEPTION 'Admin role not found. Please run the main seeding script first.';
-    END IF;
-
     -- Check if user already exists
     SELECT COUNT(*) INTO user_exists FROM users WHERE email = 'newadmin@uaip.local';
     
@@ -33,7 +24,6 @@ BEGIN
         INSERT INTO users (
             id,
             email,
-            name,
             role,
             password_hash,
             security_clearance,
@@ -41,12 +31,12 @@ BEGIN
             first_name,
             last_name,
             department,
+            failed_login_attempts,
             created_at,
             updated_at
         ) VALUES (
             new_user_id,
             'newadmin@uaip.local',
-            'New Administrator',
             'admin',
             '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj/VcSAg/9PS', -- Password: 'AdminPass123!'
             'high',
@@ -54,25 +44,26 @@ BEGIN
             'New',
             'Administrator',
             'IT Administration',
+            0,
             NOW(),
             NOW()
         );
 
-        -- Assign admin role to the new user
-        INSERT INTO user_roles (user_id, role_id, granted_at) 
-        VALUES (new_user_id, admin_role_id, NOW())
-        ON CONFLICT (user_id, role_id) DO NOTHING;
-
         -- Log the creation in audit events
         INSERT INTO audit_events (
+            id,
             event_type,
             user_id,
             resource_type,
             resource_id,
             details,
             risk_level,
-            timestamp
+            timestamp,
+            is_archived,
+            created_at,
+            updated_at
         ) VALUES (
+            uuid_generate_v4(),
             'admin_user_created',
             new_user_id,
             'user',
@@ -85,6 +76,9 @@ BEGIN
                 'created_by', 'database_seeding_script'
             ),
             'medium',
+            NOW(),
+            false,
+            NOW(),
             NOW()
         );
 
@@ -103,28 +97,27 @@ END $$;
 DO $$
 DECLARE
     user_count INTEGER;
-    role_assignment_count INTEGER;
+    audit_count INTEGER;
 BEGIN
     -- Check if user exists
     SELECT COUNT(*) INTO user_count 
     FROM users 
     WHERE email = 'newadmin@uaip.local' AND role = 'admin' AND is_active = true;
     
-    -- Check if role assignment exists
-    SELECT COUNT(*) INTO role_assignment_count
-    FROM user_roles ur
-    JOIN users u ON ur.user_id = u.id
-    JOIN roles r ON ur.role_id = r.id
-    WHERE u.email = 'newadmin@uaip.local' AND r.name = 'admin';
+    -- Check if audit event was created
+    SELECT COUNT(*) INTO audit_count
+    FROM audit_events
+    WHERE event_type = 'admin_user_created' 
+    AND resource_id = (SELECT id::text FROM users WHERE email = 'newadmin@uaip.local');
     
-    IF user_count = 1 AND role_assignment_count = 1 THEN
+    IF user_count = 1 AND audit_count = 1 THEN
         RAISE NOTICE '✅ Admin user verification PASSED';
         RAISE NOTICE 'User exists: %', user_count;
-        RAISE NOTICE 'Role assignment exists: %', role_assignment_count;
+        RAISE NOTICE 'Audit event created: %', audit_count;
     ELSE
         RAISE WARNING '❌ Admin user verification FAILED';
         RAISE WARNING 'User exists: %', user_count;
-        RAISE WARNING 'Role assignment exists: %', role_assignment_count;
+        RAISE WARNING 'Audit event created: %', audit_count;
     END IF;
 END $$;
 
@@ -134,19 +127,19 @@ END $$;
 SELECT 
     u.id,
     u.email,
-    u.name,
     u.role,
     u.security_clearance,
     u.is_active,
     u.first_name,
     u.last_name,
     u.department,
+    u.failed_login_attempts,
+    u.locked_until,
+    u.password_changed_at,
+    u.last_login_at,
     u.created_at,
-    r.name as assigned_role,
-    r.description as role_description
+    u.updated_at
 FROM users u
-LEFT JOIN user_roles ur ON u.id = ur.user_id
-LEFT JOIN roles r ON ur.role_id = r.id
 WHERE u.email = 'newadmin@uaip.local';
 
 -- ===== SECURITY REMINDER =====

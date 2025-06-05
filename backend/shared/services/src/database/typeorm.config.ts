@@ -1,10 +1,66 @@
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { config } from '@uaip/config';
 
+// Import all entities directly
+import { Agent } from '../entities/agent.entity.js';
+import { Operation } from '../entities/operation.entity.js';
+import { Persona } from '../entities/persona.entity.js';
+import { UserEntity } from '../entities/user.entity.js';
+import { RefreshTokenEntity } from '../entities/refreshToken.entity.js';
+import { PasswordResetTokenEntity } from '../entities/passwordResetToken.entity.js';
+import { AgentCapabilityMetric } from '../entities/agentCapabilityMetric.entity.js';
+import { ToolUsageRecord } from '../entities/toolUsageRecord.entity.js';
+import { ConversationContext } from '../entities/conversationContext.entity.js';
+import { OperationState } from '../entities/operationState.entity.js';
+import { OperationCheckpoint } from '../entities/operationCheckpoint.entity.js';
+import { StepResult } from '../entities/stepResult.entity.js';
+import { ApprovalWorkflow } from '../entities/approvalWorkflow.entity.js';
+import { ApprovalDecision } from '../entities/approvalDecision.entity.js';
+import { AuditEvent } from '../entities/auditEvent.entity.js';
+import { SecurityPolicy } from '../entities/securityPolicy.entity.js';
+import { ToolDefinition } from '../entities/toolDefinition.entity.js';
+import { ToolExecution } from '../entities/toolExecution.entity.js';
+import { Artifact } from '../entities/artifact.entity.js';
+import { ArtifactReview } from '../entities/artifactReview.entity.js';
+import { ArtifactDeployment } from '../entities/artifactDeployment.entity.js';
+import { DiscussionParticipant } from '../entities/discussionParticipant.entity.js';
+import { PersonaAnalytics } from '../entities/personaAnalytics.entity.js';
+import { MCPServer } from '../entities/mcpServer.entity.js';
+import { MCPToolCall } from '../entities/mcpToolCall.entity.js';
+
 /**
  * TypeORM Configuration for UAIP Backend
  * Centralized database configuration for all services
  */
+
+// All entities array
+const allEntities = [
+  Agent,
+  Operation,
+  Persona,
+  UserEntity,
+  RefreshTokenEntity,
+  PasswordResetTokenEntity,
+  AgentCapabilityMetric,
+  ToolUsageRecord,
+  ConversationContext,
+  OperationState,
+  OperationCheckpoint,
+  StepResult,
+  ApprovalWorkflow,
+  ApprovalDecision,
+  AuditEvent,
+  SecurityPolicy,
+  ToolDefinition,
+  ToolExecution,
+  Artifact,
+  ArtifactReview,
+  ArtifactDeployment,
+  DiscussionParticipant,
+  PersonaAnalytics,
+  MCPServer,
+  MCPToolCall,
+];
 
 export const createTypeOrmConfig = (entities?: any[], disableCache = false): DataSourceOptions => {
   const dbConfig = config.database.postgres;
@@ -51,8 +107,8 @@ export const createTypeOrmConfig = (entities?: any[], disableCache = false): Dat
     database: dbConfig.database,
     ssl: dbConfig.ssl ? { rejectUnauthorized: false } : false,
     
-    // Entity configuration - use built entities from dist folder
-    entities: entities || ['dist/entities/*.js'],
+    // Entity configuration - use explicit entity imports
+    entities: entities || allEntities,
     
     // Migration configuration
     migrations: ['dist/migrations/*.js'],

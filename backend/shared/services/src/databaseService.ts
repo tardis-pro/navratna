@@ -852,7 +852,19 @@ export class DatabaseService {
    * Get expired workflows
    */
   public async getExpiredWorkflows(): Promise<ApprovalWorkflow[]> {
-    return await this.approvalWorkflowRepository.getExpiredWorkflows();
+    try {
+      await this.ensureInitialized();
+      return await this.approvalWorkflowRepository.getExpiredWorkflows();
+    } catch (error) {
+      logger.error('DatabaseService: Failed to get expired workflows', {
+        error: error instanceof Error ? {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        } : error
+      });
+      throw error;
+    }
   }
 
   /**
