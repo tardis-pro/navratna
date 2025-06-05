@@ -32,26 +32,26 @@ jobs:
         languages: ${{ matrix.language }}
         queries: security-extended,security-and-quality
 
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: '8'
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '18'
-        cache: 'npm'
+        cache: 'pnpm'
 
     - name: Install frontend dependencies
-      run: npm ci
-
-    - name: Setup pnpm for backend
-      uses: pnpm/action-setup@v4
-      with:
-        version: '8'
+      run: pnpm install --frozen-lockfile
 
     - name: Install backend dependencies
       working-directory: backend
       run: pnpm install --frozen-lockfile
 
     - name: Build frontend
-      run: npm run build
+      run: pnpm run build
 
     - name: Build backend shared packages
       working-directory: backend
