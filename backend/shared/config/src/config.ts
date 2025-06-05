@@ -5,11 +5,21 @@ import { fileURLToPath } from 'url';
 // Get the directory of this module
 // const __filename = fileURLToPath(import.meta.url);
 
-const __dirname = '/home/pronit/workspace/council-of-nycea/backend/';
+const __dirname = '/app/';
 
 // Load environment variables from root .env file
 dotenv.config({ path: path.resolve(__dirname, '.env') });
-console.log( path.resolve(__dirname, '.env'));
+
+// Debug environment variable loading
+console.log('🔧 Config Debug Info:');
+console.log('- __dirname:', __dirname);
+console.log('- .env path:', path.resolve(__dirname, '.env'));
+console.log('- NODE_ENV:', process.env.NODE_ENV);
+console.log('- SERVICE_NAME:', process.env.SERVICE_NAME);
+console.log('- POSTGRES_URL:', process.env.POSTGRES_URL ? 'SET' : 'NOT SET');
+console.log('- NEO4J_URL:', process.env.NEO4J_URL ? 'SET' : 'NOT SET');
+console.log('- REDIS_URL:', process.env.REDIS_URL ? 'SET' : 'NOT SET');
+console.log('- RABBITMQ_URL:', process.env.RABBITMQ_URL ? 'SET' : 'NOT SET');
 
 export interface DatabaseConfig {
   postgres: {
@@ -244,7 +254,6 @@ export interface Config {
   getRedisConfig(): RedisConfig;
   getStateConfig(): StateConfig;
 }
-console.log(process.env);
 
 // Parse POSTGRES_URL if provided
 function parsePostgresUrl(url?: string) {

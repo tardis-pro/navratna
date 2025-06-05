@@ -44,6 +44,7 @@ export class EventBusService {
   private config: EventBusConfig;
   private logger: winston.Logger;
   private isClosing: boolean = false;
+  private connectionPromise: Promise<void> | null = null;
 
   constructor(config: EventBusConfig, logger: winston.Logger) {
     this.config = config;
@@ -51,11 +52,31 @@ export class EventBusService {
     this.maxReconnectAttempts = config.maxReconnectAttempts || 10;
     this.reconnectDelay = config.reconnectDelay || 5000;
     this.setupEventHandlers();
+    
+    // Don't connect immediately - use lazy connection
+    this.logger.info('EventBusService initialized (lazy connection mode)');
   }
 
   private setupEventHandlers(): void {
     process.on('SIGINT', () => this.gracefulShutdown('SIGINT'));
     process.on('SIGTERM', () => this.gracefulShutdown('SIGTERM'));
+  }
+
+  private async ensureConnected(): Promise<void> {
+    if (this.isConnected) {
+      return;
+    }
+
+    if (this.connectionPromise) {
+      return this.connectionPromise;
+    }
+
+    this.connectionPromise = this.connect().catch((error) => {
+      this.connectionPromise = null;
+      throw error;
+    });
+
+    return this.connectionPromise;
   }
 
   public async connect(): Promise<void> {
@@ -81,12 +102,14 @@ export class EventBusService {
       this.connection.on('error', (err: Error) => {
         this.logger.error('RabbitMQ connection error', { error: err.message });
         this.isConnected = false;
+        this.connectionPromise = null;
         this.scheduleReconnect();
       });
 
       this.connection.on('close', () => {
         this.logger.warn('RabbitMQ connection closed');
         this.isConnected = false;
+        this.connectionPromise = null;
         this.scheduleReconnect();
       });
 
@@ -103,11 +126,13 @@ export class EventBusService {
 
       this.isConnected = true;
       this.reconnectAttempts = 0;
+      this.connectionPromise = null;
       
       this.logger.info('Successfully connected to RabbitMQ');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error('Failed to connect to RabbitMQ', { error: errorMessage });
+      this.connectionPromise = null;
       this.scheduleReconnect();
       throw new ApiError(500, 'Failed to connect to event bus', 'EVENT_BUS_ERROR');
     }
@@ -170,8 +195,19 @@ export class EventBusService {
       persistent?: boolean;
     }
   ): Promise<void> {
+    try {
+      await this.ensureConnected();
+    } catch (error) {
+      this.logger.warn('Failed to connect to RabbitMQ for publishing, event will be lost:', {
+        eventType,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      return; // Gracefully fail - don't throw error
+    }
+
     if (!this.isConnected || !this.channel) {
-      throw new ApiError(500, 'Event bus not connected', 'EVENT_BUS_NOT_CONNECTED');
+      this.logger.warn('Event bus not connected, event will be lost:', { eventType });
+      return; // Gracefully fail - don't throw error
     }
 
     const message: EventMessage = {

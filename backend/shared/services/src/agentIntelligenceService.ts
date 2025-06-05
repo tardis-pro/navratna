@@ -26,8 +26,9 @@ export class AgentIntelligenceService {
     if (this.isInitialized) return;
 
     try {
-      // Initialize database connection
-      // DatabaseService should handle its own initialization
+      // Initialize database service first
+      await this.databaseService.initialize();
+      logger.info('DatabaseService initialized successfully');
 
       // Initialize event bus connection with retry logic
       const maxRetries = 3;
@@ -97,37 +98,25 @@ export class AgentIntelligenceService {
     }
     
     try {
-      // Validate UUID format
+      // Use DatabaseService getActiveAgents method instead of raw SQL
+      const agents = await this.databaseService.getActiveAgents(6);
       
-
-      const query = `
-        SELECT 
-          id, name, role, persona, intelligence_config, 
-          security_context, is_active, created_by, 
-          last_active_at, created_at, updated_at
-        FROM agents where is_active = true limit 6
-      `;
-      
-      const result = await this.databaseService.query(query, []);
-      
-      if (result.rows.length === 0) {
+      if (agents.length === 0) {
         return null;
       }
 
-      const rows = result.rows;
-      
-      // Map database snake_case to TypeScript camelCase
-      const agents: Agent[] = rows.map(row => ({
-        id: row.id,
-        name: row.name,
-        role: row.role as AgentRole,
-        persona: row.persona,
-        intelligenceConfig: row.intelligence_config,
-        securityContext: row.security_context,
-        isActive: row.is_active
+      // Map database entities to Agent interface
+      const mappedAgents: Agent[] = agents.map(agent => ({
+        id: agent.id,
+        name: agent.name,
+        role: agent.role as AgentRole,
+        persona: agent.persona,
+        intelligenceConfig: agent.intelligenceConfig,
+        securityContext: agent.securityContext,
+        isActive: agent.isActive
       }));
 
-      return agents;
+      return mappedAgents;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Error getting agent', { error: errorMessage });
@@ -144,39 +133,29 @@ export class AgentIntelligenceService {
       // Validate UUID format
       this.validateUUIDParam(agentId, 'agentId');
 
-      const query = `
-        SELECT 
-          id, name, role, persona, intelligence_config, 
-          security_context, is_active, created_by, 
-          last_active_at, created_at, updated_at
-        FROM agents 
-        WHERE id = $1 AND is_active = true
-      `;
+      // Use DatabaseService getActiveAgentById method instead of raw SQL
+      const agent = await this.databaseService.getActiveAgentById(agentId);
       
-      const result = await this.databaseService.query(query, [agentId]);
-      
-      if (result.rows.length === 0) {
+      if (!agent) {
         return null;
       }
 
-      const row = result.rows[0];
-      
-      // Map database snake_case to TypeScript camelCase
-      const agent: Agent = {
-        id: row.id,
-        name: row.name,
-        role: row.role,
-        persona: row.persona,
-        intelligenceConfig: row.intelligence_config,
-        securityContext: row.security_context,
-        isActive: row.is_active,
-        createdBy: row.created_by,
-        lastActiveAt: row.last_active_at,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at
+      // Map database entity to Agent interface
+      const mappedAgent: Agent = {
+        id: agent.id,
+        name: agent.name,
+        role: agent.role,
+        persona: agent.persona,
+        intelligenceConfig: agent.intelligenceConfig,
+        securityContext: agent.securityContext,
+        isActive: agent.isActive,
+        createdBy: agent.createdBy,
+        lastActiveAt: agent.lastActiveAt,
+        createdAt: agent.createdAt,
+        updatedAt: agent.updatedAt
       };
 
-      return agent;
+      return mappedAgent;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Error getting agent', { agentId, error: errorMessage });
@@ -334,57 +313,33 @@ export class AgentIntelligenceService {
       // Validate UUID format
       this.validateUUIDParam(agentId, 'agentId');
 
-      const allowedFields = ['name', 'persona', 'intelligence_config', 'security_context'] as const;
-      
-      // Map camelCase input to snake_case for database
-      const mappedData: any = {};
-      if (updateData.name) mappedData.name = updateData.name;
-      if (updateData.persona) mappedData.persona = updateData.persona;
-      if (updateData.intelligenceConfig) mappedData.intelligence_config = updateData.intelligenceConfig;
-      if (updateData.securityContext) mappedData.security_context = updateData.securityContext;
-      
-      const updates = Object.keys(mappedData)
-        .filter(key => allowedFields.includes(key as any))
-        .map((key, index) => `${key} = $${index + 2}`)
-        .join(', ');
+      // Prepare update data for DatabaseService
+      const updatePayload: any = {};
+      if (updateData.name) updatePayload.name = updateData.name;
+      if (updateData.persona) updatePayload.persona = updateData.persona;
+      if (updateData.intelligenceConfig) updatePayload.intelligenceConfig = updateData.intelligenceConfig;
+      if (updateData.securityContext) updatePayload.securityContext = updateData.securityContext;
 
-      const values = Object.keys(mappedData)
-        .filter(key => allowedFields.includes(key as any))
-        .map(key => {
-          const value = mappedData[key];
-          return (key === 'persona' || key === 'intelligence_config' || key === 'security_context') 
-            ? JSON.stringify(value) 
-            : value;
-        });
+      // Use DatabaseService updateAgent method instead of raw SQL
+      const updatedAgent = await this.databaseService.updateAgent(agentId, updatePayload);
 
-      const query = `
-        UPDATE agents 
-        SET ${updates}, updated_at = NOW()
-        WHERE id = $1 AND is_active = true
-        RETURNING *
-      `;
-
-      const result = await this.databaseService.query(query, [agentId, ...values]);
-
-      if (result.rows.length === 0) {
+      if (!updatedAgent) {
         throw new ApiError(404, 'Agent not found', 'AGENT_NOT_FOUND');
       }
 
-      const row = result.rows[0];
-      
-      // Map database snake_case to TypeScript camelCase
+      // Map database entity to Agent interface
       const agent: Agent = {
-        id: row.id,
-        name: row.name,
-        role: row.role,
-        persona: row.persona,
-        intelligenceConfig: row.intelligence_config,
-        securityContext: row.security_context,
-        isActive: row.is_active,
-        createdBy: row.created_by,
-        lastActiveAt: row.last_active_at,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at
+        id: updatedAgent.id,
+        name: updatedAgent.name,
+        role: updatedAgent.role,
+        persona: updatedAgent.persona,
+        intelligenceConfig: updatedAgent.intelligenceConfig,
+        securityContext: updatedAgent.securityContext,
+        isActive: updatedAgent.isActive,
+        createdBy: updatedAgent.createdBy,
+        lastActiveAt: updatedAgent.lastActiveAt,
+        createdAt: updatedAgent.createdAt,
+        updatedAt: updatedAgent.updatedAt
       };
 
       return agent;
@@ -405,28 +360,14 @@ export class AgentIntelligenceService {
 
       // Handle ID validation and generation
       let agentId: string;
-      let useProvidedId = false;
-
       if (agentData.id) {
         // Validate provided ID is a valid UUID
         this.validateUUIDParam(agentData.id, 'agentId');
         agentId = agentData.id;
-        useProvidedId = true;
       } else {
         // Generate a new UUID
         agentId = uuidv4();
-        useProvidedId = true; // We'll use the generated UUID as a parameter
       }
-
-      const query = `
-        INSERT INTO agents (
-          id, name, role, persona, intelligence_config, 
-          security_context, is_active, created_by, created_at, updated_at
-        ) VALUES (
-          $1, $2, $3, $4, $5, $6, true, $7, NOW(), NOW()
-        )
-        RETURNING *
-      `;
 
       // Map configuration to intelligenceConfig if provided, handle both camelCase and snake_case
       const intelligenceConfig = agentData.intelligenceConfig || 
@@ -453,32 +394,33 @@ export class AgentIntelligenceService {
         createdBy = null;
       }
 
-      const values = [
-        agentId,
-        agentData.name,
-        role,
-        JSON.stringify(agentData.persona || {}),
-        JSON.stringify(intelligenceConfig),
-        JSON.stringify(securityContext),
-        createdBy
-      ];
+      // Prepare data for DatabaseService
+      const createPayload = {
+        id: agentId,
+        name: agentData.name,
+        role: role,
+        persona: agentData.persona || {},
+        intelligenceConfig: intelligenceConfig,
+        securityContext: securityContext,
+        createdBy: createdBy
+      };
 
-      const result = await this.databaseService.query(query, values);
-      const row = result.rows[0];
+      // Use DatabaseService createAgent method instead of raw SQL
+      const savedAgent = await this.databaseService.createAgent(createPayload);
       
-      // Map database snake_case to TypeScript camelCase
+      // Map database entity to Agent interface
       const agent: Agent = {
-        id: row.id,
-        name: row.name,
-        role: row.role,
-        persona: row.persona,
-        intelligenceConfig: row.intelligence_config,
-        securityContext: row.security_context,
-        isActive: row.is_active,
-        createdBy: row.created_by,
-        lastActiveAt: row.last_active_at,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at
+        id: savedAgent.id,
+        name: savedAgent.name,
+        role: savedAgent.role,
+        persona: savedAgent.persona,
+        intelligenceConfig: savedAgent.intelligenceConfig,
+        securityContext: savedAgent.securityContext,
+        isActive: savedAgent.isActive,
+        createdBy: savedAgent.createdBy,
+        lastActiveAt: savedAgent.lastActiveAt,
+        createdAt: savedAgent.createdAt,
+        updatedAt: savedAgent.updatedAt
       };
 
       // Emit agent creation event
@@ -513,19 +455,10 @@ export class AgentIntelligenceService {
       // Validate UUID format
       this.validateUUIDParam(agentId, 'agentId');
 
-      logger.info('Deleting agent', { agentId });
+      // Use DatabaseService method instead of raw SQL
+      const wasDeactivated = await this.databaseService.deactivateAgent(agentId);
 
-      // Soft delete - mark as inactive instead of actual deletion
-      const query = `
-        UPDATE agents 
-        SET is_active = false, updated_at = NOW()
-        WHERE id = $1 AND is_active = true
-        RETURNING id
-      `;
-
-      const result = await this.databaseService.query(query, [agentId]);
-
-      if (result.rows.length === 0) {
+      if (!wasDeactivated) {
         throw new ApiError(404, 'Agent not found', 'AGENT_NOT_FOUND');
       }
 
@@ -833,25 +766,20 @@ export class AgentIntelligenceService {
   }
 
   private async storePlan(plan: ExecutionPlan): Promise<void> {
-    const query = `
-      INSERT INTO operations (id, type, status, agent_id, plan, context, created_at)
-      VALUES ($1, $2, 'planned', $3, $4, $5, $6)
-    `;
-    
-    await this.databaseService.query(query, [
-      plan.id,
-      plan.type,
-      plan.agentId,
-      JSON.stringify(plan),
-      JSON.stringify(plan.metadata),
-      plan.created_at
-    ]);
+    // Use DatabaseService storeExecutionPlan method instead of raw SQL
+    await this.databaseService.storeExecutionPlan({
+      id: plan.id,
+      type: plan.type,
+      agentId: plan.agentId,
+      plan: plan, // This indicates it should go to operations table
+      context: plan.metadata,
+      createdAt: plan.created_at
+    });
   }
 
   private async getOperation(operationId: string): Promise<any> {
-    const query = 'SELECT * FROM operations WHERE id = $1';
-    const result = await this.databaseService.query(query, [operationId]);
-    return result.rows[0] || null;
+    // Use DatabaseService getOperationById method instead of raw SQL
+    return await this.databaseService.getOperationById(operationId);
   }
 
   private extractLearning(operation: any, outcomes: any, feedback: any): any {

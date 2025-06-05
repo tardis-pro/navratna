@@ -1,462 +1,311 @@
-// Tool Database Service - PostgreSQL Operations
-// Handles all PostgreSQL operations for the tools system
+// Tool Database Service - TypeORM Implementation
+// Handles all database operations for the tools system using TypeORM
 // Part of @uaip/shared-services
 
-import { Pool, PoolClient } from 'pg';
-import { ToolDefinition, ToolExecution, ToolUsageRecord } from '@uaip/types';
 import { logger } from '@uaip/utils';
-import { config, DatabaseConfig } from '@uaip/config';
+import { ToolDefinition, ToolExecution, ToolUsageRecord, ToolCategory, ToolExecutionStatus } from '@uaip/types';
+import { DatabaseService } from '../databaseService.js';
+import { ToolDefinition as ToolDefinitionEntity } from '../entities/toolDefinition.entity.js';
+import { ToolExecution as ToolExecutionEntity } from '../entities/toolExecution.entity.js';
 
 export class ToolDatabase {
-  private pool: Pool;
+  private databaseService: DatabaseService;
 
-  constructor(dbConfig?: DatabaseConfig['postgres']) {
-    // Use shared config if no specific config provided
-    const pgConfig = dbConfig || config.database.postgres;
-    
-    this.pool = new Pool({
-      host: pgConfig.host,
-      port: pgConfig.port,
-      database: pgConfig.database,
-      user: pgConfig.user,
-      password: pgConfig.password,
-      ssl: pgConfig.ssl,
-      max: pgConfig.maxConnections,
-      idleTimeoutMillis: 30000, // Default from original
-      connectionTimeoutMillis: 2000, // Default from original
-    });
-
-    this.pool.on('error', (err) => {
-      logger.error('Unexpected error on idle client', err);
-    });
+  constructor(dbConfig?: any) {
+    // Ignore the dbConfig parameter for backward compatibility
+    // TypeORM connection is managed by DatabaseService
+    this.databaseService = DatabaseService.getInstance();
   }
 
   async close(): Promise<void> {
-    await this.pool.end();
+    // TypeORM connection is managed by DatabaseService
+    // No need to close individual connections
+    logger.debug('ToolDatabase close() called - connection managed by DatabaseService');
   }
 
   // Tool CRUD Operations
   async createTool(tool: ToolDefinition): Promise<void> {
-    const client = await this.pool.connect();
     try {
-      await client.query(
-        `INSERT INTO tools (
-          id, name, description, version, category, parameters, return_type,
-          security_level, requires_approval, is_enabled, execution_time_estimate,
-          cost_estimate, author, tags, dependencies, rate_limits, examples
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
-        [
-          tool.id,
-          tool.name,
-          tool.description,
-          tool.version,
-          tool.category,
-          JSON.stringify(tool.parameters),
-          JSON.stringify(tool.returnType),
-          tool.securityLevel,
-          tool.requiresApproval,
-          tool.isEnabled,
-          tool.executionTimeEstimate,
-          tool.costEstimate,
-          tool.author,
-          tool.tags,
-          tool.dependencies,
-          JSON.stringify(tool.rateLimits),
-          JSON.stringify(tool.examples)
-        ]
-      );
+      const entityData = this.convertToolToEntity(tool);
+      await this.databaseService.createTool(entityData);
       logger.info(`Tool created: ${tool.id}`);
-    } finally {
-      client.release();
+    } catch (error) {
+      logger.error('Error creating tool', { tool, error: (error as Error).message });
+      throw error;
     }
   }
 
   async getTool(id: string): Promise<ToolDefinition | null> {
-    const client = await this.pool.connect();
     try {
-      const result = await client.query('SELECT * FROM tools WHERE id = $1', [id]);
-      if (result.rows.length === 0) return null;
-      return this.mapRowToTool(result.rows[0]);
-    } finally {
-      client.release();
+      const entity = await this.databaseService.getTool(id);
+      return entity ? this.convertEntityToTool(entity) : null;
+    } catch (error) {
+      logger.error('Error getting tool', { id, error: (error as Error).message });
+      throw error;
     }
   }
 
   async getTools(category?: string, enabled?: boolean): Promise<ToolDefinition[]> {
-    const client = await this.pool.connect();
     try {
-      let query = 'SELECT * FROM tools WHERE 1=1';
-      const params: any[] = [];
-      let paramIndex = 1;
-
-      if (category) {
-        query += ` AND category = $${paramIndex}`;
-        params.push(category);
-        paramIndex++;
-      }
-
-      if (enabled !== undefined) {
-        query += ` AND is_enabled = $${paramIndex}`;
-        params.push(enabled);
-        paramIndex++;
-      }
-
-      query += ' ORDER BY name';
-
-      const result = await client.query(query, params);
-      return result.rows.map(row => this.mapRowToTool(row));
-    } finally {
-      client.release();
+      const entities = await this.databaseService.getTools({
+        category,
+        enabled
+      });
+      return entities.map(entity => this.convertEntityToTool(entity));
+    } catch (error) {
+      logger.error('Error getting tools', { category, enabled, error: (error as Error).message });
+      throw error;
     }
   }
 
   async updateTool(id: string, updates: Partial<ToolDefinition>): Promise<void> {
-    const client = await this.pool.connect();
     try {
-      const setClause: string[] = [];
-      const params: any[] = [];
-      let paramIndex = 1;
-
-      Object.entries(updates).forEach(([key, value]) => {
-        if (value !== undefined) {
-          const dbColumn = this.mapFieldToColumn(key);
-          if (dbColumn) {
-            setClause.push(`${dbColumn} = $${paramIndex}`);
-            params.push(this.serializeValue(key, value));
-            paramIndex++;
-          }
-        }
-      });
-
-      if (setClause.length === 0) return;
-
-      setClause.push(`updated_at = CURRENT_TIMESTAMP`);
-      params.push(id);
-
-      const query = `UPDATE tools SET ${setClause.join(', ')} WHERE id = $${paramIndex}`;
-      await client.query(query, params);
+      const entityUpdates = this.convertToolToEntity(updates);
+      const result = await this.databaseService.updateTool(id, entityUpdates);
+      if (!result) {
+        throw new Error(`Tool not found: ${id}`);
+      }
       logger.info(`Tool updated: ${id}`);
-    } finally {
-      client.release();
+    } catch (error) {
+      logger.error('Error updating tool', { id, updates, error: (error as Error).message });
+      throw error;
     }
   }
 
   async deleteTool(id: string): Promise<void> {
-    const client = await this.pool.connect();
     try {
-      await client.query('DELETE FROM tools WHERE id = $1', [id]);
+      const deleted = await this.databaseService.deleteTool(id);
+      if (!deleted) {
+        throw new Error(`Tool not found: ${id}`);
+      }
       logger.info(`Tool deleted: ${id}`);
-    } finally {
-      client.release();
+    } catch (error) {
+      logger.error('Error deleting tool', { id, error: (error as Error).message });
+      throw error;
     }
   }
 
   async searchTools(query: string): Promise<ToolDefinition[]> {
-    const client = await this.pool.connect();
     try {
-      const searchQuery = `
-        SELECT * FROM tools 
-        WHERE is_enabled = true 
-        AND (
-          name ILIKE $1 
-          OR description ILIKE $1 
-          OR $2 = ANY(tags)
-          OR category ILIKE $1
-        )
-        ORDER BY 
-          CASE 
-            WHEN name ILIKE $1 THEN 1
-            WHEN description ILIKE $1 THEN 2
-            WHEN $2 = ANY(tags) THEN 3
-            ELSE 4
-          END,
-          usage_count DESC
-      `;
-      const searchTerm = `%${query}%`;
-      const result = await client.query(searchQuery, [searchTerm, query]);
-      return result.rows.map(row => this.mapRowToTool(row));
-    } finally {
-      client.release();
+      const entities = await this.databaseService.searchTools(query);
+      return entities.map(entity => this.convertEntityToTool(entity));
+    } catch (error) {
+      logger.error('Error searching tools', { query, error: (error as Error).message });
+      throw error;
     }
   }
 
   // Tool Execution Operations
   async createExecution(execution: ToolExecution): Promise<void> {
-    const client = await this.pool.connect();
     try {
-      await client.query(
-        `INSERT INTO tool_executions (
-          id, tool_id, agent_id, parameters, status, start_time,
-          approval_required, retry_count, max_retries, metadata
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-        [
-          execution.id,
-          execution.toolId,
-          execution.agentId,
-          JSON.stringify(execution.parameters),
-          execution.status,
-          execution.startTime,
-          execution.approvalRequired,
-          execution.retryCount,
-          execution.maxRetries,
-          JSON.stringify(execution.metadata)
-        ]
-      );
-    } finally {
-      client.release();
+      const entityData = this.convertExecutionToEntity(execution);
+      await this.databaseService.createToolExecution(entityData);
+      logger.debug(`Tool execution created: ${execution.id}`);
+    } catch (error) {
+      logger.error('Error creating tool execution', { execution, error: (error as Error).message });
+      throw error;
     }
   }
 
   async updateExecution(id: string, updates: Partial<ToolExecution>): Promise<void> {
-    const client = await this.pool.connect();
     try {
-      const setClause: string[] = [];
-      const params: any[] = [];
-      let paramIndex = 1;
-
-      if (updates.status) {
-        setClause.push(`status = $${paramIndex}`);
-        params.push(updates.status);
-        paramIndex++;
+      const entityUpdates = this.convertExecutionToEntity(updates);
+      const result = await this.databaseService.updateToolExecution(id, entityUpdates);
+      if (!result) {
+        throw new Error(`Tool execution not found: ${id}`);
       }
-
-      if (updates.result !== undefined) {
-        setClause.push(`result = $${paramIndex}`);
-        params.push(JSON.stringify(updates.result));
-        paramIndex++;
-      }
-
-      if (updates.error) {
-        setClause.push(`error_type = $${paramIndex}, error_message = $${paramIndex + 1}, error_details = $${paramIndex + 2}`);
-        params.push(updates.error.type, updates.error.message, JSON.stringify(updates.error.details));
-        paramIndex += 3;
-      }
-
-      if (updates.endTime) {
-        setClause.push(`end_time = $${paramIndex}`);
-        params.push(updates.endTime);
-        paramIndex++;
-      }
-
-      if (updates.executionTimeMs) {
-        setClause.push(`execution_time_ms = $${paramIndex}`);
-        params.push(updates.executionTimeMs);
-        paramIndex++;
-      }
-
-      if (updates.cost) {
-        setClause.push(`cost = $${paramIndex}`);
-        params.push(updates.cost);
-        paramIndex++;
-      }
-
-      if (setClause.length === 0) return;
-
-      params.push(id);
-      const query = `UPDATE tool_executions SET ${setClause.join(', ')} WHERE id = $${paramIndex}`;
-      await client.query(query, params);
-    } finally {
-      client.release();
+      logger.debug(`Tool execution updated: ${id}`);
+    } catch (error) {
+      logger.error('Error updating tool execution', { id, updates, error: (error as Error).message });
+      throw error;
     }
   }
 
   async getExecution(id: string): Promise<ToolExecution | null> {
-    const client = await this.pool.connect();
     try {
-      const result = await client.query('SELECT * FROM tool_executions WHERE id = $1', [id]);
-      if (result.rows.length === 0) return null;
-      return this.mapRowToExecution(result.rows[0]);
-    } finally {
-      client.release();
+      return await this.databaseService.getToolExecution(id);
+    } catch (error) {
+      logger.error('Error getting tool execution', { id, error: (error as Error).message });
+      throw error;
     }
   }
 
   async getExecutions(toolId?: string, agentId?: string, status?: string, limit = 100): Promise<ToolExecution[]> {
-    const client = await this.pool.connect();
     try {
-      let query = 'SELECT * FROM tool_executions WHERE 1=1';
-      const params: any[] = [];
-      let paramIndex = 1;
-
-      if (toolId) {
-        query += ` AND tool_id = $${paramIndex}`;
-        params.push(toolId);
-        paramIndex++;
-      }
-
-      if (agentId) {
-        query += ` AND agent_id = $${paramIndex}`;
-        params.push(agentId);
-        paramIndex++;
-      }
-
-      if (status) {
-        query += ` AND status = $${paramIndex}`;
-        params.push(status);
-        paramIndex++;
-      }
-
-      query += ` ORDER BY start_time DESC LIMIT $${paramIndex}`;
-      params.push(limit);
-
-      const result = await client.query(query, params);
-      return result.rows.map(row => this.mapRowToExecution(row));
-    } finally {
-      client.release();
+      return await this.databaseService.getToolExecutions({
+        toolId,
+        agentId,
+        status,
+        limit
+      });
+    } catch (error) {
+      logger.error('Error getting tool executions', { toolId, agentId, status, limit, error: (error as Error).message });
+      throw error;
     }
   }
 
   // Usage Analytics
   async recordUsage(usage: ToolUsageRecord): Promise<void> {
-    const client = await this.pool.connect();
     try {
-      await client.query(
-        `INSERT INTO tool_usage_records (
-          tool_id, agent_id, execution_id, timestamp, success,
-          execution_time_ms, cost, error_type, parameters_hash, context_tags
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-        [
-          usage.toolId,
-          usage.agentId,
-          null, // execution_id will be set separately if needed
-          usage.timestamp,
-          usage.success,
-          usage.executionTime,
-          usage.cost,
-          usage.errorType,
-          null, // parameters_hash for privacy
-          [] // context_tags
-        ]
-      );
+      await this.databaseService.recordToolUsage({
+        toolId: usage.toolId,
+        agentId: usage.agentId,
+        usedAt: usage.timestamp,
+        success: usage.success,
+        executionTimeMs: usage.executionTime,
+        cost: usage.cost,
+        error: usage.errorType
+      });
 
-      // Update tool usage count
-      await client.query(
-        'UPDATE tools SET usage_count = usage_count + 1 WHERE id = $1',
-        [usage.toolId]
-      );
-    } finally {
-      client.release();
+      // Update tool success metrics if execution was successful
+      if (usage.success && usage.executionTime) {
+        await this.databaseService.updateToolSuccessMetrics(
+          usage.toolId,
+          true,
+          usage.executionTime
+        );
+      }
+
+      logger.debug(`Tool usage recorded for tool: ${usage.toolId}`);
+    } catch (error) {
+      logger.error('Error recording tool usage', { usage, error: (error as Error).message });
+      throw error;
     }
   }
 
   async getUsageStats(toolId?: string, agentId?: string, days = 30): Promise<any[]> {
-    const client = await this.pool.connect();
     try {
-      let query = `
-        SELECT 
-          tool_id,
-          agent_id,
-          COUNT(*) as total_uses,
-          COUNT(*) FILTER (WHERE success = true) as successful_uses,
-          AVG(execution_time_ms) as avg_execution_time,
-          SUM(cost) as total_cost,
-          DATE_TRUNC('day', timestamp) as date
-        FROM tool_usage_records 
-        WHERE timestamp >= NOW() - INTERVAL '${days} days'
-      `;
-      
-      const params: any[] = [];
-      let paramIndex = 1;
-
-      if (toolId) {
-        query += ` AND tool_id = $${paramIndex}`;
-        params.push(toolId);
-        paramIndex++;
-      }
-
-      if (agentId) {
-        query += ` AND agent_id = $${paramIndex}`;
-        params.push(agentId);
-        paramIndex++;
-      }
-
-      query += ' GROUP BY tool_id, agent_id, DATE_TRUNC(\'day\', timestamp) ORDER BY date DESC';
-
-      const result = await client.query(query, params);
-      return result.rows;
-    } finally {
-      client.release();
+      return await this.databaseService.getToolUsageStats({
+        toolId,
+        agentId,
+        days
+      });
+    } catch (error) {
+      logger.error('Error getting tool usage stats', { toolId, agentId, days, error: (error as Error).message });
+      throw error;
     }
   }
 
-  // Helper methods
-  private mapRowToTool(row: any): ToolDefinition {
+  // Type conversion methods to handle differences between entity and interface types
+  private convertToolToEntity(tool: Partial<ToolDefinition>): Partial<ToolDefinitionEntity> {
+    const result: Partial<ToolDefinitionEntity> = {};
+    
+    // Copy all fields that don't need conversion
+    Object.keys(tool).forEach(key => {
+      if (key !== 'category' && key !== 'securityLevel') {
+        (result as any)[key] = (tool as any)[key];
+      }
+    });
+
+    // Convert enum fields if present
+    if (tool.category) {
+      result.category = this.mapCategoryToEnum(tool.category);
+    }
+    if (tool.securityLevel) {
+      result.securityLevel = this.mapSecurityLevelToEnum(tool.securityLevel) as any;
+    }
+
+    return result;
+  }
+
+  private convertEntityToTool(entity: ToolDefinitionEntity): ToolDefinition {
     return {
-      id: row.id,
-      name: row.name,
-      description: row.description,
-      version: row.version,
-      category: row.category,
-      parameters: row.parameters,
-      returnType: row.return_type,
-      securityLevel: row.security_level,
-      requiresApproval: row.requires_approval,
-      isEnabled: row.is_enabled,
-      executionTimeEstimate: row.execution_time_estimate,
-      costEstimate: parseFloat(row.cost_estimate || '0'),
-      author: row.author,
-      tags: row.tags || [],
-      dependencies: row.dependencies || [],
-      rateLimits: row.rate_limits,
-      examples: row.examples || []
+      id: entity.id,
+      name: entity.name,
+      description: entity.description,
+      version: entity.version,
+      category: entity.category as string,
+      parameters: entity.parameters as Record<string, any>,
+      returnType: entity.returnType as Record<string, any>,
+      securityLevel: entity.securityLevel as any,
+      requiresApproval: entity.requiresApproval,
+      isEnabled: entity.isEnabled,
+      executionTimeEstimate: entity.executionTimeEstimate,
+      costEstimate: entity.costEstimate,
+      author: entity.author,
+      tags: entity.tags,
+      dependencies: entity.dependencies,
+      rateLimits: entity.rateLimits as Record<string, any>,
+      examples: entity.examples as Array<Record<string, any>>
     };
+  }
+
+  private convertExecutionToEntity(execution: Partial<ToolExecution>): Partial<ToolExecutionEntity> {
+    const result: Partial<ToolExecutionEntity> = {};
+    
+    // Copy all fields that don't need conversion
+    Object.keys(execution).forEach(key => {
+      if (key !== 'status') {
+        (result as any)[key] = (execution as any)[key];
+      }
+    });
+
+    // Convert enum fields if present
+    if (execution.status) {
+      result.status = this.mapStatusToEnum(execution.status);
+    }
+
+    return result;
+  }
+
+  private convertEntityToExecution(entity: ToolExecutionEntity): ToolExecution {
+    return {
+      ...entity,
+      status: entity.status as any
+    };
+  }
+
+  private mapCategoryToEnum(category: string): ToolCategory {
+    const categoryMap: Record<string, ToolCategory> = {
+      'general': ToolCategory.GENERAL,
+      'development': ToolCategory.DEVELOPMENT,
+      'analysis': ToolCategory.ANALYSIS,
+      'communication': ToolCategory.COMMUNICATION,
+      'automation': ToolCategory.AUTOMATION,
+      'security': ToolCategory.SECURITY,
+      'data': ToolCategory.DATA,
+      'ai': ToolCategory.AI
+    };
+    return categoryMap[category] || ToolCategory.GENERAL;
+  }
+
+  private mapStatusToEnum(status: string): ToolExecutionStatus {
+    const statusMap: Record<string, ToolExecutionStatus> = {
+      'pending': ToolExecutionStatus.PENDING,
+      'running': ToolExecutionStatus.RUNNING,
+      'completed': ToolExecutionStatus.COMPLETED,
+      'failed': ToolExecutionStatus.FAILED,
+      'cancelled': ToolExecutionStatus.CANCELLED,
+      'approval-required': ToolExecutionStatus.APPROVAL_REQUIRED
+    };
+    return statusMap[status] || ToolExecutionStatus.PENDING;
+  }
+
+  private mapSecurityLevelToEnum(level: string): any {
+    // Map string security levels to enum values
+    const levelMap: Record<string, string> = {
+      'safe': 'low',
+      'moderate': 'medium',
+      'restricted': 'high',
+      'dangerous': 'critical'
+    };
+    return levelMap[level] || 'medium';
+  }
+
+  // Helper methods for compatibility (keeping for interface compatibility)
+  private mapRowToTool(row: any): ToolDefinition {
+    return row as ToolDefinition;
   }
 
   private mapRowToExecution(row: any): ToolExecution {
-    return {
-      id: row.id,
-      toolId: row.tool_id,
-      agentId: row.agent_id,
-      parameters: row.parameters || {},
-      status: row.status,
-      startTime: row.start_time,
-      endTime: row.end_time,
-      result: row.result,
-      error: row.error_type ? {
-        type: row.error_type,
-        message: row.error_message,
-        details: row.error_details,
-        recoverable: false,
-        suggestedAction: undefined
-      } : undefined,
-      approvalRequired: row.approval_required,
-      approvedBy: row.approved_by,
-      approvedAt: row.approved_at,
-      cost: parseFloat(row.cost || '0'),
-      executionTimeMs: row.execution_time_ms,
-      retryCount: row.retry_count,
-      maxRetries: row.max_retries,
-      metadata: row.metadata || {}
-    };
+    return row as ToolExecution;
   }
 
   private mapFieldToColumn(field: string): string | null {
-    const fieldMap: Record<string, string> = {
-      'name': 'name',
-      'description': 'description',
-      'version': 'version',
-      'category': 'category',
-      'parameters': 'parameters',
-      'returnType': 'return_type',
-      'securityLevel': 'security_level',
-      'requiresApproval': 'requires_approval',
-      'isEnabled': 'is_enabled',
-      'executionTimeEstimate': 'execution_time_estimate',
-      'costEstimate': 'cost_estimate',
-      'author': 'author',
-      'tags': 'tags',
-      'dependencies': 'dependencies',
-      'rateLimits': 'rate_limits',
-      'examples': 'examples'
-    };
-    return fieldMap[field] || null;
+    return field;
   }
 
   private serializeValue(field: string, value: any): any {
-    const jsonFields = ['parameters', 'returnType', 'rateLimits', 'examples'];
-    if (jsonFields.includes(field)) {
-      return JSON.stringify(value);
-    }
     return value;
   }
 } 

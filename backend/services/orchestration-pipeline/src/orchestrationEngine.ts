@@ -29,7 +29,8 @@ import {
   StateManagerService,
   ResourceManagerService,
   StepExecutorService,
-  CompensationService
+  CompensationService,
+  TypeOrmService
 } from '@uaip/shared-services';
 
 export class OrchestrationEngine extends EventEmitter {
@@ -39,6 +40,7 @@ export class OrchestrationEngine extends EventEmitter {
   private resourceManagerService: ResourceManagerService;
   private stepExecutorService: StepExecutorService;
   private compensationService: CompensationService;
+  private typeormService: TypeOrmService;
   private activeOperations = new Map<string, WorkflowInstance>();
   private operationTimeouts = new Map<string, NodeJS.Timeout>();
   private stepTimeouts = new Map<string, NodeJS.Timeout>();
@@ -50,7 +52,8 @@ export class OrchestrationEngine extends EventEmitter {
     stateManagerService: StateManagerService,
     resourceManagerService: ResourceManagerService,
     stepExecutorService: StepExecutorService,
-    compensationService: CompensationService
+    compensationService: CompensationService,
+    typeormService: TypeOrmService
   ) {
     super();
     this.databaseService = databaseService;
@@ -59,6 +62,7 @@ export class OrchestrationEngine extends EventEmitter {
     this.resourceManagerService = resourceManagerService;
     this.stepExecutorService = stepExecutorService;
     this.compensationService = compensationService;
+    this.typeormService = typeormService;
 
     // Set up event listeners
     this.setupEventListeners();
@@ -84,6 +88,21 @@ export class OrchestrationEngine extends EventEmitter {
       // Validate operation
       await this.validateOperation(operation);
 
+      // Persist operation to database using TypeORM service
+      const savedOperation = await this.typeormService.create('Operation', operation);
+      logger.info('Operation persisted to database', { operationId: savedOperation.id });
+
+      // Create initial operation state
+      const operationStateData: Partial<OperationState> = {
+        operationId: savedOperation.id,
+        status: OperationStatus.PENDING,
+        metadata: { 
+          startTime: new Date(),
+          priority: operation.metadata?.priority 
+        }
+      };
+      await this.typeormService.create('OperationState', operationStateData);
+
       // Check resource availability
       const defaultResourceLimits = {
         maxMemory: 1024 * 1024 * 1024,
@@ -98,29 +117,54 @@ export class OrchestrationEngine extends EventEmitter {
       const resourceCheck = await this.resourceManagerService.checkResourceAvailability(resourceLimits);
       
       if (!resourceCheck.available) {
+        // Update operation state to failed
+        const failedStateData: Partial<OperationState> = {
+          operationId: savedOperation.id,
+          status: OperationStatus.FAILED,
+          metadata: { 
+            startTime: new Date(),
+            priority: operation.metadata?.priority,
+            error: `Insufficient resources: ${resourceCheck.reason}`,
+            endTime: new Date()
+          }
+        };
+        await this.typeormService.update('OperationState', savedOperation.id, failedStateData);
         throw new Error(`Insufficient resources: ${resourceCheck.reason}`);
       }
 
       // Allocate resources
       const resourceAllocation = await this.resourceManagerService.allocateResources(
-        operation.id || '',
+        savedOperation.id || '',
         resourceLimits
       );
 
+      // Update operation state to running
+      const runningStateData: Partial<OperationState> = {
+        operationId: savedOperation.id,
+        status: OperationStatus.RUNNING,
+        metadata: { 
+          startTime: new Date(),
+          priority: operation.metadata?.priority,
+          resourceAllocation,
+          actualStartTime: new Date()
+        }
+      };
+      await this.typeormService.update('OperationState', savedOperation.id, runningStateData);
+
       // Create workflow instance
-      const workflowInstance = await this.createWorkflowInstance(operation);
-      this.activeOperations.set(operation.id || '', workflowInstance);
+      const workflowInstance = await this.createWorkflowInstance(savedOperation);
+      this.activeOperations.set(savedOperation.id || '', workflowInstance);
 
       // Set operation timeout
-      this.setOperationTimeout(operation);
+      this.setOperationTimeout(savedOperation);
 
       // Start execution
       await this.startOperationExecution(workflowInstance);
 
       logger.info('Operation queued for execution', {
-        operationId: operation.id,
+        operationId: savedOperation.id,
         workflowInstanceId: workflowInstance.id,
-        estimatedDuration: operation.estimatedDuration
+        estimatedDuration: savedOperation.estimatedDuration
       });
 
       return workflowInstance.id || '';
@@ -281,7 +325,7 @@ export class OrchestrationEngine extends EventEmitter {
    * Get operation status and progress
    */
   public async getOperationStatus(operationId: string): Promise<{
-    operation: Operation;
+    operation: any;
     status: OperationStatus;
     progress: {
       currentStep?: string;
@@ -336,15 +380,23 @@ export class OrchestrationEngine extends EventEmitter {
     stepId?: string
   ): Promise<string> {
     try {
+      // Get operation from database
+      const operation = await this.typeormService.findById('Operation', operationId);
+      
+      if (!operation) {
+        throw new Error(`Operation not found: ${operationId}`);
+      }
+
       const state = await this.stateManagerService.getOperationState(operationId);
       if (!state) {
         throw new Error(`Operation state not found for ${operationId}`);
       }
 
-      const checkpoint: Checkpoint = {
+      // Create checkpoint data
+      const checkpointData: Partial<Checkpoint> = {
         id: uuidv4(),
         stepId: stepId || state.currentStep || '',
-        type,
+        type: type,
         data: {
           operationState: state,
           timestamp: new Date(),
@@ -353,23 +405,33 @@ export class OrchestrationEngine extends EventEmitter {
         timestamp: new Date()
       };
 
-      await this.stateManagerService.saveCheckpoint(operationId, checkpoint);
+      // Save checkpoint to database
+      const savedCheckpoint = await this.typeormService.create('OperationCheckpoint', checkpointData);
+
+      // Also save to state manager for backward compatibility
+      await this.stateManagerService.saveCheckpoint(operationId, {
+        id: savedCheckpoint.id,
+        stepId: savedCheckpoint.stepId,
+        type: savedCheckpoint.type,
+        data: savedCheckpoint.data,
+        timestamp: savedCheckpoint.timestamp
+      });
 
       logger.info('Checkpoint created', {
         operationId,
-        checkpointId: checkpoint.id,
+        checkpointId: savedCheckpoint.id,
         type,
         stepId
       });
 
       // Emit event
       await this.emitOperationEvent(operationId, OperationEventType.CHECKPOINT_CREATED, {
-        checkpointId: checkpoint.id,
+        checkpointId: savedCheckpoint.id,
         type,
         stepId
       });
 
-      return checkpoint.id!;
+      return savedCheckpoint.id!;
 
     } catch (error) {
       logger.error('Failed to create checkpoint', { operationId, error: error instanceof Error ? error.message : String(error) });
@@ -425,7 +487,7 @@ export class OrchestrationEngine extends EventEmitter {
     }
   }
 
-  private async createWorkflowInstance(operation: Operation): Promise<WorkflowInstance> {
+  private async createWorkflowInstance(operation: any): Promise<WorkflowInstance> {
     const workflowInstance: WorkflowInstance = {
       id: uuidv4(),
       operationId: operation.id || '',
@@ -454,8 +516,8 @@ export class OrchestrationEngine extends EventEmitter {
       updatedAt: new Date()
     };
 
-    // Save to database
-    await this.databaseService.createWorkflowInstance(workflowInstance);
+    // Save to database using TypeORM service instead of DatabaseService
+    await this.typeormService.create('WorkflowInstance', workflowInstance);
     
     // Initialize state
     await this.stateManagerService.initializeOperationState(operation.id || '', workflowInstance.state || {
@@ -529,7 +591,7 @@ export class OrchestrationEngine extends EventEmitter {
   }
 
   private async getNextExecutableSteps(
-    operation: Operation,
+    operation: any,
     workflowInstance: WorkflowInstance
   ): Promise<any[]> {
     const { steps, dependencies } = operation.executionPlan || { steps: [], dependencies: [] };
@@ -576,7 +638,7 @@ export class OrchestrationEngine extends EventEmitter {
   }
 
   private async executeSteps(
-    operation: Operation,
+    operation: any,
     workflowInstance: WorkflowInstance,
     steps: any[]
   ): Promise<void> {
@@ -597,7 +659,7 @@ export class OrchestrationEngine extends EventEmitter {
   }
 
   private async executeSingleStep(
-    operation: Operation,
+    operation: any,
     workflowInstance: WorkflowInstance,
     step: any
   ): Promise<void> {
@@ -675,7 +737,7 @@ export class OrchestrationEngine extends EventEmitter {
   }
 
   private async executeStepsInParallel(
-    operation: Operation,
+    operation: any,
     workflowInstance: WorkflowInstance,
     steps: any[]
   ): Promise<void> {
@@ -720,49 +782,83 @@ export class OrchestrationEngine extends EventEmitter {
   ): Promise<void> {
     const duration = Date.now() - startTime;
 
-    // Update step result in database
-    await this.databaseService.saveStepResult(workflowInstance.operationId || '', result);
+    try {
+      // Get operation from database
+      const operation = await this.typeormService.findById('Operation', workflowInstance.operationId || '');
 
-    if (result.status === StepStatus.COMPLETED) {
-      // Add to completed steps
-      if (workflowInstance.state?.completedSteps) {
-        workflowInstance.state.completedSteps.push(step.id);
+      if (!operation) {
+        throw new Error(`Operation not found: ${workflowInstance.operationId}`);
       }
-      
-      // Update variables with step output
-      if (step.outputMapping && workflowInstance.state?.variables) {
-        for (const [outputKey, variableName] of Object.entries(step.outputMapping)) {
-          if (result.data && typeof result.data === 'object' && outputKey in result.data) {
-            workflowInstance.state.variables[variableName as string] = (result.data as any)[outputKey];
+
+      // Create step result data
+      const stepResultData: Partial<StepResult> = {
+        stepId: step.id,
+        status: result.status,
+        data: result.data,
+        error: result.error,
+        executionTime: duration,
+        metadata: {
+          operationId: workflowInstance.operationId,
+          startedAt: new Date(startTime),
+          completedAt: new Date()
+        }
+      };
+
+      // Save step result to database
+      await this.typeormService.create('StepResult', stepResultData);
+
+      // Also save to legacy database service for backward compatibility
+      await this.databaseService.saveStepResult(workflowInstance.operationId || '', result);
+
+      if (result.status === StepStatus.COMPLETED) {
+        // Add to completed steps
+        if (workflowInstance.state?.completedSteps) {
+          workflowInstance.state.completedSteps.push(step.id);
+        }
+        
+        // Update variables with step output
+        if (step.outputMapping && workflowInstance.state?.variables) {
+          for (const [outputKey, variableName] of Object.entries(step.outputMapping)) {
+            if (result.data && typeof result.data === 'object' && outputKey in result.data) {
+              workflowInstance.state.variables[variableName as string] = (result.data as any)[outputKey];
+            }
           }
         }
+
+        logger.info('Step completed successfully', {
+          operationId: workflowInstance.operationId,
+          stepId: step.id,
+          duration
+        });
+
+        // Emit step completed event
+        await this.emitOperationEvent(
+          workflowInstance.operationId || '',
+          OperationEventType.STEP_COMPLETED,
+          { 
+            stepId: step.id,
+            duration,
+            result: result.data
+          }
+        );
+
+      } else {
+        await this.handleStepFailure(workflowInstance, step, new Error('Step failed'), startTime);
       }
 
-      logger.info('Step completed successfully', {
+      // Update state
+      if (workflowInstance.state) {
+        workflowInstance.state.lastUpdated = new Date();
+        await this.stateManagerService.updateOperationState(workflowInstance.operationId || '', workflowInstance.state);
+      }
+
+    } catch (error) {
+      logger.error('Failed to process step result', {
         operationId: workflowInstance.operationId,
         stepId: step.id,
-        duration
+        error: error instanceof Error ? error.message : String(error)
       });
-
-      // Emit step completed event
-      await this.emitOperationEvent(
-        workflowInstance.operationId || '',
-        OperationEventType.STEP_COMPLETED,
-        { 
-          stepId: step.id,
-          duration,
-          result: result.data
-        }
-      );
-
-    } else {
-      await this.handleStepFailure(workflowInstance, step, new Error('Step failed'), startTime);
-    }
-
-    // Update state
-    if (workflowInstance.state) {
-      workflowInstance.state.lastUpdated = new Date();
-      await this.stateManagerService.updateOperationState(workflowInstance.operationId || '', workflowInstance.state);
+      throw error;
     }
   }
 

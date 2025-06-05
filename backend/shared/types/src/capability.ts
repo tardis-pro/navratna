@@ -140,7 +140,7 @@ export const CapabilityRecommendationSchema = z.object({
 export type CapabilityRecommendation = z.infer<typeof CapabilityRecommendationSchema>;
 
 // Capability relationship types
-export enum RelationshipType {
+export enum CapabilityRelationshipType {
   DEPENDS_ON = 'depends_on',
   PROVIDES = 'provides',
   COMPOSES = 'composes',
@@ -153,7 +153,7 @@ export const CapabilityRelationshipSchema = z.object({
   id: UUIDSchema,
   sourceId: UUIDSchema,
   targetId: UUIDSchema,
-  type: z.nativeEnum(RelationshipType),
+  type: z.nativeEnum(CapabilityRelationshipType),
   strength: z.number().min(0).max(1).default(1),
   metadata: z.record(z.any()).optional(),
   createdAt: z.date()

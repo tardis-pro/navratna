@@ -12,3 +12,7 @@ export * from './discussion.js';
 export * from './artifact.js';
 // Tool types - NEW
 export * from './tools.js';
+// MCP types - NEW
+export * from './mcp.js';
+// Knowledge Graph types - NEW
+export * from './knowledge-graph.js';

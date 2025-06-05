@@ -4,13 +4,24 @@ import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { authMiddleware, requireAdmin } from '@uaip/middleware';
 import { validateRequest } from '@uaip/middleware';
-import { AuditService } from '../services/auditService.js';
 import { DatabaseService } from '@uaip/shared-services';
 import { AuditEventType } from '@uaip/types';
+import { AuditService } from '../services/auditService.js';
 
 const router: Router = express.Router();
-const databaseService = new DatabaseService();
-const auditService = new AuditService(databaseService);
+
+// Lazy initialization of services
+let databaseService: DatabaseService | null = null;
+let auditService: AuditService | null = null;
+
+async function getServices() {
+  if (!databaseService) {
+    databaseService = new DatabaseService();
+    await databaseService.initialize();
+    auditService = new AuditService(databaseService);
+  }
+  return { databaseService, auditService: auditService! };
+}
 
 // Validation schemas using Zod
 const auditQuerySchema = z.object({
@@ -22,8 +33,8 @@ const auditQuerySchema = z.object({
   endDate: z.coerce.date().optional(),
   ipAddress: z.string().ip().optional(),
   search: z.string().max(100).optional(),
-  sortBy: z.enum(['created_at', 'event_type', 'user_id']).default('created_at'),
-  sortOrder: z.enum(['asc', 'desc']).default('desc')
+  sortBy: z.enum(['timestamp', 'eventType', 'userId']).default('timestamp'),
+  sortOrder: z.enum(['ASC', 'DESC']).default('DESC')
 });
 
 const exportSchema = z.object({
@@ -91,135 +102,31 @@ router.get('/logs', authMiddleware, requireAdmin, async (req, res) => {
       sortOrder
     } = value;
 
-    // Build query
-    let query = `
-      SELECT 
-        sal.id,
-        sal.event_type,
-        sal.user_id,
-        sal.details,
-        sal.ip_address,
-        sal.user_agent,
-        sal.created_at,
-        u.email as user_email
-      FROM security_audit_logs sal
-      LEFT JOIN users u ON sal.user_id = u.id
-      WHERE 1=1
-    `;
-
-    const params: any[] = [];
-    let paramCount = 0;
-
-    // Add filters
-    if (eventType) {
-      paramCount++;
-      query += ` AND sal.event_type = $${paramCount}`;
-      params.push(eventType);
-    }
-
-    if (userId) {
-      paramCount++;
-      query += ` AND sal.user_id = $${paramCount}`;
-      params.push(userId);
-    }
-
-    if (startDate) {
-      paramCount++;
-      query += ` AND sal.created_at >= $${paramCount}`;
-      params.push(startDate);
-    }
-
-    if (endDate) {
-      paramCount++;
-      query += ` AND sal.created_at <= $${paramCount}`;
-      params.push(endDate);
-    }
-
-    if (ipAddress) {
-      paramCount++;
-      query += ` AND sal.ip_address = $${paramCount}`;
-      params.push(ipAddress);
-    }
-
-    if (search) {
-      paramCount++;
-      query += ` AND (sal.event_type ILIKE $${paramCount} OR sal.details::text ILIKE $${paramCount} OR u.email ILIKE $${paramCount})`;
-      params.push(`%${search}%`);
-    }
-
-    // Add sorting
-    query += ` ORDER BY sal.${sortBy} ${sortOrder.toUpperCase()}`;
-
-    // Add pagination
+    // Calculate offset for pagination
     const offset = (page - 1) * limit;
-    paramCount++;
-    query += ` LIMIT $${paramCount}`;
-    params.push(limit);
 
-    paramCount++;
-    query += ` OFFSET $${paramCount}`;
-    params.push(offset);
-
-    const result = await databaseService.query(query, params);
-
-    // Get total count for pagination
-    let countQuery = `
-      SELECT COUNT(*) 
-      FROM security_audit_logs sal
-      LEFT JOIN users u ON sal.user_id = u.id
-      WHERE 1=1
-    `;
-    const countParams: any[] = [];
-    let countParamCount = 0;
-
-    // Apply same filters for count
-    if (eventType) {
-      countParamCount++;
-      countQuery += ` AND sal.event_type = $${countParamCount}`;
-      countParams.push(eventType);
-    }
-
-    if (userId) {
-      countParamCount++;
-      countQuery += ` AND sal.user_id = $${countParamCount}`;
-      countParams.push(userId);
-    }
-
-    if (startDate) {
-      countParamCount++;
-      countQuery += ` AND sal.created_at >= $${countParamCount}`;
-      countParams.push(startDate as string);
-    }
-
-    if (endDate) {
-      countParamCount++;
-      countQuery += ` AND sal.created_at <= $${countParamCount}`;
-      countParams.push(endDate as string);
-    }
-
-    if (ipAddress) {
-      countParamCount++;
-      countQuery += ` AND sal.ip_address = $${countParamCount}`;
-      countParams.push(ipAddress);
-    }
-
-    if (search) {
-      countParamCount++;
-      countQuery += ` AND (sal.event_type ILIKE $${countParamCount} OR sal.details::text ILIKE $${countParamCount} OR u.email ILIKE $${countParamCount})`;
-      countParams.push(`%${search}%`);
-    }
-
-    const countResult = await databaseService.query(countQuery, countParams);
-    const totalCount = parseInt(countResult.rows[0].count);
+    // Use DatabaseService method instead of raw SQL
+    const result = await databaseService.searchAuditLogs({
+      eventType,
+      userId,
+      startDate,
+      endDate,
+      ipAddress,
+      search,
+      sortBy,
+      sortOrder,
+      limit,
+      offset
+    });
 
     res.json({
       message: 'Audit logs retrieved successfully',
-      logs: result.rows,
+      logs: result.logs,
       pagination: {
         page,
         limit,
-        total: totalCount,
-        pages: Math.ceil(totalCount / limit)
+        total: result.total,
+        pages: Math.ceil(result.total / limit)
       },
       filters: {
         eventType,
@@ -249,25 +156,10 @@ router.get('/logs/:logId', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { logId } = req.params;
 
-    const query = `
-      SELECT 
-        sal.id,
-        sal.event_type,
-        sal.user_id,
-        sal.details,
-        sal.ip_address,
-        sal.user_agent,
-        sal.created_at,
-        u.email as user_email,
-        u.role as user_role
-      FROM security_audit_logs sal
-      LEFT JOIN users u ON sal.user_id = u.id
-      WHERE sal.id = $1
-    `;
+    // Use DatabaseService method instead of raw SQL
+    const log = await databaseService.getAuditLogById(logId);
 
-    const result = await databaseService.query(query, [logId]);
-
-    if (result.rows.length === 0) {
+    if (!log) {
       return res.status(404).json({
         error: 'Log Not Found',
         message: 'Audit log entry not found'
@@ -276,7 +168,7 @@ router.get('/logs/:logId', authMiddleware, requireAdmin, async (req, res) => {
 
     res.json({
       message: 'Audit log retrieved successfully',
-      log: result.rows[0]
+      log
     });
 
   } catch (error) {
@@ -295,18 +187,12 @@ router.get('/logs/:logId', authMiddleware, requireAdmin, async (req, res) => {
  */
 router.get('/events/types', authMiddleware, requireAdmin, async (req, res) => {
   try {
-    const query = `
-      SELECT DISTINCT event_type, COUNT(*) as count
-      FROM security_audit_logs
-      GROUP BY event_type
-      ORDER BY count DESC, event_type ASC
-    `;
-
-    const result = await databaseService.query(query);
+    // Use DatabaseService method instead of raw SQL
+    const eventTypes = await databaseService.getAuditEventTypes();
 
     res.json({
       message: 'Event types retrieved successfully',
-      eventTypes: result.rows
+      eventTypes
     });
 
   } catch (error) {
@@ -327,97 +213,19 @@ router.get('/stats', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { timeframe = '24h' } = req.query;
 
-    let timeCondition = '';
-    switch (timeframe) {
-      case '1h':
-        timeCondition = "created_at >= NOW() - INTERVAL '1 hour'";
-        break;
-      case '24h':
-        timeCondition = "created_at >= NOW() - INTERVAL '24 hours'";
-        break;
-      case '7d':
-        timeCondition = "created_at >= NOW() - INTERVAL '7 days'";
-        break;
-      case '30d':
-        timeCondition = "created_at >= NOW() - INTERVAL '30 days'";
-        break;
-      default:
-        timeCondition = "created_at >= NOW() - INTERVAL '24 hours'";
-    }
+    // Validate timeframe
+    const validTimeframes = ['1h', '24h', '7d', '30d'];
+    const selectedTimeframe = validTimeframes.includes(timeframe as string) 
+      ? (timeframe as '1h' | '24h' | '7d' | '30d') 
+      : '24h';
 
-    // Get event statistics
-    const eventStatsQuery = `
-      SELECT 
-        event_type,
-        COUNT(*) as count,
-        COUNT(DISTINCT user_id) as unique_users,
-        COUNT(DISTINCT ip_address) as unique_ips
-      FROM security_audit_logs 
-      WHERE ${timeCondition}
-      GROUP BY event_type
-      ORDER BY count DESC
-    `;
-
-    const eventStats = await databaseService.query(eventStatsQuery);
-
-    // Get hourly distribution
-    const hourlyStatsQuery = `
-      SELECT 
-        EXTRACT(HOUR FROM created_at) as hour,
-        COUNT(*) as count
-      FROM security_audit_logs 
-      WHERE ${timeCondition}
-      GROUP BY EXTRACT(HOUR FROM created_at)
-      ORDER BY hour
-    `;
-
-    const hourlyStats = await databaseService.query(hourlyStatsQuery);
-
-    // Get top users by activity
-    const topUsersQuery = `
-      SELECT 
-        sal.user_id,
-        u.email,
-        COUNT(*) as event_count
-      FROM security_audit_logs sal
-      LEFT JOIN users u ON sal.user_id = u.id
-      WHERE ${timeCondition} AND sal.user_id IS NOT NULL
-      GROUP BY sal.user_id, u.email
-      ORDER BY event_count DESC
-      LIMIT 10
-    `;
-
-    const topUsers = await databaseService.query(topUsersQuery);
-
-    // Get top IP addresses
-    const topIPsQuery = `
-      SELECT 
-        ip_address,
-        COUNT(*) as event_count,
-        COUNT(DISTINCT user_id) as unique_users
-      FROM security_audit_logs 
-      WHERE ${timeCondition} AND ip_address IS NOT NULL
-      GROUP BY ip_address
-      ORDER BY event_count DESC
-      LIMIT 10
-    `;
-
-    const topIPs = await databaseService.query(topIPsQuery);
+    // Use DatabaseService method instead of raw SQL
+    const statistics = await databaseService.getAuditStatistics(selectedTimeframe);
 
     res.json({
       message: 'Audit statistics retrieved successfully',
-      timeframe,
-      statistics: {
-        eventTypes: eventStats.rows,
-        hourlyDistribution: hourlyStats.rows,
-        topUsers: topUsers.rows,
-        topIPAddresses: topIPs.rows,
-        summary: {
-          totalEvents: eventStats.rows.reduce((sum, row) => sum + parseInt(row.count), 0),
-          uniqueUsers: new Set(topUsers.rows.map(row => row.user_id)).size,
-          uniqueIPs: new Set(topIPs.rows.map(row => row.ip_address)).size
-        }
-      }
+      timeframe: selectedTimeframe,
+      statistics
     });
 
   } catch (error) {
@@ -446,7 +254,7 @@ router.post('/export', authMiddleware, requireAdmin, async (req, res) => {
 
     const { startDate, endDate, format } = value;
 
-    // Get export data
+    // Get export data using AuditService (which uses TypeORM methods)
     const exportData = await auditService.exportLogs(startDate, endDate, format);
     
     // Parse the export data if it's a string
@@ -522,7 +330,7 @@ router.post('/compliance-report', authMiddleware, requireAdmin, async (req, res)
 
     const { startDate, endDate, format, includeDetails, complianceFramework } = value;
 
-    // Generate compliance report
+    // Generate compliance report using AuditService (which uses TypeORM methods)
     const report = await auditService.generateComplianceReport({
       startDate,
       endDate,
@@ -577,97 +385,30 @@ router.get('/user-activity/:userId', authMiddleware, requireAdmin, async (req, r
       });
     }
 
-    let query = `
-      SELECT 
-        sal.id,
-        sal.event_type,
-        sal.details,
-        sal.ip_address,
-        sal.user_agent,
-        sal.created_at,
-        u.email,
-        u.role
-      FROM security_audit_logs sal
-      JOIN users u ON sal.user_id = u.id
-      WHERE sal.user_id = $1
-    `;
-
-    const params: any[] = [userId];
-    let paramCount = 1;
-
-    if (startDate) {
-      paramCount++;
-      query += ` AND sal.created_at >= $${paramCount}`;
-      params.push(startDate);
-    }
-
-    if (endDate) {
-      paramCount++;
-      query += ` AND sal.created_at <= $${paramCount}`;
-      params.push(endDate);
-    }
-
-    if (eventType) {
-      paramCount++;
-      query += ` AND sal.event_type = $${paramCount}`;
-      params.push(eventType);
-    }
-
-    query += ` ORDER BY sal.created_at DESC`;
-
-    // Add pagination
+    // Calculate offset for pagination
     const offset = (Number(page) - 1) * Number(limit);
-    paramCount++;
-    query += ` LIMIT $${paramCount}`;
-    params.push(Number(limit));
 
-    paramCount++;
-    query += ` OFFSET $${paramCount}`;
-    params.push(offset);
-
-    const result = await databaseService.query(query, params);
-
-    // Get total count
-    let countQuery = `
-      SELECT COUNT(*) 
-      FROM security_audit_logs sal
-      WHERE sal.user_id = $1
-    `;
-    const countParams = [userId];
-    let countParamCount = 1;
-
-    if (startDate) {
-      countParamCount++;
-      countQuery += ` AND sal.created_at >= $${countParamCount}`;
-      countParams.push(startDate as string);
-    }
-
-    if (endDate) {
-      countParamCount++;
-      countQuery += ` AND sal.created_at <= $${countParamCount}`;
-      countParams.push(endDate as string);
-    }
-
-    if (eventType) {
-      countParamCount++;
-      countQuery += ` AND sal.event_type = $${countParamCount}`;
-      countParams.push(eventType as string);
-    }
-
-    const countResult = await databaseService.query(countQuery, countParams);
-    const totalCount = parseInt(countResult.rows[0].count);
+    // Use DatabaseService method instead of raw SQL
+    const result = await databaseService.getUserActivityAuditTrail({
+      userId,
+      startDate: startDate ? new Date(startDate as string) : undefined,
+      endDate: endDate ? new Date(endDate as string) : undefined,
+      eventType: eventType as string,
+      limit: Number(limit),
+      offset
+    });
 
     res.json({
       message: 'User activity retrieved successfully',
       userId,
-      userEmail: result.rows[0]?.email || null,
-      userRole: result.rows[0]?.role || null,
-      activities: result.rows,
+      userEmail: result.activities[0]?.user?.email || null,
+      userRole: result.activities[0]?.user?.role || null,
+      activities: result.activities,
       pagination: {
         page: Number(page),
         limit: Number(limit),
-        total: totalCount,
-        pages: Math.ceil(totalCount / Number(limit))
+        total: result.total,
+        pages: Math.ceil(result.total / Number(limit))
       }
     });
 
@@ -687,6 +428,7 @@ router.get('/user-activity/:userId', authMiddleware, requireAdmin, async (req, r
  */
 router.delete('/cleanup', authMiddleware, requireAdmin, async (req, res) => {
   try {
+    // Use AuditService method (which uses TypeORM methods)
     const result = await auditService.cleanupOldLogs();
 
     await auditService.logSecurityEvent({

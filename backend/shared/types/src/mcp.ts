@@ -1,10 +1,29 @@
-// MCP (Model Context Protocol) Server Integration Types
-// Defines types for managing and communicating with MCP servers
+// MCP (Model Context Protocol) Integration Types for Council of Nycea
+// This file defines the comprehensive type system for MCP server management and integration
 
-export type MCPServerType = 'npx' | 'uvx' | 'node' | 'python';
+export enum MCPServerType {
+  FILESYSTEM = 'filesystem',
+  DATABASE = 'database', 
+  API = 'api',
+  WEB_SEARCH = 'web-search',
+  CODE_EXECUTION = 'code-execution',
+  KNOWLEDGE_GRAPH = 'knowledge-graph',
+  MONITORING = 'monitoring',
+  TOOL = 'tool',
+  KNOWLEDGE = 'knowledge',
+  CUSTOM = 'custom'
+}
+
+export enum MCPServerStatus {
+  STOPPED = 'stopped',
+  STARTING = 'starting', 
+  RUNNING = 'running',
+  ERROR = 'error',
+  STOPPING = 'stopping',
+  MAINTENANCE = 'maintenance'
+}
 
 export interface MCPServerConfig {
-  id: string;
   name: string;
   description: string;
   type: MCPServerType;
@@ -15,19 +34,19 @@ export interface MCPServerConfig {
   enabled: boolean;
   autoStart: boolean;
   retryAttempts: number;
-  healthCheckInterval: number; // milliseconds
-  timeout: number; // milliseconds
+  healthCheckInterval: number;
+  timeout: number;
   tags: string[];
   author: string;
   version: string;
   requiresApproval: boolean;
-  securityLevel: 'safe' | 'moderate' | 'restricted' | 'dangerous';
+  securityLevel: 'low' | 'medium' | 'high' | 'critical';
 }
 
 export interface MCPServerInstance {
   id: string;
   config: MCPServerConfig;
-  status: 'stopped' | 'starting' | 'running' | 'error' | 'stopping';
+  status: MCPServerStatus;
   pid?: number;
   startTime?: Date;
   lastHealthCheck?: Date;
@@ -36,20 +55,23 @@ export interface MCPServerInstance {
 }
 
 export interface MCPServerStats {
-  uptime: number;
-  requestCount: number;
-  successCount: number;
-  errorCount: number;
+  totalCalls: number;
+  successfulCalls: number;
+  failedCalls: number;
   averageResponseTime: number;
-  lastError?: string;
-  lastErrorTime?: Date;
+  lastCallTime?: Date;
+  uptime: number;
+  memoryUsage?: number;
+  cpuUsage?: number;
+  requestCount?: number;
+  errorCount?: number;
+  lastRequestAt?: Date;
 }
 
-// MCP Protocol Types (simplified)
 export interface MCPTool {
   name: string;
   description: string;
-  inputSchema: any; // JSON Schema
+  inputSchema: any;
   outputSchema?: any;
 }
 
@@ -63,7 +85,7 @@ export interface MCPResource {
 export interface MCPPrompt {
   name: string;
   description: string;
-  arguments?: any[];
+  arguments?: any;
 }
 
 export interface MCPServerCapabilities {
@@ -72,37 +94,35 @@ export interface MCPServerCapabilities {
   prompts?: MCPPrompt[];
   supportsStreaming?: boolean;
   supportsProgress?: boolean;
-}
-
-export interface MCPRequest {
-  id: string;
-  method: string;
-  params?: any;
-}
-
-export interface MCPResponse {
-  id: string;
-  result?: any;
-  error?: {
-    code: number;
-    message: string;
-    data?: any;
-  };
+  logging?: boolean;
+  sampling?: boolean;
 }
 
 export interface MCPToolCall {
-  name: string;
-  arguments: Record<string, any>;
+  id: string;
+  serverId: string;
+  toolName: string;
+  parameters: Record<string, any>;
+  timestamp: Date;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  result?: any;
+  error?: string;
+  duration?: number;
+  executionTime?: number;
+  calledAt?: Date;
+  completedAt?: Date;
+  metadata?: Record<string, any>;
 }
 
 export interface MCPToolResult {
-  content: Array<{
-    type: 'text' | 'image' | 'resource';
-    text?: string;
-    data?: string;
-    mimeType?: string;
-  }>;
-  isError?: boolean;
+  success: boolean;
+  result?: any;
+  error?: {
+    code: string;
+    message: string;
+    details?: any;
+  };
+  metadata?: Record<string, any>;
 }
 
 // Events
@@ -113,19 +133,11 @@ export type MCPServerEvent =
   | { type: 'tool-called'; payload: { serverId: string; tool: string; duration: number } }
   | { type: 'capabilities-updated'; payload: { serverId: string; capabilities: MCPServerCapabilities } };
 
-export interface MCPServerEventHandler {
-  (event: MCPServerEvent): void | Promise<void>;
-}
+export type MCPServerEventHandler = (event: MCPServerEvent) => void;
 
-// Configuration presets for popular MCP servers
-export interface MCPServerPreset {
-  id: string;
-  name: string;
-  description: string;
-  config: Omit<MCPServerConfig, 'id' | 'enabled'>;
-  setupInstructions?: string;
-  requiredEnvVars?: string[];
-  documentation?: string;
+export interface MCPServerEventPayload {
+  serverId: string;
+  [key: string]: any;
 }
 
 // Manager interfaces
@@ -141,6 +153,17 @@ export interface MCPServerManager {
   removeEventListener: (handler: MCPServerEventHandler) => void;
 }
 
+// Configuration presets for popular MCP servers
+export interface MCPServerPreset {
+  id: string;
+  name: string;
+  description: string;
+  config: Omit<MCPServerConfig, 'id' | 'enabled'>;
+  setupInstructions?: string;
+  requiredEnvVars?: string[];
+  documentation?: string;
+}
+
 export interface MCPServerRegistry {
   register: (config: MCPServerConfig) => Promise<void>;
   unregister: (serverId: string) => Promise<void>;
@@ -148,4 +171,50 @@ export interface MCPServerRegistry {
   getAll: () => Promise<MCPServerConfig[]>;
   getPresets: () => Promise<MCPServerPreset[]>;
   createFromPreset: (presetId: string, customizations?: Partial<MCPServerConfig>) => Promise<MCPServerConfig>;
+}
+
+// Unified MCP Server interface
+export interface MCPServer {
+  id: string;
+  name: string;
+  type: MCPServerType;
+  status: MCPServerStatus;
+  url: string;
+  version: string;
+  capabilities: MCPServerCapabilities;
+  stats: MCPServerStats;
+  config: MCPServerConfig;
+  isEnabled: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  lastHealthCheck?: Date;
+  metadata?: Record<string, any>;
+}
+
+export interface MCPRequest {
+  id: string;
+  method: string;
+  params?: Record<string, any>;
+  timestamp: Date;
+}
+
+export interface MCPResponse {
+  id: string;
+  result?: any;
+  error?: {
+    code: number;
+    message: string;
+    data?: any;
+  };
+  timestamp: Date;
+}
+
+export interface MCPConnection {
+  serverId: string;
+  connectionId: string;
+  isConnected: boolean;
+  connectedAt?: Date;
+  lastActivity?: Date;
+  errorCount: number;
+  metadata?: Record<string, any>;
 } 

@@ -1,7 +1,11 @@
 // Database Services
 export { DatabaseService } from './databaseService.js';
-export { ToolDatabase } from './database/toolDatabase.js';
-export { ToolGraphDatabase } from './database/toolGraphDatabase.js';
+export { TypeOrmService, typeormService } from './typeormService.js';
+
+// All Database-related exports (TypeORM, services, types)
+export * from './database/index.js';
+
+// TypeORM Entities
 
 // Agent Intelligence Services  
 export { AgentIntelligenceService } from './agentIntelligenceService.js';
@@ -31,4 +35,11 @@ export type {
   ToolRelationship,
   ToolRecommendation,
   UsagePattern
-} from './database/toolGraphDatabase.js'; 
+} from './database/toolGraphDatabase.js';
+
+// Knowledge Graph Services - NEW
+export * from './knowledge-graph/index.js';
+
+// Agent Memory Services - NEW
+export * from './agent-memory/index.js'; 
+export { EnhancedAgentIntelligenceService } from './enhanced-agent-intelligence.service.js';

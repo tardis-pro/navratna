@@ -38,4 +38,8 @@ export {
 export { requestLogger, defaultRequestLogger } from './requestLogger.js';
 
 // Type extensions
-export {} from './types'; 
+export {} from './types';
+
+// Enhanced Validation Middleware for TypeORM Migration
+export { AgentValidationMiddleware } from './agentValidationMiddleware.js'; 
+export { AgentTransformationService } from './agentTransformationService.js';

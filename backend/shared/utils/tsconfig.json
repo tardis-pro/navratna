@@ -1,13 +1,15 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "outDir": "dist",          // relative to package root
+    "composite": true,
+    "outDir": "dist",
     "rootDir": "src",
-    "baseUrl": ".",    
-    "verbatimModuleSyntax": true,         // enables clean import paths within the package
+    "baseUrl": ".",
+    "verbatimModuleSyntax": true,
     "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
   },
   "include": ["src/**/*"],
-  
-
+  "references": [
+    { "path": "../types" }
+  ]
 } 

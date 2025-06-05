@@ -139,81 +139,20 @@ export class AuditService {
    */
   public async queryEvents(query: AuditQuery): Promise<AuditEvent[]> {
     try {
-      const conditions: string[] = [];
-      const params: any[] = [];
-      let paramIndex = 1;
+      const events = await this.databaseService.queryAuditEvents({
+        eventTypes: query.eventTypes,
+        userId: query.userId,
+        agentId: query.agentId,
+        resourceType: query.resourceType,
+        resourceId: query.resourceId,
+        startDate: query.startDate,
+        endDate: query.endDate,
+        riskLevel: query.riskLevel,
+        limit: query.limit,
+        offset: query.offset
+      });
 
-      // Build WHERE conditions
-      if (query.eventTypes && query.eventTypes.length > 0) {
-        conditions.push(`event_type = ANY($${paramIndex})`);
-        params.push(query.eventTypes);
-        paramIndex++;
-      }
-
-      if (query.userId) {
-        conditions.push(`user_id = $${paramIndex}`);
-        params.push(query.userId);
-        paramIndex++;
-      }
-
-      if (query.agentId) {
-        conditions.push(`agent_id = $${paramIndex}`);
-        params.push(query.agentId);
-        paramIndex++;
-      }
-
-      if (query.resourceType) {
-        conditions.push(`resource_type = $${paramIndex}`);
-        params.push(query.resourceType);
-        paramIndex++;
-      }
-
-      if (query.resourceId) {
-        conditions.push(`resource_id = $${paramIndex}`);
-        params.push(query.resourceId);
-        paramIndex++;
-      }
-
-      if (query.startDate) {
-        conditions.push(`timestamp >= $${paramIndex}`);
-        params.push(query.startDate);
-        paramIndex++;
-      }
-
-      if (query.endDate) {
-        conditions.push(`timestamp <= $${paramIndex}`);
-        params.push(query.endDate);
-        paramIndex++;
-      }
-
-      if (query.riskLevel) {
-        conditions.push(`risk_level = $${paramIndex}`);
-        params.push(query.riskLevel);
-        paramIndex++;
-      }
-
-      // Build query
-      let sql = 'SELECT * FROM audit_events';
-      if (conditions.length > 0) {
-        sql += ` WHERE ${conditions.join(' AND ')}`;
-      }
-      sql += ' ORDER BY timestamp DESC';
-
-      // Add pagination
-      if (query.limit) {
-        sql += ` LIMIT $${paramIndex}`;
-        params.push(query.limit);
-        paramIndex++;
-      }
-
-      if (query.offset) {
-        sql += ` OFFSET $${paramIndex}`;
-        params.push(query.offset);
-        paramIndex++;
-      }
-
-      const result = await this.databaseService.query(sql, params);
-      return result.rows.map(row => this.mapRowToAuditEvent(row));
+      return events.map(this.mapEntityToAuditEvent);
 
     } catch (error) {
       logger.error('Failed to query audit events', {
@@ -349,7 +288,7 @@ export class AuditService {
   }
 
   /**
-   * Archive old audit logs
+   * Archive old audit logs using TypeORM
    */
   public async archiveOldLogs(): Promise<{ archived: number; deleted: number }> {
     try {
@@ -359,30 +298,22 @@ export class AuditService {
       const compressionDate = new Date();
       compressionDate.setDate(compressionDate.getDate() - this.compressionThreshold);
 
-      // Archive logs older than compression threshold
-      const archiveQuery = `
-        INSERT INTO audit_events_archive 
-        SELECT * FROM audit_events 
-        WHERE timestamp < $1 AND timestamp >= $2
-      `;
-      const archiveResult = await this.databaseService.query(archiveQuery, [compressionDate, cutoffDate]);
+      // Archive logs older than compression threshold (mark as archived)
+      const archivedCount = await this.databaseService.archiveOldAuditEvents(compressionDate);
 
-      // Delete logs older than retention period
-      const deleteQuery = 'DELETE FROM audit_events WHERE timestamp < $1';
-      const deleteResult = await this.databaseService.query(deleteQuery, [cutoffDate]);
-
-      // Also delete from archive if older than retention
-      await this.databaseService.query('DELETE FROM audit_events_archive WHERE timestamp < $1', [cutoffDate]);
+      // Delete logs older than retention period (only archived ones)
+      const deletedCount = await this.databaseService.deleteOldArchivedAuditEvents(cutoffDate);
 
       logger.info('Audit log archival completed', {
-        archived: archiveResult.rowCount || 0,
-        deleted: deleteResult.rowCount || 0,
+        archived: archivedCount,
+        deleted: deletedCount,
+        compressionDate: compressionDate.toISOString(),
         cutoffDate: cutoffDate.toISOString()
       });
 
       return {
-        archived: archiveResult.rowCount || 0,
-        deleted: deleteResult.rowCount || 0
+        archived: archivedCount,
+        deleted: deletedCount
       };
 
     } catch (error) {
@@ -455,24 +386,12 @@ export class AuditService {
     minutesBack: number = 5,
     detailsFilter?: Record<string, any>
   ): Promise<number> {
-    const since = new Date();
-    since.setMinutes(since.getMinutes() - minutesBack);
-
-    let query = 'SELECT COUNT(*) FROM audit_events WHERE event_type = $1 AND timestamp >= $2';
-    const params: any[] = [eventType, since];
-
-    if (userId) {
-      query += ' AND user_id = $3';
-      params.push(userId);
-    }
-
-    if (detailsFilter) {
-      query += ` AND details @> $${params.length + 1}`;
-      params.push(JSON.stringify(detailsFilter));
-    }
-
-    const result = await this.databaseService.query(query, params);
-    return parseInt(result.rows[0].count, 10);
+    return await this.databaseService.countRecentAuditEvents(
+      eventType,
+      userId,
+      minutesBack,
+      detailsFilter
+    );
   }
 
   /**
@@ -743,48 +662,39 @@ export class AuditService {
    * Save audit event to database
    */
   private async saveAuditEvent(event: AuditEvent): Promise<void> {
-    const query = `
-      INSERT INTO audit_events (
-        id, event_type, user_id, agent_id, resource_type, resource_id,
-        details, ip_address, user_agent, risk_level, timestamp, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-    `;
-
-    await this.databaseService.query(query, [
-      event.id,
-      event.eventType,
-      event.userId,
-      event.agentId,
-      event.resourceType,
-      event.resourceId,
-      JSON.stringify(event.details),
-      event.ipAddress,
-      event.userAgent,
-      event.riskLevel,
-      event.timestamp,
-      event.createdAt,
-      event.updatedAt
-    ]);
+    await this.databaseService.createAuditEvent({
+      id: event.id,
+      eventType: event.eventType,
+      userId: event.userId,
+      agentId: event.agentId,
+      resourceType: event.resourceType,
+      resourceId: event.resourceId,
+      details: event.details,
+      ipAddress: event.ipAddress,
+      userAgent: event.userAgent,
+      riskLevel: event.riskLevel,
+      timestamp: event.timestamp
+    });
   }
 
   /**
-   * Map database row to audit event
+   * Map entity to audit event
    */
-  private mapRowToAuditEvent(row: any): AuditEvent {
+  private mapEntityToAuditEvent(entity: any): AuditEvent {
     return {
-      id: row.id,
-      eventType: row.event_type,
-      userId: row.user_id,
-      agentId: row.agent_id,
-      resourceType: row.resource_type,
-      resourceId: row.resource_id,
-      details: row.details ? JSON.parse(row.details) : {},
-      ipAddress: row.ip_address,
-      userAgent: row.user_agent,
-      riskLevel: row.risk_level,
-      timestamp: row.timestamp,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at
+      id: entity.id,
+      eventType: entity.eventType,
+      userId: entity.userId,
+      agentId: entity.agentId,
+      resourceType: entity.resourceType,
+      resourceId: entity.resourceId,
+      details: entity.details || {},
+      ipAddress: entity.ipAddress,
+      userAgent: entity.userAgent,
+      riskLevel: entity.riskLevel,
+      timestamp: entity.timestamp,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt
     };
   }
 

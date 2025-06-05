@@ -16,6 +16,9 @@ import {
 import { DatabaseService } from './databaseService.js';
 import { EventBusService } from './eventBusService.js';
 import { logger } from '@uaip/utils';
+import { Persona as PersonaEntity } from './entities/persona.entity.js';
+import { randomUUID } from 'crypto';
+import { SelectQueryBuilder } from 'typeorm';
 
 export interface PersonaServiceConfig {
   databaseService: DatabaseService;
@@ -66,114 +69,58 @@ export class PersonaService {
 
   async createPersona(request: CreatePersonaRequest): Promise<Persona> {
     try {
-      logger.info('Creating new persona', { name: request.name, createdBy: request.createdBy });
+      logger.info('Creating new persona', { name: request.name, role: request.role });
 
-      // Validate persona data
+      // Validate the persona data
       const validation = await this.validatePersona(request);
-      if (!validation.isValid) {
-        throw new Error(`Persona validation failed: ${validation.errors?.join(', ') || 'Unknown validation error'}`);
-      }
 
-      // Map camelCase fields to snake_case for database
-      const dbData = {
-        id: crypto.randomUUID(),
+      // Create persona using TypeORM repository
+      const personaRepo = await this.databaseService.getRepository(PersonaEntity);
+      
+      // Convert expertise from complex objects to simple strings for entity
+      const expertiseStrings = request.expertise?.map(exp => 
+        typeof exp === 'string' ? exp : exp.name || exp.category || 'Unknown'
+      ) || [];
+
+      const personaData = {
+        id: this.generatePersonaId(),
         name: request.name,
         role: request.role,
         description: request.description,
-        traits: JSON.stringify(request.traits || []),
-        expertise: JSON.stringify(request.expertise || []),
+        traits: request.traits || [],
+        expertise: expertiseStrings,
         background: request.background,
-        system_prompt: request.systemPrompt, // camelCase to snake_case
-        conversational_style: JSON.stringify(request.conversationalStyle), // camelCase to snake_case
-        status: request.status || PersonaStatus.DRAFT,
+        systemPrompt: request.systemPrompt,
+        conversationalStyle: request.conversationalStyle,
+        status: request.status || PersonaStatus.ACTIVE,
         visibility: request.visibility || PersonaVisibility.PRIVATE,
-        created_by: request.createdBy, // camelCase to snake_case
-        organization_id: request.organizationId, // camelCase to snake_case
-        team_id: request.teamId, // camelCase to snake_case
+        createdBy: request.createdBy,
+        organizationId: request.organizationId,
+        teamId: request.teamId,
         version: 1,
-        parent_persona_id: request.parentPersonaId, // camelCase to snake_case
+        parentPersonaId: request.parentPersonaId,
         tags: request.tags || [],
-        validation: JSON.stringify(validation),
-        usage_stats: JSON.stringify({
-          totalUsages: 0,
-          uniqueUsers: 0,
+        validation,
+        usageStats: {
+          totalSessions: 0,
+          totalMessages: 0,
           averageSessionDuration: 0,
-          popularityScore: 0,
-          feedbackCount: 0
-        }),
-        configuration: JSON.stringify(request.configuration || {
-          maxTokens: 4000,
-          temperature: 0.7,
-          topP: 0.9,
-          frequencyPenalty: 0,
-          presencePenalty: 0,
-          stopSequences: []
-        }),
+          averageSatisfactionScore: 0,
+          lastUsed: null,
+          popularityScore: 0
+        },
+        configuration: request.configuration || {},
         capabilities: request.capabilities || [],
-        restrictions: JSON.stringify(request.restrictions || {
-          allowedTopics: [],
-          forbiddenTopics: [],
-          requiresApproval: false
-        }),
-        metadata: request.metadata ? JSON.stringify(request.metadata) : null,
-        created_at: new Date(),
-        updated_at: new Date()
+        restrictions: request.restrictions || {},
+        metadata: request.metadata,
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
 
-      // Create persona in database using raw query to handle field mapping
-      const query = `
-        INSERT INTO personas (
-          id, name, role, description, traits, expertise, background, 
-          system_prompt, conversational_style, status, visibility, created_by,
-          organization_id, team_id, version, parent_persona_id, tags, validation,
-          usage_stats, configuration, capabilities, restrictions, metadata,
-          created_at, updated_at
-        ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 
-          $16, $17, $18, $19, $20, $21, $22, $23, $24, $25
-        ) RETURNING *
-      `;
+      const savedEntity = await personaRepo.save(personaData);
 
-      const values = [
-        dbData.id, dbData.name, dbData.role, dbData.description, dbData.traits,
-        dbData.expertise, dbData.background, dbData.system_prompt, dbData.conversational_style,
-        dbData.status, dbData.visibility, dbData.created_by, dbData.organization_id,
-        dbData.team_id, dbData.version, dbData.parent_persona_id, dbData.tags,
-        dbData.validation, dbData.usage_stats, dbData.configuration, dbData.capabilities,
-        dbData.restrictions, dbData.metadata, dbData.created_at, dbData.updated_at
-      ];
-
-      const result = await this.databaseService.query(query, values);
-      const row = result.rows[0];
-
-      // Map database result back to camelCase Persona object
-      const persona: Persona = {
-        id: row.id,
-        name: row.name,
-        role: row.role,
-        description: row.description,
-        traits: this.safeJsonParse(row.traits, []),
-        expertise: this.safeJsonParse(row.expertise, []),
-        background: row.background,
-        systemPrompt: row.system_prompt,
-        conversationalStyle: this.safeJsonParse(row.conversational_style),
-        status: row.status,
-        visibility: row.visibility,
-        createdBy: row.created_by,
-        organizationId: row.organization_id,
-        teamId: row.team_id,
-        version: row.version,
-        parentPersonaId: row.parent_persona_id,
-        tags: row.tags || [],
-        validation: this.safeJsonParse(row.validation),
-        usageStats: this.safeJsonParse(row.usage_stats, {}),
-        configuration: this.safeJsonParse(row.configuration, {}),
-        capabilities: row.capabilities || [],
-        restrictions: this.safeJsonParse(row.restrictions, {}),
-        metadata: this.safeJsonParse(row.metadata),
-        createdAt: row.created_at,
-        updatedAt: row.updated_at
-      };
+      // Convert entity back to Persona type for return
+      const persona: Persona = this.entityToPersona(savedEntity);
 
       // Cache the persona
       this.cachePersona(persona);
@@ -203,44 +150,15 @@ export class PersonaService {
         return cached;
       }
 
-      // Fetch from database using raw query to handle field mapping
-      const query = 'SELECT * FROM personas WHERE id = $1';
-      const result = await this.databaseService.query(query, [id]);
+      // Fetch from database using TypeORM repository
+      const personaRepo = await this.databaseService.getRepository(PersonaEntity);
+      const entity = await personaRepo.findOne({ where: { id } });
       
-      if (result.rows.length === 0) {
+      if (!entity) {
         return null;
       }
 
-      const row = result.rows[0];
-
-      // Map database result back to camelCase Persona object
-      const persona: Persona = {
-        id: row.id,
-        name: row.name,
-        role: row.role,
-        description: row.description,
-        traits: this.safeJsonParse(row.traits, []),
-        expertise: this.safeJsonParse(row.expertise, []),
-        background: row.background,
-        systemPrompt: row.system_prompt,
-        conversationalStyle: this.safeJsonParse(row.conversational_style),
-        status: row.status,
-        visibility: row.visibility,
-        createdBy: row.created_by,
-        organizationId: row.organization_id,
-        teamId: row.team_id,
-        version: row.version,
-        parentPersonaId: row.parent_persona_id,
-        tags: row.tags || [],
-        validation: this.safeJsonParse(row.validation),
-        usageStats: this.safeJsonParse(row.usage_stats, {}),
-        configuration: this.safeJsonParse(row.configuration, {}),
-        capabilities: row.capabilities || [],
-        restrictions: this.safeJsonParse(row.restrictions, {}),
-        metadata: this.safeJsonParse(row.metadata),
-        createdAt: row.created_at,
-        updatedAt: row.updated_at
-      };
+      const persona = this.entityToPersona(entity);
 
       if (persona) {
         this.cachePersona(persona);
@@ -268,17 +186,29 @@ export class PersonaService {
       const updatedPersona = { ...existingPersona, ...updates };
       const validation = await this.validatePersona(updatedPersona);
       
-      // Update persona in database
-      const persona = await this.databaseService.update<Persona>('personas', id, {
-        ...updates,
+      // Convert expertise if provided
+      const updateData: any = { ...updates };
+      if (updates.expertise) {
+        updateData.expertise = updates.expertise.map(exp => 
+          typeof exp === 'string' ? exp : exp.name || exp.category || 'Unknown'
+        );
+      }
+      
+      // Update persona using TypeORM repository
+      const personaRepo = await this.databaseService.getRepository(PersonaEntity);
+      await personaRepo.update(id, {
+        ...updateData,
         validation,
         version: (existingPersona.version || 0) + 1,
         updatedAt: new Date()
       });
 
-      if (!persona) {
+      const updatedEntity = await personaRepo.findOne({ where: { id } });
+      if (!updatedEntity) {
         throw new Error(`Failed to update persona: ${id}`);
       }
+
+      const persona = this.entityToPersona(updatedEntity);
 
       // Update cache
       this.cachePersona(persona);
@@ -322,8 +252,9 @@ export class PersonaService {
         return;
       }
 
-      // Hard delete
-      await this.databaseService.delete('personas', id);
+      // Hard delete using TypeORM repository
+      const personaRepo = await this.databaseService.getRepository(PersonaEntity);
+      await personaRepo.delete(id);
 
       // Remove from cache
       this.personaCache.delete(id);
@@ -351,16 +282,23 @@ export class PersonaService {
     hasMore: boolean;
   }> {
     try {
-      logger.debug('Searching personas', { filters, limit, offset });
+      const personaRepo = await this.databaseService.getRepository(PersonaEntity);
+      const queryBuilder = personaRepo.createQueryBuilder('persona');
 
-      const query = this.buildSearchQuery(filters);
-      const personas = await this.databaseService.findMany<Persona>('personas', query, {
-        limit,
-        offset,
-        orderBy: 'createdAt DESC'
-      });
+      // Apply filters using TypeORM QueryBuilder
+      this.applySearchFilters(queryBuilder, filters);
 
-      const total = await this.databaseService.count('personas', query);
+      // Get total count
+      const total = await queryBuilder.getCount();
+
+      // Apply pagination and ordering
+      queryBuilder
+        .orderBy('persona.createdAt', 'DESC')
+        .skip(offset)
+        .take(limit);
+
+      const entities = await queryBuilder.getMany();
+      const personas = entities.map(entity => this.entityToPersona(entity));
 
       return {
         personas,
@@ -582,17 +520,30 @@ export class PersonaService {
 
   async getPersonaTemplates(category?: string): Promise<PersonaTemplate[]> {
     try {
-      const filters: any = { isPublic: true };
+      const personaRepo = await this.databaseService.getRepository(PersonaEntity);
+      const queryBuilder = personaRepo.createQueryBuilder('persona');
+
       if (category) {
-        filters.category = category;
+        // Note: Would need to add category field to entity for proper filtering
+        queryBuilder.where('persona.tags LIKE :category', { category: `%${category}%` });
       }
 
-      return await this.databaseService.findMany<PersonaTemplate>('persona_templates', filters, {
-        orderBy: 'usageCount DESC'
-      });
+      queryBuilder.orderBy('persona.totalInteractions', 'DESC');
+      const entities = await queryBuilder.getMany();
+
+      // Convert entities to templates (simplified for now)
+      return entities.map(entity => ({
+        id: entity.id,
+        name: entity.name,
+        description: entity.description,
+        category: 'general', // Would need to add category field to entity
+        traits: entity.traits,
+        expertise: entity.expertise,
+        usageCount: entity.totalInteractions || 0
+      }));
 
     } catch (error) {
-      logger.error('Failed to get persona templates', { error: (error as Error).message });
+      logger.error('Failed to get persona templates', { error: (error as Error).message, category });
       throw error;
     }
   }
@@ -603,23 +554,42 @@ export class PersonaService {
     createdBy: string
   ): Promise<Persona> {
     try {
-      const template = await this.databaseService.findById<PersonaTemplate>('persona_templates', templateId);
-      if (!template) {
-        throw new Error(`Template not found: ${templateId}`);
+      // Get template persona (using existing persona as template)
+      const templatePersona = await this.getPersona(templateId);
+      if (!templatePersona) {
+        throw new Error(`Template persona not found: ${templateId}`);
       }
 
       // Merge template with customizations
       const personaRequest: CreatePersonaRequest = {
-        ...template.template,
-        ...customizations,
-        createdBy
+        name: customizations.name || `${templatePersona.name} (Copy)`,
+        role: customizations.role || templatePersona.role,
+        description: customizations.description || templatePersona.description,
+        traits: customizations.traits || templatePersona.traits,
+        expertise: customizations.expertise || templatePersona.expertise,
+        background: customizations.background || templatePersona.background,
+        systemPrompt: customizations.systemPrompt || templatePersona.systemPrompt,
+        conversationalStyle: customizations.conversationalStyle || templatePersona.conversationalStyle,
+        status: customizations.status || PersonaStatus.ACTIVE,
+        visibility: customizations.visibility || PersonaVisibility.PRIVATE,
+        createdBy,
+        organizationId: customizations.organizationId || templatePersona.organizationId,
+        teamId: customizations.teamId || templatePersona.teamId,
+        parentPersonaId: templateId, // Link to template
+        tags: customizations.tags || templatePersona.tags,
+        configuration: customizations.configuration || templatePersona.configuration,
+        capabilities: customizations.capabilities || templatePersona.capabilities,
+        restrictions: customizations.restrictions || templatePersona.restrictions,
+        metadata: customizations.metadata || templatePersona.metadata
       };
 
       const persona = await this.createPersona(personaRequest);
 
-      // Update template usage count
-      await this.databaseService.update('persona_templates', templateId, {
-        usageCount: (template.usageCount || 0) + 1
+      // Update template usage stats
+      await this.updatePersonaUsage(templateId, {
+        userId: createdBy,
+        duration: 0,
+        messageCount: 0
       });
 
       return persona;
@@ -654,62 +624,64 @@ export class PersonaService {
     return cached.persona;
   }
 
-  private buildSearchQuery(filters: PersonaSearchFilters): any {
-    const query: any = {};
-
+  private applySearchFilters(queryBuilder: SelectQueryBuilder<PersonaEntity>, filters: PersonaSearchFilters): void {
     if (filters.query) {
-      query.$or = [
-        { name: { $regex: filters.query, $options: 'i' } },
-        { description: { $regex: filters.query, $options: 'i' } },
-        { role: { $regex: filters.query, $options: 'i' } }
-      ];
+      queryBuilder.andWhere(
+        '(persona.name ILIKE :query OR persona.description ILIKE :query OR persona.role ILIKE :query)',
+        { query: `%${filters.query}%` }
+      );
     }
 
     if (filters.expertise && filters.expertise.length > 0) {
-      query['expertise.name'] = { $in: filters.expertise };
+      // For JSON array field, use JSON operations
+      queryBuilder.andWhere(
+        'EXISTS (SELECT 1 FROM jsonb_array_elements_text(persona.expertise) AS exp WHERE exp = ANY(:expertise))',
+        { expertise: filters.expertise }
+      );
     }
 
     if (filters.status && filters.status.length > 0) {
-      query.status = { $in: filters.status };
+      queryBuilder.andWhere('persona.status IN (:...status)', { status: filters.status });
     }
 
     if (filters.visibility && filters.visibility.length > 0) {
-      query.visibility = { $in: filters.visibility };
+      queryBuilder.andWhere('persona.visibility IN (:...visibility)', { visibility: filters.visibility });
     }
 
     if (filters.createdBy && filters.createdBy.length > 0) {
-      query.createdBy = { $in: filters.createdBy };
+      queryBuilder.andWhere('persona.createdBy IN (:...createdBy)', { createdBy: filters.createdBy });
     }
 
     if (filters.organizationId) {
-      query.organizationId = filters.organizationId;
+      queryBuilder.andWhere('persona.organizationId = :organizationId', { organizationId: filters.organizationId });
     }
 
     if (filters.teamId) {
-      query.teamId = filters.teamId;
+      queryBuilder.andWhere('persona.teamId = :teamId', { teamId: filters.teamId });
     }
 
     if (filters.tags && filters.tags.length > 0) {
-      query.tags = { $in: filters.tags };
+      queryBuilder.andWhere(
+        'EXISTS (SELECT 1 FROM jsonb_array_elements_text(persona.tags) AS tag WHERE tag = ANY(:tags))',
+        { tags: filters.tags }
+      );
     }
 
     if (filters.minUsageCount !== undefined) {
-      query['usageStats.totalUsages'] = { $gte: filters.minUsageCount };
+      queryBuilder.andWhere('persona.totalInteractions >= :minUsageCount', { minUsageCount: filters.minUsageCount });
     }
 
     if (filters.minFeedbackScore !== undefined) {
-      query['usageStats.feedbackScore'] = { $gte: filters.minFeedbackScore };
+      queryBuilder.andWhere('persona.userSatisfaction >= :minFeedbackScore', { minFeedbackScore: filters.minFeedbackScore });
     }
 
     if (filters.createdAfter) {
-      query.createdAt = { ...query.createdAt, $gte: filters.createdAfter };
+      queryBuilder.andWhere('persona.createdAt >= :createdAfter', { createdAfter: filters.createdAfter });
     }
 
     if (filters.createdBefore) {
-      query.createdAt = { ...query.createdAt, $lte: filters.createdBefore };
+      queryBuilder.andWhere('persona.createdAt <= :createdBefore', { createdBefore: filters.createdBefore });
     }
-
-    return query;
   }
 
   private async getPersonaUsageCount(personaId: string): Promise<number> {
@@ -811,6 +783,10 @@ export class PersonaService {
     return Math.min(score, 100);
   }
 
+  private generatePersonaId(): string {
+    return randomUUID();
+  }
+
   private async safePublishEvent(eventType: string, data: any): Promise<void> {
     try {
       await this.eventBusService.publish(eventType, data);
@@ -818,5 +794,54 @@ export class PersonaService {
       logger.warn(`Failed to publish event ${eventType}, continuing without event:`, error);
       // Don't throw - allow operation to continue even if event publishing fails
     }
+  }
+
+  /**
+   * Convert PersonaEntity to Persona type
+   */
+  private entityToPersona(entity: PersonaEntity): Persona {
+    return {
+      id: entity.id,
+      name: entity.name,
+      role: entity.role,
+      description: entity.description,
+      traits: entity.traits || [],
+      expertise: (entity.expertise || []).map(exp => ({
+        id: randomUUID(),
+        name: exp,
+        description: '',
+        category: 'general',
+        level: 'intermediate' as const,
+        keywords: [],
+        relatedDomains: []
+      })),
+      background: entity.background,
+      systemPrompt: entity.systemPrompt,
+      conversationalStyle: entity.conversationalStyle,
+      status: entity.status,
+      visibility: entity.visibility,
+      createdBy: entity.createdBy,
+      organizationId: entity.organizationId,
+      teamId: entity.teamId,
+      version: entity.version,
+      parentPersonaId: entity.parentPersonaId,
+      tags: entity.tags || [],
+      validation: entity.validation,
+      usageStats: entity.usageStats || {
+        totalUsages: entity.totalInteractions || 0,
+        uniqueUsers: 0,
+        averageSessionDuration: 0,
+        lastUsedAt: entity.lastUsedAt || null,
+        popularityScore: 0,
+        feedbackScore: entity.userSatisfaction || 0,
+        feedbackCount: 0
+      },
+      configuration: entity.configuration || {},
+      capabilities: entity.capabilities || [],
+      restrictions: entity.restrictions || {},
+      metadata: entity.metadata,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt
+    };
   }
 } 

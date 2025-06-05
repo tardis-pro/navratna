@@ -9,73 +9,38 @@ import {
 export class CapabilityDiscoveryService {
   private databaseService: DatabaseService;
   private neo4jService: any; // Neo4j service for graph queries
+  private isInitialized: boolean = false;
 
   constructor(databaseService?: DatabaseService) {
     this.databaseService = databaseService || new DatabaseService();
     // this.neo4jService = new Neo4jService(); // Will implement when needed
   }
 
+  private async ensureInitialized(): Promise<void> {
+    if (!this.isInitialized) {
+      await this.databaseService.initialize();
+      this.isInitialized = true;
+    }
+  }
+
   public async searchCapabilities(query: CapabilitySearchQuery): Promise<Capability[]> {
+    await this.ensureInitialized();
+    
     try {
       logger.info('Searching capabilities', { query: query.query, type: query.type });
 
       const startTime = Date.now();
 
-      // Build SQL query for PostgreSQL capabilities table
-      let sqlQuery = `
-        SELECT 
-          id, name, description, type, status, metadata, 
-          tool_config, artifact_config, dependencies, 
-          security_requirements, resource_requirements,
-          created_at, updated_at
-        FROM capabilities 
-        WHERE status = 'active'
-      `;
-      
-      const queryParams: any[] = [];
-      let paramIndex = 1;
+      // Use DatabaseService searchCapabilities method instead of raw SQL
+      const searchFilters = {
+        query: query.query,
+        type: query.type,
+        securityLevel: query.securityContext?.securityLevel,
+        limit: query.limit
+      };
 
-      // Add text search
-      if (query.query) {
-        sqlQuery += ` AND (
-          name ILIKE $${paramIndex} OR 
-          description ILIKE $${paramIndex} OR 
-          metadata->>'tags' ILIKE $${paramIndex}
-        )`;
-        queryParams.push(`%${query.query}%`);
-        paramIndex++;
-      }
-
-      // Filter by type
-      if (query.type) {
-        sqlQuery += ` AND type = $${paramIndex}`;
-        queryParams.push(query.type);
-        paramIndex++;
-      }
-
-      // Apply security context filtering
-      if (query.securityContext) {
-        const securityLevel = query.securityContext.securityLevel || 'medium';
-        sqlQuery += ` AND security_requirements->>'maxLevel' >= $${paramIndex}`;
-        queryParams.push(securityLevel);
-        paramIndex++;
-      }
-
-      // Limit results
-      const limit = Math.min(query.limit || 20, 100);
-      sqlQuery += ` ORDER BY 
-        CASE 
-          WHEN name ILIKE $${paramIndex} THEN 1
-          WHEN description ILIKE $${paramIndex} THEN 2
-          ELSE 3
-        END,
-        created_at DESC
-        LIMIT $${paramIndex + 1}`;
-      queryParams.push(`%${query.query}%`, limit);
-
-      const result = await this.databaseService.query(sqlQuery, queryParams);
-      
-      const capabilities = result.rows.map(row => this.mapCapabilityFromDB(row));
+      const result = await this.databaseService.searchCapabilities(searchFilters);
+      const capabilities = result.map(row => this.mapCapabilityFromDB(row));
 
       // If we have agent context, rank capabilities by relevance
       if (query.agentContext) {
@@ -97,24 +62,19 @@ export class CapabilityDiscoveryService {
   }
 
   public async getAgentCapabilities(agentId: string): Promise<Capability[]> {
+    await this.ensureInitialized();
+    
     try {
       logger.info('Getting agent capabilities', { agentId });
 
-      // Get agent's configured capabilities from PostgreSQL
-      const agentQuery = `
-        SELECT intelligence_config, security_context 
-        FROM agents 
-        WHERE id = $1 AND is_active = true
-      `;
+      // Use DatabaseService getAgentCapabilitiesConfig method instead of raw SQL
+      const agentConfig = await this.databaseService.getAgentCapabilitiesConfig(agentId);
       
-      const agentResult = await this.databaseService.query(agentQuery, [agentId]);
-      
-      if (agentResult.rows.length === 0) {
+      if (!agentConfig) {
         throw new ApiError(404, 'Agent not found', 'AGENT_NOT_FOUND');
       }
 
-      const agent = agentResult.rows[0];
-      const configuredCapabilities = agent.intelligence_config?.capabilities || {};
+      const configuredCapabilities = agentConfig.intelligenceConfig?.capabilities || {};
       
       // Get capabilities from database
       const capabilityIds = [
@@ -127,20 +87,10 @@ export class CapabilityDiscoveryService {
         return [];
       }
 
-      const capabilityQuery = `
-        SELECT 
-          id, name, description, type, status, metadata, 
-          tool_config, artifact_config, dependencies, 
-          security_requirements, resource_requirements,
-          created_at, updated_at
-        FROM capabilities 
-        WHERE id = ANY($1) AND status = 'active'
-        ORDER BY type, name
-      `;
-
-      const capabilityResult = await this.databaseService.query(capabilityQuery, [capabilityIds]);
+      // Use DatabaseService getCapabilitiesByIds method instead of raw SQL
+      const capabilityResult = await this.databaseService.getCapabilitiesByIds(capabilityIds);
       
-      return capabilityResult.rows.map(row => this.mapCapabilityFromDB(row));
+      return capabilityResult.map(row => this.mapCapabilityFromDB(row));
     } catch (error: any) {
       logger.error('Error getting agent capabilities', { agentId, error: error.message });
       throw error;
@@ -148,24 +98,17 @@ export class CapabilityDiscoveryService {
   }
 
   public async getCapabilityById(capabilityId: string): Promise<Capability | null> {
+    await this.ensureInitialized();
+    
     try {
-      const query = `
-        SELECT 
-          id, name, description, type, status, metadata, 
-          tool_config, artifact_config, dependencies, 
-          security_requirements, resource_requirements,
-          created_at, updated_at
-        FROM capabilities 
-        WHERE id = $1
-      `;
-
-      const result = await this.databaseService.query(query, [capabilityId]);
+      // Use DatabaseService getCapabilityById method instead of raw SQL
+      const result = await this.databaseService.getCapabilityById(capabilityId);
       
-      if (result.rows.length === 0) {
+      if (!result) {
         return null;
       }
 
-      return this.mapCapabilityFromDB(result.rows[0]);
+      return this.mapCapabilityFromDB(result);
     } catch (error: any) {
       logger.error('Error getting capability by ID', { capabilityId, error: error.message });
       throw new ApiError(500, 'Failed to retrieve capability', 'DATABASE_ERROR');
@@ -176,6 +119,8 @@ export class CapabilityDiscoveryService {
     dependencies: Capability[];
     dependents: Capability[];
   }> {
+    await this.ensureInitialized();
+    
     try {
       logger.info('Getting capability dependencies', { capabilityId });
 
@@ -188,29 +133,14 @@ export class CapabilityDiscoveryService {
       // Get direct dependencies
       const dependencies: Capability[] = [];
       if (capability.dependencies && capability.dependencies.length > 0) {
-        const depQuery = `
-          SELECT 
-            id, name, description, type, status, metadata, 
-            security_requirements, dependencies
-          FROM capabilities 
-          WHERE id = ANY($1) AND status = 'active'
-        `;
-        
-        const depResult = await this.databaseService.query(depQuery, [capability.dependencies]);
-        dependencies.push(...depResult.rows.map(row => this.mapCapabilityFromDB(row)));
+        // Use DatabaseService getCapabilityDependencies method instead of raw SQL
+        const depResult = await this.databaseService.getCapabilityDependencies(capability.dependencies);
+        dependencies.push(...depResult.map(row => this.mapCapabilityFromDB(row)));
       }
 
       // Get dependents (capabilities that depend on this one)
-      const dependentsQuery = `
-        SELECT 
-          id, name, description, type, status, metadata, 
-          security_requirements, dependencies
-        FROM capabilities 
-        WHERE $1 = ANY(dependencies) AND status = 'active'
-      `;
-      
-      const dependentsResult = await this.databaseService.query(dependentsQuery, [capabilityId]);
-      const dependents = dependentsResult.rows.map(row => this.mapCapabilityFromDB(row));
+      const dependentsResult = await this.databaseService.getCapabilityDependents(capabilityId);
+      const dependents = dependentsResult.map(row => this.mapCapabilityFromDB(row));
 
       return { dependencies, dependents };
     } catch (error: any) {
@@ -224,6 +154,8 @@ export class CapabilityDiscoveryService {
     context: any,
     securityContext: any
   ): Promise<Capability[]> {
+    await this.ensureInitialized();
+    
     try {
       logger.info('Discovering capabilities by intent', { intent });
 
@@ -428,90 +360,15 @@ export class CapabilityDiscoveryService {
     try {
       const startTime = Date.now();
       
-      let sqlQuery = `
-        SELECT 
-          id, name, description, type, status, metadata, 
-          tool_config, artifact_config, dependencies, 
-          security_requirements, resource_requirements,
-          created_at, updated_at
-        FROM capabilities 
-        WHERE 1=1
-      `;
-      
-      const queryParams: any[] = [];
-      let paramIndex = 1;
-
-      // Status filter
-      if (!searchParams.includeExperimental) {
-        sqlQuery += ` AND status IN ('active', 'deprecated')`;
-      } else {
-        sqlQuery += ` AND status != 'disabled'`;
-      }
-
-      // Text search
-      if (searchParams.query) {
-        sqlQuery += ` AND (
-          name ILIKE $${paramIndex} OR 
-          description ILIKE $${paramIndex} OR 
-          metadata->>'tags' ILIKE $${paramIndex}
-        )`;
-        queryParams.push(`%${searchParams.query}%`);
-        paramIndex++;
-      }
-
-      // Type filter
-      if (searchParams.types && searchParams.types.length > 0) {
-        sqlQuery += ` AND type = ANY($${paramIndex})`;
-        queryParams.push(searchParams.types);
-        paramIndex++;
-      }
-
-      // Security level filter
-      if (searchParams.securityLevel) {
-        sqlQuery += ` AND security_requirements->>'maxLevel' >= $${paramIndex}`;
-        queryParams.push(searchParams.securityLevel);
-        paramIndex++;
-      }
-
-      // Tag filter
-      if (searchParams.tags && searchParams.tags.length > 0) {
-        const tagConditions = searchParams.tags.map(() => {
-          const condition = `metadata->'tags' ? $${paramIndex}`;
-          paramIndex++;
-          return condition;
-        }).join(' OR ');
-        
-        sqlQuery += ` AND (${tagConditions})`;
-        queryParams.push(...searchParams.tags);
-      }
-
-      // Count total results
-      const countQuery = sqlQuery.replace(/SELECT.*FROM/, 'SELECT COUNT(*) FROM');
-      const countResult = await this.databaseService.query(countQuery, queryParams);
-      const totalCount = parseInt(countResult.rows[0].count);
-
-      // Add ordering and pagination
-      sqlQuery += ` ORDER BY 
-        CASE 
-          WHEN status = 'active' THEN 1
-          WHEN status = 'experimental' THEN 2
-          ELSE 3
-        END,
-        created_at DESC
-        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-      
-      const limit = Math.min(searchParams.limit || 20, 100);
-      const offset = searchParams.offset || 0;
-      queryParams.push(limit, offset);
-
-      const result = await this.databaseService.query(sqlQuery, queryParams);
-      const capabilities = result.rows.map(row => this.mapCapabilityFromDB(row));
+      // Use DatabaseService searchCapabilitiesAdvanced method instead of raw SQL
+      const result = await this.databaseService.searchCapabilitiesAdvanced(searchParams);
+      const capabilities = result.capabilities.map(row => this.mapCapabilityFromDB(row));
 
       const searchTime = Date.now() - startTime;
 
       return {
         capabilities,
-        totalCount,
+        totalCount: result.totalCount,
         recommendations: this.generateRecommendations(capabilities, searchParams),
         searchTime
       };

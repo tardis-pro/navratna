@@ -7,6 +7,6 @@
     "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
   },
   "include": ["src/**/*"],
-  
+  "exclude": ["src/migrations/**/*"]
 
 } 

@@ -1,21 +1,52 @@
-// Local artifact types for the service
-// These extend or complement the shared types
+// Artifact System Type Definitions for Council of Nycea
+// This file defines the comprehensive type system for artifact generation and management
+
+export type ArtifactType = 
+  | 'code' | 'test' | 'documentation' | 'prd' | 'config' 
+  | 'deployment' | 'script' | 'template' | 'report' | 'analysis';
+
+export type ValidationStatus = 'valid' | 'invalid' | 'warning';
+
+export interface ValidationError {
+  code: string;
+  message: string;
+  severity: 'error' | 'warning';
+}
+
+export interface ValidationWarning {
+  code: string;
+  message: string;
+  severity: 'warning' | 'info';
+}
+
+export interface ValidationResult {
+  status: ValidationStatus;
+  isValid: boolean;
+  errors: ValidationError[];
+  warnings: ValidationWarning[];
+  suggestions: string[];
+  score: number;
+}
 
 export interface ArtifactMetadata {
-  id: string;
+  id?: string;
   title: string;
-  description: string;
+  description?: string;
   language?: string;
   framework?: string;
   targetFile?: string;
-  estimatedEffort: 'low' | 'medium' | 'high';
+  estimatedEffort?: 'low' | 'medium' | 'high';
   tags: string[];
+  version?: string;
+  author?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface TraceabilityInfo {
   conversationId: string;
   generatedBy: string;
-  generatedAt: string;
+  generatedAt: Date;
   generator: string;
   confidence: number;
   sourceMessages: string[];
@@ -29,52 +60,34 @@ export interface Artifact {
   validation?: ValidationResult;
 }
 
-export interface ValidationResult {
-  status: ValidationStatus;
-  isValid: boolean;
-  errors: ValidationError[];
-  warnings: ValidationWarning[];
-  suggestions: string[];
-  score: number;
-}
-
-export interface ValidationError {
-  code: string;
-  message: string;
-  severity: 'error' | 'warning';
-}
-
-export interface ValidationWarning {
-  code: string;
-  message: string;
-  severity: 'warning';
-}
-
-export type ValidationStatus = 'valid' | 'invalid' | 'warning';
-
-// Renamed to avoid conflict with agent.ts ConversationContext
-export interface ArtifactConversationContext {
-  conversationId: string;
-  messages: ArtifactMessage[];
-  participants: Participant[];
-  codeContext?: any;
-}
-
-// Renamed to avoid conflict with agent.ts Message
-export interface ArtifactMessage {
+// Artifact Review System
+export interface ArtifactReview {
   id: string;
-  content: string;
-  timestamp: string;
-  author: string;
-  role: string;
+  artifactId: string;
+  reviewerId: string;
+  status: 'pending' | 'approved' | 'rejected' | 'needs-changes';
+  score?: number;
+  comments?: string;
+  suggestions?: string[];
+  reviewedAt?: Date;
+  metadata?: Record<string, any>;
 }
 
-export interface Participant {
+// Artifact Deployment System
+export interface ArtifactDeployment {
   id: string;
-  name: string;
-  role: string;
+  artifactId: string;
+  environment: string;
+  status: 'pending' | 'deploying' | 'deployed' | 'failed' | 'rolled-back';
+  deployedBy: string;
+  deployedAt?: Date;
+  rollbackAt?: Date;
+  deploymentConfig?: Record<string, any>;
+  logs?: string[];
+  metadata?: Record<string, any>;
 }
 
+// Generation triggers and context
 export interface GenerationTrigger {
   type: 'command' | 'pattern' | 'phase_change';
   confidence: number;
@@ -89,29 +102,30 @@ export interface ConversationPhase {
   suggestedActions: string[];
 }
 
-export interface ConversationSummary {
-  keyPoints: string[];
-  decisions: Decision[];
-  actionItems: ActionItem[];
-  participants: string[];
-  phase: string;
-  confidence: number;
-}
-
 export interface Decision {
   id: string;
   description: string;
-  rationale: string;
-  decidedBy: string;
-  decidedAt: string;
+  decidedBy?: string;
+  decidedAt?: Date;
+  impact?: 'low' | 'medium' | 'high';
+  options?: string[];
+  chosen?: string;
+  reasoning?: string;
+  timestamp?: Date;
+  confidence?: number;
+  metadata?: Record<string, any>;
 }
 
 export interface ActionItem {
   id: string;
   description: string;
+  assignedTo?: string;
   assignee?: string;
+  dueDate?: Date;
   priority: 'low' | 'medium' | 'high';
-  createdAt: string;
+  status?: 'pending' | 'in-progress' | 'completed' | 'cancelled';
+  createdAt?: string;
+  metadata?: Record<string, any>;
 }
 
 export interface Requirement {
@@ -121,4 +135,87 @@ export interface Requirement {
   priority: 'must_have' | 'should_have' | 'could_have' | 'wont_have';
   source: string;
   extractedAt: string;
+}
+
+export interface ConversationSummary {
+  keyPoints: string[];
+  decisions: Decision[];
+  actionItems: ActionItem[];
+  participants: string[];
+  phase: string;
+  confidence: number;
+}
+
+// API interfaces
+export interface ArtifactGenerationRequest {
+  type: ArtifactType;
+  context: ArtifactConversationContext;
+  requirements?: string[];
+  constraints?: string[];
+  preferences?: Record<string, any>;
+  metadata?: Record<string, any>;
+}
+
+export interface ArtifactGenerationResponse {
+  success: boolean;
+  artifact?: Artifact;
+  error?: {
+    code: string;
+    message: string;
+    details?: any;
+  };
+  metadata?: Record<string, any>;
+}
+
+// Template system - using different name to avoid conflict with capability.ts
+export interface ArtifactGenerationTemplate {
+  id: string;
+  name: string;
+  description: string;
+  type: ArtifactType;
+  template: string;
+  variables: Record<string, any>;
+  examples: any[];
+  tags: string[];
+  version: string;
+  author: string;
+  isEnabled: boolean;
+  metadata?: Record<string, any>;
+}
+
+// Conversation context for artifacts
+export interface ArtifactConversationContext {
+  conversationId: string;
+  messages: ConversationMessage[];
+  participants: Participant[];
+  summary?: string;
+  topics: string[];
+  decisions: Decision[];
+  actionItems: ActionItem[];
+  metadata?: Record<string, any>;
+}
+
+export interface ConversationMessage {
+  id: string;
+  content: string;
+  role: 'user' | 'assistant' | 'system';
+  timestamp: Date;
+  metadata?: Record<string, any>;
+}
+
+// Legacy artifact message interface for backward compatibility
+export interface ArtifactMessage {
+  id: string;
+  content: string;
+  timestamp: string;
+  author: string;
+  role: string;
+}
+
+export interface Participant {
+  id: string;
+  name: string;
+  role: string;
+  type: 'human' | 'agent';
+  metadata?: Record<string, any>;
 } 

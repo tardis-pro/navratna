@@ -364,8 +364,13 @@ async function seedTools(): Promise<void> {
     const neo4j = new ToolGraphDatabase(config.database.neo4j);
     await neo4j.verifyConnectivity();
 
-    // Initialize tool registry
-    const toolRegistry = new ToolRegistry(postgresql, neo4j);
+    // Initialize TypeORM service
+    const { TypeOrmService } = await import('@uaip/shared-services');
+    const typeormService = TypeOrmService.getInstance();
+    await typeormService.initialize();
+
+    // Initialize tool registry with TypeORM service
+    const toolRegistry = new ToolRegistry(postgresql, neo4j, typeormService);
 
     // Register sample tools
     logger.info(`Registering ${sampleTools.length} sample tools...`);
@@ -408,6 +413,7 @@ async function seedTools(): Promise<void> {
     // Close connections
     await postgresql.close();
     await neo4j.close();
+    await typeormService.close();
 
     logger.info('✅ Tool seeding completed successfully!');
     logger.info(`📊 Registered ${sampleTools.length} tools with ${sampleRelationships.length} relationships`);

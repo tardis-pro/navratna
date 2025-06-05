@@ -16,7 +16,11 @@ CREATE INDEX tool_capabilities_index IF NOT EXISTS FOR (t:Tool) ON (t.capabiliti
 CREATE INDEX tool_tags_index IF NOT EXISTS FOR (t:Tool) ON (t.tags);
 CREATE INDEX agent_usage_frequency_index IF NOT EXISTS FOR ()-[r:USES]-() ON (r.frequency);
 CREATE INDEX agent_usage_success_rate_index IF NOT EXISTS FOR ()-[r:USES]-() ON (r.success_rate);
-CREATE INDEX tool_relationship_strength_index IF NOT EXISTS FOR ()-[r:DEPENDS_ON|SIMILAR_TO|REPLACES|ENHANCES]-() ON (r.strength);
+// Create separate indexes for each relationship type
+CREATE INDEX depends_on_strength_index IF NOT EXISTS FOR ()-[r:DEPENDS_ON]-() ON (r.strength);
+CREATE INDEX similar_to_strength_index IF NOT EXISTS FOR ()-[r:SIMILAR_TO]-() ON (r.strength);
+CREATE INDEX replaces_strength_index IF NOT EXISTS FOR ()-[r:REPLACES]-() ON (r.strength);
+CREATE INDEX enhances_strength_index IF NOT EXISTS FOR ()-[r:ENHANCES]-() ON (r.strength);
 
 // Create sample tool nodes for testing
 MERGE (t1:Tool {

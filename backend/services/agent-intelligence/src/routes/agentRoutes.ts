@@ -1,6 +1,11 @@
 import { Router } from 'express';
 import { AgentController } from '../controllers/agentController.js';
-import { validateRequest, validateUUID, authMiddleware } from '@uaip/middleware';
+import { 
+  validateRequest, 
+  validateUUID, 
+  authMiddleware,
+  AgentValidationMiddleware 
+} from '@uaip/middleware';
 import { AgentAnalysisSchema, AgentSchema, AgentUpdateSchema, AgentCreateRequestSchema } from '@uaip/types';
 import { AgentPlanRequestSchema } from '@uaip/types';
 
@@ -10,16 +15,17 @@ const agentController = new AgentController();
 // Apply authentication middleware to all routes
 router.use(authMiddleware);
 
-// POST /api/v1/agents
+// POST /api/v1/agents - Enhanced with persona transformation support
 router.post(
   '/',
-  validateRequest({ body: AgentCreateRequestSchema }),
+  AgentValidationMiddleware.validateAgentCreation,
   agentController.createAgent.bind(agentController)
 );
 
-// GET /api/v1/agents
+// GET /api/v1/agents - Enhanced with query validation
 router.get(
   '/',
+  AgentValidationMiddleware.validateAgentQuery,
   agentController.getAgents.bind(agentController)
 );
 
@@ -46,11 +52,11 @@ router.get(
   agentController.getAgent.bind(agentController)
 );
 
-// PUT /api/v1/agents/:agentId
+// PUT /api/v1/agents/:agentId - Enhanced with update validation
 router.put(
   '/:agentId',
   validateUUID('agentId'),
-  validateRequest({ body: AgentUpdateSchema }),
+  AgentValidationMiddleware.validateAgentUpdate,
   agentController.updateAgent.bind(agentController)
 );
 

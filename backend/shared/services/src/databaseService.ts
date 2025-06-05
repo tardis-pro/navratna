@@ -1,11 +1,75 @@
-import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
+import { Repository, QueryRunner, EntityTarget, ObjectLiteral, EntityManager, LessThan } from 'typeorm';
 import { config } from '@uaip/config';
 import { logger, DatabaseError } from '@uaip/utils';
+import { SecurityLevel } from '@uaip/types';
+import { TypeOrmService } from './typeormService.js';
+
+// Import new repositories
+import { UserRepository } from './database/repositories/UserRepository.js';
+import { RefreshTokenRepository } from './database/repositories/UserRepository.js';
+import { PasswordResetTokenRepository } from './database/repositories/UserRepository.js';
+import { AuditRepository } from './database/repositories/AuditRepository.js';
+import { ToolRepository } from './database/repositories/ToolRepository.js';
+import { ToolExecutionRepository } from './database/repositories/ToolRepository.js';
+import { ToolUsageRepository } from './database/repositories/ToolRepository.js';
+import { OperationRepository } from './database/repositories/OperationRepository.js';
+import { OperationStateRepository } from './database/repositories/OperationRepository.js';
+import { OperationCheckpointRepository } from './database/repositories/OperationRepository.js';
+import { StepResultRepository } from './database/repositories/OperationRepository.js';
+import { AgentRepository } from './database/repositories/AgentRepository.js';
+import { SecurityPolicyRepository } from './database/repositories/SecurityRepository.js';
+import { ApprovalWorkflowRepository } from './database/repositories/SecurityRepository.js';
+import { ApprovalDecisionRepository } from './database/repositories/SecurityRepository.js';
+import { CapabilityRepository } from './database/repositories/CapabilityRepository.js';
+import { DiscussionRepository } from './database/repositories/DiscussionRepository.js';
+
+// Import entities for backward compatibility
+import { Operation } from './entities/operation.entity.js';
+import { OperationState } from './entities/operationState.entity.js';
+import { OperationCheckpoint } from './entities/operationCheckpoint.entity.js';
+import { StepResult } from './entities/stepResult.entity.js';
+import { Agent } from './entities/agent.entity.js';
+import { Persona } from './entities/persona.entity.js';
+import { Artifact } from './entities/artifact.entity.js';
+import { ArtifactDeployment } from './entities/artifactDeployment.entity.js';
+import { ToolDefinition } from './entities/toolDefinition.entity.js';
+import { ToolExecution } from './entities/toolExecution.entity.js';
+import { ToolUsageRecord } from './entities/toolUsageRecord.entity.js';
+import { ConversationContext } from './entities/conversationContext.entity.js';
+import { ApprovalWorkflow } from './entities/approvalWorkflow.entity.js';
+import { ApprovalDecision } from './entities/approvalDecision.entity.js';
+import { AuditEvent } from './entities/auditEvent.entity.js';
+import { SecurityPolicy } from './entities/securityPolicy.entity.js';
+import { AgentCapabilityMetric } from './entities/agentCapabilityMetric.entity.js';
+import { PersonaAnalytics } from './entities/personaAnalytics.entity.js';
+import { UserEntity } from './entities/user.entity.js';
+import { RefreshTokenEntity } from './entities/refreshToken.entity.js';
+import { PasswordResetTokenEntity } from './entities/passwordResetToken.entity.js';
 
 export class DatabaseService {
-  private pool: Pool;
   private static instance: DatabaseService;
+  private typeormService: TypeOrmService;
   private isClosing: boolean = false;
+  private isInitialized: boolean = false;
+
+  // Repository instances - will be initialized lazily
+  private _userRepository: UserRepository | null = null;
+  private _refreshTokenRepository: RefreshTokenRepository | null = null;
+  private _passwordResetTokenRepository: PasswordResetTokenRepository | null = null;
+  private _auditRepository: AuditRepository | null = null;
+  private _toolRepository: ToolRepository | null = null;
+  private _toolExecutionRepository: ToolExecutionRepository | null = null;
+  private _toolUsageRepository: ToolUsageRepository | null = null;
+  private _operationRepository: OperationRepository | null = null;
+  private _operationStateRepository: OperationStateRepository | null = null;
+  private _operationCheckpointRepository: OperationCheckpointRepository | null = null;
+  private _stepResultRepository: StepResultRepository | null = null;
+  private _agentRepository: AgentRepository | null = null;
+  private _securityPolicyRepository: SecurityPolicyRepository | null = null;
+  private _approvalWorkflowRepository: ApprovalWorkflowRepository | null = null;
+  private _approvalDecisionRepository: ApprovalDecisionRepository | null = null;
+  private _capabilityRepository: CapabilityRepository | null = null;
+  private _discussionRepository: DiscussionRepository | null = null;
 
   constructor() {
     // Debug: Log the actual config values being used
@@ -17,48 +81,198 @@ export class DatabaseService {
       database: config.database.postgres.database
     });
 
-    this.pool = new Pool({
-      host: config.database.postgres.host,
-      port: config.database.postgres.port,
-      user: config.database.postgres.user,
-      password: config.database.postgres.password,
-      database: config.database.postgres.database,
-      ssl: config.database.postgres.ssl,
-      max: config.database.postgres.maxConnections,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: config.timeouts.database,
-      statement_timeout: config.timeouts.database,
-      query_timeout: config.timeouts.database,
-    });
+    this.typeormService = TypeOrmService.getInstance();
+    
+    // Don't initialize repositories here - do it lazily when needed
+    // Don't initialize connection in constructor - do it explicitly when needed
+  }
 
-    // Handle pool events
-    this.pool.on('connect', (client: PoolClient) => {
-      logger.debug('New client connected to database', {
-        totalCount: this.pool.totalCount,
-        idleCount: this.pool.idleCount,
-        waitingCount: this.pool.waitingCount
-      });
-    });
+  private async ensureInitialized(): Promise<void> {
+    if (!this.isInitialized) {
+      await this.initializeConnection();
+    }
+  }
 
-    this.pool.on('error', (err: Error) => {
-      logger.error('Unexpected error on idle client', { error: err.message });
-    });
+  // Lazy getters for repositories
+  private get userRepository(): UserRepository {
+    if (!this._userRepository) {
+      if (!this.isInitialized) {
+        throw new Error('DatabaseService not initialized. Call ensureInitialized() first.');
+      }
+      this._userRepository = new UserRepository();
+    }
+    return this._userRepository;
+  }
 
-    this.pool.on('acquire', () => {
-      logger.debug('Client acquired from pool', {
-        totalCount: this.pool.totalCount,
-        idleCount: this.pool.idleCount,
-        waitingCount: this.pool.waitingCount
-      });
-    });
+  private get refreshTokenRepository(): RefreshTokenRepository {
+    if (!this._refreshTokenRepository) {
+      if (!this.isInitialized) {
+        throw new Error('DatabaseService not initialized. Call ensureInitialized() first.');
+      }
+      this._refreshTokenRepository = new RefreshTokenRepository();
+    }
+    return this._refreshTokenRepository;
+  }
 
-    this.pool.on('release', () => {
-      logger.debug('Client released to pool', {
-        totalCount: this.pool.totalCount,
-        idleCount: this.pool.idleCount,
-        waitingCount: this.pool.waitingCount
-      });
-    });
+  private get passwordResetTokenRepository(): PasswordResetTokenRepository {
+    if (!this._passwordResetTokenRepository) {
+      if (!this.isInitialized) {
+        throw new Error('DatabaseService not initialized. Call ensureInitialized() first.');
+      }
+      this._passwordResetTokenRepository = new PasswordResetTokenRepository();
+    }
+    return this._passwordResetTokenRepository;
+  }
+
+  private get auditRepository(): AuditRepository {
+    if (!this._auditRepository) {
+      if (!this.isInitialized) {
+        throw new Error('DatabaseService not initialized. Call ensureInitialized() first.');
+      }
+      this._auditRepository = new AuditRepository();
+    }
+    return this._auditRepository;
+  }
+
+  private get toolRepository(): ToolRepository {
+    if (!this._toolRepository) {
+      if (!this.isInitialized) {
+        throw new Error('DatabaseService not initialized. Call ensureInitialized() first.');
+      }
+      this._toolRepository = new ToolRepository();
+    }
+    return this._toolRepository;
+  }
+
+  private get toolExecutionRepository(): ToolExecutionRepository {
+    if (!this._toolExecutionRepository) {
+      if (!this.isInitialized) {
+        throw new Error('DatabaseService not initialized. Call ensureInitialized() first.');
+      }
+      this._toolExecutionRepository = new ToolExecutionRepository();
+    }
+    return this._toolExecutionRepository;
+  }
+
+  private get toolUsageRepository(): ToolUsageRepository {
+    if (!this._toolUsageRepository) {
+      if (!this.isInitialized) {
+        throw new Error('DatabaseService not initialized. Call ensureInitialized() first.');
+      }
+      this._toolUsageRepository = new ToolUsageRepository();
+    }
+    return this._toolUsageRepository;
+  }
+
+  private get operationRepository(): OperationRepository {
+    if (!this._operationRepository) {
+      if (!this.isInitialized) {
+        throw new Error('DatabaseService not initialized. Call ensureInitialized() first.');
+      }
+      this._operationRepository = new OperationRepository();
+    }
+    return this._operationRepository;
+  }
+
+  private get operationStateRepository(): OperationStateRepository {
+    if (!this._operationStateRepository) {
+      if (!this.isInitialized) {
+        throw new Error('DatabaseService not initialized. Call ensureInitialized() first.');
+      }
+      this._operationStateRepository = new OperationStateRepository();
+    }
+    return this._operationStateRepository;
+  }
+
+  private get operationCheckpointRepository(): OperationCheckpointRepository {
+    if (!this._operationCheckpointRepository) {
+      if (!this.isInitialized) {
+        throw new Error('DatabaseService not initialized. Call ensureInitialized() first.');
+      }
+      this._operationCheckpointRepository = new OperationCheckpointRepository();
+    }
+    return this._operationCheckpointRepository;
+  }
+
+  private get stepResultRepository(): StepResultRepository {
+    if (!this._stepResultRepository) {
+      if (!this.isInitialized) {
+        throw new Error('DatabaseService not initialized. Call ensureInitialized() first.');
+      }
+      this._stepResultRepository = new StepResultRepository();
+    }
+    return this._stepResultRepository;
+  }
+
+  private get agentRepository(): AgentRepository {
+    if (!this._agentRepository) {
+      if (!this.isInitialized) {
+        throw new Error('DatabaseService not initialized. Call ensureInitialized() first.');
+      }
+      this._agentRepository = new AgentRepository();
+    }
+    return this._agentRepository;
+  }
+
+  private get securityPolicyRepository(): SecurityPolicyRepository {
+    if (!this._securityPolicyRepository) {
+      if (!this.isInitialized) {
+        throw new Error('DatabaseService not initialized. Call ensureInitialized() first.');
+      }
+      this._securityPolicyRepository = new SecurityPolicyRepository();
+    }
+    return this._securityPolicyRepository;
+  }
+
+  private get approvalWorkflowRepository(): ApprovalWorkflowRepository {
+    if (!this._approvalWorkflowRepository) {
+      if (!this.isInitialized) {
+        throw new Error('DatabaseService not initialized. Call ensureInitialized() first.');
+      }
+      this._approvalWorkflowRepository = new ApprovalWorkflowRepository();
+    }
+    return this._approvalWorkflowRepository;
+  }
+
+  private get approvalDecisionRepository(): ApprovalDecisionRepository {
+    if (!this._approvalDecisionRepository) {
+      if (!this.isInitialized) {
+        throw new Error('DatabaseService not initialized. Call ensureInitialized() first.');
+      }
+      this._approvalDecisionRepository = new ApprovalDecisionRepository();
+    }
+    return this._approvalDecisionRepository;
+  }
+
+  private get capabilityRepository(): CapabilityRepository {
+    if (!this._capabilityRepository) {
+      if (!this.isInitialized) {
+        throw new Error('DatabaseService not initialized. Call ensureInitialized() first.');
+      }
+      this._capabilityRepository = new CapabilityRepository();
+    }
+    return this._capabilityRepository;
+  }
+
+  private get discussionRepository(): DiscussionRepository {
+    if (!this._discussionRepository) {
+      if (!this.isInitialized) {
+        throw new Error('DatabaseService not initialized. Call ensureInitialized() first.');
+      }
+      this._discussionRepository = new DiscussionRepository();
+    }
+    return this._discussionRepository;
+  }
+
+  private async initializeConnection(): Promise<void> {
+    try {
+      await this.typeormService.initialize();
+      this.isInitialized = true;
+      logger.info('DatabaseService initialized with TypeORM');
+    } catch (error) {
+      logger.error('Failed to initialize TypeORM connection', { error });
+      throw error;
+    }
   }
 
   // Singleton pattern for database connection
@@ -69,108 +283,30 @@ export class DatabaseService {
     return DatabaseService.instance;
   }
 
-  // Execute a query with parameters
-  public async query<T extends QueryResultRow = any>(
-    text: string, 
-    params?: any[], 
-    options?: {
-      timeout?: number;
-      logQuery?: boolean;
-    }
-  ): Promise<QueryResult<T>> {
-    const startTime = Date.now();
-    const queryId = `query_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    try {
-      if (options?.logQuery || config.logging.enableDetailedLogging) {
-        logger.debug('Executing database query', {
-          queryId,
-          query: text.replace(/\s+/g, ' ').trim(),
-          paramCount: params?.length || 0
-        });
-      }
-
-      const result = await this.pool.query<T>(text, params);
-      
-      const duration = Date.now() - startTime;
-      
-      logger.debug('Database query completed', {
-        queryId,
-        duration,
-        rowCount: result.rowCount,
-        fields: result.fields?.length || 0
-      });
-
-      return result;
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
-      logger.error('Database query failed', {
-        queryId,
-        duration,
-        error: errorMessage,
-        query: text.replace(/\s+/g, ' ').trim(),
-        paramCount: params?.length || 0
-      });
-
-      throw new DatabaseError(`Query execution failed: ${errorMessage}`, {
-        queryId,
-        originalError: errorMessage,
-        query: text.substring(0, 200) // Only log first 200 chars for security
-      });
-    }
+  // Public method to ensure initialization
+  public async initialize(): Promise<void> {
+    await this.ensureInitialized();
   }
 
-  // Execute a query with a specific client (for transactions)
-  public async queryWithClient<T extends QueryResultRow = any>(
-    client: PoolClient,
-    text: string,
-    params?: any[]
-  ): Promise<QueryResult<T>> {
-    const startTime = Date.now();
-    const queryId = `tx_query_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    try {
-      logger.debug('Executing transaction query', {
-        queryId,
-        query: text.replace(/\s+/g, ' ').trim(),
-        paramCount: params?.length || 0
-      });
-
-      const result = await client.query<T>(text, params);
-      
-      const duration = Date.now() - startTime;
-      logger.debug('Transaction query completed', {
-        queryId,
-        duration,
-        rowCount: result.rowCount
-      });
-
-      return result;
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
-      logger.error('Transaction query failed', {
-        queryId,
-        duration,
-        error: errorMessage
-      });
-
-      throw new DatabaseError(`Transaction query failed: ${errorMessage}`, {
-        queryId,
-        originalError: errorMessage
-      });
-    }
+  // Get repository for any entity
+  public async getRepository<T extends ObjectLiteral>(entity: EntityTarget<T>): Promise<Repository<T>> {
+    await this.ensureInitialized();
+    return this.typeormService.getRepository(entity);
   }
 
-  // Get a client for transaction handling
-  public async getClient(): Promise<PoolClient> {
+  // Get entity manager for complex operations
+  public async getEntityManager(): Promise<EntityManager> {
+    await this.ensureInitialized();
+    return this.typeormService.getDataSource().manager;
+  }
+
+  // Get a query runner for transaction handling
+  public async getClient(): Promise<QueryRunner> {
     try {
-      const client = await this.pool.connect();
+      const queryRunner = this.typeormService.getDataSource().createQueryRunner();
+      await queryRunner.connect();
       logger.debug('Database client acquired for transaction');
-      return client;
+      return queryRunner;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Failed to acquire database client', { error: errorMessage });
@@ -181,7 +317,7 @@ export class DatabaseService {
   }
 
   // Release a client back to the pool
-  public releaseClient(client: PoolClient): void {
+  public releaseClient(client: QueryRunner): void {
     try {
       client.release();
       logger.debug('Database client released');
@@ -191,44 +327,11 @@ export class DatabaseService {
     }
   }
 
-  // Execute multiple queries in a transaction
+  // Execute multiple operations in a transaction
   public async transaction<T>(
-    callback: (client: PoolClient) => Promise<T>
+    callback: (manager: EntityManager) => Promise<T>
   ): Promise<T> {
-    const client = await this.getClient();
-    const transactionId = `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    try {
-      logger.debug('Starting database transaction', { transactionId });
-      
-      await client.query('BEGIN');
-      const result = await callback(client);
-      await client.query('COMMIT');
-      
-      logger.debug('Database transaction committed', { transactionId });
-      return result;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      logger.warn('Database transaction failed, rolling back', {
-        transactionId,
-        error: errorMessage
-      });
-      
-      try {
-        await client.query('ROLLBACK');
-      } catch (rollbackError) {
-        const rollbackErrorMessage = rollbackError instanceof Error ? rollbackError.message : 'Unknown rollback error';
-        logger.error('Failed to rollback transaction', {
-          transactionId,
-          originalError: errorMessage,
-          rollbackError: rollbackErrorMessage
-        });
-      }
-      
-      throw error;
-    } finally {
-      this.releaseClient(client);
-    }
+    return await this.typeormService.transaction(callback);
   }
 
   // Health check method
@@ -245,16 +348,21 @@ export class DatabaseService {
     const startTime = Date.now();
     
     try {
-      await this.query('SELECT 1 as health_check');
+      // Ensure TypeORM is initialized before health check
+      await this.ensureInitialized();
+      
+      // Use TypeORM to test connection
+      const manager = await this.getEntityManager();
+      await manager.query('SELECT 1 as health_check');
       const responseTime = Date.now() - startTime;
       
       return {
         status: 'healthy',
         details: {
           connected: true,
-          totalConnections: this.pool.totalCount,
-          idleConnections: this.pool.idleCount,
-          waitingConnections: this.pool.waitingCount,
+          totalConnections: 0, // TypeORM doesn't expose pool stats directly
+          idleConnections: 0,
+          waitingConnections: 0,
           responseTime
         }
       };
@@ -266,9 +374,9 @@ export class DatabaseService {
         status: 'unhealthy',
         details: {
           connected: false,
-          totalConnections: this.pool.totalCount,
-          idleConnections: this.pool.idleCount,
-          waitingConnections: this.pool.waitingCount
+          totalConnections: 0,
+          idleConnections: 0,
+          waitingConnections: 0
         }
       };
     }
@@ -280,226 +388,175 @@ export class DatabaseService {
     idleCount: number;
     waitingCount: number;
   } {
+    // TypeORM doesn't expose pool stats directly, return defaults
     return {
-      totalCount: this.pool.totalCount,
-      idleCount: this.pool.idleCount,
-      waitingCount: this.pool.waitingCount
+      totalCount: 0,
+      idleCount: 0,
+      waitingCount: 0
     };
   }
 
-  // Execute a prepared statement
-  public async executePrepared<T extends QueryResultRow = any>(
-    name: string,
-    text: string,
-    params?: any[]
-  ): Promise<QueryResult<T>> {
-    const startTime = Date.now();
-    
-    try {
-      // PostgreSQL doesn't require explicit preparation in this context
-      // This method provides a consistent interface for prepared statements
-      const result = await this.query<T>(text, params);
-      
-      const duration = Date.now() - startTime;
-      logger.debug('Prepared statement executed', {
-        name,
-        duration,
-        rowCount: result.rowCount
-      });
-
-      return result;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('Prepared statement failed', {
-        name,
-        error: errorMessage
-      });
-      throw error;
-    }
-  }
-
-  // Bulk insert helper
-  public async bulkInsert(
-    tableName: string,
-    columns: string[],
-    rows: any[][],
+  // Bulk insert helper using TypeORM
+  public async bulkInsert<T extends ObjectLiteral>(
+    entity: EntityTarget<T>,
+    records: Partial<T>[],
     options?: {
       onConflict?: 'ignore' | 'update' | 'error';
       conflictColumns?: string[];
       updateColumns?: string[];
     }
   ): Promise<number> {
-    if (rows.length === 0) {
+    if (records.length === 0) {
       return 0;
     }
 
     const startTime = Date.now();
     
     try {
-      // Create parameterized query
-      const placeholders = rows.map((_, rowIndex) => {
-        const rowPlaceholders = columns.map((_, colIndex) => 
-          `$${rowIndex * columns.length + colIndex + 1}`
-        ).join(', ');
-        return `(${rowPlaceholders})`;
-      }).join(', ');
-
-      let query = `
-        INSERT INTO ${tableName} (${columns.join(', ')})
-        VALUES ${placeholders}
-      `;
-
-      // Handle conflict resolution
+      const repository = await this.getRepository(entity);
+      
       if (options?.onConflict === 'ignore') {
-        query += ' ON CONFLICT DO NOTHING';
+        // Use upsert with ignore
+        await repository
+          .createQueryBuilder()
+          .insert()
+          .into(entity)
+          .values(records)
+          .orIgnore()
+          .execute();
       } else if (options?.onConflict === 'update' && options.conflictColumns && options.updateColumns) {
-        const updateClause = options.updateColumns
-          .map(col => `${col} = EXCLUDED.${col}`)
-          .join(', ');
-        query += ` ON CONFLICT (${options.conflictColumns.join(', ')}) DO UPDATE SET ${updateClause}`;
+        // Use upsert with update
+        const queryBuilder = repository
+          .createQueryBuilder()
+          .insert()
+          .into(entity)
+          .values(records);
+          
+        const updateColumns = options.updateColumns;
+        
+        await queryBuilder
+          .orUpdate(updateColumns, options.conflictColumns)
+          .execute();
+      } else {
+        // Simple insert
+        await repository.save(records as any[]);
       }
-
-      // Flatten parameters
-      const params = rows.flat();
-
-      const result = await this.query(query, params);
       
       const duration = Date.now() - startTime;
       logger.info('Bulk insert completed', {
-        tableName,
-        rowCount: rows.length,
-        insertedCount: result.rowCount,
+        entity: entity.toString(),
+        rowCount: records.length,
+        insertedCount: records.length,
         duration
       });
 
-      return result.rowCount || 0;
+      return records.length;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Bulk insert failed', {
-        tableName,
-        rowCount: rows.length,
+        entity: entity.toString(),
+        rowCount: records.length,
         error: errorMessage
       });
       throw error;
     }
   }
 
-  // Close the pool (for graceful shutdown)
+  // Close the connection (for graceful shutdown)
   public async close(): Promise<void> {
     if (this.isClosing) {
-      logger.debug('Database pool close already in progress, skipping');
+      logger.debug('Database connection close already in progress, skipping');
       return;
     }
 
     this.isClosing = true;
     
     try {
-      await this.pool.end();
-      logger.info('Database connection pool closed');
+      await this.typeormService.close();
+      logger.info('Database connection closed');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('Error closing database pool', { error: errorMessage });
+      logger.error('Error closing database connection', { error: errorMessage });
       throw error;
     }
   }
 
-  // Stream query results (for large datasets)
-  public async *streamQuery<T extends QueryResultRow = any>(
-    text: string,
-    params?: any[],
+  // Stream query results using TypeORM QueryBuilder
+  public async *streamQuery<T extends ObjectLiteral>(
+    entity: EntityTarget<T>,
+    conditions?: Record<string, any>,
     batchSize: number = 1000
   ): AsyncGenerator<T[], void, unknown> {
-    const client = await this.getClient();
-    
     try {
+      const repository = await this.getRepository(entity);
       logger.debug('Starting streaming query', {
-        query: text.replace(/\s+/g, ' ').trim(),
+        entity: entity.toString(),
         batchSize
       });
 
-      // Add LIMIT and OFFSET for batching
       let offset = 0;
       let hasMoreRows = true;
 
       while (hasMoreRows) {
-        const batchQuery = `${text} LIMIT ${batchSize} OFFSET ${offset}`;
-        const result = await this.queryWithClient<T>(client, batchQuery, params);
+        const queryBuilder = repository.createQueryBuilder();
         
-        if (result.rows.length === 0) {
+        // Add WHERE conditions
+        if (conditions) {
+          Object.keys(conditions).forEach((key, index) => {
+            if (index === 0) {
+              queryBuilder.where(`${key} = :${key}`, { [key]: conditions[key] });
+            } else {
+              queryBuilder.andWhere(`${key} = :${key}`, { [key]: conditions[key] });
+            }
+          });
+        }
+
+        const results = await queryBuilder
+          .limit(batchSize)
+          .offset(offset)
+          .getMany();
+        
+        if (results.length === 0) {
           hasMoreRows = false;
         } else {
-          yield result.rows;
+          yield results;
           offset += batchSize;
-          hasMoreRows = result.rows.length === batchSize;
+          hasMoreRows = results.length === batchSize;
         }
       }
-    } finally {
-      this.releaseClient(client);
+    } catch (error) {
+      logger.error('Streaming query failed', { entity: entity.toString(), error });
+      throw error;
     }
   }
 
-  // Methods for StateManagerService
+  // Methods for StateManagerService using TypeORM
   public async saveOperationState(operationId: string, state: any): Promise<void> {
-    const query = `
-      INSERT INTO operation_states (operation_id, state, created_at, updated_at)
-      VALUES ($1, $2, NOW(), NOW())
-      ON CONFLICT (operation_id) 
-      DO UPDATE SET state = $2, updated_at = NOW()
-    `;
-    await this.query(query, [operationId, JSON.stringify(state)]);
+    return await this.operationStateRepository.saveOperationState(operationId, state);
   }
 
   public async getOperationState(operationId: string): Promise<any> {
-    const query = 'SELECT state FROM operation_states WHERE operation_id = $1';
-    const result = await this.query(query, [operationId]);
-    return result.rows.length > 0 ? JSON.parse(result.rows[0].state) : null;
+    return await this.operationStateRepository.getOperationState(operationId);
   }
 
   public async updateOperationState(operationId: string, state: any, updates: any): Promise<void> {
-    const query = `
-      UPDATE operation_states 
-      SET state = $2, updated_at = NOW()
-      WHERE operation_id = $1
-    `;
-    await this.query(query, [operationId, JSON.stringify(state)]);
+    return await this.operationStateRepository.updateOperationState(operationId, state, updates);
   }
 
   public async saveCheckpoint(operationId: string, checkpoint: any): Promise<void> {
-    const query = `
-      INSERT INTO checkpoints (id, operation_id, checkpoint_data, created_at)
-      VALUES ($1, $2, $3, NOW())
-    `;
-    await this.query(query, [checkpoint.id, operationId, JSON.stringify(checkpoint)]);
+    return await this.operationCheckpointRepository.saveCheckpoint(operationId, checkpoint);
   }
 
   public async getCheckpoint(operationId: string, checkpointId: string): Promise<any> {
-    const query = `
-      SELECT checkpoint_data 
-      FROM checkpoints 
-      WHERE operation_id = $1 AND id = $2
-    `;
-    const result = await this.query(query, [operationId, checkpointId]);
-    return result.rows.length > 0 ? JSON.parse(result.rows[0].checkpoint_data) : null;
+    return await this.operationCheckpointRepository.getCheckpoint(operationId, checkpointId);
   }
 
   public async listCheckpoints(operationId: string): Promise<any[]> {
-    const query = `
-      SELECT checkpoint_data 
-      FROM checkpoints 
-      WHERE operation_id = $1 
-      ORDER BY created_at DESC
-    `;
-    const result = await this.query(query, [operationId]);
-    return result.rows.map(row => JSON.parse(row.checkpoint_data));
+    return await this.operationCheckpointRepository.listCheckpoints(operationId);
   }
 
   public async deleteOldOperationStates(cutoffDate: Date): Promise<number> {
-    const query = `
-      DELETE FROM operation_states 
-      WHERE updated_at < $1
-    `;
-    const result = await this.query(query, [cutoffDate]);
-    return result.rowCount || 0;
+    return await this.operationStateRepository.deleteOldOperationStates(cutoffDate);
   }
 
   public async getStateStatistics(): Promise<{
@@ -508,72 +565,24 @@ export class DatabaseService {
     totalCheckpoints: number;
     averageStateSize: number;
   }> {
-    const statsQuery = `
-      SELECT 
-        COUNT(*) as total_operations,
-        COUNT(CASE WHEN state->>'status' IN ('running', 'paused') THEN 1 END) as active_operations,
-        AVG(LENGTH(state::text)) as average_state_size
-      FROM operation_states
-    `;
-    
-    const checkpointQuery = 'SELECT COUNT(*) as total_checkpoints FROM checkpoints';
-    
-    const [statsResult, checkpointResult] = await Promise.all([
-      this.query(statsQuery),
-      this.query(checkpointQuery)
-    ]);
-
-    return {
-      totalOperations: parseInt(statsResult.rows[0].total_operations) || 0,
-      activeOperations: parseInt(statsResult.rows[0].active_operations) || 0,
-      totalCheckpoints: parseInt(checkpointResult.rows[0].total_checkpoints) || 0,
-      averageStateSize: parseFloat(statsResult.rows[0].average_state_size) || 0
-    };
+    return await this.operationStateRepository.getStateStatistics();
   }
 
-  // Methods for OrchestrationEngine
-  public async getOperation(operationId: string): Promise<any> {
-    const query = 'SELECT * FROM operations WHERE id = $1';
-    const result = await this.query(query, [operationId]);
-    return result.rows.length > 0 ? result.rows[0] : null;
+  // Methods for OrchestrationEngine using TypeORM
+  public async getOperation(operationId: string): Promise<Operation | null> {
+    return await this.operationRepository.findById(operationId);
   }
 
-  public async createWorkflowInstance(workflowInstance: any): Promise<void> {
-    const query = `
-      INSERT INTO workflow_instances (
-        id, operation_id, status, current_step_index, 
-        execution_context, state, created_at, updated_at
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-    `;
-    
-    await this.query(query, [
-      workflowInstance.id,
-      workflowInstance.operationId,
-      workflowInstance.status,
-      workflowInstance.currentStepIndex,
-      JSON.stringify(workflowInstance.executionContext),
-      JSON.stringify(workflowInstance.state),
-      workflowInstance.createdAt,
-      workflowInstance.updatedAt
-    ]);
+  public async createOperation(operationData: Partial<Operation>): Promise<Operation> {
+    return await this.operationRepository.create(operationData);
   }
 
   public async saveStepResult(operationId: string, result: any): Promise<void> {
-    const query = `
-      INSERT INTO step_results (operation_id, step_id, result_data, created_at)
-      VALUES ($1, $2, $3, NOW())
-    `;
-    await this.query(query, [operationId, result.stepId, JSON.stringify(result)]);
+    return await this.stepResultRepository.saveStepResult(operationId, result);
   }
 
   public async updateOperationResult(operationId: string, result: any): Promise<void> {
-    const query = `
-      UPDATE operations 
-      SET result = $2, status = 'completed', updated_at = NOW()
-      WHERE id = $1
-    `;
-    await this.query(query, [operationId, JSON.stringify(result)]);
+    return await this.operationRepository.updateOperationResult(operationId, result);
   }
 
   // Database schema initialization methods
@@ -581,94 +590,21 @@ export class DatabaseService {
     try {
       logger.info('Initializing database tables...');
 
-      // Create operations table
-      await this.query(`
-        CREATE TABLE IF NOT EXISTS operations (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          type VARCHAR(100) NOT NULL,
-          status VARCHAR(50) NOT NULL DEFAULT 'pending',
-          priority INTEGER DEFAULT 1,
-          parameters JSONB,
-          result JSONB,
-          metadata JSONB,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-          started_at TIMESTAMP WITH TIME ZONE,
-          completed_at TIMESTAMP WITH TIME ZONE,
-          retry_count INTEGER DEFAULT 0,
-          max_retries INTEGER DEFAULT 3
-        )
-      `);
+      // TypeORM handles table creation through migrations and synchronization
+      const dataSource = this.typeormService.getDataSource();
+      
+      if (!dataSource.isInitialized) {
+        throw new Error('DataSource not initialized');
+      }
 
-      // Create operation_states table
-      await this.query(`
-        CREATE TABLE IF NOT EXISTS operation_states (
-          operation_id UUID PRIMARY KEY REFERENCES operations(id) ON DELETE CASCADE,
-          state JSONB NOT NULL,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-        )
-      `);
+      // Check if tables exist using TypeORM metadata
+      const metadata = dataSource.entityMetadatas;
+      const hasOperationsTable = metadata.some(meta => meta.tableName === 'operations');
 
-      // Create checkpoints table
-      await this.query(`
-        CREATE TABLE IF NOT EXISTS checkpoints (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          operation_id UUID NOT NULL REFERENCES operations(id) ON DELETE CASCADE,
-          checkpoint_data JSONB NOT NULL,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-        )
-      `);
-
-      // Create workflow_instances table
-      await this.query(`
-        CREATE TABLE IF NOT EXISTS workflow_instances (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          operation_id UUID NOT NULL REFERENCES operations(id) ON DELETE CASCADE,
-          status VARCHAR(50) NOT NULL DEFAULT 'pending',
-          current_step_index INTEGER DEFAULT 0,
-          execution_context JSONB,
-          state JSONB,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-        )
-      `);
-
-      // Create step_results table
-      await this.query(`
-        CREATE TABLE IF NOT EXISTS step_results (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          operation_id UUID NOT NULL REFERENCES operations(id) ON DELETE CASCADE,
-          step_id VARCHAR(255) NOT NULL,
-          result_data JSONB NOT NULL,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-        )
-      `);
-
-      // Create indexes for better performance
-      await this.query(`
-        CREATE INDEX IF NOT EXISTS idx_operations_status ON operations(status);
-      `);
-
-      await this.query(`
-        CREATE INDEX IF NOT EXISTS idx_operations_type ON operations(type);
-      `);
-
-      await this.query(`
-        CREATE INDEX IF NOT EXISTS idx_operations_created_at ON operations(created_at);
-      `);
-
-      await this.query(`
-        CREATE INDEX IF NOT EXISTS idx_checkpoints_operation_id ON checkpoints(operation_id);
-      `);
-
-      await this.query(`
-        CREATE INDEX IF NOT EXISTS idx_step_results_operation_id ON step_results(operation_id);
-      `);
-
-      await this.query(`
-        CREATE INDEX IF NOT EXISTS idx_workflow_instances_operation_id ON workflow_instances(operation_id);
-      `);
+      if (!hasOperationsTable) {
+        // Run synchronization to create tables
+        await dataSource.synchronize();
+      }
 
       logger.info('Database tables initialized successfully');
     } catch (error) {
@@ -680,184 +616,164 @@ export class DatabaseService {
     }
   }
 
-  // Generic CRUD operations
-  public async findById<T extends QueryResultRow = any>(
-    tableName: string,
-    id: string,
-    columns: string[] = ['*']
+  // Generic CRUD operations using TypeORM
+  public async findById<T extends ObjectLiteral>(
+    entity: EntityTarget<T>,
+    id: string
   ): Promise<T | null> {
-    const query = `SELECT ${columns.join(', ')} FROM ${tableName} WHERE id = $1`;
-    const result = await this.query<T>(query, [id]);
-    return result.rows.length > 0 ? result.rows[0] : null;
+    try {
+      const repository = await this.getRepository(entity);
+      return await repository.findOne({ where: { id } as any });
+    } catch (error) {
+      logger.error('Failed to find by ID', { entity: entity.toString(), id, error });
+      throw error;
+    }
   }
 
-  public async findMany<T extends QueryResultRow = any>(
-    tableName: string,
+  public async findMany<T extends ObjectLiteral>(
+    entity: EntityTarget<T>,
     conditions: Record<string, any> = {},
     options: {
-      columns?: string[];
-      orderBy?: string;
+      orderBy?: Record<string, 'ASC' | 'DESC'>;
       limit?: number;
       offset?: number;
+      relations?: string[];
     } = {}
   ): Promise<T[]> {
-    const columns = options.columns || ['*'];
-    let query = `SELECT ${columns.join(', ')} FROM ${tableName}`;
-    const params: any[] = [];
-    let paramIndex = 1;
+    try {
+      const repository = await this.getRepository(entity);
+      const queryBuilder = repository.createQueryBuilder();
 
-    // Add WHERE conditions
-    if (Object.keys(conditions).length > 0) {
-      const whereConditions = Object.keys(conditions).map(key => {
-        params.push(conditions[key]);
-        return `${key} = $${paramIndex++}`;
+      // Add WHERE conditions
+      Object.keys(conditions).forEach((key, index) => {
+        if (index === 0) {
+          queryBuilder.where(`${key} = :${key}`, { [key]: conditions[key] });
+        } else {
+          queryBuilder.andWhere(`${key} = :${key}`, { [key]: conditions[key] });
+        }
       });
-      query += ` WHERE ${whereConditions.join(' AND ')}`;
-    }
 
-    // Add ORDER BY
-    if (options.orderBy) {
-      query += ` ORDER BY ${options.orderBy}`;
-    }
+      // Add ORDER BY
+      if (options.orderBy) {
+        Object.keys(options.orderBy).forEach(column => {
+          queryBuilder.addOrderBy(column, options.orderBy![column]);
+        });
+      }
 
-    // Add LIMIT
-    if (options.limit) {
-      query += ` LIMIT $${paramIndex++}`;
-      params.push(options.limit);
-    }
+      // Add LIMIT and OFFSET
+      if (options.limit) {
+        queryBuilder.limit(options.limit);
+      }
+      if (options.offset) {
+        queryBuilder.offset(options.offset);
+      }
 
-    // Add OFFSET
-    if (options.offset) {
-      query += ` OFFSET $${paramIndex++}`;
-      params.push(options.offset);
-    }
+      // Add relations
+      if (options.relations) {
+        options.relations.forEach(relation => {
+          queryBuilder.leftJoinAndSelect(relation, relation);
+        });
+      }
 
-    const result = await this.query<T>(query, params);
-    return result.rows;
+      return await queryBuilder.getMany();
+    } catch (error) {
+      logger.error('Failed to find many', { entity: entity.toString(), conditions, error });
+      throw error;
+    }
   }
 
-  public async create<T extends QueryResultRow = any>(
-    tableName: string,
-    data: Record<string, any>,
-    returning: string[] = ['*']
+  public async create<T extends ObjectLiteral>(
+    entity: EntityTarget<T>,
+    data: Partial<T>
   ): Promise<T> {
-    const columns = Object.keys(data);
-    const values = Object.values(data);
-    const placeholders = values.map((_, index) => `$${index + 1}`);
-
-    const query = `
-      INSERT INTO ${tableName} (${columns.join(', ')})
-      VALUES (${placeholders.join(', ')})
-      RETURNING ${returning.join(', ')}
-    `;
-
-    const result = await this.query<T>(query, values);
-    return result.rows[0];
+    try {
+      const repository = await this.getRepository(entity);
+      const newEntity = repository.create(data as any);
+      return await repository.save(newEntity as any);
+    } catch (error) {
+      logger.error('Failed to create', { entity: entity.toString(), data, error });
+      throw error;
+    }
   }
 
-  public async update<T extends QueryResultRow = any>(
-    tableName: string,
+  public async update<T extends ObjectLiteral>(
+    entity: EntityTarget<T>,
     id: string,
-    data: Record<string, any>,
-    returning: string[] = ['*']
+    data: Partial<T>
   ): Promise<T | null> {
-    const columns = Object.keys(data);
-    const values = Object.values(data);
-    const setClause = columns.map((col, index) => `${col} = $${index + 2}`);
-
-    const query = `
-      UPDATE ${tableName}
-      SET ${setClause.join(', ')}, updated_at = NOW()
-      WHERE id = $1
-      RETURNING ${returning.join(', ')}
-    `;
-
-    const result = await this.query<T>(query, [id, ...values]);
-    return result.rows.length > 0 ? result.rows[0] : null;
+    try {
+      const repository = await this.getRepository(entity);
+      await repository.update(id, { ...data, updatedAt: new Date() } as any);
+      return await repository.findOne({ where: { id } as any });
+    } catch (error) {
+      logger.error('Failed to update', { entity: entity.toString(), id, data, error });
+      throw error;
+    }
   }
 
-  public async delete(tableName: string, id: string): Promise<boolean> {
-    const query = `DELETE FROM ${tableName} WHERE id = $1`;
-    const result = await this.query(query, [id]);
-    return (result.rowCount || 0) > 0;
+  public async delete<T extends ObjectLiteral>(
+    entity: EntityTarget<T>,
+    id: string
+  ): Promise<boolean> {
+    try {
+      const repository = await this.getRepository(entity);
+      const result = await repository.delete(id);
+      return (result.affected || 0) > 0;
+    } catch (error) {
+      logger.error('Failed to delete', { entity: entity.toString(), id, error });
+      throw error;
+    }
   }
 
-  public async count(
-    tableName: string,
+  public async count<T extends ObjectLiteral>(
+    entity: EntityTarget<T>,
     conditions: Record<string, any> = {}
   ): Promise<number> {
-    let query = `SELECT COUNT(*) as count FROM ${tableName}`;
-    const params: any[] = [];
-    let paramIndex = 1;
-
-    if (Object.keys(conditions).length > 0) {
-      const whereConditions = Object.keys(conditions).map(key => {
-        params.push(conditions[key]);
-        return `${key} = $${paramIndex++}`;
-      });
-      query += ` WHERE ${whereConditions.join(' AND ')}`;
+    try {
+      const repository = await this.getRepository(entity);
+      return await repository.count({ where: conditions });
+    } catch (error) {
+      logger.error('Failed to count', { entity: entity.toString(), conditions, error });
+      throw error;
     }
-
-    const result = await this.query(query, params);
-    return parseInt(result.rows[0].count);
   }
 
-  // Batch operations
-  public async batchCreate<T extends QueryResultRow = any>(
-    tableName: string,
-    records: Record<string, any>[],
-    returning: string[] = ['*']
+  // Batch operations using TypeORM
+  public async batchCreate<T extends ObjectLiteral>(
+    entity: EntityTarget<T>,
+    records: Partial<T>[]
   ): Promise<T[]> {
     if (records.length === 0) {
       return [];
     }
 
-    const columns = Object.keys(records[0]);
-    const placeholders = records.map((_, recordIndex) => {
-      const recordPlaceholders = columns.map((_, colIndex) => 
-        `$${recordIndex * columns.length + colIndex + 1}`
-      ).join(', ');
-      return `(${recordPlaceholders})`;
-    }).join(', ');
-
-    const query = `
-      INSERT INTO ${tableName} (${columns.join(', ')})
-      VALUES ${placeholders}
-      RETURNING ${returning.join(', ')}
-    `;
-
-    const params = records.flatMap(record => columns.map(col => record[col]));
-    const result = await this.query<T>(query, params);
-    return result.rows;
+    try {
+      const repository = await this.getRepository(entity);
+      const entities = records.map(record => repository.create(record as any));
+      return await repository.save(entities as any);
+    } catch (error) {
+      logger.error('Failed to batch create', { entity: entity.toString(), recordCount: records.length, error });
+      throw error;
+    }
   }
 
-  public async batchUpdate<T extends QueryResultRow = any>(
-    tableName: string,
-    updates: Array<{ id: string; data: Record<string, any> }>,
-    returning: string[] = ['*']
+  public async batchUpdate<T extends ObjectLiteral>(
+    entity: EntityTarget<T>,
+    updates: Array<{ id: string; data: Partial<T> }>
   ): Promise<T[]> {
     if (updates.length === 0) {
       return [];
     }
 
-    return await this.transaction(async (client) => {
+    return await this.transaction(async (manager) => {
+      const repository = manager.getRepository(entity);
       const results: T[] = [];
       
       for (const update of updates) {
-        const columns = Object.keys(update.data);
-        const values = Object.values(update.data);
-        const setClause = columns.map((col, index) => `${col} = $${index + 2}`);
-
-        const query = `
-          UPDATE ${tableName}
-          SET ${setClause.join(', ')}, updated_at = NOW()
-          WHERE id = $1
-          RETURNING ${returning.join(', ')}
-        `;
-
-        const result = await this.queryWithClient<T>(client, query, [update.id, ...values]);
-        if (result.rows.length > 0) {
-          results.push(result.rows[0]);
+        await repository.update(update.id, { ...update.data, updatedAt: new Date() } as any);
+        const result = await repository.findOne({ where: { id: update.id } as any });
+        if (result) {
+          results.push(result);
         }
       }
 
@@ -865,22 +781,899 @@ export class DatabaseService {
     });
   }
 
-  // Database maintenance methods
+  // Database maintenance methods using TypeORM
   public async vacuum(tableName?: string): Promise<void> {
+    const manager = await this.getEntityManager();
     const query = tableName ? `VACUUM ${tableName}` : 'VACUUM';
-    await this.query(query);
+    await manager.query(query);
     logger.info('Database vacuum completed', { tableName });
   }
 
   public async analyze(tableName?: string): Promise<void> {
+    const manager = await this.getEntityManager();
     const query = tableName ? `ANALYZE ${tableName}` : 'ANALYZE';
-    await this.query(query);
+    await manager.query(query);
     logger.info('Database analyze completed', { tableName });
   }
 
   public async reindex(indexName?: string): Promise<void> {
+    const manager = await this.getEntityManager();
     const query = indexName ? `REINDEX INDEX ${indexName}` : 'REINDEX DATABASE';
-    await this.query(query);
+    await manager.query(query);
     logger.info('Database reindex completed', { indexName });
+  }
+
+  // ===== APPROVAL WORKFLOW METHODS =====
+  
+  /**
+   * Create a new approval workflow
+   */
+  public async createApprovalWorkflow(workflowData: {
+    id: string;
+    operationId: string;
+    requiredApprovers: string[];
+    currentApprovers?: string[];
+    status: string;
+    expiresAt?: Date;
+    metadata?: Record<string, any>;
+  }): Promise<ApprovalWorkflow> {
+    return await this.approvalWorkflowRepository.createApprovalWorkflow(workflowData);
+  }
+
+  /**
+   * Get approval workflow by ID
+   */
+  public async getApprovalWorkflow(workflowId: string): Promise<ApprovalWorkflow | null> {
+    return await this.approvalWorkflowRepository.findById(workflowId);
+  }
+
+  /**
+   * Update approval workflow
+   */
+  public async updateApprovalWorkflow(workflowId: string, updates: Partial<ApprovalWorkflow>): Promise<ApprovalWorkflow | null> {
+    return await this.approvalWorkflowRepository.update(workflowId, updates);
+  }
+
+  /**
+   * Get workflows for a user (as approver)
+   */
+  public async getUserApprovalWorkflows(userId: string, status?: string): Promise<ApprovalWorkflow[]> {
+    return await this.approvalWorkflowRepository.getUserApprovalWorkflows(userId, status);
+  }
+
+  /**
+   * Get pending workflows for reminders
+   */
+  public async getPendingWorkflowsForReminders(reminderThreshold: Date): Promise<ApprovalWorkflow[]> {
+    return await this.approvalWorkflowRepository.getPendingWorkflowsForReminders(reminderThreshold);
+  }
+
+  /**
+   * Get expired workflows
+   */
+  public async getExpiredWorkflows(): Promise<ApprovalWorkflow[]> {
+    return await this.approvalWorkflowRepository.getExpiredWorkflows();
+  }
+
+  /**
+   * Create approval decision
+   */
+  public async createApprovalDecision(decisionData: {
+    id: string;
+    workflowId: string;
+    approverId: string;
+    decision: 'approve' | 'reject';
+    conditions?: string[];
+    feedback?: string;
+    decidedAt: Date;
+  }): Promise<ApprovalDecision> {
+    return await this.approvalDecisionRepository.createApprovalDecision(decisionData);
+  }
+
+  /**
+   * Get approval decisions for a workflow
+   */
+  public async getApprovalDecisions(workflowId: string): Promise<ApprovalDecision[]> {
+    return await this.approvalDecisionRepository.getApprovalDecisions(workflowId);
+  }
+
+  // ===== AUDIT EVENT METHODS =====
+
+  /**
+   * Create audit event
+   */
+  public async createAuditEvent(eventData: {
+    id: string;
+    eventType: string;
+    userId?: string;
+    agentId?: string;
+    resourceType?: string;
+    resourceId?: string;
+    details: Record<string, any>;
+    ipAddress?: string;
+    userAgent?: string;
+    riskLevel?: string;
+    timestamp: Date;
+  }): Promise<AuditEvent> {
+    return await this.auditRepository.createAuditEvent(eventData);
+  }
+
+  /**
+   * Query audit events with filters (excludes archived events by default)
+   */
+  public async queryAuditEvents(filters: {
+    eventTypes?: string[];
+    userId?: string;
+    agentId?: string;
+    resourceType?: string;
+    resourceId?: string;
+    startDate?: Date;
+    endDate?: Date;
+    riskLevel?: string;
+    limit?: number;
+    offset?: number;
+    includeArchived?: boolean;
+  }): Promise<AuditEvent[]> {
+    return await this.auditRepository.queryAuditEvents(filters);
+  }
+
+  /**
+   * Count recent events for security monitoring (excludes archived events)
+   */
+  public async countRecentAuditEvents(
+    eventType: string,
+    userId?: string,
+    minutesBack: number = 5,
+    detailsFilter?: Record<string, any>
+  ): Promise<number> {
+    return await this.auditRepository.countRecentAuditEvents(eventType, userId, minutesBack, detailsFilter);
+  }
+
+  /**
+   * Get audit events for date range (for reports, excludes archived events by default)
+   */
+  public async getAuditEventsInRange(startDate: Date, endDate: Date, includeArchived: boolean = false): Promise<AuditEvent[]> {
+    return await this.auditRepository.getAuditEventsInRange(startDate, endDate, includeArchived);
+  }
+
+  /**
+   * Archive old audit events (mark as archived instead of deleting)
+   */
+  public async archiveOldAuditEvents(compressionDate: Date): Promise<number> {
+    return await this.auditRepository.archiveOldAuditEvents(compressionDate);
+  }
+
+  /**
+   * Delete old archived audit events
+   */
+  public async deleteOldArchivedAuditEvents(cutoffDate: Date): Promise<number> {
+    return await this.auditRepository.deleteOldArchivedAuditEvents(cutoffDate);
+  }
+
+  /**
+   * Get audit events excluding archived ones (for normal queries)
+   */
+  public async getActiveAuditEvents(filters: {
+    eventTypes?: string[];
+    userId?: string;
+    agentId?: string;
+    resourceType?: string;
+    resourceId?: string;
+    startDate?: Date;
+    endDate?: Date;
+    riskLevel?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<AuditEvent[]> {
+    return await this.auditRepository.getActiveAuditEvents(filters);
+  }
+
+  /**
+   * Search audit logs with complex filtering and pagination (for auditRoutes)
+   */
+  public async searchAuditLogs(filters: {
+    eventType?: string;
+    userId?: string;
+    startDate?: Date;
+    endDate?: Date;
+    ipAddress?: string;
+    search?: string;
+    sortBy?: 'timestamp' | 'eventType' | 'userId';
+    sortOrder?: 'ASC' | 'DESC';
+    limit?: number;
+    offset?: number;
+  }): Promise<{ logs: any[]; total: number }> {
+    return await this.auditRepository.searchAuditLogs(filters);
+  }
+
+  /**
+   * Get audit log by ID with user details
+   */
+  public async getAuditLogById(logId: string): Promise<any | null> {
+    return await this.auditRepository.getAuditLogById(logId);
+  }
+
+  /**
+   * Get distinct event types with counts
+   */
+  public async getAuditEventTypes(): Promise<Array<{ eventType: string; count: number }>> {
+    return await this.auditRepository.getAuditEventTypes();
+  }
+
+  /**
+   * Get audit statistics for a time period
+   */
+  public async getAuditStatistics(timeframe: '1h' | '24h' | '7d' | '30d' = '24h'): Promise<{
+    eventTypes: Array<{ eventType: string; count: number; uniqueUsers: number; uniqueIPs: number }>;
+    hourlyDistribution: Array<{ hour: number; count: number }>;
+    topUsers: Array<{ userId: string; email: string; eventCount: number }>;
+    topIPAddresses: Array<{ ipAddress: string; eventCount: number; uniqueUsers: number }>;
+    summary: { totalEvents: number; uniqueUsers: number; uniqueIPs: number };
+  }> {
+    return await this.auditRepository.getAuditStatistics(timeframe);
+  }
+
+  /**
+   * Get user activity audit trail with pagination
+   */
+  public async getUserActivityAuditTrail(filters: {
+    userId: string;
+    startDate?: Date;
+    endDate?: Date;
+    eventType?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ activities: any[]; total: number }> {
+    return await this.auditRepository.getUserActivityAuditTrail(filters);
+  }
+
+  // ===== SECURITY POLICY METHODS =====
+
+  /**
+   * Create security policy
+   */
+  public async createSecurityPolicy(policyData: {
+    name: string;
+    description: string;
+    priority: number;
+    isActive: boolean;
+    conditions: any;
+    actions: any;
+    createdBy: string;
+  }): Promise<SecurityPolicy> {
+    return await this.securityPolicyRepository.createSecurityPolicy(policyData);
+  }
+
+  /**
+   * Get security policy by ID
+   */
+  public async getSecurityPolicy(policyId: string): Promise<SecurityPolicy | null> {
+    return await this.securityPolicyRepository.findById(policyId);
+  }
+
+  /**
+   * Update security policy
+   */
+  public async updateSecurityPolicy(policyId: string, updates: Partial<SecurityPolicy>): Promise<SecurityPolicy | null> {
+    return await this.securityPolicyRepository.update(policyId, updates);
+  }
+
+  /**
+   * Delete security policy
+   */
+  public async deleteSecurityPolicy(policyId: string): Promise<boolean> {
+    return await this.securityPolicyRepository.delete(policyId);
+  }
+
+  /**
+   * Query security policies with filters and pagination
+   */
+  public async querySecurityPolicies(filters: {
+    active?: boolean;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ policies: SecurityPolicy[]; total: number }> {
+    return await this.securityPolicyRepository.querySecurityPolicies(filters);
+  }
+
+  /**
+   * Get security policy statistics
+   */
+  public async getSecurityPolicyStats(): Promise<{
+    totalPolicies: number;
+    activePolicies: number;
+    inactivePolicies: number;
+  }> {
+    return await this.securityPolicyRepository.getSecurityPolicyStats();
+  }
+
+  // ===== USER MANAGEMENT METHODS =====
+
+  /**
+   * Create a new user
+   */
+  public async createUser(userData: {
+    email: string;
+    firstName?: string;
+    lastName?: string;
+    department?: string;
+    role: string;
+    passwordHash: string;
+    securityClearance?: SecurityLevel;
+    isActive?: boolean;
+  }): Promise<UserEntity> {
+    await this.ensureInitialized();
+    return this.userRepository.createUser(userData);
+  }
+
+  /**
+   * Get user by ID
+   */
+  public async getUserById(userId: string): Promise<UserEntity | null> {
+    await this.ensureInitialized();
+    return this.userRepository.findById(userId);
+  }
+
+  /**
+   * Get user by email
+   */
+  public async getUserByEmail(email: string): Promise<UserEntity | null> {
+    await this.ensureInitialized();
+    return this.userRepository.getUserByEmail(email);
+  }
+
+  /**
+   * Update user
+   */
+  public async updateUser(userId: string, updates: Partial<UserEntity>): Promise<UserEntity | null> {
+    await this.ensureInitialized();
+    return this.userRepository.update(userId, updates);
+  }
+
+  /**
+   * Update user login attempts and lock status
+   */
+  public async updateUserLoginAttempts(userId: string, failedAttempts: number, lockedUntil?: Date): Promise<void> {
+    return await this.userRepository.updateUserLoginAttempts(userId, failedAttempts, lockedUntil);
+  }
+
+  /**
+   * Reset user login attempts and update last login
+   */
+  public async resetUserLoginAttempts(userId: string): Promise<void> {
+    return await this.userRepository.resetUserLoginAttempts(userId);
+  }
+
+  /**
+   * Soft delete user (deactivate)
+   */
+  public async deactivateUser(userId: string): Promise<void> {
+    return await this.userRepository.deactivateUser(userId);
+  }
+
+  /**
+   * Activate user
+   */
+  public async activateUser(userId: string): Promise<void> {
+    return await this.userRepository.activateUser(userId);
+  }
+
+  /**
+   * Query users with filters and pagination
+   */
+  public async queryUsers(filters: {
+    search?: string;
+    role?: string;
+    isActive?: boolean;
+    department?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ users: UserEntity[]; total: number }> {
+    return await this.userRepository.queryUsers(filters);
+  }
+
+  // ===== REFRESH TOKEN METHODS =====
+
+  /**
+   * Create refresh token
+   */
+  public async createRefreshToken(tokenData: {
+    userId: string;
+    token: string;
+    expiresAt: Date;
+  }): Promise<RefreshTokenEntity> {
+    return await this.refreshTokenRepository.createRefreshToken(tokenData);
+  }
+
+  /**
+   * Get refresh token with user data
+   */
+  public async getRefreshTokenWithUser(token: string): Promise<RefreshTokenEntity | null> {
+    return await this.refreshTokenRepository.getRefreshTokenWithUser(token);
+  }
+
+  /**
+   * Revoke refresh token
+   */
+  public async revokeRefreshToken(token: string): Promise<void> {
+    return await this.refreshTokenRepository.revokeRefreshToken(token);
+  }
+
+  /**
+   * Revoke all user refresh tokens
+   */
+  public async revokeAllUserRefreshTokens(userId: string): Promise<void> {
+    return await this.refreshTokenRepository.revokeAllUserRefreshTokens(userId);
+  }
+
+  /**
+   * Clean up expired refresh tokens
+   */
+  public async cleanupExpiredRefreshTokens(): Promise<number> {
+    return await this.refreshTokenRepository.cleanupExpiredRefreshTokens();
+  }
+
+  /**
+   * Update user login tracking (failed attempts, last login, etc.)
+   */
+  public async updateUserLoginTracking(userId: string, updates: {
+    failedLoginAttempts?: number;
+    lockedUntil?: Date | null;
+    lastLoginAt?: Date;
+  }): Promise<void> {
+    const repository = await this.getRepository(UserEntity);
+    await repository.update(userId, {
+      ...updates,
+      updatedAt: new Date()
+    });
+  }
+
+  /**
+   * Update user password
+   */
+  public async updateUserPassword(userId: string, passwordHash: string): Promise<void> {
+    const repository = await this.getRepository(UserEntity);
+    await repository.update(userId, {
+      passwordHash,
+      passwordChangedAt: new Date(),
+      failedLoginAttempts: 0,
+      lockedUntil: null,
+      updatedAt: new Date()
+    });
+  }
+
+  /**
+   * Search users with filters
+   */
+  public async searchUsers(filters: {
+    search?: string;
+    role?: string;
+    department?: string;
+    isActive?: boolean;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ users: UserEntity[]; total: number }> {
+    return await this.userRepository.searchUsers(filters);
+  }
+
+  /**
+   * Update user profile
+   */
+  public async updateUserProfile(userId: string, updates: {
+    firstName?: string;
+    lastName?: string;
+    department?: string;
+    role?: string;
+    securityClearance?: SecurityLevel;
+    isActive?: boolean;
+  }): Promise<UserEntity | null> {
+    return await this.userRepository.updateUserProfile(userId, updates);
+  }
+
+  /**
+   * Delete user (soft delete by setting inactive)
+   */
+  public async deleteUser(userId: string): Promise<boolean> {
+    const repository = await this.getRepository(UserEntity);
+    const result = await repository.update(userId, {
+      isActive: false,
+      updatedAt: new Date()
+    });
+    return (result.affected || 0) > 0;
+  }
+
+  /**
+   * Get user statistics
+   */
+  public async getUserStats(): Promise<{
+    totalUsers: number;
+    activeUsers: number;
+    inactiveUsers: number;
+    roleStats: Array<{ role: string; count: number }>;
+    departmentStats: Array<{ department: string; count: number }>;
+    recentActivity: Array<{ date: string; loginCount: number }>;
+  }> {
+    return await this.userRepository.getUserStats();
+  }
+
+  // ===== PASSWORD RESET TOKEN METHODS =====
+
+  /**
+   * Create password reset token
+   */
+  public async createPasswordResetToken(tokenData: {
+    userId: string;
+    token: string;
+    expiresAt: Date;
+  }): Promise<PasswordResetTokenEntity> {
+    return await this.passwordResetTokenRepository.createPasswordResetToken(tokenData);
+  }
+
+  /**
+   * Get password reset token with user data
+   */
+  public async getPasswordResetTokenWithUser(token: string): Promise<PasswordResetTokenEntity | null> {
+    return await this.passwordResetTokenRepository.getPasswordResetTokenWithUser(token);
+  }
+
+  /**
+   * Mark password reset token as used
+   */
+  public async markPasswordResetTokenAsUsed(token: string): Promise<void> {
+    return await this.passwordResetTokenRepository.markPasswordResetTokenAsUsed(token);
+  }
+
+  /**
+   * Clean up expired password reset tokens
+   */
+  public async cleanupExpiredPasswordResetTokens(): Promise<number> {
+    return await this.passwordResetTokenRepository.cleanupExpiredPasswordResetTokens();
+  }
+
+  // Backward compatibility methods (DEPRECATED - use TypeORM methods instead)
+  /**
+   * @deprecated Use getRepository() and TypeORM methods instead
+   */
+  public async query<T = any>(
+    text: string, 
+    params?: any[]
+  ): Promise<{ rows: T[]; rowCount: number | null; fields?: any[] }> {
+    logger.warn('DEPRECATED: query() method used. Please migrate to TypeORM repository methods.');
+    
+    try {
+      // Ensure initialization before executing query
+      await this.ensureInitialized();
+      
+      const manager = await this.getEntityManager();
+      const result = await manager.query(text, params);
+      
+      return {
+        rows: Array.isArray(result) ? result : [result],
+        rowCount: Array.isArray(result) ? result.length : 1,
+        fields: []
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Deprecated query method failed', { error: errorMessage });
+      throw new DatabaseError(`Query execution failed: ${errorMessage}`, {
+        originalError: errorMessage
+      });
+    }
+  }
+
+  /**
+   * Get user authentication details for security validation
+   */
+  public async getUserAuthDetails(userId: string): Promise<{
+    id: string;
+    isActive: boolean;
+    role: string;
+    securityClearance?: SecurityLevel;
+  } | null> {
+    return await this.userRepository.getUserAuthDetails(userId);
+  }
+
+  /**
+   * Get user permissions for security validation
+   */
+  public async getUserPermissions(userId: string): Promise<{
+    rolePermissions: Array<{ roleName: string; permissionType: string; operations: string[] }>;
+    directPermissions: Array<{ permissionType: string; operations: string[] }>;
+  }> {
+    return await this.userRepository.getUserPermissions(userId);
+  }
+
+  /**
+   * Get user risk assessment data
+   */
+  public async getUserRiskData(userId: string): Promise<{
+    securityClearance?: SecurityLevel;
+    role: string;
+    lastLoginAt?: Date;
+    createdAt: Date;
+    recentActivityCount: number;
+  } | null> {
+    return await this.userRepository.getUserRiskData(userId);
+  }
+
+  /**
+   * Get user's highest role for data access level determination
+   */
+  public async getUserHighestRole(userId: string): Promise<string | null> {
+    return await this.userRepository.getUserHighestRole(userId);
+  }
+
+  /**
+   * Search discussions with text query and filters
+   */
+  public async searchDiscussions(filters: {
+    textQuery?: string;
+    status?: string | string[];
+    visibility?: string | string[];
+    createdBy?: string | string[];
+    organizationId?: string;
+    teamId?: string;
+    createdAfter?: Date;
+    createdBefore?: Date;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ discussions: any[]; total: number }> {
+    await this.ensureInitialized();
+    return this.discussionRepository.searchDiscussions(filters);
+  }
+
+  /**
+   * Search capabilities with complex filters
+   */
+  public async searchCapabilities(filters: {
+    query?: string;
+    type?: string;
+    securityLevel?: string;
+    limit?: number;
+  }): Promise<any[]> {
+    await this.ensureInitialized();
+    return this.capabilityRepository.searchCapabilities(filters);
+  }
+
+  /**
+   * Get capabilities by IDs
+   */
+  public async getCapabilitiesByIds(capabilityIds: string[]): Promise<any[]> {
+    await this.ensureInitialized();
+    return this.capabilityRepository.getCapabilitiesByIds(capabilityIds);
+  }
+
+  /**
+   * Get single capability by ID
+   */
+  public async getCapabilityById(capabilityId: string): Promise<any | null> {
+    await this.ensureInitialized();
+    return this.capabilityRepository.getCapabilityById(capabilityId);
+  }
+
+  /**
+   * Get capability dependencies
+   */
+  public async getCapabilityDependencies(dependencyIds: string[]): Promise<any[]> {
+    await this.ensureInitialized();
+    return this.capabilityRepository.getCapabilityDependencies(dependencyIds);
+  }
+
+  /**
+   * Get capabilities that depend on a given capability (dependents)
+   */
+  public async getCapabilityDependents(capabilityId: string): Promise<any[]> {
+    await this.ensureInitialized();
+    return this.capabilityRepository.getCapabilityDependents(capabilityId);
+  }
+
+  /**
+   * Advanced capability search with multiple filters
+   */
+  public async searchCapabilitiesAdvanced(searchParams: {
+    query?: string;
+    types?: string[];
+    tags?: string[];
+    securityLevel?: string;
+    includeExperimental?: boolean;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ capabilities: any[]; totalCount: number }> {
+    await this.ensureInitialized();
+    return this.capabilityRepository.searchCapabilitiesAdvanced(searchParams);
+  }
+
+  /**
+   * Get agent configuration and capabilities
+   */
+  public async getAgentCapabilitiesConfig(agentId: string): Promise<{
+    intelligenceConfig?: any;
+    securityContext?: any;
+  } | null> {
+    return await this.agentRepository.getAgentCapabilitiesConfig(agentId);
+  }
+
+  // ===== AGENT INTELLIGENCE METHODS =====
+
+  /**
+   * Get all active agents with limit
+   */
+  public async getActiveAgents(limit?: number): Promise<any[]> {
+    return await this.agentRepository.getActiveAgents(limit);
+  }
+
+  /**
+   * Get agent by ID with active status check
+   */
+  public async getActiveAgentById(agentId: string): Promise<any | null> {
+    return await this.agentRepository.getActiveAgentById(agentId);
+  }
+
+  /**
+   * Create a new agent
+   */
+  public async createAgent(agentData: {
+    id?: string;
+    name: string;
+    role: string;
+    persona: any;
+    intelligenceConfig: any;
+    securityContext: any;
+    createdBy?: string;
+  }): Promise<any> {
+    return await this.agentRepository.createAgent(agentData);
+  }
+
+  /**
+   * Update an agent
+   */
+  public async updateAgent(agentId: string, updateData: {
+    name?: string;
+    role?: string;
+    persona?: any;
+    intelligenceConfig?: any;
+    securityContext?: any;
+  }): Promise<any | null> {
+    return await this.agentRepository.updateAgent(agentId, updateData);
+  }
+
+  /**
+   * Store execution plan
+   */
+  public async storeExecutionPlan(planData: {
+    id: string;
+    type: string;
+    agentId: string;
+    plan?: any;
+    steps?: any;
+    dependencies?: any;
+    estimatedDuration?: number;
+    priority?: string;
+    constraints?: any;
+    metadata?: any;
+    context?: any;
+    createdAt: Date;
+  }): Promise<void> {
+    return await this.agentRepository.storeExecutionPlan(planData);
+  }
+
+  /**
+   * Get operation by ID
+   */
+  public async getOperationById(operationId: string): Promise<any | null> {
+    return await this.agentRepository.getOperationById(operationId);
+  }
+
+  /**
+   * Store enhanced learning record
+   */
+  public async storeEnhancedLearningRecord(recordData: {
+    agentId: string;
+    operationId: string;
+    learningData: any;
+    confidenceAdjustments: any;
+  }): Promise<void> {
+    return await this.agentRepository.storeEnhancedLearningRecord(recordData);
+  }
+
+  /**
+   * Deactivate an agent (set is_active to false)
+   */
+  public async deactivateAgent(agentId: string): Promise<boolean> {
+    return await this.agentRepository.deactivateAgent(agentId);
+  }
+
+  // ===== TOOL MANAGEMENT METHODS =====
+  // All tool management methods delegate to appropriate repositories
+
+  public async createTool(toolData: Partial<ToolDefinition>): Promise<ToolDefinition> {
+    return await this.toolRepository.createTool(toolData);
+  }
+
+  public async getTool(id: string): Promise<ToolDefinition | null> {
+    return await this.toolRepository.findById(id);
+  }
+
+  public async getTools(filters: {
+    category?: string;
+    enabled?: boolean;
+    securityLevel?: string;
+    limit?: number;
+    offset?: number;
+  } = {}): Promise<ToolDefinition[]> {
+    return await this.toolRepository.getTools(filters);
+  }
+
+  public async updateTool(id: string, updates: Partial<ToolDefinition>): Promise<ToolDefinition | null> {
+    return await this.toolRepository.update(id, updates);
+  }
+
+  public async deleteTool(id: string): Promise<boolean> {
+    return await this.toolRepository.delete(id);
+  }
+
+  public async searchTools(searchQuery: string, filters: {
+    category?: string;
+    securityLevel?: string;
+    limit?: number;
+  } = {}): Promise<ToolDefinition[]> {
+    return await this.toolRepository.searchTools(searchQuery, filters);
+  }
+
+  public async createToolExecution(executionData: Partial<ToolExecution>): Promise<ToolExecution> {
+    return await this.toolExecutionRepository.createToolExecution(executionData);
+  }
+
+  public async updateToolExecution(id: string, updates: Partial<ToolExecution>): Promise<ToolExecution | null> {
+    return await this.toolExecutionRepository.update(id, updates);
+  }
+
+  public async getToolExecution(id: string): Promise<ToolExecution | null> {
+    return await this.toolExecutionRepository.getToolExecution(id);
+  }
+
+  public async getToolExecutions(filters: {
+    toolId?: string;
+    agentId?: string;
+    status?: string;
+    limit?: number;
+    offset?: number;
+  } = {}): Promise<ToolExecution[]> {
+    return await this.toolExecutionRepository.getToolExecutions(filters);
+  }
+
+  public async recordToolUsage(usageData: Partial<ToolUsageRecord>): Promise<ToolUsageRecord> {
+    return await this.toolUsageRepository.recordToolUsage(usageData);
+  }
+
+  public async getToolUsageStats(filters: {
+    toolId?: string;
+    agentId?: string;
+    days?: number;
+  } = {}): Promise<any[]> {
+    return await this.toolUsageRepository.getToolUsageStats(filters);
+  }
+
+  private async incrementToolUsageCount(toolId: string): Promise<void> {
+    return await this.toolRepository.incrementToolUsageCount(toolId);
+  }
+
+  public async updateToolSuccessMetrics(toolId: string, wasSuccessful: boolean, executionTime?: number): Promise<void> {
+    return await this.toolRepository.updateToolSuccessMetrics(toolId, wasSuccessful, executionTime);
+  }
+
+  public async getToolPerformanceAnalytics(toolId?: string): Promise<{
+    tools: Array<{
+      id: string;
+      name: string;
+      totalExecutions: number;
+      successfulExecutions: number;
+      successRate: number;
+      averageExecutionTime: number;
+      lastUsedAt: Date;
+    }>;
+  }> {
+    return await this.toolRepository.getToolPerformanceAnalytics(toolId);
   }
 } 
