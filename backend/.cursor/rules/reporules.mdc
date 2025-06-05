@@ -9,7 +9,7 @@ alwaysApply: true
 
 1. **This is a MONOREPO** - always use workspace-based imports, never relative paths across packages
 2. **TypeScript Project References** - each package references others via tsconfig project references
-3. **Path mappings** - use `@shared/*` or similar for shared packages, `@/` for local files
+3. **Path mappings** - use `@uaip/*` or similar for shared packages, `@/` for local files
 4. **Build order matters** - shared packages must be built before packages that depend on them
 
 ## Monorepo Structure:
@@ -30,9 +30,9 @@ backend/
 ### ✅ CORRECT (Monorepo-style):
 ```typescript
 // From orchestration-pipeline importing shared packages
-import { Operation } from '@shared/types/operation';
-import { logger } from '@shared/utils/logger';
-import { DatabaseService } from '@shared/services/databaseService';
+import { Operation } from '@uaip/types/operation';
+import { logger } from '@uaip/utils/logger';
+import { DatabaseService } from '@uaip/shared-services/databaseService';
 
 // Local imports within orchestration-pipeline
 import { config } from '@/config/config';
@@ -55,9 +55,9 @@ import { logger } from '../../../shared/utils/src/logger';
     "baseUrl": "./src",
     "paths": {
       "@/*": ["*"],
-      "@shared/types/*": ["../../shared/types/src/*"],
-      "@shared/utils/*": ["../../shared/utils/src/*"],
-      "@shared/services/*": ["../../shared/services/src/*"]
+      "@uaip/types/*": ["../../shared/types/src/*"],
+      "@uaip/utils/*": ["../../shared/utils/src/*"],
+      "@uaip/shared-services/*": ["../../shared/services/src/*"]
     }
   },
   "references": [

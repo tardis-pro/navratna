@@ -205,7 +205,7 @@ export const sanitizeErrorDetails = (error: ApiError): any => {
 // Create standardized error response
 export const createErrorResponse = (error: Error, requestId?: string) => {
   let statusCode = 500;
-  let response: any = {
+  const response: any = {
     success: false,
     error: {
       message: 'Internal server error',
