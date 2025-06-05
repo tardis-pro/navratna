@@ -89,9 +89,13 @@ export class CapabilityRegistryApp {
       await this.databaseService.initialize();
       logger.info('DatabaseService initialized successfully');
 
-      // Test database connection
-      await this.databaseService.query('SELECT 1', []);
-      logger.info('Database connection verified');
+      // Test database connection using health check
+      const healthCheck = await this.databaseService.healthCheck();
+      if (healthCheck.status === 'healthy') {
+        logger.info('Database connection verified');
+      } else {
+        throw new Error('Database health check failed');
+      }
 
       // Event bus will connect automatically when needed
       logger.info('Event bus ready');

@@ -87,8 +87,11 @@ export class EnhancedAgentIntelligenceService {
       await this.databaseService.initialize();
       logger.info('DatabaseService initialized successfully');
 
-      // Test database connection
-      await this.databaseService.query('SELECT 1', []);
+      // Test database connection using health check
+      const healthCheck = await this.databaseService.healthCheck();
+      if (healthCheck.status !== 'healthy') {
+        throw new Error('Database health check failed');
+      }
       
       // Connect to event bus (optional)
       try {

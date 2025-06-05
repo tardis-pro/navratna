@@ -257,13 +257,25 @@ class OrchestrationPipelineService {
       await this.initializeServices();
       logger.info('Services initialized successfully');
 
-      // Test database connection
-      await this.databaseService.query('SELECT 1', []);
-      logger.info('Database connection verified');
+      // Test TypeORM connection instead of deprecated query method
+      const healthCheck = await this.typeormService.healthCheck();
+      if (healthCheck.status === 'healthy') {
+        logger.info('TypeORM connection verified');
+      } else {
+        logger.warn('TypeORM connection unhealthy, but continuing startup');
+      }
 
-      // Test TypeORM connection
-      await this.typeormService.healthCheck();
-      logger.info('TypeORM connection verified');
+      // Test database service health check instead of direct query
+      try {
+        const dbHealthCheck = await this.databaseService.healthCheck();
+        if (dbHealthCheck.status === 'healthy') {
+          logger.info('Database service connection verified');
+        } else {
+          logger.warn('Database service connection issues, but continuing startup');
+        }
+      } catch (error) {
+        logger.warn('Database service health check failed, but continuing startup:', error instanceof Error ? error.message : 'Unknown error');
+      }
 
       // Event bus will connect automatically when needed
       logger.info('Event bus ready');

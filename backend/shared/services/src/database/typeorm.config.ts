@@ -9,22 +9,35 @@ import { config } from '@uaip/config';
 export const createTypeOrmConfig = (entities?: any[], disableCache = false): DataSourceOptions => {
   const dbConfig = config.database.postgres;
   
-  // Prepare cache configuration conditionally
+  // Prepare cache configuration conditionally with better error handling
   let cacheConfig: any = false;
   if (!disableCache && process.env.NODE_ENV !== 'migration') {
     try {
-      cacheConfig = {
-        type: 'redis',
-        options: {
-          host: config.redis.host,
-          port: config.redis.port,
-          password: config.redis.password,
-          db: config.redis.db + 1, // Use different DB for cache
-        },
-        duration: 30000, // 30 seconds
-      };
+      // Test Redis connection availability before configuring cache
+      const redisConfig = config.redis;
+      if (redisConfig.host && redisConfig.port) {
+        cacheConfig = {
+          type: 'redis',
+          options: {
+            host: redisConfig.host,
+            port: redisConfig.port,
+            password: redisConfig.password,
+            db: redisConfig.db + 1, // Use different DB for cache
+            retryDelayOnFailover: 100,
+            maxRetriesPerRequest: 3,
+            lazyConnect: true, // Don't fail if Redis is not available immediately
+            enableOfflineQueue: false, // Don't queue commands when Redis is offline
+          },
+          duration: 30000, // 30 seconds
+          ignoreErrors: true, // Don't fail TypeORM initialization if Redis fails
+        };
+        console.log('✅ Redis cache configured for TypeORM');
+      } else {
+        console.warn('⚠️  Redis configuration incomplete, proceeding without cache');
+        cacheConfig = false;
+      }
     } catch (error) {
-      console.warn('Redis cache configuration failed, proceeding without cache:', error);
+      console.warn('⚠️  Redis cache configuration failed, proceeding without cache:', error.message);
       cacheConfig = false;
     }
   }
@@ -79,19 +92,32 @@ export const createTypeOrmConfig = (entities?: any[], disableCache = false): Dat
 export const AppDataSource = new DataSource(createTypeOrmConfig());
 
 /**
- * Initialize TypeORM connection
+ * Initialize TypeORM connection with retry logic
  */
-export const initializeDatabase = async (): Promise<DataSource> => {
-  try {
-    if (!AppDataSource.isInitialized) {
-      await AppDataSource.initialize();
-      console.log('✅ TypeORM DataSource initialized successfully');
+export const initializeDatabase = async (maxRetries = 3): Promise<DataSource> => {
+  let lastError: Error;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      if (!AppDataSource.isInitialized) {
+        console.log(`🔄 Attempting to initialize TypeORM DataSource (attempt ${attempt}/${maxRetries})`);
+        await AppDataSource.initialize();
+        console.log('✅ TypeORM DataSource initialized successfully');
+      }
+      return AppDataSource;
+    } catch (error) {
+      lastError = error as Error;
+      console.error(`❌ Error initializing TypeORM DataSource (attempt ${attempt}/${maxRetries}):`, error.message);
+      
+      if (attempt < maxRetries) {
+        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000); // Exponential backoff, max 10s
+        console.log(`⏳ Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
     }
-    return AppDataSource;
-  } catch (error) {
-    console.error('❌ Error initializing TypeORM DataSource:', error);
-    throw error;
   }
+  
+  throw new Error(`Failed to initialize TypeORM after ${maxRetries} attempts. Last error: ${lastError.message}`);
 };
 
 /**
@@ -129,6 +155,7 @@ export const checkDatabaseHealth = async (): Promise<{
     driver: string;
     database: string;
     responseTime?: number;
+    cacheEnabled?: boolean;
   };
 }> => {
   const startTime = Date.now();
@@ -141,6 +168,7 @@ export const checkDatabaseHealth = async (): Promise<{
           connected: false,
           driver: 'postgres',
           database: config.database.postgres.database,
+          cacheEnabled: false,
         },
       };
     }
@@ -157,6 +185,7 @@ export const checkDatabaseHealth = async (): Promise<{
         driver: 'postgres',
         database: config.database.postgres.database,
         responseTime,
+        cacheEnabled: !!AppDataSource.options.cache,
       },
     };
   } catch (error) {
@@ -167,6 +196,7 @@ export const checkDatabaseHealth = async (): Promise<{
         driver: 'postgres',
         database: config.database.postgres.database,
         responseTime: Date.now() - startTime,
+        cacheEnabled: false,
       },
     };
   }

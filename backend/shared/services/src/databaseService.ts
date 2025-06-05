@@ -84,8 +84,7 @@ export class DatabaseService {
     this.typeormService = TypeOrmService.getInstance();
     
     // Don't initialize repositories here - do it lazily when needed
-    // Initialize TypeORM connection asynchronously
-    this.initializeConnection();
+    // Don't initialize connection in constructor - do it explicitly when needed
   }
 
   private async ensureInitialized(): Promise<void> {
@@ -1343,6 +1342,9 @@ export class DatabaseService {
     logger.warn('DEPRECATED: query() method used. Please migrate to TypeORM repository methods.');
     
     try {
+      // Ensure initialization before executing query
+      await this.ensureInitialized();
+      
       const manager = await this.getEntityManager();
       const result = await manager.query(text, params);
       

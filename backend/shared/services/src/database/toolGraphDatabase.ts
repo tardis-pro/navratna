@@ -33,31 +33,111 @@ export interface UsagePattern {
 export class ToolGraphDatabase {
   private driver: Driver;
   private database: string;
+  private isConnected: boolean = false;
+  private connectionRetries: number = 0;
+  private maxRetries: number = 3;
 
   constructor(neo4jConfig?: DatabaseConfig['neo4j']) {
     // Use shared config if no specific config provided
     const dbConfig = neo4jConfig || config.database.neo4j;
     
-    this.driver = neo4j.driver(
-      dbConfig.uri,
-      neo4j.auth.basic(dbConfig.user, dbConfig.password),
-      {
-        maxConnectionPoolSize: dbConfig.maxConnectionPoolSize || 50,
-        connectionTimeout: dbConfig.connectionTimeout || 5000,
-      }
-    );
-    this.database = dbConfig.database || 'neo4j';
+    try {
+      this.driver = neo4j.driver(
+        dbConfig.uri,
+        neo4j.auth.basic(dbConfig.user, dbConfig.password),
+        {
+          maxConnectionPoolSize: dbConfig.maxConnectionPoolSize || 50,
+          connectionTimeout: dbConfig.connectionTimeout || 5000,
+          maxTransactionRetryTime: 15000,
+          logging: {
+            level: 'warn',
+            logger: (level, message) => logger.debug(`Neo4j [${level}]: ${message}`)
+          }
+        }
+      );
+      this.database = dbConfig.database || 'neo4j';
+      
+      logger.info(`Neo4j driver initialized for ${dbConfig.uri}`);
+    } catch (error) {
+      logger.error('Failed to initialize Neo4j driver:', error);
+      throw error;
+    }
   }
 
   async close(): Promise<void> {
-    await this.driver.close();
+    try {
+      if (this.driver) {
+        await this.driver.close();
+        this.isConnected = false;
+        logger.info('Neo4j driver closed successfully');
+      }
+    } catch (error) {
+      logger.error('Error closing Neo4j driver:', error);
+      throw error;
+    }
   }
 
-  async verifyConnectivity(): Promise<void> {
+  async verifyConnectivity(maxRetries = 3): Promise<void> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const session = this.driver.session({ database: this.database });
+      try {
+        logger.info(`🔄 Verifying Neo4j connectivity (attempt ${attempt}/${maxRetries})`);
+        
+        const result = await session.run('RETURN 1 as test');
+        const record = result.records[0];
+        
+        if (record && record.get('test') === 1) {
+          this.isConnected = true;
+          this.connectionRetries = 0;
+          logger.info('✅ Neo4j connectivity verified successfully');
+          return;
+        } else {
+          throw new Error('Invalid response from Neo4j');
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        logger.error(`❌ Neo4j connectivity check failed (attempt ${attempt}/${maxRetries}):`, errorMessage);
+        
+        if (attempt < maxRetries) {
+          const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000); // Exponential backoff, max 5s
+          logger.info(`⏳ Retrying Neo4j connection in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        } else {
+          this.isConnected = false;
+          throw new Error(`Failed to connect to Neo4j after ${maxRetries} attempts. Last error: ${errorMessage}`);
+        }
+      } finally {
+        await session.close();
+      }
+    }
+  }
+
+  private async executeWithRetry<T>(
+    operation: (session: Session) => Promise<T>,
+    operationName: string = 'Neo4j operation'
+  ): Promise<T> {
+    if (!this.isConnected) {
+      try {
+        await this.verifyConnectivity(2); // Quick retry
+      } catch (error) {
+        logger.warn(`${operationName} skipped - Neo4j not available:`, error.message);
+        throw new Error(`Neo4j not available: ${error.message}`);
+      }
+    }
+
     const session = this.driver.session({ database: this.database });
     try {
-      await session.run('RETURN 1');
-      logger.info('Neo4j connectivity verified');
+      return await operation(session);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error(`${operationName} failed:`, errorMessage);
+      
+      // Mark as disconnected if it's a connection error
+      if (errorMessage.includes('connection') || errorMessage.includes('timeout')) {
+        this.isConnected = false;
+      }
+      
+      throw error;
     } finally {
       await session.close();
     }
@@ -65,8 +145,7 @@ export class ToolGraphDatabase {
 
   // Tool Node Operations
   async createToolNode(tool: ToolDefinition): Promise<void> {
-    const session = this.driver.session({ database: this.database });
-    try {
+    return this.executeWithRetry(async (session) => {
       await session.run(
         `MERGE (t:Tool {id: $id})
          SET t.name = $name,
@@ -86,14 +165,11 @@ export class ToolGraphDatabase {
         }
       );
       logger.info(`Tool node created: ${tool.id}`);
-    } finally {
-      await session.close();
-    }
+    }, `Create tool node ${tool.id}`);
   }
 
   async updateToolNode(toolId: string, updates: Partial<ToolDefinition>): Promise<void> {
-    const session = this.driver.session({ database: this.database });
-    try {
+    return this.executeWithRetry(async (session) => {
       const setClause: string[] = ['t.updated_at = datetime()'];
       const params: Record<string, any> = { id: toolId };
 
@@ -118,22 +194,17 @@ export class ToolGraphDatabase {
         `MATCH (t:Tool {id: $id}) SET ${setClause.join(', ')}`,
         params
       );
-    } finally {
-      await session.close();
-    }
+    }, `Update tool node ${toolId}`);
   }
 
   async deleteToolNode(toolId: string): Promise<void> {
-    const session = this.driver.session({ database: this.database });
-    try {
+    return this.executeWithRetry(async (session) => {
       await session.run(
         'MATCH (t:Tool {id: $id}) DETACH DELETE t',
         { id: toolId }
       );
       logger.info(`Tool node deleted: ${toolId}`);
-    } finally {
-      await session.close();
-    }
+    }, `Delete tool node ${toolId}`);
   }
 
   // Tool Relationship Operations
@@ -142,8 +213,7 @@ export class ToolGraphDatabase {
     toToolId: string,
     relationship: ToolRelationship
   ): Promise<void> {
-    const session = this.driver.session({ database: this.database });
-    try {
+    return this.executeWithRetry(async (session) => {
       await session.run(
         `MATCH (t1:Tool {id: $fromId}), (t2:Tool {id: $toId})
          MERGE (t1)-[r:${relationship.type}]->(t2)
@@ -161,14 +231,11 @@ export class ToolGraphDatabase {
         }
       );
       logger.info(`Relationship added: ${fromToolId} -[${relationship.type}]-> ${toToolId}`);
-    } finally {
-      await session.close();
-    }
+    }, `Add tool relationship ${fromToolId} -> ${toToolId}`);
   }
 
   async getRelatedTools(toolId: string, relationshipTypes?: string[], minStrength = 0.5): Promise<ToolDefinition[]> {
-    const session = this.driver.session({ database: this.database });
-    try {
+    return this.executeWithRetry(async (session) => {
       const typeFilter = relationshipTypes && relationshipTypes.length > 0 
         ? `[${relationshipTypes.map(t => `'${t}'`).join('|')}]`
         : '';
@@ -203,9 +270,7 @@ export class ToolGraphDatabase {
         costEstimate: 0,
         author: 'system'
       }));
-    } finally {
-      await session.close();
-    }
+    }, `Get related tools for ${toolId}`);
   }
 
   // Agent Usage Pattern Operations
