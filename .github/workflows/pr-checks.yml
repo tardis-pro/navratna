@@ -1,0 +1,288 @@
+name: PR Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '18'
+  PNPM_VERSION: '8'
+
+jobs:
+  pr-info:
+    name: PR Information
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    steps:
+      - name: PR Info
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            
+            console.log(`PR #${pr.number}: ${pr.title}`);
+            console.log(`Author: ${pr.user.login}`);
+            console.log(`Base: ${pr.base.ref} <- Head: ${pr.head.ref}`);
+            console.log(`Files changed: ${pr.changed_files}`);
+            console.log(`Additions: ${pr.additions}, Deletions: ${pr.deletions}`);
+
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    outputs:
+      frontend: ${{ steps.changes.outputs.frontend }}
+      backend: ${{ steps.changes.outputs.backend }}
+      shared: ${{ steps.changes.outputs.shared }}
+      services: ${{ steps.changes.outputs.services }}
+      docs: ${{ steps.changes.outputs.docs }}
+      workflows: ${{ steps.changes.outputs.workflows }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect changes
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            frontend:
+              - 'src/**'
+              - 'public/**'
+              - 'package.json'
+              - 'vite.config.ts'
+              - 'tsconfig*.json'
+              - 'tailwind.config.ts'
+              - 'eslint.config.js'
+            backend:
+              - 'backend/**'
+            shared:
+              - 'backend/shared/**'
+            services:
+              - 'backend/services/**'
+            docs:
+              - '**/*.md'
+              - 'docs/**'
+            workflows:
+              - '.github/**'
+
+  lint-commits:
+    name: Lint Commit Messages
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install commitlint
+        run: |
+          npm install -g @commitlint/cli @commitlint/config-conventional
+
+      - name: Lint commit messages
+        run: |
+          npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+
+  frontend-checks:
+    name: Frontend Checks
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true' && github.event.pull_request.draft == false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
+
+      - name: Check bundle size
+        uses: andresz1/size-limit-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+  backend-checks:
+    name: Backend Checks
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.backend == 'true' && github.event.pull_request.draft == false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        working-directory: backend
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        working-directory: backend
+        run: pnpm run lint
+
+      - name: Type check
+        working-directory: backend
+        run: pnpm exec tsc --noEmit
+
+      - name: Build shared packages
+        working-directory: backend
+        run: pnpm run build-shared
+
+      - name: Build services
+        working-directory: backend
+        run: pnpm run build-services
+
+  security-checks:
+    name: Security Checks
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit
+        run: npm audit --audit-level moderate
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Backend security audit
+        working-directory: backend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm audit --audit-level moderate
+
+  docs-checks:
+    name: Documentation Checks
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.docs == 'true' && github.event.pull_request.draft == false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install markdownlint
+        run: npm install -g markdownlint-cli
+
+      - name: Lint markdown files
+        run: markdownlint "**/*.md" --ignore node_modules --ignore .git
+
+      - name: Check for broken links
+        uses: gaurav-nelson/github-action-markdown-link-check@v1
+        with:
+          use-quiet-mode: 'yes'
+          use-verbose-mode: 'yes'
+
+  pr-summary:
+    name: PR Summary
+    runs-on: ubuntu-latest
+    needs: [changes, frontend-checks, backend-checks, security-checks, docs-checks]
+    if: always() && github.event.pull_request.draft == false
+    steps:
+      - name: Create PR Summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const results = {
+              frontend: '${{ needs.frontend-checks.result }}',
+              backend: '${{ needs.backend-checks.result }}',
+              security: '${{ needs.security-checks.result }}',
+              docs: '${{ needs.docs-checks.result }}'
+            };
+            
+            const changes = {
+              frontend: '${{ needs.changes.outputs.frontend }}',
+              backend: '${{ needs.changes.outputs.backend }}',
+              docs: '${{ needs.changes.outputs.docs }}'
+            };
+            
+            let summary = '## 🔍 PR Check Summary\n\n';
+            
+            for (const [check, result] of Object.entries(results)) {
+              if (changes[check] === 'true') {
+                const icon = result === 'success' ? '✅' : result === 'failure' ? '❌' : '⏭️';
+                summary += `${icon} **${check.charAt(0).toUpperCase() + check.slice(1)}**: ${result}\n`;
+              }
+            }
+            
+            if (Object.values(changes).every(v => v !== 'true')) {
+              summary += '📝 No significant changes detected\n';
+            }
+            
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            }); 

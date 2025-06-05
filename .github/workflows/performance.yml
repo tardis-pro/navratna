@@ -1,0 +1,229 @@
+name: Performance Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 2 * * 1' # Weekly on Monday at 2 AM
+
+env:
+  NODE_VERSION: '18'
+  PNPM_VERSION: '8'
+
+jobs:
+  frontend-performance:
+    name: Frontend Performance
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build for production
+        run: npm run build
+
+      - name: Analyze bundle size
+        run: |
+          npx vite-bundle-analyzer dist --mode static --report-filename bundle-report.html
+
+      - name: Upload bundle analysis
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundle-analysis
+          path: bundle-report.html
+
+      - name: Run Lighthouse CI
+        uses: treosh/lighthouse-ci-action@v10
+        with:
+          configPath: './.lighthouserc.json'
+          uploadArtifacts: true
+          temporaryPublicStorage: true
+
+  # backend-performance:
+  #   name: Backend Performance
+  #   runs-on: ubuntu-latest
+  #   services:
+  #     postgres:
+  #       image: postgres:15
+  #       env:
+  #         POSTGRES_PASSWORD: test
+  #         POSTGRES_DB: test
+  #       options: >-
+  #         --health-cmd pg_isready
+  #         --health-interval 10s
+  #         --health-timeout 5s
+  #         --health-retries 5
+  #       ports:
+  #         - 5432:5432
+
+  #     redis:
+  #       image: redis:7
+  #       options: >-
+  #         --health-cmd "redis-cli ping"
+  #         --health-interval 10s
+  #         --health-timeout 5s
+  #         --health-retries 5
+  #       ports:
+  #         - 6379:6379
+
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+
+  #     - name: Setup Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: ${{ env.NODE_VERSION }}
+
+  #     - name: Setup pnpm
+  #       uses: pnpm/action-setup@v4
+  #       with:
+  #         version: ${{ env.PNPM_VERSION }}
+
+  #     - name: Install dependencies
+  #       working-directory: backend
+  #       run: pnpm install --frozen-lockfile
+
+  #     - name: Build shared packages
+  #       working-directory: backend
+  #       run: pnpm run build-shared
+
+  #     - name: Build services
+  #       working-directory: backend
+  #       run: pnpm run build-services
+
+  #     - name: Run performance tests
+  #       working-directory: backend
+  #       run: |
+  #         # Start services in background
+  #         pnpm --filter "./services/agent-intelligence" run start &
+  #         pnpm --filter "./services/orchestration-pipeline" run start &
+  #         pnpm --filter "./api-gateway" run start &
+          
+  #         # Wait for services to start
+  #         sleep 30
+          
+  #         # Run performance tests
+  #         pnpm run test:performance
+  #       env:
+  #         DATABASE_URL: postgresql://postgres:test@localhost:5432/test
+  #         REDIS_URL: redis://localhost:6379
+
+  #     - name: Upload performance results
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: backend-performance-results
+  #         path: backend/performance-results/
+
+  # load-testing:
+  #   name: Load Testing
+  #   runs-on: ubuntu-latest
+  #   if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+
+  #     - name: Setup Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: ${{ env.NODE_VERSION }}
+
+  #     - name: Install k6
+  #       run: |
+  #         sudo gpg -k
+  #         sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+  #         echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+  #         sudo apt-get update
+  #         sudo apt-get install k6
+
+  #     - name: Run load tests
+  #       run: |
+  #         # Run load tests against staging environment
+  #         k6 run --out json=results.json backend/tests/load/api-load-test.js
+  #       env:
+  #         API_BASE_URL: ${{ secrets.STAGING_API_URL }}
+
+  #     - name: Upload load test results
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: load-test-results
+  #         path: results.json
+
+  #     - name: Comment PR with results
+  #       if: github.event_name == 'pull_request'
+  #       uses: actions/github-script@v7
+  #       with:
+  #         script: |
+  #           const fs = require('fs');
+  #           const results = JSON.parse(fs.readFileSync('results.json', 'utf8'));
+            
+  #           const comment = `## 🚀 Load Test Results
+            
+  #           - **Virtual Users**: ${results.metrics.vus.value}
+  #           - **Requests**: ${results.metrics.http_reqs.count}
+  #           - **Average Response Time**: ${results.metrics.http_req_duration.avg.toFixed(2)}ms
+  #           - **95th Percentile**: ${results.metrics.http_req_duration['p(95)'].toFixed(2)}ms
+  #           - **Error Rate**: ${(results.metrics.http_req_failed.rate * 100).toFixed(2)}%
+  #           `;
+            
+  #           await github.rest.issues.createComment({
+  #             issue_number: context.issue.number,
+  #             owner: context.repo.owner,
+  #             repo: context.repo.repo,
+  #             body: comment
+  #           });
+
+  # memory-profiling:
+    name: Memory Profiling
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies
+        working-directory: backend
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        working-directory: backend
+        run: |
+          pnpm run build-shared
+          pnpm run build-services
+
+      - name: Run memory profiling
+        working-directory: backend
+        run: |
+          # Install clinic.js for profiling
+          npm install -g clinic
+          
+          # Run memory profiling on key services
+          clinic doctor --on-port 'autocannon localhost:$PORT' -- node services/agent-intelligence/dist/main.js &
+          clinic bubbleprof --on-port 'autocannon localhost:$PORT' -- node services/orchestration-pipeline/dist/main.js &
+          
+          wait
+
+      - name: Upload profiling results
+        uses: actions/upload-artifact@v4
+        with:
+          name: memory-profiling-results
+          path: backend/.clinic/ 

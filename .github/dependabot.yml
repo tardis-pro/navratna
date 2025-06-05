@@ -1,0 +1,190 @@
+version: 2
+updates:
+  # Frontend dependencies
+  - package-ecosystem: "pnpm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "your-team"
+    assignees:
+      - "your-team"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    groups:
+      react:
+        patterns:
+          - "react*"
+          - "@types/react*"
+      radix:
+        patterns:
+          - "@radix-ui/*"
+      dev-dependencies:
+        dependency-type: "development"
+        patterns:
+          - "*"
+
+  # Backend root dependencies
+  - package-ecosystem: "pnpm"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "your-team"
+    assignees:
+      - "your-team"
+    commit-message:
+      prefix: "chore(backend-deps)"
+      include: "scope"
+
+  # Backend shared packages
+  - package-ecosystem: "pnpm"
+    directory: "/backend/shared/types"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "09:00"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(shared-types)"
+
+  - package-ecosystem: "pnpm"
+    directory: "/backend/shared/utils"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "09:00"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(shared-utils)"
+
+  - package-ecosystem: "pnpm"
+    directory: "/backend/shared/services"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "09:00"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(shared-services)"
+
+  - package-ecosystem: "pnpm"
+    directory: "/backend/shared/middleware"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "09:00"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(shared-middleware)"
+
+  - package-ecosystem: "pnpm"
+    directory: "/backend/shared/config"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "09:00"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(shared-config)"
+
+  # Backend services
+  - package-ecosystem: "pnpm"
+    directory: "/backend/services/agent-intelligence"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "09:00"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(agent-intelligence)"
+
+  - package-ecosystem: "pnpm"
+    directory: "/backend/services/orchestration-pipeline"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "09:00"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(orchestration-pipeline)"
+
+  - package-ecosystem: "pnpm"
+    directory: "/backend/services/capability-registry"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "09:00"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(capability-registry)"
+
+  - package-ecosystem: "pnpm"
+    directory: "/backend/services/security-gateway"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "09:00"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(security-gateway)"
+
+  - package-ecosystem: "pnpm"
+    directory: "/backend/services/artifact-service"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "09:00"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(artifact-service)"
+
+  - package-ecosystem: "pnpm"
+    directory: "/backend/services/discussion-orchestration"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "09:00"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(discussion-orchestration)"
+
+  # API Gateway
+  - package-ecosystem: "pnpm"
+    directory: "/backend/api-gateway"
+    schedule:
+      interval: "weekly"
+      day: "thursday"
+      time: "09:00"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(api-gateway)"
+
+  # Docker dependencies
+  - package-ecosystem: "docker"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+      day: "friday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(docker)"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "friday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(actions)" 
