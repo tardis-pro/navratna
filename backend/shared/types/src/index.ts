@@ -12,3 +12,5 @@ export * from './discussion.js';
 export * from './artifact.js';
 // Tool types - NEW
 export * from './tools.js';
+// Knowledge Graph types - NEW
+export * from './knowledge-graph.js';

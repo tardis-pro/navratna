@@ -31,4 +31,10 @@ export type {
   ToolRelationship,
   ToolRecommendation,
   UsagePattern
-} from './database/toolGraphDatabase.js'; 
+} from './database/toolGraphDatabase.js';
+
+// Knowledge Graph Services - NEW
+export * from './knowledge-graph/index.js';
+
+// Agent Memory Services - NEW
+export * from './agent-memory/index.js'; 

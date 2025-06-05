@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
 import { 
-  AgentIntelligenceService,
   CapabilityDiscoveryService,
   SecurityValidationService
 } from '@uaip/shared-services';
@@ -13,14 +12,15 @@ import {
   Agent,
   RiskLevel
 } from '@uaip/types';
+import { EnhancedAgentIntelligenceService } from '../services/enhanced-agent-intelligence.service.js';
 
 export class AgentController {
-  private agentIntelligenceService: AgentIntelligenceService;
+  private agentIntelligenceService: EnhancedAgentIntelligenceService;
   private capabilityDiscoveryService: CapabilityDiscoveryService;
   private securityValidationService: SecurityValidationService;
 
   constructor() {
-    this.agentIntelligenceService = new AgentIntelligenceService();
+    this.agentIntelligenceService = new EnhancedAgentIntelligenceService();
     this.capabilityDiscoveryService = new CapabilityDiscoveryService();
     this.securityValidationService = new SecurityValidationService();
   }

@@ -98,14 +98,16 @@ export interface ConversationSummary {
   confidence: number;
 }
 
+
 export interface Decision {
   id: string;
   description: string;
-  rationale: string;
-  decidedBy: string;
-  decidedAt: string;
+  options: string[];
+  chosen: string;
+  reasoning: string;
+  timestamp: Date;
+  confidence: number;
 }
-
 export interface ActionItem {
   id: string;
   description: string;
