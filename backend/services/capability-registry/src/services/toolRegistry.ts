@@ -2,10 +2,26 @@
 // Combines PostgreSQL and Neo4j for comprehensive tool management
 // Part of capability-registry microservice
 
-import { ToolDefinition } from '@uaip/types';
-import { ToolDatabase, ToolGraphDatabase, ToolRelationship, ToolRecommendation } from '@uaip/shared-services';
+import { ToolDefinition, ToolUsageRecord } from '@uaip/types';
+import { ToolDatabase, ToolGraphDatabase, ToolRelationship, ToolRecommendation, TypeOrmService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { z } from 'zod';
+import { v4 as uuidv4 } from 'uuid';
+
+// Define AgentCapabilityMetric interface locally since it's not exported from types
+interface AgentCapabilityMetric {
+  id: string;
+  agentId: string;
+  toolId: string;
+  totalExecutions: number;
+  successfulExecutions: number;
+  totalExecutionTime: number;
+  averageExecutionTime: number;
+  successRate: number;
+  lastUsed: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 // Validation schemas using Zod
 const ToolDefinitionSchema = z.object({
@@ -37,7 +53,8 @@ const ToolRelationshipSchema = z.object({
 export class ToolRegistry {
   constructor(
     private postgresql: ToolDatabase,
-    private neo4j: ToolGraphDatabase
+    private neo4j: ToolGraphDatabase,
+    private typeormService: TypeOrmService
   ) {}
 
   // Tool Registration and Management
@@ -51,6 +68,28 @@ export class ToolRegistry {
       
       // Create node in Neo4j
       await this.neo4j.createToolNode(validatedTool as ToolDefinition);
+
+      // Create TypeORM ToolDefinition entity for enhanced tracking
+      await this.typeormService.create('ToolDefinition', {
+        id: validatedTool.id,
+        name: validatedTool.name,
+        description: validatedTool.description,
+        version: validatedTool.version,
+        category: validatedTool.category,
+        parameters: validatedTool.parameters,
+        returnType: validatedTool.returnType,
+        securityLevel: validatedTool.securityLevel,
+        requiresApproval: validatedTool.requiresApproval,
+        isEnabled: validatedTool.isEnabled,
+        executionTimeEstimate: validatedTool.executionTimeEstimate,
+        costEstimate: validatedTool.costEstimate,
+        author: validatedTool.author,
+        tags: validatedTool.tags,
+        dependencies: validatedTool.dependencies,
+        examples: validatedTool.examples,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
       
       logger.info(`Tool registered successfully: ${tool.id}`);
     } catch (error) {
@@ -60,6 +99,7 @@ export class ToolRegistry {
       try {
         await this.postgresql.deleteTool(tool.id);
         await this.neo4j.deleteToolNode(tool.id);
+        await this.typeormService.delete('ToolDefinition', tool.id);
       } catch (cleanupError) {
         logger.error(`Failed to cleanup after registration failure:`, cleanupError);
       }
@@ -78,6 +118,12 @@ export class ToolRegistry {
       
       // Update node in Neo4j
       await this.neo4j.updateToolNode(id, validatedUpdates);
+
+      // Update TypeORM entity
+      await this.typeormService.update('ToolDefinition', id, {
+        ...validatedUpdates,
+        updatedAt: new Date()
+      });
       
       logger.info(`Tool updated successfully: ${id}`);
     } catch (error) {
@@ -93,6 +139,9 @@ export class ToolRegistry {
       
       // Remove node from Neo4j (detaches all relationships)
       await this.neo4j.deleteToolNode(id);
+
+      // Remove TypeORM entity
+      await this.typeormService.delete('ToolDefinition', id);
       
       logger.info(`Tool unregistered successfully: ${id}`);
     } catch (error) {
@@ -282,6 +331,138 @@ export class ToolRegistry {
         postgresql: false,
         neo4j: false
       };
+    }
+  }
+
+  // Enhanced Tool Usage Tracking
+  async recordToolUsage(
+    toolId: string,
+    agentId: string,
+    executionTime: number,
+    success: boolean,
+    cost?: number,
+    metadata?: any
+  ): Promise<void> {
+    try {
+      const usageRecord: Partial<ToolUsageRecord> = {
+        toolId,
+        agentId,
+        executionTime,
+        success,
+        cost: cost || 0,
+        timestamp: new Date(),
+        metadata: metadata || {}
+      };
+
+      await this.typeormService.create('ToolUsageRecord', usageRecord);
+      
+      // Update capability metrics
+      await this.updateCapabilityMetrics(agentId, toolId, success, executionTime);
+      
+      logger.debug(`Tool usage recorded: ${toolId} by ${agentId}`);
+    } catch (error) {
+      logger.error(`Failed to record tool usage:`, error);
+      // Don't throw - usage tracking shouldn't break tool execution
+    }
+  }
+
+  private async updateCapabilityMetrics(
+    agentId: string,
+    toolId: string,
+    success: boolean,
+    executionTime: number
+  ): Promise<void> {
+    try {
+      // Get existing metric using repository
+      const repository = this.typeormService.agentCapabilityMetricRepository;
+      let metric = await repository.findOne({
+        where: { agentId, toolId }
+      });
+
+      if (metric) {
+        // Update existing metric
+        const totalExecutions = metric.totalExecutions + 1;
+        const successfulExecutions = metric.successfulExecutions + (success ? 1 : 0);
+        const totalExecutionTime = metric.totalExecutionTime + executionTime;
+
+        await this.typeormService.update('AgentCapabilityMetric', metric.id, {
+          totalExecutions,
+          successfulExecutions,
+          totalExecutionTime,
+          averageExecutionTime: totalExecutionTime / totalExecutions,
+          successRate: successfulExecutions / totalExecutions,
+          lastUsed: new Date(),
+          updatedAt: new Date()
+        });
+      } else {
+        // Create new metric
+        const newMetric: Partial<AgentCapabilityMetric> = {
+          id: uuidv4(),
+          agentId,
+          toolId,
+          totalExecutions: 1,
+          successfulExecutions: success ? 1 : 0,
+          totalExecutionTime: executionTime,
+          averageExecutionTime: executionTime,
+          successRate: success ? 1.0 : 0.0,
+          lastUsed: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+
+        await this.typeormService.create('AgentCapabilityMetric', newMetric);
+      }
+    } catch (error) {
+      logger.error(`Failed to update capability metrics:`, error);
+    }
+  }
+
+  // Enhanced Analytics with TypeORM
+  async getAgentCapabilityMetrics(agentId: string): Promise<AgentCapabilityMetric[]> {
+    try {
+      const repository = this.typeormService.agentCapabilityMetricRepository;
+      return await repository.find({
+        where: { agentId }
+      });
+    } catch (error) {
+      logger.error(`Failed to get capability metrics for agent ${agentId}:`, error);
+      return [];
+    }
+  }
+
+  async getToolUsageStats(toolId: string, days = 30): Promise<any> {
+    try {
+      const since = new Date();
+      since.setDate(since.getDate() - days);
+
+      const repository = this.typeormService.toolUsageRecordRepository;
+      const usageRecords = await repository.find({
+        where: { 
+          toolId,
+          timestamp: { $gte: since }
+        }
+      });
+
+      const totalUsage = usageRecords.length;
+      const successfulUsage = usageRecords.filter((r: any) => r.success).length;
+      const totalCost = usageRecords.reduce((sum: number, r: any) => sum + (r.cost || 0), 0);
+      const avgExecutionTime = usageRecords.length > 0 
+        ? usageRecords.reduce((sum: number, r: any) => sum + r.executionTime, 0) / usageRecords.length 
+        : 0;
+
+      return {
+        toolId,
+        period: `${days} days`,
+        totalUsage,
+        successfulUsage,
+        successRate: totalUsage > 0 ? successfulUsage / totalUsage : 0,
+        totalCost,
+        averageExecutionTime: avgExecutionTime,
+        uniqueAgents: new Set(usageRecords.map((r: any) => r.agentId)).size
+      };
+    } catch (error) {
+      logger.error(`Failed to get tool usage stats for ${toolId}:`, error);
+      return null;
     }
   }
 } 

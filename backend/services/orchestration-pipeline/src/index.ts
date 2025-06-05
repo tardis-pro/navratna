@@ -11,7 +11,8 @@ import {
   StateManagerService, 
   ResourceManagerService, 
   StepExecutorService, 
-  CompensationService 
+  CompensationService,
+  TypeOrmService
 } from '@uaip/shared-services';
 import { OrchestrationEngine } from './orchestrationEngine.js';
 // import { orchestrationRoutes } from './routes/orchestrationRoutes.js';
@@ -25,19 +26,22 @@ class OrchestrationPipelineService {
   private resourceManagerService!: ResourceManagerService;
   private stepExecutorService!: StepExecutorService;
   private compensationService!: CompensationService;
+  private typeormService!: TypeOrmService;
   private orchestrationEngine!: OrchestrationEngine; // Using definite assignment assertion
 
   constructor() {
     this.app = express();
-    this.initializeServices();
     this.setupMiddleware();
     this.setupRoutes();
     this.setupErrorHandling();
   }
 
-  private initializeServices(): void {
+  private async initializeServices(): Promise<void> {
     // Initialize core services first
     this.databaseService = new DatabaseService();
+    this.typeormService = TypeOrmService.getInstance();
+    await this.typeormService.initialize();
+    
     this.eventBusService = new EventBusService({
       url: process.env.RABBITMQ_URL || 'amqp://localhost',
       serviceName: 'orchestration-pipeline'
@@ -56,7 +60,8 @@ class OrchestrationPipelineService {
       this.stateManagerService,
       this.resourceManagerService,
       this.stepExecutorService,
-      this.compensationService
+      this.compensationService,
+      this.typeormService
     );
   }
 
@@ -245,9 +250,17 @@ class OrchestrationPipelineService {
 
   public async start(): Promise<void> {
     try {
+      // Initialize services first
+      await this.initializeServices();
+      logger.info('Services initialized successfully');
+
       // Test database connection
       await this.databaseService.query('SELECT 1', []);
       logger.info('Database connection verified');
+
+      // Test TypeORM connection
+      await this.typeormService.healthCheck();
+      logger.info('TypeORM connection verified');
 
       // Event bus will connect automatically when needed
       logger.info('Event bus ready');
@@ -270,6 +283,11 @@ class OrchestrationPipelineService {
     try {
       // Note: gracefulShutdown is private in OrchestrationEngine, so we'll handle shutdown differently
       // The OrchestrationEngine has its own signal handlers for graceful shutdown
+      
+      // Close TypeORM connection
+      if (this.typeormService) {
+        await this.typeormService.close();
+      }
       
       // Close connections if methods exist
       if (this.eventBusService && typeof this.eventBusService.close === 'function') {

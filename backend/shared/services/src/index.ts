@@ -1,7 +1,11 @@
 // Database Services
 export { DatabaseService } from './databaseService.js';
-export { ToolDatabase } from './database/toolDatabase.js';
-export { ToolGraphDatabase } from './database/toolGraphDatabase.js';
+export { TypeOrmService, typeormService } from './typeormService.js';
+
+// All Database-related exports (TypeORM, services, types)
+export * from './database/index.js';
+
+// TypeORM Entities
 
 // Agent Intelligence Services  
 export { AgentIntelligenceService } from './agentIntelligenceService.js';

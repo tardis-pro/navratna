@@ -8,7 +8,7 @@ import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
 import { config } from './config/config.js';
-import { ToolDatabase, ToolGraphDatabase } from '@uaip/shared-services';
+import { ToolDatabase, ToolGraphDatabase, TypeOrmService } from '@uaip/shared-services';
 import { ToolRegistry } from './services/toolRegistry.js';
 import { ToolExecutor } from './services/toolExecutor.js';
 import { BaseToolExecutor } from './services/baseToolExecutor.js';
@@ -21,6 +21,7 @@ class CapabilityRegistryService {
   private app: express.Application;
   private postgresql: ToolDatabase;
   private neo4j: ToolGraphDatabase;
+  private typeormService: TypeOrmService;
   private toolRegistry: ToolRegistry;
   private toolExecutor: ToolExecutor;
   private baseExecutor: BaseToolExecutor;
@@ -28,6 +29,7 @@ class CapabilityRegistryService {
 
   constructor() {
     this.app = express();
+    this.typeormService = TypeOrmService.getInstance();
     this.setupMiddleware();
   }
 
@@ -80,6 +82,10 @@ class CapabilityRegistryService {
     try {
       logger.info('Initializing Capability Registry Service...');
 
+      // Initialize TypeORM first
+      await this.typeormService.initialize();
+      logger.info('TypeORM service initialized');
+
       // Initialize databases
       await this.initializeDatabases();
 
@@ -118,15 +124,16 @@ class CapabilityRegistryService {
     // Initialize base tool executor
     this.baseExecutor = new BaseToolExecutor();
 
-    // Initialize tool registry
-    this.toolRegistry = new ToolRegistry(this.postgresql, this.neo4j);
+    // Initialize tool registry with TypeORM service
+    this.toolRegistry = new ToolRegistry(this.postgresql, this.neo4j, this.typeormService);
 
-    // Initialize tool executor
+    // Initialize tool executor with TypeORM service
     this.toolExecutor = new ToolExecutor(
       this.postgresql,
       this.neo4j,
       this.toolRegistry,
-      this.baseExecutor
+      this.baseExecutor,
+      this.typeormService
     );
 
     // Initialize controller
@@ -264,6 +271,12 @@ class CapabilityRegistryService {
       if (this.neo4j) {
         await this.neo4j.close();
         logger.info('Neo4j connection closed');
+      }
+
+      // Close TypeORM connection
+      if (this.typeormService) {
+        await this.typeormService.close();
+        logger.info('TypeORM connection closed');
       }
 
       logger.info('Capability Registry Service shut down successfully');

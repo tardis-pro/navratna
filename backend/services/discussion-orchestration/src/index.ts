@@ -7,7 +7,7 @@ import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 
 import { logger } from '@uaip/utils';
-import { DatabaseService, EventBusService } from '@uaip/shared-services';
+import { DatabaseService, EventBusService, TypeOrmService } from '@uaip/shared-services';
 import { authMiddleware, errorHandler, defaultRequestLogger } from '@uaip/middleware';
 
 import { config } from './config/index.js';
@@ -20,6 +20,7 @@ class DiscussionOrchestrationServer {
   private io!: SocketIOServer;
   private orchestrationService: DiscussionOrchestrationService;
   private databaseService: DatabaseService;
+  private typeormService: TypeOrmService;
   private eventBusService: EventBusService;
   private isShuttingDown: boolean = false;
 
@@ -29,6 +30,7 @@ class DiscussionOrchestrationServer {
     
     // Initialize services
     this.databaseService = new DatabaseService();
+    this.typeormService = TypeOrmService.getInstance();
     this.eventBusService = new EventBusService(
       {
         url: process.env.RABBITMQ_URL || 'amqp://localhost:5672',
@@ -40,7 +42,8 @@ class DiscussionOrchestrationServer {
     );
     this.orchestrationService = new DiscussionOrchestrationService(
       this.databaseService as any, // DiscussionService would be injected here
-      this.eventBusService
+      this.eventBusService,
+      undefined // webSocketHandler
     );
 
     this.setupMiddleware();
@@ -231,39 +234,33 @@ class DiscussionOrchestrationServer {
 
   public async start(): Promise<void> {
     try {
-      // Initialize database tables
-      await this.databaseService.initializeTables();
-      logger.info('Database tables initialized');
+      logger.info('Starting Discussion Orchestration Service...');
 
-      // Connect to event bus
+      // Initialize TypeORM first
+      await this.typeormService.initialize();
+      logger.info('TypeORM service initialized successfully');
+
+      // Initialize event bus
       await this.eventBusService.connect();
-      logger.info('Connected to event bus');
+      logger.info('Event bus connected successfully');
 
       // Start the server
-      const port = config.discussionOrchestration.port;
-      
-      await new Promise<void>((resolve, reject) => {
-        this.server.listen(port, (error?: Error) => {
-          if (error) {
-            reject(error);
-          } else {
-            resolve();
-          }
+      const port = config.discussionOrchestration.port || 3005;
+      this.server.listen(port, () => {
+        logger.info(`Discussion Orchestration Service started on port ${port}`, {
+          port,
+          environment: process.env.NODE_ENV || 'development',
+          timestamp: new Date().toISOString(),
+          websocketEnabled: config.discussionOrchestration.websocket.enabled
         });
       });
 
-      logger.info(`Discussion Orchestration Service started successfully`, {
-        port,
-        environment: process.env.NODE_ENV || 'development',
-        websocketEnabled: config.discussionOrchestration.websocket.enabled,
-        pid: process.pid
-      });
+      // Setup graceful shutdown
+      this.setupGracefulShutdown();
 
     } catch (error) {
-      logger.error('Failed to start Discussion Orchestration Service', {
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-      throw error;
+      logger.error('Failed to start Discussion Orchestration Service', { error });
+      process.exit(1);
     }
   }
 
@@ -274,55 +271,73 @@ class DiscussionOrchestrationServer {
     }
 
     this.isShuttingDown = true;
-    logger.info('Starting graceful shutdown of Discussion Orchestration Service');
+    logger.info('Shutting down Discussion Orchestration Service...');
 
-    // Close WebSocket server
     try {
+      // Close WebSocket connections
       if (this.io) {
         this.io.close();
         logger.info('WebSocket server closed');
       }
-    } catch (error) {
-      logger.error('Error closing WebSocket server', {
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
 
-    // Close HTTP server
-    try {
-      await new Promise<void>((resolve) => {
-        this.server.close(() => {
-          logger.info('HTTP server closed');
-          resolve();
+      // Close HTTP server
+      if (this.server) {
+        await new Promise<void>((resolve, reject) => {
+          this.server.close((err: any) => {
+            if (err) reject(err);
+            else resolve();
+          });
         });
-      });
-    } catch (error) {
-      logger.error('Error closing HTTP server', {
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
+        logger.info('HTTP server closed');
+      }
 
-    // Close event bus connection
-    try {
-      await this.eventBusService.close();
-      logger.info('Event bus connection closed');
-    } catch (error) {
-      logger.error('Error closing event bus connection', {
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
+      // Cleanup orchestration service
+      if (this.orchestrationService) {
+        await this.orchestrationService.cleanup();
+        logger.info('Orchestration service cleaned up');
+      }
 
-    // Close database connection
-    try {
-      await this.databaseService.close();
-      logger.info('Database connection closed');
-    } catch (error) {
-      logger.error('Error closing database connection', {
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
+      // Close event bus
+      if (this.eventBusService) {
+        await this.eventBusService.close();
+        logger.info('Event bus disconnected');
+      }
 
-    logger.info('Discussion Orchestration Service shutdown completed');
+      // Close TypeORM connection
+      if (this.typeormService) {
+        await this.typeormService.close();
+        logger.info('TypeORM connection closed');
+      }
+
+      logger.info('Discussion Orchestration Service shut down successfully');
+      process.exit(0);
+    } catch (error) {
+      logger.error('Error during shutdown', { error });
+      process.exit(1);
+    }
+  }
+
+  private setupGracefulShutdown(): void {
+    // Graceful shutdown signals
+    process.on('SIGTERM', () => {
+      logger.info('SIGTERM received, starting graceful shutdown');
+      this.shutdown().then(() => {
+        process.exit(0);
+      }).catch((error) => {
+        logger.error('Error during SIGTERM shutdown', { error: error instanceof Error ? error.message : 'Unknown error' });
+        process.exit(1);
+      });
+    });
+
+    process.on('SIGINT', () => {
+      logger.info('SIGINT received, starting graceful shutdown');
+      this.shutdown().then(() => {
+        process.exit(0);
+      }).catch((error) => {
+        logger.error('Error during SIGINT shutdown', { error: error instanceof Error ? error.message : 'Unknown error' });
+        process.exit(1);
+      });
+    });
   }
 
   public getStatus(): any {

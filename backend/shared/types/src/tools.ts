@@ -1,6 +1,51 @@
 // Tool-related type definitions
 // Part of @uaip/types shared package
 
+// Tool enums
+export enum ToolCategory {
+  GENERAL = 'general',
+  DEVELOPMENT = 'development',
+  ANALYSIS = 'analysis',
+  COMMUNICATION = 'communication',
+  AUTOMATION = 'automation',
+  SECURITY = 'security',
+  DATA = 'data',
+  AI = 'ai'
+}
+
+export enum ToolExecutionStatus {
+  PENDING = 'pending',
+  RUNNING = 'running',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+  CANCELLED = 'cancelled',
+  APPROVAL_REQUIRED = 'approval-required'
+}
+
+// Tool type definitions
+export interface JSONSchema {
+  type: string;
+  properties?: Record<string, any>;
+  required?: string[];
+  additionalProperties?: boolean;
+  [key: string]: any;
+}
+
+export interface ToolExample {
+  name: string;
+  description: string;
+  parameters: Record<string, any>;
+  expectedResult?: any;
+}
+
+export interface ToolExecutionError {
+  type: string;
+  message: string;
+  details?: Record<string, any>;
+  recoverable: boolean;
+  suggestedAction?: string;
+}
+
 export interface ToolDefinition {
   id: string;
   name: string;

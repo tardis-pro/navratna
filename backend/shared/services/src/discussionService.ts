@@ -532,7 +532,7 @@ export class DiscussionService {
         {
           limit,
           offset,
-          orderBy: 'createdAt ASC'
+          orderBy: { createdAt: 'ASC' }
         }
       );
 
@@ -697,7 +697,7 @@ export class DiscussionService {
         discussions = await this.databaseService.findMany<Discussion>('discussions', conditions, {
           limit,
           offset,
-          orderBy: 'created_at DESC'
+          orderBy: { created_at: 'DESC' }
         });
 
         total = await this.databaseService.count('discussions', conditions);

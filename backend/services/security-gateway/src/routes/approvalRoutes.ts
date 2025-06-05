@@ -6,8 +6,7 @@ import { validateRequest } from '@uaip/middleware';
 import { authMiddleware, requireOperator } from '@uaip/middleware';
 import { ApprovalWorkflowService } from '../services/approvalWorkflowService.js';
 import { AuditService } from '../services/auditService.js';
-import { DatabaseService } from '@uaip/shared-services';
-import { EventBusService } from '@uaip/shared-services';
+import { DatabaseService, EventBusService } from '@uaip/shared-services';
 import { NotificationService } from '../services/notificationService.js';
 import {
   ApprovalDecision,
@@ -24,7 +23,7 @@ const databaseService = new DatabaseService();
 const eventBusService = new EventBusService(
   {
     url: process.env.RABBITMQ_URL || 'amqp://localhost:5672',
-    serviceName: 'security-gateway'
+    serviceName: 'security-gateway-approval-routes'
   },
   logger
 );

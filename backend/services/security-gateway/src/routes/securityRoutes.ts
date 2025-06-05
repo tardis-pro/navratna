@@ -3,15 +3,14 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
-import { authMiddleware, requireAdmin } from '@uaip/middleware';
+import { authMiddleware, requireAdmin, requireOperator } from '@uaip/middleware';
 import { validateRequest } from '@uaip/middleware';
-import { DatabaseService } from '@uaip/shared-services';
+import { DatabaseService, EventBusService } from '@uaip/shared-services';
 import { AuditService } from '../services/auditService.js';
 import { NotificationService } from '../services/notificationService.js';
-import { AuditEventType } from '@uaip/types';
+import { AuditEventType, SecurityLevel } from '@uaip/types';
 import { SecurityGatewayService } from '../services/securityGatewayService.js';
 import { ApprovalWorkflowService } from '../services/approvalWorkflowService.js';
-import { EventBusService } from '@uaip/shared-services';
 
 const router: Router = express.Router();
 const databaseService = new DatabaseService();
@@ -208,69 +207,29 @@ router.get('/policies', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { page = 1, limit = 20, active, search } = req.query;
     
-    let query = `
-      SELECT id, name, description, priority, is_active, conditions, actions, 
-             created_at, updated_at, created_by
-      FROM security_policies
-      WHERE 1=1
-    `;
-    const params: any[] = [];
-    let paramCount = 0;
-
-    if (active !== undefined) {
-      paramCount++;
-      query += ` AND is_active = $${paramCount}`;
-      params.push(active === 'true');
-    }
-
-    if (search) {
-      paramCount++;
-      query += ` AND (name ILIKE $${paramCount} OR description ILIKE $${paramCount})`;
-      params.push(`%${search}%`);
-    }
-
-    query += ` ORDER BY priority DESC, created_at DESC`;
+    const filters: any = {};
     
-    // Add pagination
-    const offset = (Number(page) - 1) * Number(limit);
-    paramCount++;
-    query += ` LIMIT $${paramCount}`;
-    params.push(Number(limit));
-    
-    paramCount++;
-    query += ` OFFSET $${paramCount}`;
-    params.push(offset);
-
-    const result = await databaseService.query(query, params);
-
-    // Get total count
-    let countQuery = `SELECT COUNT(*) FROM security_policies WHERE 1=1`;
-    const countParams: any[] = [];
-    let countParamCount = 0;
-
     if (active !== undefined) {
-      countParamCount++;
-      countQuery += ` AND is_active = $${countParamCount}`;
-      countParams.push(active === 'true');
+      filters.active = active === 'true';
     }
-
+    
     if (search) {
-      countParamCount++;
-      countQuery += ` AND (name ILIKE $${countParamCount} OR description ILIKE $${countParamCount})`;
-      countParams.push(`%${search}%`);
+      filters.search = search as string;
     }
+    
+    filters.limit = Number(limit);
+    filters.offset = (Number(page) - 1) * Number(limit);
 
-    const countResult = await databaseService.query(countQuery, countParams);
-    const totalCount = parseInt(countResult.rows[0].count);
+    const { policies, total } = await databaseService.querySecurityPolicies(filters);
 
     res.json({
       message: 'Security policies retrieved successfully',
-      policies: result.rows,
+      policies,
       pagination: {
         page: Number(page),
         limit: Number(limit),
-        total: totalCount,
-        pages: Math.ceil(totalCount / Number(limit))
+        total,
+        pages: Math.ceil(total / Number(limit))
       }
     });
 
@@ -292,16 +251,9 @@ router.get('/policies/:policyId', authMiddleware, requireAdmin, async (req, res)
   try {
     const { policyId } = req.params;
 
-    const query = `
-      SELECT id, name, description, priority, is_active, conditions, actions, 
-             created_at, updated_at, created_by
-      FROM security_policies
-      WHERE id = $1
-    `;
+    const policy = await databaseService.getSecurityPolicy(policyId);
     
-    const result = await databaseService.query(query, [policyId]);
-    
-    if (result.rows.length === 0) {
+    if (!policy) {
       return res.status(404).json({
         error: 'Policy Not Found',
         message: 'Security policy not found'
@@ -310,7 +262,7 @@ router.get('/policies/:policyId', authMiddleware, requireAdmin, async (req, res)
 
     res.json({
       message: 'Security policy retrieved successfully',
-      policy: result.rows[0]
+      policy
     });
 
   } catch (error) {
@@ -339,27 +291,16 @@ router.post('/policies', authMiddleware, requireAdmin, async (req, res) => {
 
     const userId = (req as any).user.userId;
 
-    // Create policy
-    const query = `
-      INSERT INTO security_policies (
-        name, description, priority, is_active, conditions, actions, 
-        created_by, created_at, updated_at
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
-      RETURNING *
-    `;
-
-    const result = await databaseService.query(query, [
-      value.name,
-      value.description,
-      value.priority,
-      value.isActive,
-      JSON.stringify(value.conditions),
-      JSON.stringify(value.actions),
-      userId
-    ]);
-
-    const newPolicy = result.rows[0];
+    // Create policy using DatabaseService
+    const newPolicy = await databaseService.createSecurityPolicy({
+      name: value.name,
+      description: value.description,
+      priority: value.priority,
+      isActive: value.isActive,
+      conditions: value.conditions,
+      actions: value.actions,
+      createdBy: userId
+    });
 
     await auditService.logSecurityEvent({
       eventType: AuditEventType.POLICY_CREATED,
@@ -368,7 +309,7 @@ router.post('/policies', authMiddleware, requireAdmin, async (req, res) => {
         policyId: newPolicy.id,
         policyName: newPolicy.name,
         priority: newPolicy.priority,
-        isActive: newPolicy.is_active
+        isActive: newPolicy.isActive
       },
       ipAddress: req.ip,
       userAgent: req.headers['user-agent']
@@ -407,80 +348,31 @@ router.put('/policies/:policyId', authMiddleware, requireAdmin, async (req, res)
     const userId = (req as any).user.userId;
 
     // Check if policy exists
-    const existingPolicy = await databaseService.query(
-      'SELECT * FROM security_policies WHERE id = $1',
-      [policyId]
-    );
+    const existingPolicy = await databaseService.getSecurityPolicy(policyId);
 
-    if (existingPolicy.rows.length === 0) {
+    if (!existingPolicy) {
       return res.status(404).json({
         error: 'Policy Not Found',
         message: 'Security policy not found'
       });
     }
 
-    // Build update query dynamically
-    const updateFields: string[] = [];
-    const updateValues: any[] = [];
-    let paramCount = 0;
-
-    if (value.name !== undefined) {
-      paramCount++;
-      updateFields.push(`name = $${paramCount}`);
-      updateValues.push(value.name);
-    }
-
-    if (value.description !== undefined) {
-      paramCount++;
-      updateFields.push(`description = $${paramCount}`);
-      updateValues.push(value.description);
-    }
-
-    if (value.priority !== undefined) {
-      paramCount++;
-      updateFields.push(`priority = $${paramCount}`);
-      updateValues.push(value.priority);
-    }
-
-    if (value.isActive !== undefined) {
-      paramCount++;
-      updateFields.push(`is_active = $${paramCount}`);
-      updateValues.push(value.isActive);
-    }
-
-    if (value.conditions !== undefined) {
-      paramCount++;
-      updateFields.push(`conditions = $${paramCount}`);
-      updateValues.push(JSON.stringify(value.conditions));
-    }
-
-    if (value.actions !== undefined) {
-      paramCount++;
-      updateFields.push(`actions = $${paramCount}`);
-      updateValues.push(JSON.stringify(value.actions));
-    }
-
-    if (updateFields.length === 0) {
+    if (Object.keys(value).length === 0) {
       return res.status(400).json({
         error: 'No Updates',
         message: 'No valid fields provided for update'
       });
     }
 
-    paramCount++;
-    updateFields.push(`updated_at = NOW()`);
-    
-    paramCount++;
-    const updateQuery = `
-      UPDATE security_policies 
-      SET ${updateFields.join(', ')}
-      WHERE id = $${paramCount}
-      RETURNING *
-    `;
-    updateValues.push(policyId);
+    // Update policy using DatabaseService
+    const updatedPolicy = await databaseService.updateSecurityPolicy(policyId, value);
 
-    const result = await databaseService.query(updateQuery, updateValues);
-    const updatedPolicy = result.rows[0];
+    if (!updatedPolicy) {
+      return res.status(500).json({
+        error: 'Update Failed',
+        message: 'Failed to update security policy'
+      });
+    }
 
     await auditService.logSecurityEvent({
       eventType: AuditEventType.POLICY_UPDATED,
@@ -490,7 +382,7 @@ router.put('/policies/:policyId', authMiddleware, requireAdmin, async (req, res)
         policyName: updatedPolicy.name,
         changes: Object.keys(value),
         priority: updatedPolicy.priority,
-        isActive: updatedPolicy.is_active
+        isActive: updatedPolicy.isActive
       },
       ipAddress: req.ip,
       userAgent: req.headers['user-agent']
@@ -521,34 +413,33 @@ router.delete('/policies/:policyId', authMiddleware, requireAdmin, async (req, r
     const userId = (req as any).user.userId;
 
     // Check if policy exists
-    const existingPolicy = await databaseService.query(
-      'SELECT * FROM security_policies WHERE id = $1',
-      [policyId]
-    );
+    const existingPolicy = await databaseService.getSecurityPolicy(policyId);
 
-    if (existingPolicy.rows.length === 0) {
+    if (!existingPolicy) {
       return res.status(404).json({
         error: 'Policy Not Found',
         message: 'Security policy not found'
       });
     }
 
-    const policy = existingPolicy.rows[0];
+    // Delete policy using DatabaseService
+    const deleted = await databaseService.deleteSecurityPolicy(policyId);
 
-    // Delete policy
-    await databaseService.query(
-      'DELETE FROM security_policies WHERE id = $1',
-      [policyId]
-    );
+    if (!deleted) {
+      return res.status(500).json({
+        error: 'Delete Failed',
+        message: 'Failed to delete security policy'
+      });
+    }
 
     await auditService.logSecurityEvent({
       eventType: AuditEventType.POLICY_DELETED,
       userId,
       details: {
-        policyId: policy.id,
-        policyName: policy.name,
-        priority: policy.priority,
-        wasActive: policy.is_active
+        policyId: existingPolicy.id,
+        policyName: existingPolicy.name,
+        priority: existingPolicy.priority,
+        wasActive: existingPolicy.isActive
       },
       ipAddress: req.ip,
       userAgent: req.headers['user-agent']
@@ -576,78 +467,90 @@ router.get('/stats', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { timeframe = '24h' } = req.query;
     
-    let timeCondition = '';
+    let startDate: Date;
+    const endDate = new Date();
+    
     switch (timeframe) {
       case '1h':
-        timeCondition = "created_at >= NOW() - INTERVAL '1 hour'";
+        startDate = new Date(endDate.getTime() - 60 * 60 * 1000);
         break;
       case '24h':
-        timeCondition = "created_at >= NOW() - INTERVAL '24 hours'";
+        startDate = new Date(endDate.getTime() - 24 * 60 * 60 * 1000);
         break;
       case '7d':
-        timeCondition = "created_at >= NOW() - INTERVAL '7 days'";
+        startDate = new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000);
         break;
       case '30d':
-        timeCondition = "created_at >= NOW() - INTERVAL '30 days'";
+        startDate = new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000);
         break;
       default:
-        timeCondition = "created_at >= NOW() - INTERVAL '24 hours'";
+        startDate = new Date(endDate.getTime() - 24 * 60 * 60 * 1000);
     }
 
-    // Get security event statistics
-    const eventStatsQuery = `
-      SELECT 
-        event_type,
-        COUNT(*) as count
-      FROM security_audit_logs 
-      WHERE ${timeCondition}
-      GROUP BY event_type
-      ORDER BY count DESC
-    `;
+    // Get security event statistics using DatabaseService
+    const eventStats = await databaseService.queryAuditEvents({
+      startDate,
+      endDate,
+      limit: 1000
+    });
 
-    const eventStats = await databaseService.query(eventStatsQuery);
+    // Group events by type
+    const eventsByType = eventStats.reduce((acc: Record<string, number>, event) => {
+      acc[event.eventType] = (acc[event.eventType] || 0) + 1;
+      return acc;
+    }, {});
 
     // Get risk assessment statistics
-    const riskStatsQuery = `
-      SELECT 
-        COUNT(*) as total_assessments,
-        AVG(CAST(details->>'riskScore' AS FLOAT)) as avg_risk_score,
-        COUNT(CASE WHEN CAST(details->>'riskScore' AS FLOAT) >= 70 THEN 1 END) as high_risk_count,
-        COUNT(CASE WHEN CAST(details->>'riskScore' AS FLOAT) BETWEEN 40 AND 69 THEN 1 END) as medium_risk_count,
-        COUNT(CASE WHEN CAST(details->>'riskScore' AS FLOAT) < 40 THEN 1 END) as low_risk_count
-      FROM security_audit_logs 
-      WHERE event_type = 'RISK_ASSESSMENT' AND ${timeCondition}
-    `;
+    const riskAssessmentEvents = await databaseService.queryAuditEvents({
+      eventTypes: ['RISK_ASSESSMENT'],
+      startDate,
+      endDate,
+      limit: 1000
+    });
 
-    const riskStats = await databaseService.query(riskStatsQuery);
+    const riskStats = riskAssessmentEvents.reduce((acc, event) => {
+      const riskScore = event.details?.riskScore;
+      if (typeof riskScore === 'number') {
+        acc.totalAssessments++;
+        acc.totalRiskScore += riskScore;
+        
+        if (riskScore >= 70) acc.highRiskCount++;
+        else if (riskScore >= 40) acc.mediumRiskCount++;
+        else acc.lowRiskCount++;
+      }
+      return acc;
+    }, {
+      totalAssessments: 0,
+      totalRiskScore: 0,
+      highRiskCount: 0,
+      mediumRiskCount: 0,
+      lowRiskCount: 0
+    });
 
-    // Get active policies count
-    const policyStatsQuery = `
-      SELECT 
-        COUNT(*) as total_policies,
-        COUNT(CASE WHEN is_active = true THEN 1 END) as active_policies,
-        COUNT(CASE WHEN is_active = false THEN 1 END) as inactive_policies
-      FROM security_policies
-    `;
-
-    const policyStats = await databaseService.query(policyStatsQuery);
+    // Get active policies count using DatabaseService
+    const policyStats = await databaseService.getSecurityPolicyStats();
 
     res.json({
       message: 'Security statistics retrieved successfully',
       timeframe,
       statistics: {
-        events: eventStats.rows,
-        riskAssessments: riskStats.rows[0] || {
-          total_assessments: 0,
-          avg_risk_score: 0,
-          high_risk_count: 0,
-          medium_risk_count: 0,
-          low_risk_count: 0
+        events: Object.entries(eventsByType).map(([eventType, count]) => ({
+          event_type: eventType,
+          count
+        })),
+        riskAssessments: {
+          total_assessments: riskStats.totalAssessments,
+          avg_risk_score: riskStats.totalAssessments > 0 
+            ? riskStats.totalRiskScore / riskStats.totalAssessments 
+            : 0,
+          high_risk_count: riskStats.highRiskCount,
+          medium_risk_count: riskStats.mediumRiskCount,
+          low_risk_count: riskStats.lowRiskCount
         },
-        policies: policyStats.rows[0] || {
-          total_policies: 0,
-          active_policies: 0,
-          inactive_policies: 0
+        policies: {
+          total_policies: policyStats.totalPolicies,
+          active_policies: policyStats.activePolicies,
+          inactive_policies: policyStats.inactivePolicies
         }
       }
     });

@@ -167,8 +167,7 @@ class SecurityGatewayServer {
 
   public async start(): Promise<void> {
     try {
-      // Initialize database connection - DatabaseService doesn't have connect method
-      // await this.databaseService.connect();
+      // Database service is initialized in constructor
       logger.info('Database service initialized successfully');
 
       // Initialize event bus
@@ -210,6 +209,8 @@ class SecurityGatewayServer {
       } catch (error) {
         logger.error('Error closing database connection', { error });
       }
+
+      // TypeORM connection is managed by DatabaseService
 
       // Close event bus connections
       try {

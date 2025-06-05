@@ -3,7 +3,7 @@
 // Part of capability-registry microservice
 
 import { ToolExecution, ToolUsageRecord } from '@uaip/types';
-import { ToolDatabase, ToolGraphDatabase, UsagePattern } from '@uaip/shared-services';
+import { ToolDatabase, ToolGraphDatabase, UsagePattern, TypeOrmService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { ToolRegistry } from './toolRegistry.js';
 import { BaseToolExecutor } from './baseToolExecutor.js';
@@ -31,7 +31,8 @@ export class ToolExecutor {
     private postgresql: ToolDatabase,
     private neo4j: ToolGraphDatabase,
     private toolRegistry: ToolRegistry,
-    private baseExecutor: BaseToolExecutor
+    private baseExecutor: BaseToolExecutor,
+    private typeormService: TypeOrmService
   ) {}
 
   async executeTool(
@@ -141,8 +142,9 @@ export class ToolExecutor {
         cost: execution.cost
       });
 
-      // Record successful usage
+      // Record successful usage with enhanced TypeORM tracking
       await this.recordUsage(execution, true);
+      await this.recordToolUsageWithTypeORM(execution, true, executionTime);
       await this.updateUsagePattern(execution.agentId, execution.toolId, executionTime, true);
 
       logger.info(`Tool execution completed: ${execution.id} (${executionTime}ms)`);
@@ -169,8 +171,9 @@ export class ToolExecutor {
         executionTimeMs: executionTime
       });
 
-      // Record failed usage
+      // Record failed usage with enhanced TypeORM tracking
       await this.recordUsage(execution, false);
+      await this.recordToolUsageWithTypeORM(execution, false, executionTime);
       await this.updateUsagePattern(execution.agentId, execution.toolId, executionTime, false);
 
       logger.error(`Tool execution failed: ${execution.id} (${executionTime}ms)`, error);
@@ -183,6 +186,32 @@ export class ToolExecutor {
       }
 
       throw error;
+    }
+  }
+
+  // Enhanced TypeORM usage recording
+  private async recordToolUsageWithTypeORM(
+    execution: ToolExecution,
+    success: boolean,
+    executionTime: number
+  ): Promise<void> {
+    try {
+      await this.toolRegistry.recordToolUsage(
+        execution.toolId,
+        execution.agentId,
+        executionTime,
+        success,
+        execution.cost,
+        {
+          executionId: execution.id,
+          priority: execution.metadata?.priority,
+          retryCount: execution.retryCount,
+          error: execution.error
+        }
+      );
+    } catch (error) {
+      logger.error(`Failed to record TypeORM tool usage:`, error);
+      // Don't throw - usage tracking shouldn't break execution
     }
   }
 

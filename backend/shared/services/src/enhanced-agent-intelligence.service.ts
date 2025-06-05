@@ -783,15 +783,7 @@ Personality Traits: ${JSON.stringify(persona.traits)}`,
             timestamp: new Date(),
             success: true
           }],
-          decisions: [{
-            id: `decision-${Date.now()}`,
-            description: 'How to respond to discussion message',
-            options: ['provide knowledge', 'ask question', 'agree/disagree'],
-            chosen: 'provide knowledge',
-            reasoning: 'Based on available knowledge and discussion context',
-            timestamp: new Date(),
-            confidence: 0.8
-          }],
+          decisions: [] as any[],
           outcomes: [{
             id: `outcome-${Date.now()}`,
             description: 'Contributed to discussion',

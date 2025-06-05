@@ -154,7 +154,7 @@ Participants: ${episode.context.who.join(', ')}
 Purpose: ${episode.context.why}
 Method: ${episode.context.how}
 Actions: ${episode.experience.actions.map(a => a.description).join('; ')}
-Decisions: ${episode.experience.decisions.map(d => `${d.description}: chose ${d.chosen}`).join('; ')}
+Decisions: ${episode.experience.decisions.map(d => `${d.description}: decided by ${d.decidedBy}`).join('; ')}
 Outcomes: ${episode.experience.outcomes.map(o => o.description).join('; ')}
 Emotions: ${episode.experience.emotions.map(e => `${e.emotion} (${e.intensity})`).join('; ')}
 Learnings: ${episode.experience.learnings.join('; ')}
