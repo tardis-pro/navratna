@@ -32,6 +32,7 @@
   "license": "MIT",
   "pnpm": {
     "onlyBuiltDependencies": [
+      "@nestjs/core",
       "bcrypt",
       "esbuild",
       "msgpackr-extract"

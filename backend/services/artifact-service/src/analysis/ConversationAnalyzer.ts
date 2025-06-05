@@ -330,9 +330,11 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
         decisions.push({
           id: `decision_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           description: this.extractDecisionText(message.content),
-          rationale: this.extractRationale(message.content),
-          decidedBy: message.author,
-          decidedAt: new Date(message.timestamp).toISOString()
+          options: ['option1', 'option2'], // Default options, should be extracted from context
+          chosen: this.extractDecisionText(message.content),
+          reasoning: this.extractRationale(message.content),
+          timestamp: new Date(message.timestamp),
+          confidence: 0.8
         });
       }
     }

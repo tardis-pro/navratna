@@ -38,3 +38,4 @@ export * from './knowledge-graph/index.js';
 
 // Agent Memory Services - NEW
 export * from './agent-memory/index.js'; 
+export { EnhancedAgentIntelligenceService } from './enhanced-agent-intelligence.service.js';
