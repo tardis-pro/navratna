@@ -14,9 +14,17 @@ import {
 
 export class SecurityValidationService {
   private databaseService: DatabaseService;
+  private isInitialized: boolean = false;
 
   constructor() {
     this.databaseService = new DatabaseService();
+  }
+
+  private async ensureInitialized(): Promise<void> {
+    if (!this.isInitialized) {
+      await this.databaseService.initialize();
+      this.isInitialized = true;
+    }
   }
 
   public async validateOperation(
@@ -25,6 +33,8 @@ export class SecurityValidationService {
     resources: string[],
     operationData: any
   ): Promise<SecurityValidationResult> {
+    await this.ensureInitialized();
+    
     try {
       logger.info('Validating operation security', { 
         userId: securityContext.userId,
@@ -106,6 +116,8 @@ export class SecurityValidationService {
     plan: ExecutionPlan,
     agentSecurityContext: any
   ): Promise<RiskAssessment> {
+    await this.ensureInitialized();
+    
     try {
       logger.info('Assessing execution plan risk', { planId: plan.id });
 
@@ -165,6 +177,8 @@ export class SecurityValidationService {
     userId: string,
     operation: 'read' | 'write' | 'delete'
   ): Promise<any> {
+    await this.ensureInitialized();
+    
     try {
       // Get user's data access level
       const accessLevel = await this.getUserDataAccessLevel(userId);
@@ -210,22 +224,18 @@ export class SecurityValidationService {
     approvers: string[],
     context: any
   ): Promise<string> {
+    await this.ensureInitialized();
+    
     try {
       const workflowId = `approval_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-      const query = `
-        INSERT INTO approval_workflows 
-        (id, operation_id, required_approvers, status, metadata, created_at)
-        VALUES ($1, $2, $3, 'pending', $4, NOW())
-        RETURNING id
-      `;
-
-      await this.databaseService.query(query, [
-        workflowId,
+      await this.databaseService.createApprovalWorkflow({
+        id: workflowId,
         operationId,
-        approvers,
-        JSON.stringify(context)
-      ]);
+        requiredApprovers: approvers,
+        status: 'pending',
+        metadata: context
+      });
 
       logger.info('Approval workflow created', { workflowId, operationId, approvers });
       return workflowId;
@@ -239,21 +249,13 @@ export class SecurityValidationService {
 
   private async validateUserAuth(userId: string): Promise<{ valid: boolean; reason?: string }> {
     try {
-      const query = `
-        SELECT id, is_active, role, security_clearance 
-        FROM users 
-        WHERE id = $1
-      `;
+      const user = await this.databaseService.getUserAuthDetails(userId);
       
-      const result = await this.databaseService.query(query, [userId]);
-      
-      if (result.rows.length === 0) {
+      if (!user) {
         return { valid: false, reason: 'User not found' };
       }
 
-      const user = result.rows[0];
-      
-      if (!user.is_active) {
+      if (!user.isActive) {
         return { valid: false, reason: 'User account disabled' };
       }
 
@@ -274,29 +276,21 @@ export class SecurityValidationService {
     required: string[];
   }> {
     try {
-      // Get user's roles and direct permissions
-      const rolesQuery = `
-        SELECT r.name as role_name, p.type as permission_type, p.operations
-        FROM users u
-        LEFT JOIN user_roles ur ON u.id = ur.user_id AND (ur.expires_at IS NULL OR ur.expires_at > NOW())
-        LEFT JOIN roles r ON ur.role_id = r.id
-        LEFT JOIN role_permissions rp ON r.id = rp.role_id
-        LEFT JOIN permissions p ON rp.permission_id = p.id
-        WHERE u.id = $1
-        UNION
-        SELECT NULL as role_name, p.type as permission_type, p.operations
-        FROM users u
-        LEFT JOIN user_permissions up ON u.id = up.user_id AND (up.expires_at IS NULL OR up.expires_at > NOW())
-        LEFT JOIN permissions p ON up.permission_id = p.id
-        WHERE u.id = $1
-      `;
-
-      const result = await this.databaseService.query(rolesQuery, [userId]);
+      const permissions = await this.databaseService.getUserPermissions(userId);
       
       const userPermissions = new Set<string>();
-      result.rows.forEach(row => {
-        if (row.operations) {
-          row.operations.forEach((op: string) => userPermissions.add(op));
+      
+      // Process role-based permissions
+      permissions.rolePermissions.forEach(rolePermission => {
+        if (rolePermission.operations) {
+          rolePermission.operations.forEach((op: string) => userPermissions.add(op));
+        }
+      });
+
+      // Process direct permissions
+      permissions.directPermissions.forEach(directPermission => {
+        if (directPermission.operations) {
+          directPermission.operations.forEach((op: string) => userPermissions.add(op));
         }
       });
 
@@ -356,20 +350,10 @@ export class SecurityValidationService {
 
   private async assessUserRisk(userId: string): Promise<RiskFactor> {
     try {
-      const query = `
-        SELECT 
-          security_clearance,
-          role,
-          last_login_at,
-          created_at,
-          (SELECT COUNT(*) FROM audit_events WHERE user_id = $1 AND timestamp > NOW() - INTERVAL '24 hours') as recent_activity
-        FROM users 
-        WHERE id = $1
-      `;
-
-      const result = await this.databaseService.query(query, [userId]);
+      // Use DatabaseService getUserRiskData method instead of raw SQL
+      const userData = await this.databaseService.getUserRiskData(userId);
       
-      if (result.rows.length === 0) {
+      if (!userData) {
         return {
           type: 'user_verification',
           level: RiskLevel.HIGH,
@@ -378,10 +362,8 @@ export class SecurityValidationService {
         };
       }
 
-      const user = result.rows[0];
-      
       // High activity in last 24 hours might indicate compromised account
-      if (user.recent_activity > 100) {
+      if (userData.recentActivityCount > 100) {
         return {
           type: 'user_behavior',
           level: RiskLevel.MEDIUM,
@@ -686,29 +668,14 @@ export class SecurityValidationService {
 
   private async getUserDataAccessLevel(userId: string): Promise<string> {
     try {
-      const query = `
-        SELECT r.name 
-        FROM users u
-        JOIN user_roles ur ON u.id = ur.user_id
-        JOIN roles r ON ur.role_id = r.id
-        WHERE u.id = $1
-        ORDER BY 
-          CASE r.name 
-            WHEN 'admin' THEN 1
-            WHEN 'operator' THEN 2
-            WHEN 'viewer' THEN 3
-            ELSE 4
-          END
-        LIMIT 1
-      `;
-
-      const result = await this.databaseService.query(query, [userId]);
+      // Use DatabaseService getUserHighestRole method instead of raw SQL
+      const roleName = await this.databaseService.getUserHighestRole(userId);
       
-      if (result.rows.length === 0) {
-        return 'viewer'; // Default to most restrictive
+      if (roleName) {
+        return roleName;
       }
 
-      return result.rows[0].name;
+      return 'viewer'; // Default to most restrictive
     } catch (error) {
       logger.error('Error getting user data access level', { userId, error: (error as Error).message });
       return 'viewer'; // Default to most restrictive on error

@@ -1,6 +1,6 @@
 import { KnowledgeItem, KnowledgeRelationship } from '@uaip/types';
 import { EmbeddingService } from './embedding.service';
-import { KnowledgeRepository } from './knowledge.repository';
+import { KnowledgeRepository } from '../database/repositories/knowledge.repository';
 
 export class RelationshipDetector {
   constructor(

@@ -75,7 +75,7 @@ export class PersonaService {
       const validation = await this.validatePersona(request);
 
       // Create persona using TypeORM repository
-      const personaRepo = this.databaseService.getRepository(PersonaEntity);
+      const personaRepo = await this.databaseService.getRepository(PersonaEntity);
       
       // Convert expertise from complex objects to simple strings for entity
       const expertiseStrings = request.expertise?.map(exp => 
@@ -151,7 +151,7 @@ export class PersonaService {
       }
 
       // Fetch from database using TypeORM repository
-      const personaRepo = this.databaseService.getRepository(PersonaEntity);
+      const personaRepo = await this.databaseService.getRepository(PersonaEntity);
       const entity = await personaRepo.findOne({ where: { id } });
       
       if (!entity) {
@@ -195,7 +195,7 @@ export class PersonaService {
       }
       
       // Update persona using TypeORM repository
-      const personaRepo = this.databaseService.getRepository(PersonaEntity);
+      const personaRepo = await this.databaseService.getRepository(PersonaEntity);
       await personaRepo.update(id, {
         ...updateData,
         validation,
@@ -253,7 +253,7 @@ export class PersonaService {
       }
 
       // Hard delete using TypeORM repository
-      const personaRepo = this.databaseService.getRepository(PersonaEntity);
+      const personaRepo = await this.databaseService.getRepository(PersonaEntity);
       await personaRepo.delete(id);
 
       // Remove from cache
@@ -282,7 +282,7 @@ export class PersonaService {
     hasMore: boolean;
   }> {
     try {
-      const personaRepo = this.databaseService.getRepository(PersonaEntity);
+      const personaRepo = await this.databaseService.getRepository(PersonaEntity);
       const queryBuilder = personaRepo.createQueryBuilder('persona');
 
       // Apply filters using TypeORM QueryBuilder
@@ -520,7 +520,7 @@ export class PersonaService {
 
   async getPersonaTemplates(category?: string): Promise<PersonaTemplate[]> {
     try {
-      const personaRepo = this.databaseService.getRepository(PersonaEntity);
+      const personaRepo = await this.databaseService.getRepository(PersonaEntity);
       const queryBuilder = personaRepo.createQueryBuilder('persona');
 
       if (category) {

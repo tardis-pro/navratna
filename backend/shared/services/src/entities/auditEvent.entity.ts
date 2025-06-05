@@ -1,5 +1,6 @@
-import { Entity, Column, Index } from 'typeorm';
+import { Entity, Column, Index, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from './base.entity.js';
+import { UserEntity } from './user.entity.js';
 
 /**
  * Audit Event Entity
@@ -12,12 +13,18 @@ import { BaseEntity } from './base.entity.js';
 @Index(['resourceType', 'resourceId'])
 @Index(['riskLevel', 'timestamp'])
 @Index(['timestamp'])
+@Index(['isArchived', 'timestamp'])
+@Index(['archivedAt'])
 export class AuditEvent extends BaseEntity {
   @Column({ name: 'event_type', length: 100 })
   eventType: string;
 
   @Column({ name: 'user_id', type: 'uuid', nullable: true })
   userId?: string;
+
+  @ManyToOne(() => UserEntity, { nullable: true })
+  @JoinColumn({ name: 'user_id' })
+  user?: UserEntity;
 
   @Column({ name: 'agent_id', type: 'uuid', nullable: true })
   agentId?: string;
@@ -42,4 +49,10 @@ export class AuditEvent extends BaseEntity {
 
   @Column({ type: 'timestamp' })
   timestamp: Date;
+
+  @Column({ name: 'is_archived', type: 'boolean', default: false })
+  isArchived: boolean;
+
+  @Column({ name: 'archived_at', type: 'timestamp', nullable: true })
+  archivedAt?: Date;
 } 

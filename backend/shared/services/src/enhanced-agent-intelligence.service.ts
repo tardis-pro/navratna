@@ -83,6 +83,10 @@ export class EnhancedAgentIntelligenceService {
     if (this.isInitialized) return;
     
     try {
+      // Initialize database service first
+      await this.databaseService.initialize();
+      logger.info('DatabaseService initialized successfully');
+
       // Test database connection
       await this.databaseService.query('SELECT 1', []);
       
@@ -146,16 +150,6 @@ export class EnhancedAgentIntelligenceService {
         agentId = uuidv4();
       }
 
-      const query = `
-        INSERT INTO agents (
-          id, name, role, persona, intelligence_config, 
-          security_context, is_active, created_by, created_at, updated_at
-        ) VALUES (
-          $1, $2, $3, $4, $5, $6, true, $7, NOW(), NOW()
-        )
-        RETURNING *
-      `;
-
       const intelligenceConfig = agentData.intelligenceConfig || 
                                 agentData.intelligence_config || 
                                 agentData.configuration || 
@@ -174,36 +168,37 @@ export class EnhancedAgentIntelligenceService {
         createdBy = null;
       }
 
-      const values = [
-        agentId,
-        agentData.name,
-        role,
-        JSON.stringify(agentData.persona || {}),
-        JSON.stringify(intelligenceConfig),
-        JSON.stringify(securityContext),
-        createdBy
-      ];
+      // Prepare data for DatabaseService
+      const createPayload = {
+        id: agentId,
+        name: agentData.name,
+        role: role,
+        persona: agentData.persona || {},
+        intelligenceConfig: intelligenceConfig,
+        securityContext: securityContext,
+        createdBy: createdBy
+      };
 
-      const result = await this.databaseService.query(query, values);
-      const agent = result.rows[0];
-
-      // Initialize enhanced capabilities for the new agent
-      if (agentData.persona?.id) {
-        await this.initializeAgent(agentId, agentData.persona.id);
-      }
+      // Use DatabaseService createAgent method instead of raw SQL
+      const savedAgent = await this.databaseService.createAgent(createPayload);
 
       await this.safePublishEvent('agent.created', {
-        agentId: agent.id,
-        name: agent.name,
-        role: agent.role
+        agentId: savedAgent.id,
+        name: savedAgent.name,
+        role: savedAgent.role,
+        createdBy: savedAgent.createdBy,
+        timestamp: new Date()
       });
 
-      logger.info('Agent created successfully with enhanced capabilities', { agentId: agent.id });
-      return agent;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('Error creating agent', { error: errorMessage });
-      throw error;
+      return savedAgent;
+    } catch (error: any) {
+      logger.error('Error creating agent with enhanced capabilities', { error: error.message });
+      
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      
+      throw new ApiError(500, 'Failed to create agent', 'DATABASE_ERROR');
     }
   }
 
@@ -218,10 +213,10 @@ export class EnhancedAgentIntelligenceService {
     try {
       this.validateUUIDParam(agentId, 'agentId');
 
-      const query = 'SELECT * FROM agents WHERE id = $1 AND is_active = true';
-      const result = await this.databaseService.query(query, [agentId]);
+      // Use DatabaseService getActiveAgentById method instead of raw SQL
+      const agent = await this.databaseService.getActiveAgentById(agentId);
       
-      return result.rows.length > 0 ? result.rows[0] : null;
+      return agent;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Error getting agent', { agentId, error: errorMessage });
@@ -238,10 +233,10 @@ export class EnhancedAgentIntelligenceService {
     }
     
     try {
-      const query = 'SELECT * FROM agents WHERE is_active = true ORDER BY created_at DESC';
-      const result = await this.databaseService.query(query, []);
+      // Use DatabaseService getActiveAgents method instead of raw SQL
+      const agents = await this.databaseService.getActiveAgents();
       
-      return result.rows;
+      return agents;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Error getting agents', { error: errorMessage });
@@ -260,62 +255,37 @@ export class EnhancedAgentIntelligenceService {
     try {
       this.validateUUIDParam(agentId, 'agentId');
 
-      const updateFields = [];
-      const values = [];
-      let paramIndex = 1;
-
-      if (updateData.name) {
-        updateFields.push(`name = $${paramIndex++}`);
-        values.push(updateData.name);
-      }
-      if (updateData.role) {
-        updateFields.push(`role = $${paramIndex++}`);
-        values.push(updateData.role);
-      }
-      if (updateData.persona) {
-        updateFields.push(`persona = $${paramIndex++}`);
-        values.push(JSON.stringify(updateData.persona));
-      }
+      // Prepare update data for DatabaseService
+      const updatePayload: any = {};
+      if (updateData.name) updatePayload.name = updateData.name;
+      if (updateData.role) updatePayload.role = updateData.role;
+      if (updateData.persona) updatePayload.persona = updateData.persona;
       if (updateData.intelligenceConfig || updateData.intelligence_config) {
-        updateFields.push(`intelligence_config = $${paramIndex++}`);
-        values.push(JSON.stringify(updateData.intelligenceConfig || updateData.intelligence_config));
+        updatePayload.intelligenceConfig = updateData.intelligenceConfig || updateData.intelligence_config;
       }
       if (updateData.securityContext || updateData.security_context) {
-        updateFields.push(`security_context = $${paramIndex++}`);
-        values.push(JSON.stringify(updateData.securityContext || updateData.security_context));
+        updatePayload.securityContext = updateData.securityContext || updateData.security_context;
       }
 
-      if (updateFields.length === 0) {
+      if (Object.keys(updatePayload).length === 0) {
         throw new ApiError(400, 'No valid fields to update', 'NO_UPDATE_FIELDS');
       }
 
-      updateFields.push(`updated_at = NOW()`);
-      values.push(agentId);
-
-      const query = `
-        UPDATE agents 
-        SET ${updateFields.join(', ')} 
-        WHERE id = $${paramIndex} AND is_active = true 
-        RETURNING *
-      `;
-
-      const result = await this.databaseService.query(query, values);
+      // Use DatabaseService updateAgent method instead of raw SQL
+      const updatedAgent = await this.databaseService.updateAgent(agentId, updatePayload);
       
-      if (result.rows.length === 0) {
+      if (!updatedAgent) {
         return null;
       }
 
-      const agent = result.rows[0];
-
       await this.safePublishEvent('agent.updated', {
-        agentId: agent.id,
+        agentId: updatedAgent.id,
         updatedFields: Object.keys(updateData)
       });
 
-      return agent;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('Error updating agent', { agentId, error: errorMessage });
+      return updatedAgent;
+    } catch (error: any) {
+      logger.error('Error updating agent', { agentId, error: error.message });
       throw error;
     }
   }
@@ -331,15 +301,10 @@ export class EnhancedAgentIntelligenceService {
     try {
       this.validateUUIDParam(agentId, 'agentId');
 
-      const query = `
-        UPDATE agents 
-        SET is_active = false, updated_at = NOW() 
-        WHERE id = $1 AND is_active = true
-      `;
-
-      const result = await this.databaseService.query(query, [agentId]);
+      // Use DatabaseService method instead of raw SQL
+      const wasDeactivated = await this.databaseService.deactivateAgent(agentId);
       
-      if (result.rowCount === 0) {
+      if (!wasDeactivated) {
         throw new ApiError(404, 'Agent not found', 'AGENT_NOT_FOUND');
       }
 
@@ -1247,34 +1212,24 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
   }
 
   private async storePlan(plan: ExecutionPlan): Promise<void> {
-    // Store plan in database
-    const query = `
-      INSERT INTO execution_plans (
-        id, type, agent_id, steps, dependencies, estimated_duration,
-        priority, constraints, metadata, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-    `;
-    
-    const values = [
-      plan.id,
-      plan.type,
-      plan.agentId,
-      JSON.stringify(plan.steps),
-      JSON.stringify(plan.dependencies),
-      plan.estimatedDuration,
-      plan.priority,
-      JSON.stringify(plan.constraints),
-      JSON.stringify(plan.metadata),
-      plan.created_at
-    ];
-    
-    await this.databaseService.query(query, values);
+    // Use DatabaseService storeExecutionPlan method instead of raw SQL
+    await this.databaseService.storeExecutionPlan({
+      id: plan.id,
+      type: plan.type,
+      agentId: plan.agentId,
+      steps: plan.steps,
+      dependencies: plan.dependencies,
+      estimatedDuration: plan.estimatedDuration,
+      priority: plan.priority,
+      constraints: plan.constraints,
+      metadata: plan.metadata,
+      createdAt: plan.created_at
+    });
   }
 
   private async getOperation(operationId: string): Promise<any> {
-    const query = 'SELECT * FROM operations WHERE id = $1';
-    const result = await this.databaseService.query(query, [operationId]);
-    return result.rows.length > 0 ? result.rows[0] : null;
+    // Use DatabaseService getOperationById method instead of raw SQL
+    return await this.databaseService.getOperationById(operationId);
   }
 
   private async extractEnhancedLearning(operation: any, outcomes: any, feedback: any): Promise<any> {
@@ -1403,20 +1358,13 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
   }
 
   private async storeEnhancedLearningRecord(agentId: string, operationId: string, learningData: any, confidenceAdjustments: any): Promise<void> {
-    const query = `
-      INSERT INTO agent_learning_records (
-        agent_id, operation_id, learning_data, confidence_adjustments, created_at
-      ) VALUES ($1, $2, $3, $4, NOW())
-    `;
-    
-    const values = [
+    // Use DatabaseService storeEnhancedLearningRecord method instead of raw SQL
+    await this.databaseService.storeEnhancedLearningRecord({
       agentId,
       operationId,
-      JSON.stringify(learningData),
-      JSON.stringify(confidenceAdjustments)
-    ];
-    
-    await this.databaseService.query(query, values);
+      learningData,
+      confidenceAdjustments
+    });
   }
 
   private async storeAnalysisKnowledge(agentId: string, userRequest: string, analysis: AgentAnalysis): Promise<void> {

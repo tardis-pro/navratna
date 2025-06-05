@@ -1,9 +1,29 @@
-import { Repository, QueryRunner, EntityTarget, ObjectLiteral, EntityManager } from 'typeorm';
+import { Repository, QueryRunner, EntityTarget, ObjectLiteral, EntityManager, LessThan } from 'typeorm';
 import { config } from '@uaip/config';
 import { logger, DatabaseError } from '@uaip/utils';
+import { SecurityLevel } from '@uaip/types';
 import { TypeOrmService } from './typeormService.js';
 
-// Import entities
+// Import new repositories
+import { UserRepository } from './database/repositories/UserRepository.js';
+import { RefreshTokenRepository } from './database/repositories/UserRepository.js';
+import { PasswordResetTokenRepository } from './database/repositories/UserRepository.js';
+import { AuditRepository } from './database/repositories/AuditRepository.js';
+import { ToolRepository } from './database/repositories/ToolRepository.js';
+import { ToolExecutionRepository } from './database/repositories/ToolRepository.js';
+import { ToolUsageRepository } from './database/repositories/ToolRepository.js';
+import { OperationRepository } from './database/repositories/OperationRepository.js';
+import { OperationStateRepository } from './database/repositories/OperationRepository.js';
+import { OperationCheckpointRepository } from './database/repositories/OperationRepository.js';
+import { StepResultRepository } from './database/repositories/OperationRepository.js';
+import { AgentRepository } from './database/repositories/AgentRepository.js';
+import { SecurityPolicyRepository } from './database/repositories/SecurityRepository.js';
+import { ApprovalWorkflowRepository } from './database/repositories/SecurityRepository.js';
+import { ApprovalDecisionRepository } from './database/repositories/SecurityRepository.js';
+import { CapabilityRepository } from './database/repositories/CapabilityRepository.js';
+import { DiscussionRepository } from './database/repositories/DiscussionRepository.js';
+
+// Import entities for backward compatibility
 import { Operation } from './entities/operation.entity.js';
 import { OperationState } from './entities/operationState.entity.js';
 import { OperationCheckpoint } from './entities/operationCheckpoint.entity.js';
@@ -13,6 +33,7 @@ import { Persona } from './entities/persona.entity.js';
 import { Artifact } from './entities/artifact.entity.js';
 import { ArtifactDeployment } from './entities/artifactDeployment.entity.js';
 import { ToolDefinition } from './entities/toolDefinition.entity.js';
+import { ToolExecution } from './entities/toolExecution.entity.js';
 import { ToolUsageRecord } from './entities/toolUsageRecord.entity.js';
 import { ConversationContext } from './entities/conversationContext.entity.js';
 import { ApprovalWorkflow } from './entities/approvalWorkflow.entity.js';
@@ -21,11 +42,34 @@ import { AuditEvent } from './entities/auditEvent.entity.js';
 import { SecurityPolicy } from './entities/securityPolicy.entity.js';
 import { AgentCapabilityMetric } from './entities/agentCapabilityMetric.entity.js';
 import { PersonaAnalytics } from './entities/personaAnalytics.entity.js';
+import { UserEntity } from './entities/user.entity.js';
+import { RefreshTokenEntity } from './entities/refreshToken.entity.js';
+import { PasswordResetTokenEntity } from './entities/passwordResetToken.entity.js';
 
 export class DatabaseService {
   private static instance: DatabaseService;
   private typeormService: TypeOrmService;
   private isClosing: boolean = false;
+  private isInitialized: boolean = false;
+
+  // Repository instances - will be initialized lazily
+  private _userRepository: UserRepository | null = null;
+  private _refreshTokenRepository: RefreshTokenRepository | null = null;
+  private _passwordResetTokenRepository: PasswordResetTokenRepository | null = null;
+  private _auditRepository: AuditRepository | null = null;
+  private _toolRepository: ToolRepository | null = null;
+  private _toolExecutionRepository: ToolExecutionRepository | null = null;
+  private _toolUsageRepository: ToolUsageRepository | null = null;
+  private _operationRepository: OperationRepository | null = null;
+  private _operationStateRepository: OperationStateRepository | null = null;
+  private _operationCheckpointRepository: OperationCheckpointRepository | null = null;
+  private _stepResultRepository: StepResultRepository | null = null;
+  private _agentRepository: AgentRepository | null = null;
+  private _securityPolicyRepository: SecurityPolicyRepository | null = null;
+  private _approvalWorkflowRepository: ApprovalWorkflowRepository | null = null;
+  private _approvalDecisionRepository: ApprovalDecisionRepository | null = null;
+  private _capabilityRepository: CapabilityRepository | null = null;
+  private _discussionRepository: DiscussionRepository | null = null;
 
   constructor() {
     // Debug: Log the actual config values being used
@@ -39,13 +83,192 @@ export class DatabaseService {
 
     this.typeormService = TypeOrmService.getInstance();
     
-    // Initialize TypeORM connection
+    // Don't initialize repositories here - do it lazily when needed
+    // Initialize TypeORM connection asynchronously
     this.initializeConnection();
+  }
+
+  private async ensureInitialized(): Promise<void> {
+    if (!this.isInitialized) {
+      await this.initializeConnection();
+    }
+  }
+
+  // Lazy getters for repositories
+  private get userRepository(): UserRepository {
+    if (!this._userRepository) {
+      if (!this.isInitialized) {
+        throw new Error('DatabaseService not initialized. Call ensureInitialized() first.');
+      }
+      this._userRepository = new UserRepository();
+    }
+    return this._userRepository;
+  }
+
+  private get refreshTokenRepository(): RefreshTokenRepository {
+    if (!this._refreshTokenRepository) {
+      if (!this.isInitialized) {
+        throw new Error('DatabaseService not initialized. Call ensureInitialized() first.');
+      }
+      this._refreshTokenRepository = new RefreshTokenRepository();
+    }
+    return this._refreshTokenRepository;
+  }
+
+  private get passwordResetTokenRepository(): PasswordResetTokenRepository {
+    if (!this._passwordResetTokenRepository) {
+      if (!this.isInitialized) {
+        throw new Error('DatabaseService not initialized. Call ensureInitialized() first.');
+      }
+      this._passwordResetTokenRepository = new PasswordResetTokenRepository();
+    }
+    return this._passwordResetTokenRepository;
+  }
+
+  private get auditRepository(): AuditRepository {
+    if (!this._auditRepository) {
+      if (!this.isInitialized) {
+        throw new Error('DatabaseService not initialized. Call ensureInitialized() first.');
+      }
+      this._auditRepository = new AuditRepository();
+    }
+    return this._auditRepository;
+  }
+
+  private get toolRepository(): ToolRepository {
+    if (!this._toolRepository) {
+      if (!this.isInitialized) {
+        throw new Error('DatabaseService not initialized. Call ensureInitialized() first.');
+      }
+      this._toolRepository = new ToolRepository();
+    }
+    return this._toolRepository;
+  }
+
+  private get toolExecutionRepository(): ToolExecutionRepository {
+    if (!this._toolExecutionRepository) {
+      if (!this.isInitialized) {
+        throw new Error('DatabaseService not initialized. Call ensureInitialized() first.');
+      }
+      this._toolExecutionRepository = new ToolExecutionRepository();
+    }
+    return this._toolExecutionRepository;
+  }
+
+  private get toolUsageRepository(): ToolUsageRepository {
+    if (!this._toolUsageRepository) {
+      if (!this.isInitialized) {
+        throw new Error('DatabaseService not initialized. Call ensureInitialized() first.');
+      }
+      this._toolUsageRepository = new ToolUsageRepository();
+    }
+    return this._toolUsageRepository;
+  }
+
+  private get operationRepository(): OperationRepository {
+    if (!this._operationRepository) {
+      if (!this.isInitialized) {
+        throw new Error('DatabaseService not initialized. Call ensureInitialized() first.');
+      }
+      this._operationRepository = new OperationRepository();
+    }
+    return this._operationRepository;
+  }
+
+  private get operationStateRepository(): OperationStateRepository {
+    if (!this._operationStateRepository) {
+      if (!this.isInitialized) {
+        throw new Error('DatabaseService not initialized. Call ensureInitialized() first.');
+      }
+      this._operationStateRepository = new OperationStateRepository();
+    }
+    return this._operationStateRepository;
+  }
+
+  private get operationCheckpointRepository(): OperationCheckpointRepository {
+    if (!this._operationCheckpointRepository) {
+      if (!this.isInitialized) {
+        throw new Error('DatabaseService not initialized. Call ensureInitialized() first.');
+      }
+      this._operationCheckpointRepository = new OperationCheckpointRepository();
+    }
+    return this._operationCheckpointRepository;
+  }
+
+  private get stepResultRepository(): StepResultRepository {
+    if (!this._stepResultRepository) {
+      if (!this.isInitialized) {
+        throw new Error('DatabaseService not initialized. Call ensureInitialized() first.');
+      }
+      this._stepResultRepository = new StepResultRepository();
+    }
+    return this._stepResultRepository;
+  }
+
+  private get agentRepository(): AgentRepository {
+    if (!this._agentRepository) {
+      if (!this.isInitialized) {
+        throw new Error('DatabaseService not initialized. Call ensureInitialized() first.');
+      }
+      this._agentRepository = new AgentRepository();
+    }
+    return this._agentRepository;
+  }
+
+  private get securityPolicyRepository(): SecurityPolicyRepository {
+    if (!this._securityPolicyRepository) {
+      if (!this.isInitialized) {
+        throw new Error('DatabaseService not initialized. Call ensureInitialized() first.');
+      }
+      this._securityPolicyRepository = new SecurityPolicyRepository();
+    }
+    return this._securityPolicyRepository;
+  }
+
+  private get approvalWorkflowRepository(): ApprovalWorkflowRepository {
+    if (!this._approvalWorkflowRepository) {
+      if (!this.isInitialized) {
+        throw new Error('DatabaseService not initialized. Call ensureInitialized() first.');
+      }
+      this._approvalWorkflowRepository = new ApprovalWorkflowRepository();
+    }
+    return this._approvalWorkflowRepository;
+  }
+
+  private get approvalDecisionRepository(): ApprovalDecisionRepository {
+    if (!this._approvalDecisionRepository) {
+      if (!this.isInitialized) {
+        throw new Error('DatabaseService not initialized. Call ensureInitialized() first.');
+      }
+      this._approvalDecisionRepository = new ApprovalDecisionRepository();
+    }
+    return this._approvalDecisionRepository;
+  }
+
+  private get capabilityRepository(): CapabilityRepository {
+    if (!this._capabilityRepository) {
+      if (!this.isInitialized) {
+        throw new Error('DatabaseService not initialized. Call ensureInitialized() first.');
+      }
+      this._capabilityRepository = new CapabilityRepository();
+    }
+    return this._capabilityRepository;
+  }
+
+  private get discussionRepository(): DiscussionRepository {
+    if (!this._discussionRepository) {
+      if (!this.isInitialized) {
+        throw new Error('DatabaseService not initialized. Call ensureInitialized() first.');
+      }
+      this._discussionRepository = new DiscussionRepository();
+    }
+    return this._discussionRepository;
   }
 
   private async initializeConnection(): Promise<void> {
     try {
       await this.typeormService.initialize();
+      this.isInitialized = true;
       logger.info('DatabaseService initialized with TypeORM');
     } catch (error) {
       logger.error('Failed to initialize TypeORM connection', { error });
@@ -61,13 +284,20 @@ export class DatabaseService {
     return DatabaseService.instance;
   }
 
+  // Public method to ensure initialization
+  public async initialize(): Promise<void> {
+    await this.ensureInitialized();
+  }
+
   // Get repository for any entity
-  public getRepository<T extends ObjectLiteral>(entity: EntityTarget<T>): Repository<T> {
+  public async getRepository<T extends ObjectLiteral>(entity: EntityTarget<T>): Promise<Repository<T>> {
+    await this.ensureInitialized();
     return this.typeormService.getRepository(entity);
   }
 
   // Get entity manager for complex operations
-  public getEntityManager(): EntityManager {
+  public async getEntityManager(): Promise<EntityManager> {
+    await this.ensureInitialized();
     return this.typeormService.getDataSource().manager;
   }
 
@@ -119,8 +349,11 @@ export class DatabaseService {
     const startTime = Date.now();
     
     try {
+      // Ensure TypeORM is initialized before health check
+      await this.ensureInitialized();
+      
       // Use TypeORM to test connection
-      const manager = this.getEntityManager();
+      const manager = await this.getEntityManager();
       await manager.query('SELECT 1 as health_check');
       const responseTime = Date.now() - startTime;
       
@@ -181,7 +414,7 @@ export class DatabaseService {
     const startTime = Date.now();
     
     try {
-      const repository = this.getRepository(entity);
+      const repository = await this.getRepository(entity);
       
       if (options?.onConflict === 'ignore') {
         // Use upsert with ignore
@@ -256,7 +489,7 @@ export class DatabaseService {
     batchSize: number = 1000
   ): AsyncGenerator<T[], void, unknown> {
     try {
-      const repository = this.getRepository(entity);
+      const repository = await this.getRepository(entity);
       logger.debug('Starting streaming query', {
         entity: entity.toString(),
         batchSize
@@ -300,131 +533,31 @@ export class DatabaseService {
 
   // Methods for StateManagerService using TypeORM
   public async saveOperationState(operationId: string, state: any): Promise<void> {
-    try {
-      const operationStateRepo = this.getRepository(OperationState);
-      
-      // Check if state already exists
-      const existingState = await operationStateRepo.findOne({
-        where: { operationId }
-      });
-
-      if (existingState) {
-        // Update existing state
-        await operationStateRepo.update(
-          { operationId },
-          { 
-            toStatus: state.status || existingState.toStatus,
-            context: state,
-            transitionedAt: new Date(),
-            updatedAt: new Date()
-          }
-        );
-      } else {
-        // Create new state
-        const newState = operationStateRepo.create({
-          operationId,
-          toStatus: state.status || 'pending',
-          context: state,
-          transitionedAt: new Date(),
-          isAutomatic: true
-        });
-        await operationStateRepo.save(newState);
-      }
-    } catch (error) {
-      logger.error('Failed to save operation state', { operationId, error });
-      throw error;
-    }
+    return await this.operationStateRepository.saveOperationState(operationId, state);
   }
 
   public async getOperationState(operationId: string): Promise<any> {
-    try {
-      const operationStateRepo = this.getRepository(OperationState);
-      const state = await operationStateRepo.findOne({
-        where: { operationId },
-        order: { transitionedAt: 'DESC' }
-      });
-      return state?.context || null;
-    } catch (error) {
-      logger.error('Failed to get operation state', { operationId, error });
-      throw error;
-    }
+    return await this.operationStateRepository.getOperationState(operationId);
   }
 
   public async updateOperationState(operationId: string, state: any, updates: any): Promise<void> {
-    try {
-      const operationStateRepo = this.getRepository(OperationState);
-      await operationStateRepo.update(
-        { operationId },
-        { 
-          context: { ...state, ...updates },
-          transitionedAt: new Date(),
-          updatedAt: new Date()
-        }
-      );
-    } catch (error) {
-      logger.error('Failed to update operation state', { operationId, error });
-      throw error;
-    }
+    return await this.operationStateRepository.updateOperationState(operationId, state, updates);
   }
 
   public async saveCheckpoint(operationId: string, checkpoint: any): Promise<void> {
-    try {
-      const checkpointRepo = this.getRepository(OperationCheckpoint);
-      const newCheckpoint = checkpointRepo.create({
-        id: checkpoint.id,
-        operationId,
-        name: checkpoint.name || `Checkpoint ${checkpoint.id}`,
-        checkpointType: checkpoint.type || 'automatic',
-        state: checkpoint,
-        createdAt: new Date()
-      });
-      await checkpointRepo.save(newCheckpoint);
-    } catch (error) {
-      logger.error('Failed to save checkpoint', { operationId, checkpointId: checkpoint.id, error });
-      throw error;
-    }
+    return await this.operationCheckpointRepository.saveCheckpoint(operationId, checkpoint);
   }
 
   public async getCheckpoint(operationId: string, checkpointId: string): Promise<any> {
-    try {
-      const checkpointRepo = this.getRepository(OperationCheckpoint);
-      const checkpoint = await checkpointRepo.findOne({
-        where: { operationId, id: checkpointId }
-      });
-      return checkpoint?.state || null;
-    } catch (error) {
-      logger.error('Failed to get checkpoint', { operationId, checkpointId, error });
-      throw error;
-    }
+    return await this.operationCheckpointRepository.getCheckpoint(operationId, checkpointId);
   }
 
   public async listCheckpoints(operationId: string): Promise<any[]> {
-    try {
-      const checkpointRepo = this.getRepository(OperationCheckpoint);
-      const checkpoints = await checkpointRepo.find({
-        where: { operationId },
-        order: { createdAt: 'DESC' }
-      });
-      return checkpoints.map(cp => cp.state);
-    } catch (error) {
-      logger.error('Failed to list checkpoints', { operationId, error });
-      throw error;
-    }
+    return await this.operationCheckpointRepository.listCheckpoints(operationId);
   }
 
   public async deleteOldOperationStates(cutoffDate: Date): Promise<number> {
-    try {
-      const operationStateRepo = this.getRepository(OperationState);
-      const result = await operationStateRepo
-        .createQueryBuilder()
-        .delete()
-        .where('transitionedAt < :cutoffDate', { cutoffDate })
-        .execute();
-      return result.affected || 0;
-    } catch (error) {
-      logger.error('Failed to delete old operation states', { cutoffDate, error });
-      throw error;
-    }
+    return await this.operationStateRepository.deleteOldOperationStates(cutoffDate);
   }
 
   public async getStateStatistics(): Promise<{
@@ -433,85 +566,24 @@ export class DatabaseService {
     totalCheckpoints: number;
     averageStateSize: number;
   }> {
-    try {
-      const operationStateRepo = this.getRepository(OperationState);
-      const checkpointRepo = this.getRepository(OperationCheckpoint);
-
-      const [totalOperations, activeOperations, totalCheckpoints] = await Promise.all([
-        operationStateRepo.count(),
-        operationStateRepo.count({
-          where: { toStatus: 'running' as any }
-        }),
-        checkpointRepo.count()
-      ]);
-
-      return {
-        totalOperations,
-        activeOperations,
-        totalCheckpoints,
-        averageStateSize: 0 // Would need complex query to calculate
-      };
-    } catch (error) {
-      logger.error('Failed to get state statistics', { error });
-      throw error;
-    }
+    return await this.operationStateRepository.getStateStatistics();
   }
 
   // Methods for OrchestrationEngine using TypeORM
   public async getOperation(operationId: string): Promise<Operation | null> {
-    try {
-      const operationRepo = this.getRepository(Operation);
-      return await operationRepo.findOne({ where: { id: operationId } });
-    } catch (error) {
-      logger.error('Failed to get operation', { operationId, error });
-      throw error;
-    }
+    return await this.operationRepository.findById(operationId);
   }
 
   public async createOperation(operationData: Partial<Operation>): Promise<Operation> {
-    try {
-      const operationRepo = this.getRepository(Operation);
-      const operation = operationRepo.create(operationData);
-      return await operationRepo.save(operation);
-    } catch (error) {
-      logger.error('Failed to create operation', { operationData, error });
-      throw error;
-    }
+    return await this.operationRepository.create(operationData);
   }
 
   public async saveStepResult(operationId: string, result: any): Promise<void> {
-    try {
-      const stepResultRepo = this.getRepository(StepResult);
-      const stepResult = stepResultRepo.create({
-        operationId,
-        stepNumber: result.stepNumber || 0,
-        stepName: result.stepName || result.stepId || 'Unknown Step',
-        stepType: result.stepType || 'generic',
-        status: result.status || 'completed',
-        output: result,
-        completedAt: new Date(),
-        createdAt: new Date()
-      });
-      await stepResultRepo.save(stepResult);
-    } catch (error) {
-      logger.error('Failed to save step result', { operationId, stepId: result.stepId, error });
-      throw error;
-    }
+    return await this.stepResultRepository.saveStepResult(operationId, result);
   }
 
   public async updateOperationResult(operationId: string, result: any): Promise<void> {
-    try {
-      const operationRepo = this.getRepository(Operation);
-      await operationRepo.update(operationId, {
-        result,
-        status: 'completed' as any,
-        completedAt: new Date(),
-        updatedAt: new Date()
-      });
-    } catch (error) {
-      logger.error('Failed to update operation result', { operationId, error });
-      throw error;
-    }
+    return await this.operationRepository.updateOperationResult(operationId, result);
   }
 
   // Database schema initialization methods
@@ -551,7 +623,7 @@ export class DatabaseService {
     id: string
   ): Promise<T | null> {
     try {
-      const repository = this.getRepository(entity);
+      const repository = await this.getRepository(entity);
       return await repository.findOne({ where: { id } as any });
     } catch (error) {
       logger.error('Failed to find by ID', { entity: entity.toString(), id, error });
@@ -570,7 +642,7 @@ export class DatabaseService {
     } = {}
   ): Promise<T[]> {
     try {
-      const repository = this.getRepository(entity);
+      const repository = await this.getRepository(entity);
       const queryBuilder = repository.createQueryBuilder();
 
       // Add WHERE conditions
@@ -616,7 +688,7 @@ export class DatabaseService {
     data: Partial<T>
   ): Promise<T> {
     try {
-      const repository = this.getRepository(entity);
+      const repository = await this.getRepository(entity);
       const newEntity = repository.create(data as any);
       return await repository.save(newEntity as any);
     } catch (error) {
@@ -631,7 +703,7 @@ export class DatabaseService {
     data: Partial<T>
   ): Promise<T | null> {
     try {
-      const repository = this.getRepository(entity);
+      const repository = await this.getRepository(entity);
       await repository.update(id, { ...data, updatedAt: new Date() } as any);
       return await repository.findOne({ where: { id } as any });
     } catch (error) {
@@ -645,7 +717,7 @@ export class DatabaseService {
     id: string
   ): Promise<boolean> {
     try {
-      const repository = this.getRepository(entity);
+      const repository = await this.getRepository(entity);
       const result = await repository.delete(id);
       return (result.affected || 0) > 0;
     } catch (error) {
@@ -659,7 +731,7 @@ export class DatabaseService {
     conditions: Record<string, any> = {}
   ): Promise<number> {
     try {
-      const repository = this.getRepository(entity);
+      const repository = await this.getRepository(entity);
       return await repository.count({ where: conditions });
     } catch (error) {
       logger.error('Failed to count', { entity: entity.toString(), conditions, error });
@@ -677,7 +749,7 @@ export class DatabaseService {
     }
 
     try {
-      const repository = this.getRepository(entity);
+      const repository = await this.getRepository(entity);
       const entities = records.map(record => repository.create(record as any));
       return await repository.save(entities as any);
     } catch (error) {
@@ -712,21 +784,21 @@ export class DatabaseService {
 
   // Database maintenance methods using TypeORM
   public async vacuum(tableName?: string): Promise<void> {
-    const manager = this.getEntityManager();
+    const manager = await this.getEntityManager();
     const query = tableName ? `VACUUM ${tableName}` : 'VACUUM';
     await manager.query(query);
     logger.info('Database vacuum completed', { tableName });
   }
 
   public async analyze(tableName?: string): Promise<void> {
-    const manager = this.getEntityManager();
+    const manager = await this.getEntityManager();
     const query = tableName ? `ANALYZE ${tableName}` : 'ANALYZE';
     await manager.query(query);
     logger.info('Database analyze completed', { tableName });
   }
 
   public async reindex(indexName?: string): Promise<void> {
-    const manager = this.getEntityManager();
+    const manager = await this.getEntityManager();
     const query = indexName ? `REINDEX INDEX ${indexName}` : 'REINDEX DATABASE';
     await manager.query(query);
     logger.info('Database reindex completed', { indexName });
@@ -746,78 +818,42 @@ export class DatabaseService {
     expiresAt?: Date;
     metadata?: Record<string, any>;
   }): Promise<ApprovalWorkflow> {
-    const repository = this.getRepository(ApprovalWorkflow);
-    const workflow = repository.create({
-      id: workflowData.id,
-      operationId: workflowData.operationId,
-      requiredApprovers: workflowData.requiredApprovers,
-      currentApprovers: workflowData.currentApprovers || [],
-      status: workflowData.status as any,
-      expiresAt: workflowData.expiresAt,
-      metadata: workflowData.metadata
-    });
-    return await repository.save(workflow);
+    return await this.approvalWorkflowRepository.createApprovalWorkflow(workflowData);
   }
 
   /**
    * Get approval workflow by ID
    */
   public async getApprovalWorkflow(workflowId: string): Promise<ApprovalWorkflow | null> {
-    const repository = this.getRepository(ApprovalWorkflow);
-    return await repository.findOne({ where: { id: workflowId } });
+    return await this.approvalWorkflowRepository.findById(workflowId);
   }
 
   /**
    * Update approval workflow
    */
   public async updateApprovalWorkflow(workflowId: string, updates: Partial<ApprovalWorkflow>): Promise<ApprovalWorkflow | null> {
-    const repository = this.getRepository(ApprovalWorkflow);
-    await repository.update(workflowId, { ...updates, updatedAt: new Date() });
-    return await repository.findOne({ where: { id: workflowId } });
+    return await this.approvalWorkflowRepository.update(workflowId, updates);
   }
 
   /**
    * Get workflows for a user (as approver)
    */
   public async getUserApprovalWorkflows(userId: string, status?: string): Promise<ApprovalWorkflow[]> {
-    const repository = this.getRepository(ApprovalWorkflow);
-    const queryBuilder = repository.createQueryBuilder('workflow')
-      .where('workflow.requiredApprovers @> :userId', { 
-        userId: JSON.stringify([userId]) 
-      });
-
-    if (status) {
-      queryBuilder.andWhere('workflow.status = :status', { status });
-    }
-
-    return await queryBuilder
-      .orderBy('workflow.createdAt', 'DESC')
-      .getMany();
+    return await this.approvalWorkflowRepository.getUserApprovalWorkflows(userId, status);
   }
 
   /**
    * Get pending workflows for reminders
    */
   public async getPendingWorkflowsForReminders(reminderThreshold: Date): Promise<ApprovalWorkflow[]> {
-    const repository = this.getRepository(ApprovalWorkflow);
-    return await repository
-      .createQueryBuilder('workflow')
-      .where('workflow.status = :status', { status: 'pending' })
-      .andWhere('workflow.createdAt <= :threshold', { threshold: reminderThreshold })
-      .andWhere('(workflow.lastReminderAt IS NULL OR workflow.lastReminderAt <= :threshold)', { threshold: reminderThreshold })
-      .getMany();
+    return await this.approvalWorkflowRepository.getPendingWorkflowsForReminders(reminderThreshold);
   }
 
   /**
    * Get expired workflows
    */
   public async getExpiredWorkflows(): Promise<ApprovalWorkflow[]> {
-    const repository = this.getRepository(ApprovalWorkflow);
-    return await repository
-      .createQueryBuilder('workflow')
-      .where('workflow.status = :status', { status: 'pending' })
-      .andWhere('workflow.expiresAt <= :now', { now: new Date() })
-      .getMany();
+    return await this.approvalWorkflowRepository.getExpiredWorkflows();
   }
 
   /**
@@ -832,20 +868,14 @@ export class DatabaseService {
     feedback?: string;
     decidedAt: Date;
   }): Promise<ApprovalDecision> {
-    const repository = this.getRepository(ApprovalDecision);
-    const decision = repository.create(decisionData);
-    return await repository.save(decision);
+    return await this.approvalDecisionRepository.createApprovalDecision(decisionData);
   }
 
   /**
    * Get approval decisions for a workflow
    */
   public async getApprovalDecisions(workflowId: string): Promise<ApprovalDecision[]> {
-    const repository = this.getRepository(ApprovalDecision);
-    return await repository.find({
-      where: { workflowId },
-      order: { decidedAt: 'ASC' }
-    });
+    return await this.approvalDecisionRepository.getApprovalDecisions(workflowId);
   }
 
   // ===== AUDIT EVENT METHODS =====
@@ -866,13 +896,11 @@ export class DatabaseService {
     riskLevel?: string;
     timestamp: Date;
   }): Promise<AuditEvent> {
-    const repository = this.getRepository(AuditEvent);
-    const event = repository.create(eventData);
-    return await repository.save(event);
+    return await this.auditRepository.createAuditEvent(eventData);
   }
 
   /**
-   * Query audit events with filters
+   * Query audit events with filters (excludes archived events by default)
    */
   public async queryAuditEvents(filters: {
     eventTypes?: string[];
@@ -885,57 +913,13 @@ export class DatabaseService {
     riskLevel?: string;
     limit?: number;
     offset?: number;
+    includeArchived?: boolean;
   }): Promise<AuditEvent[]> {
-    const repository = this.getRepository(AuditEvent);
-    const queryBuilder = repository.createQueryBuilder('event');
-
-    if (filters.eventTypes && filters.eventTypes.length > 0) {
-      queryBuilder.andWhere('event.eventType = ANY(:eventTypes)', { eventTypes: filters.eventTypes });
-    }
-
-    if (filters.userId) {
-      queryBuilder.andWhere('event.userId = :userId', { userId: filters.userId });
-    }
-
-    if (filters.agentId) {
-      queryBuilder.andWhere('event.agentId = :agentId', { agentId: filters.agentId });
-    }
-
-    if (filters.resourceType) {
-      queryBuilder.andWhere('event.resourceType = :resourceType', { resourceType: filters.resourceType });
-    }
-
-    if (filters.resourceId) {
-      queryBuilder.andWhere('event.resourceId = :resourceId', { resourceId: filters.resourceId });
-    }
-
-    if (filters.startDate) {
-      queryBuilder.andWhere('event.timestamp >= :startDate', { startDate: filters.startDate });
-    }
-
-    if (filters.endDate) {
-      queryBuilder.andWhere('event.timestamp <= :endDate', { endDate: filters.endDate });
-    }
-
-    if (filters.riskLevel) {
-      queryBuilder.andWhere('event.riskLevel = :riskLevel', { riskLevel: filters.riskLevel });
-    }
-
-    queryBuilder.orderBy('event.timestamp', 'DESC');
-
-    if (filters.limit) {
-      queryBuilder.limit(filters.limit);
-    }
-
-    if (filters.offset) {
-      queryBuilder.offset(filters.offset);
-    }
-
-    return await queryBuilder.getMany();
+    return await this.auditRepository.queryAuditEvents(filters);
   }
 
   /**
-   * Count recent events for security monitoring
+   * Count recent events for security monitoring (excludes archived events)
    */
   public async countRecentAuditEvents(
     eventType: string,
@@ -943,56 +927,105 @@ export class DatabaseService {
     minutesBack: number = 5,
     detailsFilter?: Record<string, any>
   ): Promise<number> {
-    const repository = this.getRepository(AuditEvent);
-    const queryBuilder = repository.createQueryBuilder('event');
-
-    const timeThreshold = new Date();
-    timeThreshold.setMinutes(timeThreshold.getMinutes() - minutesBack);
-
-    queryBuilder
-      .where('event.eventType = :eventType', { eventType })
-      .andWhere('event.timestamp >= :timeThreshold', { timeThreshold });
-
-    if (userId) {
-      queryBuilder.andWhere('event.userId = :userId', { userId });
-    }
-
-    if (detailsFilter) {
-      Object.keys(detailsFilter).forEach(key => {
-        queryBuilder.andWhere(`event.details ->> :key = :value`, {
-          key,
-          value: detailsFilter[key]
-        });
-      });
-    }
-
-    return await queryBuilder.getCount();
+    return await this.auditRepository.countRecentAuditEvents(eventType, userId, minutesBack, detailsFilter);
   }
 
   /**
-   * Get audit events for date range (for reports)
+   * Get audit events for date range (for reports, excludes archived events by default)
    */
-  public async getAuditEventsInRange(startDate: Date, endDate: Date): Promise<AuditEvent[]> {
-    const repository = this.getRepository(AuditEvent);
-    return await repository
-      .createQueryBuilder('event')
-      .where('event.timestamp >= :startDate', { startDate })
-      .andWhere('event.timestamp <= :endDate', { endDate })
-      .orderBy('event.timestamp', 'DESC')
-      .getMany();
+  public async getAuditEventsInRange(startDate: Date, endDate: Date, includeArchived: boolean = false): Promise<AuditEvent[]> {
+    return await this.auditRepository.getAuditEventsInRange(startDate, endDate, includeArchived);
   }
 
   /**
-   * Archive old audit events
+   * Archive old audit events (mark as archived instead of deleting)
    */
-  public async archiveOldAuditEvents(cutoffDate: Date): Promise<number> {
-    const repository = this.getRepository(AuditEvent);
-    const result = await repository
-      .createQueryBuilder()
-      .delete()
-      .where('timestamp < :cutoffDate', { cutoffDate })
-      .execute();
-    return result.affected || 0;
+  public async archiveOldAuditEvents(compressionDate: Date): Promise<number> {
+    return await this.auditRepository.archiveOldAuditEvents(compressionDate);
+  }
+
+  /**
+   * Delete old archived audit events
+   */
+  public async deleteOldArchivedAuditEvents(cutoffDate: Date): Promise<number> {
+    return await this.auditRepository.deleteOldArchivedAuditEvents(cutoffDate);
+  }
+
+  /**
+   * Get audit events excluding archived ones (for normal queries)
+   */
+  public async getActiveAuditEvents(filters: {
+    eventTypes?: string[];
+    userId?: string;
+    agentId?: string;
+    resourceType?: string;
+    resourceId?: string;
+    startDate?: Date;
+    endDate?: Date;
+    riskLevel?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<AuditEvent[]> {
+    return await this.auditRepository.getActiveAuditEvents(filters);
+  }
+
+  /**
+   * Search audit logs with complex filtering and pagination (for auditRoutes)
+   */
+  public async searchAuditLogs(filters: {
+    eventType?: string;
+    userId?: string;
+    startDate?: Date;
+    endDate?: Date;
+    ipAddress?: string;
+    search?: string;
+    sortBy?: 'timestamp' | 'eventType' | 'userId';
+    sortOrder?: 'ASC' | 'DESC';
+    limit?: number;
+    offset?: number;
+  }): Promise<{ logs: any[]; total: number }> {
+    return await this.auditRepository.searchAuditLogs(filters);
+  }
+
+  /**
+   * Get audit log by ID with user details
+   */
+  public async getAuditLogById(logId: string): Promise<any | null> {
+    return await this.auditRepository.getAuditLogById(logId);
+  }
+
+  /**
+   * Get distinct event types with counts
+   */
+  public async getAuditEventTypes(): Promise<Array<{ eventType: string; count: number }>> {
+    return await this.auditRepository.getAuditEventTypes();
+  }
+
+  /**
+   * Get audit statistics for a time period
+   */
+  public async getAuditStatistics(timeframe: '1h' | '24h' | '7d' | '30d' = '24h'): Promise<{
+    eventTypes: Array<{ eventType: string; count: number; uniqueUsers: number; uniqueIPs: number }>;
+    hourlyDistribution: Array<{ hour: number; count: number }>;
+    topUsers: Array<{ userId: string; email: string; eventCount: number }>;
+    topIPAddresses: Array<{ ipAddress: string; eventCount: number; uniqueUsers: number }>;
+    summary: { totalEvents: number; uniqueUsers: number; uniqueIPs: number };
+  }> {
+    return await this.auditRepository.getAuditStatistics(timeframe);
+  }
+
+  /**
+   * Get user activity audit trail with pagination
+   */
+  public async getUserActivityAuditTrail(filters: {
+    userId: string;
+    startDate?: Date;
+    endDate?: Date;
+    eventType?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ activities: any[]; total: number }> {
+    return await this.auditRepository.getUserActivityAuditTrail(filters);
   }
 
   // ===== SECURITY POLICY METHODS =====
@@ -1009,35 +1042,28 @@ export class DatabaseService {
     actions: any;
     createdBy: string;
   }): Promise<SecurityPolicy> {
-    const repository = this.getRepository(SecurityPolicy);
-    const policy = repository.create(policyData);
-    return await repository.save(policy);
+    return await this.securityPolicyRepository.createSecurityPolicy(policyData);
   }
 
   /**
    * Get security policy by ID
    */
   public async getSecurityPolicy(policyId: string): Promise<SecurityPolicy | null> {
-    const repository = this.getRepository(SecurityPolicy);
-    return await repository.findOne({ where: { id: policyId } });
+    return await this.securityPolicyRepository.findById(policyId);
   }
 
   /**
    * Update security policy
    */
   public async updateSecurityPolicy(policyId: string, updates: Partial<SecurityPolicy>): Promise<SecurityPolicy | null> {
-    const repository = this.getRepository(SecurityPolicy);
-    await repository.update(policyId, updates);
-    return await repository.findOne({ where: { id: policyId } });
+    return await this.securityPolicyRepository.update(policyId, updates);
   }
 
   /**
    * Delete security policy
    */
   public async deleteSecurityPolicy(policyId: string): Promise<boolean> {
-    const repository = this.getRepository(SecurityPolicy);
-    const result = await repository.delete(policyId);
-    return (result.affected || 0) > 0;
+    return await this.securityPolicyRepository.delete(policyId);
   }
 
   /**
@@ -1049,36 +1075,7 @@ export class DatabaseService {
     limit?: number;
     offset?: number;
   }): Promise<{ policies: SecurityPolicy[]; total: number }> {
-    const repository = this.getRepository(SecurityPolicy);
-    const queryBuilder = repository.createQueryBuilder('policy');
-
-    if (filters.active !== undefined) {
-      queryBuilder.andWhere('policy.isActive = :active', { active: filters.active });
-    }
-
-    if (filters.search) {
-      queryBuilder.andWhere(
-        '(policy.name ILIKE :search OR policy.description ILIKE :search)',
-        { search: `%${filters.search}%` }
-      );
-    }
-
-    queryBuilder.orderBy('policy.priority', 'DESC').addOrderBy('policy.createdAt', 'DESC');
-
-    // Get total count for pagination
-    const total = await queryBuilder.getCount();
-
-    if (filters.limit) {
-      queryBuilder.limit(filters.limit);
-    }
-
-    if (filters.offset) {
-      queryBuilder.offset(filters.offset);
-    }
-
-    const policies = await queryBuilder.getMany();
-
-    return { policies, total };
+    return await this.securityPolicyRepository.querySecurityPolicies(filters);
   }
 
   /**
@@ -1089,18 +1086,250 @@ export class DatabaseService {
     activePolicies: number;
     inactivePolicies: number;
   }> {
-    const repository = this.getRepository(SecurityPolicy);
-    
-    const [totalPolicies, activePolicies] = await Promise.all([
-      repository.count(),
-      repository.count({ where: { isActive: true } })
-    ]);
+    return await this.securityPolicyRepository.getSecurityPolicyStats();
+  }
 
-    return {
-      totalPolicies,
-      activePolicies,
-      inactivePolicies: totalPolicies - activePolicies
-    };
+  // ===== USER MANAGEMENT METHODS =====
+
+  /**
+   * Create a new user
+   */
+  public async createUser(userData: {
+    email: string;
+    firstName?: string;
+    lastName?: string;
+    department?: string;
+    role: string;
+    passwordHash: string;
+    securityClearance?: SecurityLevel;
+    isActive?: boolean;
+  }): Promise<UserEntity> {
+    await this.ensureInitialized();
+    return this.userRepository.createUser(userData);
+  }
+
+  /**
+   * Get user by ID
+   */
+  public async getUserById(userId: string): Promise<UserEntity | null> {
+    await this.ensureInitialized();
+    return this.userRepository.findById(userId);
+  }
+
+  /**
+   * Get user by email
+   */
+  public async getUserByEmail(email: string): Promise<UserEntity | null> {
+    await this.ensureInitialized();
+    return this.userRepository.getUserByEmail(email);
+  }
+
+  /**
+   * Update user
+   */
+  public async updateUser(userId: string, updates: Partial<UserEntity>): Promise<UserEntity | null> {
+    await this.ensureInitialized();
+    return this.userRepository.update(userId, updates);
+  }
+
+  /**
+   * Update user login attempts and lock status
+   */
+  public async updateUserLoginAttempts(userId: string, failedAttempts: number, lockedUntil?: Date): Promise<void> {
+    return await this.userRepository.updateUserLoginAttempts(userId, failedAttempts, lockedUntil);
+  }
+
+  /**
+   * Reset user login attempts and update last login
+   */
+  public async resetUserLoginAttempts(userId: string): Promise<void> {
+    return await this.userRepository.resetUserLoginAttempts(userId);
+  }
+
+  /**
+   * Soft delete user (deactivate)
+   */
+  public async deactivateUser(userId: string): Promise<void> {
+    return await this.userRepository.deactivateUser(userId);
+  }
+
+  /**
+   * Activate user
+   */
+  public async activateUser(userId: string): Promise<void> {
+    return await this.userRepository.activateUser(userId);
+  }
+
+  /**
+   * Query users with filters and pagination
+   */
+  public async queryUsers(filters: {
+    search?: string;
+    role?: string;
+    isActive?: boolean;
+    department?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ users: UserEntity[]; total: number }> {
+    return await this.userRepository.queryUsers(filters);
+  }
+
+  // ===== REFRESH TOKEN METHODS =====
+
+  /**
+   * Create refresh token
+   */
+  public async createRefreshToken(tokenData: {
+    userId: string;
+    token: string;
+    expiresAt: Date;
+  }): Promise<RefreshTokenEntity> {
+    return await this.refreshTokenRepository.createRefreshToken(tokenData);
+  }
+
+  /**
+   * Get refresh token with user data
+   */
+  public async getRefreshTokenWithUser(token: string): Promise<RefreshTokenEntity | null> {
+    return await this.refreshTokenRepository.getRefreshTokenWithUser(token);
+  }
+
+  /**
+   * Revoke refresh token
+   */
+  public async revokeRefreshToken(token: string): Promise<void> {
+    return await this.refreshTokenRepository.revokeRefreshToken(token);
+  }
+
+  /**
+   * Revoke all user refresh tokens
+   */
+  public async revokeAllUserRefreshTokens(userId: string): Promise<void> {
+    return await this.refreshTokenRepository.revokeAllUserRefreshTokens(userId);
+  }
+
+  /**
+   * Clean up expired refresh tokens
+   */
+  public async cleanupExpiredRefreshTokens(): Promise<number> {
+    return await this.refreshTokenRepository.cleanupExpiredRefreshTokens();
+  }
+
+  /**
+   * Update user login tracking (failed attempts, last login, etc.)
+   */
+  public async updateUserLoginTracking(userId: string, updates: {
+    failedLoginAttempts?: number;
+    lockedUntil?: Date | null;
+    lastLoginAt?: Date;
+  }): Promise<void> {
+    const repository = await this.getRepository(UserEntity);
+    await repository.update(userId, {
+      ...updates,
+      updatedAt: new Date()
+    });
+  }
+
+  /**
+   * Update user password
+   */
+  public async updateUserPassword(userId: string, passwordHash: string): Promise<void> {
+    const repository = await this.getRepository(UserEntity);
+    await repository.update(userId, {
+      passwordHash,
+      passwordChangedAt: new Date(),
+      failedLoginAttempts: 0,
+      lockedUntil: null,
+      updatedAt: new Date()
+    });
+  }
+
+  /**
+   * Search users with filters
+   */
+  public async searchUsers(filters: {
+    search?: string;
+    role?: string;
+    department?: string;
+    isActive?: boolean;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ users: UserEntity[]; total: number }> {
+    return await this.userRepository.searchUsers(filters);
+  }
+
+  /**
+   * Update user profile
+   */
+  public async updateUserProfile(userId: string, updates: {
+    firstName?: string;
+    lastName?: string;
+    department?: string;
+    role?: string;
+    securityClearance?: SecurityLevel;
+    isActive?: boolean;
+  }): Promise<UserEntity | null> {
+    return await this.userRepository.updateUserProfile(userId, updates);
+  }
+
+  /**
+   * Delete user (soft delete by setting inactive)
+   */
+  public async deleteUser(userId: string): Promise<boolean> {
+    const repository = await this.getRepository(UserEntity);
+    const result = await repository.update(userId, {
+      isActive: false,
+      updatedAt: new Date()
+    });
+    return (result.affected || 0) > 0;
+  }
+
+  /**
+   * Get user statistics
+   */
+  public async getUserStats(): Promise<{
+    totalUsers: number;
+    activeUsers: number;
+    inactiveUsers: number;
+    roleStats: Array<{ role: string; count: number }>;
+    departmentStats: Array<{ department: string; count: number }>;
+    recentActivity: Array<{ date: string; loginCount: number }>;
+  }> {
+    return await this.userRepository.getUserStats();
+  }
+
+  // ===== PASSWORD RESET TOKEN METHODS =====
+
+  /**
+   * Create password reset token
+   */
+  public async createPasswordResetToken(tokenData: {
+    userId: string;
+    token: string;
+    expiresAt: Date;
+  }): Promise<PasswordResetTokenEntity> {
+    return await this.passwordResetTokenRepository.createPasswordResetToken(tokenData);
+  }
+
+  /**
+   * Get password reset token with user data
+   */
+  public async getPasswordResetTokenWithUser(token: string): Promise<PasswordResetTokenEntity | null> {
+    return await this.passwordResetTokenRepository.getPasswordResetTokenWithUser(token);
+  }
+
+  /**
+   * Mark password reset token as used
+   */
+  public async markPasswordResetTokenAsUsed(token: string): Promise<void> {
+    return await this.passwordResetTokenRepository.markPasswordResetTokenAsUsed(token);
+  }
+
+  /**
+   * Clean up expired password reset tokens
+   */
+  public async cleanupExpiredPasswordResetTokens(): Promise<number> {
+    return await this.passwordResetTokenRepository.cleanupExpiredPasswordResetTokens();
   }
 
   // Backward compatibility methods (DEPRECATED - use TypeORM methods instead)
@@ -1114,7 +1343,7 @@ export class DatabaseService {
     logger.warn('DEPRECATED: query() method used. Please migrate to TypeORM repository methods.');
     
     try {
-      const manager = this.getEntityManager();
+      const manager = await this.getEntityManager();
       const result = await manager.query(text, params);
       
       return {
@@ -1129,5 +1358,320 @@ export class DatabaseService {
         originalError: errorMessage
       });
     }
+  }
+
+  /**
+   * Get user authentication details for security validation
+   */
+  public async getUserAuthDetails(userId: string): Promise<{
+    id: string;
+    isActive: boolean;
+    role: string;
+    securityClearance?: SecurityLevel;
+  } | null> {
+    return await this.userRepository.getUserAuthDetails(userId);
+  }
+
+  /**
+   * Get user permissions for security validation
+   */
+  public async getUserPermissions(userId: string): Promise<{
+    rolePermissions: Array<{ roleName: string; permissionType: string; operations: string[] }>;
+    directPermissions: Array<{ permissionType: string; operations: string[] }>;
+  }> {
+    return await this.userRepository.getUserPermissions(userId);
+  }
+
+  /**
+   * Get user risk assessment data
+   */
+  public async getUserRiskData(userId: string): Promise<{
+    securityClearance?: SecurityLevel;
+    role: string;
+    lastLoginAt?: Date;
+    createdAt: Date;
+    recentActivityCount: number;
+  } | null> {
+    return await this.userRepository.getUserRiskData(userId);
+  }
+
+  /**
+   * Get user's highest role for data access level determination
+   */
+  public async getUserHighestRole(userId: string): Promise<string | null> {
+    return await this.userRepository.getUserHighestRole(userId);
+  }
+
+  /**
+   * Search discussions with text query and filters
+   */
+  public async searchDiscussions(filters: {
+    textQuery?: string;
+    status?: string | string[];
+    visibility?: string | string[];
+    createdBy?: string | string[];
+    organizationId?: string;
+    teamId?: string;
+    createdAfter?: Date;
+    createdBefore?: Date;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ discussions: any[]; total: number }> {
+    await this.ensureInitialized();
+    return this.discussionRepository.searchDiscussions(filters);
+  }
+
+  /**
+   * Search capabilities with complex filters
+   */
+  public async searchCapabilities(filters: {
+    query?: string;
+    type?: string;
+    securityLevel?: string;
+    limit?: number;
+  }): Promise<any[]> {
+    await this.ensureInitialized();
+    return this.capabilityRepository.searchCapabilities(filters);
+  }
+
+  /**
+   * Get capabilities by IDs
+   */
+  public async getCapabilitiesByIds(capabilityIds: string[]): Promise<any[]> {
+    await this.ensureInitialized();
+    return this.capabilityRepository.getCapabilitiesByIds(capabilityIds);
+  }
+
+  /**
+   * Get single capability by ID
+   */
+  public async getCapabilityById(capabilityId: string): Promise<any | null> {
+    await this.ensureInitialized();
+    return this.capabilityRepository.getCapabilityById(capabilityId);
+  }
+
+  /**
+   * Get capability dependencies
+   */
+  public async getCapabilityDependencies(dependencyIds: string[]): Promise<any[]> {
+    await this.ensureInitialized();
+    return this.capabilityRepository.getCapabilityDependencies(dependencyIds);
+  }
+
+  /**
+   * Get capabilities that depend on a given capability (dependents)
+   */
+  public async getCapabilityDependents(capabilityId: string): Promise<any[]> {
+    await this.ensureInitialized();
+    return this.capabilityRepository.getCapabilityDependents(capabilityId);
+  }
+
+  /**
+   * Advanced capability search with multiple filters
+   */
+  public async searchCapabilitiesAdvanced(searchParams: {
+    query?: string;
+    types?: string[];
+    tags?: string[];
+    securityLevel?: string;
+    includeExperimental?: boolean;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ capabilities: any[]; totalCount: number }> {
+    await this.ensureInitialized();
+    return this.capabilityRepository.searchCapabilitiesAdvanced(searchParams);
+  }
+
+  /**
+   * Get agent configuration and capabilities
+   */
+  public async getAgentCapabilitiesConfig(agentId: string): Promise<{
+    intelligenceConfig?: any;
+    securityContext?: any;
+  } | null> {
+    return await this.agentRepository.getAgentCapabilitiesConfig(agentId);
+  }
+
+  // ===== AGENT INTELLIGENCE METHODS =====
+
+  /**
+   * Get all active agents with limit
+   */
+  public async getActiveAgents(limit?: number): Promise<any[]> {
+    return await this.agentRepository.getActiveAgents(limit);
+  }
+
+  /**
+   * Get agent by ID with active status check
+   */
+  public async getActiveAgentById(agentId: string): Promise<any | null> {
+    return await this.agentRepository.getActiveAgentById(agentId);
+  }
+
+  /**
+   * Create a new agent
+   */
+  public async createAgent(agentData: {
+    id?: string;
+    name: string;
+    role: string;
+    persona: any;
+    intelligenceConfig: any;
+    securityContext: any;
+    createdBy?: string;
+  }): Promise<any> {
+    return await this.agentRepository.createAgent(agentData);
+  }
+
+  /**
+   * Update an agent
+   */
+  public async updateAgent(agentId: string, updateData: {
+    name?: string;
+    role?: string;
+    persona?: any;
+    intelligenceConfig?: any;
+    securityContext?: any;
+  }): Promise<any | null> {
+    return await this.agentRepository.updateAgent(agentId, updateData);
+  }
+
+  /**
+   * Store execution plan
+   */
+  public async storeExecutionPlan(planData: {
+    id: string;
+    type: string;
+    agentId: string;
+    plan?: any;
+    steps?: any;
+    dependencies?: any;
+    estimatedDuration?: number;
+    priority?: string;
+    constraints?: any;
+    metadata?: any;
+    context?: any;
+    createdAt: Date;
+  }): Promise<void> {
+    return await this.agentRepository.storeExecutionPlan(planData);
+  }
+
+  /**
+   * Get operation by ID
+   */
+  public async getOperationById(operationId: string): Promise<any | null> {
+    return await this.agentRepository.getOperationById(operationId);
+  }
+
+  /**
+   * Store enhanced learning record
+   */
+  public async storeEnhancedLearningRecord(recordData: {
+    agentId: string;
+    operationId: string;
+    learningData: any;
+    confidenceAdjustments: any;
+  }): Promise<void> {
+    return await this.agentRepository.storeEnhancedLearningRecord(recordData);
+  }
+
+  /**
+   * Deactivate an agent (set is_active to false)
+   */
+  public async deactivateAgent(agentId: string): Promise<boolean> {
+    return await this.agentRepository.deactivateAgent(agentId);
+  }
+
+  // ===== TOOL MANAGEMENT METHODS =====
+  // All tool management methods delegate to appropriate repositories
+
+  public async createTool(toolData: Partial<ToolDefinition>): Promise<ToolDefinition> {
+    return await this.toolRepository.createTool(toolData);
+  }
+
+  public async getTool(id: string): Promise<ToolDefinition | null> {
+    return await this.toolRepository.findById(id);
+  }
+
+  public async getTools(filters: {
+    category?: string;
+    enabled?: boolean;
+    securityLevel?: string;
+    limit?: number;
+    offset?: number;
+  } = {}): Promise<ToolDefinition[]> {
+    return await this.toolRepository.getTools(filters);
+  }
+
+  public async updateTool(id: string, updates: Partial<ToolDefinition>): Promise<ToolDefinition | null> {
+    return await this.toolRepository.update(id, updates);
+  }
+
+  public async deleteTool(id: string): Promise<boolean> {
+    return await this.toolRepository.delete(id);
+  }
+
+  public async searchTools(searchQuery: string, filters: {
+    category?: string;
+    securityLevel?: string;
+    limit?: number;
+  } = {}): Promise<ToolDefinition[]> {
+    return await this.toolRepository.searchTools(searchQuery, filters);
+  }
+
+  public async createToolExecution(executionData: Partial<ToolExecution>): Promise<ToolExecution> {
+    return await this.toolExecutionRepository.createToolExecution(executionData);
+  }
+
+  public async updateToolExecution(id: string, updates: Partial<ToolExecution>): Promise<ToolExecution | null> {
+    return await this.toolExecutionRepository.update(id, updates);
+  }
+
+  public async getToolExecution(id: string): Promise<ToolExecution | null> {
+    return await this.toolExecutionRepository.getToolExecution(id);
+  }
+
+  public async getToolExecutions(filters: {
+    toolId?: string;
+    agentId?: string;
+    status?: string;
+    limit?: number;
+    offset?: number;
+  } = {}): Promise<ToolExecution[]> {
+    return await this.toolExecutionRepository.getToolExecutions(filters);
+  }
+
+  public async recordToolUsage(usageData: Partial<ToolUsageRecord>): Promise<ToolUsageRecord> {
+    return await this.toolUsageRepository.recordToolUsage(usageData);
+  }
+
+  public async getToolUsageStats(filters: {
+    toolId?: string;
+    agentId?: string;
+    days?: number;
+  } = {}): Promise<any[]> {
+    return await this.toolUsageRepository.getToolUsageStats(filters);
+  }
+
+  private async incrementToolUsageCount(toolId: string): Promise<void> {
+    return await this.toolRepository.incrementToolUsageCount(toolId);
+  }
+
+  public async updateToolSuccessMetrics(toolId: string, wasSuccessful: boolean, executionTime?: number): Promise<void> {
+    return await this.toolRepository.updateToolSuccessMetrics(toolId, wasSuccessful, executionTime);
+  }
+
+  public async getToolPerformanceAnalytics(toolId?: string): Promise<{
+    tools: Array<{
+      id: string;
+      name: string;
+      totalExecutions: number;
+      successfulExecutions: number;
+      successRate: number;
+      averageExecutionTime: number;
+      lastUsedAt: Date;
+    }>;
+  }> {
+    return await this.toolRepository.getToolPerformanceAnalytics(toolId);
   }
 } 

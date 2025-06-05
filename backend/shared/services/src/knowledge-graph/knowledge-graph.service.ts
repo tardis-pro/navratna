@@ -8,8 +8,8 @@ import {
   ContextRequest,
   KnowledgeFilters
 } from '@uaip/types';
-import { QdrantService } from './qdrant.service.js';
-import { KnowledgeRepository } from './knowledge.repository.js';
+import { QdrantService } from '../qdrant.service.js';
+import { KnowledgeRepository } from '../database/repositories/knowledge.repository.js';
 import { EmbeddingService } from './embedding.service.js';
 import { ContentClassifier } from './content-classifier.service.js';
 import { RelationshipDetector } from './relationship-detector.service.js';

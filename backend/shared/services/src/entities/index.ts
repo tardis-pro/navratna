@@ -2,12 +2,17 @@
 // This file exports all TypeORM entities for use across the monorepo
 
 // Base entity
-export { BaseEntity } from './base.entity.js';
+// export { BaseEntity } from './base.entity.js';
 
 // Core entities
 export { Agent } from './agent.entity.js';
 export { Operation } from './operation.entity.js';
 export { Persona } from './persona.entity.js';
+
+// User System entities
+export { UserEntity } from './user.entity.js';
+export { RefreshTokenEntity } from './refreshToken.entity.js';
+export { PasswordResetTokenEntity } from './passwordResetToken.entity.js';
 
 // Agent System entities
 export { AgentCapabilityMetric } from './agentCapabilityMetric.entity.js';
@@ -51,6 +56,9 @@ export const getAllEntities = () => [
   require('./agent.entity.js').Agent,
   require('./operation.entity.js').Operation,
   require('./persona.entity.js').Persona,
+  require('./user.entity.js').UserEntity,
+  require('./refreshToken.entity.js').RefreshTokenEntity,
+  require('./passwordResetToken.entity.js').PasswordResetTokenEntity,
   require('./agentCapabilityMetric.entity.js').AgentCapabilityMetric,
   require('./toolUsageRecord.entity.js').ToolUsageRecord,
   require('./conversationContext.entity.js').ConversationContext,
