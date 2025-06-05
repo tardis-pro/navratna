@@ -7,6 +7,10 @@
     "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
   },
   "include": ["src/**/*"],
-  "exclude": ["src/migrations/**/*"]
-
+  "exclude": ["src/migrations/**/*"],
+  "references": [
+    { "path": "../types" },
+    { "path": "../config" },
+    { "path": "../utils" }
+  ]
 } 

@@ -1,3 +1,6 @@
+// Re-export types needed by entities
+export { SecurityLevel } from '@uaip/types';
+
 // Database Services
 export { DatabaseService } from './databaseService.js';
 export { TypeOrmService, typeormService } from './typeormService.js';

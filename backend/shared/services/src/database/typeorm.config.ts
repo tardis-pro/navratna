@@ -202,6 +202,5 @@ export const checkDatabaseHealth = async (): Promise<{
   }
 };
 
-// Export configuration for external use
-export { createTypeOrmConfig as typeormConfig };
+// Export default DataSource for external use
 export default AppDataSource; 

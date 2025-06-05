@@ -6,7 +6,7 @@
   "types": "./dist/index.d.ts",
   "type": "module",
   "scripts": {
-    "build": "tsc && tsc-alias",
+    "build": "tsc",
     "dev": "tsc --watch",
     "clean": "rimraf dist"
   },

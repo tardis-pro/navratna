@@ -6,11 +6,12 @@
   "types": "./dist/index.d.ts",
   "type": "module",
   "scripts": {
-    "build": "tsc && tsc-alias",
+    "build": "tsc",
     "dev": "tsc --watch",
     "clean": "rimraf dist"
   },
   "dependencies": {
+    "@uaip/types": "workspace:*",
     "winston": "^3.11.0",
     "zod": "^3.22.4"
   },

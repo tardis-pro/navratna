@@ -5,8 +5,7 @@ export {
   initializeDatabase,
   closeDatabase,
   getDataSource,
-  checkDatabaseHealth,
-  typeormConfig
+  checkDatabaseHealth
 } from './typeorm.config.js';
 
 // Legacy DataSource exports for backward compatibility
