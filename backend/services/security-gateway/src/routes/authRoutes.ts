@@ -5,15 +5,26 @@ import bcrypt from 'bcrypt';
 import { z } from 'zod';
 import { config } from '@uaip/config';
 import { logger } from '@uaip/utils';
-import { DatabaseService } from '@uaip/shared-services';
-import { AuditService } from '../services/auditService.js';
+import { DatabaseService,  } from '@uaip/shared-services';
 import { authMiddleware, requireAdmin } from '@uaip/middleware';
 import { validateRequest } from '@uaip/middleware';
 import { AuditEventType } from '@uaip/types';
+import { AuditService } from '../services/auditService.js';
 
 const router: Router = express.Router();
-const databaseService = new DatabaseService();
-const auditService = new AuditService(databaseService);
+
+// Lazy initialization of services
+let databaseService: DatabaseService | null = null;
+let auditService: AuditService | null = null;
+
+async function getServices() {
+  if (!databaseService) {
+    databaseService = new DatabaseService();
+    await databaseService.initialize();
+    auditService = new AuditService(databaseService);
+  }
+  return { databaseService, auditService: auditService! };
+}
 
 // Validation schemas using Zod
 const loginSchema = z.object({
@@ -59,7 +70,16 @@ const resetPasswordSchema = z.object({
 });
 
 // Helper functions
-const generateTokens = (userId: string, email: string, role: string) => {
+async function hashPassword(password: string): Promise<string> {
+  const saltRounds = 12;
+  return await bcrypt.hash(password, saltRounds);
+}
+
+async function verifyPassword(password: string, hash: string): Promise<boolean> {
+  return await bcrypt.compare(password, hash);
+}
+
+function generateTokens(userId: string, email: string, role: string) {
   const jwtSecret = config.jwt.secret as string;
   const refreshSecret = config.jwt.refreshSecret as string;
   
@@ -68,24 +88,16 @@ const generateTokens = (userId: string, email: string, role: string) => {
   }
 
   const accessTokenPayload = { userId, email, role };
-  const accessTokenOptions: SignOptions = { expiresIn: config.jwt.accessTokenExpiry || '15m' };
-  const accessToken = jwt.sign(accessTokenPayload, jwtSecret, accessTokenOptions);
+  const refreshTokenPayload = { userId, email, role, type: 'refresh' };
 
-  const refreshTokenPayload = { userId, email, type: 'refresh' };
+  const accessTokenOptions: SignOptions = { expiresIn: config.jwt.accessTokenExpiry || '15m' };
   const refreshTokenOptions: SignOptions = { expiresIn: config.jwt.refreshTokenExpiry || '7d' };
+
+  const accessToken = jwt.sign(accessTokenPayload, jwtSecret, accessTokenOptions);
   const refreshToken = jwt.sign(refreshTokenPayload, refreshSecret, refreshTokenOptions);
 
   return { accessToken, refreshToken };
-};
-
-const hashPassword = async (password: string): Promise<string> => {
-  const saltRounds = 12;
-  return bcrypt.hash(password, saltRounds);
-};
-
-const verifyPassword = async (password: string, hashedPassword: string): Promise<boolean> => {
-  return bcrypt.compare(password, hashedPassword);
-};
+}
 
 // Routes
 
@@ -100,17 +112,11 @@ router.post('/login',
     try {
       const { email, password, rememberMe } = req.body;
 
-      // Find user in database
-      const query = `
-        SELECT id, email, password_hash, role, is_active, failed_login_attempts, 
-               locked_until, last_login_at, created_at
-        FROM users 
-        WHERE email = $1
-      `;
+      // Find user in database using TypeORM
+      const { databaseService, auditService } = await getServices();
+      const user = await databaseService.getUserByEmail(email);
       
-      const resultUser = await databaseService.query(query, [email]);
-      
-      if (resultUser.rows.length === 0) {
+      if (!user) {
         await auditService.logSecurityEvent({
           eventType: AuditEventType.LOGIN_FAILED,
           userId: undefined,
@@ -125,10 +131,8 @@ router.post('/login',
         });
       }
 
-      const user = resultUser.rows[0];
-
       // Check if account is active
-      if (!user.is_active) {
+      if (!user.isActive) {
         await auditService.logSecurityEvent({
           eventType: AuditEventType.LOGIN_FAILED,
           userId: user.id,
@@ -144,7 +148,7 @@ router.post('/login',
       }
 
       // Check if account is locked
-      if (user.locked_until && new Date(user.locked_until) > new Date()) {
+      if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
         await auditService.logSecurityEvent({
           eventType: AuditEventType.LOGIN_FAILED,
           userId: user.id,
@@ -160,32 +164,26 @@ router.post('/login',
       }
 
       // Verify password
-      const isValidPassword = await verifyPassword(password, user.password_hash);
+      const isValidPassword = await verifyPassword(password, user.passwordHash);
       
       if (!isValidPassword) {
         // Increment failed login attempts
-        const failedAttempts = (user.failed_login_attempts || 0) + 1;
+        const failedAttempts = (user.failedLoginAttempts || 0) + 1;
         const maxAttempts = 5;
         const lockDuration = 30 * 60 * 1000; // 30 minutes
 
-        let updateQuery = `
-          UPDATE users 
-          SET failed_login_attempts = $1, updated_at = NOW()
-        `;
-        let updateParams = [failedAttempts, user.id];
-
         if (failedAttempts >= maxAttempts) {
-          updateQuery = `
-            UPDATE users 
-            SET failed_login_attempts = $1, locked_until = $2, updated_at = NOW()
-            WHERE id = $3
-          `;
-          updateParams = [failedAttempts, new Date(Date.now() + lockDuration), user.id];
+          // Lock account
+          await databaseService.updateUserLoginTracking(user.id, {
+            failedLoginAttempts: failedAttempts,
+            lockedUntil: new Date(Date.now() + lockDuration)
+          });
         } else {
-          updateQuery += ' WHERE id = $2';
+          // Just increment failed attempts
+          await databaseService.updateUserLoginTracking(user.id, {
+            failedLoginAttempts: failedAttempts
+          });
         }
-
-        await databaseService.query(updateQuery, updateParams);
 
         await auditService.logSecurityEvent({
           eventType: AuditEventType.LOGIN_FAILED,
@@ -207,24 +205,17 @@ router.post('/login',
       }
 
       // Successful login - reset failed attempts and update last login
-      await databaseService.query(`
-        UPDATE users 
-        SET failed_login_attempts = 0, locked_until = NULL, last_login_at = NOW(), updated_at = NOW()
-        WHERE id = $1
-      `, [user.id]);
+      await databaseService.resetUserLoginAttempts(user.id);
 
       // Generate tokens
       const tokens = generateTokens(user.id, user.email, user.role);
 
-      // Store refresh token in database
-      await databaseService.query(`
-        INSERT INTO refresh_tokens (user_id, token, expires_at, created_at)
-        VALUES ($1, $2, $3, NOW())
-      `, [
-        user.id,
-        tokens.refreshToken,
-        new Date(Date.now() + (rememberMe ? 30 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000)) // 30 days if remember me, 7 days otherwise
-      ]);
+      // Store refresh token in database using TypeORM
+      await databaseService.createRefreshToken({
+        userId: user.id,
+        token: tokens.refreshToken,
+        expiresAt: new Date(Date.now() + (rememberMe ? 30 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000)) // 30 days if remember me, 7 days otherwise
+      });
 
       await auditService.logSecurityEvent({
         eventType: AuditEventType.LOGIN_SUCCESS,
@@ -240,7 +231,7 @@ router.post('/login',
           id: user.id,
           email: user.email,
           role: user.role,
-          lastLoginAt: user.last_login_at
+          lastLoginAt: user.lastLoginAt
         },
         tokens: {
           accessToken: tokens.accessToken,
@@ -280,27 +271,19 @@ router.post('/refresh',
         });
       }
 
-      // Check if refresh token exists in database
-      const tokenQuery = `
-        SELECT rt.*, u.email, u.role, u.is_active
-        FROM refresh_tokens rt
-        JOIN users u ON rt.user_id = u.id
-        WHERE rt.token = $1 AND rt.expires_at > NOW() AND rt.revoked_at IS NULL
-      `;
+      // Check if refresh token exists in database using TypeORM
+      const { databaseService, auditService } = await getServices();
+      const tokenData = await databaseService.getRefreshTokenWithUser(refreshToken);
       
-      const tokenResult = await databaseService.query(tokenQuery, [refreshToken]);
-      
-      if (tokenResult.rows.length === 0) {
+      if (!tokenData || tokenData.revokedAt || tokenData.expiresAt <= new Date()) {
         return res.status(401).json({
           error: 'Invalid Token',
           message: 'Refresh token not found or expired'
         });
       }
 
-      const tokenData = tokenResult.rows[0];
-
       // Check if user is still active
-      if (!tokenData.is_active) {
+      if (!tokenData.user.isActive) {
         return res.status(401).json({
           error: 'Account Inactive',
           message: 'User account is no longer active'
@@ -313,7 +296,7 @@ router.post('/refresh',
         throw new Error('JWT secret not configured');
       }
 
-      const newTokenPayload = { userId: decoded.userId, email: decoded.email, role: tokenData.role };
+      const newTokenPayload = { userId: decoded.userId, email: decoded.email, role: tokenData.user.role };
       const newTokenOptions: SignOptions = { expiresIn: config.jwt.accessTokenExpiry || '15m' };
       const newAccessToken = jwt.sign(newTokenPayload, jwtSecret, newTokenOptions);
 
@@ -351,19 +334,11 @@ router.post('/logout', authMiddleware, async (req, res) => {
     const userId = (req as any).user.id;
 
     if (refreshToken) {
-      // Revoke the specific refresh token
-      await databaseService.query(`
-        UPDATE refresh_tokens 
-        SET revoked_at = NOW() 
-        WHERE token = $1 AND user_id = $2
-      `, [refreshToken, userId]);
+      // Revoke the specific refresh token using TypeORM
+      await databaseService.revokeRefreshToken(refreshToken);
     } else {
-      // Revoke all refresh tokens for the user
-      await databaseService.query(`
-        UPDATE refresh_tokens 
-        SET revoked_at = NOW() 
-        WHERE user_id = $1 AND revoked_at IS NULL
-      `, [userId]);
+      // Revoke all refresh tokens for the user using TypeORM
+      await databaseService.revokeAllUserRefreshTokens(userId);
     }
 
     await auditService.logSecurityEvent({
@@ -400,21 +375,19 @@ router.post('/change-password',
       const { currentPassword, newPassword } = req.body;
       const userId = (req as any).user.id;
 
-      // Get current password hash
-      const userQuery = `SELECT password_hash FROM users WHERE id = $1`;
-      const userResult = await databaseService.query(userQuery, [userId]);
+      // Get current user using TypeORM
+      const { databaseService, auditService } = await getServices();
+      const user = await databaseService.getUserById(userId);
       
-      if (userResult.rows.length === 0) {
+      if (!user) {
         return res.status(404).json({
           error: 'User Not Found',
           message: 'User account not found'
         });
       }
 
-      const user = userResult.rows[0];
-
       // Verify current password
-      const isValidPassword = await verifyPassword(currentPassword, user.password_hash);
+      const isValidPassword = await verifyPassword(currentPassword, user.passwordHash);
       if (!isValidPassword) {
         await auditService.logSecurityEvent({
           eventType: AuditEventType.PASSWORD_CHANGE_FAILED,
@@ -433,19 +406,11 @@ router.post('/change-password',
       // Hash new password
       const newPasswordHash = await hashPassword(newPassword);
 
-      // Update password
-      await databaseService.query(`
-        UPDATE users 
-        SET password_hash = $1, password_changed_at = NOW(), updated_at = NOW()
-        WHERE id = $2
-      `, [newPasswordHash, userId]);
+      // Update password using TypeORM
+      await databaseService.updateUserPassword(userId, newPasswordHash);
 
-      // Revoke all refresh tokens to force re-login
-      await databaseService.query(`
-        UPDATE refresh_tokens 
-        SET revoked_at = NOW() 
-        WHERE user_id = $1 AND revoked_at IS NULL
-      `, [userId]);
+      // Revoke all refresh tokens to force re-login using TypeORM
+      await databaseService.revokeAllUserRefreshTokens(userId);
 
       await auditService.logSecurityEvent({
         eventType: AuditEventType.PASSWORD_CHANGED,
@@ -456,7 +421,7 @@ router.post('/change-password',
       });
 
       res.json({
-        message: 'Password changed successfully. Please log in again.'
+        message: 'Password changed successfully. Please log in again with your new password.'
       });
 
     } catch (error) {
@@ -477,32 +442,26 @@ router.get('/me', authMiddleware, async (req, res) => {
   try {
     const userId = (req as any).user.id;
 
-    const userQuery = `
-      SELECT id, email, role, is_active, created_at, last_login_at, password_changed_at
-      FROM users 
-      WHERE id = $1
-    `;
+    // Get user using TypeORM
+    const { databaseService, auditService } = await getServices();
+    const user = await databaseService.getUserById(userId);
     
-    const result = await databaseService.query(userQuery, [userId]);
-    
-    if (result.rows.length === 0) {
+    if (!user) {
       return res.status(404).json({
         error: 'User Not Found',
         message: 'User account not found'
       });
     }
 
-    const user = result.rows[0];
-
     res.json({
       user: {
         id: user.id,
         email: user.email,
         role: user.role,
-        isActive: user.is_active,
-        createdAt: user.created_at,
-        lastLoginAt: user.last_login_at,
-        passwordChangedAt: user.password_changed_at
+        isActive: user.isActive,
+        createdAt: user.createdAt,
+        lastLoginAt: user.lastLoginAt,
+        passwordChangedAt: user.passwordChangedAt
       }
     });
 
@@ -526,18 +485,16 @@ router.post('/forgot-password',
     try {
       const { email } = req.body;
 
-      // Check if user exists
-      const userQuery = `SELECT id, email FROM users WHERE email = $1 AND is_active = true`;
-      const userResult = await databaseService.query(userQuery, [email]);
+      // Check if user exists using TypeORM
+      const { databaseService, auditService } = await getServices();
+      const user = await databaseService.getUserByEmail(email);
 
       // Always return success to prevent email enumeration
       res.json({
         message: 'If an account with that email exists, a password reset link has been sent.'
       });
 
-      if (userResult.rows.length > 0) {
-        const user = userResult.rows[0];
-        
+      if (user && user.isActive) {
         // Generate reset token
         const resetToken = jwt.sign(
           { userId: user.id, email: user.email, type: 'password_reset' },
@@ -545,11 +502,12 @@ router.post('/forgot-password',
           { expiresIn: '1h' }
         );
 
-        // Store reset token in database
-        await databaseService.query(`
-          INSERT INTO password_reset_tokens (user_id, token, expires_at, created_at)
-          VALUES ($1, $2, $3, NOW())
-        `, [user.id, resetToken, new Date(Date.now() + 60 * 60 * 1000)]); // 1 hour
+        // Store reset token in database using TypeORM
+        await databaseService.createPasswordResetToken({
+          userId: user.id,
+          token: resetToken,
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000) // 1 hour
+        });
 
         await auditService.logSecurityEvent({
           eventType: AuditEventType.PASSWORD_RESET_REQUESTED,
@@ -569,6 +527,80 @@ router.post('/forgot-password',
       res.status(500).json({
         error: 'Internal Server Error',
         message: 'An error occurred while processing password reset request'
+      });
+    }
+  });
+
+/**
+ * @route POST /api/v1/auth/reset-password
+ * @desc Reset password using reset token
+ * @access Public
+ */
+router.post('/reset-password', 
+  validateRequest({ body: resetPasswordSchema }),
+  async (req, res) => {
+    try {
+      const { token, newPassword } = req.body;
+
+      // Verify reset token
+      let decoded;
+      try {
+        decoded = jwt.verify(token, config.jwt.secret) as any;
+      } catch (jwtError) {
+        return res.status(401).json({
+          error: 'Invalid Token',
+          message: 'Reset token is invalid or expired'
+        });
+      }
+
+      // Check if reset token exists in database using TypeORM
+      const { databaseService, auditService } = await getServices();
+      const resetTokenData = await databaseService.getPasswordResetTokenWithUser(token);
+      
+      if (!resetTokenData || resetTokenData.usedAt || resetTokenData.expiresAt <= new Date()) {
+        return res.status(401).json({
+          error: 'Invalid Token',
+          message: 'Reset token not found, expired, or already used'
+        });
+      }
+
+      // Check if user is still active
+      if (!resetTokenData.user.isActive) {
+        return res.status(401).json({
+          error: 'Account Inactive',
+          message: 'User account is no longer active'
+        });
+      }
+
+      // Hash new password
+      const newPasswordHash = await hashPassword(newPassword);
+
+      // Update password using TypeORM
+      await databaseService.updateUserPassword(resetTokenData.userId, newPasswordHash);
+
+      // Mark reset token as used using TypeORM
+      await databaseService.markPasswordResetTokenAsUsed(token);
+
+      // Revoke all refresh tokens to force re-login using TypeORM
+      await databaseService.revokeAllUserRefreshTokens(resetTokenData.userId);
+
+      await auditService.logSecurityEvent({
+        eventType: AuditEventType.PASSWORD_CHANGED,
+        userId: resetTokenData.userId,
+        details: { email: resetTokenData.user.email, method: 'password_reset' },
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent']
+      });
+
+      res.json({
+        message: 'Password reset successfully. Please log in with your new password.'
+      });
+
+    } catch (error) {
+      logger.error('Reset password error', { error });
+      res.status(500).json({
+        error: 'Internal Server Error',
+        message: 'An error occurred while resetting password'
       });
     }
   });

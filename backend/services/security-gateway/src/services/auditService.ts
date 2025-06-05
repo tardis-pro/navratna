@@ -288,7 +288,7 @@ export class AuditService {
   }
 
   /**
-   * Archive old audit logs
+   * Archive old audit logs using TypeORM
    */
   public async archiveOldLogs(): Promise<{ archived: number; deleted: number }> {
     try {
@@ -298,30 +298,22 @@ export class AuditService {
       const compressionDate = new Date();
       compressionDate.setDate(compressionDate.getDate() - this.compressionThreshold);
 
-      // Archive logs older than compression threshold
-      const archiveQuery = `
-        INSERT INTO audit_events_archive 
-        SELECT * FROM audit_events 
-        WHERE timestamp < $1 AND timestamp >= $2
-      `;
-      const archiveResult = await this.databaseService.query(archiveQuery, [compressionDate, cutoffDate]);
+      // Archive logs older than compression threshold (mark as archived)
+      const archivedCount = await this.databaseService.archiveOldAuditEvents(compressionDate);
 
-      // Delete logs older than retention period
-      const deleteQuery = 'DELETE FROM audit_events WHERE timestamp < $1';
-      const deleteResult = await this.databaseService.query(deleteQuery, [cutoffDate]);
-
-      // Also delete from archive if older than retention
-      await this.databaseService.query('DELETE FROM audit_events_archive WHERE timestamp < $1', [cutoffDate]);
+      // Delete logs older than retention period (only archived ones)
+      const deletedCount = await this.databaseService.deleteOldArchivedAuditEvents(cutoffDate);
 
       logger.info('Audit log archival completed', {
-        archived: archiveResult.rowCount || 0,
-        deleted: deleteResult.rowCount || 0,
+        archived: archivedCount,
+        deleted: deletedCount,
+        compressionDate: compressionDate.toISOString(),
         cutoffDate: cutoffDate.toISOString()
       });
 
       return {
-        archived: archiveResult.rowCount || 0,
-        deleted: deleteResult.rowCount || 0
+        archived: archivedCount,
+        deleted: deletedCount
       };
 
     } catch (error) {

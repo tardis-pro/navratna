@@ -167,8 +167,9 @@ class SecurityGatewayServer {
 
   public async start(): Promise<void> {
     try {
-      // Database service is initialized in constructor
-      logger.info('Database service initialized successfully');
+      // Initialize database service first
+      await this.databaseService.initialize();
+      logger.info('DatabaseService initialized successfully');
 
       // Initialize event bus
       await this.eventBusService.connect();

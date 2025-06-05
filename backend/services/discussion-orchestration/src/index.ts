@@ -236,6 +236,10 @@ class DiscussionOrchestrationServer {
     try {
       logger.info('Starting Discussion Orchestration Service...');
 
+      // Initialize database service first
+      await this.databaseService.initialize();
+      logger.info('DatabaseService initialized successfully');
+
       // Initialize TypeORM first
       await this.typeormService.initialize();
       logger.info('TypeORM service initialized successfully');

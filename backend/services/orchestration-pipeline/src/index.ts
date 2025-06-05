@@ -39,6 +39,9 @@ class OrchestrationPipelineService {
   private async initializeServices(): Promise<void> {
     // Initialize core services first
     this.databaseService = new DatabaseService();
+    await this.databaseService.initialize();
+    logger.info('DatabaseService initialized successfully');
+    
     this.typeormService = TypeOrmService.getInstance();
     await this.typeormService.initialize();
     

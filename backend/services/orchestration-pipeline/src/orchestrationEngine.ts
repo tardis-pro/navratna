@@ -325,7 +325,7 @@ export class OrchestrationEngine extends EventEmitter {
    * Get operation status and progress
    */
   public async getOperationStatus(operationId: string): Promise<{
-    operation: Operation;
+    operation: any;
     status: OperationStatus;
     progress: {
       currentStep?: string;
@@ -487,7 +487,7 @@ export class OrchestrationEngine extends EventEmitter {
     }
   }
 
-  private async createWorkflowInstance(operation: Operation): Promise<WorkflowInstance> {
+  private async createWorkflowInstance(operation: any): Promise<WorkflowInstance> {
     const workflowInstance: WorkflowInstance = {
       id: uuidv4(),
       operationId: operation.id || '',
@@ -516,8 +516,8 @@ export class OrchestrationEngine extends EventEmitter {
       updatedAt: new Date()
     };
 
-    // Save to database
-    await this.databaseService.createWorkflowInstance(workflowInstance);
+    // Save to database using TypeORM service instead of DatabaseService
+    await this.typeormService.create('WorkflowInstance', workflowInstance);
     
     // Initialize state
     await this.stateManagerService.initializeOperationState(operation.id || '', workflowInstance.state || {
@@ -591,7 +591,7 @@ export class OrchestrationEngine extends EventEmitter {
   }
 
   private async getNextExecutableSteps(
-    operation: Operation,
+    operation: any,
     workflowInstance: WorkflowInstance
   ): Promise<any[]> {
     const { steps, dependencies } = operation.executionPlan || { steps: [], dependencies: [] };
@@ -638,7 +638,7 @@ export class OrchestrationEngine extends EventEmitter {
   }
 
   private async executeSteps(
-    operation: Operation,
+    operation: any,
     workflowInstance: WorkflowInstance,
     steps: any[]
   ): Promise<void> {
@@ -659,7 +659,7 @@ export class OrchestrationEngine extends EventEmitter {
   }
 
   private async executeSingleStep(
-    operation: Operation,
+    operation: any,
     workflowInstance: WorkflowInstance,
     step: any
   ): Promise<void> {
@@ -737,7 +737,7 @@ export class OrchestrationEngine extends EventEmitter {
   }
 
   private async executeStepsInParallel(
-    operation: Operation,
+    operation: any,
     workflowInstance: WorkflowInstance,
     steps: any[]
   ): Promise<void> {

@@ -18,23 +18,23 @@ import { config } from '@uaip/config';
 
 const router: Router = express.Router();
 
-// Initialize services
-const databaseService = new DatabaseService();
-const eventBusService = new EventBusService(
-  {
-    url: process.env.RABBITMQ_URL || 'amqp://localhost:5672',
-    serviceName: 'security-gateway-approval-routes'
-  },
-  logger
-);
-const notificationService = new NotificationService();
-const auditService = new AuditService(databaseService);
-const approvalWorkflowService = new ApprovalWorkflowService(
-  databaseService,
-  eventBusService,
-  notificationService,
-  auditService
-);
+// Lazy initialization of services
+let databaseService: DatabaseService | null = null;
+let auditService: AuditService | null = null;
+let notificationService: NotificationService | null = null;
+let approvalWorkflowService: ApprovalWorkflowService | null = null;
+
+async function getServices() {
+  if (!databaseService) {
+    databaseService = new DatabaseService();
+    await databaseService.initialize();
+    auditService = new AuditService(databaseService);
+    notificationService = new NotificationService();
+    // Note: EventBusService would need to be initialized separately if needed
+    // approvalWorkflowService = new ApprovalWorkflowService(databaseService, eventBusService, notificationService, auditService);
+  }
+  return { databaseService, auditService: auditService!, notificationService: notificationService! };
+}
 
 // Validation schemas using Zod
 const createWorkflowSchema = z.object({

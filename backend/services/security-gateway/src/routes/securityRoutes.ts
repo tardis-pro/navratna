@@ -11,10 +11,23 @@ import { NotificationService } from '../services/notificationService.js';
 import { AuditEventType, SecurityLevel } from '@uaip/types';
 import { SecurityGatewayService } from '../services/securityGatewayService.js';
 import { ApprovalWorkflowService } from '../services/approvalWorkflowService.js';
+import { config } from '@uaip/config';
 
 const router: Router = express.Router();
-const databaseService = new DatabaseService();
-const auditService = new AuditService(databaseService);
+
+// Lazy initialization of services
+let databaseService: DatabaseService | null = null;
+let auditService: AuditService | null = null;
+
+async function getServices() {
+  if (!databaseService) {
+    databaseService = new DatabaseService();
+    await databaseService.initialize();
+    auditService = new AuditService(databaseService);
+  }
+  return { databaseService, auditService: auditService! };
+}
+
 const notificationService = new NotificationService();
 const eventBusService = new EventBusService(
   {

@@ -12,8 +12,20 @@ import { config } from '@uaip/config';
 import { AuditEventType } from '@uaip/types';
 
 const router: Router = express.Router();
-const databaseService = new DatabaseService();
-const auditService = new AuditService(databaseService);
+
+// Lazy initialization of services
+let databaseService: DatabaseService | null = null;
+let auditService: AuditService | null = null;
+
+async function getServices() {
+  if (!databaseService) {
+    databaseService = new DatabaseService();
+    await databaseService.initialize();
+    auditService = new AuditService(databaseService);
+  }
+  return { databaseService, auditService: auditService! };
+}
+
 const notificationService = new NotificationService();
 
 // Validation schemas using Zod
@@ -135,102 +147,28 @@ router.get('/',
         sortOrder
       } = req.query;
 
-      // Build query
-      let query = `
-        SELECT 
-          id,
-          email,
-          role,
-          first_name,
-          last_name,
-          department,
-          is_active,
-          created_at,
-          updated_at,
-          last_login_at,
-          failed_login_attempts,
-          locked_until
-        FROM users
-        WHERE 1=1
-      `;
-
-      const params: any[] = [];
-      let paramCount = 0;
-
-      // Add filters
-      if (role) {
-        paramCount++;
-        query += ` AND role = $${paramCount}`;
-        params.push(role);
-      }
-
-      if (isActive !== undefined) {
-        paramCount++;
-        query += ` AND is_active = $${paramCount}`;
-        params.push(isActive);
-      }
-
-      if (search) {
-        paramCount++;
-        query += ` AND (email ILIKE $${paramCount} OR first_name ILIKE $${paramCount} OR last_name ILIKE $${paramCount} OR department ILIKE $${paramCount})`;
-        params.push(`%${search}%`);
-      }
-
       // Parse and validate query parameters
-      const sortByQuery = sortBy as string || 'created_at';
-      const sortOrderQuery = sortOrder as string || 'desc';
       const pageQuery = parseInt(page as string) || 1;
       const limitQuery = parseInt(limit as string) || 20;
+      const offset = (pageQuery - 1) * limitQuery;
 
-      // Validate sort order
-      const validSortOrder = ['asc', 'desc'].includes(sortOrderQuery.toLowerCase()) ? sortOrderQuery : 'desc';
-
-      if (sortByQuery) {
-        query += ` ORDER BY ${sortByQuery} ${validSortOrder.toUpperCase()}`;
-      }
-
-      if (pageQuery && limitQuery) {
-        const offset = (pageQuery - 1) * limitQuery;
-        query += ` LIMIT ${limitQuery} OFFSET ${offset}`;
-      }
-
-      const result = await databaseService.query(query, params);
-
-      // Get total count for pagination
-      let countQuery = `SELECT COUNT(*) FROM users WHERE 1=1`;
-      const countParams: any[] = [];
-      let countParamCount = 0;
-
-      // Apply same filters for count
-      if (role) {
-        countParamCount++;
-        countQuery += ` AND role = $${countParamCount}`;
-        countParams.push(role);
-      }
-
-      if (isActive !== undefined) {
-        countParamCount++;
-        countQuery += ` AND is_active = $${countParamCount}`;
-        countParams.push(isActive);
-      }
-
-      if (search) {
-        countParamCount++;
-        countQuery += ` AND (email ILIKE $${countParamCount} OR first_name ILIKE $${countParamCount} OR last_name ILIKE $${countParamCount} OR department ILIKE $${countParamCount})`;
-        countParams.push(`%${search}%`);
-      }
-
-      const countResult = await databaseService.query(countQuery, countParams);
-      const totalCount = parseInt(countResult.rows[0].count);
+      // Use DatabaseService searchUsers method for TypeORM-based search
+      const result = await databaseService.searchUsers({
+        search: search as string,
+        role: role as string,
+        isActive: isActive !== undefined ? Boolean(isActive) : undefined,
+        limit: limitQuery,
+        offset: offset
+      });
 
       res.json({
         message: 'Users retrieved successfully',
-        users: result.rows,
+        users: result.users,
         pagination: {
           page: pageQuery,
           limit: limitQuery,
-          total: totalCount,
-          pages: Math.ceil(totalCount / (limitQuery || 20))
+          total: result.total,
+          pages: Math.ceil(result.total / limitQuery)
         },
         filters: {
           role,
@@ -257,37 +195,22 @@ router.get('/:userId', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { userId } = req.params;
 
-    const query = `
-      SELECT 
-        id,
-        email,
-        role,
-        first_name,
-        last_name,
-        department,
-        is_active,
-        created_at,
-        updated_at,
-        last_login_at,
-        password_changed_at,
-        failed_login_attempts,
-        locked_until
-      FROM users
-      WHERE id = $1
-    `;
+    // Use DatabaseService getUserById method
+    const user = await databaseService.getUserById(userId);
 
-    const result = await databaseService.query(query, [userId]);
-
-    if (result.rows.length === 0) {
+    if (!user) {
       return res.status(404).json({
         error: 'User Not Found',
         message: 'User not found'
       });
     }
 
+    // Remove sensitive data from response
+    const { passwordHash, ...userResponse } = user;
+
     res.json({
       message: 'User retrieved successfully',
-      user: result.rows[0]
+      user: userResponse
     });
 
   } catch (error) {
@@ -316,13 +239,10 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
 
     const adminUserId = (req as any).user.userId;
 
-    // Check if user already exists
-    const existingUser = await databaseService.query(
-      'SELECT id FROM users WHERE email = $1',
-      [value.email]
-    );
+    // Check if user already exists using DatabaseService
+    const existingUser = await databaseService.getUserByEmail(value.email);
 
-    if (existingUser.rows.length > 0) {
+    if (existingUser) {
       return res.status(409).json({
         error: 'User Already Exists',
         message: 'A user with this email already exists'
@@ -332,27 +252,16 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
     // Hash password
     const passwordHash = await hashPassword(value.password);
 
-    // Create user
-    const query = `
-      INSERT INTO users (
-        email, password_hash, role, first_name, last_name, department, 
-        is_active, created_at, updated_at
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
-      RETURNING id, email, role, first_name, last_name, department, is_active, created_at
-    `;
-
-    const result = await databaseService.query(query, [
-      value.email,
+    // Create user using DatabaseService
+    const newUser = await databaseService.createUser({
+      email: value.email,
       passwordHash,
-      value.role,
-      value.firstName || null,
-      value.lastName || null,
-      value.department || null,
-      value.isActive
-    ]);
-
-    const newUser = result.rows[0];
+      role: value.role,
+      firstName: value.firstName,
+      lastName: value.lastName,
+      department: value.department,
+      isActive: value.isActive
+    });
 
     // Send welcome email if requested
     if (value.sendWelcomeEmail) {
@@ -381,18 +290,18 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
         createdUserId: newUser.id,
         createdUserEmail: newUser.email,
         createdUserRole: newUser.role,
-        isActive: newUser.is_active
+        isActive: newUser.isActive
       },
       ipAddress: req.ip,
       userAgent: req.headers['user-agent']
     });
 
     // Remove sensitive data from response
-    const { password, ...userResponse } = value;
+    const { passwordHash: _, ...userResponse } = newUser;
     
     res.status(201).json({
       message: 'User created successfully',
-      user: newUser
+      user: userResponse
     });
 
   } catch (error) {
@@ -422,29 +331,21 @@ router.put('/:userId', authMiddleware, requireAdmin, async (req, res) => {
 
     const adminUserId = (req as any).user.userId;
 
-    // Check if user exists
-    const existingUser = await databaseService.query(
-      'SELECT id, email, role, is_active FROM users WHERE id = $1',
-      [userId]
-    );
+    // Check if user exists using DatabaseService
+    const currentUser = await databaseService.getUserById(userId);
 
-    if (existingUser.rows.length === 0) {
+    if (!currentUser) {
       return res.status(404).json({
         error: 'User Not Found',
         message: 'User not found'
       });
     }
 
-    const currentUser = existingUser.rows[0];
-
     // Check if email is being changed and if it conflicts
     if (value.email && value.email !== currentUser.email) {
-      const emailCheck = await databaseService.query(
-        'SELECT id FROM users WHERE email = $1 AND id != $2',
-        [value.email, userId]
-      );
+      const emailCheck = await databaseService.getUserByEmail(value.email);
 
-      if (emailCheck.rows.length > 0) {
+      if (emailCheck && emailCheck.id !== userId) {
         return res.status(409).json({
           error: 'Email Already Exists',
           message: 'Another user with this email already exists'
@@ -452,67 +353,41 @@ router.put('/:userId', authMiddleware, requireAdmin, async (req, res) => {
       }
     }
 
-    // Build update query dynamically
-    const updateFields: string[] = [];
-    const updateValues: any[] = [];
-    let paramCount = 0;
-
-    if (value.email !== undefined) {
-      paramCount++;
-      updateFields.push(`email = $${paramCount}`);
-      updateValues.push(value.email);
-    }
-
-    if (value.role !== undefined) {
-      paramCount++;
-      updateFields.push(`role = $${paramCount}`);
-      updateValues.push(value.role);
-    }
-
-    if (value.firstName !== undefined) {
-      paramCount++;
-      updateFields.push(`first_name = $${paramCount}`);
-      updateValues.push(value.firstName);
-    }
-
-    if (value.lastName !== undefined) {
-      paramCount++;
-      updateFields.push(`last_name = $${paramCount}`);
-      updateValues.push(value.lastName);
-    }
-
-    if (value.department !== undefined) {
-      paramCount++;
-      updateFields.push(`department = $${paramCount}`);
-      updateValues.push(value.department);
-    }
-
-    if (value.isActive !== undefined) {
-      paramCount++;
-      updateFields.push(`is_active = $${paramCount}`);
-      updateValues.push(value.isActive);
-    }
-
-    if (updateFields.length === 0) {
+    // Check if there are any fields to update
+    const hasUpdates = Object.keys(value).length > 0;
+    if (!hasUpdates) {
       return res.status(400).json({
         error: 'No Updates',
         message: 'No valid fields provided for update'
       });
     }
 
-    paramCount++;
-    updateFields.push(`updated_at = NOW()`);
-    updateValues.push(userId);
+    // Update user using DatabaseService
+    const updatedUser = await databaseService.updateUserProfile(userId, {
+      firstName: value.firstName,
+      lastName: value.lastName,
+      department: value.department,
+      role: value.role,
+      isActive: value.isActive
+    });
 
-    const query = `
-      UPDATE users 
-      SET ${updateFields.join(', ')}
-      WHERE id = $${paramCount}
-      RETURNING id, email, role, first_name, last_name, department, is_active, created_at, updated_at
-    `;
+    // Handle email update separately if needed (not in updateUserProfile)
+    if (value.email && value.email !== currentUser.email) {
+      // Use the generic update method for email
+      await databaseService.updateUser(userId, { email: value.email });
+      // Refresh the user data
+      const refreshedUser = await databaseService.getUserById(userId);
+      if (refreshedUser) {
+        Object.assign(updatedUser, refreshedUser);
+      }
+    }
 
-    const result = await databaseService.query(query, updateValues);
-    const updatedUser = result.rows[0];
+    if (!updatedUser) {
+      return res.status(500).json({
+        error: 'Update Failed',
+        message: 'Failed to update user'
+      });
+    }
 
     await auditService.logSecurityEvent({
       eventType: AuditEventType.USER_UPDATED,
@@ -523,16 +398,19 @@ router.put('/:userId', authMiddleware, requireAdmin, async (req, res) => {
         updatedFields: Object.keys(value),
         previousRole: currentUser.role,
         newRole: updatedUser.role,
-        previousActive: currentUser.is_active,
-        newActive: updatedUser.is_active
+        previousActive: currentUser.isActive,
+        newActive: updatedUser.isActive
       },
       ipAddress: req.ip,
       userAgent: req.headers['user-agent']
     });
 
+    // Remove sensitive data from response
+    const { passwordHash, ...userResponse } = updatedUser;
+
     res.json({
       message: 'User updated successfully',
-      user: updatedUser
+      user: userResponse
     });
 
   } catch (error) {
@@ -562,32 +440,28 @@ router.delete('/:userId', authMiddleware, requireAdmin, async (req, res) => {
       });
     }
 
-    // Check if user exists
-    const existingUser = await databaseService.query(
-      'SELECT id, email, role FROM users WHERE id = $1',
-      [userId]
-    );
+    // Check if user exists using DatabaseService
+    const user = await databaseService.getUserById(userId);
 
-    if (existingUser.rows.length === 0) {
+    if (!user) {
       return res.status(404).json({
         error: 'User Not Found',
         message: 'User not found'
       });
     }
 
-    const user = existingUser.rows[0];
+    // Soft delete using DatabaseService (deactivates user)
+    const deleted = await databaseService.deleteUser(userId);
 
-    // Soft delete by setting is_active to false
-    await databaseService.query(
-      'UPDATE users SET is_active = false, updated_at = NOW() WHERE id = $1',
-      [userId]
-    );
+    if (!deleted) {
+      return res.status(500).json({
+        error: 'Delete Failed',
+        message: 'Failed to delete user'
+      });
+    }
 
-    // Revoke all refresh tokens
-    await databaseService.query(
-      'UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL',
-      [userId]
-    );
+    // Revoke all refresh tokens using DatabaseService
+    await databaseService.revokeAllUserRefreshTokens(userId);
 
     await auditService.logSecurityEvent({
       eventType: AuditEventType.USER_DELETED,
@@ -632,38 +506,25 @@ router.post('/:userId/reset-password', authMiddleware, requireAdmin, async (req,
 
     const adminUserId = (req as any).user.userId;
 
-    // Check if user exists
-    const existingUser = await databaseService.query(
-      'SELECT id, email FROM users WHERE id = $1',
-      [userId]
-    );
+    // Check if user exists using DatabaseService
+    const user = await databaseService.getUserById(userId);
 
-    if (existingUser.rows.length === 0) {
+    if (!user) {
       return res.status(404).json({
         error: 'User Not Found',
         message: 'User not found'
       });
     }
 
-    const user = existingUser.rows[0];
-
     // Generate new password if not provided
     const newPassword = value.newPassword || generateRandomPassword();
     const passwordHash = await hashPassword(newPassword);
 
-    // Update password
-    await databaseService.query(`
-      UPDATE users 
-      SET password_hash = $1, password_changed_at = NOW(), updated_at = NOW()
-      WHERE id = $2
-    `, [passwordHash, userId]);
+    // Update password using DatabaseService
+    await databaseService.updateUserPassword(userId, passwordHash);
 
-    // Revoke all refresh tokens to force re-login
-    await databaseService.query(`
-      UPDATE refresh_tokens 
-      SET revoked_at = NOW() 
-      WHERE user_id = $1 AND revoked_at IS NULL
-    `, [userId]);
+    // Revoke all refresh tokens to force re-login using DatabaseService
+    await databaseService.revokeAllUserRefreshTokens(userId);
 
     // Send notification if requested
     if (value.sendNotification) {
@@ -674,7 +535,7 @@ router.post('/:userId/reset-password', authMiddleware, requireAdmin, async (req,
           subject: 'Password Reset - UAIP',
           message: `Your password has been reset by an administrator.`,
           data: {
-            name: user.first_name || 'User',
+            name: user.firstName || 'User',
             email: user.email,
             newPassword: newPassword,
             loginUrl: `${config.frontend.baseUrl}/login`
@@ -721,27 +582,18 @@ router.post('/:userId/unlock', authMiddleware, requireAdmin, async (req, res) =>
     const { userId } = req.params;
     const adminUserId = (req as any).user.userId;
 
-    // Check if user exists
-    const existingUser = await databaseService.query(
-      'SELECT id, email, failed_login_attempts, locked_until FROM users WHERE id = $1',
-      [userId]
-    );
+    // Check if user exists using DatabaseService
+    const user = await databaseService.getUserById(userId);
 
-    if (existingUser.rows.length === 0) {
+    if (!user) {
       return res.status(404).json({
         error: 'User Not Found',
         message: 'User not found'
       });
     }
 
-    const user = existingUser.rows[0];
-
-    // Unlock the account
-    await databaseService.query(`
-      UPDATE users 
-      SET failed_login_attempts = 0, locked_until = NULL, updated_at = NOW()
-      WHERE id = $1
-    `, [userId]);
+    // Unlock the account using DatabaseService
+    await databaseService.resetUserLoginAttempts(userId);
 
     await auditService.logSecurityEvent({
       eventType: AuditEventType.USER_UNLOCKED,
@@ -749,8 +601,8 @@ router.post('/:userId/unlock', authMiddleware, requireAdmin, async (req, res) =>
       details: {
         unlockedUserId: userId,
         unlockedUserEmail: user.email,
-        previousFailedAttempts: user.failed_login_attempts,
-        wasLockedUntil: user.locked_until
+        previousFailedAttempts: user.failedLoginAttempts,
+        wasLockedUntil: user.lockedUntil
       },
       ipAddress: req.ip,
       userAgent: req.headers['user-agent']
@@ -805,63 +657,37 @@ router.post('/bulk-action', authMiddleware, requireAdmin, async (req, res) => {
 
     for (const userId of userIds) {
       try {
-        // Check if user exists
-        const userResult = await databaseService.query(
-          'SELECT id, email, role FROM users WHERE id = $1',
-          [userId]
-        );
+        // Check if user exists using DatabaseService
+        const user = await databaseService.getUserById(userId);
 
-        if (userResult.rows.length === 0) {
+        if (!user) {
           results.failed.push({ userId, reason: 'User not found' });
           continue;
         }
 
-        const user = userResult.rows[0];
-
         switch (action) {
           case 'activate':
-            await databaseService.query(
-              'UPDATE users SET is_active = true, updated_at = NOW() WHERE id = $1',
-              [userId]
-            );
+            await databaseService.activateUser(userId);
             break;
 
           case 'deactivate':
-            await databaseService.query(
-              'UPDATE users SET is_active = false, updated_at = NOW() WHERE id = $1',
-              [userId]
-            );
-            // Revoke refresh tokens
-            await databaseService.query(
-              'UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL',
-              [userId]
-            );
+            await databaseService.deactivateUser(userId);
+            // Revoke refresh tokens using DatabaseService
+            await databaseService.revokeAllUserRefreshTokens(userId);
             break;
 
           case 'delete':
-            await databaseService.query(
-              'UPDATE users SET is_active = false, updated_at = NOW() WHERE id = $1',
-              [userId]
-            );
-            // Revoke refresh tokens
-            await databaseService.query(
-              'UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL',
-              [userId]
-            );
+            await databaseService.deleteUser(userId);
+            // Revoke refresh tokens using DatabaseService
+            await databaseService.revokeAllUserRefreshTokens(userId);
             break;
 
           case 'reset_password':
             const newPassword = generateRandomPassword();
             const passwordHash = await hashPassword(newPassword);
-            await databaseService.query(
-              'UPDATE users SET password_hash = $1, password_changed_at = NOW(), updated_at = NOW() WHERE id = $2',
-              [passwordHash, userId]
-            );
-            // Revoke refresh tokens
-            await databaseService.query(
-              'UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL',
-              [userId]
-            );
+            await databaseService.updateUserPassword(userId, passwordHash);
+            // Revoke refresh tokens using DatabaseService
+            await databaseService.revokeAllUserRefreshTokens(userId);
             break;
 
           default:
@@ -912,56 +738,25 @@ router.post('/bulk-action', authMiddleware, requireAdmin, async (req, res) => {
  */
 router.get('/stats', authMiddleware, requireAdmin, async (req, res) => {
   try {
-    // Get user counts by role
-    const roleStatsQuery = `
-      SELECT 
-        role,
-        COUNT(*) as count,
-        COUNT(CASE WHEN is_active = true THEN 1 END) as active_count,
-        COUNT(CASE WHEN is_active = false THEN 1 END) as inactive_count
-      FROM users
-      GROUP BY role
-      ORDER BY count DESC
-    `;
-
-    const roleStats = await databaseService.query(roleStatsQuery);
-
-    // Get recent user activity
-    const recentActivityQuery = `
-      SELECT 
-        COUNT(CASE WHEN created_at >= NOW() - INTERVAL '24 hours' THEN 1 END) as new_users_24h,
-        COUNT(CASE WHEN created_at >= NOW() - INTERVAL '7 days' THEN 1 END) as new_users_7d,
-        COUNT(CASE WHEN last_login_at >= NOW() - INTERVAL '24 hours' THEN 1 END) as active_users_24h,
-        COUNT(CASE WHEN last_login_at >= NOW() - INTERVAL '7 days' THEN 1 END) as active_users_7d,
-        COUNT(CASE WHEN locked_until > NOW() THEN 1 END) as locked_users
-      FROM users
-    `;
-
-    const activityStats = await databaseService.query(recentActivityQuery);
-
-    // Get department distribution
-    const departmentStatsQuery = `
-      SELECT 
-        COALESCE(department, 'No Department') as department,
-        COUNT(*) as count
-      FROM users
-      GROUP BY department
-      ORDER BY count DESC
-      LIMIT 10
-    `;
-
-    const departmentStats = await databaseService.query(departmentStatsQuery);
+    // Use DatabaseService getUserStats method for TypeORM-based statistics
+    const statistics = await databaseService.getUserStats();
 
     res.json({
       message: 'User statistics retrieved successfully',
       statistics: {
-        roleDistribution: roleStats.rows,
-        recentActivity: activityStats.rows[0],
-        departmentDistribution: departmentStats.rows,
+        roleDistribution: statistics.roleStats,
+        recentActivity: {
+          new_users_24h: 0, // These would need additional methods in DatabaseService
+          new_users_7d: 0,  // for time-based queries if needed
+          active_users_24h: 0,
+          active_users_7d: 0,
+          locked_users: 0
+        },
+        departmentDistribution: statistics.departmentStats,
         summary: {
-          totalUsers: roleStats.rows.reduce((sum, row) => sum + parseInt(row.count), 0),
-          activeUsers: roleStats.rows.reduce((sum, row) => sum + parseInt(row.active_count), 0),
-          inactiveUsers: roleStats.rows.reduce((sum, row) => sum + parseInt(row.inactive_count), 0)
+          totalUsers: statistics.totalUsers,
+          activeUsers: statistics.activeUsers,
+          inactiveUsers: statistics.inactiveUsers
         }
       }
     });

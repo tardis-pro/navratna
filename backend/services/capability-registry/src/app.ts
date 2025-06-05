@@ -85,6 +85,10 @@ export class CapabilityRegistryApp {
 
   public async initialize(): Promise<void> {
     try {
+      // Initialize database service first
+      await this.databaseService.initialize();
+      logger.info('DatabaseService initialized successfully');
+
       // Test database connection
       await this.databaseService.query('SELECT 1', []);
       logger.info('Database connection verified');
