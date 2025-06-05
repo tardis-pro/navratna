@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { 
   EnhancedAgentIntelligenceService,
   CapabilityDiscoveryService,
-  SecurityValidationService
+  SecurityValidationService,
 } from '@uaip/shared-services';
 import { logger, ApiError } from '@uaip/utils';
 import { 
@@ -11,9 +11,11 @@ import {
   AgentAnalysisResponse,
   AgentPlanResponse,
   Agent,
-  RiskLevel
+  RiskLevel,
+  AgentCreateRequestSchema
 } from '@uaip/types';
-
+import { z } from 'zod';
+import { AgentTransformationService } from '@uaip/middleware';
 export class AgentController {
   private agentIntelligenceService: EnhancedAgentIntelligenceService;
   private capabilityDiscoveryService: CapabilityDiscoveryService;
@@ -140,22 +142,65 @@ export class AgentController {
   }
 
   /**
-   * Create a new agent with enhanced capabilities
+   * Create a new agent with enhanced capabilities and persona transformation
    */
   public async createAgent(req: Request, res: Response, next: NextFunction): Promise<void> {
-    const agentData = req.body;
+    const rawData = req.body;
 
     try {
-      logger.info('Creating new enhanced agent', { name: agentData.name });
+      logger.info('Creating new enhanced agent', { 
+        name: rawData.name, 
+        inputFormat: this.detectInputFormat(rawData)
+      });
 
+      // Check if request is in persona format (legacy frontend) or needs transformation
+      const isPersonaFormat = this.isPersonaFormat(rawData);
+      
+      let agentRequest;
+      
+      if (isPersonaFormat) {
+        logger.info('Transforming persona format to agent request', { name: rawData.name });
+        
+        // Transform persona format to agent request format
+        agentRequest = AgentTransformationService.transformPersonaToAgentRequest(rawData);
+        
+        // Validate transformation result
+        if (!AgentTransformationService.validateTransformation(agentRequest)) {
+          throw new ApiError(400, 'Persona transformation failed validation', 'TRANSFORMATION_ERROR');
+        }
+        
+        logger.info('Persona transformation successful', { 
+          originalRole: rawData.role || rawData.persona?.role,
+          mappedRole: agentRequest.role,
+          capabilities: agentRequest.capabilities
+        });
+      } else {
+        // Already in correct format, just normalize
+        agentRequest = rawData;
+      }
+
+      // Validate the final request against schema
+      const validatedRequest = AgentCreateRequestSchema.parse(agentRequest);
+      
+      // Add user context (when auth is properly implemented)
+      const agentData = {
+        ...validatedRequest,
+        createdBy: req.user?.id || 'anonymous' // TODO: Fix when auth middleware is configured
+      };
+
+      // Create the agent
       const agent = await this.agentIntelligenceService.createAgent(agentData);
 
-      logger.info('Enhanced agent created successfully', { agentId: agent.id });
+      logger.info('Enhanced agent created successfully', { 
+        agentId: agent.id,
+        role: agent.role,
+        transformationApplied: isPersonaFormat
+      });
 
       this.sendSuccessResponse(res, agent, 201);
 
     } catch (error) {
-      this.handleError(error, 'agent creation', { name: agentData.name }, next);
+      this.handleEnhancedError(error, 'agent creation', { name: rawData.name }, next);
     }
   }
 
@@ -343,6 +388,61 @@ export class AgentController {
       success: true,
       data
     });
+  }
+
+  /**
+   * Detects if the input is in persona format vs agent format
+   */
+  private isPersonaFormat(input: any): boolean {
+    // Check for persona-specific indicators
+    const hasPersonaStructure = input.persona || 
+                               (input.role && !['assistant', 'analyzer', 'orchestrator', 'specialist'].includes(input.role)) ||
+                               (input.expertise && !input.capabilities) ||
+                               input.traits ||
+                               input.background;
+    
+    // Check for missing agent-specific required fields
+    const missingAgentFields = !input.capabilities || !input.description;
+    
+    return hasPersonaStructure || missingAgentFields;
+  }
+
+  /**
+   * Detects the input format for logging
+   */
+  private detectInputFormat(input: any): string {
+    if (input.persona) return 'nested-persona';
+    if (input.role && !['assistant', 'analyzer', 'orchestrator', 'specialist'].includes(input.role)) return 'persona-role';
+    if (input.expertise && !input.capabilities) return 'persona-expertise';
+    if (input.capabilities && input.description) return 'agent-standard';
+    return 'unknown';
+  }
+
+  /**
+   * Enhanced error handling with transformation context
+   */
+  private handleEnhancedError(error: any, operation: string, context: any, next: NextFunction): void {
+    logger.error(`Agent controller error during ${operation}`, {
+      error: error.message,
+      stack: error.stack,
+      context,
+      enhanced: true
+    });
+
+    if (error instanceof z.ZodError) {
+      // Enhanced Zod validation error handling
+      const enhancedError = new ApiError(400, 'Request validation failed', 'VALIDATION_ERROR', {
+        details: error.errors,
+        hint: 'If sending persona data, ensure it includes name, role, and expertise/capabilities fields',
+        supportedFormats: ['agent-standard', 'persona-legacy'],
+        transformationStats: AgentTransformationService.getTransformationStats()
+      });
+      next(enhancedError);
+    } else if (error instanceof ApiError) {
+      next(error);
+    } else {
+      next(new ApiError(500, `Internal server error during ${operation}`, 'INTERNAL_ERROR'));
+    }
   }
 
   /**

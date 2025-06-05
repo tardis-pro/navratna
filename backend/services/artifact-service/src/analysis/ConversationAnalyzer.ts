@@ -3,7 +3,7 @@
 
 import { 
   ArtifactConversationContext, 
-  ArtifactMessage,
+  ConversationMessage,
   GenerationTrigger,
   ConversationPhase,
   Requirement,
@@ -148,13 +148,13 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
 
   // Private helper methods
 
-  private getRecentMessages(messages: ArtifactMessage[], count: number): ArtifactMessage[] {
+  private getRecentMessages(messages: ConversationMessage[], count: number): ConversationMessage[] {
     return messages
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
       .slice(0, count);
   }
 
-  private detectCommandTriggers(messages: ArtifactMessage[]): GenerationTrigger[] {
+  private detectCommandTriggers(messages: ConversationMessage[]): GenerationTrigger[] {
     const triggers: GenerationTrigger[] = [];
 
     for (const message of messages) {
@@ -166,7 +166,7 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
           artifactType: this.mapArtifactType(artifactType),
           confidence: 0.95,
           context: `Explicit command detected: ${message.content}`,
-          detectedAt: message.timestamp
+          detectedAt: message.timestamp.toISOString()
         });
       }
     }
@@ -174,7 +174,7 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
     return triggers;
   }
 
-  private detectPatternTriggers(messages: ArtifactMessage[]): GenerationTrigger[] {
+  private detectPatternTriggers(messages: ConversationMessage[]): GenerationTrigger[] {
     const triggers: GenerationTrigger[] = [];
 
     for (const message of messages) {
@@ -185,7 +185,7 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
           artifactType: 'code',
           confidence: 0.8,
           context: `Code request pattern detected: ${message.content}`,
-          detectedAt: message.timestamp
+          detectedAt: message.timestamp.toISOString()
         });
       }
 
@@ -196,7 +196,7 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
           artifactType: 'test',
           confidence: 0.8,
           context: `Test request pattern detected: ${message.content}`,
-          detectedAt: message.timestamp
+          detectedAt: message.timestamp.toISOString()
         });
       }
 
@@ -207,7 +207,7 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
           artifactType: 'prd',
           confidence: 0.7,
           context: `PRD request pattern detected: ${message.content}`,
-          detectedAt: message.timestamp
+          detectedAt: message.timestamp.toISOString()
         });
       }
     }
@@ -242,7 +242,7 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
     return triggers;
   }
 
-  private analyzePhaseIndicators(messages: ArtifactMessage[]): Record<string, number> {
+  private analyzePhaseIndicators(messages: ConversationMessage[]): Record<string, number> {
     const indicators: Record<string, number> = {
       planning: 0,
       discussion: 0,
@@ -310,7 +310,7 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
     return actions[phase] || ['Continue conversation'];
   }
 
-  private extractKeyPoints(messages: ArtifactMessage[]): string[] {
+  private extractKeyPoints(messages: ConversationMessage[]): string[] {
     const keyPoints: string[] = [];
 
     for (const message of messages) {
@@ -322,7 +322,7 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
     return keyPoints.slice(0, 10); // Limit to top 10 key points
   }
 
-  private extractDecisions(messages: ArtifactMessage[]): Decision[] {
+  private extractDecisions(messages: ConversationMessage[]): Decision[] {
     const decisions: Decision[] = [];
 
     for (const message of messages) {
@@ -333,7 +333,7 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
           options: ['option1', 'option2'], // Default options, should be extracted from context
           chosen: this.extractDecisionText(message.content),
           reasoning: this.extractRationale(message.content),
-          timestamp: new Date(message.timestamp),
+          timestamp: message.timestamp,
           confidence: 0.8
         });
       }
@@ -342,7 +342,7 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
     return decisions;
   }
 
-  private extractActionItems(messages: ArtifactMessage[]): ActionItem[] {
+  private extractActionItems(messages: ConversationMessage[]): ActionItem[] {
     const actionItems: ActionItem[] = [];
 
     for (const message of messages) {
@@ -352,7 +352,7 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
           description: this.extractActionDescription(message.content),
           assignee: this.extractAssignee(message.content),
           priority: this.determinePriority(message.content),
-          createdAt: new Date(message.timestamp).toISOString()
+          createdAt: message.timestamp.toISOString()
         });
       }
     }
@@ -360,12 +360,15 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
     return actionItems;
   }
 
-  private getUniqueParticipants(messages: ArtifactMessage[]): string[] {
-    const participants = new Set(messages.map(m => m.author));
+  private getUniqueParticipants(messages: ConversationMessage[]): string[] {
+    // Extract participants from message metadata or use role as fallback
+    const participants = new Set(messages.map(m => 
+      m.metadata?.author || m.metadata?.userId || m.role || 'unknown'
+    ));
     return Array.from(participants);
   }
 
-  private extractRequirementsFromMessage(message: ArtifactMessage): Requirement[] {
+  private extractRequirementsFromMessage(message: ConversationMessage): Requirement[] {
     const requirements: Requirement[] = [];
     const content = message.content;
 
@@ -388,7 +391,7 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
           description: this.extractRequirementText(content, pattern.regex),
           priority: pattern.priority,
           source: message.id,
-          extractedAt: message.timestamp
+          extractedAt: message.timestamp.toISOString()
         });
       }
     });
@@ -410,7 +413,7 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
     return mapping[type] || type;
   }
 
-  private isKeyPoint(message: ArtifactMessage): boolean {
+  private isKeyPoint(message: ConversationMessage): boolean {
     const content = message.content.toLowerCase();
     return content.includes('important') || 
            content.includes('key') || 
@@ -419,7 +422,7 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
            content.length > 100; // Longer messages likely contain key points
   }
 
-  private extractKeyPoint(message: ArtifactMessage): string {
+  private extractKeyPoint(message: ConversationMessage): string {
     // Extract first sentence or first 100 characters
     const sentences = message.content.split(/[.!?]+/);
     return sentences[0]?.trim() || message.content.substring(0, 100) + '...';
@@ -437,7 +440,7 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
     return rationaleMatch ? rationaleMatch[1].trim() : 'No rationale provided';
   }
 
-  private containsActionItem(message: ArtifactMessage): boolean {
+  private containsActionItem(message: ConversationMessage): boolean {
     const content = message.content.toLowerCase();
     return content.includes('todo') || 
            content.includes('action item') ||

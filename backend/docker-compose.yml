@@ -26,11 +26,6 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       # PostgreSQL initialization files (executed in alphabetical order)
-      - ./database/init/01-init-database.sql:/docker-entrypoint-initdb.d/01-init-database.sql
-      - ./database/init/02-persona-discussion-schema.sql:/docker-entrypoint-initdb.d/02-persona-discussion-schema.sql
-      - ./database/init/03-seed-data.sql:/docker-entrypoint-initdb.d/03-seed-data.sql
-      # Migration files (referenced by 02-persona-discussion-schema.sql)
-      - ./database/migrations:/docker-entrypoint-initdb.d/migrations
     networks:
       - uaip-network
     healthcheck:
