@@ -2,8 +2,8 @@
 // Handles tool execution with PostgreSQL logging and Neo4j usage pattern tracking
 // Part of capability-registry microservice
 
-import { ToolExecution, ToolUsageRecord } from '@uaip/types';
-import { ToolDatabase, ToolGraphDatabase, UsagePattern, TypeOrmService } from '@uaip/shared-services';
+import { ToolExecution, ToolUsageRecord, ToolExecutionStatus } from '@uaip/types';
+import {  ToolGraphDatabase, UsagePattern, TypeOrmService, DatabaseService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { ToolRegistry } from './toolRegistry.js';
 import { BaseToolExecutor } from './baseToolExecutor.js';
@@ -28,7 +28,7 @@ export interface ExecutionOptions {
 
 export class ToolExecutor {
   constructor(
-    private postgresql: ToolDatabase,
+    private postgresql: DatabaseService,
     private neo4j: ToolGraphDatabase,
     private toolRegistry: ToolRegistry,
     private baseExecutor: BaseToolExecutor,
@@ -66,7 +66,7 @@ export class ToolExecutor {
       toolId,
       agentId,
       parameters: validatedInput.parameters,
-      status: 'pending',
+      status: ToolExecutionStatus.PENDING,
       startTime: new Date(),
       approvalRequired: tool.requiresApproval,
       retryCount: 0,
@@ -80,12 +80,12 @@ export class ToolExecutor {
 
     try {
       // Store initial execution record
-      await this.postgresql.createExecution(execution);
+      await this.postgresql.createToolExecution(execution);
 
       // Check if approval is required
       if (tool.requiresApproval) {
-        execution.status = 'approval-required';
-        await this.postgresql.updateExecution(execution.id, { status: 'approval-required' });
+        execution.status = ToolExecutionStatus.APPROVAL_REQUIRED;
+        await this.postgresql.updateToolExecution(execution.id, { status: ToolExecutionStatus.APPROVAL_REQUIRED });
         logger.info(`Tool execution requires approval: ${execution.id}`);
         return execution;
       }
@@ -94,7 +94,7 @@ export class ToolExecutor {
       return await this.performExecution(execution, tool);
     } catch (error) {
       logger.error(`Failed to initiate tool execution ${execution.id}:`, error);
-      execution.status = 'failed';
+      execution.status = ToolExecutionStatus.FAILED;
       execution.error = {
         type: 'execution',
         message: error.message,
@@ -103,7 +103,7 @@ export class ToolExecutor {
       };
       execution.endTime = new Date();
 
-      await this.postgresql.updateExecution(execution.id, execution);
+      await this.postgresql.updateToolExecution(execution.id, execution);
       await this.recordUsage(execution, false);
       
       throw error;
@@ -115,8 +115,8 @@ export class ToolExecutor {
     
     try {
       // Update status to running
-      execution.status = 'running';
-      await this.postgresql.updateExecution(execution.id, { status: 'running' });
+      execution.status = ToolExecutionStatus.RUNNING;
+      await this.postgresql.updateToolExecution(execution.id, { status: ToolExecutionStatus.RUNNING });
 
       // Execute the tool logic
       const result = await this.executeToolLogic(
@@ -128,14 +128,14 @@ export class ToolExecutor {
       const executionTime = Date.now() - startTime;
       
       // Update execution with success
-      execution.status = 'completed';
+      execution.status = ToolExecutionStatus.COMPLETED;
       execution.result = result;
       execution.endTime = new Date();
       execution.executionTimeMs = executionTime;
       execution.cost = this.calculateCost(tool, executionTime);
 
-      await this.postgresql.updateExecution(execution.id, {
-        status: 'completed',
+      await this.postgresql.updateToolExecution(execution.id, {
+        status: ToolExecutionStatus.COMPLETED,
         result,
         endTime: execution.endTime,
         executionTimeMs: executionTime,
@@ -154,7 +154,7 @@ export class ToolExecutor {
       const executionTime = Date.now() - startTime;
       
       // Update execution with failure
-      execution.status = 'failed';
+      execution.status = ToolExecutionStatus.FAILED;
       execution.error = {
         type: this.categorizeError(error),
         message: error.message,
@@ -164,8 +164,8 @@ export class ToolExecutor {
       execution.endTime = new Date();
       execution.executionTimeMs = executionTime;
 
-      await this.postgresql.updateExecution(execution.id, {
-        status: 'failed',
+      await this.postgresql.updateToolExecution(execution.id, {
+        status: ToolExecutionStatus.FAILED,
         error: execution.error,
         endTime: execution.endTime,
         executionTimeMs: executionTime
@@ -216,7 +216,7 @@ export class ToolExecutor {
   }
 
   async retryExecution(executionId: string): Promise<ToolExecution> {
-    const execution = await this.postgresql.getExecution(executionId);
+    const execution = await this.postgresql.getToolExecution(executionId);
     if (!execution) {
       throw new Error(`Execution ${executionId} not found`);
     }
@@ -227,14 +227,14 @@ export class ToolExecutor {
 
     // Increment retry count
     execution.retryCount++;
-    execution.status = 'pending';
+    execution.status = ToolExecutionStatus.PENDING;
     execution.startTime = new Date();
     execution.endTime = undefined;
     execution.error = undefined;
 
-    await this.postgresql.updateExecution(executionId, {
+    await this.postgresql.updateToolExecution(executionId, {
       retryCount: execution.retryCount,
-      status: 'pending',
+      status: ToolExecutionStatus.PENDING,
       startTime: execution.startTime,
       endTime: null,
       error: null
@@ -248,17 +248,17 @@ export class ToolExecutor {
 
   async cancelExecution(executionId: string): Promise<boolean> {
     try {
-      const execution = await this.postgresql.getExecution(executionId);
+      const execution = await this.postgresql.getToolExecution(executionId);
       if (!execution) {
         return false;
       }
 
-      if (execution.status === 'completed' || execution.status === 'failed' || execution.status === 'cancelled') {
+      if (execution.status === ToolExecutionStatus.COMPLETED || execution.status === ToolExecutionStatus.FAILED || execution.status === ToolExecutionStatus.CANCELLED) {
         return false; // Cannot cancel already finished executions
       }
 
-      await this.postgresql.updateExecution(executionId, {
-        status: 'cancelled',
+      await this.postgresql.updateToolExecution(executionId, {
+        status: ToolExecutionStatus.CANCELLED,
         endTime: new Date()
       });
 
@@ -271,25 +271,25 @@ export class ToolExecutor {
   }
 
   async approveExecution(executionId: string, approvedBy: string): Promise<ToolExecution> {
-    const execution = await this.postgresql.getExecution(executionId);
+    const execution = await this.postgresql.getToolExecution(executionId);
     if (!execution) {
       throw new Error(`Execution ${executionId} not found`);
     }
 
-    if (execution.status !== 'approval-required') {
+    if (execution.status !== ToolExecutionStatus.APPROVAL_REQUIRED) {
       throw new Error(`Execution ${executionId} does not require approval`);
     }
 
     // Update approval status
-    await this.postgresql.updateExecution(executionId, {
+    await this.postgresql.updateToolExecution(executionId, {
       approvedBy,
       approvedAt: new Date(),
-      status: 'pending'
+      status: ToolExecutionStatus.PENDING
     });
 
     execution.approvedBy = approvedBy;
     execution.approvedAt = new Date();
-    execution.status = 'pending';
+    execution.status = ToolExecutionStatus.PENDING;
 
     logger.info(`Tool execution approved: ${executionId} by ${approvedBy}`);
 
@@ -300,7 +300,7 @@ export class ToolExecutor {
 
   // Execution Management
   async getExecution(executionId: string): Promise<ToolExecution | null> {
-    return await this.postgresql.getExecution(executionId);
+    return await this.postgresql.getToolExecution(executionId);
   }
 
   async getExecutions(
@@ -309,11 +309,17 @@ export class ToolExecutor {
     status?: string,
     limit = 100
   ): Promise<ToolExecution[]> {
-    return await this.postgresql.getExecutions(toolId, agentId, status, limit);
+    const filters: any = { limit };
+    if (toolId) filters.toolId = toolId;
+    if (agentId) filters.agentId = agentId;
+    if (status) filters.status = status;
+    return await this.postgresql.getToolExecutions(filters);
   }
 
   async getActiveExecutions(agentId?: string): Promise<ToolExecution[]> {
-    return await this.postgresql.getExecutions(undefined, agentId, 'running');
+    const filters: any = { status: ToolExecutionStatus.RUNNING };
+    if (agentId) filters.agentId = agentId;
+    return await this.postgresql.getToolExecutions(filters);
   }
 
   // Private Helper Methods
@@ -343,7 +349,7 @@ export class ToolExecutor {
         metadata: execution.metadata
       };
 
-      await this.postgresql.recordUsage(usage);
+      await this.postgresql.recordToolUsage(usage);
     } catch (error) {
       logger.error('Failed to record usage:', error);
     }
@@ -386,7 +392,10 @@ export class ToolExecutor {
 
   // Analytics
   async getExecutionStats(toolId?: string, agentId?: string, days = 30): Promise<any> {
-    const stats = await this.postgresql.getUsageStats(toolId, agentId, days);
+    const filters: any = { days };
+    if (toolId) filters.toolId = toolId;
+    if (agentId) filters.agentId = agentId;
+    const stats = await this.postgresql.getToolUsageStats(filters);
     
     return {
       totalExecutions: stats.reduce((sum, stat) => sum + parseInt(stat.total_uses), 0),

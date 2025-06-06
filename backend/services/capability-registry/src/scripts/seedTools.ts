@@ -359,8 +359,11 @@ async function seedTools(): Promise<void> {
 
   try {
     // Initialize databases
-    // Both databases now use shared config format
-    const postgresql = new ToolDatabase(config.database.postgres);
+    // Use DatabaseService instead of ToolDatabase
+    const { DatabaseService } = await import('@uaip/shared-services');
+    const postgresql = DatabaseService.getInstance();
+    await postgresql.initialize();
+    
     const neo4j = new ToolGraphDatabase(config.database.neo4j);
     await neo4j.verifyConnectivity();
 
@@ -411,7 +414,6 @@ async function seedTools(): Promise<void> {
     }
 
     // Close connections
-    await postgresql.close();
     await neo4j.close();
     await typeormService.close();
 

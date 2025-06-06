@@ -9,6 +9,7 @@ import { errorHandler, rateLimiter, metricsMiddleware } from '@uaip/middleware';
 import { DatabaseService, EventBusService } from '@uaip/shared-services';
 import { config } from './config/index.js';
 import { capabilityRoutes } from './routes/capabilityRoutes.js';
+import { toolRoutes } from './routes/toolRoutes.js';
 import { healthRoutes } from './routes/healthRoutes.js';
 
 export class CapabilityRegistryApp {
@@ -61,6 +62,7 @@ export class CapabilityRegistryApp {
     
     // API routes
     this.app.use('/api/v1/capabilities', capabilityRoutes);
+    this.app.use('/api/v1/tools', toolRoutes);
 
     // 404 handler
     this.app.use('*', (req, res) => {

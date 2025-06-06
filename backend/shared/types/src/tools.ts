@@ -79,7 +79,7 @@ export interface ToolExecution {
   toolId: string;
   agentId: string;
   parameters: Record<string, any>;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'approval-required';
+  status: ToolExecutionStatus;
   startTime: Date;
   endTime?: Date;
   result?: any;

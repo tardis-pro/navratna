@@ -3,7 +3,7 @@
 // Part of capability-registry microservice
 
 import { ToolDefinition, ToolUsageRecord } from '@uaip/types';
-import { ToolDatabase, ToolGraphDatabase, ToolRelationship, ToolRecommendation, TypeOrmService } from '@uaip/shared-services';
+import { ToolDatabase, ToolGraphDatabase, ToolRelationship, ToolRecommendation, TypeOrmService, DatabaseService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
@@ -52,10 +52,24 @@ const ToolRelationshipSchema = z.object({
 
 export class ToolRegistry {
   constructor(
-    private postgresql: ToolDatabase,
+    private postgresql: DatabaseService,
     private neo4j: ToolGraphDatabase,
     private typeormService: TypeOrmService
   ) {}
+
+  // Ensure database is initialized
+  private async ensureInitialized(): Promise<void> {
+    // The DatabaseService should already be initialized by the app
+    // but we can add a check here if needed
+    try {
+      const healthCheck = await this.postgresql.healthCheck();
+      if (healthCheck.status !== 'healthy') {
+        throw new Error('Database is not healthy');
+      }
+    } catch (error) {
+      throw new Error(`Database not properly initialized: ${error.message}`);
+    }
+  }
 
   // Tool Registration and Management
   async registerTool(tool: ToolDefinition): Promise<void> {
@@ -64,7 +78,6 @@ export class ToolRegistry {
     
     try {
       // Store in PostgreSQL
-      await this.postgresql.createTool(validatedTool as ToolDefinition);
       
       // Create node in Neo4j
       await this.neo4j.createToolNode(validatedTool as ToolDefinition);
@@ -97,7 +110,7 @@ export class ToolRegistry {
       
       // Cleanup on failure
       try {
-        await this.postgresql.deleteTool(tool.id);
+        
         await this.neo4j.deleteToolNode(tool.id);
         await this.typeormService.delete('ToolDefinition', tool.id);
       } catch (cleanupError) {
@@ -114,7 +127,6 @@ export class ToolRegistry {
     
     try {
       // Update in PostgreSQL
-      await this.postgresql.updateTool(id, validatedUpdates);
       
       // Update node in Neo4j
       await this.neo4j.updateToolNode(id, validatedUpdates);
@@ -135,7 +147,6 @@ export class ToolRegistry {
   async unregisterTool(id: string): Promise<void> {
     try {
       // Remove from PostgreSQL (cascades to related tables)
-      await this.postgresql.deleteTool(id);
       
       // Remove node from Neo4j (detaches all relationships)
       await this.neo4j.deleteToolNode(id);
@@ -152,14 +163,20 @@ export class ToolRegistry {
 
   // Tool Discovery and Retrieval
   async getTool(id: string): Promise<ToolDefinition | null> {
+    await this.ensureInitialized();
     return await this.postgresql.getTool(id);
   }
 
   async getTools(category?: string, enabled?: boolean): Promise<ToolDefinition[]> {
-    return await this.postgresql.getTools(category, enabled);
+    await this.ensureInitialized();
+    const filters: any = {};
+    if (category) filters.category = category;
+    if (enabled !== undefined) filters.enabled = enabled;
+    return await this.postgresql.getTools(filters);
   }
 
   async searchTools(query: string): Promise<ToolDefinition[]> {
+    await this.ensureInitialized();
     return await this.postgresql.searchTools(query);
   }
 
@@ -181,7 +198,7 @@ export class ToolRegistry {
     const toolIds = relatedTools.map(t => t.id);
     if (toolIds.length === 0) return [];
     
-    const tools = await this.postgresql.getTools();
+    const tools = await this.postgresql.getTools({});
     return tools.filter(tool => toolIds.includes(tool.id) && tool.isEnabled);
   }
 
@@ -258,7 +275,11 @@ export class ToolRegistry {
 
   // Analytics and Insights
   async getUsageStats(toolId?: string, agentId?: string, days = 30): Promise<any[]> {
-    return await this.postgresql.getUsageStats(toolId, agentId, days);
+    await this.ensureInitialized();
+    const filters: any = { days };
+    if (toolId) filters.toolId = toolId;
+    if (agentId) filters.agentId = agentId;
+    return await this.postgresql.getToolUsageStats(filters);
   }
 
   async getToolUsageAnalytics(toolId?: string, agentId?: string): Promise<any[]> {
@@ -296,23 +317,20 @@ export class ToolRegistry {
   }
 
   async getToolsByTags(tags: string[]): Promise<ToolDefinition[]> {
-    const tools = await this.getTools();
+    const tools = await this.getTools(undefined, true); // Only enabled tools
     return tools.filter(tool => 
-      tool.isEnabled && 
       tags.some(tag => tool.tags.includes(tag))
     );
   }
 
   async getToolsRequiringApproval(): Promise<ToolDefinition[]> {
-    const tools = await this.getTools();
-    return tools.filter(tool => tool.requiresApproval && tool.isEnabled);
+    const tools = await this.getTools(undefined, true); // Only enabled tools
+    return tools.filter(tool => tool.requiresApproval);
   }
 
   async getToolsBySecurityLevel(securityLevel: string): Promise<ToolDefinition[]> {
-    const tools = await this.getTools();
-    return tools.filter(tool => 
-      tool.securityLevel === securityLevel && tool.isEnabled
-    );
+    const tools = await this.getTools(undefined, true); // Only enabled tools
+    return tools.filter(tool => tool.securityLevel === securityLevel);
   }
 
   // Health Check
