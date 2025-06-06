@@ -437,7 +437,7 @@ export class EnhancedAgentIntelligenceService {
       const planningKnowledge = this.knowledgeGraph ? 
         await this.searchRelevantKnowledge(
           agent.id, 
-          `execution planning ${analysis.intent?.primary}`,
+          `execution planning ${analysis?.intent?.primary}`,
           analysis
         ) : [];
 
