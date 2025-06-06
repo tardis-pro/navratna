@@ -84,14 +84,30 @@ export function createToolRoutes(toolController?: ToolController): Router {
   // Apply general rate limiting to all routes
   router.use(generalRateLimit);
 
+  // Add debugging middleware to see what paths are being processed
+  router.use((req, res, next) => {
+    console.log(`Router middleware: ${req.method} ${req.originalUrl} - Path: ${req.path}, BaseUrl: ${req.baseUrl}`);
+    next();
+  });
+
   // IMPORTANT: Specific routes must come BEFORE parameterized routes
   // Otherwise Express will match "categories" as an :id parameter
   
   // Tool Management Routes - Specific routes first
-  router.get('/', controller.getTools.bind(controller));
-  router.get('/categories', controller.getToolCategories.bind(controller));
-  router.get('/recommendations', controller.getRecommendations.bind(controller));
-  router.post('/validate', controller.validateTool.bind(controller));
+  router.get('/', (req, res, next) => {
+    console.log(`Route matched: GET / - URL: ${req.url}, Path: ${req.path}, OriginalUrl: ${req.originalUrl}`);
+    return controller.getTools(req, res);
+  });
+  
+  // Add a test route to verify routing
+  router.get('/test', (req, res) => {
+    console.log(`Test route matched: ${req.method} ${req.originalUrl}`);
+    res.json({ success: true, message: 'Test route working', path: req.path, originalUrl: req.originalUrl });
+  });
+  
+  router.get('/categories', (req, res) => controller.getToolCategories(req, res));
+  router.get('/recommendations', (req, res) => controller.getRecommendations(req, res));
+  router.post('/validate', (req, res) => controller.validateTool(req, res));
   
   // Execution Management Routes - Specific routes
   router.get('/executions', controller.getExecutions.bind(controller));
@@ -112,7 +128,10 @@ export function createToolRoutes(toolController?: ToolController): Router {
 
   // PARAMETERIZED ROUTES MUST COME LAST
   // These routes use :id parameter and will match anything
-  router.get('/:id', controller.getTool.bind(controller));
+  router.get('/:id', (req, res, next) => {
+    console.log(`Route matched: GET /:id - URL: ${req.url}, Path: ${req.path}, ID: ${req.params.id}`);
+    return controller.getTool(req, res);
+  });
   router.get('/:id/related', controller.getRelatedTools.bind(controller));
   router.get('/:id/similar', controller.getSimilarTools.bind(controller));
   router.get('/:id/dependencies', controller.getToolDependencies.bind(controller));

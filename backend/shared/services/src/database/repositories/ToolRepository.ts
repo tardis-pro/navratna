@@ -50,7 +50,7 @@ export class ToolRepository extends BaseRepository<ToolDefinition> {
     if (filters.offset) {
       queryBuilder.offset(filters.offset);
     }
-
+    logger.info(`Getting tools with filters: ${JSON.stringify(filters)}`);
     return await queryBuilder.getMany();
   }
 

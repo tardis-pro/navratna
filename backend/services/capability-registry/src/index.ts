@@ -229,14 +229,14 @@ class CapabilityRegistryService {
 
     // API routes
     const toolRoutes = createToolRoutes(this.toolController);
-    this.app.use('/api/v1', toolRoutes);
+    this.app.use('/api/v1/tools', toolRoutes);
     
     // Capability routes
     // const capabilityRoutes = createCapabilityRoutes(this.capabilityController);
     // this.app.use('/api/v1/capabilities', capabilityRoutes);
     
     // Health routes
-    this.app.use('/api/v1', healthRoutes);
+    this.app.use('/api/v1/health', healthRoutes);
 
     // 404 handler
     this.app.use('*', (req, res) => {

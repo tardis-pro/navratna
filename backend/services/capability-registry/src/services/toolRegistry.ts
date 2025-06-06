@@ -25,7 +25,7 @@ interface AgentCapabilityMetric {
 
 // Validation schemas using Zod
 const ToolDefinitionSchema = z.object({
-  id: z.string().min(1),
+  id: z.string().uuid('ID must be a valid UUID'),
   name: z.string().min(1),
   description: z.string(),
   version: z.string().min(1),
@@ -170,6 +170,7 @@ export class ToolRegistry {
   async getTools(category?: string, enabled?: boolean): Promise<ToolDefinition[]> {
     await this.ensureInitialized();
     const filters: any = {};
+    logger.info(`Getting tools with category: ${category}, enabled: ${enabled}`);
     if (category) filters.category = category;
     if (enabled !== undefined) filters.enabled = enabled;
     return await this.postgresql.getTools(filters);
@@ -336,7 +337,8 @@ export class ToolRegistry {
   // Health Check
   async healthCheck(): Promise<{ postgresql: boolean; neo4j: boolean }> {
     try {
-      const postgresqlHealth = await this.postgresql.getTool('health-check') !== undefined;
+      // Test PostgreSQL connection by attempting a simple query instead of looking for a specific tool
+      const postgresqlHealth = await this.postgresql.healthCheck().then(result => result.status === 'healthy').catch(() => false);
       const neo4jHealth = await this.neo4j.verifyConnectivity().then(() => true).catch(() => false);
       
       return {

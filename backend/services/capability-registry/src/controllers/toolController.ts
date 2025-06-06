@@ -11,7 +11,7 @@ import { z } from 'zod';
 
 // Request validation schemas
 const RegisterToolSchema = z.object({
-  id: z.string().min(1),
+  id: z.string().uuid('ID must be a valid UUID'),
   name: z.string().min(1),
   description: z.string(),
   version: z.string().min(1),
@@ -56,19 +56,24 @@ export class ToolController {
   // GET /api/v1/tools
   async getTools(req: Request, res: Response): Promise<void> {
     try {
+      logger.info(`getTools method called - URL: ${req.url}, Method: ${req.method}, Path: ${req.path}`);
       const { category, search, enabled, tags, securityLevel } = req.query;
-      
+      logger.info(`Getting tools with category: ${category}, search: ${search}, enabled: ${enabled}, tags: ${tags}, securityLevel: ${securityLevel}`);
       let tools;
       
       if (search) {
+        logger.info(`Searching for tools with search: ${search}`);
         tools = await this.toolRegistry.searchTools(search as string);
       } else if (tags) {
         const tagArray = Array.isArray(tags) ? tags as string[] : [tags as string];
+        logger.info(`Searching for tools with tags: ${tagArray}`);
         tools = await this.toolRegistry.getToolsByTags(tagArray);
       } else if (securityLevel) {
+        logger.info(`Searching for tools with security level: ${securityLevel}`);
         tools = await this.toolRegistry.getToolsBySecurityLevel(securityLevel as string);
       } else {
         const enabledFilter = enabled !== undefined ? enabled === 'true' : undefined;
+        logger.info(`Searching for tools with category: ${category} and enabled: ${enabledFilter}`);
         tools = await this.toolRegistry.getTools(category as string, enabledFilter);
       }
       
@@ -92,7 +97,26 @@ export class ToolController {
   // GET /api/v1/tools/:id
   async getTool(req: Request, res: Response): Promise<void> {
     try {
+      logger.info(`getTool method called - URL: ${req.url}, Method: ${req.method}, Path: ${req.path}, Params: ${JSON.stringify(req.params)}`);
       const { id } = req.params;
+      
+      // Temporarily log the ID to debug routing issue
+      logger.error(`getTool called with ID: "${id}" - this should not happen for GET /api/v1/tools`);
+      
+      // Validate UUID format
+      const uuidSchema = z.string().uuid();
+      const validationResult = uuidSchema.safeParse(id);
+      
+      if (!validationResult.success) {
+        logger.error(`Invalid UUID format for tool ID: ${id}`);
+        res.status(400).json({
+          success: false,
+          error: 'Invalid tool ID format',
+          message: `Tool ID must be a valid UUID. Received: "${id}"`
+        });
+        return;
+      }
+      
       const tool = await this.toolRegistry.getTool(id);
       
       if (!tool) {
@@ -153,6 +177,20 @@ export class ToolController {
   async updateTool(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
+      
+      // Validate UUID format
+      const uuidSchema = z.string().uuid();
+      const validationResult = uuidSchema.safeParse(id);
+      
+      if (!validationResult.success) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid tool ID format',
+          message: 'Tool ID must be a valid UUID'
+        });
+        return;
+      }
+      
       const updates = RegisterToolSchema.partial().parse(req.body);
       
       await this.toolRegistry.updateTool(id, updates);
@@ -186,6 +224,20 @@ export class ToolController {
   async unregisterTool(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
+      
+      // Validate UUID format
+      const uuidSchema = z.string().uuid();
+      const validationResult = uuidSchema.safeParse(id);
+      
+      if (!validationResult.success) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid tool ID format',
+          message: 'Tool ID must be a valid UUID'
+        });
+        return;
+      }
+      
       await this.toolRegistry.unregisterTool(id);
       
       res.json({
@@ -209,6 +261,20 @@ export class ToolController {
   async executeTool(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
+      
+      // Validate UUID format
+      const uuidSchema = z.string().uuid();
+      const validationResult = uuidSchema.safeParse(id);
+      
+      if (!validationResult.success) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid tool ID format',
+          message: 'Tool ID must be a valid UUID'
+        });
+        return;
+      }
+      
       const validatedRequest = ExecuteToolSchema.parse(req.body);
       
       const execution = await this.toolExecutor.executeTool(
@@ -371,6 +437,20 @@ export class ToolController {
   async getRelatedTools(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
+      
+      // Validate UUID format
+      const uuidSchema = z.string().uuid();
+      const validationResult = uuidSchema.safeParse(id);
+      
+      if (!validationResult.success) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid tool ID format',
+          message: 'Tool ID must be a valid UUID'
+        });
+        return;
+      }
+      
       const { types, minStrength } = req.query;
       
       const relationshipTypes = types ? (types as string).split(',') : undefined;
