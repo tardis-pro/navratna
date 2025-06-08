@@ -5,6 +5,15 @@ import { CapabilityController } from '../controllers/capabilityController.js';
 export function createCapabilityRoutes(capabilityController: CapabilityController): Router {
   const router: Router = Router();
 
+  // 🚨 CRITICAL: ALL CAPABILITY ROUTES ARE DISABLED
+  // These routes are commented out pending completion of:
+  // 1. Tool Database Service TypeORM migration (15+ raw SQL queries)
+  // 2. UUID to Auto-Increment migration (128 TypeScript errors)
+  // 3. Database schema implementation for capabilities
+  // 
+  // The Capability Registry Service is currently NON-FUNCTIONAL
+  // DO NOT ENABLE these routes until the above issues are resolved
+
   // Apply auth middleware to all routes
   // router.use(authMiddleware);
 
