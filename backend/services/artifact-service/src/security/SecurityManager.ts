@@ -109,7 +109,7 @@ export class SecurityManagerImpl implements SecurityManager {
   /**
    * Check user permissions for actions
    */
-  checkPermissions(userId: string, action: string): boolean {
+  checkPermissions(userId: number, action: string): boolean {
     // Basic permission check - in a real implementation this would
     // check against a proper authorization system
     
@@ -190,7 +190,7 @@ export class SecurityManagerImpl implements SecurityManager {
   /**
    * Rate limiting check (basic implementation)
    */
-  private rateLimitCheck(userId: string): boolean {
+  private rateLimitCheck(userId: number): boolean {
     // In a real implementation, this would check against a rate limiting store
     // For now, just return true
     return true;

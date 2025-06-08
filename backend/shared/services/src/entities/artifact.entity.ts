@@ -45,11 +45,11 @@ export class Artifact extends BaseEntity {
   tags: string[];
 
   // Traceability
-  @Column({ name: 'conversation_id', type: 'uuid' })
-  conversationId: string;
+  @Column({ name: 'conversation_id', type: 'bigint' })
+  conversationId: number;
 
-  @Column({ name: 'generated_by', type: 'uuid' })
-  generatedBy: string;
+  @Column({ name: 'generated_by', type: 'bigint' })
+  generatedBy: number;
 
   @Column({ name: 'generated_at', type: 'timestamp' })
   generatedAt: Date;
@@ -77,8 +77,8 @@ export class Artifact extends BaseEntity {
   @Column({ length: 50, default: '1.0.0' })
   version: string;
 
-  @Column({ name: 'parent_artifact_id', type: 'uuid', nullable: true })
-  parentArtifactId?: string;
+  @Column({ name: 'parent_artifact_id', type: 'bigint', nullable: true })
+  parentArtifactId?: number;
 
   @Column({ name: 'iteration_count', default: 1 })
   iterationCount: number;
@@ -90,8 +90,8 @@ export class Artifact extends BaseEntity {
   @Column({ type: 'enum', enum: ['draft', 'review', 'approved', 'deployed', 'archived'], default: 'draft' })
   status: 'draft' | 'review' | 'approved' | 'deployed' | 'archived';
 
-  @Column({ name: 'approved_by', type: 'uuid', nullable: true })
-  approvedBy?: string;
+  @Column({ name: 'approved_by', type: 'bigint', nullable: true })
+  approvedBy?: number;
 
   @Column({ name: 'approved_at', type: 'timestamp', nullable: true })
   approvedAt?: Date;

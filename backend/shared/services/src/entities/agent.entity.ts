@@ -39,8 +39,8 @@ export class Agent extends BaseEntity {
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
 
-  @Column({ name: 'created_by', type: 'uuid' })
-  createdBy: string;
+  @Column({ name: 'created_by', type: 'bigint' })
+  createdBy: number;
 
   @Column({ name: 'last_active_at', type: 'timestamp', nullable: true })
   lastActiveAt?: Date;

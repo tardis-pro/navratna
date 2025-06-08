@@ -21,11 +21,11 @@ export class Operation extends BaseEntity {
   @Column({ type: 'enum', enum: OperationStatus })
   status: OperationStatus;
 
-  @Column({ name: 'agent_id', type: 'uuid' })
-  agentId: string;
+  @Column({ name: 'agent_id', type: 'bigint' })
+  agentId: number;
 
-  @Column({ name: 'user_id', type: 'uuid' })
-  userId: string;
+  @Column({ name: 'user_id', type: 'bigint' })
+  userId: number;
 
   @Column({ length: 255 })
   name: string;
@@ -69,95 +69,64 @@ export class Operation extends BaseEntity {
   @Column({ name: 'total_steps', nullable: true })
   totalSteps?: number;
 
-  // Enhanced tracking fields
+  @Column({ name: 'step_details', type: 'jsonb', nullable: true })
+  stepDetails?: Record<string, any>;
+
   @Column({ name: 'retry_count', default: 0 })
   retryCount: number;
 
   @Column({ name: 'max_retries', default: 3 })
   maxRetries: number;
 
-  @Column({ name: 'timeout_seconds', nullable: true })
-  timeoutSeconds?: number;
+  @Column({ name: 'retry_delay', nullable: true })
+  retryDelay?: number;
 
-  @Column({ name: 'requires_approval', default: false })
-  requiresApproval: boolean;
+  @Column({ name: 'timeout_duration', nullable: true })
+  timeoutDuration?: number;
 
-  @Column({ name: 'approved_by', type: 'uuid', nullable: true })
-  approvedBy?: string;
+  @Column({ name: 'resource_requirements', type: 'jsonb', nullable: true })
+  resourceRequirements?: Record<string, any>;
 
-  @Column({ name: 'approved_at', type: 'timestamp', nullable: true })
-  approvedAt?: Date;
+  @Column({ name: 'resource_allocation', type: 'jsonb', nullable: true })
+  resourceAllocation?: Record<string, any>;
 
-  // Resource and cost tracking
-  @Column({ name: 'resource_usage', type: 'jsonb', nullable: true })
-  resourceUsage?: Record<string, any>;
+  @Column({ name: 'performance_metrics', type: 'jsonb', nullable: true })
+  performanceMetrics?: Record<string, any>;
 
-  @Column({ name: 'cost_estimate', type: 'decimal', precision: 10, scale: 2, nullable: true })
-  costEstimate?: number;
+  @Column({ name: 'quality_metrics', type: 'jsonb', nullable: true })
+  qualityMetrics?: Record<string, any>;
 
-  @Column({ name: 'actual_cost', type: 'decimal', precision: 10, scale: 2, nullable: true })
-  actualCost?: number;
+  @Column({ name: 'dependencies', type: 'jsonb', default: '[]' })
+  dependencies: string[];
 
-  // Quality and performance metrics
-  @Column({ name: 'quality_score', type: 'decimal', precision: 3, scale: 2, nullable: true })
-  qualityScore?: number;
+  @Column({ name: 'dependent_operations', type: 'jsonb', default: '[]' })
+  dependentOperations: string[];
 
-  @Column({ name: 'performance_score', type: 'decimal', precision: 3, scale: 2, nullable: true })
-  performanceScore?: number;
-
-  @Column({ name: 'user_satisfaction', type: 'decimal', precision: 3, scale: 2, nullable: true })
-  userSatisfaction?: number;
-
-  // Security and compliance
-  @Column({ name: 'security_level', type: 'enum', enum: ['low', 'medium', 'high', 'critical'], default: 'medium' })
-  securityLevel: 'low' | 'medium' | 'high' | 'critical';
-
-  @Column({ name: 'compliance_tags', type: 'jsonb', default: '[]' })
-  complianceTags: string[];
-
-  @Column({ name: 'audit_trail', type: 'jsonb', default: '[]' })
-  auditTrail: any[];
-
-  // Metadata and tags
-  @Column({ type: 'jsonb', default: '[]' })
+  @Column({ name: 'tags', type: 'jsonb', default: '[]' })
   tags: string[];
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ name: 'metadata', type: 'jsonb', nullable: true })
   metadata?: Record<string, any>;
 
-  @Column({ name: 'external_references', type: 'jsonb', nullable: true })
-  externalReferences?: Record<string, string>;
+  @Column({ name: 'is_archived', default: false })
+  isArchived: boolean;
 
-  // Cancellation and cleanup
-  @Column({ name: 'cancelled_at', type: 'timestamp', nullable: true })
-  cancelledAt?: Date;
+  @Column({ name: 'archived_at', type: 'timestamp', nullable: true })
+  archivedAt?: Date;
 
-  @Column({ name: 'cancelled_by', type: 'uuid', nullable: true })
-  cancelledBy?: string;
+  @Column({ name: 'archived_by', type: 'bigint', nullable: true })
+  archivedBy?: number;
 
-  @Column({ name: 'cancellation_reason', type: 'text', nullable: true })
-  cancellationReason?: string;
-
-  @Column({ name: 'cleanup_completed', default: false })
-  cleanupCompleted: boolean;
-
-  @Column({ name: 'cleanup_at', type: 'timestamp', nullable: true })
-  cleanupAt?: Date;
+  @Column({ name: 'archive_reason', type: 'text', nullable: true })
+  archiveReason?: string;
 
   // Relationships
-  @ManyToOne('Agent', { eager: false })
-  @JoinColumn({ name: 'agent_id' })
-  agent: any;
-
   @OneToMany('OperationState', 'operation')
   states: any[];
 
-  @OneToMany('OperationCheckpoint', 'operation')
-  checkpoints: any[];
-
-  @OneToMany('StepResult', 'operation')
-  stepResults: any[];
-
   @OneToMany('ApprovalWorkflow', 'operation')
-  approvals: any[];
+  approvalWorkflows: any[];
+
+  @OneToMany('Artifact', 'operation')
+  artifacts: any[];
 } 

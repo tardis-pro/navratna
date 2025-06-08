@@ -13,7 +13,7 @@ export {
 // Request validation middleware exports  
 export { 
   validateRequest,
-  validateUUID,
+  validateID,
   validatePagination,
   validateJSON,
   requireContentType,
@@ -43,3 +43,29 @@ export {} from './types';
 // Enhanced Validation Middleware for TypeORM Migration
 export { AgentValidationMiddleware } from './agentValidationMiddleware.js'; 
 export { AgentTransformationService } from './agentTransformationService.js';
+
+// Security middleware
+export {
+  securityHeaders,
+  corsMiddleware
+} from './security.js';
+
+// Logging middleware
+export {
+  errorLogger,
+  auditLogger
+} from './logging.js';
+
+// Authentication middleware
+export {
+  authenticateToken,
+  requireAuth,
+  requireRole,
+  requirePermission
+} from './auth.js';
+
+// Error handling middleware
+export {
+  notFoundHandler,
+  validationErrorHandler
+} from './errorHandler.js';

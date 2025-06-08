@@ -6,13 +6,13 @@ import { ToolDefinition, ToolUsageRecord } from '@uaip/types';
 import { ToolDatabase, ToolGraphDatabase, ToolRelationship, ToolRecommendation, TypeOrmService, DatabaseService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { z } from 'zod';
-import { v4 as uuidv4 } from 'uuid';
+
 
 // Define AgentCapabilityMetric interface locally since it's not exported from types
 interface AgentCapabilityMetric {
-  id: string;
-  agentId: string;
-  toolId: string;
+  Id: number;
+  agentId: number;
+  toolId: number;
   totalExecutions: number;
   successfulExecutions: number;
   totalExecutionTime: number;
@@ -25,7 +25,7 @@ interface AgentCapabilityMetric {
 
 // Validation schemas using Zod
 const ToolDefinitionSchema = z.object({
-  id: z.string().uuid('ID must be a valid UUID'),
+  id: z.coerce.number().int().positive('ID must be a positive integer'),
   name: z.string().min(1),
   description: z.string(),
   version: z.string().min(1),
@@ -121,7 +121,10 @@ export class ToolRegistry {
     }
   }
 
-  async updateTool(id: string, updates: Partial<ToolDefinition>): Promise<void> {
+  async updateTool(id: string | number, updates: Partial<ToolDefinition>): Promise<void> {
+    // Validate ID
+    const validatedId = z.coerce.number().int().positive().parse(id);
+    
     // Validate updates
     const validatedUpdates = ToolDefinitionSchema.partial().parse(updates);
     
@@ -129,42 +132,46 @@ export class ToolRegistry {
       // Update in PostgreSQL
       
       // Update node in Neo4j
-      await this.neo4j.updateToolNode(id, validatedUpdates);
+      await this.neo4j.updateToolNode(validatedId, validatedUpdates);
 
       // Update TypeORM entity
-      await this.typeormService.update('ToolDefinition', id, {
+      await this.typeormService.update('ToolDefinition', validatedId, {
         ...validatedUpdates,
         updatedAt: new Date()
       });
       
-      logger.info(`Tool updated successfully: ${id}`);
+      logger.info(`Tool updated successfully: ${validatedId}`);
     } catch (error) {
-      logger.error(`Failed to update tool ${id}:`, error);
+      logger.error(`Failed to update tool ${validatedId}:`, error);
       throw error;
     }
   }
 
-  async unregisterTool(id: string): Promise<void> {
+  async unregisterTool(id: string | number): Promise<void> {
+    // Validate ID
+    const validatedId = z.coerce.number().int().positive().parse(id);
+    
     try {
       // Remove from PostgreSQL (cascades to related tables)
       
       // Remove node from Neo4j (detaches all relationships)
-      await this.neo4j.deleteToolNode(id);
+      await this.neo4j.deleteToolNode(validatedId);
 
       // Remove TypeORM entity
-      await this.typeormService.delete('ToolDefinition', id);
+      await this.typeormService.delete('ToolDefinition', validatedId);
       
-      logger.info(`Tool unregistered successfully: ${id}`);
+      logger.info(`Tool unregistered successfully: ${validatedId}`);
     } catch (error) {
-      logger.error(`Failed to unregister tool ${id}:`, error);
+      logger.error(`Failed to unregister tool ${validatedId}:`, error);
       throw error;
     }
   }
 
   // Tool Discovery and Retrieval
-  async getTool(id: string): Promise<ToolDefinition | null> {
+  async getTool(id: string | number): Promise<ToolDefinition | null> {
     await this.ensureInitialized();
-    return await this.postgresql.getTool(id);
+    const validatedId = z.coerce.number().int().positive().parse(id);
+    return await this.postgresql.getTool(validatedId);
   }
 
   async getTools(category?: string, enabled?: boolean): Promise<ToolDefinition[]> {
@@ -234,7 +241,7 @@ export class ToolRegistry {
     logger.info(`Relationship added: ${fromToolId} -[${relationship.type}]-> ${toToolId}`);
   }
 
-  async getRecommendations(agentId: string, context?: string, limit = 5): Promise<ToolRecommendation[]> {
+  async getRecommendations(agentId: number, context?: string, limit = 5): Promise<ToolRecommendation[]> {
     try {
       let recommendations: ToolRecommendation[] = [];
       
@@ -291,7 +298,7 @@ export class ToolRegistry {
     return await this.neo4j.getPopularTools(category, limit);
   }
 
-  async getAgentToolPreferences(agentId: string): Promise<any[]> {
+  async getAgentToolPreferences(agentId: number): Promise<any[]> {
     return await this.neo4j.getAgentToolPreferences(agentId);
   }
 
@@ -357,7 +364,7 @@ export class ToolRegistry {
   // Enhanced Tool Usage Tracking
   async recordToolUsage(
     toolId: string,
-    agentId: string,
+    agentId: number,
     executionTime: number,
     success: boolean,
     cost?: number,
@@ -387,7 +394,7 @@ export class ToolRegistry {
   }
 
   private async updateCapabilityMetrics(
-    agentId: string,
+    agentId: number,
     toolId: string,
     success: boolean,
     executionTime: number
@@ -417,7 +424,6 @@ export class ToolRegistry {
       } else {
         // Create new metric
         const newMetric: Partial<AgentCapabilityMetric> = {
-          id: uuidv4(),
           agentId,
           toolId,
           totalExecutions: 1,
@@ -438,7 +444,7 @@ export class ToolRegistry {
   }
 
   // Enhanced Analytics with TypeORM
-  async getAgentCapabilityMetrics(agentId: string): Promise<AgentCapabilityMetric[]> {
+  async getAgentCapabilityMetrics(agentId: number): Promise<AgentCapabilityMetric[]> {
     try {
       const repository = this.typeormService.agentCapabilityMetricRepository;
       return await repository.find({

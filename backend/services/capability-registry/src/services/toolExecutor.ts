@@ -7,7 +7,7 @@ import {  ToolGraphDatabase, UsagePattern, TypeOrmService, DatabaseService } fro
 import { logger } from '@uaip/utils';
 import { ToolRegistry } from './toolRegistry.js';
 import { BaseToolExecutor } from './baseToolExecutor.js';
-import { v4 as uuidv4 } from 'uuid';
+
 import { z } from 'zod';
 
 // Validation schemas
@@ -37,7 +37,7 @@ export class ToolExecutor {
 
   async executeTool(
     toolId: string,
-    agentId: string,
+    agentId: number,
     parameters: Record<string, any>,
     options: ExecutionOptions = {}
   ): Promise<ToolExecution> {
@@ -62,7 +62,6 @@ export class ToolExecutor {
 
     // Create execution record
     const execution: ToolExecution = {
-      id: uuidv4(),
       toolId,
       agentId,
       parameters: validatedInput.parameters,
@@ -356,7 +355,7 @@ export class ToolExecutor {
   }
 
   private async updateUsagePattern(
-    agentId: string,
+    agentId: number,
     toolId: string,
     executionTime: number,
     success: boolean

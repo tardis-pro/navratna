@@ -31,7 +31,7 @@ export class AgentRepository extends BaseRepository<Agent> {
   /**
    * Get agent by ID with active status check
    */
-  public async getActiveAgentById(agentId: string): Promise<Agent | null> {
+  public async getActiveAgentById(agentId: number): Promise<Agent | null> {
     try {
       const agent = await this.repository.findOne({
         where: { id: agentId, isActive: true }
@@ -48,13 +48,13 @@ export class AgentRepository extends BaseRepository<Agent> {
    * Create a new agent
    */
   public async createAgent(agentData: {
-    id?: string;
+    id?: number;
     name: string;
     role: string;
     persona: any;
     intelligenceConfig: any;
     securityContext: any;
-    createdBy?: string;
+    createdBy?: number;
   }): Promise<Agent> {
     try {
       const agent = this.repository.create({
@@ -79,7 +79,7 @@ export class AgentRepository extends BaseRepository<Agent> {
   /**
    * Update an agent
    */
-  public async updateAgent(agentId: string, updateData: {
+  public async updateAgent(agentId: number, updateData: {
     name?: string;
     role?: string;
     persona?: any;
@@ -122,7 +122,7 @@ export class AgentRepository extends BaseRepository<Agent> {
   /**
    * Deactivate an agent (set is_active to false)
    */
-  public async deactivateAgent(agentId: string): Promise<boolean> {
+  public async deactivateAgent(agentId: number): Promise<boolean> {
     const result = await this.repository
       .createQueryBuilder()
       .update()
@@ -141,9 +141,9 @@ export class AgentRepository extends BaseRepository<Agent> {
    * Store execution plan
    */
   public async storeExecutionPlan(planData: {
-    id: string;
+    Id: number;
     type: string;
-    agentId: string;
+    agentId: number;
     plan?: any;
     steps?: any;
     dependencies?: any;
@@ -204,7 +204,7 @@ export class AgentRepository extends BaseRepository<Agent> {
   /**
    * Get operation by ID
    */
-  public async getOperationById(operationId: string): Promise<any | null> {
+  public async getOperationById(operationId: number): Promise<any | null> {
     try {
       const manager = this.getEntityManager();
       
@@ -226,8 +226,8 @@ export class AgentRepository extends BaseRepository<Agent> {
    * Store enhanced learning record
    */
   public async storeEnhancedLearningRecord(recordData: {
-    agentId: string;
-    operationId: string;
+    agentId: number;
+    operationId: number;
     learningData: any;
     confidenceAdjustments: any;
   }): Promise<void> {
@@ -235,9 +235,9 @@ export class AgentRepository extends BaseRepository<Agent> {
     
     const query = `
       INSERT INTO agent_learning_records (
-        id, agent_id, operation_id, learning_data, confidence_adjustments, created_at
+        agent_id, operation_id, learning_data, confidence_adjustments, created_at
       ) VALUES (
-        gen_random_uuid(), $1, $2, $3, $4, NOW()
+        $1, $2, $3, $4, NOW()
       )
     `;
     
@@ -252,7 +252,7 @@ export class AgentRepository extends BaseRepository<Agent> {
   /**
    * Get agent configuration and capabilities
    */
-  public async getAgentCapabilitiesConfig(agentId: string): Promise<{
+  public async getAgentCapabilitiesConfig(agentId: number): Promise<{
     intelligenceConfig?: any;
     securityContext?: any;
   } | null> {

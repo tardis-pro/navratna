@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BaseEntitySchema, UUIDSchema } from './common.js';
+import { BaseEntitySchema, IDSchema } from './common.js';
 
 // Security types
 export enum SecurityLevel {
@@ -85,7 +85,7 @@ export type Permission = z.infer<typeof PermissionSchema>;
 export const RoleSchema = BaseEntitySchema.extend({
   name: z.string().min(1).max(100),
   description: z.string().optional(),
-  permissions: z.array(UUIDSchema),
+  permissions: z.array(IDSchema),
   isSystemRole: z.boolean().default(false)
 });
 
@@ -93,9 +93,9 @@ export type Role = z.infer<typeof RoleSchema>;
 
 // Security context
 export const SecurityContextSchema = z.object({
-  userId: UUIDSchema,
-  agentId: UUIDSchema.optional(),
-  sessionId: UUIDSchema,
+  userId: IDSchema,
+  agentId: IDSchema.optional(),
+  sessionId: IDSchema,
   permissions: z.array(PermissionSchema),
   securityLevel: z.nativeEnum(SecurityLevel),
   ipAddress: z.string().ip().optional(),
@@ -124,7 +124,7 @@ export const SecurityValidationResultSchema = z.object({
   riskLevel: z.nativeEnum(SecurityLevel),
   conditions: z.array(z.string()).optional(),
   reasoning: z.string().optional(),
-  requiredApprovers: z.array(UUIDSchema).optional(),
+  requiredApprovers: z.array(IDSchema).optional(),
   validUntil: z.date().optional()
 });
 
@@ -132,9 +132,9 @@ export type SecurityValidationResult = z.infer<typeof SecurityValidationResultSc
 
 // Approval workflows
 export const ApprovalWorkflowSchema = BaseEntitySchema.extend({
-  operationId: UUIDSchema,
-  requiredApprovers: z.array(UUIDSchema),
-  currentApprovers: z.array(UUIDSchema).default([]),
+  operationId: IDSchema,
+  requiredApprovers: z.array(IDSchema),
+  currentApprovers: z.array(IDSchema).default([]),
   status: z.nativeEnum(ApprovalStatus).default(ApprovalStatus.PENDING),
   expiresAt: z.date().optional(),
   metadata: z.record(z.any()).optional()
@@ -143,8 +143,8 @@ export const ApprovalWorkflowSchema = BaseEntitySchema.extend({
 export type ApprovalWorkflow = z.infer<typeof ApprovalWorkflowSchema>;
 
 export const ApprovalDecisionSchema = z.object({
-  workflowId: UUIDSchema,
-  approverId: UUIDSchema,
+  workflowId: IDSchema,
+  approverId: IDSchema,
   decision: z.enum(['approve', 'reject']),
   conditions: z.array(z.string()).optional(),
   feedback: z.string().optional(),
@@ -198,8 +198,8 @@ export enum AuditEventType {
 
 export const AuditEventSchema = BaseEntitySchema.extend({
   eventType: z.nativeEnum(AuditEventType),
-  userId: UUIDSchema.optional(),
-  agentId: UUIDSchema.optional(),
+  userId: IDSchema.optional(),
+  agentId: IDSchema.optional(),
   resourceType: z.string().optional(),
   resourceId: z.string().optional(),
   details: z.record(z.any()),
@@ -213,8 +213,8 @@ export type AuditEvent = z.infer<typeof AuditEventSchema>;
 
 // JWT token types
 export const JWTPayloadSchema = z.object({
-  userId: UUIDSchema,
-  sessionId: UUIDSchema,
+  userId: IDSchema,
+  sessionId: IDSchema,
   permissions: z.array(z.string()),
   securityLevel: z.nativeEnum(SecurityLevel),
   iat: z.number(),

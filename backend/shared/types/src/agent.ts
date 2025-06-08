@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BaseEntitySchema, UUIDSchema } from './common.js';
+import { BaseEntitySchema, IDSchema } from './common.js';
 
 // Agent types
 export enum AgentRole {
@@ -46,7 +46,7 @@ export const AgentSchema = BaseEntitySchema.extend({
   intelligenceConfig: AgentIntelligenceConfigSchema,
   securityContext: AgentSecurityContextSchema,
   isActive: z.boolean().default(true),
-  createdBy: UUIDSchema,
+  createdBy: IDSchema,
   lastActiveAt: z.date().optional()
 });
 
@@ -60,7 +60,7 @@ export const AgentCreateSchema = z.object({
   intelligenceConfig: AgentIntelligenceConfigSchema.optional(),
   securityContext: AgentSecurityContextSchema.optional(),
   isActive: z.boolean().default(true).optional(),
-  createdBy: UUIDSchema
+  createdBy: IDSchema
 });
 
 export type AgentCreate = z.infer<typeof AgentCreateSchema>;
@@ -107,7 +107,7 @@ export enum MessageRole {
 }
 
 export const MessageSchema = z.object({
-  id: UUIDSchema,
+  id: IDSchema,
   role: z.nativeEnum(MessageRole),
   content: z.string(),
   metadata: z.record(z.any()).optional(),
@@ -117,9 +117,9 @@ export const MessageSchema = z.object({
 export type Message = z.infer<typeof MessageSchema>;
 
 export const ConversationContextSchema = z.object({
-  id: UUIDSchema,
-  agentId: UUIDSchema,
-  userId: UUIDSchema,
+  id: IDSchema,
+  agentId: IDSchema,
+  userId: IDSchema,
   messages: z.array(MessageSchema),
   metadata: z.record(z.any()).optional(),
   startedAt: z.date(),
@@ -213,7 +213,7 @@ export type AgentAnalysis = z.infer<typeof AgentAnalysisSchema>;
 export const ExecutionPlanSchema = z.object({
   id: z.string(),
   type: z.string(),
-  agentId: UUIDSchema,
+  agentId: IDSchema,
   steps: z.array(z.object({
     id: z.string(),
     type: z.string(),

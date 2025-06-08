@@ -95,8 +95,8 @@ export class ApprovalWorkflowRepository extends BaseRepository<ApprovalWorkflow>
    * Create a new approval workflow
    */
   public async createApprovalWorkflow(workflowData: {
-    id: string;
-    operationId: string;
+    Id: number;
+    operationId: number;
     requiredApprovers: string[];
     currentApprovers?: string[];
     status: string;
@@ -126,7 +126,7 @@ export class ApprovalWorkflowRepository extends BaseRepository<ApprovalWorkflow>
   /**
    * Get workflows for a user (as approver)
    */
-  public async getUserApprovalWorkflows(userId: string, status?: string): Promise<ApprovalWorkflow[]> {
+  public async getUserApprovalWorkflows(userId: number, status?: string): Promise<ApprovalWorkflow[]> {
     const queryBuilder = this.repository.createQueryBuilder('workflow')
       .where('workflow.requiredApprovers @> :userId', { 
         userId: JSON.stringify([userId]) 
@@ -198,9 +198,9 @@ export class ApprovalDecisionRepository extends BaseRepository<ApprovalDecision>
    * Create approval decision
    */
   public async createApprovalDecision(decisionData: {
-    id: string;
-    workflowId: string;
-    approverId: string;
+    Id: number;
+    workflowId: number;
+    approverId: number;
     decision: 'approve' | 'reject';
     conditions?: string[];
     feedback?: string;

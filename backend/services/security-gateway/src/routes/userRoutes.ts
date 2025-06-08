@@ -648,8 +648,8 @@ router.post('/bulk-action', authMiddleware, requireAdmin, async (req, res) => {
     }
 
     const results: {
-      successful: Array<{ userId: string; email: string }>;
-      failed: Array<{ userId: string; reason: string }>;
+      successful: Array<{ userId: number; email: string }>;
+      failed: Array<{ userId: number; reason: string }>;
     } = {
       successful: [],
       failed: []

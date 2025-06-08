@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { IDSchema } from './common.js';
 
 
 // Standard API response wrapper
@@ -85,7 +86,7 @@ export const AgentAnalysisResponseSchema = z.object({
   meta: z.object({
     timestamp: z.date(),
     processingTime: z.number(),
-    agentId: z.string(),
+    agentId: IDSchema,
     version: z.string()
   })
 });
@@ -101,7 +102,7 @@ export const AgentPlanResponseSchema = z.object({
   meta: z.object({
     timestamp: z.date(),
     processingTime: z.number(),
-    agentId: z.string(),
+    agentId: IDSchema,
     version: z.string()
   })
 });

@@ -39,7 +39,7 @@ export class DiscussionService {
   private enableAnalytics: boolean;
   private maxParticipants: number;
   private defaultTurnTimeout: number;
-  private activeDiscussions: Map<string, Discussion>;
+  private activeDiscussions: Map<number, Discussion>;
 
   constructor(config: DiscussionServiceConfig) {
     this.databaseService = config.databaseService;
@@ -84,7 +84,6 @@ export class DiscussionService {
       // Create discussion in database
       const discussion = await this.databaseService.create<Discussion>('discussions', {
         ...request,
-        id: crypto.randomUUID(),
         participants: [],
         state: initialState,
         status: DiscussionStatus.DRAFT,
@@ -105,10 +104,10 @@ export class DiscussionService {
         for (const participantRequest of request.initialParticipants) {
           if (participantRequest && participantRequest.personaId && participantRequest.agentId) {
             await this.addParticipant(discussion.id!, participantRequest as {
-              personaId: string;
-              agentId: string;
+              personaId: number;
+              agentId: number;
               role?: ParticipantRole;
-              userId?: string;
+              userId?: number;
             });
           }
         }
@@ -133,7 +132,7 @@ export class DiscussionService {
     }
   }
 
-  async getDiscussion(id: string): Promise<Discussion | null> {
+  async getDiscussion(id: number): Promise<Discussion | null> {
     try {
       // Check active discussions cache first
       const cached = this.activeDiscussions.get(id);
@@ -155,7 +154,7 @@ export class DiscussionService {
     }
   }
 
-  async updateDiscussion(id: string, updates: UpdateDiscussionRequest): Promise<Discussion> {
+  async updateDiscussion(id: number, updates: UpdateDiscussionRequest): Promise<Discussion> {
     try {
       logger.info('Updating discussion', { discussionId: id, updates: Object.keys(updates) });
 
@@ -196,7 +195,7 @@ export class DiscussionService {
     }
   }
 
-  async startDiscussion(id: string, startedBy: string): Promise<Discussion> {
+  async startDiscussion(id: number, startedBy: string): Promise<Discussion> {
     try {
       logger.info('Starting discussion', { discussionId: id, startedBy });
 
@@ -244,7 +243,7 @@ export class DiscussionService {
     }
   }
 
-  async endDiscussion(id: string, endedBy: string, reason?: string): Promise<Discussion> {
+  async endDiscussion(id: number, endedBy: string, reason?: string): Promise<Discussion> {
     try {
       logger.info('Ending discussion', { discussionId: id, endedBy, reason });
 
@@ -300,11 +299,11 @@ export class DiscussionService {
 
   // ===== PARTICIPANT MANAGEMENT =====
 
-  async addParticipant(discussionId: string, participantRequest: {
-    personaId: string;
-    agentId: string;
+  async addParticipant(discussionId: number, participantRequest: {
+    personaId: number;
+    agentId: number;
     role?: ParticipantRole;
-    userId?: string;
+    userId?: number;
   }): Promise<DiscussionParticipant> {
     try {
       logger.info('Adding participant to discussion', { 
@@ -332,14 +331,13 @@ export class DiscussionService {
       }
 
       // Validate persona exists
-      const persona = await this.personaService.getPersona(participantRequest.personaId || '');
+      const persona = await this.personaService.getPersona(participantRequest.personaId || 0);
       if (!persona) {
         throw new Error(`Persona not found: ${participantRequest.personaId}`);
       }
 
       // Create participant
       const participant = await this.databaseService.create<DiscussionParticipant>('discussion_participants', {
-        id: crypto.randomUUID(),
         discussionId,
         personaId: participantRequest.personaId,
         agentId: participantRequest.agentId,
@@ -381,7 +379,7 @@ export class DiscussionService {
     }
   }
 
-  async removeParticipant(discussionId: string, participantId: string, removedBy: string): Promise<void> {
+  async removeParticipant(discussionId: number,  participantId: number, removedBy: string): Promise<void> {
     try {
       logger.info('Removing participant from discussion', { discussionId, participantId, removedBy });
 
@@ -423,7 +421,7 @@ export class DiscussionService {
 
   // ===== MESSAGE MANAGEMENT =====
 
-  async sendMessage(discussionId: string, participantId: string, content: string, messageType = MessageType.MESSAGE): Promise<DiscussionMessage> {
+  async sendMessage(discussionId: number,  participantId: number, content: string, messageType = MessageType.MESSAGE): Promise<DiscussionMessage> {
     try {
       logger.debug('Sending message to discussion', { 
         discussionId, 
@@ -458,7 +456,6 @@ export class DiscussionService {
 
       // Create message
       const message = await this.databaseService.create<DiscussionMessage>('discussion_messages', {
-        id: crypto.randomUUID(),
         discussionId,
         participantId,
         content,
@@ -521,7 +518,7 @@ export class DiscussionService {
     }
   }
 
-  async getMessages(discussionId: string, limit = 50, offset = 0): Promise<{
+  async getMessages(discussionId: number, limit = 50, offset = 0): Promise<{
     messages: DiscussionMessage[];
     total: number;
     hasMore: boolean;
@@ -552,7 +549,7 @@ export class DiscussionService {
 
   // ===== TURN MANAGEMENT =====
 
-  async advanceTurn(discussionId: string, forcedBy?: string): Promise<void> {
+    async advanceTurn(discussionId: number, forcedBy?: string): Promise<void> {
     try {
       logger.debug('Advancing turn', { discussionId, forcedBy });
 
@@ -634,7 +631,7 @@ export class DiscussionService {
     }
   }
 
-  async getDiscussionAnalytics(discussionId: string, timeframe?: {
+  async getDiscussionAnalytics(discussionId: number, timeframe?: {
     start: Date;
     end: Date;
   }): Promise<DiscussionAnalytics | null> {
@@ -727,7 +724,7 @@ export class DiscussionService {
     }
   }
 
-  private async initializeFirstTurn(discussionId: string): Promise<void> {
+    private async initializeFirstTurn(discussionId: number): Promise<void> {
     const discussion = await this.getDiscussion(discussionId);
     if (!discussion) return;
 
@@ -746,7 +743,7 @@ export class DiscussionService {
     });
   }
 
-  private async determineNextParticipant(discussion: Discussion): Promise<string | undefined> {
+      private async determineNextParticipant(discussion: Discussion): Promise<number | undefined> {
     const activeParticipants = (discussion.participants || []).filter((p: DiscussionParticipant) => p.isActive);
     if (activeParticipants.length === 0) return undefined;
 
@@ -759,7 +756,7 @@ export class DiscussionService {
     return activeParticipants[nextIndex]?.id;
   }
 
-  private async checkTurnAdvancement(discussionId: string): Promise<void> {
+  private async checkTurnAdvancement(discussionId: number): Promise<void> {
     // Check if turn should automatically advance based on strategy
     // This would implement various turn advancement rules
     // For now, this is a placeholder
@@ -782,9 +779,9 @@ export class DiscussionService {
     return Math.ceil(content.split(/\s+/).length * 1.3);
   }
 
-  private extractMentions(content: string, participants: DiscussionParticipant[]): string[] {
+  private extractMentions(content: string, participants: DiscussionParticipant[]):  number[] {
     // Extract @mentions from content
-    const mentions: string[] = [];
+    const mentions: number[] = [];
     const mentionRegex = /@(\w+)/g;
     let match;
 
@@ -792,7 +789,7 @@ export class DiscussionService {
       const mentionedName = match[1];
       // Find participant by name or agent ID
       const participant = participants.find(
-        (p: DiscussionParticipant) => p.agentId && p.agentId.toLowerCase().includes(mentionedName.toLowerCase())
+        (p: DiscussionParticipant) => p.agentId && p.agentid.includes(mentionedName.toLowerCase())
       );
       if (participant && participant.id) {
         mentions.push(participant.id);
@@ -815,12 +812,12 @@ export class DiscussionService {
     return tags;
   }
 
-  private async updateDiscussionAnalytics(discussionId: string, message: DiscussionMessage): Promise<void> {
+  private async updateDiscussionAnalytics(discussionId: number, message: DiscussionMessage): Promise<void> {
     // Update real-time analytics based on new message
     // This would update various metrics and statistics
   }
 
-  private async calculateFinalAnalytics(discussionId: string): Promise<any> {
+  private async calculateFinalAnalytics(discussionId: number): Promise<any> {
     // Calculate comprehensive final analytics for completed discussion
     const discussion = await this.getDiscussion(discussionId);
     if (!discussion) return {};
@@ -833,23 +830,22 @@ export class DiscussionService {
     };
   }
 
-  private async generateDiscussionSummary(discussionId: string): Promise<DiscussionSummary | null> {
+  private async generateDiscussionSummary(discussionId: number): Promise<DiscussionSummary | null> {
     // Generate AI-powered discussion summary
     // This would use LLM services to create comprehensive summaries
     return null;
   }
 
   private async emitDiscussionEvent(
-    discussionId: string, 
+    discussionId: number, 
     type: DiscussionEventType, 
     data: any,
-    participantId?: string
+     participantId?: number
   ): Promise<void> {
     if (!this.enableRealTimeEvents) return;
 
     try {
       const event: DiscussionEvent = {
-        id: crypto.randomUUID(),
         discussionId,
         type,
         participantId,

@@ -217,7 +217,7 @@ export class TypeOrmService {
    */
   public async findById<Entity extends ObjectLiteral>(
     entityClass: EntityTarget<Entity>,
-    id: string,
+    id: number,
     relations?: string[]
   ): Promise<Entity | null> {
     try {
@@ -254,7 +254,7 @@ export class TypeOrmService {
    */
   public async update<Entity extends ObjectLiteral>(
     entityClass: EntityTarget<Entity>,
-    id: string,
+    id: number,
     data: Partial<Entity>
   ): Promise<Entity | null> {
     try {
@@ -272,7 +272,7 @@ export class TypeOrmService {
    */
   public async delete<Entity extends ObjectLiteral>(
     entityClass: EntityTarget<Entity>,
-    id: string
+    id: number
   ): Promise<boolean> {
     try {
       const repository = this.getRepository(entityClass);

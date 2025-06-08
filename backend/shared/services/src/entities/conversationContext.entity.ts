@@ -10,14 +10,14 @@ import { BaseEntity } from './base.entity.js';
 @Index(['userId', 'createdAt'])
 @Index(['status', 'lastActivityAt'])
 export class ConversationContext extends BaseEntity {
-  @Column({ name: 'agent_id', type: 'uuid' })
-  agentId: string;
+  @Column({ name: 'agent_id', type: 'bigint' })
+  agentId: number;
 
-  @Column({ name: 'user_id', type: 'uuid' })
-  userId: string;
+  @Column({ name: 'user_id', type: 'bigint' })
+  userId: number;
 
-  @Column({ name: 'session_id', type: 'uuid' })
-  sessionId: string;
+  @Column({ name: 'session_id', type: 'bigint' })
+  sessionId: number;
 
   @Column({ type: 'enum', enum: ['active', 'paused', 'completed', 'terminated'], default: 'active' })
   status: 'active' | 'paused' | 'completed' | 'terminated';

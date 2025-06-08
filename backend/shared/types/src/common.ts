@@ -1,11 +1,12 @@
 import { z } from 'zod';
 
-// Base types
-export const UUIDSchema = z.string().uuid();
-export type UUID = z.infer<typeof UUIDSchema>;
+// Replace UUID with numeric ID schema
+export const IDSchema = z.number().int().positive();
+export type ID = z.infer<typeof IDSchema>;
 
+// Timestamp schemas
 export const TimestampSchema = z.date();
-export type Timestamp = z.infer<typeof TimestampSchema>;
+export const OptionalTimestampSchema = z.date().optional();
 
 // Common enums
 export enum ServiceStatus {
@@ -21,24 +22,23 @@ export enum LogLevel {
   DEBUG = 'debug'
 }
 
+// Pagination schemas
+export const PaginationSchema = z.object({
+  page: z.number().int().positive().default(1),
+  limit: z.number().int().positive().max(100).default(10),
+  offset: z.number().int().nonnegative().optional()
+});
+
+export type Pagination = z.infer<typeof PaginationSchema>;
+
 // Base entity schema
 export const BaseEntitySchema = z.object({
-  id: UUIDSchema,
+  id: IDSchema,
   createdAt: TimestampSchema,
   updatedAt: TimestampSchema.optional()
 });
 
 export type BaseEntity = z.infer<typeof BaseEntitySchema>;
-
-// Pagination
-export const PaginationSchema = z.object({
-  page: z.number().int().positive().default(1),
-  limit: z.number().int().positive().max(100).default(20),
-  sortBy: z.string().optional(),
-  sortOrder: z.enum(['asc', 'desc']).default('desc')
-});
-
-export type Pagination = z.infer<typeof PaginationSchema>;
 
 export const PaginatedResultSchema = z.object({
   data: z.array(z.any()),

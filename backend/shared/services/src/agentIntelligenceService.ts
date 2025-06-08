@@ -3,7 +3,6 @@ import { DatabaseService } from './databaseService.js';
 import { EventBusService } from './eventBusService.js';
 import { logger, ApiError } from '@uaip/utils';
 import { Agent, AgentAnalysis, AgentRole, ExecutionPlan, LearningResult } from '@uaip/types';
-import { v4 as uuidv4, validate as isValidUUID } from 'uuid';
 
 interface MessageWithContent {
   content?: string;
@@ -77,19 +76,14 @@ export class AgentIntelligenceService {
   }
 
   /**
-   * Validates if a string is a valid UUID
+   * Validates if a value is a valid positive integer ID
    */
-  private isValidUUID(uuid: string): boolean {
-    return isValidUUID(uuid);
-  }
-
-  /**
-   * Validates UUID parameter and throws appropriate error if invalid
-   */
-  private validateUUIDParam(uuid: string, paramName: string = 'id'): void {
-    if (!this.isValidUUID(uuid)) {
-      throw new ApiError(400, `Invalid ${paramName} format. Expected UUID.`, 'INVALID_UUID_FORMAT');
+  private validateIDParam(id: number | string, paramName: string = 'id'): number {
+    const numericId = typeof id === 'string' ? parseInt(id, 10) : id;
+    if (!Number.isInteger(numericId) || numericId <= 0) {
+      throw new ApiError(400, `Invalid ${paramName} format. Expected positive integer.`, 'INVALID_ID_FORMAT');
     }
+    return numericId;
   }
 
   public async getAgents(): Promise<Agent[] | null> {
@@ -124,17 +118,17 @@ export class AgentIntelligenceService {
     }
   }
 
-  public async getAgent(agentId: string): Promise<Agent | null> {
+  public async getAgent(agentId: number | number): Promise<Agent | null> {
     if (!this.isInitialized) {
       await this.initialize();
     }
     
     try {
-      // Validate UUID format
-      this.validateUUIDParam(agentId, 'agentId');
+      // Validate ID format
+      const validatedId = this.validateIDParam(agentId, 'agentId');
 
       // Use DatabaseService getActiveAgentById method instead of raw SQL
-      const agent = await this.databaseService.getActiveAgentById(agentId);
+      const agent = await this.databaseService.getActiveAgentById(validatedId);
       
       if (!agent) {
         return null;
@@ -304,14 +298,14 @@ export class AgentIntelligenceService {
     }
   }
 
-  public async updateAgent(agentId: string, updateData: any): Promise<Agent> {
+  public async updateAgent(agentId: number | number, updateData: any): Promise<Agent> {
     if (!this.isInitialized) {
       await this.initialize();
     }
     
     try {
-      // Validate UUID format
-      this.validateUUIDParam(agentId, 'agentId');
+      // Validate ID format
+      const validatedId = this.validateIDParam(agentId, 'agentId');
 
       // Prepare update data for DatabaseService
       const updatePayload: any = {};
@@ -321,7 +315,7 @@ export class AgentIntelligenceService {
       if (updateData.securityContext) updatePayload.securityContext = updateData.securityContext;
 
       // Use DatabaseService updateAgent method instead of raw SQL
-      const updatedAgent = await this.databaseService.updateAgent(agentId, updatePayload);
+      const updatedAgent = await this.databaseService.updateAgent(validatedId, updatePayload);
 
       if (!updatedAgent) {
         throw new ApiError(404, 'Agent not found', 'AGENT_NOT_FOUND');
@@ -358,16 +352,13 @@ export class AgentIntelligenceService {
     try {
       logger.info('Creating new agent', { name: agentData.name });
 
-      // Handle ID validation and generation
-      let agentId: string;
+      // Handle ID validation - no longer generate UUIDs, let database auto-increment
+      let agentId: number | undefined;
       if (agentData.id) {
-        // Validate provided ID is a valid UUID
-        this.validateUUIDParam(agentData.id, 'agentId');
-        agentId = agentData.id;
-      } else {
-        // Generate a new UUID
-        agentId = uuidv4();
+        // Validate provided ID is a valid positive integer
+        agentId = this.validateIDParam(agentData.id, 'agentId');
       }
+      // If no ID provided, let database auto-generate
 
       // Map configuration to intelligenceConfig if provided, handle both camelCase and snake_case
       const intelligenceConfig = agentData.intelligenceConfig || 
@@ -386,9 +377,9 @@ export class AgentIntelligenceService {
       // Default createdBy if not provided, handle both camelCase and snake_case
       let createdBy = agentData.createdBy || agentData.created_by;
       
-      // Validate createdBy if provided - it must be a valid UUID since it references users(id)
+      // Validate createdBy if provided - it must be a valid positive integer since it references users(id)
       if (createdBy) {
-        this.validateUUIDParam(createdBy, 'createdBy');
+        createdBy = this.validateIDParam(createdBy, 'createdBy');
       } else {
         // If no createdBy provided, set to null (database allows this)
         createdBy = null;
@@ -396,7 +387,7 @@ export class AgentIntelligenceService {
 
       // Prepare data for DatabaseService
       const createPayload = {
-        id: agentId,
+        ...(agentId && { id: agentId }), // Only include ID if provided
         name: agentData.name,
         role: role,
         persona: agentData.persona || {},
@@ -446,17 +437,17 @@ export class AgentIntelligenceService {
     }
   }
 
-  public async deleteAgent(agentId: string): Promise<void> {
+  public async deleteAgent(agentId: number | number): Promise<void> {
     if (!this.isInitialized) {
       await this.initialize();
     }
     
     try {
-      // Validate UUID format
-      this.validateUUIDParam(agentId, 'agentId');
+      // Validate ID format
+      const validatedId = this.validateIDParam(agentId, 'agentId');
 
       // Use DatabaseService method instead of raw SQL
-      const wasDeactivated = await this.databaseService.deactivateAgent(agentId);
+      const wasDeactivated = await this.databaseService.deactivateAgent(validatedId);
 
       if (!wasDeactivated) {
         throw new ApiError(404, 'Agent not found', 'AGENT_NOT_FOUND');
@@ -464,7 +455,7 @@ export class AgentIntelligenceService {
 
       // Emit agent deletion event
       await this.safePublishEvent('agent.deleted', {
-        agentId,
+        agentId: validatedId,
         timestamp: new Date()
       });
 
@@ -476,8 +467,8 @@ export class AgentIntelligenceService {
   }
 
   public async learnFromOperation(
-    agentId: string,
-    operationId: string,
+    agentId: number | number,
+    operationId: string | number,
     outcomes: any,
     feedback: any
   ): Promise<LearningResult> {
@@ -486,13 +477,13 @@ export class AgentIntelligenceService {
     }
     
     try {
-      // Validate UUID formats
-      this.validateUUIDParam(agentId, 'agentId');
-      this.validateUUIDParam(operationId, 'operationId');
+      // Validate ID formats
+      const validatedAgentId = this.validateIDParam(agentId, 'agentId');
+      const validatedOperationId = this.validateIDParam(operationId, 'operationId');
 
       // Get operation details
-      const operation = await this.getOperation(operationId);
-      if (!operation || operation.agent_id !== agentId) {
+      const operation = await this.getOperation(validatedOperationId);
+      if (!operation || operation.agent_id !== validatedAgentId) {
         throw new ApiError(404, 'Operation not found', 'OPERATION_NOT_FOUND');
       }
 
@@ -500,7 +491,7 @@ export class AgentIntelligenceService {
       const learningData = this.extractLearning(operation, outcomes, feedback);
       
       // Update agent's knowledge base in Neo4j
-      await this.updateAgentKnowledge(agentId, learningData);
+      await this.updateAgentKnowledge(validatedAgentId, learningData);
       
       // Adjust confidence scores based on outcomes
       const confidenceAdjustments = this.calculateConfidenceAdjustments(
@@ -510,7 +501,7 @@ export class AgentIntelligenceService {
       );
 
       // Store learning record
-      await this.storeLearningRecord(agentId, operationId, learningData, confidenceAdjustments);
+      await this.storeLearningRecord(validatedAgentId, validatedOperationId, learningData, confidenceAdjustments);
 
       const result: LearningResult = {
         learningApplied: true,
@@ -521,8 +512,8 @@ export class AgentIntelligenceService {
 
       // Emit learning event
       await this.safePublishEvent('agent.learning.applied', {
-        agentId,
-        operationId,
+        agentId: validatedAgentId,
+        operationId: validatedOperationId,
         learningData: result
       });
 
@@ -777,9 +768,10 @@ export class AgentIntelligenceService {
     });
   }
 
-  private async getOperation(operationId: string): Promise<any> {
+  private async getOperation(operationId: string | number): Promise<any> {
     // Use DatabaseService getOperationById method instead of raw SQL
-    return await this.databaseService.getOperationById(operationId);
+    const validatedId = this.validateIDParam(operationId, 'operationId');
+    return await this.databaseService.getOperationById(validatedId);
   }
 
   private extractLearning(operation: any, outcomes: any, feedback: any): any {
@@ -790,7 +782,7 @@ export class AgentIntelligenceService {
     };
   }
 
-  private async updateAgentKnowledge(agentId: string, learningData: any): Promise<void> {
+  private async updateAgentKnowledge(agentId: number, learningData: any): Promise<void> {
     // Update agent knowledge in Neo4j graph database
     // This would implement the actual graph updates
     logger.info('Updating agent knowledge', { agentId, learningData });
@@ -804,8 +796,8 @@ export class AgentIntelligenceService {
   }
 
   private async storeLearningRecord(
-    agentId: string,
-    operationId: string,
+    agentId: number,
+    operationId: number,
     learningData: any,
     confidenceAdjustments: any
   ): Promise<void> {

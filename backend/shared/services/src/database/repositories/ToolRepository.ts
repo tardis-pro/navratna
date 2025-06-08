@@ -104,7 +104,7 @@ export class ToolRepository extends BaseRepository<ToolDefinition> {
   /**
    * Update tool success metrics
    */
-  public async updateToolSuccessMetrics(toolId: string, wasSuccessful: boolean, executionTime?: number): Promise<void> {
+  public async updateToolSuccessMetrics(toolId: number, wasSuccessful: boolean, executionTime?: number): Promise<void> {
     try {
       if (wasSuccessful) {
         const updateData: any = {
@@ -138,7 +138,7 @@ export class ToolRepository extends BaseRepository<ToolDefinition> {
   /**
    * Increment tool usage count (internal helper)
    */
-  public async incrementToolUsageCount(toolId: string): Promise<void> {
+  public async incrementToolUsageCount(toolId: number): Promise<void> {
     try {
       await this.repository
         .createQueryBuilder()
@@ -159,9 +159,9 @@ export class ToolRepository extends BaseRepository<ToolDefinition> {
   /**
    * Get tool performance analytics
    */
-  public async getToolPerformanceAnalytics(toolId?: string): Promise<{
+  public async getToolPerformanceAnalytics(toolId?: number): Promise<{
     tools: Array<{
-      id: string;
+      id: number;
       name: string;
       totalExecutions: number;
       successfulExecutions: number;
@@ -210,7 +210,7 @@ export class ToolExecutionRepository extends BaseRepository<ToolExecution> {
   /**
    * Get a tool execution by ID
    */
-  public async getToolExecution(id: string): Promise<ToolExecution | null> {
+  public async getToolExecution(id: number): Promise<ToolExecution | null> {
     return await this.repository.findOne({ where: { id } });
   }
 
@@ -218,8 +218,8 @@ export class ToolExecutionRepository extends BaseRepository<ToolExecution> {
    * Get tool executions with filtering
    */
   public async getToolExecutions(filters: {
-    toolId?: string;
-    agentId?: string;
+    toolId?: number;
+    agentId?: number;
     status?: string;
     limit?: number;
     offset?: number;
@@ -254,7 +254,7 @@ export class ToolExecutionRepository extends BaseRepository<ToolExecution> {
   /**
    * Get a tool execution by ID with relations
    */
-  public async getToolExecutionWithRelations(id: string): Promise<ToolExecution | null> {
+  public async getToolExecutionWithRelations(id: number): Promise<ToolExecution | null> {
     return await this.repository.findOne({ 
       where: { id },
       relations: ['tool', 'agent']
@@ -288,8 +288,8 @@ export class ToolUsageRepository extends BaseRepository<ToolUsageRecord> {
    * Get tool usage statistics
    */
   public async getToolUsageStats(filters: {
-    toolId?: string;
-    agentId?: string;
+    toolId?: number;
+    agentId?: number;
     days?: number;
   } = {}): Promise<any[]> {
     const queryBuilder = this.repository.createQueryBuilder('usage');

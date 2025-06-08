@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { PersonaController } from '../controllers/personaController';
 import { 
   validateRequest, 
-  validateUUID, 
+  validateID, 
   authMiddleware,
   requireOperator 
 } from '@uaip/middleware';
@@ -48,14 +48,14 @@ export function createPersonaRoutes(personaController: PersonaController): Route
   // GET /api/v1/personas/:personaId
   router.get(
     '/:personaId',
-    validateUUID('personaId'),
+    validateID('personaId'),
     personaController.getPersona.bind(personaController)
   );
 
   // PUT /api/v1/personas/:personaId
   router.put(
     '/:personaId',
-    validateUUID('personaId'),
+    validateID('personaId'),
     validateRequest({ body: UpdatePersonaRequestSchema }),
     personaController.updatePersona.bind(personaController)
   );
@@ -63,21 +63,21 @@ export function createPersonaRoutes(personaController: PersonaController): Route
   // DELETE /api/v1/personas/:personaId
   router.delete(
     '/:personaId',
-    validateUUID('personaId'),
+    validateID('personaId'),
     personaController.deletePersona.bind(personaController)
   );
 
   // GET /api/v1/personas/:personaId/analytics
   router.get(
     '/:personaId/analytics',
-    validateUUID('personaId'),
+    validateID('personaId'),
     personaController.getPersonaAnalytics.bind(personaController)
   );
 
   // POST /api/v1/personas/:personaId/validate
   router.post(
     '/:personaId/validate',
-    validateUUID('personaId'),
+    validateID('personaId'),
     personaController.validatePersona.bind(personaController)
   );
 

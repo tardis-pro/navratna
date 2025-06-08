@@ -9,7 +9,7 @@ export interface ResourceLimits {
 }
 
 export interface ResourceAllocation {
-  operationId: string;
+  operationId: number;
   allocatedAt: Date;
   limits: ResourceLimits;
   currentUsage: ResourceUsage;
@@ -87,7 +87,7 @@ export class ResourceManagerService extends EventEmitter {
    * Allocate resources for an operation
    */
   public async allocateResources(
-    operationId: string,
+    operationId: number,
     limits: ResourceLimits
   ): Promise<ResourceAllocation> {
     try {
@@ -130,7 +130,7 @@ export class ResourceManagerService extends EventEmitter {
   /**
    * Release resources for an operation
    */
-  public async releaseResources(operationId: string): Promise<void> {
+  public async releaseResources(operationId: number): Promise<void> {
     try {
       const allocation = this.allocatedResources.get(operationId);
       if (!allocation) {
@@ -168,7 +168,7 @@ export class ResourceManagerService extends EventEmitter {
    * Update resource usage for an operation
    */
   public async updateResourceUsage(
-    operationId: string,
+    operationId: number,
     usage: ResourceUsage
   ): Promise<void> {
     try {
@@ -210,7 +210,7 @@ export class ResourceManagerService extends EventEmitter {
   /**
    * Get resource allocation for an operation
    */
-  public getResourceAllocation(operationId: string): ResourceAllocation | undefined {
+  public getResourceAllocation(operationId: number): ResourceAllocation | undefined {
     return this.allocatedResources.get(operationId);
   }
 
@@ -267,7 +267,7 @@ export class ResourceManagerService extends EventEmitter {
   public async cleanupExpiredAllocations(): Promise<void> {
     try {
       const now = Date.now();
-      const expiredOperations: string[] = [];
+      const expiredOperations: number[] = [];
 
       for (const [operationId, allocation] of this.allocatedResources) {
         if (allocation.released) continue;

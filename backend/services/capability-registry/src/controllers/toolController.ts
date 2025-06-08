@@ -11,7 +11,7 @@ import { z } from 'zod';
 
 // Request validation schemas
 const RegisterToolSchema = z.object({
-  id: z.string().uuid('ID must be a valid UUID'),
+  id: z.coerce.number().int().positive('ID must be a positive integer').optional(),
   name: z.string().min(1),
   description: z.string(),
   version: z.string().min(1),
@@ -30,7 +30,7 @@ const RegisterToolSchema = z.object({
 });
 
 const ExecuteToolSchema = z.object({
-  agentId: z.string().min(1),
+  agentId: z.coerce.number().int().positive('Agent ID must be a positive integer'),
   parameters: z.record(z.any()),
   timeout: z.number().positive().optional(),
   priority: z.enum(['low', 'normal', 'high']).optional(),
@@ -38,7 +38,7 @@ const ExecuteToolSchema = z.object({
 });
 
 const AddRelationshipSchema = z.object({
-  toToolId: z.string().min(1),
+  toToolId: z.coerce.number().int().positive('Tool ID must be a positive integer'),
   type: z.enum(['DEPENDS_ON', 'SIMILAR_TO', 'REPLACES', 'ENHANCES', 'REQUIRES']),
   strength: z.number().min(0).max(1),
   reason: z.string().optional(),
@@ -103,27 +103,27 @@ export class ToolController {
       // Temporarily log the ID to debug routing issue
       logger.error(`getTool called with ID: "${id}" - this should not happen for GET /api/v1/tools`);
       
-      // Validate UUID format
-      const uuidSchema = z.string().uuid();
-      const validationResult = uuidSchema.safeParse(id);
+      // Validate ID format
+      const idSchema = z.coerce.number().int().positive();
+      const validationResult = idSchema.safeParse(id);
       
       if (!validationResult.success) {
-        logger.error(`Invalid UUID format for tool ID: ${id}`);
+        logger.error(`Invalid ID format for tool ID: ${id}`);
         res.status(400).json({
           success: false,
           error: 'Invalid tool ID format',
-          message: `Tool ID must be a valid UUID. Received: "${id}"`
+          message: `Tool ID must be a positive integer. Received: "${id}"`
         });
         return;
       }
       
-      const tool = await this.toolRegistry.getTool(id);
+      const tool = await this.toolRegistry.getTool(validationResult.data);
       
       if (!tool) {
         res.status(404).json({
           success: false,
           error: 'Tool not found',
-          message: `Tool with ID ${id} does not exist`
+          message: `Tool with ID ${validationResult.data} does not exist`
         });
         return;
       }
@@ -178,27 +178,27 @@ export class ToolController {
     try {
       const { id } = req.params;
       
-      // Validate UUID format
-      const uuidSchema = z.string().uuid();
-      const validationResult = uuidSchema.safeParse(id);
+      // Validate ID format
+      const idSchema = z.coerce.number().int().positive();
+      const validationResult = idSchema.safeParse(id);
       
       if (!validationResult.success) {
         res.status(400).json({
           success: false,
           error: 'Invalid tool ID format',
-          message: 'Tool ID must be a valid UUID'
+          message: 'Tool ID must be a positive integer'
         });
         return;
       }
       
       const updates = RegisterToolSchema.partial().parse(req.body);
       
-      await this.toolRegistry.updateTool(id, updates);
+      await this.toolRegistry.updateTool(validationResult.data, updates);
       
       res.json({
         success: true,
         message: 'Tool updated successfully',
-        data: { toolId: id }
+        data: { toolId: validationResult.data }
       });
     } catch (error) {
       logger.error(`Failed to update tool ${req.params.id}:`, error);
@@ -225,25 +225,25 @@ export class ToolController {
     try {
       const { id } = req.params;
       
-      // Validate UUID format
-      const uuidSchema = z.string().uuid();
-      const validationResult = uuidSchema.safeParse(id);
+      // Validate ID format
+      const idSchema = z.coerce.number().int().positive();
+      const validationResult = idSchema.safeParse(id);
       
       if (!validationResult.success) {
         res.status(400).json({
           success: false,
           error: 'Invalid tool ID format',
-          message: 'Tool ID must be a valid UUID'
+          message: 'Tool ID must be a positive integer'
         });
         return;
       }
       
-      await this.toolRegistry.unregisterTool(id);
+      await this.toolRegistry.unregisterTool(validationResult.data);
       
       res.json({
         success: true,
         message: 'Tool unregistered successfully',
-        data: { toolId: id }
+        data: { toolId: validationResult.data }
       });
     } catch (error) {
       logger.error(`Failed to unregister tool ${req.params.id}:`, error);
@@ -262,15 +262,15 @@ export class ToolController {
     try {
       const { id } = req.params;
       
-      // Validate UUID format
-      const uuidSchema = z.string().uuid();
-      const validationResult = uuidSchema.safeParse(id);
+      // Validate ID format
+      const idSchema = z.coerce.number().int().positive();
+      const validationResult = idSchema.safeParse(id);
       
       if (!validationResult.success) {
         res.status(400).json({
           success: false,
           error: 'Invalid tool ID format',
-          message: 'Tool ID must be a valid UUID'
+          message: 'Tool ID must be a positive integer'
         });
         return;
       }
@@ -278,7 +278,7 @@ export class ToolController {
       const validatedRequest = ExecuteToolSchema.parse(req.body);
       
       const execution = await this.toolExecutor.executeTool(
-        id,
+        validationResult.data,
         validatedRequest.agentId,
         validatedRequest.parameters,
         {
@@ -438,15 +438,15 @@ export class ToolController {
     try {
       const { id } = req.params;
       
-      // Validate UUID format
-      const uuidSchema = z.string().uuid();
-      const validationResult = uuidSchema.safeParse(id);
+      // Validate ID format
+      const idSchema = z.coerce.number().int().positive();
+      const validationResult = idSchema.safeParse(id);
       
       if (!validationResult.success) {
         res.status(400).json({
           success: false,
           error: 'Invalid tool ID format',
-          message: 'Tool ID must be a valid UUID'
+          message: 'Tool ID must be a positive integer'
         });
         return;
       }
@@ -457,7 +457,7 @@ export class ToolController {
       const minStrengthValue = minStrength ? parseFloat(minStrength as string) : 0.5;
       
       const relatedTools = await this.toolRegistry.getRelatedTools(
-        id,
+        validationResult.data,
         relationshipTypes,
         minStrengthValue
       );

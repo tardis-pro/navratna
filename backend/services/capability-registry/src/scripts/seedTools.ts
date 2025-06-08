@@ -9,7 +9,6 @@ import { logger } from '@uaip/utils';
 
 const sampleTools = [
   {
-    id: 'math-calculator',
     name: 'Math Calculator',
     description: 'Performs mathematical calculations including basic arithmetic, trigonometry, and advanced functions',
     version: '1.0.0',
@@ -61,7 +60,6 @@ const sampleTools = [
     ]
   },
   {
-    id: 'text-analysis',
     name: 'Text Analysis Tool',
     description: 'Analyzes text for various metrics including sentiment, readability, keywords, and basic statistics',
     version: '1.2.0',
@@ -108,7 +106,6 @@ const sampleTools = [
     ]
   },
   {
-    id: 'time-utility',
     name: 'Time Utility',
     description: 'Provides various time and date operations including formatting, parsing, and calculations',
     version: '1.1.0',
@@ -158,9 +155,8 @@ const sampleTools = [
     ]
   },
   {
-    id: 'uuid-generator',
-    name: 'UUID Generator',
-    description: 'Generates unique identifiers in various formats',
+    name: 'ID Generator',
+    description: 'Generates numeric identifiers in various formats',
     version: '1.0.0',
     category: 'utilities',
     parameters: {
@@ -171,28 +167,33 @@ const sampleTools = [
           default: 1,
           minimum: 1,
           maximum: 100,
-          description: 'Number of UUIDs to generate'
+          description: 'Number of IDs to generate'
         },
-        version: {
-          type: 'number',
-          default: 4,
-          description: 'UUID version'
-        },
-        format: {
+        type: {
           type: 'string',
-          enum: ['standard', 'compact', 'uppercase'],
-          default: 'standard',
-          description: 'Output format'
+          enum: ['sequential', 'random', 'timestamp'],
+          default: 'sequential',
+          description: 'Type of ID generation'
+        },
+        min: {
+          type: 'number',
+          default: 1,
+          description: 'Minimum value for random IDs'
+        },
+        max: {
+          type: 'number',
+          default: 1000000,
+          description: 'Maximum value for random IDs'
         }
       }
     },
     returnType: {
       type: 'object',
       properties: {
-        uuids: { type: 'array', items: { type: 'string' } },
+        ids: { type: 'array', items: { type: 'number' } },
         count: { type: 'number' },
-        version: { type: 'number' },
-        format: { type: 'string' }
+        type: { type: 'string' },
+        range: { type: 'object' }
       }
     },
     securityLevel: 'safe' as const,
@@ -201,18 +202,22 @@ const sampleTools = [
     executionTimeEstimate: 10,
     costEstimate: 0.0001,
     author: 'UAIP Team',
-    tags: ['uuid', 'generator', 'utility', 'identifier'],
+    tags: ['id', 'generator', 'utility', 'identifier', 'numeric'],
     dependencies: [],
     examples: [
       {
-        description: 'Generate a single UUID',
-        parameters: { count: 1 },
-        expectedResult: { count: 1, uuids: ['550e8400-e29b-41d4-a716-446655440000'] }
+        description: 'Generate sequential IDs',
+        parameters: { count: 3, type: 'sequential' },
+        expectedResult: { count: 3, ids: [123456, 123457, 123458] }
+      },
+      {
+        description: 'Generate random IDs',
+        parameters: { count: 2, type: 'random', min: 1000, max: 9999 },
+        expectedResult: { count: 2, ids: [1234, 5678] }
       }
     ]
   },
   {
-    id: 'file-reader',
     name: 'File Reader',
     description: 'Reads and processes various file types with content analysis',
     version: '1.0.0',
@@ -263,7 +268,6 @@ const sampleTools = [
     ]
   },
   {
-    id: 'web-search',
     name: 'Web Search',
     description: 'Performs web searches and returns structured results',
     version: '1.0.0',
@@ -346,7 +350,7 @@ const sampleRelationships = [
     reason: 'Both are data retrieval tools'
   },
   {
-    fromToolId: 'uuid-generator',
+    fromToolId: 'id-generator',
     toToolId: 'time-utility',
     type: 'SIMILAR_TO',
     strength: 0.6,

@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 import { KnowledgeType, SourceType } from '@uaip/types';
+import { BaseEntity } from './base.entity';
 
 @Entity('knowledge_items')
 @Index(['sourceType', 'sourceIdentifier'])
@@ -7,9 +8,8 @@ import { KnowledgeType, SourceType } from '@uaip/types';
 @Index(['type'])
 @Index(['confidence'])
 @Index(['createdAt'])
-export class KnowledgeItemEntity {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+export class KnowledgeItemEntity extends BaseEntity {
+
 
   @Column('text')
   content: string;
@@ -42,17 +42,12 @@ export class KnowledgeItemEntity {
   @Column('jsonb', { default: '{}' })
   metadata: Record<string, any>;
 
-  @CreateDateColumn()
-  createdAt: Date;
 
-  @UpdateDateColumn()
-  updatedAt: Date;
+  @Column('bigint', { nullable: true })
+  createdBy?: number;
 
-  @Column('uuid', { nullable: true })
-  createdBy?: string;
-
-  @Column('uuid', { nullable: true })
-  organizationId?: string;
+  @Column('bigint', { nullable: true })
+  organizationId?: number;
 
   @Column({ length: 50, default: 'public' })
   accessLevel: string;

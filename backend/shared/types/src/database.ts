@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { IDSchema } from './common.js';
 
 // Database connection types
 export const DatabaseConfigSchema = z.object({
@@ -60,19 +61,13 @@ export interface TransactionOptions {
 
 // User entity
 export const DbUserSchema = z.object({
-  id: z.string().uuid(),
+  id: IDSchema,
   email: z.string().email(),
-  name: z.string(),
+  password_hash: z.string(),
+  first_name: z.string(),
+  last_name: z.string(),
   role: z.string(),
-  password_hash: z.string().nullable(),
-  security_clearance: z.string(),
   is_active: z.boolean(),
-  first_name: z.string().nullable(),
-  last_name: z.string().nullable(),
-  department: z.string().nullable(),
-  failed_login_attempts: z.number().int().min(0).default(0),
-  locked_until: z.date().nullable(),
-  password_changed_at: z.date().nullable(),
   last_login_at: z.date().nullable(),
   created_at: z.date(),
   updated_at: z.date()
@@ -82,7 +77,7 @@ export type DbUser = z.infer<typeof DbUserSchema>;
 
 // Role entity
 export const DbRoleSchema = z.object({
-  id: z.string().uuid(),
+  id: IDSchema,
   name: z.string(),
   description: z.string().nullable(),
   is_system_role: z.boolean(),
@@ -94,7 +89,7 @@ export type DbRole = z.infer<typeof DbRoleSchema>;
 
 // Permission entity
 export const DbPermissionSchema = z.object({
-  id: z.string().uuid(),
+  id: IDSchema,
   type: z.string(),
   resource: z.string(),
   operations: z.array(z.string()),
@@ -108,7 +103,7 @@ export type DbPermission = z.infer<typeof DbPermissionSchema>;
 
 // Capability entity
 export const DbCapabilitySchema = z.object({
-  id: z.string().uuid(),
+  id: IDSchema,
   name: z.string(),
   description: z.string(),
   type: z.string(),
@@ -116,7 +111,7 @@ export const DbCapabilitySchema = z.object({
   version: z.string(),
   config: z.record(z.any()),
   is_active: z.boolean(),
-  created_by: z.string().uuid(),
+  created_by: IDSchema,
   created_at: z.date(),
   updated_at: z.date()
 });
@@ -125,14 +120,14 @@ export type DbCapability = z.infer<typeof DbCapabilitySchema>;
 
 // Agent entity
 export const DbAgentSchema = z.object({
-  id: z.string().uuid(),
+  id: IDSchema,
   name: z.string(),
   role: z.string(),
   persona: z.record(z.any()),
   intelligence_config: z.record(z.any()),
   security_context: z.record(z.any()),
   is_active: z.boolean(),
-  created_by: z.string().uuid(),
+  created_by: IDSchema,
   last_active_at: z.date().nullable(),
   created_at: z.date(),
   updated_at: z.date()
@@ -142,21 +137,39 @@ export type DbAgent = z.infer<typeof DbAgentSchema>;
 
 // Operation entity
 export const DbOperationSchema = z.object({
-  id: z.string().uuid(),
+  id: IDSchema,
   type: z.string(),
   status: z.string(),
   priority: z.string(),
-  agent_id: z.string().uuid().nullable(),
-  user_id: z.string().uuid().nullable(),
-  plan: z.record(z.any()),
-  context: z.record(z.any()),
-  current_step: z.number(),
-  progress: z.record(z.any()),
-  results: z.record(z.any()).nullable(),
-  error: z.string().nullable(),
+  agent_id: IDSchema.nullable(),
+  user_id: IDSchema.nullable(),
+  input_data: z.record(z.any()),
+  output_data: z.record(z.any()).nullable(),
+  error_details: z.record(z.any()).nullable(),
   started_at: z.date().nullable(),
   completed_at: z.date().nullable(),
-  cancelled_at: z.date().nullable(),
+  estimated_duration: z.number().nullable(),
+  actual_duration: z.number().nullable(),
+  progress_percentage: z.number(),
+  current_step: z.string().nullable(),
+  total_steps: z.number().nullable(),
+  step_details: z.record(z.any()).nullable(),
+  retry_count: z.number(),
+  max_retries: z.number(),
+  retry_delay: z.number().nullable(),
+  timeout_duration: z.number().nullable(),
+  resource_requirements: z.record(z.any()).nullable(),
+  resource_allocation: z.record(z.any()).nullable(),
+  performance_metrics: z.record(z.any()).nullable(),
+  quality_metrics: z.record(z.any()).nullable(),
+  dependencies: z.array(z.string()),
+  dependent_operations: z.array(z.string()),
+  tags: z.array(z.string()),
+  metadata: z.record(z.any()).nullable(),
+  is_archived: z.boolean(),
+  archived_at: z.date().nullable(),
+  archived_by: IDSchema.nullable(),
+  archive_reason: z.string().nullable(),
   created_at: z.date(),
   updated_at: z.date()
 });
@@ -165,25 +178,28 @@ export type DbOperation = z.infer<typeof DbOperationSchema>;
 
 // Audit event entity
 export const DbAuditEventSchema = z.object({
-  id: z.string().uuid(),
+  id: IDSchema,
   event_type: z.string(),
-  user_id: z.string().uuid().nullable(),
-  agent_id: z.string().uuid().nullable(),
-  resource_type: z.string().nullable(),
-  resource_id: z.string().nullable(),
-  details: z.record(z.any()),
+  entity_type: z.string(),
+  entity_id: z.string(),
+  user_id: IDSchema.nullable(),
+  agent_id: IDSchema.nullable(),
+  action: z.string(),
+  changes: z.record(z.any()).nullable(),
+  metadata: z.record(z.any()).nullable(),
   ip_address: z.string().nullable(),
   user_agent: z.string().nullable(),
-  risk_level: z.string().nullable(),
-  timestamp: z.date()
+  session_id: z.string().nullable(),
+  created_at: z.date(),
+  updated_at: z.date()
 });
 
 export type DbAuditEvent = z.infer<typeof DbAuditEventSchema>;
 
 // User session entity
 export const UserSessionSchema = z.object({
-  id: z.string().uuid(),
-  user_id: z.string().uuid(),
+  id: IDSchema,
+  user_id: IDSchema,
   session_token: z.string(),
   refresh_token: z.string().nullable(),
   ip_address: z.string().nullable(),
@@ -196,33 +212,33 @@ export const UserSessionSchema = z.object({
 export type UserSession = z.infer<typeof UserSessionSchema>;
 
 // Refresh token entity
-export const RefreshTokenSchema = z.object({
-  id: z.string().uuid(),
-  user_id: z.string().uuid(),
-  token: z.string(),
+export const DbRefreshTokenSchema = z.object({
+  id: IDSchema,
+  user_id: IDSchema,
+  token_hash: z.string(),
   expires_at: z.date(),
-  revoked_at: z.date().nullable(),
   created_at: z.date(),
   updated_at: z.date()
 });
 
-export type RefreshToken = z.infer<typeof RefreshTokenSchema>;
+export type RefreshToken = z.infer<typeof DbRefreshTokenSchema>;
 
 // Password reset token entity
-export const PasswordResetTokenSchema = z.object({
-  id: z.string().uuid(),
-  user_id: z.string().uuid(),
-  token: z.string(),
+export const DbPasswordResetTokenSchema = z.object({
+  id: IDSchema,
+  user_id: IDSchema,
+  token_hash: z.string(),
   expires_at: z.date(),
-  used_at: z.date().nullable(),
-  created_at: z.date()
+  used: z.boolean(),
+  created_at: z.date(),
+  updated_at: z.date()
 });
 
-export type PasswordResetToken = z.infer<typeof PasswordResetTokenSchema>;
+export type PasswordResetToken = z.infer<typeof DbPasswordResetTokenSchema>;
 
 // Rate limit entity
 export const DbRateLimitSchema = z.object({
-  id: z.string().uuid(),
+  id: IDSchema,
   identifier: z.string(),
   limit_type: z.string(),
   limit_value: z.number(),
@@ -237,31 +253,31 @@ export type DbRateLimit = z.infer<typeof DbRateLimitSchema>;
 
 // Junction table types
 export interface RolePermission {
-  role_id: string;
-  permission_id: string;
+  role_Id: number;
+  permission_Id: number;
   granted_at: Date;
 }
 
 export interface UserRole {
-  user_id: string;
-  role_id: string;
+  user_Id: number;
+  role_Id: number;
   granted_at: Date;
   expires_at: Date | null;
 }
 
 export interface UserPermission {
-  user_id: string;
-  permission_id: string;
+  user_Id: number;
+  permission_Id: number;
   granted_at: Date;
   expires_at: Date | null;
 }
 
 // Approval workflow entities
 export const DbApprovalWorkflowSchema = z.object({
-  id: z.string().uuid(),
-  operation_id: z.string().uuid(),
-  required_approvers: z.array(z.string().uuid()),
-  current_approvers: z.array(z.string().uuid()),
+  id: IDSchema,
+  operation_id: IDSchema,
+  required_approvers: z.array(IDSchema),
+  current_approvers: z.array(IDSchema),
   status: z.string(),
   expires_at: z.date().nullable(),
   metadata: z.record(z.any()).nullable(),
@@ -272,9 +288,9 @@ export const DbApprovalWorkflowSchema = z.object({
 export type DbApprovalWorkflow = z.infer<typeof DbApprovalWorkflowSchema>;
 
 export const DbApprovalDecisionSchema = z.object({
-  id: z.string().uuid(),
-  workflow_id: z.string().uuid(),
-  approver_id: z.string().uuid(),
+  id: IDSchema,
+  workflow_id: IDSchema,
+  approver_id: IDSchema,
   decision: z.enum(['approve', 'reject']),
   conditions: z.array(z.string()),
   feedback: z.string().nullable(),

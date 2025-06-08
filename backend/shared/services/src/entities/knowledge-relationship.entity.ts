@@ -1,19 +1,18 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index, ManyToOne, JoinColumn } from 'typeorm';
 import { KnowledgeItemEntity } from './knowledge-item.entity.js';
+import { BaseEntity } from './base.entity.js';
 
 @Entity('knowledge_relationships')
 @Index(['sourceItemId'])
 @Index(['targetItemId'])
 @Index(['relationshipType'])
-export class KnowledgeRelationshipEntity {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+export class KnowledgeRelationshipEntity extends BaseEntity {
 
-  @Column('uuid')
-  sourceItemId: string;
+  @Column('bigint')
+  sourceItemId: number;
 
-  @Column('uuid')
-  targetItemId: string;
+  @Column('bigint')
+  targetItemId: number;
 
   @Column({ length: 50 })
   relationshipType: string;
@@ -21,8 +20,6 @@ export class KnowledgeRelationshipEntity {
   @Column('decimal', { precision: 3, scale: 2, default: 0.8 })
   confidence: number;
 
-  @CreateDateColumn()
-  createdAt: Date;
 
   @ManyToOne(() => KnowledgeItemEntity, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'sourceItemId' })

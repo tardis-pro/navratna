@@ -4,7 +4,7 @@ import { KnowledgeGraphService } from '../knowledge-graph/knowledge-graph.servic
 export class EpisodicMemoryManager {
   constructor(private readonly knowledgeGraph: KnowledgeGraphService) {}
 
-  async storeEpisode(agentId: string, episode: Episode): Promise<void> {
+  async storeEpisode(agentId: number, episode: Episode): Promise<void> {
     try {
       // Store episode as knowledge item in the Knowledge Graph
       await this.knowledgeGraph.ingest([{
@@ -43,7 +43,7 @@ export class EpisodicMemoryManager {
     }
   }
 
-  async retrieveEpisodes(agentId: string, query: EpisodicQuery): Promise<Episode[]> {
+  async retrieveEpisodes(agentId: number, query: EpisodicQuery): Promise<Episode[]> {
     try {
       const searchResults = await this.knowledgeGraph.search({
         query: query.description,
@@ -66,7 +66,7 @@ export class EpisodicMemoryManager {
     }
   }
 
-  async findSimilarEpisodes(agentId: string, currentSituation: string): Promise<Episode[]> {
+  async findSimilarEpisodes(agentId: number, currentSituation: string): Promise<Episode[]> {
     try {
       const results = await this.knowledgeGraph.search({
         query: `similar situation: ${currentSituation}`,
@@ -88,7 +88,7 @@ export class EpisodicMemoryManager {
     }
   }
 
-  async getEpisodesByTimeRange(agentId: string, startDate: Date, endDate: Date): Promise<Episode[]> {
+  async getEpisodesByTimeRange(agentId: number, startDate: Date, endDate: Date): Promise<Episode[]> {
     try {
       const results = await this.knowledgeGraph.search({
         query: `agent ${agentId} episodes`,
@@ -107,7 +107,7 @@ export class EpisodicMemoryManager {
     }
   }
 
-  async getEpisodesByType(agentId: string, episodeType: string, limit: number = 10): Promise<Episode[]> {
+  async getEpisodesByType(agentId: number, episodeType: string, limit: number = 10): Promise<Episode[]> {
     try {
       const results = await this.knowledgeGraph.search({
         query: `${episodeType} episodes`,
@@ -126,7 +126,7 @@ export class EpisodicMemoryManager {
     }
   }
 
-  async getSignificantEpisodes(agentId: string, minSignificance: number = 0.8, limit: number = 10): Promise<Episode[]> {
+  async getSignificantEpisodes(agentId: number, minSignificance: number = 0.8, limit: number = 10): Promise<Episode[]> {
     try {
       const results = await this.knowledgeGraph.search({
         query: `significant episodes`,

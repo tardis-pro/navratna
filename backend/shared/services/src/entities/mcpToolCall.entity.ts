@@ -11,8 +11,8 @@ import { BaseEntity } from './base.entity.js';
 @Index(['toolName'])
 @Index(['timestamp', 'duration'])
 export class MCPToolCall extends BaseEntity {
-  @Column({ name: 'server_id', type: 'uuid' })
-  serverId: string;
+  @Column({ name: 'server_id', type: 'bigint' })
+  serverId: number;
 
   @Column({ name: 'tool_name', length: 255 })
   toolName: string;
@@ -36,20 +36,20 @@ export class MCPToolCall extends BaseEntity {
   duration?: number;
 
   // Execution context
-  @Column({ name: 'agent_id', type: 'uuid', nullable: true })
-  agentId?: string;
+  @Column({ name: 'agent_id', type: 'bigint', nullable: true })
+  agentId?: number;
 
-  @Column({ name: 'user_id', type: 'uuid', nullable: true })
-  userId?: string;
+  @Column({ name: 'user_id', type: 'bigint', nullable: true })
+  userId?: number;
 
-  @Column({ name: 'conversation_id', type: 'uuid', nullable: true })
-  conversationId?: string;
+  @Column({ name: 'conversation_id', type: 'bigint', nullable: true })
+  conversationId?: number;
 
-  @Column({ name: 'operation_id', type: 'uuid', nullable: true })
-  operationId?: string;
+  @Column({ name: 'operation_id', type: 'bigint', nullable: true })
+  operationId?: number;
 
-  @Column({ name: 'session_id', type: 'uuid', nullable: true })
-  sessionId?: string;
+  @Column({ name: 'session_id', type: 'bigint', nullable: true })
+  sessionId?: number;
 
   // Performance metrics
   @Column({ name: 'start_time', type: 'timestamp', nullable: true })
@@ -103,8 +103,8 @@ export class MCPToolCall extends BaseEntity {
   @Column({ name: 'approval_required', default: false })
   approvalRequired: boolean;
 
-  @Column({ name: 'approved_by', type: 'uuid', nullable: true })
-  approvedBy?: string;
+  @Column({ name: 'approved_by', type: 'bigint', nullable: true })
+  approvedBy?: number;
 
   @Column({ name: 'approved_at', type: 'timestamp', nullable: true })
   approvedAt?: Date;
@@ -142,8 +142,8 @@ export class MCPToolCall extends BaseEntity {
   @Column({ name: 'cancelled_at', type: 'timestamp', nullable: true })
   cancelledAt?: Date;
 
-  @Column({ name: 'cancelled_by', type: 'uuid', nullable: true })
-  cancelledBy?: string;
+  @Column({ name: 'cancelled_by', type: 'bigint', nullable: true })
+  cancelledBy?: number;
 
   @Column({ name: 'cancellation_reason', type: 'text', nullable: true })
   cancellationReason?: string;

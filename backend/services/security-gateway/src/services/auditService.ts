@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
+
 import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
 import { DatabaseService } from '@uaip/shared-services';
@@ -53,13 +53,13 @@ export interface AuditReport {
       riskEvents: number;
     }>;
     topUsers: Array<{
-      userId: string;
+      userId: number;
       eventCount: number;
       riskEvents: number;
     }>;
     topResources: Array<{
       resourceType: string;
-      resourceId: string;
+      resourceId: number;
       eventCount: number;
     }>;
   };
@@ -92,8 +92,7 @@ export class AuditService {
    */
   public async logEvent(request: AuditLogRequest): Promise<AuditEvent> {
     try {
-      const auditEvent: AuditEvent = {
-        id: uuidv4(),
+      const auditEvent: Omit<AuditEvent, 'id'> = {
         eventType: request.eventType,
         userId: request.userId,
         agentId: request.agentId,
@@ -109,11 +108,11 @@ export class AuditService {
       };
 
       // Save to database
-      await this.saveAuditEvent(auditEvent);
+      const savedEvent = await this.saveAuditEvent(auditEvent);
 
       // Log to application logger for immediate visibility
       logger.info('Audit event logged', {
-        eventId: auditEvent.id,
+        eventId: savedEvent.id,
         eventType: auditEvent.eventType,
         userId: auditEvent.userId,
         resourceType: auditEvent.resourceType,
@@ -121,9 +120,9 @@ export class AuditService {
       });
 
       // Check for security alerts
-      await this.checkSecurityAlerts(auditEvent);
+      await this.checkSecurityAlerts(savedEvent);
 
-      return auditEvent;
+      return savedEvent;
 
     } catch (error) {
       logger.error('Failed to log audit event', {
@@ -614,10 +613,10 @@ export class AuditService {
     const rows = events.map(event => [
       event.id,
       event.eventType,
-      event.userId || '',
-      event.agentId || '',
+      event.userId || 0,
+      event.agentId || 0,
       event.resourceType || '',
-      event.resourceId || '',
+      event.resourceId || 0,
       event.riskLevel || '',
       event.ipAddress || '',
       event.userAgent || '',
@@ -638,10 +637,10 @@ export class AuditService {
       <event>
         <id>${event.id}</id>
         <eventType>${event.eventType}</eventType>
-        <userId>${event.userId || ''}</userId>
-        <agentId>${event.agentId || ''}</agentId>
+        <userId>${event.userId || 0}</userId>
+        <agentId>${event.agentId || 0}</agentId>
         <resourceType>${event.resourceType || ''}</resourceType>
-        <resourceId>${event.resourceId || ''}</resourceId>
+        <resourceId>${event.resourceId || 0}</resourceId>
         <riskLevel>${event.riskLevel || ''}</riskLevel>
         <ipAddress>${event.ipAddress || ''}</ipAddress>
         <userAgent><![CDATA[${event.userAgent || ''}]]></userAgent>
@@ -661,9 +660,8 @@ export class AuditService {
   /**
    * Save audit event to database
    */
-  private async saveAuditEvent(event: AuditEvent): Promise<void> {
-    await this.databaseService.createAuditEvent({
-      id: event.id,
+  private async saveAuditEvent(event: Omit<AuditEvent, 'id'>): Promise<AuditEvent> {
+    const savedEvent = await this.databaseService.createAuditEvent({
       eventType: event.eventType,
       userId: event.userId,
       agentId: event.agentId,
@@ -675,6 +673,7 @@ export class AuditService {
       riskLevel: event.riskLevel,
       timestamp: event.timestamp
     });
+    return savedEvent;
   }
 
   /**

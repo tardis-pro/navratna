@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BaseEntitySchema, UUIDSchema } from './common.js';
+import { BaseEntitySchema, IDSchema } from './common.js';
 
 // Persona trait types
 export enum PersonaTraitType {
@@ -11,7 +11,7 @@ export enum PersonaTraitType {
 }
 
 export const PersonaTraitSchema = z.object({
-  id: UUIDSchema,
+  id: IDSchema,
   type: z.nativeEnum(PersonaTraitType),
   name: z.string().min(1).max(100),
   value: z.string().min(1).max(500),
@@ -24,13 +24,13 @@ export type PersonaTrait = z.infer<typeof PersonaTraitSchema>;
 
 // Expertise domain
 export const ExpertiseDomainSchema = z.object({
-  id: UUIDSchema,
+  id: IDSchema,
   name: z.string().min(1).max(100),
   category: z.string().min(1).max(50),
   level: z.enum(['beginner', 'intermediate', 'advanced', 'expert', 'master']),
   description: z.string().optional(),
   keywords: z.array(z.string()).default([]),
-  relatedDomains: z.array(UUIDSchema).default([])
+  relatedDomains: z.array(IDSchema).default([])
 });
 
 export type ExpertiseDomain = z.infer<typeof ExpertiseDomainSchema>;
@@ -84,7 +84,7 @@ export const PersonaValidationSchema = z.object({
   suggestions: z.array(z.string()).default([]),
   score: z.number().min(0).max(100).optional(),
   validatedAt: z.date(),
-  validatedBy: UUIDSchema.optional()
+  validatedBy: IDSchema.optional()
 });
 
 export type PersonaValidation = z.infer<typeof PersonaValidationSchema>;
@@ -104,6 +104,7 @@ export type PersonaUsageStats = z.infer<typeof PersonaUsageStatsSchema>;
 
 // Main Persona schema
 export const PersonaSchema = BaseEntitySchema.extend({
+  id: IDSchema,
   name: z.string().min(1).max(255),
   role: z.string().min(1).max(255),
   description: z.string().min(1).max(2000),
@@ -114,11 +115,11 @@ export const PersonaSchema = BaseEntitySchema.extend({
   conversationalStyle: ConversationalStyleSchema,
   status: z.nativeEnum(PersonaStatus).default(PersonaStatus.DRAFT),
   visibility: z.nativeEnum(PersonaVisibility).default(PersonaVisibility.PRIVATE),
-  createdBy: UUIDSchema,
-  organizationId: UUIDSchema.optional(),
-  teamId: UUIDSchema.optional(),
+  createdBy: IDSchema,
+  organizationId: IDSchema.optional(),
+  teamId: IDSchema.optional(),
   version: z.number().min(1).default(1),
-  parentPersonaId: UUIDSchema.optional(), // For persona derivation
+  parentPersonaId: IDSchema.optional(), // For persona derivation
   tags: z.array(z.string()).default([]),
   validation: PersonaValidationSchema.optional(),
   usageStats: PersonaUsageStatsSchema.default({}),
@@ -130,7 +131,7 @@ export const PersonaSchema = BaseEntitySchema.extend({
     presencePenalty: z.number().min(-2).max(2).default(0),
     stopSequences: z.array(z.string()).default([])
   }).optional(),
-  capabilities: z.array(UUIDSchema).default([]), // Link to capability IDs
+  capabilities: z.array(IDSchema).default([]), // Link to capability IDs
   restrictions: z.object({
     allowedTopics: z.array(z.string()).default([]),
     forbiddenTopics: z.array(z.string()).default([]),
@@ -153,7 +154,7 @@ export const CreatePersonaRequestSchema = PersonaSchema.omit({
   validation: true,
   createdBy: true
 }).extend({
-  createdBy: UUIDSchema.optional() // Make createdBy optional since it's set from auth
+  createdBy: IDSchema.optional() // Make createdBy optional since it's set from auth
 });
 
 export type CreatePersonaRequest = z.infer<typeof CreatePersonaRequestSchema>;
@@ -174,9 +175,9 @@ export const PersonaSearchFiltersSchema = z.object({
   traits: z.array(z.string()).optional(),
   status: z.array(z.nativeEnum(PersonaStatus)).optional(),
   visibility: z.array(z.nativeEnum(PersonaVisibility)).optional(),
-  createdBy: z.array(UUIDSchema).optional(),
-  organizationId: UUIDSchema.optional(),
-  teamId: UUIDSchema.optional(),
+  createdBy: z.array(IDSchema).optional(),
+  organizationId: IDSchema.optional(),
+  teamId: IDSchema.optional(),
   tags: z.array(z.string()).optional(),
   minUsageCount: z.number().min(0).optional(),
   minFeedbackScore: z.number().min(0).max(5).optional(),
@@ -202,7 +203,7 @@ export type PersonaRecommendation = z.infer<typeof PersonaRecommendationSchema>;
 
 // Persona analytics
 export const PersonaAnalyticsSchema = z.object({
-  personaId: UUIDSchema,
+  personaId: IDSchema,
   timeframe: z.object({
     start: z.date(),
     end: z.date()
@@ -237,7 +238,7 @@ export type PersonaAnalytics = z.infer<typeof PersonaAnalyticsSchema>;
 
 // Persona template for quick creation
 export const PersonaTemplateSchema = z.object({
-  id: UUIDSchema,
+  id: IDSchema,
   name: z.string(),
   category: z.string(),
   description: z.string(),
@@ -245,7 +246,7 @@ export const PersonaTemplateSchema = z.object({
   isPublic: z.boolean().default(false),
   usageCount: z.number().min(0).default(0),
   rating: z.number().min(0).max(5).optional(),
-  createdBy: UUIDSchema,
+  createdBy: IDSchema,
   createdAt: z.date(),
   updatedAt: z.date()
 });

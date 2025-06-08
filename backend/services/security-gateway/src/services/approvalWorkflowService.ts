@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
+
 import cron from 'node-cron';
 import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
@@ -25,7 +25,7 @@ export interface ApprovalWorkflowConfig {
 }
 
 export interface ApprovalRequest {
-  operationId: string;
+  operationId: number;
   operationType: string;
   requiredApprovers: string[];
   securityLevel: SecurityLevel;
@@ -92,10 +92,7 @@ export class ApprovalWorkflowService {
       expiresAt.setHours(expiresAt.getHours() + expirationHours);
 
       // Create workflow using DatabaseService
-      const workflowId = uuidv4();
-      
       const savedWorkflow = await this.databaseService.createApprovalWorkflow({
-        id: workflowId,
         operationId: request.operationId,
         requiredApprovers: request.requiredApprovers,
         currentApprovers: [],
@@ -184,7 +181,6 @@ export class ApprovalWorkflowService {
 
       // Save decision using DatabaseService
       await this.databaseService.createApprovalDecision({
-        id: uuidv4(),
         workflowId: decision.workflowId,
         approverId: decision.approverId,
         decision: decision.decision,
@@ -295,7 +291,7 @@ export class ApprovalWorkflowService {
   /**
    * Get workflows for a user (as approver)
    */
-  public async getUserWorkflows(userId: string, status?: ApprovalStatus): Promise<ApprovalWorkflowType[]> {
+  public async getUserWorkflows(userId: number, status?: ApprovalStatus): Promise<ApprovalWorkflowType[]> {
     try {
       const workflows = await this.databaseService.getUserApprovalWorkflows(userId, status);
 

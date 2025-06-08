@@ -84,7 +84,7 @@ export function metricsMiddleware(req: Request, res: Response, next: NextFunctio
 
 // Business metrics helpers
 export function recordAgentAnalysis(
-  agentId: string,
+  agentId: number,
   analysisType: string,
   status: 'success' | 'failure',
   duration: number

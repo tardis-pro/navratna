@@ -36,12 +36,13 @@ export class KnowledgeRepository {
   }
 
   async update(id: string, updates: Partial<KnowledgeItem>): Promise<KnowledgeItem> {
-    await this.knowledgeRepo.update(id, {
+    const numericId = parseInt(id);
+    await this.knowledgeRepo.update(numericId, {
       ...updates,
       updatedAt: new Date()
     });
 
-    const updated = await this.knowledgeRepo.findOne({ where: { id } });
+    const updated = await this.knowledgeRepo.findOne({ where: { id: numericId } });
     if (!updated) {
       throw new Error(`Knowledge item not found: ${id}`);
     }
@@ -50,26 +51,28 @@ export class KnowledgeRepository {
   }
 
   async delete(id: string): Promise<void> {
+    const numericId = parseInt(id);
     // Delete relationships first
     await this.relationshipRepo.delete({
-      sourceItemId: id
+      sourceItemId: numericId
     });
     await this.relationshipRepo.delete({
-      targetItemId: id
+      targetItemId: numericId
     });
 
     // Delete the knowledge item
-    await this.knowledgeRepo.delete(id);
+    await this.knowledgeRepo.delete(numericId);
   }
 
   async findById(id: string): Promise<KnowledgeItem | null> {
-    const entity = await this.knowledgeRepo.findOne({ where: { id } });
+    const entity = await this.knowledgeRepo.findOne({ where: { id: parseInt(id) } });
     return entity ? this.entityToModel(entity) : null;
   }
 
   async getItems(ids: string[]): Promise<KnowledgeItem[]> {
+    const numericIds = ids.map(id => parseInt(id));
     const entities = await this.knowledgeRepo.find({
-      where: { id: In(ids) }
+      where: { id: In(numericIds) }
     });
     return entities.map(entity => this.entityToModel(entity));
   }
@@ -128,8 +131,9 @@ export class KnowledgeRepository {
   }
 
   async getRelationships(itemId: string, relationshipTypes?: string[]): Promise<KnowledgeRelationship[]> {
+    const numericItemId = parseInt(itemId);
     let query = this.relationshipRepo.createQueryBuilder('kr')
-      .where('kr.sourceItemId = :itemId', { itemId });
+      .where('kr.sourceItemId = :itemId', { itemId: numericItemId });
 
     if (relationshipTypes?.length) {
       query = query.andWhere('kr.relationshipType IN (:...types)', { types: relationshipTypes });
