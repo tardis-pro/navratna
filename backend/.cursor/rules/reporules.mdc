@@ -83,7 +83,7 @@ import { logger } from '../../../shared/utils/src/logger';
 - **ALWAYS** use monorepo imports, not relative paths
 - **ALWAYS** check if shared packages need to be built first
 - **ALWAYS** use proper path mappings in tsconfig.json 
-
+- **NEVER** try to run any script. no NPM. no PNPM. NO DOCKER
 # UAIP Backend Monorepo Restructure Plan
 
 ## Current Issues Identified
