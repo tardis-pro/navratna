@@ -13,7 +13,7 @@
   "dependencies": {
     "@uaip/types": "workspace:*",
     "winston": "^3.11.0",
-    "zod": "^3.22.4"
+    "zod": "^3.25.64"
   },
   "devDependencies": {
     "@types/node": "^20.10.5",
