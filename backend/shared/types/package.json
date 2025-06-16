@@ -11,7 +11,7 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "zod": "^3.22.4"
+    "zod": "^3.25.64"
   },
   "devDependencies": {
     "typescript": "^5.3.3"
