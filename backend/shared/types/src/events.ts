@@ -1,5 +1,5 @@
+import { IDSchema } from './common.js';
 import { z } from 'zod';
-import { UUIDSchema } from './common.js';
 
 // Event types
 export enum EventType {
@@ -23,56 +23,69 @@ export enum EventType {
 
 // Base event schema
 export const BaseEventSchema = z.object({
-  id: UUIDSchema,
-  type: z.nativeEnum(EventType),
-  source: z.string(),
+  id: IDSchema,
+  type: z.string(),
   timestamp: z.date(),
-  correlationId: UUIDSchema.optional(),
+  source: z.string(),
+  correlationId: IDSchema.optional(),
   metadata: z.record(z.any()).optional()
 });
 
 export type BaseEvent = z.infer<typeof BaseEventSchema>;
 
 // Agent events
-export const AgentAnalysisRequestedEventSchema = BaseEventSchema.extend({
-  type: z.literal(EventType.AGENT_ANALYSIS_REQUESTED),
-  payload: z.object({
-    agentId: UUIDSchema,
-    userId: UUIDSchema,
-    conversationContext: z.record(z.any()),
-    userRequest: z.string()
+export const AgentCreatedEventSchema = BaseEventSchema.extend({
+  type: z.literal('agent.created'),
+  data: z.object({
+    agentId: IDSchema,
+    userId: IDSchema,
+    name: z.string(),
+    capabilities: z.array(z.string())
   })
 });
 
-export const AgentAnalysisCompletedEventSchema = BaseEventSchema.extend({
-  type: z.literal(EventType.AGENT_ANALYSIS_COMPLETED),
-  payload: z.object({
-    agentId: UUIDSchema,
-    userId: UUIDSchema,
-    analysisResult: z.record(z.any())
+export const AgentUpdatedEventSchema = BaseEventSchema.extend({
+  type: z.literal('agent.updated'),
+  data: z.object({
+    agentId: IDSchema,
+    userId: IDSchema,
+    changes: z.record(z.any())
   })
 });
 
 // Operation events
-export const OperationCreatedEventSchema = BaseEventSchema.extend({
-  type: z.literal(EventType.OPERATION_CREATED),
-  payload: z.object({
-    operationId: UUIDSchema,
-    agentId: UUIDSchema,
-    userId: UUIDSchema,
+export const OperationStartedEventSchema = BaseEventSchema.extend({
+  type: z.literal('operation.started'),
+  data: z.object({
+    operationId: IDSchema,
+    agentId: IDSchema,
+    userId: IDSchema,
     operationType: z.string(),
-    plan: z.record(z.any())
+    context: z.record(z.any()).optional()
   })
 });
 
 export const OperationStepCompletedEventSchema = BaseEventSchema.extend({
-  type: z.literal(EventType.OPERATION_STEP_COMPLETED),
-  payload: z.object({
-    operationId: UUIDSchema,
-    stepId: UUIDSchema,
+  type: z.literal('operation.step.completed'),
+  data: z.object({
+    operationId: IDSchema,
+    stepId: IDSchema,
     stepName: z.string(),
-    result: z.record(z.any()).optional(),
-    error: z.string().optional()
+    result: z.any(),
+    duration: z.number(),
+    success: z.boolean()
+  })
+});
+
+export const OperationCompletedEventSchema = BaseEventSchema.extend({
+  type: z.literal('operation.completed'),
+  data: z.object({
+    operationId: IDSchema,
+    userId: IDSchema,
+    agentId: IDSchema.optional(),
+    result: z.any(),
+    duration: z.number(),
+    success: z.boolean()
   })
 });
 
@@ -80,32 +93,40 @@ export const OperationStepCompletedEventSchema = BaseEventSchema.extend({
 export const SecurityValidationRequestedEventSchema = BaseEventSchema.extend({
   type: z.literal(EventType.SECURITY_VALIDATION_REQUESTED),
   payload: z.object({
-    operationId: UUIDSchema,
-    userId: UUIDSchema,
-    agentId: UUIDSchema.optional(),
+    operationId: IDSchema,
+    userId: IDSchema,
+    agentId: IDSchema.optional(),
     requestType: z.string(),
     resource: z.string()
   })
 });
 
+// Approval events
 export const ApprovalRequestedEventSchema = BaseEventSchema.extend({
-  type: z.literal(EventType.APPROVAL_REQUESTED),
-  payload: z.object({
-    workflowId: UUIDSchema,
-    operationId: UUIDSchema,
-    requiredApprovers: z.array(UUIDSchema),
-    riskLevel: z.enum(['low', 'medium', 'high', 'critical'])
+  type: z.literal('approval.requested'),
+  data: z.object({
+    workflowId: IDSchema,
+    operationId: IDSchema,
+    requiredApprovers: z.array(IDSchema),
+    context: z.record(z.any()).optional()
   })
 });
 
-// Union type for all events
-export type UAIPEvent = 
-  | z.infer<typeof AgentAnalysisRequestedEventSchema>
-  | z.infer<typeof AgentAnalysisCompletedEventSchema>
-  | z.infer<typeof OperationCreatedEventSchema>
-  | z.infer<typeof OperationStepCompletedEventSchema>
-  | z.infer<typeof SecurityValidationRequestedEventSchema>
-  | z.infer<typeof ApprovalRequestedEventSchema>;
+// Export all event types
+export type AgentCreatedEvent = z.infer<typeof AgentCreatedEventSchema>;
+export type AgentUpdatedEvent = z.infer<typeof AgentUpdatedEventSchema>;
+export type OperationStartedEvent = z.infer<typeof OperationStartedEventSchema>;
+export type OperationStepCompletedEvent = z.infer<typeof OperationStepCompletedEventSchema>;
+export type OperationCompletedEvent = z.infer<typeof OperationCompletedEventSchema>;
+export type ApprovalRequestedEvent = z.infer<typeof ApprovalRequestedEventSchema>;
+
+export type Event = 
+  | AgentCreatedEvent
+  | AgentUpdatedEvent
+  | OperationStartedEvent
+  | OperationStepCompletedEvent
+  | OperationCompletedEvent
+  | ApprovalRequestedEvent;
 
 // Event handler interface
 export interface EventHandler<T extends BaseEvent = BaseEvent> {
@@ -114,7 +135,7 @@ export interface EventHandler<T extends BaseEvent = BaseEvent> {
 
 // Event bus interface
 export interface EventBus {
-  publish(event: UAIPEvent): Promise<void>;
+  publish(event: Event): Promise<void>;
   subscribe<T extends BaseEvent>(eventType: EventType, handler: EventHandler<T>): void;
   unsubscribe(eventType: EventType, handler: EventHandler): void;
 } 

@@ -28,21 +28,51 @@ async function getServices() {
   return { databaseService, auditService: auditService! };
 }
 
-const notificationService = new NotificationService();
-const eventBusService = new EventBusService(
-  {
-    url: process.env.RABBITMQ_URL || 'amqp://localhost:5672',
-    serviceName: 'security-gateway'
-  },
-  logger
-);
-const approvalWorkflowService = new ApprovalWorkflowService(
-  databaseService,
-  eventBusService,
-  notificationService,
-  auditService
-);
-const securityGatewayService = new SecurityGatewayService(databaseService, approvalWorkflowService, auditService);
+// Initialize services lazily to ensure proper initialization order
+let notificationService: NotificationService | null = null;
+let eventBusService: EventBusService | null = null;
+let approvalWorkflowService: ApprovalWorkflowService | null = null;
+let securityGatewayService: SecurityGatewayService | null = null;
+
+async function getSecurityServices() {
+  const { databaseService, auditService } = await getServices();
+  
+  if (!notificationService) {
+    notificationService = new NotificationService();
+  }
+  
+  if (!eventBusService) {
+    eventBusService = new EventBusService(
+      {
+        url: process.env.RABBITMQ_URL || 'amqp://localhost:5672',
+        serviceName: 'security-gateway'
+      },
+      logger
+    );
+  }
+  
+  if (!approvalWorkflowService) {
+    approvalWorkflowService = new ApprovalWorkflowService(
+      databaseService,
+      eventBusService,
+      notificationService,
+      auditService
+    );
+  }
+  
+  if (!securityGatewayService) {
+    securityGatewayService = new SecurityGatewayService(databaseService, approvalWorkflowService, auditService);
+  }
+  
+  return { 
+    databaseService, 
+    auditService, 
+    notificationService, 
+    eventBusService, 
+    approvalWorkflowService, 
+    securityGatewayService 
+  };
+}
 
 // Validation schemas using Zod
 const riskAssessmentSchema = z.object({
@@ -131,6 +161,8 @@ router.post('/assess-risk', authMiddleware, async (req, res) => {
     const userId = (req as any).user.userId;
     const userRole = (req as any).user.role;
 
+    const { securityGatewayService, auditService } = await getSecurityServices();
+
     const riskAssessment = await securityGatewayService.assessRisk({
       ...value,
       userId,
@@ -185,6 +217,8 @@ router.post('/check-approval-required', authMiddleware, async (req, res) => {
 
     const userId = (req as any).user.userId;
     const userRole = (req as any).user.role;
+
+    const { securityGatewayService } = await getSecurityServices();
 
     const approvalRequired = await securityGatewayService.requiresApproval({
       ...value,
@@ -315,6 +349,7 @@ router.post('/policies', authMiddleware, requireAdmin, async (req, res) => {
       createdBy: userId
     });
 
+    const { auditService } = await getSecurityServices();
     await auditService.logSecurityEvent({
       eventType: AuditEventType.POLICY_CREATED,
       userId,
@@ -387,6 +422,7 @@ router.put('/policies/:policyId', authMiddleware, requireAdmin, async (req, res)
       });
     }
 
+    const { auditService } = await getSecurityServices();
     await auditService.logSecurityEvent({
       eventType: AuditEventType.POLICY_UPDATED,
       userId,
@@ -445,6 +481,7 @@ router.delete('/policies/:policyId', authMiddleware, requireAdmin, async (req, r
       });
     }
 
+    const { auditService } = await getSecurityServices();
     await auditService.logSecurityEvent({
       eventType: AuditEventType.POLICY_DELETED,
       userId,

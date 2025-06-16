@@ -21,7 +21,7 @@ export class OperationRepository extends BaseRepository<Operation> {
   /**
    * Update operation result
    */
-  public async updateOperationResult(operationId: string, result: any): Promise<void> {
+  public async updateOperationResult(operationId: number, result: any): Promise<void> {
     await this.repository.update(operationId, {
       result,
       status: 'completed' as any,
@@ -33,7 +33,7 @@ export class OperationRepository extends BaseRepository<Operation> {
   /**
    * Get operation by ID (raw query for compatibility)
    */
-  public async getOperationById(operationId: string): Promise<any | null> {
+  public async getOperationById(operationId: number): Promise<any | null> {
     try {
       const manager = this.getEntityManager();
       const query = 'SELECT * FROM operations WHERE id = $1';
@@ -54,7 +54,7 @@ export class OperationStateRepository extends BaseRepository<OperationState> {
   /**
    * Save operation state
    */
-  public async saveOperationState(operationId: string, state: any): Promise<void> {
+  public async saveOperationState(operationId: number, state: any): Promise<void> {
     try {
       // Check if state already exists
       const existingState = await this.repository.findOne({
@@ -92,7 +92,7 @@ export class OperationStateRepository extends BaseRepository<OperationState> {
   /**
    * Get operation state
    */
-  public async getOperationState(operationId: string): Promise<any> {
+  public async getOperationState(operationId: number): Promise<any> {
     try {
       const state = await this.repository.findOne({
         where: { operationId },
@@ -108,7 +108,7 @@ export class OperationStateRepository extends BaseRepository<OperationState> {
   /**
    * Update operation state
    */
-  public async updateOperationState(operationId: string, state: any, updates: any): Promise<void> {
+  public async updateOperationState(operationId: number, state: any, updates: any): Promise<void> {
     try {
       await this.repository.update(
         { operationId },
@@ -182,7 +182,7 @@ export class OperationCheckpointRepository extends BaseRepository<OperationCheck
   /**
    * Save checkpoint
    */
-  public async saveCheckpoint(operationId: string, checkpoint: any): Promise<void> {
+  public async saveCheckpoint(operationId: number, checkpoint: any): Promise<void> {
     try {
       const newCheckpoint = this.repository.create({
         id: checkpoint.id,
@@ -202,7 +202,7 @@ export class OperationCheckpointRepository extends BaseRepository<OperationCheck
   /**
    * Get checkpoint
    */
-  public async getCheckpoint(operationId: string, checkpointId: string): Promise<any> {
+  public async getCheckpoint(operationId: number, checkpointId: number): Promise<any> {
     try {
       const checkpoint = await this.repository.findOne({
         where: { operationId, id: checkpointId }
@@ -217,7 +217,7 @@ export class OperationCheckpointRepository extends BaseRepository<OperationCheck
   /**
    * List checkpoints
    */
-  public async listCheckpoints(operationId: string): Promise<any[]> {
+  public async listCheckpoints(operationId: number): Promise<any[]> {
     try {
       const checkpoints = await this.repository.find({
         where: { operationId },
@@ -239,7 +239,7 @@ export class StepResultRepository extends BaseRepository<StepResult> {
   /**
    * Save step result
    */
-  public async saveStepResult(operationId: string, result: any): Promise<void> {
+  public async saveStepResult(operationId: number, result: any): Promise<void> {
     try {
       const stepResult = this.repository.create({
         operationId,
@@ -261,7 +261,7 @@ export class StepResultRepository extends BaseRepository<StepResult> {
   /**
    * Get step results for an operation
    */
-  public async getStepResults(operationId: string): Promise<StepResult[]> {
+    public async getStepResults(operationId: number): Promise<StepResult[]> {
     return await this.repository.find({
       where: { operationId },
       order: { stepNumber: 'ASC', createdAt: 'ASC' }

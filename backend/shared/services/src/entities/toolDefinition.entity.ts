@@ -2,10 +2,17 @@ import { Entity, Column, Index, OneToMany } from 'typeorm';
 import { BaseEntity } from './base.entity.js';
 import { 
   ToolCategory, 
-  SecurityLevel, 
   JSONSchema, 
   ToolExample 
 } from '@uaip/types';
+
+// Define SecurityLevel enum for tools (different from general SecurityLevel)
+export enum ToolSecurityLevel {
+  SAFE = 'safe',
+  MODERATE = 'moderate',
+  RESTRICTED = 'restricted',
+  DANGEROUS = 'dangerous'
+}
 
 // Related entities will be referenced by string to avoid circular dependencies
 
@@ -37,8 +44,8 @@ export class ToolDefinition extends BaseEntity {
   @Column({ type: 'jsonb', default: '[]' })
   examples: ToolExample[];
 
-  @Column({ name: 'security_level', type: 'enum', enum: SecurityLevel })
-  securityLevel: SecurityLevel;
+  @Column({ name: 'security_level', type: 'enum', enum: ToolSecurityLevel })
+  securityLevel: ToolSecurityLevel;
 
   @Column({ name: 'cost_estimate', type: 'decimal', precision: 10, scale: 2, nullable: true })
   costEstimate?: number;

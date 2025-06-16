@@ -3,7 +3,7 @@
 // Part of capability-registry microservice
 
 import { logger } from '@uaip/utils';
-import { v4 as uuidv4 } from 'uuid';
+
 
 export class BaseToolExecutor {
   async execute(toolId: string, parameters: Record<string, any>): Promise<any> {
@@ -16,8 +16,8 @@ export class BaseToolExecutor {
         return this.executeTextAnalysis(parameters);
       case 'time-utility':
         return this.executeTimeUtility(parameters);
-      case 'uuid-generator':
-        return this.executeUuidGenerator(parameters);
+      case 'id-generator':
+        return this.executeIdGenerator(parameters);
       case 'file-reader':
         return this.executeFileReader(parameters);
       case 'web-search':
@@ -257,32 +257,50 @@ export class BaseToolExecutor {
     return results;
   }
 
-  // UUID Generator Tool
-  private async executeUuidGenerator(parameters: any): Promise<any> {
-    const { count = 1, version = 4, format = 'standard' } = parameters;
+  // ID Generator Tool (replaces UUID generator)
+  private async executeIdGenerator(parameters: any): Promise<any> {
+    const { count = 1, type = 'sequential', min = 1, max = 1000000 } = parameters;
 
     if (count < 1 || count > 100) {
       throw new Error('Count must be between 1 and 100');
     }
 
-    const uuids: string[] = [];
-    for (let i = 0; i < count; i++) {
-      let uuid = uuidv4();
-      
-      if (format === 'compact') {
-        uuid = uuid.replace(/-/g, '');
-      } else if (format === 'uppercase') {
-        uuid = uuid.toUpperCase();
-      }
-      
-      uuids.push(uuid);
+    const ids: number[] = [];
+    
+    switch (type) {
+      case 'sequential':
+        // Generate sequential IDs starting from a timestamp-based number
+        const baseId = Date.now() % 1000000; // Use timestamp modulo for base
+        for (let i = 0; i < count; i++) {
+          ids.push(baseId + i);
+        }
+        break;
+        
+      case 'random':
+        // Generate random IDs within the specified range
+        for (let i = 0; i < count; i++) {
+          const randomId = Math.floor(Math.random() * (max - min + 1)) + min;
+          ids.push(randomId);
+        }
+        break;
+        
+      case 'timestamp':
+        // Generate timestamp-based IDs
+        for (let i = 0; i < count; i++) {
+          const timestampId = Date.now() + i; // Add offset for multiple IDs
+          ids.push(timestampId);
+        }
+        break;
+        
+      default:
+        throw new Error(`Unsupported ID type: ${type}. Supported types: sequential, random, timestamp`);
     }
 
     return {
-      uuids,
-      count: uuids.length,
-      version,
-      format,
+      ids,
+      count: ids.length,
+      type,
+      range: type === 'random' ? { min, max } : undefined,
       timestamp: new Date().toISOString()
     };
   }

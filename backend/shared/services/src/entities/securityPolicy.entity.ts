@@ -50,6 +50,6 @@ export class SecurityPolicy extends BaseEntity {
   @Column({ type: 'jsonb' })
   actions!: SecurityPolicyActions;
 
-  @Column({ name: 'created_by', type: 'uuid' })
-  createdBy!: string;
+  @Column({ name: 'created_by', type: 'bigint' })
+  createdBy!: number;
 } 

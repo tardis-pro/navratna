@@ -11,8 +11,8 @@ import { DatabaseService } from './databaseService.js';
 import { EventBusService } from './eventBusService.js';
 
 export interface CompensationStep {
-  id: string;
-  stepId: string; // The original step this compensates for
+  Id: number;
+  stepId: number; // The original step this compensates for
   action: string;
   description: string;
   compensationData: Record<string, any>;
@@ -25,8 +25,8 @@ export interface CompensationStep {
 }
 
 export interface CompensationResult {
-  stepId: string;
-  compensationStepId: string;
+  stepId: number;
+  compensationStepId: number;
   status: StepStatus;
   error?: string;
   executionTime: number;

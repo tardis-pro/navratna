@@ -1,14 +1,12 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import { Entity, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import { BaseEntity } from './base.entity.js';
 import { SecurityLevel } from '@uaip/types';
 
 @Entity('users')
 @Index(['email'], { unique: true })
 @Index(['isActive'])
 @Index(['role'])
-export class UserEntity {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string;
-
+export class UserEntity extends BaseEntity {
   @Column({ type: 'varchar', length: 255, unique: true })
   email!: string;
 
@@ -49,10 +47,4 @@ export class UserEntity {
 
   @Column({ type: 'timestamp', name: 'last_login_at', nullable: true })
   lastLoginAt?: Date;
-
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt!: Date;
-
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt!: Date;
 } 

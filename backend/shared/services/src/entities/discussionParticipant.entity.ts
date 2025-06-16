@@ -10,14 +10,14 @@ import { BaseEntity } from './base.entity.js';
 @Index(['joinedAt', 'leftAt'])
 @Index(['role', 'isActive'])
 export class DiscussionParticipant extends BaseEntity {
-  @Column({ name: 'persona_id', type: 'uuid' })
-  personaId: string;
+  @Column({ name: 'persona_id', type: 'bigint' })
+  personaId: number;
 
-  @Column({ name: 'discussion_id', type: 'uuid' })
-  discussionId: string;
+  @Column({ name: 'discussion_id', type: 'bigint' })
+  discussionId: number;
 
-  @Column({ name: 'user_id', type: 'uuid' })
-  userId: string;
+  @Column({ name: 'user_id', type: 'bigint' })
+  userId: number;
 
   @Column({ type: 'enum', enum: ['participant', 'moderator', 'observer', 'facilitator'], default: 'participant' })
   role: 'participant' | 'moderator' | 'observer' | 'facilitator';

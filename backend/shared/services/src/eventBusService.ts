@@ -3,7 +3,7 @@ import * as winston from 'winston';
 import { ApiError } from '@uaip/utils';
 
 interface EventMessage {
-  id: string;
+  Id: number;
   type: string;
   source: string;
   data: any;

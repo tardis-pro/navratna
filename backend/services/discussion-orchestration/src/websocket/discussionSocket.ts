@@ -9,13 +9,13 @@ import {
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
-  participantId?: string;
+   participantId?: number;
   discussionId?: string;
 }
 
 interface SocketData {
-  userId: string;
-  participantId?: string;
+  userId: number;
+   participantId?: number;
   discussionId?: string;
 }
 
@@ -64,7 +64,7 @@ export function setupWebSocketHandlers(
     });
 
     // Join discussion room
-    socket.on('join_discussion', async (data: { discussionId: string }) => {
+    socket.on('join_discussion', async (data: { discussionId: number }) => {
       try {
         const { discussionId } = data;
         
@@ -128,7 +128,7 @@ export function setupWebSocketHandlers(
     });
 
     // Leave discussion room
-    socket.on('leave_discussion', async (data: { discussionId: string }) => {
+    socket.on('leave_discussion', async (data: { discussionId: number }) => {
       try {
         const { discussionId } = data;
         
@@ -162,7 +162,7 @@ export function setupWebSocketHandlers(
 
     // Send message
     socket.on('send_message', async (data: {
-      discussionId: string;
+      discussionId: number;
       content: string;
       messageType?: MessageType;
       replyToId?: string;
@@ -207,7 +207,7 @@ export function setupWebSocketHandlers(
     });
 
     // Typing indicators
-    socket.on('typing_start', (data: { discussionId: string }) => {
+    socket.on('typing_start', (data: { discussionId: number }) => {
       if (socket.participantId) {
         socket.to(`discussion:${data.discussionId}`).emit('user_typing', {
           participantId: socket.participantId,
@@ -217,7 +217,7 @@ export function setupWebSocketHandlers(
       }
     });
 
-    socket.on('typing_stop', (data: { discussionId: string }) => {
+    socket.on('typing_stop', (data: { discussionId: number }) => {
       if (socket.participantId) {
         socket.to(`discussion:${data.discussionId}`).emit('user_stopped_typing', {
           participantId: socket.participantId,
@@ -228,7 +228,7 @@ export function setupWebSocketHandlers(
     });
 
     // Turn management
-    socket.on('request_turn', async (data: { discussionId: string }) => {
+    socket.on('request_turn', async (data: { discussionId: number }) => {
       try {
         if (!socket.participantId) {
           socket.emit('error', { message: 'Must join discussion first' });
@@ -257,7 +257,7 @@ export function setupWebSocketHandlers(
       }
     });
 
-    socket.on('end_turn', async (data: { discussionId: string }) => {
+    socket.on('end_turn', async (data: { discussionId: number }) => {
       try {
         if (!socket.participantId) {
           socket.emit('error', { message: 'Must join discussion first' });
@@ -288,8 +288,8 @@ export function setupWebSocketHandlers(
 
     // Reactions
     socket.on('add_reaction', async (data: {
-      discussionId: string;
-      messageId: string;
+      discussionId: number;
+      messageId: number;
       emoji: string;
     }) => {
       try {

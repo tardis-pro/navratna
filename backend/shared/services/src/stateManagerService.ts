@@ -1,5 +1,5 @@
 import Redis from 'ioredis';
-import { v4 as uuidv4 } from 'uuid';
+
 import {
   OperationState,
   Checkpoint,
@@ -54,7 +54,7 @@ export class StateManagerService {
    * Initialize operation state
    */
   public async initializeOperationState(
-    operationId: string,
+    operationId: number,
     initialState: OperationState
   ): Promise<void> {
     try {
@@ -87,7 +87,7 @@ export class StateManagerService {
   /**
    * Get operation state
    */
-  public async getOperationState(operationId: string): Promise<OperationState | null> {
+  public async getOperationState(operationId: number): Promise<OperationState | null> {
     try {
       // Try Redis first for performance
       let state = await this.getOperationStateFromCache(operationId);
@@ -122,7 +122,7 @@ export class StateManagerService {
    * Update operation state
    */
   public async updateOperationState(
-    operationId: string,
+    operationId: number,
     updates: StateUpdateOptions
   ): Promise<void> {
     try {
@@ -179,7 +179,7 @@ export class StateManagerService {
    * Save checkpoint
    */
   public async saveCheckpoint(
-    operationId: string,
+    operationId: number,
     checkpoint: Checkpoint
   ): Promise<void> {
     try {
@@ -251,8 +251,8 @@ export class StateManagerService {
    * Get checkpoint
    */
   public async getCheckpoint(
-    operationId: string,
-    checkpointId: string
+    operationId: number,
+    checkpointId: number
   ): Promise<Checkpoint | null> {
     try {
       logger.debug('Retrieving checkpoint', { operationId, checkpointId });
@@ -302,7 +302,7 @@ export class StateManagerService {
   /**
    * List checkpoints for an operation
    */
-  public async listCheckpoints(operationId: string): Promise<Checkpoint[]> {
+  public async listCheckpoints(operationId: number): Promise<Checkpoint[]> {
     try {
       logger.debug('Listing checkpoints', { operationId });
 
@@ -332,8 +332,8 @@ export class StateManagerService {
    * Restore operation state from checkpoint
    */
   public async restoreFromCheckpoint(
-    operationId: string,
-    checkpointId: string
+    operationId: number,
+    checkpointId: number
   ): Promise<OperationState> {
     try {
       logger.info('Restoring operation from checkpoint', { operationId, checkpointId });
@@ -395,7 +395,7 @@ export class StateManagerService {
       
       // Clean up cache (Redis handles TTL automatically)
       // But we can clean up keys that match patterns
-      const pattern = this.getOperationStateCacheKey('*');
+      const pattern = this.getOperationStateCacheKey(0);
       const keys = await this.redis.keys(pattern);
       
       let expiredKeys = 0;
@@ -475,7 +475,7 @@ export class StateManagerService {
     });
   }
 
-  private async getOperationStateFromCache(operationId: string): Promise<OperationState | null> {
+  private async getOperationStateFromCache(operationId: number): Promise<OperationState | null> {
     try {
       const cacheKey = this.getOperationStateCacheKey(operationId);
       const data = await this.redis.get(cacheKey);
@@ -493,7 +493,7 @@ export class StateManagerService {
   }
 
   private async setOperationStateInCache(
-    operationId: string,
+    operationId: number,
     state: OperationState,
     ttl: number = 3600
   ): Promise<void> {
@@ -538,13 +538,13 @@ export class StateManagerService {
   }
 
   private async createAutomaticCheckpoint(
-    operationId: string,
+    operationId: number,
     state: OperationState
   ): Promise<void> {
     try {
       const checkpoint: Checkpoint = {
-        id: uuidv4(),
-        stepId: state.currentStep || '',
+        id: Date.now(), // Use timestamp as simple numeric ID
+        stepId: state.currentStep ? parseInt(state.currentStep.toString()) || 0 : 0,
         type: CheckpointType.STATE_SNAPSHOT,
         data: {
           timestamp: new Date(),
@@ -600,11 +600,11 @@ export class StateManagerService {
     return checkpoint;
   }
 
-  private getOperationStateCacheKey(operationId: string): string {
+  private getOperationStateCacheKey(operationId: number): string {
     return `operation:state:${operationId}`;
   }
 
-  private getCheckpointCacheKey(operationId: string, checkpointId: string): string {
+  private getCheckpointCacheKey(operationId: number, checkpointId: number): string {
     return `operation:checkpoint:${operationId}:${checkpointId}`;
   }
 

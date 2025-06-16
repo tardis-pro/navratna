@@ -5,7 +5,7 @@ interface VectorSearchOptions {
 }
 
 interface VectorSearchResult {
-  id: string;
+  Id: number;
   score: number;
   payload?: any;
 }

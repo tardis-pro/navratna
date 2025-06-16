@@ -1,13 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
-import { z } from 'zod';
+import { z, ZodSchema, ZodError } from 'zod';
 import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
 
 interface ValidationSchemas {
-  body?: z.ZodTypeAny;
-  query?: z.ZodTypeAny;
-  params?: z.ZodTypeAny;
-  headers?: z.ZodTypeAny;
+  body?: ZodSchema;
+  query?: ZodSchema;
+  params?: ZodSchema;
+  headers?: ZodSchema;
 }
 
 interface ValidationOptions {
@@ -16,257 +16,141 @@ interface ValidationOptions {
   abortEarly?: boolean;
 }
 
-export const validateRequest = (
-  schemas: ValidationSchemas,
-  options: ValidationOptions = {}
-) => {
+/**
+ * Generic request validation middleware factory
+ */
+export const validateRequest = (schemas: ValidationSchemas) => {
   return (req: Request, res: Response, next: NextFunction): void => {
     try {
-      const errors: string[] = [];
-      
       // Validate request body
-      if (schemas.body && req.body !== undefined) {
-        const result = schemas.body.safeParse(req.body);
-        if (!result.success) {
-          // Add detailed schema debugging
-          const schemaShape = schemas.body._def?.shape ? Object.keys(schemas.body._def.shape()) : 'unknown';
-          const receivedFields = Object.keys(req.body || {});
-          
-          logger.warn('Body validation failed - schema mismatch', {
-            path: req.path,
-            method: req.method,
-            expectedFields: schemaShape,
-            receivedFields,
-            receivedData: req.body,
-            validationIssues: result.error.issues,
-            requestId: req.id
-          });
-          
-          errors.push(...result.error.issues.map(issue => `Body: ${issue.message} (path: ${issue.path.join('.')})`));
-        } else {
-          req.body = result.data; // Use validated and potentially converted values
-        }
+      if (schemas.body) {
+        req.body = schemas.body.parse(req.body);
       }
 
       // Validate query parameters
-      if (schemas.query && req.query) {
-        const result = schemas.query.safeParse(req.query);
-        if (!result.success) {
-          errors.push(...result.error.issues.map(issue => `Query: ${issue.message}`));
-        } else {
-          req.query = result.data;
-        }
+      if (schemas.query) {
+        req.query = schemas.query.parse(req.query);
       }
 
-      // Validate URL parameters
-      if (schemas.params && req.params) {
-        const result = schemas.params.safeParse(req.params);
-        if (!result.success) {
-          errors.push(...result.error.issues.map(issue => `Params: ${issue.message}`));
-        } else {
-          req.params = result.data;
-        }
+      // Validate route parameters
+      if (schemas.params) {
+        req.params = schemas.params.parse(req.params);
       }
 
       // Validate headers
-      if (schemas.headers && req.headers) {
-        const result = schemas.headers.safeParse(req.headers);
-        if (!result.success) {
-          errors.push(...result.error.issues.map(issue => `Headers: ${issue.message}`));
-        } else {
-          // Don't replace headers as they might contain other required fields
-          Object.assign(req.headers, result.data);
-        }
+      if (schemas.headers) {
+        req.headers = schemas.headers.parse(req.headers);
       }
 
-      // If there are validation errors, return 400 Bad Request
-      if (errors.length > 0) {
+      next();
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const errorMessages = error.errors.map(err => ({
+          field: err.path.join('.'),
+          message: err.message,
+          code: err.code
+        }));
+
         logger.warn('Request validation failed', {
-          path: req.path,
+          url: req.url,
           method: req.method,
-          errors,
-          validationErrors: errors.join('; '),
-          userId: req.user?.id,
-          requestId: req.id,
-          bodyReceived: req.body,
-          schemasApplied: Object.keys(schemas)
+          errors: errorMessages
         });
 
-        throw new ApiError(400, `Validation failed: ${errors.join('; ')}`, 'VALIDATION_ERROR', {
-          errors,
-          details: errors
+        res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: errorMessages
         });
+        return;
       }
 
-      // Log successful validation for debugging
-      logger.debug('Request validation passed', {
-        path: req.path,
-        method: req.method,
-        requestId: req.id,
-        schemasValidated: Object.keys(schemas)
+      logger.error('Unexpected validation error', { error, url: req.url, method: req.method });
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error during validation'
       });
-
-      next();
-    } catch (error) {
-      if (error instanceof ApiError) {
-        return next(error);
-      }
-
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('Unexpected error during request validation', {
-        error: errorMessage,
-        path: req.path,
-        method: req.method,
-        requestId: req.id
-      });
-
-      next(new ApiError(500, 'Validation error', 'VALIDATION_SYSTEM_ERROR'));
     }
   };
 };
 
-// Specific validation middleware for common patterns
-export const validateUUID = (paramName: string = 'id') => {
-  const schema = z.object({
-    [paramName]: z.string().uuid()
+/**
+ * Validates numeric ID parameters
+ */
+export const validateID = (paramName: string = 'id') => {
+  return validateRequest({
+    params: z.object({
+      [paramName]: z.coerce.number().int().positive()
+    })
   });
-
-  return validateRequest({ params: schema });
 };
 
-export const validatePagination = () => {
-  const schema = z.object({
-    page: z.coerce.number().int().min(1).default(1),
-    limit: z.coerce.number().int().min(1).max(100).default(20),
-    sort: z.enum(['created_at', 'updated_at', 'name']).default('created_at'),
-    order: z.enum(['asc', 'desc']).default('desc')
-  });
+/**
+ * Validates pagination parameters
+ */
+export const validatePagination = validateRequest({
+  query: z.object({
+    page: z.coerce.number().int().positive().default(1),
+    limit: z.coerce.number().int().positive().max(100).default(10),
+    sortBy: z.string().optional(),
+    sortOrder: z.enum(['asc', 'desc']).default('desc')
+  })
+});
 
-  return validateRequest({ query: schema });
+/**
+ * Validates JSON content type
+ */
+export const validateJSON = (req: Request, res: Response, next: NextFunction): void => {
+  if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
+    const contentType = req.headers['content-type'];
+    if (!contentType || !contentType.includes('application/json')) {
+      res.status(400).json({
+        success: false,
+        message: 'Content-Type must be application/json'
+      });
+      return;
+    }
+  }
+  next();
 };
 
-export const validateJSON = () => {
+/**
+ * Validates required content type
+ */
+export const requireContentType = (expectedType: string) => {
   return (req: Request, res: Response, next: NextFunction): void => {
-    // Only check for JSON content type on POST, PUT, PATCH requests
-    if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
-      if (!req.is('application/json')) {
-        logger.warn('Missing or invalid content type for JSON request', {
-          path: req.path,
-          method: req.method,
-          contentType: req.get('Content-Type'),
-          requestId: req.id
-        });
-
-        return next(new ApiError(415, 'Content-Type must be application/json', 'INVALID_CONTENT_TYPE'));
-      }
-
-      // Validate that body exists and is an object (Express should have already parsed it)
-      if (req.body === undefined || req.body === null) {
-        logger.warn('Missing request body for JSON request', {
-          path: req.path,
-          method: req.method,
-          requestId: req.id
-        });
-
-        return next(new ApiError(400, 'Request body is required', 'MISSING_BODY'));
-      }
-
-      // If body is still a string, it means Express didn't parse it (shouldn't happen with proper setup)
-      if (typeof req.body === 'string') {
-        try {
-          req.body = JSON.parse(req.body);
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Invalid JSON';
-          logger.warn('Invalid JSON in request body', {
-            path: req.path,
-            method: req.method,
-            error: errorMessage,
-            requestId: req.id
-          });
-
-          return next(new ApiError(400, 'Invalid JSON format', 'INVALID_JSON'));
-        }
-      }
+    const contentType = req.headers['content-type'];
+    if (!contentType || !contentType.includes(expectedType)) {
+      res.status(400).json({
+        success: false,
+        message: `Content-Type must be ${expectedType}`
+      });
+      return;
     }
     next();
   };
 };
 
-// Middleware to validate content type
-export const requireContentType = (contentType: string) => {
+/**
+ * Validates request size
+ */
+export const validateRequestSize = (maxSizeBytes: number) => {
   return (req: Request, res: Response, next: NextFunction): void => {
-    if (!req.is(contentType)) {
-      logger.warn('Invalid content type', {
-        expected: contentType,
-        received: req.get('Content-Type'),
-        path: req.path,
-        method: req.method,
-        requestId: req.id
+    const contentLength = req.headers['content-length'];
+    if (contentLength && parseInt(contentLength) > maxSizeBytes) {
+      res.status(413).json({
+        success: false,
+        message: `Request too large. Maximum size: ${maxSizeBytes} bytes`
       });
-
-      return next(new ApiError(415, `Content-Type must be ${contentType}`, 'INVALID_CONTENT_TYPE'));
+      return;
     }
     next();
   };
 };
 
-// Middleware to validate request size
-export const validateRequestSize = (maxSize: number) => {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    const contentLength = req.get('Content-Length');
-    
-    if (contentLength && parseInt(contentLength) > maxSize) {
-      logger.warn('Request too large', {
-        size: contentLength,
-        maxSize,
-        path: req.path,
-        method: req.method,
-        requestId: req.id
-      });
-
-      return next(new ApiError(413, 'Request entity too large', 'REQUEST_TOO_LARGE'));
-    }
-    
-    next();
-  };
-};
-
-// Custom validation helpers
-export const createCustomValidator = (
-  validationFunction: (data: any) => { isValid: boolean; errors?: string[] }
-) => {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    try {
-      const result = validationFunction(req.body);
-      
-      if (!result.isValid) {
-        logger.warn('Custom validation failed', {
-          errors: result.errors,
-          path: req.path,
-          method: req.method,
-          requestId: req.id
-        });
-
-        throw new ApiError(400, 'Custom validation failed', 'CUSTOM_VALIDATION_ERROR', {
-          errors: result.errors || ['Validation failed']
-        });
-      }
-
-      next();
-    } catch (error) {
-      if (error instanceof ApiError) {
-        return next(error);
-      }
-
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('Error in custom validation', {
-        error: errorMessage,
-        path: req.path,
-        method: req.method,
-        requestId: req.id
-      });
-
-      next(new ApiError(500, 'Validation error', 'VALIDATION_SYSTEM_ERROR'));
-    }
-  };
+/**
+ * Creates a custom validator with specific schema
+ */
+export const createCustomValidator = (schema: ZodSchema) => {
+  return validateRequest({ body: schema });
 }; 

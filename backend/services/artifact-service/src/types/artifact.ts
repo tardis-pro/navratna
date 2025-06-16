@@ -11,20 +11,20 @@ export interface AgentPreferences {
 }
 
 export interface Agent {
-  id: string;
+  Id: number;
   capabilities: string[];
   preferences: AgentPreferences;
 }
 
 export interface Persona {
-  id: string;
+  Id: number;
   role: string;
   expertise: string[];
   communicationStyle: string;
 }
 
 export interface Message {
-  id: string;
+  Id: number;
   content: string;
   timestamp: string;
   author: string;
@@ -32,7 +32,7 @@ export interface Message {
 }
 
 export interface Participant {
-  id: string;
+  Id: number;
   name: string;
   role: string;
 }
@@ -40,7 +40,7 @@ export interface Participant {
 export type DiscussionPhase = 'requirements' | 'design' | 'implementation' | 'testing' | 'review';
 
 export interface Discussion {
-  id: string;
+  Id: number;
   messages: Message[];
   participants: Participant[];
   phase: DiscussionPhase;
@@ -92,7 +92,7 @@ export interface ValidationResult {
 }
 
 export interface ArtifactMetadata {
-  generatedBy: string;
+  generatedBy: number;
   template?: string;
   language?: string;
   framework?: string;
@@ -100,7 +100,7 @@ export interface ArtifactMetadata {
 }
 
 export interface GeneratedArtifact {
-  id: string;
+  id: number;
   type: ArtifactType;
   content: string;
   metadata: ArtifactMetadata;
@@ -118,7 +118,7 @@ export interface ArtifactGenerationResponse {
 }
 
 export interface ArtifactTemplate {
-  id: string;
+  id: number;
   name: string;
   type: ArtifactType;
   language?: string;

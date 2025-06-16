@@ -72,9 +72,9 @@ Transform the in-memory tools system into a **persistent, scalable microservice*
 ### 2.2 Minimal Shared Dependencies
 ```typescript
 // ONLY shared types - no complex service dependencies
-import { ToolDefinition, ToolExecution } from '@shared/types/tool';
-import { logger } from '@shared/utils/logger';
-import { config } from '@shared/config/config';
+import { ToolDefinition, ToolExecution } from '@uaip/types/tool';
+import { logger } from '@uaip/utils/logger';
+import { config } from '@uaip/config/config';
 
 // NO complex cross-service integrations
 // NO event bus dependencies  
@@ -289,8 +289,8 @@ CREATE (ctx:Context {pattern: $pattern})-[:SUGGESTS]->(t:Tool)
 ### 5.1 Tool Registry Service (Enhanced with Neo4j)
 ```typescript
 // services/capability-registry/src/toolRegistry.ts
-import { ToolDefinition } from '@shared/types/tool';
-import { logger } from '@shared/utils/logger';
+import { ToolDefinition } from '@uaip/types/tool';
+import { logger } from '@uaip/utils/logger';
 
 export class ToolRegistry {
   constructor(
@@ -400,7 +400,7 @@ export class ToolRegistry {
 ### 5.2 Tool Execution Service (Enhanced with Usage Tracking)
 ```typescript
 // services/capability-registry/src/toolExecutor.ts
-import { ToolExecution } from '@shared/types/tool';
+import { ToolExecution } from '@uaip/types/tool';
 import { BaseToolExecutor } from './base-tools';
 
 export class ToolExecutor {
@@ -815,5 +815,5 @@ This approach combines **simplicity and scalability** with **intelligent graph-b
 
 **Document Version**: 5.0 (Simple & Scalable with Neo4j Graph Features)  
 **Last Updated**: 2024-12-04  
-**Dependencies**: Minimal - Only @shared/types, PostgreSQL, Neo4j  
+**Dependencies**: Minimal - Only @uaip/types, PostgreSQL, Neo4j  
 **Stakeholders**: Engineering Team, DevOps Team 

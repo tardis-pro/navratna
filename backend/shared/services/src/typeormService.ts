@@ -30,11 +30,32 @@ export class TypeOrmService {
       if (!this.dataSource) {
         const config = createTypeOrmConfig();
         this.dataSource = new DataSource(config);
-        await this.dataSource.initialize();
+        
+        // Add timeout wrapper to prevent hanging in Docker
+        const initPromise = this.dataSource.initialize();
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('TypeORM initialization timeout after 30 seconds')), 30000);
+        });
+        
+        await Promise.race([initPromise, timeoutPromise]);
       }
       logger.info('TypeORM service initialized successfully');
     } catch (error) {
       logger.error('Failed to initialize TypeORM service', { error });
+      // If initialization fails, try without cache
+      if (error.message.includes('timeout') || error.message.includes('Redis')) {
+        logger.warn('Retrying TypeORM initialization without cache...');
+        try {
+          const configWithoutCache = createTypeOrmConfig(undefined, true);
+          this.dataSource = new DataSource(configWithoutCache);
+          await this.dataSource.initialize();
+          logger.info('TypeORM service initialized successfully without cache');
+          return;
+        } catch (retryError) {
+          logger.error('Failed to initialize TypeORM service even without cache', { error: retryError });
+          throw retryError;
+        }
+      }
       throw error;
     }
   }
@@ -196,7 +217,7 @@ export class TypeOrmService {
    */
   public async findById<Entity extends ObjectLiteral>(
     entityClass: EntityTarget<Entity>,
-    id: string,
+    id: number,
     relations?: string[]
   ): Promise<Entity | null> {
     try {
@@ -233,7 +254,7 @@ export class TypeOrmService {
    */
   public async update<Entity extends ObjectLiteral>(
     entityClass: EntityTarget<Entity>,
-    id: string,
+    id: number,
     data: Partial<Entity>
   ): Promise<Entity | null> {
     try {
@@ -251,7 +272,7 @@ export class TypeOrmService {
    */
   public async delete<Entity extends ObjectLiteral>(
     entityClass: EntityTarget<Entity>,
-    id: string
+    id: number
   ): Promise<boolean> {
     try {
       const repository = this.getRepository(entityClass);

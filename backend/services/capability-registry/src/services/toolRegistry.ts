@@ -3,16 +3,16 @@
 // Part of capability-registry microservice
 
 import { ToolDefinition, ToolUsageRecord } from '@uaip/types';
-import { ToolDatabase, ToolGraphDatabase, ToolRelationship, ToolRecommendation, TypeOrmService } from '@uaip/shared-services';
+import { ToolDatabase, ToolGraphDatabase, ToolRelationship, ToolRecommendation, TypeOrmService, DatabaseService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { z } from 'zod';
-import { v4 as uuidv4 } from 'uuid';
+
 
 // Define AgentCapabilityMetric interface locally since it's not exported from types
 interface AgentCapabilityMetric {
-  id: string;
-  agentId: string;
-  toolId: string;
+  Id: number;
+  agentId: number;
+  toolId: number;
   totalExecutions: number;
   successfulExecutions: number;
   totalExecutionTime: number;
@@ -25,7 +25,7 @@ interface AgentCapabilityMetric {
 
 // Validation schemas using Zod
 const ToolDefinitionSchema = z.object({
-  id: z.string().min(1),
+  id: z.coerce.number().int().positive('ID must be a positive integer'),
   name: z.string().min(1),
   description: z.string(),
   version: z.string().min(1),
@@ -52,10 +52,24 @@ const ToolRelationshipSchema = z.object({
 
 export class ToolRegistry {
   constructor(
-    private postgresql: ToolDatabase,
+    private postgresql: DatabaseService,
     private neo4j: ToolGraphDatabase,
     private typeormService: TypeOrmService
   ) {}
+
+  // Ensure database is initialized
+  private async ensureInitialized(): Promise<void> {
+    // The DatabaseService should already be initialized by the app
+    // but we can add a check here if needed
+    try {
+      const healthCheck = await this.postgresql.healthCheck();
+      if (healthCheck.status !== 'healthy') {
+        throw new Error('Database is not healthy');
+      }
+    } catch (error) {
+      throw new Error(`Database not properly initialized: ${error.message}`);
+    }
+  }
 
   // Tool Registration and Management
   async registerTool(tool: ToolDefinition): Promise<void> {
@@ -64,7 +78,6 @@ export class ToolRegistry {
     
     try {
       // Store in PostgreSQL
-      await this.postgresql.createTool(validatedTool as ToolDefinition);
       
       // Create node in Neo4j
       await this.neo4j.createToolNode(validatedTool as ToolDefinition);
@@ -97,7 +110,7 @@ export class ToolRegistry {
       
       // Cleanup on failure
       try {
-        await this.postgresql.deleteTool(tool.id);
+        
         await this.neo4j.deleteToolNode(tool.id);
         await this.typeormService.delete('ToolDefinition', tool.id);
       } catch (cleanupError) {
@@ -108,58 +121,70 @@ export class ToolRegistry {
     }
   }
 
-  async updateTool(id: string, updates: Partial<ToolDefinition>): Promise<void> {
+  async updateTool(id: string | number, updates: Partial<ToolDefinition>): Promise<void> {
+    // Validate ID
+    const validatedId = z.coerce.number().int().positive().parse(id);
+    
     // Validate updates
     const validatedUpdates = ToolDefinitionSchema.partial().parse(updates);
     
     try {
       // Update in PostgreSQL
-      await this.postgresql.updateTool(id, validatedUpdates);
       
       // Update node in Neo4j
-      await this.neo4j.updateToolNode(id, validatedUpdates);
+      await this.neo4j.updateToolNode(validatedId, validatedUpdates);
 
       // Update TypeORM entity
-      await this.typeormService.update('ToolDefinition', id, {
+      await this.typeormService.update('ToolDefinition', validatedId, {
         ...validatedUpdates,
         updatedAt: new Date()
       });
       
-      logger.info(`Tool updated successfully: ${id}`);
+      logger.info(`Tool updated successfully: ${validatedId}`);
     } catch (error) {
-      logger.error(`Failed to update tool ${id}:`, error);
+      logger.error(`Failed to update tool ${validatedId}:`, error);
       throw error;
     }
   }
 
-  async unregisterTool(id: string): Promise<void> {
+  async unregisterTool(id: string | number): Promise<void> {
+    // Validate ID
+    const validatedId = z.coerce.number().int().positive().parse(id);
+    
     try {
       // Remove from PostgreSQL (cascades to related tables)
-      await this.postgresql.deleteTool(id);
       
       // Remove node from Neo4j (detaches all relationships)
-      await this.neo4j.deleteToolNode(id);
+      await this.neo4j.deleteToolNode(validatedId);
 
       // Remove TypeORM entity
-      await this.typeormService.delete('ToolDefinition', id);
+      await this.typeormService.delete('ToolDefinition', validatedId);
       
-      logger.info(`Tool unregistered successfully: ${id}`);
+      logger.info(`Tool unregistered successfully: ${validatedId}`);
     } catch (error) {
-      logger.error(`Failed to unregister tool ${id}:`, error);
+      logger.error(`Failed to unregister tool ${validatedId}:`, error);
       throw error;
     }
   }
 
   // Tool Discovery and Retrieval
-  async getTool(id: string): Promise<ToolDefinition | null> {
-    return await this.postgresql.getTool(id);
+  async getTool(id: string | number): Promise<ToolDefinition | null> {
+    await this.ensureInitialized();
+    const validatedId = z.coerce.number().int().positive().parse(id);
+    return await this.postgresql.getTool(validatedId);
   }
 
   async getTools(category?: string, enabled?: boolean): Promise<ToolDefinition[]> {
-    return await this.postgresql.getTools(category, enabled);
+    await this.ensureInitialized();
+    const filters: any = {};
+    logger.info(`Getting tools with category: ${category}, enabled: ${enabled}`);
+    if (category) filters.category = category;
+    if (enabled !== undefined) filters.enabled = enabled;
+    return await this.postgresql.getTools(filters);
   }
 
   async searchTools(query: string): Promise<ToolDefinition[]> {
+    await this.ensureInitialized();
     return await this.postgresql.searchTools(query);
   }
 
@@ -181,7 +206,7 @@ export class ToolRegistry {
     const toolIds = relatedTools.map(t => t.id);
     if (toolIds.length === 0) return [];
     
-    const tools = await this.postgresql.getTools();
+    const tools = await this.postgresql.getTools({});
     return tools.filter(tool => toolIds.includes(tool.id) && tool.isEnabled);
   }
 
@@ -216,7 +241,7 @@ export class ToolRegistry {
     logger.info(`Relationship added: ${fromToolId} -[${relationship.type}]-> ${toToolId}`);
   }
 
-  async getRecommendations(agentId: string, context?: string, limit = 5): Promise<ToolRecommendation[]> {
+  async getRecommendations(agentId: number, context?: string, limit = 5): Promise<ToolRecommendation[]> {
     try {
       let recommendations: ToolRecommendation[] = [];
       
@@ -258,7 +283,11 @@ export class ToolRegistry {
 
   // Analytics and Insights
   async getUsageStats(toolId?: string, agentId?: string, days = 30): Promise<any[]> {
-    return await this.postgresql.getUsageStats(toolId, agentId, days);
+    await this.ensureInitialized();
+    const filters: any = { days };
+    if (toolId) filters.toolId = toolId;
+    if (agentId) filters.agentId = agentId;
+    return await this.postgresql.getToolUsageStats(filters);
   }
 
   async getToolUsageAnalytics(toolId?: string, agentId?: string): Promise<any[]> {
@@ -269,7 +298,7 @@ export class ToolRegistry {
     return await this.neo4j.getPopularTools(category, limit);
   }
 
-  async getAgentToolPreferences(agentId: string): Promise<any[]> {
+  async getAgentToolPreferences(agentId: number): Promise<any[]> {
     return await this.neo4j.getAgentToolPreferences(agentId);
   }
 
@@ -296,29 +325,27 @@ export class ToolRegistry {
   }
 
   async getToolsByTags(tags: string[]): Promise<ToolDefinition[]> {
-    const tools = await this.getTools();
+    const tools = await this.getTools(undefined, true); // Only enabled tools
     return tools.filter(tool => 
-      tool.isEnabled && 
       tags.some(tag => tool.tags.includes(tag))
     );
   }
 
   async getToolsRequiringApproval(): Promise<ToolDefinition[]> {
-    const tools = await this.getTools();
-    return tools.filter(tool => tool.requiresApproval && tool.isEnabled);
+    const tools = await this.getTools(undefined, true); // Only enabled tools
+    return tools.filter(tool => tool.requiresApproval);
   }
 
   async getToolsBySecurityLevel(securityLevel: string): Promise<ToolDefinition[]> {
-    const tools = await this.getTools();
-    return tools.filter(tool => 
-      tool.securityLevel === securityLevel && tool.isEnabled
-    );
+    const tools = await this.getTools(undefined, true); // Only enabled tools
+    return tools.filter(tool => tool.securityLevel === securityLevel);
   }
 
   // Health Check
   async healthCheck(): Promise<{ postgresql: boolean; neo4j: boolean }> {
     try {
-      const postgresqlHealth = await this.postgresql.getTool('health-check') !== undefined;
+      // Test PostgreSQL connection by attempting a simple query instead of looking for a specific tool
+      const postgresqlHealth = await this.postgresql.healthCheck().then(result => result.status === 'healthy').catch(() => false);
       const neo4jHealth = await this.neo4j.verifyConnectivity().then(() => true).catch(() => false);
       
       return {
@@ -337,7 +364,7 @@ export class ToolRegistry {
   // Enhanced Tool Usage Tracking
   async recordToolUsage(
     toolId: string,
-    agentId: string,
+    agentId: number,
     executionTime: number,
     success: boolean,
     cost?: number,
@@ -367,7 +394,7 @@ export class ToolRegistry {
   }
 
   private async updateCapabilityMetrics(
-    agentId: string,
+    agentId: number,
     toolId: string,
     success: boolean,
     executionTime: number
@@ -397,7 +424,6 @@ export class ToolRegistry {
       } else {
         // Create new metric
         const newMetric: Partial<AgentCapabilityMetric> = {
-          id: uuidv4(),
           agentId,
           toolId,
           totalExecutions: 1,
@@ -418,7 +444,7 @@ export class ToolRegistry {
   }
 
   // Enhanced Analytics with TypeORM
-  async getAgentCapabilityMetrics(agentId: string): Promise<AgentCapabilityMetric[]> {
+  async getAgentCapabilityMetrics(agentId: number): Promise<AgentCapabilityMetric[]> {
     try {
       const repository = this.typeormService.agentCapabilityMetricRepository;
       return await repository.find({

@@ -10,7 +10,7 @@ import {
   TraceabilityInfo
 } from '@uaip/types';
 
-import { v4 as uuidv4 } from 'uuid';
+
 import { TemplateManager } from '../templates/TemplateManager.js';
 import { logger } from '@uaip/utils';
 import { ArtifactGenerator } from 'interfaces';

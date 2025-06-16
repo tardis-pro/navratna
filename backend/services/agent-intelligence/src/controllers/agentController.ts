@@ -330,7 +330,7 @@ export class AgentController {
   /**
    * Validate that an agent exists and return it
    */
-  private async validateAgentExists(agentId: string): Promise<Agent> {
+  private async validateAgentExists(agentId: number): Promise<Agent> {
     const agent = await this.agentIntelligenceService.getAgent(agentId);
     if (!agent) {
       throw new ApiError(404, 'Agent not found', 'AGENT_NOT_FOUND');
@@ -341,7 +341,7 @@ export class AgentController {
   /**
    * Validate security for an operation
    */
-  private async validateSecurity(agentId: string, operation: string, data: any): Promise<void> {
+  private async validateSecurity(agentId: number, operation: string, data: any): Promise<void> {
     const securityContext = {
       userId: 'anonymous', // TODO: Fix when auth middleware is properly configured
       agentId,

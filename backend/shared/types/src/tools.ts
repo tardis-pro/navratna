@@ -47,7 +47,7 @@ export interface ToolExecutionError {
 }
 
 export interface ToolDefinition {
-  id: string;
+  id: number;
   name: string;
   description: string;
   version: string;
@@ -75,11 +75,10 @@ export interface ToolError {
 }
 
 export interface ToolExecution {
-  id: string;
-  toolId: string;
-  agentId: string;
+  toolId: number;
+  agentId: number;
   parameters: Record<string, any>;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'approval-required';
+  status: ToolExecutionStatus;
   startTime: Date;
   endTime?: Date;
   result?: any;
@@ -95,8 +94,8 @@ export interface ToolExecution {
 }
 
 export interface ToolUsageRecord {
-  toolId: string;
-  agentId: string;
+  toolId: number;
+  agentId: number;
   timestamp: Date;
   success: boolean;
   executionTime?: number;
@@ -107,8 +106,8 @@ export interface ToolUsageRecord {
 }
 
 export interface ToolPermission {
-  agentId: string;
-  toolId: string;
+  agentId: number;
+  toolId: number;
   permissionType: 'allow' | 'deny' | 'require_approval';
   maxCostPerHour?: number;
   maxExecutionsPerHour?: number;
@@ -119,7 +118,7 @@ export interface ToolPermission {
 }
 
 export interface ToolBudget {
-  agentId: string;
+  agentId: number;
   dailyLimit?: number;
   hourlyLimit?: number;
   currentDailySpent: number;

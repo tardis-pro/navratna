@@ -1,5 +1,4 @@
 import { EventEmitter } from 'events';
-import { v4 as uuidv4 } from 'uuid';
 import {
   ExecutionStep,
   StepStatus,
@@ -14,14 +13,14 @@ import {
 import { logger } from '@uaip/utils';
 
 export interface StepExecutionContext {
-  operationId: string;
-  stepId: string;
+  operationId: number;
+  stepId: number;
   variables: Record<string, any>;
   metadata: Record<string, any>;
 }
 
 export interface StepResult {
-  stepId: string;
+  stepId: number;
   status: StepStatus;
   data: Record<string, any>;
   error?: string;
@@ -36,8 +35,8 @@ export interface StepResult {
 
 export interface OperationContext {
   executionContext: ExecutionContext;
-  conversationId?: string;
-  sessionId?: string;
+  conversationId?: number;
+  sessionId?: number;
   userRequest?: string;
   environment?: string;
   constraints?: Record<string, any>;
@@ -102,7 +101,7 @@ export class StepExecutorService extends EventEmitter {
       }
 
       const result: StepResult = {
-        stepId: step.id || `unknown_${Date.now()}`,
+        stepId: step.id || Date.now(),
         status: StepStatus.COMPLETED,
         data: stepData,
         executionTime: Date.now() - startTime,
@@ -122,7 +121,7 @@ export class StepExecutorService extends EventEmitter {
 
     } catch (error) {
       const result: StepResult = {
-        stepId: step.id || `unknown_${Date.now()}`,
+        stepId: step.id || Date.now(),
         status: StepStatus.FAILED,
         data: {},
         error: error instanceof Error ? error.message : String(error),
@@ -223,7 +222,7 @@ export class StepExecutorService extends EventEmitter {
     await this.delay(Math.random() * 3000 + 2000, signal); // 2-5 seconds
     
     return {
-      artifactId: uuidv4(),
+      artifactId: Date.now(), // Use timestamp as simple numeric ID
       artifactType: input.artifactType || 'document',
       artifactContent: `Generated artifact for ${step.name}`,
       createdAt: new Date().toISOString()

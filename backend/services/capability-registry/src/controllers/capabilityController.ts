@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { logger, ApiError } from '@uaip/utils';
-import { CapabilityDiscoveryService, SecurityValidationService } from '@uaip/shared-services';
+import { CapabilityDiscoveryService, SecurityValidationService, DatabaseService } from '@uaip/shared-services';
 import {
   Capability,
   CapabilityType,
@@ -13,8 +13,8 @@ export class CapabilityController {
   private capabilityDiscoveryService: CapabilityDiscoveryService;
   private securityValidationService: SecurityValidationService;
 
-  constructor() {
-    this.capabilityDiscoveryService = new CapabilityDiscoveryService();
+  constructor(databaseService?: DatabaseService) {
+    this.capabilityDiscoveryService = new CapabilityDiscoveryService(databaseService);
     this.securityValidationService = new SecurityValidationService();
   }
 

@@ -49,33 +49,9 @@ export { PersonaAnalytics } from './personaAnalytics.entity.js';
 export { MCPServer } from './mcpServer.entity.js';
 export { MCPToolCall } from './mcpToolCall.entity.js';
 
-// Entity arrays for TypeORM configuration - using lazy loading to avoid circular dependencies
-export const getAllEntities = () => [
-  // Import entities dynamically to avoid circular dependencies
-  require('./base.entity.js').BaseEntity,
-  require('./agent.entity.js').Agent,
-  require('./operation.entity.js').Operation,
-  require('./persona.entity.js').Persona,
-  require('./user.entity.js').UserEntity,
-  require('./refreshToken.entity.js').RefreshTokenEntity,
-  require('./passwordResetToken.entity.js').PasswordResetTokenEntity,
-  require('./agentCapabilityMetric.entity.js').AgentCapabilityMetric,
-  require('./toolUsageRecord.entity.js').ToolUsageRecord,
-  require('./conversationContext.entity.js').ConversationContext,
-  require('./operationState.entity.js').OperationState,
-  require('./operationCheckpoint.entity.js').OperationCheckpoint,
-  require('./stepResult.entity.js').StepResult,
-  require('./approvalWorkflow.entity.js').ApprovalWorkflow,
-  require('./approvalDecision.entity.js').ApprovalDecision,
-  require('./auditEvent.entity.js').AuditEvent,
-  require('./securityPolicy.entity.js').SecurityPolicy,
-  require('./toolDefinition.entity.js').ToolDefinition,
-  require('./toolExecution.entity.js').ToolExecution,
-  require('./artifact.entity.js').Artifact,
-  require('./artifactReview.entity.js').ArtifactReview,
-  require('./artifactDeployment.entity.js').ArtifactDeployment,
-  require('./discussionParticipant.entity.js').DiscussionParticipant,
-  require('./personaAnalytics.entity.js').PersonaAnalytics,
-  require('./mcpServer.entity.js').MCPServer,
-  require('./mcpToolCall.entity.js').MCPToolCall,
-]; 
+// Entity arrays for TypeORM configuration - kept for backward compatibility
+export const getAllEntities = () => {
+  // This function is deprecated - entities are now imported directly in typeorm.config.ts
+  // Keeping for backward compatibility but not recommended for use
+  throw new Error('getAllEntities is deprecated. Entities are now imported directly in TypeORM config.');
+}; 

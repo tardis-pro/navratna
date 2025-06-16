@@ -11,7 +11,7 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
    * Create audit event
    */
   public async createAuditEvent(eventData: {
-    id: string;
+    Id: number;
     eventType: string;
     userId?: string;
     agentId?: string;
@@ -373,7 +373,7 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
   public async getAuditStatistics(timeframe: '1h' | '24h' | '7d' | '30d' = '24h'): Promise<{
     eventTypes: Array<{ eventType: string; count: number; uniqueUsers: number; uniqueIPs: number }>;
     hourlyDistribution: Array<{ hour: number; count: number }>;
-    topUsers: Array<{ userId: string; email: string; eventCount: number }>;
+    topUsers: Array<{ userId: number; email: string; eventCount: number }>;
     topIPAddresses: Array<{ ipAddress: string; eventCount: number; uniqueUsers: number }>;
     summary: { totalEvents: number; uniqueUsers: number; uniqueIPs: number };
   }> {
@@ -484,7 +484,7 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
    * Get user activity audit trail with pagination
    */
   public async getUserActivityAuditTrail(filters: {
-    userId: string;
+    userId: number;
     startDate?: Date;
     endDate?: Date;
     eventType?: string;

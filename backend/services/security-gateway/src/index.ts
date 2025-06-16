@@ -26,17 +26,17 @@ class SecurityGatewayServer {
   private port: number;
   private databaseService: DatabaseService;
   private eventBusService: EventBusService;
-  private securityGatewayService: SecurityGatewayService;
-  private approvalWorkflowService: ApprovalWorkflowService;
-  private auditService: AuditService;
-  private notificationService: NotificationService;
+  private securityGatewayService: SecurityGatewayService | null = null;
+  private approvalWorkflowService: ApprovalWorkflowService | null = null;
+  private auditService: AuditService | null = null;
+  private notificationService: NotificationService | null = null;
   private isShuttingDown: boolean = false;
 
   constructor() {
     this.app = express();
     this.port = config.services.securityGateway.port || 3004;
     
-    // Initialize services
+    // Initialize only basic services that don't require database
     this.databaseService = new DatabaseService();
     this.eventBusService = new EventBusService(
       {
@@ -45,6 +45,14 @@ class SecurityGatewayServer {
       },
       logger
     );
+
+    this.setupMiddleware();
+    this.setupRoutes();
+    this.setupErrorHandling();
+  }
+
+  private async initializeServices(): Promise<void> {
+    // Initialize services that depend on database after database is ready
     this.auditService = new AuditService(this.databaseService);
     this.notificationService = new NotificationService();
     this.approvalWorkflowService = new ApprovalWorkflowService(
@@ -59,9 +67,25 @@ class SecurityGatewayServer {
       this.auditService
     );
 
-    this.setupMiddleware();
-    this.setupRoutes();
-    this.setupErrorHandling();
+    // Start cron jobs after database is ready
+    this.approvalWorkflowService.startCronJobs();
+
+    logger.info('All services initialized successfully');
+  }
+
+  // Getter methods for services (for potential future use)
+  public getSecurityGatewayService(): SecurityGatewayService {
+    if (!this.securityGatewayService) {
+      throw new Error('SecurityGatewayService not initialized. Call start() first.');
+    }
+    return this.securityGatewayService;
+  }
+
+  public getApprovalWorkflowService(): ApprovalWorkflowService {
+    if (!this.approvalWorkflowService) {
+      throw new Error('ApprovalWorkflowService not initialized. Call start() first.');
+    }
+    return this.approvalWorkflowService;
   }
 
   private setupMiddleware(): void {
@@ -171,6 +195,9 @@ class SecurityGatewayServer {
       await this.databaseService.initialize();
       logger.info('DatabaseService initialized successfully');
 
+      // Initialize all dependent services after database is ready
+      await this.initializeServices();
+
       // Initialize event bus
       await this.eventBusService.connect();
       logger.info('Event bus connected successfully');
@@ -202,6 +229,16 @@ class SecurityGatewayServer {
 
       this.isShuttingDown = true;
       logger.info(`Received ${signal}, starting graceful shutdown`);
+
+      // Cleanup approval workflow service
+      try {
+        if (this.approvalWorkflowService) {
+          await this.approvalWorkflowService.cleanup();
+          logger.info('Approval workflow service cleaned up');
+        }
+      } catch (error) {
+        logger.error('Error cleaning up approval workflow service', { error });
+      }
 
       // Close database connections
       try {

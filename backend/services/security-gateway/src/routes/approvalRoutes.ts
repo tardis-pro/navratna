@@ -30,10 +30,29 @@ async function getServices() {
     await databaseService.initialize();
     auditService = new AuditService(databaseService);
     notificationService = new NotificationService();
-    // Note: EventBusService would need to be initialized separately if needed
-    // approvalWorkflowService = new ApprovalWorkflowService(databaseService, eventBusService, notificationService, auditService);
+    
+    // Initialize EventBusService and ApprovalWorkflowService
+    const eventBusService = new EventBusService(
+      {
+        url: process.env.RABBITMQ_URL || 'amqp://localhost:5672',
+        serviceName: 'security-gateway'
+      },
+      logger
+    );
+    
+    approvalWorkflowService = new ApprovalWorkflowService(
+      databaseService,
+      eventBusService,
+      notificationService,
+      auditService
+    );
   }
-  return { databaseService, auditService: auditService!, notificationService: notificationService! };
+  return { 
+    databaseService, 
+    auditService: auditService!, 
+    notificationService: notificationService!,
+    approvalWorkflowService: approvalWorkflowService!
+  };
 }
 
 // Validation schemas using Zod
@@ -80,6 +99,8 @@ router.post('/workflows',
         // @ts-ignore
         userId: req.user?.id
       });
+
+      const { approvalWorkflowService, auditService } = await getServices();
 
       const workflow = await approvalWorkflowService.createApprovalWorkflow({
         operationId: req.body.operationId,
@@ -162,6 +183,8 @@ router.post('/:workflowId/decisions',
         decidedAt: new Date()
       };
 
+      const { approvalWorkflowService, auditService } = await getServices();
+
       const status = await approvalWorkflowService.processApprovalDecision(approvalDecision);
 
       // Audit log
@@ -224,6 +247,7 @@ router.get('/:workflowId',
         userId: req.user?.id
       });
 
+      const { approvalWorkflowService } = await getServices();
       const status = await approvalWorkflowService.getWorkflowStatus(workflowId);
 
       // Check if user is authorized to view this workflow
@@ -277,6 +301,8 @@ router.get('/workflows',
       });
 
       let workflows;
+
+      const { approvalWorkflowService } = await getServices();
 
       // Admins can see all workflows, others only see their own
       // @ts-ignore
@@ -369,6 +395,8 @@ router.get('/pending',
         userId: req.user?.id
       });
 
+      const { approvalWorkflowService } = await getServices();
+
       const pendingWorkflows = await approvalWorkflowService.getUserWorkflows(
         // @ts-ignore
         req.user!.id,
@@ -444,6 +472,8 @@ router.post('/:workflowId/cancel',
         throw new ApiError(400, 'Cancellation reason is required', 'MISSING_REASON');
       }
 
+      const { approvalWorkflowService, auditService } = await getServices();
+
       await approvalWorkflowService.cancelWorkflow(workflowId, reason);
 
       // Audit log
@@ -497,6 +527,8 @@ router.get('/stats',
         // @ts-ignore
         userId: req.user?.id
       });
+
+      const { approvalWorkflowService } = await getServices();
 
       // Get all workflows in the time period
       const allWorkflows = await approvalWorkflowService.getUserWorkflows(''); // Get all

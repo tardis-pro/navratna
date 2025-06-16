@@ -10,8 +10,8 @@ import { BaseEntity } from './base.entity.js';
 @Index(['checkpointType', 'isActive'])
 @Index(['stepNumber'])
 export class OperationCheckpoint extends BaseEntity {
-  @Column({ name: 'operation_id', type: 'uuid' })
-  operationId: string;
+  @Column({ name: 'operation_id', type: 'bigint' })
+  operationId: number;
 
   @Column({ length: 255 })
   name: string;
@@ -31,8 +31,8 @@ export class OperationCheckpoint extends BaseEntity {
   @Column({ type: 'jsonb', nullable: true })
   context?: Record<string, any>;
 
-  @Column({ name: 'created_by', type: 'uuid', nullable: true })
-  createdBy?: string;
+  @Column({ name: 'created_by', type: 'bigint', nullable: true })
+  createdBy?: number;
 
   @Column({ name: 'is_active', default: true })
   isActive: boolean;

@@ -10,8 +10,8 @@ import { BaseEntity } from './base.entity.js';
 @Index(['status', 'completedAt'])
 @Index(['stepType'])
 export class StepResult extends BaseEntity {
-  @Column({ name: 'operation_id', type: 'uuid' })
-  operationId: string;
+  @Column({ name: 'operation_id', type: 'bigint' })
+  operationId: number;
 
   @Column({ name: 'step_number' })
   stepNumber: number;

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BaseEntitySchema, UUIDSchema } from './common.js';
+import { BaseEntitySchema, IDSchema } from './common.js';
 import { PersonaSchema } from './persona.js';
 
 // Discussion status
@@ -63,10 +63,10 @@ export enum MessageSentiment {
 
 // Discussion participant schema
 export const DiscussionParticipantSchema = BaseEntitySchema.extend({
-  discussionId: UUIDSchema,
-  personaId: UUIDSchema,
-  agentId: z.string().min(1).max(255),
-  userId: UUIDSchema.optional(), // Human user if applicable
+  discussionId: IDSchema,
+  personaId: IDSchema,
+  agentId: IDSchema,
+  userId: IDSchema.optional(), // Human user if applicable
   role: z.nativeEnum(ParticipantRole).default(ParticipantRole.PARTICIPANT),
   joinedAt: z.date(),
   lastActiveAt: z.date(),
@@ -90,28 +90,28 @@ export type DiscussionParticipant = z.infer<typeof DiscussionParticipantSchema>;
 
 // Message schema
 export const DiscussionMessageSchema = BaseEntitySchema.extend({
-  discussionId: UUIDSchema,
-  participantId: UUIDSchema,
+  discussionId: IDSchema,
+  participantId: IDSchema,
   content: z.string().min(1).max(10000),
   messageType: z.nativeEnum(MessageType).default(MessageType.MESSAGE),
-  replyToId: UUIDSchema.optional(),
-  threadId: UUIDSchema.optional(),
+  replyToId: IDSchema.optional(),
+  threadId: IDSchema.optional(),
   sentiment: z.nativeEnum(MessageSentiment).optional(),
   confidence: z.number().min(0).max(1).optional(),
   tokens: z.number().min(0).optional(),
   processingTime: z.number().min(0).optional(), // milliseconds
   attachments: z.array(z.object({
-    id: UUIDSchema,
+    id: IDSchema,
     type: z.enum(['file', 'image', 'link', 'code', 'data']),
     url: z.string().url(),
     name: z.string(),
     size: z.number().min(0).optional(),
     mimeType: z.string().optional()
   })).default([]),
-  mentions: z.array(UUIDSchema).default([]), // Mentioned participant IDs
+  mentions: z.array(IDSchema).default([]), // Mentioned participant IDs
   tags: z.array(z.string()).default([]),
   reactions: z.array(z.object({
-    participantId: UUIDSchema,
+    participantId: IDSchema,
     emoji: z.string(),
     createdAt: z.date()
   })).default([]),
@@ -171,7 +171,7 @@ export type DiscussionSettings = z.infer<typeof DiscussionSettingsSchema>;
 // Discussion state schema
 export const DiscussionStateSchema = z.object({
   currentTurn: z.object({
-    participantId: UUIDSchema.optional(),
+    participantId: IDSchema.optional(),
     startedAt: z.date().optional(),
     expectedEndAt: z.date().optional(),
     turnNumber: z.number().min(0).default(0)
@@ -185,18 +185,18 @@ export const DiscussionStateSchema = z.object({
   topicDrift: z.number().min(0).max(1).default(0),
   keyPoints: z.array(z.object({
     point: z.string(),
-    supportingParticipants: z.array(UUIDSchema),
+    supportingParticipants: z.array(IDSchema),
     confidence: z.number().min(0).max(1)
   })).default([]),
   decisions: z.array(z.object({
     decision: z.string(),
     decidedAt: z.date(),
-    participants: z.array(UUIDSchema),
+    participants: z.array(IDSchema),
     confidence: z.number().min(0).max(1)
   })).default([]),
   actionItems: z.array(z.object({
     item: z.string(),
-    assignedTo: UUIDSchema.optional(),
+    assignedTo: IDSchema.optional(),
     dueDate: z.date().optional(),
     status: z.enum(['pending', 'in_progress', 'completed', 'cancelled']).default('pending')
   })).default([]),
@@ -223,7 +223,7 @@ export const TurnStrategyConfigSchema = z.object({
     // Moderated Config
     z.object({
       type: z.literal('moderated'),
-      moderatorId: UUIDSchema,
+      moderatorId: IDSchema,
       requireApproval: z.boolean().default(true),
       autoAdvance: z.boolean().default(false)
     }),
@@ -238,7 +238,7 @@ export const TurnStrategyConfigSchema = z.object({
     z.object({
       type: z.literal('priority_based'),
       priorities: z.array(z.object({
-        participantId: UUIDSchema,
+        participantId: IDSchema,
         priority: z.number().min(0).max(10)
       }))
     }),
@@ -263,17 +263,17 @@ export const DiscussionSchema = BaseEntitySchema.extend({
   title: z.string().min(1).max(255),
   topic: z.string().min(1).max(1000),
   description: z.string().max(5000).optional(),
-  documentId: UUIDSchema.optional(),
-  operationId: UUIDSchema.optional(), // Link to UAIP operation
+  documentId: IDSchema.optional(),
+  operationId: IDSchema.optional(), // Link to UAIP operation
   participants: z.array(DiscussionParticipantSchema).default([]),
   state: DiscussionStateSchema,
   settings: DiscussionSettingsSchema,
   turnStrategy: TurnStrategyConfigSchema,
   status: z.nativeEnum(DiscussionStatus).default(DiscussionStatus.DRAFT),
   visibility: z.nativeEnum(DiscussionVisibility).default(DiscussionVisibility.PRIVATE),
-  createdBy: UUIDSchema,
-  organizationId: UUIDSchema.optional(),
-  teamId: UUIDSchema.optional(),
+  createdBy: IDSchema,
+  organizationId: IDSchema.optional(),
+  teamId: IDSchema.optional(),
   startedAt: z.date().optional(),
   endedAt: z.date().optional(),
   scheduledFor: z.date().optional(),
@@ -286,9 +286,9 @@ export const DiscussionSchema = BaseEntitySchema.extend({
     achievedAt: z.date(),
     confidence: z.number().min(0).max(1)
   })).default([]),
-  relatedDiscussions: z.array(UUIDSchema).default([]),
-  parentDiscussionId: UUIDSchema.optional(),
-  childDiscussions: z.array(UUIDSchema).default([]),
+  relatedDiscussions: z.array(IDSchema).default([]),
+  parentDiscussionId: IDSchema.optional(),
+  childDiscussions: z.array(IDSchema).default([]),
   analytics: z.object({
     totalMessages: z.number().min(0).default(0),
     uniqueParticipants: z.number().min(0).default(0),
@@ -316,8 +316,8 @@ export const CreateDiscussionRequestSchema = DiscussionSchema.omit({
   analytics: true
 }).extend({
   initialParticipants: z.array(z.object({
-    personaId: UUIDSchema,
-    agentId: z.string(),
+    personaId: IDSchema,
+    agentId: IDSchema,
     role: z.nativeEnum(ParticipantRole).default(ParticipantRole.PARTICIPANT)
   })).min(2),
   // Make turnStrategy optional with default
@@ -361,11 +361,11 @@ export const DiscussionSearchFiltersSchema = z.object({
   query: z.string().optional(),
   status: z.array(z.nativeEnum(DiscussionStatus)).optional(),
   visibility: z.array(z.nativeEnum(DiscussionVisibility)).optional(),
-  createdBy: z.array(UUIDSchema).optional(),
-  organizationId: UUIDSchema.optional(),
-  teamId: UUIDSchema.optional(),
+  createdBy: z.array(IDSchema).optional(),
+  organizationId: IDSchema.optional(),
+  teamId: IDSchema.optional(),
   tags: z.array(z.string()).optional(),
-  participants: z.array(UUIDSchema).optional(),
+  participants: z.array(IDSchema).optional(),
   turnStrategy: z.array(z.nativeEnum(TurnStrategy)).optional(),
   hasObjectives: z.boolean().optional(),
   hasOutcomes: z.boolean().optional(),
@@ -385,7 +385,7 @@ export type DiscussionSearchFilters = z.infer<typeof DiscussionSearchFiltersSche
 
 // Discussion analytics
 export const DiscussionAnalyticsSchema = z.object({
-  discussionId: UUIDSchema,
+  discussionId: IDSchema,
   timeframe: z.object({
     start: z.date(),
     end: z.date()
@@ -445,7 +445,7 @@ export type DiscussionAnalytics = z.infer<typeof DiscussionAnalyticsSchema>;
 
 // Discussion summary
 export const DiscussionSummarySchema = z.object({
-  discussionId: UUIDSchema,
+  discussionId: IDSchema,
   title: z.string(),
   summary: z.string(),
   keyPoints: z.array(z.string()),
@@ -487,10 +487,10 @@ export enum DiscussionEventType {
 }
 
 export const DiscussionEventSchema = z.object({
-  id: UUIDSchema,
-  discussionId: UUIDSchema,
+  id: IDSchema,
+  discussionId: IDSchema,
   type: z.nativeEnum(DiscussionEventType),
-  participantId: UUIDSchema.optional(),
+  participantId: IDSchema.optional(),
   data: z.record(z.any()),
   timestamp: z.date(),
   metadata: z.record(z.any()).optional()

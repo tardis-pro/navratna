@@ -11,7 +11,7 @@ declare global {
     interface Request {
       id?: string;
       user?: {
-        id: string;
+        Id: number;
         email: string;
         role: string;
         sessionId?: string;
@@ -22,7 +22,7 @@ declare global {
 }
 
 interface JWTPayload {
-  userId: string;
+  userId: number;
   email: string;
   role: string;
   sessionId?: string;
@@ -34,7 +34,7 @@ interface JWTPayload {
 
 // Simplified user interface for authentication context
 interface AuthUser {
-  id: string;
+  Id: number;
   email: string;
   role: string;
   sessionId?: string;

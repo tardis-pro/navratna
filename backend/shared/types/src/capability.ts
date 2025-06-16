@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BaseEntitySchema, UUIDSchema } from './common.js';
+import { BaseEntitySchema, IDSchema } from './common.js';
 
 // Capability types
 export enum CapabilityType {
@@ -96,7 +96,7 @@ export const CapabilitySchema = BaseEntitySchema.extend({
   metadata: CapabilityMetadataSchema,
   toolConfig: ToolCapabilitySchema.optional(),
   artifactConfig: ArtifactTemplateSchema.optional(),
-  dependencies: z.array(UUIDSchema).optional(),
+  dependencies: z.array(IDSchema).optional(),
   securityRequirements: z.object({
     minimumSecurityLevel: z.enum(['low', 'medium', 'high', 'critical']).default('medium'),
     requiredPermissions: z.array(z.string()),
@@ -133,7 +133,7 @@ export const CapabilityRecommendationSchema = z.object({
   capability: CapabilitySchema,
   relevanceScore: z.number().min(0).max(1),
   reasoning: z.string(),
-  alternatives: z.array(UUIDSchema).optional(),
+  alternatives: z.array(IDSchema).optional(),
   usageExamples: z.array(z.record(z.any())).optional()
 });
 
@@ -150,9 +150,9 @@ export enum CapabilityRelationshipType {
 }
 
 export const CapabilityRelationshipSchema = z.object({
-  id: UUIDSchema,
-  sourceId: UUIDSchema,
-  targetId: UUIDSchema,
+  id: IDSchema,
+  sourceId: IDSchema,
+  targetId: IDSchema,
   type: z.nativeEnum(CapabilityRelationshipType),
   strength: z.number().min(0).max(1).default(1),
   metadata: z.record(z.any()).optional(),
@@ -165,9 +165,9 @@ export type CapabilityRelationship = z.infer<typeof CapabilityRelationshipSchema
 export const DependencyGraphSchema = z.object({
   capabilities: z.array(CapabilitySchema),
   relationships: z.array(CapabilityRelationshipSchema),
-  executionOrder: z.array(UUIDSchema).optional(),
+  executionOrder: z.array(IDSchema).optional(),
   potentialConflicts: z.array(z.object({
-    capabilityIds: z.array(UUIDSchema),
+    capabilityIds: z.array(IDSchema),
     conflictType: z.string(),
     resolution: z.string().optional()
   })).optional()
@@ -180,7 +180,7 @@ export const CapabilitySearchQuerySchema = z.object({
   query: z.string(),
   type: z.nativeEnum(CapabilityType).optional(),
   agentContext: z.object({
-    agentId: z.string(),
+    agentId: IDSchema,
     specializations: z.array(z.string())
   }).optional(),
   securityContext: z.object({

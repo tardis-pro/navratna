@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BaseEntitySchema, UUIDSchema } from './common.js';
+import { BaseEntitySchema, IDSchema } from './common.js';
 import { ExecutionPlanSchema } from './agent.js';
 
 // Operation types - EXTENDED for discussions
@@ -65,10 +65,10 @@ export enum CheckpointType {
 
 // Execution context
 export const ExecutionContextSchema = z.object({
-  agentId: UUIDSchema,
-  userId: UUIDSchema,
-  conversationId: UUIDSchema.optional(),
-  sessionId: UUIDSchema.optional(),
+  agentId: IDSchema,
+  userId: IDSchema,
+  conversationId: IDSchema.optional(),
+  sessionId: IDSchema.optional(),
   environment: z.enum(['development', 'staging', 'production']).default('development'),
   metadata: z.record(z.any()).optional(),
   timeout: z.number().min(0).default(300000), // 5 minutes default
@@ -95,7 +95,7 @@ export type ResourceRequirements = z.infer<typeof ResourceRequirementsSchema>;
 
 // Execution Step (extended from OperationStep)
 export const ExecutionStepSchema = z.object({
-  id: UUIDSchema,
+  id: IDSchema,
   name: z.string(),
   type: z.enum(['tool', 'artifact', 'validation', 'approval', 'delay', 'decision']),
   status: z.nativeEnum(StepStatus).default(StepStatus.PENDING),
@@ -122,7 +122,7 @@ export type ExecutionStep = z.infer<typeof ExecutionStepSchema>;
 
 // Operation step (keeping for backward compatibility)
 export const OperationStepSchema = z.object({
-  id: UUIDSchema,
+  id: IDSchema,
   name: z.string(),
   type: z.enum(['tool', 'artifact', 'validation', 'approval']),
   status: z.nativeEnum(OperationStatus),
@@ -139,8 +139,8 @@ export type OperationStep = z.infer<typeof OperationStepSchema>;
 
 // Step dependency
 export const StepDependencySchema = z.object({
-  stepId: UUIDSchema,
-  dependsOn: z.array(UUIDSchema)
+  stepId: IDSchema,
+  dependsOn: z.array(IDSchema)
 });
 
 export type StepDependency = z.infer<typeof StepDependencySchema>;
@@ -156,8 +156,8 @@ export type ParallelExecutionPolicy = z.infer<typeof ParallelExecutionPolicySche
 
 // Parallel group
 export const ParallelGroupSchema = z.object({
-  id: UUIDSchema,
-  stepIds: z.array(UUIDSchema),
+  id: IDSchema,
+  stepIds: z.array(IDSchema),
   policy: ParallelExecutionPolicySchema
 });
 
@@ -188,11 +188,11 @@ export type FailurePolicy = z.infer<typeof FailurePolicySchema>;
 
 // Operation plan
 export const OperationPlanSchema = z.object({
-  id: UUIDSchema,
+  id: IDSchema,
   type: z.nativeEnum(OperationType),
   description: z.string(),
   steps: z.array(OperationStepSchema),
-  dependencies: z.array(UUIDSchema).optional(),
+  dependencies: z.array(IDSchema).optional(),
   resourceRequirements: ResourceRequirementsSchema,
   estimatedDuration: z.number().min(0),
   riskAssessment: z.object({
@@ -208,7 +208,7 @@ export type OperationPlan = z.infer<typeof OperationPlanSchema>;
 
 // Step result
 export const StepResultSchema = z.object({
-  stepId: UUIDSchema,
+  stepId: IDSchema,
   status: z.nativeEnum(StepStatus),
   data: z.record(z.any()).default({}),
   error: z.string().optional(),
@@ -220,13 +220,13 @@ export type StepResult = z.infer<typeof StepResultSchema>;
 
 // Operation state
 export const OperationStateSchema = z.object({
-  operationId: UUIDSchema,
+  operationId: IDSchema,
   status: z.nativeEnum(OperationStatus).optional(),
-  currentStep: UUIDSchema.optional(),
-  completedSteps: z.array(UUIDSchema).default([]),
-  failedSteps: z.array(UUIDSchema).default([]),
+  currentStep: IDSchema.optional(),
+  completedSteps: z.array(IDSchema).default([]),
+  failedSteps: z.array(IDSchema).default([]),
   variables: z.record(z.any()).default({}),
-  checkpoints: z.array(UUIDSchema).default([]),
+  checkpoints: z.array(IDSchema).default([]),
   startedAt: z.date().optional(),
   completedAt: z.date().optional(),
   lastUpdated: z.date(),
@@ -239,8 +239,8 @@ export type OperationState = z.infer<typeof OperationStateSchema>;
 
 // Workflow instance
 export const WorkflowInstanceSchema = z.object({
-  id: UUIDSchema,
-  operationId: UUIDSchema,
+  id: IDSchema,
+  operationId: IDSchema,
   status: z.nativeEnum(OperationStatus),
   currentStepIndex: z.number().min(0).default(0),
   executionContext: ExecutionContextSchema,
@@ -253,7 +253,7 @@ export type WorkflowInstance = z.infer<typeof WorkflowInstanceSchema>;
 
 // Operation event
 export const OperationEventSchema = z.object({
-  operationId: UUIDSchema,
+  operationId: IDSchema,
   eventType: z.nativeEnum(OperationEventType),
   data: z.record(z.any()),
   timestamp: z.date(),
@@ -264,8 +264,8 @@ export type OperationEvent = z.infer<typeof OperationEventSchema>;
 
 // Checkpoint
 export const CheckpointSchema = z.object({
-  id: UUIDSchema,
-  stepId: UUIDSchema,
+  id: IDSchema,
+  stepId: IDSchema,
   type: z.nativeEnum(CheckpointType),
   data: z.object({
     operationState: OperationStateSchema,
@@ -279,8 +279,8 @@ export type Checkpoint = z.infer<typeof CheckpointSchema>;
 
 // Compensation action
 export const CompensationActionSchema = z.object({
-  id: UUIDSchema,
-  stepId: UUIDSchema,
+  id: IDSchema,
+  stepId: IDSchema,
   action: z.enum(['undo', 'cleanup', 'notify']),
   parameters: z.record(z.any()).optional(),
   timeout: z.number().min(0).default(30000)
@@ -290,9 +290,9 @@ export type CompensationAction = z.infer<typeof CompensationActionSchema>;
 
 // Operation error
 export const OperationErrorSchema = z.object({
-  id: UUIDSchema,
-  operationId: UUIDSchema,
-  stepId: UUIDSchema.optional(),
+  id: IDSchema,
+  operationId: IDSchema,
+  stepId: IDSchema.optional(),
   errorType: z.enum(['validation', 'execution', 'timeout', 'resource', 'system']),
   message: z.string(),
   code: z.string().optional(),
@@ -314,7 +314,7 @@ export type ResourceUsage = z.infer<typeof ResourceUsageSchema>;
 
 // Step metrics
 export const StepMetricsSchema = z.object({
-  stepId: UUIDSchema,
+  stepId: IDSchema,
   executionTime: z.number().min(0),
   resourceUsage: ResourceUsageSchema,
   retryCount: z.number().min(0),
@@ -336,7 +336,7 @@ export type OperationMetrics = z.infer<typeof OperationMetricsSchema>;
 
 // Operation result
 export const OperationResultSchema = z.object({
-  operationId: UUIDSchema,
+  operationId: IDSchema,
   status: z.nativeEnum(OperationStatus),
   result: z.record(z.any()),
   metrics: OperationMetricsSchema,
@@ -350,8 +350,8 @@ export const OperationSchema = BaseEntitySchema.extend({
   type: z.nativeEnum(OperationType),
   status: z.nativeEnum(OperationStatus),
   priority: z.nativeEnum(OperationPriority).default(OperationPriority.MEDIUM),
-  agentId: UUIDSchema,
-  userId: UUIDSchema,
+  agentId: IDSchema,
+  userId: IDSchema,
   plan: OperationPlanSchema,
   context: z.object({
     executionContext: ExecutionContextSchema
@@ -397,7 +397,7 @@ export const ExecuteOperationRequestSchema = z.object({
     }).optional()
   }).optional(),
   approvals: z.array(z.object({
-    approverId: UUIDSchema,
+    approverId: IDSchema,
     approvedAt: z.date(),
     conditions: z.array(z.string()).optional()
   })).optional()
@@ -447,7 +447,7 @@ export type RetryPolicy = z.infer<typeof RetryPolicySchema>;
 
 // Validation step
 export const ValidationStepSchema = z.object({
-  id: UUIDSchema,
+  id: IDSchema,
   name: z.string(),
   type: z.literal('validation'),
   validationRules: z.array(z.object({
@@ -463,7 +463,7 @@ export type ValidationStep = z.infer<typeof ValidationStepSchema>;
 
 // Step execution result
 export const StepExecutionResultSchema = z.object({
-  stepId: UUIDSchema,
+  stepId: IDSchema,
   status: z.nativeEnum(StepStatus),
   data: z.record(z.any()),
   error: z.string().optional(),
@@ -478,10 +478,10 @@ export type StepExecutionResult = z.infer<typeof StepExecutionResultSchema>;
 
 // Discussion operation context
 export const DiscussionOperationContextSchema = ExecutionContextSchema.extend({
-  discussionId: UUIDSchema,
-  participantIds: z.array(UUIDSchema),
+  discussionId: IDSchema,
+  participantIds: z.array(IDSchema),
   turnStrategy: z.string(),
-  moderatorId: UUIDSchema.optional(),
+  moderatorId: IDSchema.optional(),
   discussionSettings: z.record(z.any()).optional()
 });
 
@@ -505,21 +505,21 @@ export enum DiscussionStepType {
 export const DiscussionOperationStepSchema = ExecutionStepSchema.extend({
   type: z.nativeEnum(DiscussionStepType),
   discussionContext: z.object({
-    discussionId: UUIDSchema,
-    participantId: UUIDSchema.optional(),
-    messageId: UUIDSchema.optional(),
+    discussionId: IDSchema,
+    participantId: IDSchema.optional(),
+    messageId: IDSchema.optional(),
     turnNumber: z.number().min(0).optional(),
     expectedOutcome: z.string().optional()
   }).optional(),
   discussionInput: z.object({
     content: z.string().optional(),
     messageType: z.string().optional(),
-    targetParticipants: z.array(UUIDSchema).optional(),
+    targetParticipants: z.array(IDSchema).optional(),
     moderationRules: z.array(z.string()).optional(),
     analysisType: z.string().optional()
   }).optional(),
   discussionOutput: z.object({
-    messageId: UUIDSchema.optional(),
+    messageId: IDSchema.optional(),
     sentimentScore: z.number().min(-1).max(1).optional(),
     consensusLevel: z.number().min(0).max(1).optional(),
     moderationResult: z.object({
@@ -541,10 +541,10 @@ export type DiscussionOperationStep = z.infer<typeof DiscussionOperationStepSche
 export const PersonaIntelligenceOperationSchema = OperationSchema.extend({
   type: z.literal(OperationType.PERSONA_INTELLIGENCE),
   personaContext: z.object({
-    personaId: UUIDSchema,
+    personaId: IDSchema,
     analysisType: z.enum(['compatibility', 'recommendation', 'optimization', 'validation']),
     targetContext: z.string().optional(),
-    comparisonPersonas: z.array(UUIDSchema).optional(),
+    comparisonPersonas: z.array(IDSchema).optional(),
     optimizationGoals: z.array(z.string()).optional()
   }),
   intelligenceResults: z.object({
@@ -575,13 +575,13 @@ export type PersonaIntelligenceOperation = z.infer<typeof PersonaIntelligenceOpe
 export const DiscussionAnalysisOperationSchema = OperationSchema.extend({
   type: z.literal(OperationType.DISCUSSION_ANALYSIS),
   analysisContext: z.object({
-    discussionId: UUIDSchema,
+    discussionId: IDSchema,
     analysisType: z.enum(['sentiment', 'engagement', 'consensus', 'quality', 'comprehensive']),
     timeframe: z.object({
       start: z.date(),
       end: z.date()
     }).optional(),
-    participants: z.array(UUIDSchema).optional(),
+    participants: z.array(IDSchema).optional(),
     metrics: z.array(z.string()).optional()
   }),
   analysisResults: z.object({
@@ -624,15 +624,15 @@ export type DiscussionAnalysisOperation = z.infer<typeof DiscussionAnalysisOpera
 export const TurnManagementOperationSchema = OperationSchema.extend({
   type: z.literal(OperationType.TURN_MANAGEMENT),
   turnContext: z.object({
-    discussionId: UUIDSchema,
-    currentParticipantId: UUIDSchema.optional(),
+    discussionId: IDSchema,
+    currentParticipantId: IDSchema.optional(),
     turnStrategy: z.string(),
     turnNumber: z.number().min(0),
     expectedDuration: z.number().min(0).optional(),
     turnRules: z.array(z.string()).optional()
   }),
   turnDecision: z.object({
-    nextParticipantId: UUIDSchema.optional(),
+    nextParticipantId: IDSchema.optional(),
     turnDuration: z.number().min(0).optional(),
     skipReason: z.string().optional(),
     moderationRequired: z.boolean().default(false),
@@ -646,11 +646,11 @@ export type TurnManagementOperation = z.infer<typeof TurnManagementOperationSche
 export const ConsensusBuildingOperationSchema = OperationSchema.extend({
   type: z.literal(OperationType.CONSENSUS_BUILDING),
   consensusContext: z.object({
-    discussionId: UUIDSchema,
+    discussionId: IDSchema,
     topic: z.string(),
-    participants: z.array(UUIDSchema),
-    currentPositions: z.array(z.object({
-      participantId: UUIDSchema,
+    participants: z.array(IDSchema),
+          currentPositions: z.array(z.object({
+        participantId: IDSchema,
       position: z.string(),
       confidence: z.number().min(0).max(1),
       reasoning: z.string().optional()
@@ -681,7 +681,7 @@ export type ConsensusBuildingOperation = z.infer<typeof ConsensusBuildingOperati
 export const DiscussionOrchestrationOperationSchema = OperationSchema.extend({
   type: z.literal(OperationType.DISCUSSION_ORCHESTRATION),
   orchestrationContext: z.object({
-    discussionId: UUIDSchema,
+    discussionId: IDSchema,
     orchestrationMode: z.enum(['automatic', 'semi_automatic', 'manual']),
     objectives: z.array(z.string()),
     constraints: z.array(z.string()),
@@ -729,8 +729,8 @@ export type DiscussionOperation =
 export const createDiscussionOperation = (
   type: OperationType,
   context: any,
-  agentId: string,
-  userId: string
+  agentId: number,
+  userId: number
 ): any => {
   const baseOperation = {
     status: OperationStatus.PENDING,

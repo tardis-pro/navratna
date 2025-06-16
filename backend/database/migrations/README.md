@@ -132,3 +132,92 @@ These migrations require:
 - The migrations are wrapped in transactions for atomicity
 - Existing data is preserved during the migrations
 - New columns are nullable to accommodate existing records 
+
+private async createForeignKeys(queryRunner: QueryRunner): Promise<void> {
+    // Agent Capability Metrics foreign keys
+    await queryRunner.createForeignKey('agent_capability_metrics', new ForeignKey({
+      columnNames: ['agent_id'],
+      referencedTableName: 'agents',
+      referencedColumnNames: ['id'],
+      onDelete: 'CASCADE',
+    }));
+
+    // Tool Usage Records foreign keys
+    await queryRunner.createForeignKey('tool_usage_records', new ForeignKey({
+      columnNames: ['agent_id'],
+      referencedTableName: 'agents',
+      referencedColumnNames: ['id'],
+      onDelete: 'CASCADE',
+    }));
+
+    await queryRunner.createForeignKey('tool_usage_records', new ForeignKey({
+      columnNames: ['tool_id'],
+      referencedTableName: 'tool_definitions',
+      referencedColumnNames: ['id'],
+      onDelete: 'CASCADE',
+    }));
+
+    // Conversation Contexts foreign keys
+    await queryRunner.createForeignKey('conversation_contexts', new ForeignKey({
+      columnNames: ['agent_id'],
+      referencedTableName: 'agents',
+      referencedColumnNames: ['id'],
+      onDelete: 'CASCADE',
+    }));
+
+    // Operation States foreign keys
+    await queryRunner.createForeignKey('operation_states', new ForeignKey({
+      columnNames: ['operation_id'],
+      referencedTableName: 'operations',
+      referencedColumnNames: ['id'],
+      onDelete: 'CASCADE',
+    }));
+
+    // Operation Checkpoints foreign keys
+    await queryRunner.createForeignKey('operation_checkpoints', new ForeignKey({
+      columnNames: ['operation_id'],
+      referencedTableName: 'operations',
+      referencedColumnNames: ['id'],
+      onDelete: 'CASCADE',
+    }));
+
+    // Step Results foreign keys
+    await queryRunner.createForeignKey('step_results', new ForeignKey({
+      columnNames: ['operation_id'],
+      referencedTableName: 'operations',
+      referencedColumnNames: ['id'],
+      onDelete: 'CASCADE',
+    }));
+
+    // Approval Workflows foreign keys
+    await queryRunner.createForeignKey('approval_workflows', new ForeignKey({
+      columnNames: ['operation_id'],
+      referencedTableName: 'operations',
+      referencedColumnNames: ['id'],
+      onDelete: 'CASCADE',
+    }));
+
+    // Artifact Deployments foreign keys
+    await queryRunner.createForeignKey('artifact_deployments', new ForeignKey({
+      columnNames: ['artifact_id'],
+      referencedTableName: 'artifacts',
+      referencedColumnNames: ['id'],
+      onDelete: 'CASCADE',
+    }));
+
+    // Discussion Participants foreign keys
+    await queryRunner.createForeignKey('discussion_participants', new ForeignKey({
+      columnNames: ['persona_id'],
+      referencedTableName: 'personas',
+      referencedColumnNames: ['id'],
+      onDelete: 'CASCADE',
+    }));
+
+    // Persona Analytics foreign keys
+    await queryRunner.createForeignKey('persona_analytics', new ForeignKey({
+      columnNames: ['persona_id'],
+      referencedTableName: 'personas',
+      referencedColumnNames: ['id'],
+      onDelete: 'CASCADE',
+    }));
+  }

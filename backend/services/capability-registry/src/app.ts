@@ -9,6 +9,7 @@ import { errorHandler, rateLimiter, metricsMiddleware } from '@uaip/middleware';
 import { DatabaseService, EventBusService } from '@uaip/shared-services';
 import { config } from './config/index.js';
 import { capabilityRoutes } from './routes/capabilityRoutes.js';
+import { toolRoutes } from './routes/toolRoutes.js';
 import { healthRoutes } from './routes/healthRoutes.js';
 
 export class CapabilityRegistryApp {
@@ -56,11 +57,25 @@ export class CapabilityRegistryApp {
   }
 
   private setupRoutes(): void {
+    // Add debugging middleware
+    this.app.use((req, res, next) => {
+      logger.info(`Incoming request: ${req.method} ${req.url} - Path: ${req.path}`);
+      next();
+    });
+
     // Health check routes
     this.app.use('/health', healthRoutes);
     
     // API routes
     this.app.use('/api/v1/capabilities', capabilityRoutes);
+    
+    // Mount tool routes with explicit debugging
+    this.app.use('/api/v1/tools', (req, res, next) => {
+      logger.info(`Before tool routes: ${req.method} ${req.originalUrl} - Path: ${req.path}, BaseUrl: ${req.baseUrl}`);
+      next();
+    });
+    
+    this.app.use('/api/v1/tools', toolRoutes);
 
     // 404 handler
     this.app.use('*', (req, res) => {

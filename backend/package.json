@@ -10,7 +10,8 @@
     "build-shared": "pnpm exec tsc -b tsconfig.build_shared.json ",
     "dev": "pnpm -r run dev",
     "dev:agent": "concurrently \"pnpm exec tsc -b tsconfig.build_shared.json --watch\" \"cd services/agent-intelligence && pnpm run dev\"",
-    "dev:security-gateway": "concurrently \"pnpm exec tsc -b tsconfig.build_shared.json --watch\" \"cd services/security-gateway && pnpm run dev\"",
+    "dev:sec": "concurrently \"pnpm exec tsc -b tsconfig.build_shared.json\" \"cd services/security-gateway && pnpm run dev\"",
+    "dev:cap": "concurrently \"pnpm exec tsc -b tsconfig.build_shared.json --watch\" \"cd services/capability-registry && pnpm run dev\"",
     "dev:artifact-service": "concurrently \"pnpm exec tsc -b tsconfig.build_shared.json --watch\" \"cd services/artifact-service && pnpm run dev\"",
     "lint": "pnpm -r exec eslint .",
     "lint:fix": "pnpm -r exec eslint . --fix"

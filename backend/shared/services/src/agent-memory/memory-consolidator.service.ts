@@ -10,7 +10,7 @@ export class MemoryConsolidator {
     private readonly semanticMemoryManager: SemanticMemoryManager
   ) {}
 
-  async consolidateMemories(agentId: string): Promise<ConsolidationResult> {
+  async consolidateMemories(agentId: number): Promise<ConsolidationResult> {
     try {
       const workingMemory = await this.workingMemoryManager.getWorkingMemory(agentId);
       
@@ -53,7 +53,7 @@ export class MemoryConsolidator {
     }
   }
 
-  private async consolidateInteractionsToEpisodes(agentId: string, workingMemory: WorkingMemory): Promise<{
+  private async consolidateInteractionsToEpisodes(agentId: number, workingMemory: WorkingMemory): Promise<{
     episodesCreated: number;
     connectionsFormed: number;
   }> {
@@ -88,7 +88,7 @@ export class MemoryConsolidator {
     return { episodesCreated, connectionsFormed };
   }
 
-  private async consolidateWorkingMemoryToConcepts(agentId: string, workingMemory: WorkingMemory): Promise<{
+  private async consolidateWorkingMemoryToConcepts(agentId: number, workingMemory: WorkingMemory): Promise<{
     conceptsLearned: number;
     connectionsFormed: number;
   }> {
@@ -207,7 +207,7 @@ export class MemoryConsolidator {
     return groups;
   }
 
-  private createEpisodeFromInteractions(agentId: string, interactions: any[], workingMemory: WorkingMemory): Episode {
+  private createEpisodeFromInteractions(agentId: number, interactions: any[], workingMemory: WorkingMemory): Episode {
     const firstInteraction = interactions[0];
     const lastInteraction = interactions[interactions.length - 1];
     
@@ -333,7 +333,7 @@ export class MemoryConsolidator {
     return concepts;
   }
 
-  private async cleanupWorkingMemory(agentId: string, workingMemory: WorkingMemory): Promise<void> {
+  private async cleanupWorkingMemory(agentId: number, workingMemory: WorkingMemory): Promise<void> {
     // Clear temporary learnings that have been consolidated
     workingMemory.shortTermMemory.temporaryLearnings = [];
     

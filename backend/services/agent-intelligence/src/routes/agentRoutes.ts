@@ -2,11 +2,10 @@ import { Router } from 'express';
 import { AgentController } from '../controllers/agentController.js';
 import { 
   validateRequest, 
-  validateUUID, 
   authMiddleware,
   AgentValidationMiddleware 
 } from '@uaip/middleware';
-import { AgentAnalysisSchema, AgentSchema, AgentUpdateSchema, AgentCreateRequestSchema } from '@uaip/types';
+import { AgentAnalysisSchema } from '@uaip/types';
 import { AgentPlanRequestSchema } from '@uaip/types';
 
 const router: Router = Router();
@@ -32,7 +31,6 @@ router.get(
 // POST /api/v1/agents/:agentId/analyze
 router.post(
   '/:agentId/analyze',
-  validateUUID('agentId'),
   validateRequest({ body: AgentAnalysisSchema }),
   agentController.analyzeContext.bind(agentController)
 );
@@ -40,7 +38,6 @@ router.post(
 // POST /api/v1/agents/:agentId/plan
 router.post(
   '/:agentId/plan',
-  validateUUID('agentId'),
   validateRequest({ body: AgentPlanRequestSchema }),
   agentController.generatePlan.bind(agentController)
 );
@@ -48,14 +45,12 @@ router.post(
 // GET /api/v1/agents/:agentId
 router.get(
   '/:agentId',
-  validateUUID('agentId'),
   agentController.getAgent.bind(agentController)
 );
 
 // PUT /api/v1/agents/:agentId - Enhanced with update validation
 router.put(
   '/:agentId',
-  validateUUID('agentId'),
   AgentValidationMiddleware.validateAgentUpdate,
   agentController.updateAgent.bind(agentController)
 );
@@ -63,21 +58,18 @@ router.put(
 // DELETE /api/v1/agents/:agentId
 router.delete(
   '/:agentId',
-  validateUUID('agentId'),
   agentController.deleteAgent.bind(agentController)
 );
 
 // GET /api/v1/agents/:agentId/capabilities
 router.get(
   '/:agentId/capabilities',
-  validateUUID('agentId'),
   agentController.getAgentCapabilities.bind(agentController)
 );
 
 // POST /api/v1/agents/:agentId/learn
 router.post(
   '/:agentId/learn',
-  validateUUID('agentId'),
   agentController.learnFromOperation.bind(agentController)
 );
 

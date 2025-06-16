@@ -28,7 +28,6 @@ import {
   KnowledgeItem
 } from '@uaip/types';
 import { logger, ApiError } from '@uaip/utils';
-import { v4 as uuidv4, validate as isValidUUID } from 'uuid';
 
 export class EnhancedAgentIntelligenceService {
   private databaseService: DatabaseService;
@@ -122,12 +121,14 @@ export class EnhancedAgentIntelligenceService {
   }
 
   /**
-   * Validate UUID parameter
+   * Validate numeric ID parameter
    */
-  private validateUUIDParam(value: string, paramName: string): void {
-    if (!isValidUUID(value)) {
-      throw new ApiError(400, `Invalid ${paramName}: must be a valid UUID`, 'INVALID_UUID');
+  private validateIDParam(value: string | number, paramName: string): number {
+    const numericId = typeof value === 'string' ? parseInt(value, 10) : value;
+    if (!Number.isInteger(numericId) || numericId <= 0) {
+      throw new ApiError(400, `Invalid ${paramName}: must be a positive integer`, 'INVALID_ID');
     }
+    return numericId;
   }
 
   // ===== BASIC AGENT CRUD OPERATIONS =====
@@ -144,14 +145,12 @@ export class EnhancedAgentIntelligenceService {
     try {
       logger.info('Creating new agent with enhanced capabilities', { name: agentData.name });
 
-      // Handle ID validation and generation
-      let agentId: string;
+      // Handle ID validation - no longer generate UUIDs, let database auto-increment
+      let agentId: number | undefined;
       if (agentData.id) {
-        this.validateUUIDParam(agentData.id, 'agentId');
-        agentId = agentData.id;
-      } else {
-        agentId = uuidv4();
+        agentId = this.validateIDParam(agentData.id, 'agentId');
       }
+      // If no ID provided, let database auto-generate
 
       const intelligenceConfig = agentData.intelligenceConfig || 
                                 agentData.intelligence_config || 
@@ -166,14 +165,14 @@ export class EnhancedAgentIntelligenceService {
       let createdBy = agentData.createdBy || agentData.created_by;
       
       if (createdBy) {
-        this.validateUUIDParam(createdBy, 'createdBy');
+        createdBy = this.validateIDParam(createdBy, 'createdBy');
       } else {
         createdBy = null;
       }
 
       // Prepare data for DatabaseService
       const createPayload = {
-        id: agentId,
+        ...(agentId && { id: agentId }), // Keep as number - repository needs to be fixed
         name: agentData.name,
         role: role,
         persona: agentData.persona || {},
@@ -208,16 +207,16 @@ export class EnhancedAgentIntelligenceService {
   /**
    * Get an agent by ID
    */
-  async getAgent(agentId: string): Promise<Agent | null> {
+  async getAgent(agentId: number | number): Promise<Agent | null> {
     if (!this.isInitialized) {
       await this.initialize();
     }
     
     try {
-      this.validateUUIDParam(agentId, 'agentId');
+      const validatedId = this.validateIDParam(agentId, 'agentId');
 
       // Use DatabaseService getActiveAgentById method instead of raw SQL
-      const agent = await this.databaseService.getActiveAgentById(agentId);
+      const agent = await this.databaseService.getActiveAgentById(validatedId);
       
       return agent;
     } catch (error) {
@@ -250,13 +249,13 @@ export class EnhancedAgentIntelligenceService {
   /**
    * Update an agent
    */
-  async updateAgent(agentId: string, updateData: any): Promise<Agent | null> {
+  async updateAgent(agentId: number | number, updateData: any): Promise<Agent | null> {
     if (!this.isInitialized) {
       await this.initialize();
     }
     
     try {
-      this.validateUUIDParam(agentId, 'agentId');
+      const validatedId = this.validateIDParam(agentId, 'agentId');
 
       // Prepare update data for DatabaseService
       const updatePayload: any = {};
@@ -275,7 +274,7 @@ export class EnhancedAgentIntelligenceService {
       }
 
       // Use DatabaseService updateAgent method instead of raw SQL
-      const updatedAgent = await this.databaseService.updateAgent(agentId, updatePayload);
+      const updatedAgent = await this.databaseService.updateAgent(validatedId, updatePayload);
       
       if (!updatedAgent) {
         return null;
@@ -296,24 +295,24 @@ export class EnhancedAgentIntelligenceService {
   /**
    * Delete an agent (soft delete)
    */
-  async deleteAgent(agentId: string): Promise<void> {
+  async deleteAgent(agentId: number | number): Promise<void> {
     if (!this.isInitialized) {
       await this.initialize();
     }
     
     try {
-      this.validateUUIDParam(agentId, 'agentId');
+      const validatedId = this.validateIDParam(agentId, 'agentId');
 
       // Use DatabaseService method instead of raw SQL
-      const wasDeactivated = await this.databaseService.deactivateAgent(agentId);
+      const wasDeactivated = await this.databaseService.deactivateAgent(validatedId);
       
       if (!wasDeactivated) {
         throw new ApiError(404, 'Agent not found', 'AGENT_NOT_FOUND');
       }
 
-      await this.safePublishEvent('agent.deleted', { agentId });
+      await this.safePublishEvent('agent.deleted', { agentId: validatedId });
 
-      logger.info('Agent deleted successfully', { agentId });
+      logger.info('Agent deleted successfully', { agentId: validatedId });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Error deleting agent', { agentId, error: errorMessage });
@@ -437,7 +436,7 @@ export class EnhancedAgentIntelligenceService {
       const planningKnowledge = this.knowledgeGraph ? 
         await this.searchRelevantKnowledge(
           agent.id, 
-          `execution planning ${analysis.intent?.primary}`,
+          `execution planning ${analysis?.intent?.primary}`,
           analysis
         ) : [];
 
@@ -502,8 +501,8 @@ export class EnhancedAgentIntelligenceService {
    * Enhanced learning from operations with knowledge graph updates
    */
   async learnFromOperation(
-    agentId: string,
-    operationId: string,
+    agentId: number | number,
+    operationId: string | number,
     outcomes: any,
     feedback: any
   ): Promise<LearningResult> {
@@ -512,12 +511,12 @@ export class EnhancedAgentIntelligenceService {
     }
     
     try {
-      this.validateUUIDParam(agentId, 'agentId');
-      this.validateUUIDParam(operationId, 'operationId');
+      const validatedAgentId = this.validateIDParam(agentId, 'agentId');
+      const validatedOperationId = this.validateIDParam(operationId, 'operationId');
 
       // Get operation details
-      const operation = await this.getOperation(operationId);
-      if (!operation || operation.agent_id !== agentId) {
+      const operation = await this.getOperation(validatedOperationId);
+      if (!operation || operation.agent_id !== validatedAgentId) {
         throw new ApiError(404, 'Operation not found', 'OPERATION_NOT_FOUND');
       }
 
@@ -525,13 +524,13 @@ export class EnhancedAgentIntelligenceService {
       const learningData = await this.extractEnhancedLearning(operation, outcomes, feedback);
       
       // Update knowledge graph with new insights
-      await this.updateKnowledgeGraph(agentId, learningData);
+      await this.updateKnowledgeGraph(validatedAgentId, learningData);
       
       // Store learning as episodic memory
-      await this.storeOperationEpisode(agentId, operationId, operation, outcomes, feedback, learningData);
+      await this.storeOperationEpisode(validatedAgentId, validatedOperationId, operation, outcomes, feedback, learningData);
       
       // Update semantic memory
-      await this.updateSemanticMemoryFromOperation(agentId, learningData);
+      await this.updateSemanticMemoryFromOperation(validatedAgentId, learningData);
       
       // Calculate enhanced confidence adjustments
       const confidenceAdjustments = this.calculateEnhancedConfidenceAdjustments(
@@ -542,7 +541,7 @@ export class EnhancedAgentIntelligenceService {
       );
 
       // Store enhanced learning record
-      await this.storeEnhancedLearningRecord(agentId, operationId, learningData, confidenceAdjustments);
+      await this.storeEnhancedLearningRecord(validatedAgentId, validatedOperationId, learningData, confidenceAdjustments);
 
       const result: LearningResult = {
         learningApplied: true,
@@ -552,8 +551,8 @@ export class EnhancedAgentIntelligenceService {
       };
 
       await this.safePublishEvent('agent.learning.applied', {
-        agentId,
-        operationId,
+        agentId: validatedAgentId,
+        operationId: validatedOperationId,
         learningData: result,
         knowledgeUpdated: true
       });
@@ -572,7 +571,7 @@ export class EnhancedAgentIntelligenceService {
   /**
    * Initialize an agent with Knowledge Graph and Memory capabilities
    */
-  async initializeAgent(agentId: string, personaId: string): Promise<AgentState> {
+  async initializeAgent(agentId: number, personaId: number): Promise<AgentState> {
     try {
       // Initialize working memory
       const sessionId = `session-${Date.now()}`;
@@ -624,7 +623,7 @@ Personality Traits: ${JSON.stringify(persona.traits)}`,
   /**
    * Process agent input with knowledge-enhanced reasoning
    */
-  async processAgentInput(agentId: string, input: {
+  async processAgentInput(agentId: number, input: {
     message: string;
     context?: any;
     discussionId?: string;
@@ -683,7 +682,7 @@ Personality Traits: ${JSON.stringify(persona.traits)}`,
   /**
    * Handle agent participation in discussions with knowledge enhancement
    */
-  async participateInDiscussion(agentId: string, discussionId: string, message: string): Promise<{
+  async participateInDiscussion(agentId: number, discussionId: number, message: string): Promise<{
     response: string;
     confidence: number;
     knowledgeContributed: boolean;
@@ -702,7 +701,7 @@ Personality Traits: ${JSON.stringify(persona.traits)}`,
       const context: ContextRequest = {
         discussionHistory: discussionMessages?.messages?.slice(-10) || [],
         relevantTags: [discussion.topic, ...discussion.tags],
-        participantExpertise: discussion.participants.map(p => p.agentId).filter(Boolean)
+        participantExpertise: discussion.participants.map(p => p.agentId).filter(Boolean).map(id => id)
       };
 
       // Get contextual knowledge
@@ -733,7 +732,7 @@ Personality Traits: ${JSON.stringify(persona.traits)}`,
       // Store discussion participation as an episode
       const episode: Episode = {
         agentId,
-        episodeId: `discussion-${discussionId}-${Date.now()}`,
+        episodeId: Date.now() + discussionId,
         type: 'discussion',
         context: {
           when: new Date(),
@@ -753,7 +752,7 @@ Personality Traits: ${JSON.stringify(persona.traits)}`,
           }],
           decisions: [] as any[],
           outcomes: [{
-            id: `outcome-${Date.now()}`,
+            id: Date.now(),
             description: 'Contributed to discussion',
             type: 'communication',
             success: true,
@@ -798,7 +797,7 @@ Personality Traits: ${JSON.stringify(persona.traits)}`,
   /**
    * Learn from agent interactions and update knowledge
    */
-  async learnFromInteraction(agentId: string, interaction: AgentInteraction): Promise<void> {
+  async learnFromInteraction(agentId: number, interaction: AgentInteraction): Promise<void> {
     try {
       // Extract learnings from the interaction
       const learnings = this.extractLearnings(interaction);
@@ -866,7 +865,7 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
   /**
    * Get agent performance metrics enhanced with knowledge analytics
    */
-  async getAgentMetrics(agentId: string, timeRange: { start: Date; end: Date }): Promise<AgentMetrics & {
+  async getAgentMetrics(agentId: number, timeRange: { start: Date; end: Date }): Promise<AgentMetrics & {
     knowledgeStats: {
       totalKnowledgeItems: number;
       knowledgeByType: Record<string, number>;
@@ -1174,7 +1173,7 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
     return dependencies;
   }
 
-  private async estimateEnhancedDuration(steps: any[], dependencies: any[], agentId: string): Promise<number> {
+  private async estimateEnhancedDuration(steps: any[], dependencies: any[], agentId: number): Promise<number> {
     // Get historical performance data for this agent
     const baseDuration = steps.reduce((sum, step) => sum + step.estimatedDuration, 0);
     
@@ -1247,7 +1246,7 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
     };
   }
 
-  private async updateKnowledgeGraph(agentId: string, learningData: any): Promise<void> {
+  private async updateKnowledgeGraph(agentId: number, learningData: any): Promise<void> {
     // Update knowledge graph with new learning insights
     if (this.knowledgeGraph && learningData.enhancedInsights?.length > 0) {
       await this.knowledgeGraph.ingest(learningData.enhancedInsights.map((insight: string) => ({
@@ -1264,7 +1263,7 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
     }
   }
 
-  private async storeOperationEpisode(agentId: string, operationId: string, operation: any, outcomes: any, feedback: any, learningData: any): Promise<void> {
+  private async storeOperationEpisode(agentId: number, operationId: string, operation: any, outcomes: any, feedback: any, learningData: any): Promise<void> {
     // Store operation as episodic memory
     if (this.agentMemory) {
       const episode: Episode = {
@@ -1317,7 +1316,7 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
     }
   }
 
-  private async updateSemanticMemoryFromOperation(agentId: string, learningData: any): Promise<void> {
+  private async updateSemanticMemoryFromOperation(agentId: number, learningData: any): Promise<void> {
     // Update semantic memory with operation learnings
     if (this.agentMemory && learningData.newKnowledge?.length > 0) {
       for (const knowledge of learningData.newKnowledge) {
@@ -1360,17 +1359,17 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
     };
   }
 
-  private async storeEnhancedLearningRecord(agentId: string, operationId: string, learningData: any, confidenceAdjustments: any): Promise<void> {
+  private async storeEnhancedLearningRecord(agentId: number, operationId: number, learningData: any, confidenceAdjustments: any): Promise<void> {
     // Use DatabaseService storeEnhancedLearningRecord method instead of raw SQL
     await this.databaseService.storeEnhancedLearningRecord({
-      agentId,
-      operationId,
+      agentId: agentid,
+      operationId: operationid,
       learningData,
       confidenceAdjustments
     });
   }
 
-  private async storeAnalysisKnowledge(agentId: string, userRequest: string, analysis: AgentAnalysis): Promise<void> {
+  private async storeAnalysisKnowledge(agentId: number, userRequest: string, analysis: AgentAnalysis): Promise<void> {
     if (this.knowledgeGraph) {
       await this.knowledgeGraph.ingest([{
         content: `Context Analysis: ${userRequest}
@@ -1389,7 +1388,7 @@ Actions: ${analysis.recommendedActions?.map(a => a.type).join(', ')}`,
     }
   }
 
-  private async storePlanKnowledge(agentId: string, plan: ExecutionPlan, analysis: any): Promise<void> {
+  private async storePlanKnowledge(agentId: number, plan: ExecutionPlan, analysis: any): Promise<void> {
     if (this.knowledgeGraph) {
       await this.knowledgeGraph.ingest([{
         content: `Execution Plan: ${plan.type}
@@ -1455,7 +1454,7 @@ Based on Analysis: ${analysis.intent?.primary}`,
 
   // Private helper methods
 
-  private async searchRelevantKnowledge(agentId: string, query: string, context?: any): Promise<KnowledgeItem[]> {
+  private async searchRelevantKnowledge(agentId: number, query: string, context?: any): Promise<KnowledgeItem[]> {
     if (!this.knowledgeGraph) {
       return [];
     }
@@ -1531,7 +1530,7 @@ Based on Analysis: ${analysis.intent?.primary}`,
     message: string, 
     discussion: any, 
     knowledge: KnowledgeItem[],
-    agentId: string
+    agentId: number
   ): Promise<string> {
     // Generate contextual response for discussion
     let response = `Regarding the discussion on ${discussion.topic}, `;
@@ -1546,7 +1545,7 @@ Based on Analysis: ${analysis.intent?.primary}`,
   }
 
   private async storeInteractionKnowledge(
-    agentId: string, 
+    agentId: number, 
     input: any, 
     response: string, 
     reasoning: string[]

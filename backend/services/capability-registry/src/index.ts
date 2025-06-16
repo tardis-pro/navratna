@@ -8,28 +8,39 @@ import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
 import { config } from './config/config.js';
-import { ToolDatabase, ToolGraphDatabase, TypeOrmService } from '@uaip/shared-services';
+import {  ToolGraphDatabase, TypeOrmService, DatabaseService, EventBusService } from '@uaip/shared-services';
 import { ToolRegistry } from './services/toolRegistry.js';
 import { ToolExecutor } from './services/toolExecutor.js';
 import { BaseToolExecutor } from './services/baseToolExecutor.js';
 import { ToolController } from './controllers/toolController.js';
+import { CapabilityController } from './controllers/capabilityController.js';
 import { createToolRoutes } from './routes/toolRoutes.js';
+import { createCapabilityRoutes } from './routes/capabilityRoutes.js';
+import { healthRoutes } from './routes/healthRoutes.js';
 import { logger } from '@uaip/utils';
-import { errorHandler, metricsMiddleware, metricsEndpoint } from '@uaip/middleware';
+import { errorHandler, metricsMiddleware, metricsEndpoint, rateLimiter } from '@uaip/middleware';
 
 class CapabilityRegistryService {
   private app: express.Application;
-  private postgresql: ToolDatabase;
+  private postgresql: DatabaseService;
   private neo4j: ToolGraphDatabase;
   private typeormService: TypeOrmService;
+  private databaseService: DatabaseService;
+  private eventBusService: EventBusService;
   private toolRegistry: ToolRegistry;
   private toolExecutor: ToolExecutor;
   private baseExecutor: BaseToolExecutor;
   private toolController: ToolController;
+  private capabilityController: CapabilityController;
 
   constructor() {
     this.app = express();
     this.typeormService = TypeOrmService.getInstance();
+    this.databaseService = new DatabaseService();
+    this.eventBusService = new EventBusService({
+      url: process.env.RABBITMQ_URL || 'amqp://localhost',
+      serviceName: 'capability-registry'
+    }, logger as any);
     this.setupMiddleware();
   }
 
@@ -66,6 +77,9 @@ class CapabilityRegistryService {
       }
     }));
 
+    // Rate limiting
+    this.app.use(rateLimiter);
+
     // Metrics middleware
     this.app.use(metricsMiddleware);
 
@@ -85,6 +99,18 @@ class CapabilityRegistryService {
       // Initialize TypeORM first
       await this.typeormService.initialize();
       logger.info('TypeORM service initialized');
+
+      // Initialize DatabaseService
+      await this.databaseService.initialize();
+      logger.info('DatabaseService initialized successfully');
+
+      // Test database connection using health check
+      const healthCheck = await this.databaseService.healthCheck();
+      if (healthCheck.status === 'healthy') {
+        logger.info('Database connection verified');
+      } else {
+        throw new Error('Database health check failed');
+      }
 
       // Initialize databases
       await this.initializeDatabases();
@@ -109,13 +135,20 @@ class CapabilityRegistryService {
     logger.info('Initializing databases...');
 
     // Initialize PostgreSQL
-    this.postgresql = new ToolDatabase(config.database.postgres);
+    this.postgresql = new DatabaseService();
+    await this.postgresql.initialize();
     logger.info('PostgreSQL database initialized');
 
-    // Initialize Neo4j
+    // Initialize Neo4j with fallback
     this.neo4j = new ToolGraphDatabase(config.database.neo4j);
-    await this.neo4j.verifyConnectivity();
-    logger.info('Neo4j database initialized');
+    try {
+      await this.neo4j.verifyConnectivity();
+      logger.info('Neo4j database initialized');
+    } catch (error) {
+      logger.warn('Neo4j initialization failed, continuing with degraded functionality:', error.message);
+      logger.warn('Graph-based features (recommendations, relationships) will be unavailable');
+      // Don't throw - allow service to start without Neo4j
+    }
   }
 
   private async initializeServices(): Promise<void> {
@@ -136,8 +169,9 @@ class CapabilityRegistryService {
       this.typeormService
     );
 
-    // Initialize controller
+    // Initialize controllers
     this.toolController = new ToolController(this.toolRegistry, this.toolExecutor);
+    this.capabilityController = new CapabilityController(this.databaseService);
 
     logger.info('Services initialized successfully');
   }
@@ -150,11 +184,28 @@ class CapabilityRegistryService {
 
     // Health check endpoint
     this.app.get('/health', (req, res) => {
+      const neo4jConnectionStatus = this.neo4j?.getConnectionStatus();
+      const neo4jStatus = neo4jConnectionStatus?.isConnected ? 'connected' : 'disconnected';
+      
       res.json({
         status: 'healthy',
         service: 'capability-registry',
         timestamp: new Date().toISOString(),
-        version: process.env.VERSION || '1.0.0'
+        version: process.env.VERSION || '1.0.0',
+        databases: {
+          postgresql: 'connected', // Assuming PostgreSQL is working if we got this far
+          neo4j: {
+            status: neo4jStatus,
+            database: neo4jConnectionStatus?.database || 'unknown',
+            retries: neo4jConnectionStatus?.retries || 0
+          }
+        },
+        features: {
+          toolManagement: 'available',
+          toolExecution: 'available',
+          graphRelationships: neo4jStatus === 'connected' ? 'available' : 'degraded',
+          recommendations: neo4jStatus === 'connected' ? 'available' : 'degraded'
+        }
       });
     });
 
@@ -178,7 +229,14 @@ class CapabilityRegistryService {
 
     // API routes
     const toolRoutes = createToolRoutes(this.toolController);
-    this.app.use('/api/v1', toolRoutes);
+    this.app.use('/api/v1/tools', toolRoutes);
+    
+    // Capability routes
+    // const capabilityRoutes = createCapabilityRoutes(this.capabilityController);
+    // this.app.use('/api/v1/capabilities', capabilityRoutes);
+    
+    // Health routes
+    this.app.use('/api/v1/health', healthRoutes);
 
     // 404 handler
     this.app.use('*', (req, res) => {
@@ -271,6 +329,18 @@ class CapabilityRegistryService {
       if (this.neo4j) {
         await this.neo4j.close();
         logger.info('Neo4j connection closed');
+      }
+
+      // Close DatabaseService
+      if (this.databaseService) {
+        await this.databaseService.close();
+        logger.info('DatabaseService connection closed');
+      }
+
+      // Close EventBusService
+      if (this.eventBusService) {
+        await this.eventBusService.close();
+        logger.info('EventBusService connection closed');
       }
 
       // Close TypeORM connection

@@ -15,7 +15,6 @@ import { PRDGenerator } from './generators/PRDGenerator.js';
 import { TemplateManager } from './templates/TemplateManager.js';
 import { ArtifactValidator } from './validation/ArtifactValidator.js';
 import { logger } from '@uaip/utils';
-import { v4 as uuidv4 } from 'uuid';
 
 export class ArtifactService implements IArtifactService {
   private generators: Map<string, any> = new Map();
@@ -78,7 +77,7 @@ export class ArtifactService implements IArtifactService {
 
       // Create artifact
       const artifact: GeneratedArtifact = {
-        id: uuidv4(),
+        id: Date.now(), // Use timestamp as simple numeric ID
         type: request.type,
         content,
         metadata,

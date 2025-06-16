@@ -1,4 +1,5 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
+import { BaseEntity } from './base.entity.js';
 import { UserEntity } from './user.entity.js';
 
 @Entity('refresh_tokens')
@@ -6,12 +7,9 @@ import { UserEntity } from './user.entity.js';
 @Index(['userId'])
 @Index(['expiresAt'])
 @Index(['revokedAt'])
-export class RefreshTokenEntity {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string;
-
-  @Column({ type: 'uuid', name: 'user_id' })
-  userId!: string;
+export class RefreshTokenEntity extends BaseEntity {
+  @Column({ type: 'bigint', name: 'user_id' })
+  userId!: number;
 
   @Column({ type: 'varchar', length: 500, unique: true })
   token!: string;
@@ -21,12 +19,6 @@ export class RefreshTokenEntity {
 
   @Column({ type: 'timestamp', name: 'revoked_at', nullable: true })
   revokedAt?: Date;
-
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt!: Date;
-
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt!: Date;
 
   // Relations
   @ManyToOne(() => UserEntity, { onDelete: 'CASCADE' })

@@ -15,15 +15,15 @@ export interface ToolRelationship {
 }
 
 export interface ToolRecommendation {
-  toolId: string;
+  toolId: number;
   score: number;
   reason: string;
   confidence: number;
 }
 
 export interface UsagePattern {
-  agentId: string;
-  toolId: string;
+  agentId: number;
+  toolId: number;
   frequency: number;
   successRate: number;
   avgExecutionTime: number;
@@ -82,21 +82,52 @@ export class ToolGraphDatabase {
       const session = this.driver.session({ database: this.database });
       try {
         logger.info(`🔄 Verifying Neo4j connectivity (attempt ${attempt}/${maxRetries})`);
+        logger.info(`Neo4j config: uri=${this.driver['_config']?.serverAgent || 'unknown'}, database=${this.database}`);
         
         const result = await session.run('RETURN 1 as test');
-        const record = result.records[0];
         
-        if (record && record.get('test') === 1) {
+        // Enhanced debugging
+        logger.info(`Neo4j query result: records=${result.records?.length || 0}, summary=${JSON.stringify(result.summary?.counters || {})}`);
+        
+        if (!result.records || result.records.length === 0) {
+          throw new Error('No records returned from Neo4j query');
+        }
+        
+        const record = result.records[0];
+        if (!record) {
+          throw new Error('First record is null or undefined');
+        }
+        
+        let testValue;
+        try {
+          testValue = record.get('test');
+        } catch (recordError) {
+          throw new Error(`Failed to get 'test' field from record: ${recordError.message}`);
+        }
+        
+        logger.info(`Neo4j test value: ${testValue} (type: ${typeof testValue})`);
+        
+        // Handle Neo4j Integer objects - convert to JavaScript number for comparison
+        const numericValue = typeof testValue === 'object' && testValue !== null && 'toNumber' in testValue 
+          ? testValue.toNumber() 
+          : testValue;
+        
+        if (numericValue === 1) {
           this.isConnected = true;
           this.connectionRetries = 0;
           logger.info('✅ Neo4j connectivity verified successfully');
           return;
         } else {
-          throw new Error('Invalid response from Neo4j');
+          throw new Error(`Invalid test value from Neo4j: expected 1, got ${numericValue} (original: ${testValue}, type: ${typeof testValue})`);
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         logger.error(`❌ Neo4j connectivity check failed (attempt ${attempt}/${maxRetries}):`, errorMessage);
+        
+        // Log additional error details for debugging
+        if (error instanceof Error && error.stack) {
+          logger.info(`Neo4j error stack: ${error.stack}`);
+        }
         
         if (attempt < maxRetries) {
           const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000); // Exponential backoff, max 5s
@@ -143,8 +174,30 @@ export class ToolGraphDatabase {
     }
   }
 
+  // Helper method to check if Neo4j operations should be attempted
+  private shouldSkipOperation(operationName: string): boolean {
+    if (!this.isConnected) {
+      logger.warn(`${operationName} skipped - Neo4j not connected`);
+      return true;
+    }
+    return false;
+  }
+
+  // Public method to check connection status
+  public getConnectionStatus(): { isConnected: boolean; database: string; retries: number } {
+    return {
+      isConnected: this.isConnected,
+      database: this.database,
+      retries: this.connectionRetries
+    };
+  }
+
   // Tool Node Operations
   async createToolNode(tool: ToolDefinition): Promise<void> {
+    if (this.shouldSkipOperation(`Create tool node ${tool.id}`)) {
+      return; // Gracefully skip if Neo4j not available
+    }
+    
     return this.executeWithRetry(async (session) => {
       await session.run(
         `MERGE (t:Tool {id: $id})
@@ -235,6 +288,10 @@ export class ToolGraphDatabase {
   }
 
   async getRelatedTools(toolId: string, relationshipTypes?: string[], minStrength = 0.5): Promise<ToolDefinition[]> {
+    if (this.shouldSkipOperation(`Get related tools for ${toolId}`)) {
+      return []; // Return empty array if Neo4j not available
+    }
+    
     return this.executeWithRetry(async (session) => {
       const typeFilter = relationshipTypes && relationshipTypes.length > 0 
         ? `[${relationshipTypes.map(t => `'${t}'`).join('|')}]`
@@ -301,7 +358,7 @@ export class ToolGraphDatabase {
     }
   }
 
-  async incrementUsage(agentId: string, toolId: string, executionTime: number, success: boolean): Promise<void> {
+  async incrementUsage(agentId: number, toolId: string, executionTime: number, success: boolean): Promise<void> {
     const session = this.driver.session({ database: this.database });
     try {
       await session.run(
@@ -327,7 +384,11 @@ export class ToolGraphDatabase {
   }
 
   // Recommendation Engine
-  async getRecommendations(agentId: string, context?: string, limit = 5): Promise<ToolRecommendation[]> {
+  async getRecommendations(agentId: number, context?: string, limit = 5): Promise<ToolRecommendation[]> {
+    if (this.shouldSkipOperation(`Get recommendations for agent ${agentId}`)) {
+      return []; // Return empty array if Neo4j not available
+    }
+    
     const session = this.driver.session({ database: this.database });
     try {
       // Get recommendations based on usage patterns and tool relationships
@@ -479,7 +540,7 @@ export class ToolGraphDatabase {
   }
 
   // Utility Methods
-  async getAgentToolPreferences(agentId: string): Promise<any[]> {
+  async getAgentToolPreferences(agentId: number): Promise<any[]> {
     const session = this.driver.session({ database: this.database });
     try {
       const result = await session.run(
