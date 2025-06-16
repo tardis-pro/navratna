@@ -48,7 +48,7 @@
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.3.3",
     "tsc-alias": "^1.8.8",
-    "concurrently": "^8.2.2"
+    "concurrently": "^9.1.2"
   },
   "keywords": [
     "uaip",
