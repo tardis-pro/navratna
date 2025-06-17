@@ -819,7 +819,7 @@ export class DatabaseService {
     try {
       const repository = this.getRepository(entity);
       const result = await repository.delete(id);
-      return (result.affected || 0) > 0;
+      return (result.affected) > 0;
     } catch (error) {
       logger.error('Failed to delete', { entity: entity.toString(), id, error });
       throw error;

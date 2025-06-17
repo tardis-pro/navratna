@@ -108,7 +108,7 @@ export class StepExecutorService extends EventEmitter {
         metadata: {
           startedAt: new Date(startTime),
           completedAt: new Date(),
-          retryCount: step.metadata?.retryCount || 0
+          retryCount: step.metadata?.retryCount
         }
       };
 
@@ -129,7 +129,7 @@ export class StepExecutorService extends EventEmitter {
         metadata: {
           startedAt: new Date(startTime),
           failedAt: new Date(),
-          retryCount: step.metadata?.retryCount || 0
+          retryCount: step.metadata?.retryCount
         }
       };
 

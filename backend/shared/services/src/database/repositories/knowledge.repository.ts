@@ -183,7 +183,7 @@ export class KnowledgeRepository {
       totalItems,
       itemsByType,
       itemsBySource,
-      averageConfidence: parseFloat(avgConfidence.average) || 0
+      averageConfidence: parseFloat(avgConfidence.average)
     };
   }
 

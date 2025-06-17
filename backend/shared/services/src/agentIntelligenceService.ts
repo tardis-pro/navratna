@@ -525,7 +525,7 @@ export class AgentIntelligenceService {
 
   private extractContextualInformation(conversationContext: any): any {
     return {
-      messageCount: conversationContext.messages?.length || 0,
+      messageCount: conversationContext.messages?.length,
       participants: conversationContext.participants || [],
       topics: this.extractTopics(conversationContext.messages || []),
       sentiment: this.analyzeSentiment(conversationContext.messages || []),
@@ -817,7 +817,7 @@ export class AgentIntelligenceService {
   }
 
   private assessComplexity(context: any): string {
-    const messageCount = context.messages?.length || 0;
+    const messageCount = context.messages?.length;
     if (messageCount > 20) return 'high';
     if (messageCount > 5) return 'medium';
     return 'low';

@@ -273,7 +273,7 @@ router.post('/export', authMiddleware, requireAdmin, async (req, res) => {
         eventType: value.eventType,
         startDate: value.startDate,
         endDate: value.endDate,
-        recordCount: parsedData.recordCount || 0
+        recordCount: parsedData.recordCount
       },
       ipAddress: req.ip,
       userAgent: req.headers['user-agent']
@@ -297,7 +297,7 @@ router.post('/export', authMiddleware, requireAdmin, async (req, res) => {
     res.json({
       message: 'Audit logs exported successfully',
       format,
-      recordCount: parsedData.recordCount || 0,
+      recordCount: parsedData.recordCount,
       exportedAt: new Date().toISOString()
     });
 
@@ -393,7 +393,7 @@ router.get('/user-activity/:userId', authMiddleware, requireAdmin, async (req, r
       userId,
       startDate: startDate ? new Date(startDate as string) : undefined,
       endDate: endDate ? new Date(endDate as string) : undefined,
-      eventType: eventType as string,
+      eventType: eventType as AuditEventType,
       limit: Number(limit),
       offset
     });

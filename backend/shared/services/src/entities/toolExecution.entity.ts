@@ -15,10 +15,10 @@ import {
 @Index(['approvalRequired', 'status'])
 @Index(['startTime', 'endTime'])
 export class ToolExecution extends BaseEntity {
-  @Column({ name: 'tool_id', type: 'string' })
+  @Column({ name: 'tool_id', type: 'varchar' })
   toolId: string;
 
-  @Column({ name: 'agent_id', type: 'string' })
+  @Column({ name: 'agent_id', type: 'varchar' })
   agentId: string;
 
   @Column({ type: 'jsonb' })
@@ -42,7 +42,7 @@ export class ToolExecution extends BaseEntity {
   @Column({ name: 'approval_required', default: false })
   approvalRequired: boolean;
 
-  @Column({ name: 'approved_by', type: 'string', nullable: true })
+  @Column({ name: 'approved_by', type: 'varchar', nullable: true })
   approvedBy?: string;
 
   @Column({ name: 'approved_at', type: 'timestamp', nullable: true })
@@ -61,16 +61,16 @@ export class ToolExecution extends BaseEntity {
   maxRetries: number;
 
   // Enhanced tracking fields
-  @Column({ name: 'operation_id', type: 'string', nullable: true })
+  @Column({ name: 'operation_id', type: 'varchar', nullable: true })
   operationId?: string;
 
-  @Column({ name: 'conversation_id', type: 'string', nullable: true })
+  @Column({ name: 'conversation_id', type: 'varchar', nullable: true })
   conversationId?: string;
 
-  @Column({ name: 'user_id', type: 'string', nullable: true })
+  @Column({ name: 'user_id', type: 'varchar', nullable: true })
   userId?: string;
 
-  @Column({ name: 'session_id', type: 'string', nullable: true })
+  @Column({ name: 'session_id', type: 'varchar', nullable: true })
   sessionId?: string;
 
   // Performance and quality metrics
@@ -110,7 +110,7 @@ export class ToolExecution extends BaseEntity {
   @Column({ name: 'cancelled_at', type: 'timestamp', nullable: true })
   cancelledAt?: Date;
 
-  @Column({ name: 'cancelled_by', type: 'string', nullable: true })
+  @Column({ name: 'cancelled_by', type: 'varchar', nullable: true })
   cancelledBy?: string;
 
   @Column({ name: 'cancellation_reason', type: 'text', nullable: true })

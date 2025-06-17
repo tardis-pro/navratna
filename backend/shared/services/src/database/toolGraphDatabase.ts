@@ -87,7 +87,7 @@ export class ToolGraphDatabase {
         const result = await session.run('RETURN 1 as test');
         
         // Enhanced debugging
-        logger.info(`Neo4j query result: records=${result.records?.length || 0}, summary=${JSON.stringify(result.summary?.counters || {})}`);
+        logger.info(`Neo4j query result: records=${result.records?.length}, summary=${JSON.stringify(result.summary?.counters || {})}`);
         
         if (!result.records || result.records.length === 0) {
           throw new Error('No records returned from Neo4j query');

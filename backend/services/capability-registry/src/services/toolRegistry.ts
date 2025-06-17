@@ -25,7 +25,7 @@ interface AgentCapabilityMetric {
 
 // Validation schemas using Zod
 const ToolDefinitionSchema = z.object({
-  id: z.coerce.number().int().positive('ID must be a positive integer'),
+  id: z.string(),
   name: z.string().min(1),
   description: z.string(),
   version: z.string().min(1),
@@ -121,9 +121,9 @@ export class ToolRegistry {
     }
   }
 
-  async updateTool(id: string | number, updates: Partial<ToolDefinition>): Promise<void> {
+  async updateTool(id: string, updates: Partial<ToolDefinition>): Promise<void> {
     // Validate ID
-    const validatedId = z.coerce.number().int().positive().parse(id);
+    const validatedId = z.string().parse(id);
     
     // Validate updates
     const validatedUpdates = ToolDefinitionSchema.partial().parse(updates);
@@ -147,9 +147,9 @@ export class ToolRegistry {
     }
   }
 
-  async unregisterTool(id: string | number): Promise<void> {
+  async unregisterTool(id: string): Promise<void> {
     // Validate ID
-    const validatedId = z.coerce.number().int().positive().parse(id);
+    const validatedId = z.string().parse(id);
     
     try {
       // Remove from PostgreSQL (cascades to related tables)
@@ -168,9 +168,9 @@ export class ToolRegistry {
   }
 
   // Tool Discovery and Retrieval
-  async getTool(id: string | number): Promise<ToolDefinition | null> {
+  async getTool(id: string): Promise<ToolDefinition | null> {
     await this.ensureInitialized();
-    const validatedId = z.coerce.number().int().positive().parse(id);
+    const validatedId = z.string().parse(id);
     return await this.postgresql.getTool(validatedId);
   }
 
@@ -376,7 +376,7 @@ export class ToolRegistry {
         agentId,
         executionTime,
         success,
-        cost: cost || 0,
+        cost: cost,
         timestamp: new Date(),
         metadata: metadata || {}
       };
@@ -471,7 +471,7 @@ export class ToolRegistry {
 
       const totalUsage = usageRecords.length;
       const successfulUsage = usageRecords.filter((r: any) => r.success).length;
-      const totalCost = usageRecords.reduce((sum: number, r: any) => sum + (r.cost || 0), 0);
+      const totalCost = usageRecords.reduce((sum: number, r: any) => sum + (r.cost), 0);
       const avgExecutionTime = usageRecords.length > 0 
         ? usageRecords.reduce((sum: number, r: any) => sum + r.executionTime, 0) / usageRecords.length 
         : 0;

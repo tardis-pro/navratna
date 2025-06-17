@@ -197,6 +197,7 @@ export enum AuditEventType {
 }
 
 export const AuditEventSchema = BaseEntitySchema.extend({
+  id: IDSchema,
   eventType: z.nativeEnum(AuditEventType),
   userId: IDSchema.optional(),
   agentId: IDSchema.optional(),

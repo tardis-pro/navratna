@@ -39,7 +39,7 @@ export class Agent extends BaseEntity {
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
 
-  @Column({ name: 'created_by', type: 'string' })
+  @Column({ name: 'created_by', type: 'varchar' })
   createdBy: string;
 
   @Column({ name: 'last_active_at', type: 'timestamp', nullable: true })

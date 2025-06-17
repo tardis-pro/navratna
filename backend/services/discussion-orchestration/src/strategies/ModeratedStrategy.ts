@@ -262,7 +262,7 @@ export class ModeratedStrategy implements TurnStrategyInterface {
 
   async selectNextParticipant(
     moderatorId: string,
-    selected participantId: string,
+    selectedParticipantId: string,
     discussion: Discussion
   ): Promise<boolean> {
     try {

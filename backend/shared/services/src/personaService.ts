@@ -199,7 +199,7 @@ export class PersonaService {
       await personaRepo.update(id, {
         ...updateData,
         validation,
-        version: (existingPersona.version || 0) + 1,
+        version: (existingPersona.version) + 1,
         updatedAt: new Date()
       });
 
@@ -381,7 +381,7 @@ export class PersonaService {
       // Conversational style validation
       if (persona.conversationalStyle) {
         const style = persona.conversationalStyle;
-        if ((style.empathy || 0) < 0.1 && (style.assertiveness || 0) > 0.9) {
+        if ((style.empathy) < 0.1 && (style.assertiveness) > 0.9) {
           warnings.push('Very low empathy with high assertiveness may create harsh interactions');
         }
       }
@@ -477,11 +477,11 @@ export class PersonaService {
       // Update usage statistics
       const updatedStats: PersonaUsageStats = {
         ...currentStats,
-        totalUsages: (currentStats.totalUsages || 0) + 1,
+        totalUsages: (currentStats.totalUsages) + 1,
         lastUsedAt: new Date(),
         averageSessionDuration: this.calculateNewAverage(
-          currentStats.averageSessionDuration || 0,
-          currentStats.totalUsages || 0,
+          currentStats.averageSessionDuration,
+          currentStats.totalUsages,
           sessionData.duration
         )
       };
@@ -489,11 +489,11 @@ export class PersonaService {
       // Update feedback score if provided
       if (sessionData.satisfactionScore !== undefined) {
         updatedStats.feedbackScore = this.calculateNewAverage(
-          currentStats.feedbackScore || 0,
-          currentStats.feedbackCount || 0,
+          currentStats.feedbackScore,
+          currentStats.feedbackCount,
           sessionData.satisfactionScore
         );
-        updatedStats.feedbackCount = (currentStats.feedbackCount || 0) + 1;
+        updatedStats.feedbackCount = (currentStats.feedbackCount) + 1;
       }
 
       // Recalculate popularity score
@@ -539,7 +539,7 @@ export class PersonaService {
         category: 'general', // Would need to add category field to entity
         traits: entity.traits,
         expertise: entity.expertise,
-        usageCount: entity.totalInteractions || 0
+        usageCount: entity.totalInteractions
       }));
 
     } catch (error) {
@@ -770,13 +770,13 @@ export class PersonaService {
     let score = 0;
     
     // Usage frequency (max 50 points)
-    score += Math.min((stats.totalUsages || 0) * 2, 50);
+    score += Math.min((stats.totalUsages) * 2, 50);
     
     // User diversity (max 30 points)
-    score += Math.min((stats.uniqueUsers || 0) * 3, 30);
+    score += Math.min((stats.uniqueUsers) * 3, 30);
     
     // Feedback quality (max 20 points)
-    if (stats.feedbackScore && (stats.feedbackCount || 0) > 0) {
+    if (stats.feedbackScore && (stats.feedbackCount) > 0) {
       score += stats.feedbackScore * 20;
     }
     
@@ -828,12 +828,12 @@ export class PersonaService {
       tags: entity.tags || [],
       validation: entity.validation,
       usageStats: entity.usageStats || {
-        totalUsages: entity.totalInteractions || 0,
+        totalUsages: entity.totalInteractions,
         uniqueUsers: 0,
         averageSessionDuration: 0,
         lastUsedAt: entity.lastUsedAt || null,
         popularityScore: 0,
-        feedbackScore: entity.userSatisfaction || 0,
+        feedbackScore: entity.userSatisfaction,
         feedbackCount: 0
       },
       configuration: entity.configuration || {},

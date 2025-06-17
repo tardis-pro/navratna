@@ -462,7 +462,7 @@ export class SecurityValidationService {
   }
 
   private assessComplexityRisk(plan: ExecutionPlan): RiskFactor {
-    const stepCount = plan.steps?.length || 0;
+    const stepCount = plan.steps?.length;
     const duration = plan.estimatedDuration;
 
     if (stepCount > 10 || (duration && duration > 3600)) { // More than 10 steps or 1 hour
@@ -578,7 +578,7 @@ export class SecurityValidationService {
   }
 
   private calculateRiskScore(riskFactors: RiskFactor[]): number {
-    const totalScore = riskFactors.reduce((sum, factor) => sum + (factor.score || 0), 0);
+    const totalScore = riskFactors.reduce((sum, factor) => sum + (factor.score), 0);
     return Math.min(totalScore, 100); // Cap at 100
   }
 

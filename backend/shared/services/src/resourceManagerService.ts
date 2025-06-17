@@ -50,8 +50,8 @@ export class ResourceManagerService extends EventEmitter {
     try {
       const currentUsage = this.getCurrentSystemUsage();
       
-      const availableMemory = this.systemLimits.maxMemory - (currentUsage.memory || 0);
-      const availableCpu = this.systemLimits.maxCpu - (currentUsage.cpu || 0);
+      const availableMemory = this.systemLimits.maxMemory - (currentUsage.memory);
+      const availableCpu = this.systemLimits.maxCpu - (currentUsage.cpu);
 
       if (requiredLimits.maxMemory > availableMemory) {
         return {
@@ -181,7 +181,7 @@ export class ResourceManagerService extends EventEmitter {
       allocation.currentUsage = usage;
 
       // Check if usage exceeds limits
-      if ((usage.memory || 0) > allocation.limits.maxMemory) {
+      if ((usage.memory) > allocation.limits.maxMemory) {
         logger.warn('Memory usage exceeds allocated limit', {
           operationId,
           usage: usage.memory,
@@ -190,7 +190,7 @@ export class ResourceManagerService extends EventEmitter {
         this.emit('resourceLimitExceeded', { operationId, type: 'memory', usage, limit: allocation.limits.maxMemory });
       }
 
-      if ((usage.cpu || 0) > allocation.limits.maxCpu) {
+      if ((usage.cpu) > allocation.limits.maxCpu) {
         logger.warn('CPU usage exceeds allocated limit', {
           operationId,
           usage: usage.cpu,
@@ -224,9 +224,9 @@ export class ResourceManagerService extends EventEmitter {
 
     for (const allocation of this.allocatedResources.values()) {
       if (!allocation.released) {
-        totalMemory += allocation.currentUsage?.memory || 0;
-        totalCpu += allocation.currentUsage?.cpu || 0;
-        totalNetwork += allocation.currentUsage?.network || 0;
+        totalMemory += allocation.currentUsage?.memory;
+        totalCpu += allocation.currentUsage?.cpu;
+        totalNetwork += allocation.currentUsage?.network;
       }
     }
 
@@ -255,8 +255,8 @@ export class ResourceManagerService extends EventEmitter {
       systemUsage,
       systemLimits: this.systemLimits,
       availableResources: {
-        memory: this.systemLimits.maxMemory - (systemUsage.memory || 0),
-        cpu: this.systemLimits.maxCpu - (systemUsage.cpu || 0)
+        memory: this.systemLimits.maxMemory - (systemUsage.memory),
+        cpu: this.systemLimits.maxCpu - (systemUsage.cpu)
       }
     };
   }

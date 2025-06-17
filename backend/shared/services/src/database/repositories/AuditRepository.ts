@@ -1,6 +1,7 @@
 import { logger } from '@uaip/utils';
 import { BaseRepository } from '../base/BaseRepository.js';
 import { AuditEvent } from '../../entities/auditEvent.entity.js';
+import { AuditEventType, SecurityLevel } from '@uaip/types';
 
 export class AuditRepository extends BaseRepository<AuditEvent> {
   constructor() {
@@ -11,8 +12,7 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
    * Create audit event
    */
   public async createAuditEvent(eventData: {
-    id: string;
-    eventType: string;
+    eventType: AuditEventType;
     userId?: string;
     agentId?: string;
     resourceType?: string;
@@ -20,7 +20,7 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
     details: Record<string, any>;
     ipAddress?: string;
     userAgent?: string;
-    riskLevel?: string;
+    riskLevel?: SecurityLevel;
     timestamp: Date;
   }): Promise<AuditEvent> {
     const event = this.repository.create(eventData);
@@ -31,14 +31,14 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
    * Query audit events with filters (excludes archived events by default)
    */
   public async queryAuditEvents(filters: {
-    eventTypes?: string[];
+    eventTypes?: AuditEventType[];
     userId?: string;
     agentId?: string;
     resourceType?: string;
     resourceId?: string;
     startDate?: Date;
     endDate?: Date;
-    riskLevel?: string;
+    riskLevel?: SecurityLevel;
     limit?: number;
     offset?: number;
     includeArchived?: boolean;
@@ -163,7 +163,7 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
       .where('timestamp < :compressionDate', { compressionDate })
       .andWhere('isArchived = :isArchived', { isArchived: false })
       .execute();
-    return result.affected || 0;
+    return result.affected;
   }
 
   /**
@@ -176,21 +176,21 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
       .where('timestamp < :cutoffDate', { cutoffDate })
       .andWhere('isArchived = :isArchived', { isArchived: true })
       .execute();
-    return result.affected || 0;
+    return result.affected;
   }
 
   /**
    * Get audit events excluding archived ones (for normal queries)
    */
   public async getActiveAuditEvents(filters: {
-    eventTypes?: string[];
+    eventTypes?: AuditEventType[];
     userId?: string;
     agentId?: string;
     resourceType?: string;
     resourceId?: string;
     startDate?: Date;
     endDate?: Date;
-    riskLevel?: string;
+    riskLevel?: SecurityLevel;
     limit?: number;
     offset?: number;
   }): Promise<AuditEvent[]> {
@@ -248,7 +248,7 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
    * Search audit logs with complex filtering and pagination (for auditRoutes)
    */
   public async searchAuditLogs(filters: {
-    eventType?: string;
+    eventType?: AuditEventType;
     userId?: string;
     startDate?: Date;
     endDate?: Date;
@@ -351,7 +351,7 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
   /**
    * Get distinct event types with counts
    */
-  public async getAuditEventTypes(): Promise<Array<{ eventType: string; count: number }>> {
+  public async getAuditEventTypes(): Promise<Array<{ eventType: AuditEventType; count: number }>> {
     const result = await this.repository.createQueryBuilder('event')
       .select('event.eventType', 'eventType')
       .addSelect('COUNT(*)', 'count')
@@ -371,7 +371,7 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
    * Get audit statistics for a time period
    */
   public async getAuditStatistics(timeframe: '1h' | '24h' | '7d' | '30d' = '24h'): Promise<{
-    eventTypes: Array<{ eventType: string; count: number; uniqueUsers: number; uniqueIPs: number }>;
+    eventTypes: Array<{ eventType: AuditEventType; count: number; uniqueUsers: number; uniqueIPs: number }>;
     hourlyDistribution: Array<{ hour: number; count: number }>;
     topUsers: Array<{ userId: string; email: string; eventCount: number }>;
     topIPAddresses: Array<{ ipAddress: string; eventCount: number; uniqueUsers: number }>;
@@ -487,7 +487,7 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
     userId: string;
     startDate?: Date;
     endDate?: Date;
-    eventType?: string;
+    eventType?: AuditEventType;
     limit?: number;
     offset?: number;
   }): Promise<{ activities: any[]; total: number }> {

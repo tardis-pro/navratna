@@ -10,7 +10,7 @@ import { BaseEntity } from './base.entity.js';
 @Index(['metricType', 'recordedAt'])
 @Index(['capability', 'score'])
 export class AgentCapabilityMetric extends BaseEntity {
-  @Column({ name: 'agent_id', type: 'string' })
+  @Column({ name: 'agent_id', type: 'varchar' })
   agentId: string;
 
   @Column({ length: 100 })

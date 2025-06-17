@@ -26,7 +26,7 @@ export class DiscussionController {
       logger.info('Creating new discussion', { 
         title: createRequest.title,
         createdBy: createRequest.createdBy,
-        participantCount: createRequest.initialParticipants?.length || 0
+        participantCount: createRequest.initialParticipants?.length
       });
 
       const discussion = await this.discussionService.createDiscussion(createRequest);
@@ -295,7 +295,7 @@ export class DiscussionController {
     try {
       const { discussionId } = req.params;
       const limit = parseInt(req.query.limit as string) || 50;
-      const offset = parseInt(req.query.offset as string) || 0;
+      const offset = parseInt(req.query.offset as string);
 
       logger.info('Retrieving discussion messages', { 
         discussionId,
@@ -376,7 +376,7 @@ export class DiscussionController {
       };
 
       const limit = parseInt(req.query.limit as string) || 20;
-      const offset = parseInt(req.query.offset as string) || 0;
+      const offset = parseInt(req.query.offset as string);
 
       logger.info('Searching discussions', { 
         filters: Object.keys(filters).filter(key => filters[key as keyof DiscussionSearchFilters] !== undefined),

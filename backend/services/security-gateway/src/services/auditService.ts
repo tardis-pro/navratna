@@ -449,11 +449,11 @@ export class AuditService {
 
     events.forEach(event => {
       // Count by type
-      eventsByType[event.eventType] = (eventsByType[event.eventType] || 0) + 1;
+      eventsByType[event.eventType] = (eventsByType[event.eventType]) + 1;
 
       // Count by risk level
       if (event.riskLevel) {
-        eventsByRiskLevel[event.riskLevel] = (eventsByRiskLevel[event.riskLevel] || 0) + 1;
+        eventsByRiskLevel[event.riskLevel] = (eventsByRiskLevel[event.riskLevel]) + 1;
       }
 
       // Track unique users
@@ -514,7 +514,7 @@ export class AuditService {
     events.forEach(event => {
       if (event.resourceType && event.resourceId) {
         const key = `${event.resourceType}:${event.resourceId}`;
-        resourceActivity[key] = (resourceActivity[key] || 0) + 1;
+        resourceActivity[key] = (resourceActivity[key]) + 1;
       }
     });
 
@@ -613,10 +613,10 @@ export class AuditService {
     const rows = events.map(event => [
       event.id,
       event.eventType,
-      event.userId || 0,
-      event.agentId || 0,
+      event.userId,
+      event.agentId,
       event.resourceType || '',
-      event.resourceId || 0,
+      event.resourceId,
       event.riskLevel || '',
       event.ipAddress || '',
       event.userAgent || '',
@@ -637,10 +637,10 @@ export class AuditService {
       <event>
         <id>${event.id}</id>
         <eventType>${event.eventType}</eventType>
-        <userId>${event.userId || 0}</userId>
-        <agentId>${event.agentId || 0}</agentId>
+        <userId>${event.userId}</userId>
+        <agentId>${event.agentId}</agentId>
         <resourceType>${event.resourceType || ''}</resourceType>
-        <resourceId>${event.resourceId || 0}</resourceId>
+        <resourceId>${event.resourceId}</resourceId>
         <riskLevel>${event.riskLevel || ''}</riskLevel>
         <ipAddress>${event.ipAddress || ''}</ipAddress>
         <userAgent><![CDATA[${event.userAgent || ''}]]></userAgent>
@@ -662,6 +662,7 @@ export class AuditService {
    */
   private async saveAuditEvent(event: Omit<AuditEvent, 'id'>): Promise<AuditEvent> {
     const savedEvent = await this.databaseService.createAuditEvent({
+      id: `event_${Date.now()}`,
       eventType: event.eventType,
       userId: event.userId,
       agentId: event.agentId,
@@ -690,7 +691,7 @@ export class AuditService {
       details: entity.details || {},
       ipAddress: entity.ipAddress,
       userAgent: entity.userAgent,
-      riskLevel: entity.riskLevel,
+      riskLevel: entity.riskLevel as SecurityLevel,
       timestamp: entity.timestamp,
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt

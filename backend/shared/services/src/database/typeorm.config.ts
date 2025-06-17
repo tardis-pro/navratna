@@ -27,6 +27,8 @@ import { DiscussionParticipant } from '../entities/discussionParticipant.entity.
 import { PersonaAnalytics } from '../entities/personaAnalytics.entity.js';
 import { MCPServer } from '../entities/mcpServer.entity.js';
 import { MCPToolCall } from '../entities/mcpToolCall.entity.js';
+// import { KnowledgeItemEntity } from '../entities/knowledge-item.entity.js';
+// import { KnowledgeRelationshipEntity } from '../entities/knowledge-relationship.entity.js';
 
 /**
  * TypeORM Configuration for UAIP Backend

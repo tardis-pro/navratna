@@ -363,8 +363,8 @@ export class StateManagerService {
         checkpointId,
         restoredState: {
           currentStep: restoredState.currentStep,
-          completedSteps: restoredState.completedSteps?.length || 0,
-          failedSteps: restoredState.failedSteps?.length || 0
+          completedSteps: restoredState.completedSteps?.length,
+          failedSteps: restoredState.failedSteps?.length
         }
       });
 

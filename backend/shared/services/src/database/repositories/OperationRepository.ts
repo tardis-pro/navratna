@@ -134,7 +134,7 @@ export class OperationStateRepository extends BaseRepository<OperationState> {
         .delete()
         .where('transitionedAt < :cutoffDate', { cutoffDate })
         .execute();
-      return result.affected || 0;
+      return result.affected;
     } catch (error) {
       logger.error('Failed to delete old operation states', { cutoffDate, error: (error as Error).message });
       throw error;
@@ -243,7 +243,7 @@ export class StepResultRepository extends BaseRepository<StepResult> {
     try {
       const stepResult = this.repository.create({
         operationId,
-        stepNumber: result.stepNumber || 0,
+        stepNumber: result.stepNumber,
         stepName: result.stepName || result.stepId || 'Unknown Step',
         stepType: result.stepType || 'generic',
         status: result.status || 'completed',

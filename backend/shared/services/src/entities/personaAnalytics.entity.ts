@@ -10,7 +10,7 @@ import { BaseEntity } from './base.entity.js';
 @Index(['metricType', 'recordedAt'])
 @Index(['period', 'personaId'])
 export class PersonaAnalytics extends BaseEntity {
-  @Column({ name: 'persona_id', type: 'string' })
+  @Column({ name: 'persona_id', type: 'varchar' })
   personaId: string;
 
   @Column({ name: 'metric_type', length: 100 })

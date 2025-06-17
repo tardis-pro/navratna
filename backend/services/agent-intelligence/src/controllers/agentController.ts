@@ -73,7 +73,7 @@ export class AgentController {
       logger.info('Enhanced context analysis completed', { 
         agentId, 
         confidence: analysis.confidence,
-        actionsCount: analysis.recommendedActions?.length || 0,
+        actionsCount: analysis.recommendedActions?.length,
         capabilitiesCount: capabilities.length
       });
 
@@ -130,7 +130,7 @@ export class AgentController {
       logger.info('Enhanced plan generation completed', { 
         agentId, 
         planType: plan.type,
-        stepsCount: plan.steps?.length || 0,
+        stepsCount: plan.steps?.length,
         requiresApproval: approvalRequired
       });
 

@@ -60,7 +60,7 @@ export class RoundRobinStrategy implements TurnStrategyInterface {
         new Date(a.joinedAt).getTime() - new Date(b.joinedAt).getTime()
       );
 
-      const currentTurnNumber = discussion.state.currentTurn.turnNumber || 0;
+      const currentTurnNumber = discussion.state.currentTurn.turnNumber;
       const nextIndex = currentTurnNumber % activeParticipants.length;
       const nextParticipant = activeParticipants[nextIndex];
 

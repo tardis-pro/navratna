@@ -545,14 +545,14 @@ router.get('/stats', authMiddleware, requireAdmin, async (req, res) => {
     });
 
     // Group events by type
-    const eventsByType = eventStats.reduce((acc: Record<string, number>, event) => {
-      acc[event.eventType] = (acc[event.eventType] || 0) + 1;
+    const eventsByType = eventStats.reduce((acc: Record<AuditEventType, number>, event) => {
+      acc[event.eventType] = (acc[event.eventType]) + 1;
       return acc;
-    }, {});
+    }, {} as Record<AuditEventType, number>);
 
     // Get risk assessment statistics
     const riskAssessmentEvents = await databaseService.queryAuditEvents({
-      eventTypes: ['RISK_ASSESSMENT'],
+      eventTypes: [AuditEventType.RISK_ASSESSMENT],
       startDate,
       endDate,
       limit: 1000

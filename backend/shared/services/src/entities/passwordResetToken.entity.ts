@@ -10,7 +10,7 @@ import { UserEntity } from './user.entity.js';
 export class PasswordResetTokenEntity extends BaseEntity {
 
 
-  @Column({ type: 'string', name: 'user_id' })
+  @Column({ type: 'varchar', name: 'user_id' })
   userId!: string;
 
   @Column({ type: 'varchar', length: 500, unique: true })

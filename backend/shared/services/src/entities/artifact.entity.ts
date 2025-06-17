@@ -45,10 +45,10 @@ export class Artifact extends BaseEntity {
   tags: string[];
 
   // Traceability
-  @Column({ name: 'conversation_id', type: 'string' })
+  @Column({ name: 'conversation_id', type: 'varchar' })
   conversationId: string;
 
-  @Column({ name: 'generated_by', type: 'string' })
+  @Column({ name: 'generated_by', type: 'varchar' })
   generatedBy: number;
 
   @Column({ name: 'generated_at', type: 'timestamp' })
@@ -77,7 +77,7 @@ export class Artifact extends BaseEntity {
   @Column({ length: 50, default: '1.0.0' })
   version: string;
 
-  @Column({ name: 'parent_artifact_id', type: 'string', nullable: true })
+  @Column({ name: 'parent_artifact_id', type: 'varchar', nullable: true })
   parentArtifactId?: number;
 
   @Column({ name: 'iteration_count', default: 1 })
@@ -90,7 +90,7 @@ export class Artifact extends BaseEntity {
   @Column({ type: 'enum', enum: ['draft', 'review', 'approved', 'deployed', 'archived'], default: 'draft' })
   status: 'draft' | 'review' | 'approved' | 'deployed' | 'archived';
 
-  @Column({ name: 'approved_by', type: 'string', nullable: true })
+  @Column({ name: 'approved_by', type: 'varchar', nullable: true })
   approvedBy?: number;
 
   @Column({ name: 'approved_at', type: 'timestamp', nullable: true })

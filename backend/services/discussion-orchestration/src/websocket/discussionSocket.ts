@@ -9,13 +9,13 @@ import {
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
-   participantId?: number;
+   participantId?: string;
   discussionId?: string;
 }
 
 interface SocketData {
   userId: string;
-   participantId?: number;
+   participantId?: string;
   discussionId?: string;
 }
 

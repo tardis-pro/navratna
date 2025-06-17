@@ -134,7 +134,7 @@ export class AgentRepository extends BaseRepository<Agent> {
       .andWhere('isActive = :isActive', { isActive: true })
       .execute();
 
-    return (result.affected || 0) > 0;
+    return (result.affected) > 0;
   }
 
   /**

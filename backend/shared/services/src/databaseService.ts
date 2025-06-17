@@ -1,7 +1,7 @@
 import { Repository, QueryRunner, EntityTarget, ObjectLiteral, EntityManager, LessThan } from 'typeorm';
 import { config } from '@uaip/config';
 import { logger, DatabaseError } from '@uaip/utils';
-import { SecurityLevel } from '@uaip/types';
+import { AuditEventType, SecurityLevel } from '@uaip/types';
 import { TypeOrmService } from './typeormService.js';
 
 // Import new repositories
@@ -718,7 +718,7 @@ export class DatabaseService {
     try {
       const repository = await this.getRepository(entity);
       const result = await repository.delete(id);
-      return (result.affected || 0) > 0;
+      return (result.affected) > 0;
     } catch (error) {
       logger.error('Failed to delete', { entity: entity.toString(), id, error });
       throw error;
@@ -896,7 +896,7 @@ export class DatabaseService {
    */
   public async createAuditEvent(eventData: {
     id: string;
-    eventType: string;
+    eventType: AuditEventType;
     userId?: string;
     agentId?: string;
     resourceType?: string;
@@ -904,7 +904,7 @@ export class DatabaseService {
     details: Record<string, any>;
     ipAddress?: string;
     userAgent?: string;
-    riskLevel?: string;
+    riskLevel?: SecurityLevel;
     timestamp: Date;
   }): Promise<AuditEvent> {
     return await this.auditRepository.createAuditEvent(eventData);
@@ -914,14 +914,14 @@ export class DatabaseService {
    * Query audit events with filters (excludes archived events by default)
    */
   public async queryAuditEvents(filters: {
-    eventTypes?: string[];
+    eventTypes?: AuditEventType[];
     userId?: string;
     agentId?: string;
     resourceType?: string;
     resourceId?: string;
     startDate?: Date;
     endDate?: Date;
-    riskLevel?: string;
+    riskLevel?: SecurityLevel;
     limit?: number;
     offset?: number;
     includeArchived?: boolean;
@@ -933,7 +933,7 @@ export class DatabaseService {
    * Count recent events for security monitoring (excludes archived events)
    */
   public async countRecentAuditEvents(
-    eventType: string,
+    eventType: AuditEventType,
     userId?: string,
     minutesBack: number = 5,
     detailsFilter?: Record<string, any>
@@ -966,14 +966,14 @@ export class DatabaseService {
    * Get audit events excluding archived ones (for normal queries)
    */
   public async getActiveAuditEvents(filters: {
-    eventTypes?: string[];
+    eventTypes?: AuditEventType[];
     userId?: string;
     agentId?: string;
     resourceType?: string;
     resourceId?: string;
     startDate?: Date;
     endDate?: Date;
-    riskLevel?: string;
+    riskLevel?: SecurityLevel;
     limit?: number;
     offset?: number;
   }): Promise<AuditEvent[]> {
@@ -984,7 +984,7 @@ export class DatabaseService {
    * Search audit logs with complex filtering and pagination (for auditRoutes)
    */
   public async searchAuditLogs(filters: {
-    eventType?: string;
+    eventType?: AuditEventType;
     userId?: string;
     startDate?: Date;
     endDate?: Date;
@@ -1032,7 +1032,7 @@ export class DatabaseService {
     userId: string;
     startDate?: Date;
     endDate?: Date;
-    eventType?: string;
+    eventType?: AuditEventType;
     limit?: number;
     offset?: number;
   }): Promise<{ activities: any[]; total: number }> {
@@ -1292,7 +1292,7 @@ export class DatabaseService {
       isActive: false,
       updatedAt: new Date()
     });
-    return (result.affected || 0) > 0;
+    return (result.affected) > 0;
   }
 
   /**

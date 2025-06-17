@@ -102,7 +102,7 @@ export class AgentMemoryService {
     // Get concept count by searching for agent-specific concepts
     const concepts = await this.semanticMemoryManager.getRelatedConcepts(agentId, '');
     
-    const memoryPressure = workingMemory?.metadata.memoryPressure || 0;
+    const memoryPressure = workingMemory?.metadata.memoryPressure;
     const episodeCount = recentEpisodes.length;
     const conceptCount = concepts.length;
     

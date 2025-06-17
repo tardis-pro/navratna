@@ -151,7 +151,7 @@ export abstract class BaseRepository<T extends ObjectLiteral> {
   public async delete(id: string): Promise<boolean> {
     try {
       const result = await this.repository.delete(id);
-      return (result.affected || 0) > 0;
+      return (result.affected) > 0;
     } catch (error) {
       logger.error('Failed to delete', { 
         entity: this.entity.toString(), 

@@ -422,7 +422,7 @@ export class UserRepository extends BaseRepository<UserEntity> {
         role: user.role,
         lastLoginAt: user.last_login_at,
         createdAt: user.created_at,
-        recentActivityCount: parseInt(user.recent_activity_count) || 0
+        recentActivityCount: parseInt(user.recent_activity_count)
       };
     } catch (error) {
       logger.error('Error getting user risk data', { userId, error: (error as Error).message });
@@ -517,7 +517,7 @@ export class RefreshTokenRepository extends BaseRepository<RefreshTokenEntity> {
     const result = await this.repository.delete({
       expiresAt: LessThan(new Date())
     });
-    return result.affected || 0;
+    return result.affected;
   }
 }
 
@@ -565,6 +565,6 @@ export class PasswordResetTokenRepository extends BaseRepository<PasswordResetTo
     const result = await this.repository.delete({
       expiresAt: LessThan(new Date())
     });
-    return result.affected || 0;
+    return result.affected;
   }
 } 

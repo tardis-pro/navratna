@@ -51,7 +51,7 @@ export class AgentValidationMiddleware {
         logger.info('Persona transformation and validation successful', {
           originalRole: rawData.role || rawData.persona?.role,
           transformedRole: validatedData.role,
-          capabilities: validatedData.capabilities?.length || 0
+          capabilities: validatedData.capabilities?.length
         });
       } else {
         // Direct validation of agent format
@@ -59,7 +59,7 @@ export class AgentValidationMiddleware {
         
         logger.info('Direct agent validation successful', {
           role: validatedData.role,
-          capabilities: validatedData.capabilities?.length || 0
+          capabilities: validatedData.capabilities?.length
         });
       }
 

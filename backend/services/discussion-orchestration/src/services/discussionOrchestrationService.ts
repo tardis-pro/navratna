@@ -62,7 +62,7 @@ export class DiscussionOrchestrationService {
         title: request.title,
         turnStrategy: request.turnStrategy.strategy,
         createdBy,
-        participantCount: request.initialParticipants?.length || 0
+        participantCount: request.initialParticipants?.length
       });
 
       // Validate turn strategy configuration

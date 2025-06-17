@@ -93,6 +93,7 @@ export class ApprovalWorkflowService {
 
       // Create workflow using DatabaseService
       const savedWorkflow = await this.databaseService.createApprovalWorkflow({
+        id: request.operationId,
         operationId: request.operationId,
         requiredApprovers: request.requiredApprovers,
         currentApprovers: [],
@@ -181,6 +182,7 @@ export class ApprovalWorkflowService {
 
       // Save decision using DatabaseService
       await this.databaseService.createApprovalDecision({
+        id: `decision-${decision.workflowId}-${decision.approverId}`,
         workflowId: decision.workflowId,
         approverId: decision.approverId,
         decision: decision.decision,

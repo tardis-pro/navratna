@@ -10,10 +10,10 @@ import { BaseEntity } from './base.entity.js';
 @Index(['usedAt', 'agentId'])
 @Index(['toolId', 'success'])
 export class ToolUsageRecord extends BaseEntity {
-  @Column({ name: 'agent_id', type: 'string' })
+  @Column({ name: 'agent_id', type: 'varchar' })
   agentId: string;
 
-  @Column({ name: 'tool_id', type: 'string' })
+  @Column({ name: 'tool_id', type: 'varchar' })
   toolId: string;
 
   @Column({ name: 'used_at', type: 'timestamp' })

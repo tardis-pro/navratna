@@ -168,7 +168,7 @@ router.post('/login',
       
       if (!isValidPassword) {
         // Increment failed login attempts
-        const failedAttempts = (user.failedLoginAttempts || 0) + 1;
+        const failedAttempts = (user.failedLoginAttempts) + 1;
         const maxAttempts = 5;
         const lockDuration = 30 * 60 * 1000; // 30 minutes
 

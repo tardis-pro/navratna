@@ -11,7 +11,7 @@ import { z } from 'zod';
 
 // Request validation schemas
 const RegisterToolSchema = z.object({
-  id: z.coerce.number().int().positive('ID must be a positive integer').optional(),
+  id: z.string().optional(),
   name: z.string().min(1),
   description: z.string(),
   version: z.string().min(1),
@@ -30,7 +30,7 @@ const RegisterToolSchema = z.object({
 });
 
 const ExecuteToolSchema = z.object({
-  agentId: z.coerce.number().int().positive('Agent ID must be a positive integer'),
+  agentId: z.string(),
   parameters: z.record(z.any()),
   timeout: z.number().positive().optional(),
   priority: z.enum(['low', 'normal', 'high']).optional(),
@@ -38,7 +38,7 @@ const ExecuteToolSchema = z.object({
 });
 
 const AddRelationshipSchema = z.object({
-  toToolId: z.coerce.number().int().positive('Tool ID must be a positive integer'),
+  toToolId: z.string(),
   type: z.enum(['DEPENDS_ON', 'SIMILAR_TO', 'REPLACES', 'ENHANCES', 'REQUIRES']),
   strength: z.number().min(0).max(1),
   reason: z.string().optional(),
@@ -104,7 +104,7 @@ export class ToolController {
       logger.error(`getTool called with ID: "${id}" - this should not happen for GET /api/v1/tools`);
       
       // Validate ID format
-      const idSchema = z.coerce.number().int().positive();
+      const idSchema = z.string();
       const validationResult = idSchema.safeParse(id);
       
       if (!validationResult.success) {
@@ -179,7 +179,7 @@ export class ToolController {
       const { id } = req.params;
       
       // Validate ID format
-      const idSchema = z.coerce.number().int().positive();
+      const idSchema = z.string();
       const validationResult = idSchema.safeParse(id);
       
       if (!validationResult.success) {
@@ -226,7 +226,7 @@ export class ToolController {
       const { id } = req.params;
       
       // Validate ID format
-      const idSchema = z.coerce.number().int().positive();
+        const idSchema = z.string();
       const validationResult = idSchema.safeParse(id);
       
       if (!validationResult.success) {
@@ -263,7 +263,7 @@ export class ToolController {
       const { id } = req.params;
       
       // Validate ID format
-      const idSchema = z.coerce.number().int().positive();
+      const idSchema = z.string();
       const validationResult = idSchema.safeParse(id);
       
       if (!validationResult.success) {
@@ -439,7 +439,7 @@ export class ToolController {
       const { id } = req.params;
       
       // Validate ID format
-      const idSchema = z.coerce.number().int().positive();
+      const idSchema = z.string();
       const validationResult = idSchema.safeParse(id);
       
       if (!validationResult.success) {

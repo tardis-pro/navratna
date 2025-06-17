@@ -170,7 +170,7 @@ export class CompensationService extends EventEmitter {
     
     return {
       isActive: !!activeCompensation,
-      stepsCount: activeCompensation?.steps.length || 0,
+      stepsCount: activeCompensation?.steps.length,
       steps: activeCompensation?.steps || []
     };
   }

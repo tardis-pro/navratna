@@ -616,8 +616,8 @@ export class NotificationService {
       const approvalNotification: ApprovalNotification = {
         type: notification.type,
         recipientId: notification.recipient,
-        workflowId: notification.data?.workflowId || 0,
-        operationId: notification.data?.operationId || 0,
+        workflowId: notification.data?.workflowId,
+        operationId: notification.data?.operationId,
         metadata: {
           subject: notification.subject,
           message: notification.message,

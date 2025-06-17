@@ -1,11 +1,11 @@
-import { PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import { PrimaryColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
 /**
  * Base entity class that provides common fields for all entities
- * Implements the BaseEntity pattern with 64-bit auto-increment IDs
+ * Implements the BaseEntity pattern with string IDs
  */
 export abstract class BaseEntity {
-  @Index({ unique: true })
+  @PrimaryColumn({ type: 'varchar', length: 36 })
   id: string;
 
   @CreateDateColumn({ name: 'created_at' })

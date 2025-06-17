@@ -59,7 +59,7 @@ export class DiscussionService {
       logger.info('Creating discussion', { 
         title: request.title, 
         createdBy: request.createdBy,
-        participantCount: request.initialParticipants?.length || 0
+        participantCount: request.initialParticipants?.length
       });
 
       // Validate discussion request
@@ -220,7 +220,7 @@ export class DiscussionService {
         state: {
           ...discussion.state,
           phase: 'discussion',
-          activeParticipants: (discussion.state?.activeParticipants || 0) + 1
+          activeParticipants: (discussion.state?.activeParticipants) + 1
         }
       });
 
@@ -355,7 +355,7 @@ export class DiscussionService {
       await this.updateDiscussion(discussionId, {
         state: {
           ...discussion.state,
-          activeParticipants: (discussion.state?.activeParticipants || 0) + 1
+          activeParticipants: (discussion.state?.activeParticipants) + 1
         }
       });
 
@@ -400,7 +400,7 @@ export class DiscussionService {
         await this.updateDiscussion(discussionId, {
           state: {
             ...discussion.state,
-            activeParticipants: Math.max(0, (discussion.state.activeParticipants || 0) - 1)
+            activeParticipants: Math.max(0, (discussion.state.activeParticipants) - 1)
           }
         });
       }
@@ -477,7 +477,7 @@ export class DiscussionService {
 
       // Update participant message count
       await this.databaseService.update('discussion_participants', participantId, {
-        messageCount: (participant.messageCount || 0) + 1,
+        messageCount: (participant.messageCount) + 1,
         lastActiveAt: new Date()
       });
 
@@ -485,7 +485,7 @@ export class DiscussionService {
       await this.updateDiscussion(discussionId, {
         state: {
           ...discussion.state,
-          messageCount: (discussion.state?.messageCount || 0) + 1,
+          messageCount: (discussion.state?.messageCount) + 1,
           lastActivity: new Date()
         }
       });
@@ -573,7 +573,7 @@ export class DiscussionService {
             participantId: nextParticipantId,
             startedAt: new Date(),
             expectedEndAt: new Date(Date.now() + this.defaultTurnTimeout * 1000),
-            turnNumber: (discussion.state?.currentTurn?.turnNumber || 0) + 1
+            turnNumber: (discussion.state?.currentTurn?.turnNumber) + 1
           }
         }
       });
@@ -582,7 +582,7 @@ export class DiscussionService {
       await this.emitDiscussionEvent(discussionId, DiscussionEventType.TURN_CHANGED, {
         previousParticipantId: discussion.state?.currentTurn?.participantId,
         nextParticipantId,
-        turnNumber: (discussion.state?.currentTurn?.turnNumber || 0) + 1,
+        turnNumber: (discussion.state?.currentTurn?.turnNumber) + 1,
         forcedBy
       });
 
@@ -654,36 +654,36 @@ export class DiscussionService {
           end: discussion.endedAt || new Date()
         },
         overview: {
-          totalMessages: discussion.analytics?.totalMessages || 0,
-          totalParticipants: discussion.participants?.length || 0,
-          averageMessageLength: discussion.analytics?.averageMessageLength || 0,
-          totalDuration: discussion.actualDuration || 0,
-          engagementScore: discussion.state?.engagementScore || 0,
-          consensusLevel: discussion.state?.consensusLevel || 0,
-          objectivesAchieved: discussion.outcomes?.length || 0,
-          actionItemsCreated: discussion.state?.actionItems?.length || 0
+          totalMessages: discussion.analytics?.totalMessages,
+          totalParticipants: discussion.participants?.length,
+          averageMessageLength: discussion.analytics?.averageMessageLength,
+          totalDuration: discussion.actualDuration,
+          engagementScore: discussion.state?.engagementScore,
+          consensusLevel: discussion.state?.consensusLevel,
+          objectivesAchieved: discussion.outcomes?.length,
+          actionItemsCreated: discussion.state?.actionItems?.length
         },
         participation: {
           distribution: discussion.analytics?.participationDistribution || {},
-          balance: discussion.state?.metrics?.participationBalance || 0,
+          balance: discussion.state?.metrics?.participationBalance,
           dominanceIndex: 0,
           silenceRatio: 0
         },
         communication: {
-          averageResponseTime: discussion.state?.metrics?.averageResponseTime || 0,
+          averageResponseTime: discussion.state?.metrics?.averageResponseTime,
           messageFrequency: [],
           sentimentProgression: [],
           topicEvolution: []
         },
         outcomes: {
-          decisionsReached: discussion.state?.decisions?.length || 0,
-          consensusAchieved: (discussion.state?.consensusLevel || 0) >= 0.8,
-          actionItemsGenerated: discussion.state?.actionItems?.length || 0,
+          decisionsReached: discussion.state?.decisions?.length,
+          consensusAchieved: (discussion.state?.consensusLevel) >= 0.8,
+          actionItemsGenerated: discussion.state?.actionItems?.length,
           keyInsights: discussion.state?.keyPoints?.map((kp: any) => kp.point) || [],
           unresolvedIssues: []
         },
         quality: {
-          coherenceScore: discussion.state?.metrics?.qualityScore || 0,
+          coherenceScore: discussion.state?.metrics?.qualityScore,
           relevanceScore: 0,
           productivityScore: 0,
           satisfactionScore: undefined
@@ -824,8 +824,8 @@ export class DiscussionService {
 
     return {
       ...discussion.analytics,
-      totalMessages: discussion.state?.messageCount || 0,
-      uniqueParticipants: discussion.participants?.length || 0,
+      totalMessages: discussion.state?.messageCount,
+      uniqueParticipants: discussion.participants?.length,
       // Additional final calculations would go here
     };
   }

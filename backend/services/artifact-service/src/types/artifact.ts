@@ -92,7 +92,7 @@ export interface ValidationResult {
 }
 
 export interface ArtifactMetadata {
-  generatedBy: number;
+  generatedBy: string;
   template?: string;
   language?: string;
   framework?: string;

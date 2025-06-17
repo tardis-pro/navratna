@@ -8,7 +8,7 @@ export interface WebSocketConnection {
   ws: WebSocket;
   discussionId: string;
   userId?: string;
-   participantId?: number;
+   participantId?: string;
   isAlive: boolean;
   lastPing: Date;
 }

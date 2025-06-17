@@ -906,7 +906,7 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
 
   private extractContextualInformation(conversationContext: any): any {
     return {
-      messageCount: conversationContext.messages?.length || 0,
+      messageCount: conversationContext.messages?.length,
       participants: conversationContext.participants || [],
       topics: this.extractTopics(conversationContext.messages || []),
       sentiment: this.analyzeSentiment(conversationContext.messages || []),
@@ -1391,7 +1391,7 @@ Actions: ${analysis.recommendedActions?.map(a => a.type).join(', ')}`,
     if (this.knowledgeGraph) {
       await this.knowledgeGraph.ingest([{
         content: `Execution Plan: ${plan.type}
-Steps: ${plan.steps?.length || 0}
+Steps: ${plan.steps?.length}
 Duration: ${plan.estimatedDuration}
 Based on Analysis: ${analysis.intent?.primary}`,
         type: KnowledgeType.PROCEDURAL,
