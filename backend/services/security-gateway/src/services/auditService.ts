@@ -661,8 +661,8 @@ export class AuditService {
    * Save audit event to database
    */
   private async saveAuditEvent(event: Omit<AuditEvent, 'id'>): Promise<AuditEvent> {
+    // Let the database auto-generate the UUID for the ID
     const savedEvent = await this.databaseService.createAuditEvent({
-      id: `event_${Date.now()}`,
       eventType: event.eventType,
       userId: event.userId,
       agentId: event.agentId,

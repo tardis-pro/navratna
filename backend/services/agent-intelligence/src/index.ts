@@ -35,7 +35,7 @@ class AgentIntelligenceService {
     this.eventBusService = new EventBusService({
       url: process.env.RABBITMQ_URL || 'amqp://localhost',
       serviceName: 'agent-intelligence'
-    }, logger as any);
+    }, logger);
     
     // Initialize persona and discussion services
     this.personaService = new PersonaService({

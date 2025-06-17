@@ -28,7 +28,7 @@ const auditQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   eventType: z.string().optional(),
-  userId: z.string().uuid().optional(),
+  userId: z.string().optional(),
   startDate: z.coerce.date().optional(),
   endDate: z.coerce.date().optional(),
   ipAddress: z.string().ip().optional(),
@@ -40,7 +40,7 @@ const auditQuerySchema = z.object({
 const exportSchema = z.object({
   format: z.enum(['json', 'csv', 'xml']).default('json'),
   eventType: z.string().optional(),
-  userId: z.string().uuid().optional(),
+  userId: z.string().optional(),
   startDate: z.coerce.date().optional(),
   endDate: z.coerce.date().optional(),
   includeDetails: z.boolean().default(true)
@@ -377,13 +377,13 @@ router.get('/user-activity/:userId', authMiddleware, requireAdmin, async (req, r
     const { page = 1, limit = 20, startDate, endDate, eventType } = req.query;
 
     // Validate userId format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(userId)) {
-      return res.status(400).json({
-        error: 'Invalid User ID',
-        message: 'User ID must be a valid UUID'
-      });
-    }
+    // const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    // if (!uuidRegex.test(userId)) {
+    //   return res.status(400).json({
+    //     error: 'Invalid User ID',
+    //     message: 'User ID must be a valid UUID'
+    //   });
+    // }
 
     // Calculate offset for pagination
     const offset = (Number(page) - 1) * Number(limit);

@@ -75,7 +75,7 @@ const resetPasswordSchema = z.object({
 });
 
 const bulkActionSchema = z.object({
-  userIds: z.array(z.string().uuid()).min(1).max(100),
+  userIds: z.array(z.string()).min(1).max(100),
   action: z.enum(['activate', 'deactivate', 'delete', 'reset_password']),
   reason: z.string().max(500).optional()
 });

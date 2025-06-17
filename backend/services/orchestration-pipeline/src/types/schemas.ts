@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 // Base schema components
-const uuidSchema = z.string().uuid();
+const uuidSchema = z.string();
 const timestampSchema = z.string().datetime();
 
 // Resource Limits Schema
@@ -14,7 +14,7 @@ export const resourceLimitsSchema = z.object({
 
 // Retry Policy Schema
 export const retryPolicySchema = z.object({
-  maxAttempts: z.number().int().min(0).max(10),
+  maxAttempts: z.number().int().min(0).max(10), 
   backoffStrategy: z.enum(['linear', 'exponential', 'custom']),
   baseDelay: z.number().int().min(0),
   maxDelay: z.number().int().min(0),
@@ -23,12 +23,12 @@ export const retryPolicySchema = z.object({
 
 // Security Context Schema
 export const securityContextSchema = z.object({
-  userId: uuidSchema,
-  agentId: uuidSchema,
+  userId: z.string(),
+  agentId: z.string(),
   permissions: z.array(z.string()),
   riskLevel: z.enum(['low', 'medium', 'high', 'critical']),
   requiresApproval: z.boolean(),
-  approvalWorkflowId: z.string().uuid().optional()
+  approvalWorkflowId: z.string().optional()
 });
 
 // Execution Context Schema
@@ -212,7 +212,7 @@ export const pauseOperationRequestSchema = z.object({
 
 // Resume Operation Request
 export const resumeOperationRequestSchema = z.object({
-  checkpointId: z.string().uuid().optional(),
+  checkpointId: z.string().optional(),
   modifiedSteps: z.array(executionStepSchema).default([])
 });
 

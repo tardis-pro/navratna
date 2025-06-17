@@ -12,6 +12,7 @@ export class AuditRepository extends BaseRepository<AuditEvent> {
    * Create audit event
    */
   public async createAuditEvent(eventData: {
+    id?: string;
     eventType: AuditEventType;
     userId?: string;
     agentId?: string;

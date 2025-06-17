@@ -57,9 +57,9 @@ async function getServices() {
 
 // Validation schemas using Zod
 const createWorkflowSchema = z.object({
-  operationId: z.string().uuid(),
+  operationId: z.string(),
   operationType: z.string(),
-  requiredApprovers: z.array(z.string().uuid()).min(1).max(10),
+  requiredApprovers: z.array(z.string()).min(1).max(10),
   securityLevel: z.nativeEnum(SecurityLevel),
   context: z.record(z.any()),
   expirationHours: z.number().min(1).max(168).optional(), // Max 1 week
@@ -67,7 +67,7 @@ const createWorkflowSchema = z.object({
 });
 
 const approvalDecisionSchema = z.object({
-  workflowId: z.string().uuid(),
+  workflowId: z.string(),
   decision: z.enum(['approve', 'reject']),
   conditions: z.array(z.string()).optional(),
   feedback: z.string().max(1000).optional()
