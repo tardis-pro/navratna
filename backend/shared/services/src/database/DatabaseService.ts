@@ -409,32 +409,32 @@ export class DatabaseService {
   
   // User methods
   public async createUser(userData: any) { return this.users.createUser(userData); }
-  public async getUserById(userId: number) { return this.users.findById(userId); }
+  public async getUserById(userId: string) { return this.users.findById(userId); }
   public async getUserByEmail(email: string) { return this.users.getUserByEmail(email); }
-  public async updateUser(userId: number, updates: any) { return this.users.update(userId, updates); }
-  public async deactivateUser(userId: number) { return this.users.deactivateUser(userId); }
-  public async activateUser(userId: number) { return this.users.activateUser(userId); }
+  public async updateUser(userId: string, updates: any) { return this.users.update(userId, updates); }
+  public async deactivateUser(userId: string) { return this.users.deactivateUser(userId); }
+  public async activateUser(userId: string) { return this.users.activateUser(userId); }
   public async queryUsers(filters: any) { return this.users.queryUsers(filters); }
   public async searchUsers(filters: any) { return this.users.searchUsers(filters); }
-  public async updateUserProfile(userId: number, updates: any) { return this.users.updateUserProfile(userId, updates); }
-  public async deleteUser(userId: number) { return this.users.delete(userId); }
+  public async updateUserProfile(userId: string, updates: any) { return this.users.updateUserProfile(userId, updates); }
+  public async deleteUser(userId: string) { return this.users.delete(userId); }
   public async getUserStats() { return this.users.getUserStats(); }
-  public async getUserAuthDetails(userId: number) { return this.users.getUserAuthDetails(userId); }
-  public async getUserPermissions(userId: number) { return this.users.getUserPermissions(userId); }
-  public async getUserRiskData(userId: number) { return this.users.getUserRiskData(userId); }
-  public async getUserHighestRole(userId: number) { return this.users.getUserHighestRole(userId); }
-  public async updateUserLoginAttempts(userId: number, failedAttempts: number, lockedUntil?: Date) { 
+  public async getUserAuthDetails(userId: string) { return this.users.getUserAuthDetails(userId); }
+  public async getUserPermissions(userId: string) { return this.users.getUserPermissions(userId); }
+  public async getUserRiskData(userId: string) { return this.users.getUserRiskData(userId); }
+  public async getUserHighestRole(userId: string) { return this.users.getUserHighestRole(userId); }
+  public async updateUserLoginAttempts(userId: string, failedAttempts: number, lockedUntil?: Date) { 
     return this.users.updateUserLoginAttempts(userId, failedAttempts, lockedUntil); 
   }
-  public async resetUserLoginAttempts(userId: number) { return this.users.resetUserLoginAttempts(userId); }
-  public async updateUserLoginTracking(userId: number, updates: any) { return this.users.updateUserLoginTracking(userId, updates); }
-  public async updateUserPassword(userId: number, passwordHash: string) { return this.users.updateUserPassword(userId, passwordHash); }
+  public async resetUserLoginAttempts(userId: string) { return this.users.resetUserLoginAttempts(userId); }
+  public async updateUserLoginTracking(userId: string, updates: any) { return this.users.updateUserLoginTracking(userId, updates); }
+  public async updateUserPassword(userId: string, passwordHash: string) { return this.users.updateUserPassword(userId, passwordHash); }
 
   // Refresh token methods
   public async createRefreshToken(tokenData: any) { return this.refreshTokens.createRefreshToken(tokenData); }
   public async getRefreshTokenWithUser(token: string) { return this.refreshTokens.getRefreshTokenWithUser(token); }
   public async revokeRefreshToken(token: string) { return this.refreshTokens.revokeRefreshToken(token); }
-  public async revokeAllUserRefreshTokens(userId: number) { return this.refreshTokens.revokeAllUserRefreshTokens(userId); }
+  public async revokeAllUserRefreshTokens(userId: string) { return this.refreshTokens.revokeAllUserRefreshTokens(userId); }
   public async cleanupExpiredRefreshTokens() { return this.refreshTokens.cleanupExpiredRefreshTokens(); }
 
   // Password reset token methods
@@ -510,13 +510,13 @@ export class DatabaseService {
 
   // Agent methods
   public async getActiveAgents(limit?: number) { return this.agents.getActiveAgents(limit); }
-  public async getActiveAgentById(agentId: number) { return this.agents.getActiveAgentById(agentId); }
+  public async getActiveAgentById(agentId: string) { return this.agents.getActiveAgentById(agentId); }
   public async createAgent(agentData: any) { return this.agents.createAgent(agentData); }
-  public async updateAgent(agentId: number, updateData: any) { return this.agents.updateAgent(agentId, updateData); }
-  public async deactivateAgent(agentId: number) { return this.agents.deactivateAgent(agentId); }
+  public async updateAgent(agentId: string, updateData: any) { return this.agents.updateAgent(agentId, updateData); }
+  public async deactivateAgent(agentId: string) { return this.agents.deactivateAgent(agentId); }
   public async storeExecutionPlan(planData: any) { return this.agents.storeExecutionPlan(planData); }
   public async storeEnhancedLearningRecord(recordData: any) { return this.agents.storeEnhancedLearningRecord(recordData); }
-  public async getAgentCapabilitiesConfig(agentId: number) { return this.agents.getAgentCapabilitiesConfig(agentId); }
+  public async getAgentCapabilitiesConfig(agentId: string) { return this.agents.getAgentCapabilitiesConfig(agentId); }
 
   // Security policy methods
   public async createSecurityPolicy(policyData: any) { return this.securityPolicies.createSecurityPolicy(policyData); }
@@ -530,7 +530,7 @@ export class DatabaseService {
   public async createApprovalWorkflow(workflowData: any) { return this.approvalWorkflows.createApprovalWorkflow(workflowData); }
   public async getApprovalWorkflow(workflowId: string) { return this.approvalWorkflows.findById(workflowId); }
   public async updateApprovalWorkflow(workflowId: string, updates: any) { return this.approvalWorkflows.updateApprovalWorkflow(workflowId, updates); }
-  public async getUserApprovalWorkflows(userId: number, status?: string) { 
+  public async getUserApprovalWorkflows(userId: string, status?: string) { 
     return this.approvalWorkflows.getUserApprovalWorkflows(userId, status); 
   }
   public async getPendingWorkflowsForReminders(reminderThreshold: Date) { 
@@ -819,7 +819,7 @@ export class DatabaseService {
     try {
       const repository = this.getRepository(entity);
       const result = await repository.delete(id);
-      return (result.affected || 0) > 0;
+      return (result.affected) > 0;
     } catch (error) {
       logger.error('Failed to delete', { entity: entity.toString(), id, error });
       throw error;
@@ -853,7 +853,7 @@ export class DatabaseService {
 
   public async batchUpdate<T extends ObjectLiteral>(
     entity: EntityTarget<T>,
-    updates: Array<{ Id: number; data: Partial<T> }>
+    updates: Array<{ id: string; data: Partial<T> }>
   ): Promise<T[]> {
     if (updates.length === 0) {
       return [];

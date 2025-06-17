@@ -10,11 +10,11 @@ import { BaseEntity } from './base.entity.js';
 @Index(['reviewerId'])
 @Index(['status', 'createdAt'])
 export class ArtifactReview extends BaseEntity {
-  @Column({ name: 'artifact_id', type: 'bigint' })
-  artifactId: number;
+  @Column({ name: 'artifact_id', type: 'varchar' })
+  artifactId: string;
 
-  @Column({ name: 'reviewer_id', type: 'bigint' })
-  reviewerId: number;
+  @Column({ name: 'reviewer_id', type: 'varchar' })
+  reviewerId: string;
 
   @Column({ type: 'enum', enum: ['pending', 'approved', 'rejected', 'needs-changes'], default: 'pending' })
   status: 'pending' | 'approved' | 'rejected' | 'needs-changes';
@@ -80,7 +80,7 @@ export class ArtifactReview extends BaseEntity {
   @Column({ name: 'approval_level', type: 'enum', enum: ['junior', 'senior', 'lead', 'architect'], nullable: true })
   approvalLevel?: 'junior' | 'senior' | 'lead' | 'architect';
 
-  @Column({ name: 'escalated_to', type: 'bigint', nullable: true })
+  @Column({ name: 'escalated_to', type: 'varchar', nullable: true })
   escalatedTo?: number;
 
   @Column({ name: 'escalated_at', type: 'timestamp', nullable: true })

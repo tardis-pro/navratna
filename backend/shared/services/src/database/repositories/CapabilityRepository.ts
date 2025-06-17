@@ -284,7 +284,7 @@ export class CapabilityRepository {
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
       
       const limit = Math.min(searchParams.limit || 20, 100);
-      const offset = searchParams.offset || 0;
+      const offset = searchParams.offset;
       queryParams.push(limit, offset);
 
       const capabilities = await manager.query(sqlQuery, queryParams);

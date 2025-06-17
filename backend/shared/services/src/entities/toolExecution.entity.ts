@@ -15,11 +15,11 @@ import {
 @Index(['approvalRequired', 'status'])
 @Index(['startTime', 'endTime'])
 export class ToolExecution extends BaseEntity {
-  @Column({ name: 'tool_id', type: 'bigint' })
-  toolId: number;
+  @Column({ name: 'tool_id', type: 'varchar' })
+  toolId: string;
 
-  @Column({ name: 'agent_id', type: 'bigint' })
-  agentId: number;
+  @Column({ name: 'agent_id', type: 'varchar' })
+  agentId: string;
 
   @Column({ type: 'jsonb' })
   parameters: Record<string, any>;
@@ -42,8 +42,8 @@ export class ToolExecution extends BaseEntity {
   @Column({ name: 'approval_required', default: false })
   approvalRequired: boolean;
 
-  @Column({ name: 'approved_by', type: 'bigint', nullable: true })
-  approvedBy?: number;
+  @Column({ name: 'approved_by', type: 'varchar', nullable: true })
+  approvedBy?: string;
 
   @Column({ name: 'approved_at', type: 'timestamp', nullable: true })
   approvedAt?: Date;
@@ -61,17 +61,17 @@ export class ToolExecution extends BaseEntity {
   maxRetries: number;
 
   // Enhanced tracking fields
-  @Column({ name: 'operation_id', type: 'bigint', nullable: true })
-  operationId?: number;
+  @Column({ name: 'operation_id', type: 'varchar', nullable: true })
+  operationId?: string;
 
-  @Column({ name: 'conversation_id', type: 'bigint', nullable: true })
-  conversationId?: number;
+  @Column({ name: 'conversation_id', type: 'varchar', nullable: true })
+  conversationId?: string;
 
-  @Column({ name: 'user_id', type: 'bigint', nullable: true })
-  userId?: number;
+  @Column({ name: 'user_id', type: 'varchar', nullable: true })
+  userId?: string;
 
-  @Column({ name: 'session_id', type: 'bigint', nullable: true })
-  sessionId?: number;
+  @Column({ name: 'session_id', type: 'varchar', nullable: true })
+  sessionId?: string;
 
   // Performance and quality metrics
   @Column({ name: 'quality_score', type: 'decimal', precision: 3, scale: 2, nullable: true })
@@ -110,8 +110,8 @@ export class ToolExecution extends BaseEntity {
   @Column({ name: 'cancelled_at', type: 'timestamp', nullable: true })
   cancelledAt?: Date;
 
-  @Column({ name: 'cancelled_by', type: 'bigint', nullable: true })
-  cancelledBy?: number;
+  @Column({ name: 'cancelled_by', type: 'varchar', nullable: true })
+  cancelledBy?: string;
 
   @Column({ name: 'cancellation_reason', type: 'text', nullable: true })
   cancellationReason?: string;

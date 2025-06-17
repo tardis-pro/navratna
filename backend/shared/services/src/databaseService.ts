@@ -1,7 +1,7 @@
 import { Repository, QueryRunner, EntityTarget, ObjectLiteral, EntityManager, LessThan } from 'typeorm';
 import { config } from '@uaip/config';
 import { logger, DatabaseError } from '@uaip/utils';
-import { SecurityLevel } from '@uaip/types';
+import { AuditEventType, SecurityLevel } from '@uaip/types';
 import { TypeOrmService } from './typeormService.js';
 
 // Import new repositories
@@ -45,6 +45,7 @@ import { PersonaAnalytics } from './entities/personaAnalytics.entity.js';
 import { UserEntity } from './entities/user.entity.js';
 import { RefreshTokenEntity } from './entities/refreshToken.entity.js';
 import { PasswordResetTokenEntity } from './entities/passwordResetToken.entity.js';
+import { DatabaseSeeder } from './database/seedDatabase.js';
 
 export class DatabaseService {
   private static instance: DatabaseService;
@@ -530,28 +531,36 @@ export class DatabaseService {
     }
   }
 
+  public async seedDatabase(): Promise<void> {
+    const dataSource = this.typeormService.getDataSource();
+    const seeder = new DatabaseSeeder(dataSource);
+    await seeder.seedAll();
+    
+    console.log('🎉 Database seeding completed successfully! Yo');
+  }
+
   // Methods for StateManagerService using TypeORM
-  public async saveOperationState(operationId: number, state: any): Promise<void> {
+  public async saveOperationState(operationId: string, state: any): Promise<void> {
     return await this.operationStateRepository.saveOperationState(operationId, state);
   }
 
-  public async getOperationState(operationId: number): Promise<any> {
+  public async getOperationState(operationId: string): Promise<any> {
     return await this.operationStateRepository.getOperationState(operationId);
   }
 
-  public async updateOperationState(operationId: number, state: any, updates: any): Promise<void> {
+  public async updateOperationState(operationId: string, state: any, updates: any): Promise<void> {
     return await this.operationStateRepository.updateOperationState(operationId, state, updates);
   }
 
-  public async saveCheckpoint(operationId: number, checkpoint: any): Promise<void> {
+  public async saveCheckpoint(operationId: string, checkpoint: any): Promise<void> {
     return await this.operationCheckpointRepository.saveCheckpoint(operationId, checkpoint);
   }
 
-  public async getCheckpoint(operationId: number, checkpointId: number): Promise<any> {
+  public async getCheckpoint(operationId: string, checkpointId: string): Promise<any> {
     return await this.operationCheckpointRepository.getCheckpoint(operationId, checkpointId);
   }
 
-  public async listCheckpoints(operationId: number): Promise<any[]> {
+  public async listCheckpoints(operationId: string): Promise<any[]> {
     return await this.operationCheckpointRepository.listCheckpoints(operationId);
   }
 
@@ -569,7 +578,7 @@ export class DatabaseService {
   }
 
   // Methods for OrchestrationEngine using TypeORM
-  public async getOperation(operationId: number): Promise<Operation | null> {
+  public async getOperation(operationId: string): Promise<Operation | null> {
     return await this.operationRepository.findById(operationId);
   }
 
@@ -577,11 +586,11 @@ export class DatabaseService {
     return await this.operationRepository.create(operationData);
   }
 
-  public async saveStepResult(operationId: number, result: any): Promise<void> {
+  public async saveStepResult(operationId: string, result: any): Promise<void> {
     return await this.stepResultRepository.saveStepResult(operationId, result);
   }
 
-    public async updateOperationResult(operationId: number, result: any): Promise<void> {
+    public async updateOperationResult(operationId: string, result: any): Promise<void> {
     return await this.operationRepository.updateOperationResult(operationId, result);
   }
 
@@ -619,7 +628,7 @@ export class DatabaseService {
   // Generic CRUD operations using TypeORM
   public async findById<T extends ObjectLiteral>(
     entity: EntityTarget<T>,
-    id: number
+    id: string
   ): Promise<T | null> {
     try {
       const repository = await this.getRepository(entity);
@@ -698,7 +707,7 @@ export class DatabaseService {
 
   public async update<T extends ObjectLiteral>(
     entity: EntityTarget<T>,
-    id: number,
+    id: string,
     data: Partial<T>
   ): Promise<T | null> {
     try {
@@ -713,12 +722,12 @@ export class DatabaseService {
 
   public async delete<T extends ObjectLiteral>(
     entity: EntityTarget<T>,
-    id: number
+    id: string
   ): Promise<boolean> {
     try {
       const repository = await this.getRepository(entity);
       const result = await repository.delete(id);
-      return (result.affected || 0) > 0;
+      return (result.affected) > 0;
     } catch (error) {
       logger.error('Failed to delete', { entity: entity.toString(), id, error });
       throw error;
@@ -759,7 +768,7 @@ export class DatabaseService {
 
   public async batchUpdate<T extends ObjectLiteral>(
     entity: EntityTarget<T>,
-    updates: Array<{ Id: number; data: Partial<T> }>
+    updates: Array<{ id: string; data: Partial<T> }>
   ): Promise<T[]> {
     if (updates.length === 0) {
       return [];
@@ -770,8 +779,8 @@ export class DatabaseService {
       const results: T[] = [];
       
       for (const update of updates) {
-        await repository.update(update.Id, { ...update.data, updatedAt: new Date() } as any);
-        const result = await repository.findOne({ where: { Id: update.Id } as any });
+        await repository.update(update.id, { ...update.data, updatedAt: new Date() } as any);
+        const result = await repository.findOne({ where: { id: update.id } as any });
         if (result) {
           results.push(result);
         }
@@ -809,8 +818,8 @@ export class DatabaseService {
    * Create a new approval workflow
    */
   public async createApprovalWorkflow(workflowData: {
-    Id: number;
-    operationId: number;
+    id: string;
+    operationId: string;
     requiredApprovers: string[];
     currentApprovers?: string[];
     status: string;
@@ -837,7 +846,7 @@ export class DatabaseService {
   /**
    * Get workflows for a user (as approver)
    */
-  public async getUserApprovalWorkflows(userId: number, status?: string): Promise<ApprovalWorkflow[]> {
+  public async getUserApprovalWorkflows(userId: string, status?: string): Promise<ApprovalWorkflow[]> {
     return await this.approvalWorkflowRepository.getUserApprovalWorkflows(userId, status);
   }
 
@@ -871,9 +880,9 @@ export class DatabaseService {
    * Create approval decision
    */
   public async createApprovalDecision(decisionData: {
-    Id: number;
-    workflowId: number;
-    approverId: number;
+    id: string;
+    workflowId: string;
+    approverId: string;
     decision: 'approve' | 'reject';
     conditions?: string[];
     feedback?: string;
@@ -895,8 +904,7 @@ export class DatabaseService {
    * Create audit event
    */
   public async createAuditEvent(eventData: {
-    Id: number;
-    eventType: string;
+    eventType: AuditEventType;
     userId?: string;
     agentId?: string;
     resourceType?: string;
@@ -904,7 +912,7 @@ export class DatabaseService {
     details: Record<string, any>;
     ipAddress?: string;
     userAgent?: string;
-    riskLevel?: string;
+    riskLevel?: SecurityLevel;
     timestamp: Date;
   }): Promise<AuditEvent> {
     return await this.auditRepository.createAuditEvent(eventData);
@@ -914,14 +922,14 @@ export class DatabaseService {
    * Query audit events with filters (excludes archived events by default)
    */
   public async queryAuditEvents(filters: {
-    eventTypes?: string[];
+    eventTypes?: AuditEventType[];
     userId?: string;
     agentId?: string;
     resourceType?: string;
     resourceId?: string;
     startDate?: Date;
     endDate?: Date;
-    riskLevel?: string;
+    riskLevel?: SecurityLevel;
     limit?: number;
     offset?: number;
     includeArchived?: boolean;
@@ -933,7 +941,7 @@ export class DatabaseService {
    * Count recent events for security monitoring (excludes archived events)
    */
   public async countRecentAuditEvents(
-    eventType: string,
+    eventType: AuditEventType,
     userId?: string,
     minutesBack: number = 5,
     detailsFilter?: Record<string, any>
@@ -966,14 +974,14 @@ export class DatabaseService {
    * Get audit events excluding archived ones (for normal queries)
    */
   public async getActiveAuditEvents(filters: {
-    eventTypes?: string[];
+    eventTypes?: AuditEventType[];
     userId?: string;
     agentId?: string;
     resourceType?: string;
     resourceId?: string;
     startDate?: Date;
     endDate?: Date;
-    riskLevel?: string;
+    riskLevel?: SecurityLevel;
     limit?: number;
     offset?: number;
   }): Promise<AuditEvent[]> {
@@ -984,7 +992,7 @@ export class DatabaseService {
    * Search audit logs with complex filtering and pagination (for auditRoutes)
    */
   public async searchAuditLogs(filters: {
-    eventType?: string;
+    eventType?: AuditEventType;
     userId?: string;
     startDate?: Date;
     endDate?: Date;
@@ -1018,7 +1026,7 @@ export class DatabaseService {
   public async getAuditStatistics(timeframe: '1h' | '24h' | '7d' | '30d' = '24h'): Promise<{
     eventTypes: Array<{ eventType: string; count: number; uniqueUsers: number; uniqueIPs: number }>;
     hourlyDistribution: Array<{ hour: number; count: number }>;
-    topUsers: Array<{ userId: number; email: string; eventCount: number }>;
+    topUsers: Array<{ userId: string; email: string; eventCount: number }>;
     topIPAddresses: Array<{ ipAddress: string; eventCount: number; uniqueUsers: number }>;
     summary: { totalEvents: number; uniqueUsers: number; uniqueIPs: number };
   }> {
@@ -1029,10 +1037,10 @@ export class DatabaseService {
    * Get user activity audit trail with pagination
    */
   public async getUserActivityAuditTrail(filters: {
-    userId: number;
+    userId: string;
     startDate?: Date;
     endDate?: Date;
-    eventType?: string;
+    eventType?: AuditEventType;
     limit?: number;
     offset?: number;
   }): Promise<{ activities: any[]; total: number }> {
@@ -1122,7 +1130,7 @@ export class DatabaseService {
   /**
    * Get user by ID
    */
-  public async getUserById(userId: number): Promise<UserEntity | null> {
+  public async getUserById(userId: string): Promise<UserEntity | null> {
     await this.ensureInitialized();
     return this.userRepository.findById(userId);
   }
@@ -1138,7 +1146,7 @@ export class DatabaseService {
   /**
    * Update user
    */
-  public async updateUser(userId: number, updates: Partial<UserEntity>): Promise<UserEntity | null> {
+  public async updateUser(userId: string, updates: Partial<UserEntity>): Promise<UserEntity | null> {
     await this.ensureInitialized();
     return this.userRepository.update(userId, updates);
   }
@@ -1146,28 +1154,28 @@ export class DatabaseService {
   /**
    * Update user login attempts and lock status
    */
-  public async updateUserLoginAttempts(userId: number, failedAttempts: number, lockedUntil?: Date): Promise<void> {
+  public async updateUserLoginAttempts(userId: string, failedAttempts: number, lockedUntil?: Date): Promise<void> {
     return await this.userRepository.updateUserLoginAttempts(userId, failedAttempts, lockedUntil);
   }
 
   /**
    * Reset user login attempts and update last login
    */
-  public async resetUserLoginAttempts(userId: number): Promise<void> {
+  public async resetUserLoginAttempts(userId: string): Promise<void> {
     return await this.userRepository.resetUserLoginAttempts(userId);
   }
 
   /**
    * Soft delete user (deactivate)
    */
-  public async deactivateUser(userId: number): Promise<void> {
+  public async deactivateUser(userId: string): Promise<void> {
     return await this.userRepository.deactivateUser(userId);
   }
 
   /**
    * Activate user
    */
-  public async activateUser(userId: number): Promise<void> {
+  public async activateUser(userId: string): Promise<void> {
     return await this.userRepository.activateUser(userId);
   }
 
@@ -1191,7 +1199,7 @@ export class DatabaseService {
    * Create refresh token
    */
   public async createRefreshToken(tokenData: {
-    userId: number;
+    userId: string;
     token: string;
     expiresAt: Date;
   }): Promise<RefreshTokenEntity> {
@@ -1215,7 +1223,7 @@ export class DatabaseService {
   /**
    * Revoke all user refresh tokens
    */
-  public async revokeAllUserRefreshTokens(userId: number): Promise<void> {
+  public async revokeAllUserRefreshTokens(userId: string): Promise<void> {
     return await this.refreshTokenRepository.revokeAllUserRefreshTokens(userId);
   }
 
@@ -1229,7 +1237,7 @@ export class DatabaseService {
   /**
    * Update user login tracking (failed attempts, last login, etc.)
    */
-  public async updateUserLoginTracking(userId: number, updates: {
+  public async updateUserLoginTracking(userId: string, updates: {
     failedLoginAttempts?: number;
     lockedUntil?: Date | null;
     lastLoginAt?: Date;
@@ -1244,7 +1252,7 @@ export class DatabaseService {
   /**
    * Update user password
    */
-  public async updateUserPassword(userId: number, passwordHash: string): Promise<void> {
+  public async updateUserPassword(userId: string, passwordHash: string): Promise<void> {
     const repository = await this.getRepository(UserEntity);
     await repository.update(userId, {
       passwordHash,
@@ -1272,7 +1280,7 @@ export class DatabaseService {
   /**
    * Update user profile
    */
-  public async updateUserProfile(userId: number, updates: {
+  public async updateUserProfile(userId: string, updates: {
     firstName?: string;
     lastName?: string;
     department?: string;
@@ -1286,13 +1294,13 @@ export class DatabaseService {
   /**
    * Delete user (soft delete by setting inactive)
    */
-  public async deleteUser(userId: number): Promise<boolean> {
+  public async deleteUser(userId: string): Promise<boolean> {
     const repository = await this.getRepository(UserEntity);
     const result = await repository.update(userId, {
       isActive: false,
       updatedAt: new Date()
     });
-    return (result.affected || 0) > 0;
+    return (result.affected) > 0;
   }
 
   /**
@@ -1315,7 +1323,7 @@ export class DatabaseService {
    * Create password reset token
    */
   public async createPasswordResetToken(tokenData: {
-    userId: number;
+    userId: string;
     token: string;
     expiresAt: Date;
   }): Promise<PasswordResetTokenEntity> {
@@ -1377,8 +1385,8 @@ export class DatabaseService {
   /**
    * Get user authentication details for security validation
    */
-  public async getUserAuthDetails(userId: number): Promise<{
-    Id: number;
+  public async getUserAuthDetails(userId: string): Promise<{
+    id: string;
     isActive: boolean;
     role: string;
     securityClearance?: SecurityLevel;
@@ -1389,7 +1397,7 @@ export class DatabaseService {
   /**
    * Get user permissions for security validation
    */
-  public async getUserPermissions(userId: number): Promise<{
+  public async getUserPermissions(userId: string): Promise<{
     rolePermissions: Array<{ roleName: string; permissionType: string; operations: string[] }>;
     directPermissions: Array<{ permissionType: string; operations: string[] }>;
   }> {
@@ -1399,7 +1407,7 @@ export class DatabaseService {
   /**
    * Get user risk assessment data
    */
-  public async getUserRiskData(userId: number): Promise<{
+  public async getUserRiskData(userId: string): Promise<{
     securityClearance?: SecurityLevel;
     role: string;
     lastLoginAt?: Date;
@@ -1412,7 +1420,7 @@ export class DatabaseService {
   /**
    * Get user's highest role for data access level determination
    */
-  public async getUserHighestRole(userId: number): Promise<string | null> {
+  public async getUserHighestRole(userId: string): Promise<string | null> {
     return await this.userRepository.getUserHighestRole(userId);
   }
 
@@ -1499,7 +1507,7 @@ export class DatabaseService {
   /**
    * Get agent configuration and capabilities
    */
-  public async getAgentCapabilitiesConfig(agentId: number): Promise<{
+  public async getAgentCapabilitiesConfig(agentId: string): Promise<{
     intelligenceConfig?: any;
     securityContext?: any;
   } | null> {
@@ -1518,7 +1526,7 @@ export class DatabaseService {
   /**
    * Get agent by ID with active status check
    */
-  public async getActiveAgentById(agentId: number): Promise<any | null> {
+  public async getActiveAgentById(agentId: string): Promise<any | null> {
     return await this.agentRepository.getActiveAgentById(agentId);
   }
 
@@ -1526,13 +1534,13 @@ export class DatabaseService {
    * Create a new agent
    */
   public async createAgent(agentData: {
-    id?: number;
+    id?: string;
     name: string;
     role: string;
     persona: any;
     intelligenceConfig: any;
     securityContext: any;
-    createdBy?: number;
+    createdBy?: string;
   }): Promise<any> {
     return await this.agentRepository.createAgent(agentData);
   }
@@ -1540,7 +1548,7 @@ export class DatabaseService {
   /**
    * Update an agent
    */
-  public async updateAgent(agentId: number, updateData: {
+  public async updateAgent(agentId: string, updateData: {
     name?: string;
     role?: string;
     persona?: any;
@@ -1554,9 +1562,9 @@ export class DatabaseService {
    * Store execution plan
    */
   public async storeExecutionPlan(planData: {
-    Id: number;
+    id: string;
     type: string;
-    agentId: number;
+    agentId: string;
     plan?: any;
     steps?: any;
     dependencies?: any;
@@ -1573,7 +1581,7 @@ export class DatabaseService {
   /**
    * Get operation by ID
    */
-  public async getOperationById(operationId: number): Promise<any | null> {
+  public async getOperationById(operationId: string): Promise<any | null> {
     return await this.agentRepository.getOperationById(operationId);
   }
 
@@ -1581,8 +1589,8 @@ export class DatabaseService {
    * Store enhanced learning record
    */
   public async storeEnhancedLearningRecord(recordData: {
-    agentId: number;
-    operationId: number;
+    agentId: string;
+    operationId: string;
     learningData: any;
     confidenceAdjustments: any;
   }): Promise<void> {
@@ -1592,7 +1600,7 @@ export class DatabaseService {
   /**
    * Deactivate an agent (set is_active to false)
    */
-  public async deactivateAgent(agentId: number): Promise<boolean> {
+  public async deactivateAgent(agentId: string): Promise<boolean> {
     return await this.agentRepository.deactivateAgent(agentId);
   }
 
@@ -1603,7 +1611,7 @@ export class DatabaseService {
     return await this.toolRepository.createTool(toolData);
   }
 
-  public async getTool(id: number): Promise<ToolDefinition | null> {
+  public async getTool(id: string): Promise<ToolDefinition | null> {
     return await this.toolRepository.findById(id);
   }
 
@@ -1611,17 +1619,17 @@ export class DatabaseService {
     category?: string;
     enabled?: boolean;
     securityLevel?: string;
-    limit?: number;
+    limit?: number; 
     offset?: number;
   } = {}): Promise<ToolDefinition[]> {
     return await this.toolRepository.getTools(filters);
   }
 
-  public async updateTool(id: number, updates: Partial<ToolDefinition>): Promise<ToolDefinition | null> {
+  public async updateTool(id: string, updates: Partial<ToolDefinition>): Promise<ToolDefinition | null> {
     return await this.toolRepository.update(id, updates);
   }
 
-  public async deleteTool(id: number): Promise<boolean> {
+  public async deleteTool(id: string): Promise<boolean> {
     return await this.toolRepository.delete(id);
   }
 
@@ -1637,17 +1645,17 @@ export class DatabaseService {
     return await this.toolExecutionRepository.createToolExecution(executionData);
   }
 
-  public async updateToolExecution(id: number, updates: Partial<ToolExecution>): Promise<ToolExecution | null> {
+  public async updateToolExecution(id: string, updates: Partial<ToolExecution>): Promise<ToolExecution | null> {
     return await this.toolExecutionRepository.update(id, updates);
   }
 
-  public async getToolExecution(id: number): Promise<ToolExecution | null> {
+  public async getToolExecution(id: string): Promise<ToolExecution | null> {
     return await this.toolExecutionRepository.getToolExecution(id);
   }
 
   public async getToolExecutions(filters: {
-    toolId?: number;
-    agentId?: number;
+    toolId?: string;
+    agentId?: string;
     status?: string;
     limit?: number;
     offset?: number;
@@ -1660,24 +1668,24 @@ export class DatabaseService {
   }
 
   public async getToolUsageStats(filters: {
-    toolId?: number;
-    agentId?: number;
+    toolId?: string;
+    agentId?: string;
     days?: number;
   } = {}): Promise<any[]> {
     return await this.toolUsageRepository.getToolUsageStats(filters);
   }
 
-  private async incrementToolUsageCount(toolId: number): Promise<void> {
+  private async incrementToolUsageCount(toolId: string): Promise<void> {
     return await this.toolRepository.incrementToolUsageCount(toolId);
   }
 
-  public async updateToolSuccessMetrics(toolId: number, wasSuccessful: boolean, executionTime?: number): Promise<void> {
+  public async updateToolSuccessMetrics(toolId: string, wasSuccessful: boolean, executionTime?: number): Promise<void> {
     return await this.toolRepository.updateToolSuccessMetrics(toolId, wasSuccessful, executionTime);
   }
 
-  public async getToolPerformanceAnalytics(toolId?: number): Promise<{
+  public async getToolPerformanceAnalytics(toolId?: string): Promise<{
     tools: Array<{
-      id: number;
+      id: string;
       name: string;
       totalExecutions: number;
       successfulExecutions: number;

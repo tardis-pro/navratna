@@ -336,7 +336,7 @@ function parseRedisUrl(url?: string) {
       host: parsed.hostname,
       port: parseInt(parsed.port) || 6379,
       password: parsed.password || undefined,
-      db: parsed.pathname ? parseInt(parsed.pathname.slice(1)) || 0 : 0
+      db: parsed.pathname ? parseInt(parsed.pathname.slice(1)) : 0
     };
   } catch (error) {
     console.error('Failed to parse REDIS_URL:', error);

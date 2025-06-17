@@ -111,20 +111,20 @@ export class Persona extends BaseEntity {
   @Column({ type: 'enum', enum: PersonaVisibility, default: PersonaVisibility.PRIVATE })
   visibility: PersonaVisibility;
 
-  @Column({ name: 'created_by', type: 'bigint' })
-  createdBy: number;
+  @Column({ name: 'created_by', type: 'varchar' })
+  createdBy: string;
 
-  @Column({ name: 'organization_id', type: 'bigint', nullable: true })
-  organizationId?: number;
+  @Column({ name: 'organization_id', type: 'varchar', nullable: true })
+  organizationId?: string;
 
-  @Column({ name: 'team_id', type: 'bigint', nullable: true })
-  teamId?: number;
+  @Column({ name: 'team_id', type: 'varchar', nullable: true })
+  teamId?: string;
 
   @Column({ default: 1 })
   version: number;
 
-  @Column({ name: 'parent_persona_id', type: 'bigint', nullable: true })
-  parentPersonaId?: number;
+  @Column({ name: 'parent_persona_id', type: 'varchar', nullable: true })
+  parentPersonaId?: string;
 
   @Column({ type: 'jsonb', default: '[]' })
   tags: string[];
@@ -140,7 +140,7 @@ export class Persona extends BaseEntity {
   configuration?: Record<string, any>;
 
   @Column({ type: 'jsonb', default: '[]' })
-  capabilities: number[];
+  capabilities: string[];
 
   @Column({ type: 'jsonb', nullable: true })
   restrictions?: Record<string, any>;
@@ -167,8 +167,8 @@ export class Persona extends BaseEntity {
   @Column({ name: 'last_used_at', type: 'timestamp', nullable: true })
   lastUsedAt?: Date;
 
-  @Column({ name: 'last_updated_by', type: 'bigint', nullable: true })
-  lastUpdatedBy?: number;
+  @Column({ name: 'last_updated_by', type: 'varchar', nullable: true })
+  lastUpdatedBy?: string;
 
   // Relationships
   @OneToMany('DiscussionParticipant', 'persona')

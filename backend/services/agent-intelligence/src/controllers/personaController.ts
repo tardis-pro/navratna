@@ -164,7 +164,7 @@ export class PersonaController {
       };
 
       const limit = parseInt(req.query.limit as string) || 20;
-      const offset = parseInt(req.query.offset as string) || 0;
+      const offset = parseInt(req.query.offset as string);
 
       logger.info('Searching personas', { 
         filters: Object.keys(filters).filter(key => filters[key as keyof PersonaSearchFilters] !== undefined),

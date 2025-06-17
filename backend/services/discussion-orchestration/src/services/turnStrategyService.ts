@@ -186,7 +186,7 @@ export class TurnStrategyService {
       const nextParticipant = await this.getNextParticipant(discussion, participants, config);
       
       // Calculate new turn number
-      const turnNumber = (discussion.state.currentTurn.turnNumber || 0) + 1;
+      const turnNumber = (discussion.state.currentTurn.turnNumber) + 1;
       
       // Get estimated duration for next participant
       const estimatedDuration = nextParticipant 

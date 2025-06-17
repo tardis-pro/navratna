@@ -8,8 +8,8 @@ import { UserEntity } from './user.entity.js';
 @Index(['expiresAt'])
 @Index(['revokedAt'])
 export class RefreshTokenEntity extends BaseEntity {
-  @Column({ type: 'bigint', name: 'user_id' })
-  userId!: number;
+  @Column({ type: 'varchar', name: 'user_id' })
+  userId!: string;
 
   @Column({ type: 'varchar', length: 500, unique: true })
   token!: string;

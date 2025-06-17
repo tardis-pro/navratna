@@ -37,7 +37,7 @@ export class ToolExecutor {
 
   async executeTool(
     toolId: string,
-    agentId: number,
+    agentId: string,
     parameters: Record<string, any>,
     options: ExecutionOptions = {}
   ): Promise<ToolExecution> {
@@ -62,6 +62,7 @@ export class ToolExecutor {
 
     // Create execution record
     const execution: ToolExecution = {
+      id: `execution_${Date.now()}_${toolId}_${agentId}`,
       toolId,
       agentId,
       parameters: validatedInput.parameters,
@@ -341,7 +342,7 @@ export class ToolExecutor {
         agentId: execution.agentId,
         timestamp: execution.endTime || new Date(),
         success,
-        executionTime: execution.executionTimeMs || 0,
+        executionTime: execution.executionTimeMs,
         cost: execution.cost,
         errorType: execution.error?.type,
         parameters: execution.parameters,
@@ -355,7 +356,7 @@ export class ToolExecutor {
   }
 
   private async updateUsagePattern(
-    agentId: number,
+    agentId: string,
     toolId: string,
     executionTime: number,
     success: boolean
@@ -369,7 +370,7 @@ export class ToolExecutor {
 
   private calculateCost(tool: any, executionTime: number): number {
     // Simple cost calculation based on tool's cost estimate and execution time
-    const baseCost = tool.costEstimate || 0;
+    const baseCost = tool.costEstimate;
     const timeFactor = executionTime / (tool.executionTimeEstimate || 1000);
     return baseCost * timeFactor;
   }

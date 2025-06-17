@@ -31,7 +31,7 @@ export enum SyncStatusType {
 
 // Core Knowledge Item
 export interface KnowledgeItem {
-  id: number;
+  id: string;
   content: string;
   type: KnowledgeType;
   sourceType: SourceType;
@@ -42,8 +42,8 @@ export interface KnowledgeItem {
   metadata: Record<string, any>;
   createdAt: Date;
   updatedAt: Date;
-  createdBy?: number;
-  organizationId?: number;
+  createdBy?: string;
+  organizationId?: string;
   accessLevel: string;
 }
 
@@ -56,7 +56,7 @@ export interface KnowledgeSearchRequest {
     confidence?: number;
     dateRange?: DateRange;
     sourceTypes?: SourceType[];
-    createdBy?: number;
+    createdBy?: string;
     organizationId?: string;
   };
   options?: {
@@ -91,7 +91,7 @@ export interface KnowledgeIngestRequest {
     metadata?: Record<string, any>;
   };
   confidence?: number;
-  createdBy?: number;
+  createdBy?: string;
   organizationId?: string;
   accessLevel?: string;
 }
@@ -121,9 +121,9 @@ export interface KnowledgeClassification {
 
 // Knowledge Relationships
 export interface KnowledgeRelationship {
-  id: number;
-  sourceItemId: number;
-  targetItemId: number;
+  id: string;
+  sourceItemId: string;
+  targetItemId: string;
   relationshipType: string;
   confidence: number;
   createdAt: Date;
@@ -131,7 +131,7 @@ export interface KnowledgeRelationship {
 
 // Knowledge Sources
 export interface KnowledgeSource {
-  id: number;
+  id: string;
   sourceType: SourceType;
   sourceIdentifier: string;
   sourceUrl?: string;
@@ -142,8 +142,8 @@ export interface KnowledgeSource {
 
 // Vector Embeddings
 export interface KnowledgeEmbedding {
-  id: number;
-  knowledgeItemId: number;
+  id: string;
+  knowledgeItemId: string;
   embeddingVector: number[];
   modelVersion: string;
   chunkIndex: number;
@@ -166,11 +166,11 @@ export interface KnowledgeFilters {
 
 // Agent Memory Types
 export interface WorkingMemory {
-  agentId: number;
-  sessionId: number;
+  agentId: string;
+  sessionId: string;
   currentContext: {
     activeDiscussion?: {
-      discussionId: number;
+      discussionId: string;
       topic: string;
       participants: string[];
       myRole: string;
@@ -178,7 +178,7 @@ export interface WorkingMemory {
       currentGoals: string[];
     };
     activeOperation?: {
-      operationId: number;
+      operationId: string;
       type: string;
       progress: number;
       currentStep: string;
@@ -213,8 +213,8 @@ export interface WorkingMemory {
 }
 
 export interface Episode {
-  agentId: number;
-  episodeId: number;
+  agentId: string;
+  episodeId: string;
   type: 'discussion' | 'operation' | 'learning' | 'problem_solving' | 'collaboration';
   context: {
     when: Date;
@@ -246,7 +246,7 @@ export interface Episode {
 }
 
 export interface SemanticMemory {
-  agentId: number;
+  agentId: string;
   concept: string;
   knowledge: {
     definition: string;
@@ -271,7 +271,7 @@ export interface SemanticMemory {
 
 // Supporting Types
 export interface Interaction {
-  Id: number;
+  id: string;
   type: string;
   description: string;
   timestamp: Date;
@@ -312,13 +312,13 @@ export interface EmotionalState {
 }
 
 export interface KnowledgeReference {
-  itemId: number;
+  itemId: string;
   relevance: number;
   lastAccessed: Date;
 }
 
 export interface Action {
-  Id: number;
+  id: string;
   description: string;
   type: string;
   timestamp: Date;
@@ -328,7 +328,7 @@ export interface Action {
 
 
 export interface Outcome {
-  Id: number;
+  id: string;
   description: string;
   type: string;
   success: boolean;
@@ -361,7 +361,7 @@ export interface EpisodicQuery {
 
 // Agent Lifecycle Types
 export interface AgentState {
-  agentId: number;
+  agentId: string;
   status: 'idle' | 'active' | 'busy' | 'error' | 'offline';
   currentActivity?: {
     type: 'discussion' | 'operation' | 'analysis' | 'learning';
@@ -383,11 +383,11 @@ export interface AgentState {
 }
 
 export interface AgentActivity {
-  agentId: number;
+  agentId: string;
   type: 'message_sent' | 'operation_executed' | 'decision_made' | 'knowledge_accessed';
   context: {
-    discussionId?: number;
-    operationId?: number;
+    discussionId?: string;
+    operationId?: string;
     targetService?: string;
   };
   metadata: {
@@ -403,7 +403,7 @@ export interface AgentActivity {
 }
 
 export interface AgentInteraction {
-  agentId: number;
+  agentId: string;
   interactionType: 'discussion_participation' | 'operation_execution' | 'knowledge_query';
   context: string;
   outcome: 'success' | 'failure' | 'partial';
@@ -417,7 +417,7 @@ export interface AgentInteraction {
 }
 
 export interface AgentMetrics {
-  agentId: number;
+  agentId: string;
   timeRange: DateRange;
   totalActivities: number;
   successRate: number;

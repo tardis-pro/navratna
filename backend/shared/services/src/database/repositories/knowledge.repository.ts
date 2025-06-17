@@ -36,7 +36,7 @@ export class KnowledgeRepository {
   }
 
   async update(id: string, updates: Partial<KnowledgeItem>): Promise<KnowledgeItem> {
-    const numericId = parseInt(id);
+    const numericId = id;
     await this.knowledgeRepo.update(numericId, {
       ...updates,
       updatedAt: new Date()
@@ -51,7 +51,7 @@ export class KnowledgeRepository {
   }
 
   async delete(id: string): Promise<void> {
-    const numericId = parseInt(id);
+    const numericId = id;
     // Delete relationships first
     await this.relationshipRepo.delete({
       sourceItemId: numericId
@@ -65,12 +65,12 @@ export class KnowledgeRepository {
   }
 
   async findById(id: string): Promise<KnowledgeItem | null> {
-    const entity = await this.knowledgeRepo.findOne({ where: { id: parseInt(id) } });
+    const entity = await this.knowledgeRepo.findOne({ where: { id: id } });
     return entity ? this.entityToModel(entity) : null;
   }
 
   async getItems(ids: string[]): Promise<KnowledgeItem[]> {
-    const numericIds = ids.map(id => parseInt(id));
+    const numericIds = ids.map(id => id);
     const entities = await this.knowledgeRepo.find({
       where: { id: In(numericIds) }
     });
@@ -131,9 +131,8 @@ export class KnowledgeRepository {
   }
 
   async getRelationships(itemId: string, relationshipTypes?: string[]): Promise<KnowledgeRelationship[]> {
-    const numericItemId = parseInt(itemId);
     let query = this.relationshipRepo.createQueryBuilder('kr')
-      .where('kr.sourceItemId = :itemId', { itemId: numericItemId });
+      .where('kr.sourceItemId = :itemId', { itemId: itemId });
 
     if (relationshipTypes?.length) {
       query = query.andWhere('kr.relationshipType IN (:...types)', { types: relationshipTypes });
@@ -184,7 +183,7 @@ export class KnowledgeRepository {
       totalItems,
       itemsByType,
       itemsBySource,
-      averageConfidence: parseFloat(avgConfidence.average) || 0
+      averageConfidence: parseFloat(avgConfidence.average)
     };
   }
 

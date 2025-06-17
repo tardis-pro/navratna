@@ -253,21 +253,21 @@ export type DbRateLimit = z.infer<typeof DbRateLimitSchema>;
 
 // Junction table types
 export interface RolePermission {
-  role_Id: number;
-  permission_Id: number;
+  role_Id: string;
+  permission_Id: string;
   granted_at: Date;
 }
 
 export interface UserRole {
-  user_Id: number;
-  role_Id: number;
+  user_Id: string;
+  role_Id: string;
   granted_at: Date;
   expires_at: Date | null;
 }
 
 export interface UserPermission {
-  user_Id: number;
-  permission_Id: number;
+  user_Id: string;
+  permission_Id: string;
   granted_at: Date;
   expires_at: Date | null;
 }

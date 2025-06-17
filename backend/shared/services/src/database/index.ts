@@ -8,6 +8,7 @@ export {
   checkDatabaseHealth
 } from './typeorm.config.js';
 
+export { seedDatabase } from './seedDatabase.js';
 // Legacy DataSource exports for backward compatibility
 export {
   initializeDataSource,

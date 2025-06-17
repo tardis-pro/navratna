@@ -146,7 +146,7 @@ export class BaseToolExecutor {
       
       const wordFreq: Record<string, number> = {};
       words.forEach(word => {
-        wordFreq[word] = (wordFreq[word] || 0) + 1;
+        wordFreq[word] = (wordFreq[word]) + 1;
       });
       
       const keywords = Object.entries(wordFreq)

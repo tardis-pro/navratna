@@ -27,6 +27,8 @@ import { DiscussionParticipant } from '../entities/discussionParticipant.entity.
 import { PersonaAnalytics } from '../entities/personaAnalytics.entity.js';
 import { MCPServer } from '../entities/mcpServer.entity.js';
 import { MCPToolCall } from '../entities/mcpToolCall.entity.js';
+import { KnowledgeItemEntity } from '../entities/knowledge-item.entity.js';
+import { KnowledgeRelationshipEntity } from '../entities/knowledge-relationship.entity.js';
 
 /**
  * TypeORM Configuration for UAIP Backend
@@ -60,6 +62,8 @@ const allEntities = [
   PersonaAnalytics,
   MCPServer,
   MCPToolCall,
+  KnowledgeItemEntity,
+  KnowledgeRelationshipEntity,
 ];
 
 export const createTypeOrmConfig = (entities?: any[], disableCache = false): DataSourceOptions => {
@@ -116,7 +120,7 @@ export const createTypeOrmConfig = (entities?: any[], disableCache = false): Dat
     migrationsRun: false, // Set to true for auto-migration in development
     
     // Synchronization (NEVER use in production)
-    synchronize: false,
+    synchronize: true,
     
     // Logging configuration
     logging: config.logging.enableDetailedLogging ? ['query', 'error', 'warn'] : ['error'],
@@ -135,7 +139,7 @@ export const createTypeOrmConfig = (entities?: any[], disableCache = false): Dat
     cache: cacheConfig,
     
     // Development features
-    dropSchema: false,
+    dropSchema: true,
     
         // Use default naming strategy for now
     // namingStrategy: 'snake_case',

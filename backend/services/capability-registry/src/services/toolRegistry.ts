@@ -10,9 +10,9 @@ import { z } from 'zod';
 
 // Define AgentCapabilityMetric interface locally since it's not exported from types
 interface AgentCapabilityMetric {
-  Id: number;
-  agentId: number;
-  toolId: number;
+  id: string;
+  agentId: string;
+  toolId: string;
   totalExecutions: number;
   successfulExecutions: number;
   totalExecutionTime: number;
@@ -25,7 +25,7 @@ interface AgentCapabilityMetric {
 
 // Validation schemas using Zod
 const ToolDefinitionSchema = z.object({
-  id: z.coerce.number().int().positive('ID must be a positive integer'),
+  id: z.string(),
   name: z.string().min(1),
   description: z.string(),
   version: z.string().min(1),
@@ -121,9 +121,9 @@ export class ToolRegistry {
     }
   }
 
-  async updateTool(id: string | number, updates: Partial<ToolDefinition>): Promise<void> {
+  async updateTool(id: string, updates: Partial<ToolDefinition>): Promise<void> {
     // Validate ID
-    const validatedId = z.coerce.number().int().positive().parse(id);
+    const validatedId = z.string().parse(id);
     
     // Validate updates
     const validatedUpdates = ToolDefinitionSchema.partial().parse(updates);
@@ -147,9 +147,9 @@ export class ToolRegistry {
     }
   }
 
-  async unregisterTool(id: string | number): Promise<void> {
+  async unregisterTool(id: string): Promise<void> {
     // Validate ID
-    const validatedId = z.coerce.number().int().positive().parse(id);
+    const validatedId = z.string().parse(id);
     
     try {
       // Remove from PostgreSQL (cascades to related tables)
@@ -168,9 +168,9 @@ export class ToolRegistry {
   }
 
   // Tool Discovery and Retrieval
-  async getTool(id: string | number): Promise<ToolDefinition | null> {
+  async getTool(id: string): Promise<ToolDefinition | null> {
     await this.ensureInitialized();
-    const validatedId = z.coerce.number().int().positive().parse(id);
+    const validatedId = z.string().parse(id);
     return await this.postgresql.getTool(validatedId);
   }
 
@@ -241,7 +241,7 @@ export class ToolRegistry {
     logger.info(`Relationship added: ${fromToolId} -[${relationship.type}]-> ${toToolId}`);
   }
 
-  async getRecommendations(agentId: number, context?: string, limit = 5): Promise<ToolRecommendation[]> {
+  async getRecommendations(agentId: string, context?: string, limit = 5): Promise<ToolRecommendation[]> {
     try {
       let recommendations: ToolRecommendation[] = [];
       
@@ -298,7 +298,7 @@ export class ToolRegistry {
     return await this.neo4j.getPopularTools(category, limit);
   }
 
-  async getAgentToolPreferences(agentId: number): Promise<any[]> {
+  async getAgentToolPreferences(agentId: string): Promise<any[]> {
     return await this.neo4j.getAgentToolPreferences(agentId);
   }
 
@@ -364,7 +364,7 @@ export class ToolRegistry {
   // Enhanced Tool Usage Tracking
   async recordToolUsage(
     toolId: string,
-    agentId: number,
+    agentId: string,
     executionTime: number,
     success: boolean,
     cost?: number,
@@ -376,7 +376,7 @@ export class ToolRegistry {
         agentId,
         executionTime,
         success,
-        cost: cost || 0,
+        cost: cost,
         timestamp: new Date(),
         metadata: metadata || {}
       };
@@ -394,7 +394,7 @@ export class ToolRegistry {
   }
 
   private async updateCapabilityMetrics(
-    agentId: number,
+    agentId: string,
     toolId: string,
     success: boolean,
     executionTime: number
@@ -444,7 +444,7 @@ export class ToolRegistry {
   }
 
   // Enhanced Analytics with TypeORM
-  async getAgentCapabilityMetrics(agentId: number): Promise<AgentCapabilityMetric[]> {
+  async getAgentCapabilityMetrics(agentId: string): Promise<AgentCapabilityMetric[]> {
     try {
       const repository = this.typeormService.agentCapabilityMetricRepository;
       return await repository.find({
@@ -471,7 +471,7 @@ export class ToolRegistry {
 
       const totalUsage = usageRecords.length;
       const successfulUsage = usageRecords.filter((r: any) => r.success).length;
-      const totalCost = usageRecords.reduce((sum: number, r: any) => sum + (r.cost || 0), 0);
+      const totalCost = usageRecords.reduce((sum: number, r: any) => sum + (r.cost), 0);
       const avgExecutionTime = usageRecords.length > 0 
         ? usageRecords.reduce((sum: number, r: any) => sum + r.executionTime, 0) / usageRecords.length 
         : 0;

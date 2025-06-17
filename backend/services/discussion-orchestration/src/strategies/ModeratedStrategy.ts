@@ -230,7 +230,7 @@ export class ModeratedStrategy implements TurnStrategyInterface {
 
   // Helper methods for moderated strategy specific logic
 
-  private getPendingModeratorSelection(discussion: Discussion): {  participantId: number; moderatorId: number; timestamp: Date } | null {
+  private getPendingModeratorSelection(discussion: Discussion): {  participantId: string; moderatorId: string; timestamp: Date } | null {
     // This would check discussion state for pending moderator selections
     // For now, return null - in real implementation, this would check discussion.state.metadata
     const metadata = discussion.metadata as any;
@@ -245,7 +245,7 @@ export class ModeratedStrategy implements TurnStrategyInterface {
     return approvals.includes(participant.id);
   }
 
-  private hasModeratorAdvancedTurn(discussion: Discussion): { moderatorId: number; timestamp: Date } | null {
+  private hasModeratorAdvancedTurn(discussion: Discussion): { moderatorId: string; timestamp: Date } | null {
     // Check if moderator has explicitly advanced the turn
     const metadata = discussion.metadata as any;
     return metadata?.moderatorTurnAdvance || null;
@@ -262,7 +262,7 @@ export class ModeratedStrategy implements TurnStrategyInterface {
 
   async selectNextParticipant(
     moderatorId: string,
-    selected participantId: number,
+    selectedParticipantId: string,
     discussion: Discussion
   ): Promise<boolean> {
     try {

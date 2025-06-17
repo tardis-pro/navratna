@@ -3,7 +3,7 @@ import * as winston from 'winston';
 import { ApiError } from '@uaip/utils';
 
 interface EventMessage {
-  Id: number;
+  id: string;
   type: string;
   source: string;
   data: any;
@@ -211,7 +211,7 @@ export class EventBusService {
     }
 
     const message: EventMessage = {
-      id: `event_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: Date.now().toString(),
       type: eventType,
       source: this.config.serviceName,
       data,
@@ -228,7 +228,7 @@ export class EventBusService {
       
       const publishOptions = {
         persistent: options?.persistent !== false,
-        messageId: message.id,
+        messageId: message.id.toString(),
         timestamp: message.timestamp.getTime(),
         type: eventType,
         headers: {

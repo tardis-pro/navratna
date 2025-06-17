@@ -54,7 +54,7 @@ export class StateManagerService {
    * Initialize operation state
    */
   public async initializeOperationState(
-    operationId: number,
+    operationId: string,
     initialState: OperationState
   ): Promise<void> {
     try {
@@ -87,7 +87,7 @@ export class StateManagerService {
   /**
    * Get operation state
    */
-  public async getOperationState(operationId: number): Promise<OperationState | null> {
+  public async getOperationState(operationId: string): Promise<OperationState | null> {
     try {
       // Try Redis first for performance
       let state = await this.getOperationStateFromCache(operationId);
@@ -122,7 +122,7 @@ export class StateManagerService {
    * Update operation state
    */
   public async updateOperationState(
-    operationId: number,
+    operationId: string,
     updates: StateUpdateOptions
   ): Promise<void> {
     try {
@@ -137,7 +137,7 @@ export class StateManagerService {
       // Apply updates
       const updatedState: OperationState = {
         ...currentState,
-        ...(updates.currentStep && { currentStep: updates.currentStep }),
+        ...(updates.currentStep && { currentStep: updates.currentStep  }),
         ...(updates.completedSteps && { completedSteps: updates.completedSteps }),
         ...(updates.failedSteps && { failedSteps: updates.failedSteps }),
         ...(updates.variables && { 
@@ -179,7 +179,7 @@ export class StateManagerService {
    * Save checkpoint
    */
   public async saveCheckpoint(
-    operationId: number,
+    operationId: string,
     checkpoint: Checkpoint
   ): Promise<void> {
     try {
@@ -251,8 +251,8 @@ export class StateManagerService {
    * Get checkpoint
    */
   public async getCheckpoint(
-    operationId: number,
-    checkpointId: number
+    operationId: string,
+    checkpointId: string
   ): Promise<Checkpoint | null> {
     try {
       logger.debug('Retrieving checkpoint', { operationId, checkpointId });
@@ -302,7 +302,7 @@ export class StateManagerService {
   /**
    * List checkpoints for an operation
    */
-  public async listCheckpoints(operationId: number): Promise<Checkpoint[]> {
+  public async listCheckpoints(operationId: string): Promise<Checkpoint[]> {
     try {
       logger.debug('Listing checkpoints', { operationId });
 
@@ -332,8 +332,8 @@ export class StateManagerService {
    * Restore operation state from checkpoint
    */
   public async restoreFromCheckpoint(
-    operationId: number,
-    checkpointId: number
+    operationId: string,
+    checkpointId: string
   ): Promise<OperationState> {
     try {
       logger.info('Restoring operation from checkpoint', { operationId, checkpointId });
@@ -363,8 +363,8 @@ export class StateManagerService {
         checkpointId,
         restoredState: {
           currentStep: restoredState.currentStep,
-          completedSteps: restoredState.completedSteps?.length || 0,
-          failedSteps: restoredState.failedSteps?.length || 0
+          completedSteps: restoredState.completedSteps?.length,
+          failedSteps: restoredState.failedSteps?.length
         }
       });
 
@@ -395,7 +395,7 @@ export class StateManagerService {
       
       // Clean up cache (Redis handles TTL automatically)
       // But we can clean up keys that match patterns
-      const pattern = this.getOperationStateCacheKey(0);
+      const pattern = this.getOperationStateCacheKey('0');
       const keys = await this.redis.keys(pattern);
       
       let expiredKeys = 0;
@@ -475,7 +475,7 @@ export class StateManagerService {
     });
   }
 
-  private async getOperationStateFromCache(operationId: number): Promise<OperationState | null> {
+  private async getOperationStateFromCache(operationId: string): Promise<OperationState | null> {
     try {
       const cacheKey = this.getOperationStateCacheKey(operationId);
       const data = await this.redis.get(cacheKey);
@@ -493,7 +493,7 @@ export class StateManagerService {
   }
 
   private async setOperationStateInCache(
-    operationId: number,
+    operationId: string,
     state: OperationState,
     ttl: number = 3600
   ): Promise<void> {
@@ -538,13 +538,13 @@ export class StateManagerService {
   }
 
   private async createAutomaticCheckpoint(
-    operationId: number,
+    operationId: string,
     state: OperationState
   ): Promise<void> {
     try {
       const checkpoint: Checkpoint = {
-        id: Date.now(), // Use timestamp as simple numeric ID
-        stepId: state.currentStep ? parseInt(state.currentStep.toString()) || 0 : 0,
+        id: Date.now().toString(), // Use timestamp as simple numeric ID
+        stepId: state.currentStep ? state.currentStep : '0',
         type: CheckpointType.STATE_SNAPSHOT,
         data: {
           timestamp: new Date(),
@@ -600,11 +600,11 @@ export class StateManagerService {
     return checkpoint;
   }
 
-  private getOperationStateCacheKey(operationId: number): string {
+  private getOperationStateCacheKey(operationId: string): string {
     return `operation:state:${operationId}`;
   }
 
-  private getCheckpointCacheKey(operationId: number, checkpointId: number): string {
+  private getCheckpointCacheKey(operationId: string, checkpointId: string): string {
     return `operation:checkpoint:${operationId}:${checkpointId}`;
   }
 

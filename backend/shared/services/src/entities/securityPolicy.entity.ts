@@ -38,7 +38,7 @@ export class SecurityPolicy extends BaseEntity {
   @Column({ type: 'text' })
   description!: string;
 
-  @Column({ type: 'integer' })
+  @Column({ type: 'integer', default: 0 })
   priority!: number;
 
   @Column({ name: 'is_active', type: 'boolean', default: true })
@@ -50,6 +50,6 @@ export class SecurityPolicy extends BaseEntity {
   @Column({ type: 'jsonb' })
   actions!: SecurityPolicyActions;
 
-  @Column({ name: 'created_by', type: 'bigint' })
-  createdBy!: number;
+  @Column({ name: 'created_by', type: 'varchar' })
+  createdBy!: string;
 } 

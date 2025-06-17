@@ -61,7 +61,7 @@ export class CapabilityDiscoveryService {
     }
   }
 
-  public async getAgentCapabilities(agentId: number): Promise<Capability[]> {
+  public async getAgentCapabilities(agentId: string): Promise<Capability[]> {
     await this.ensureInitialized();
     
     try {

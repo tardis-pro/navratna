@@ -211,11 +211,11 @@ export type AgentAnalysis = z.infer<typeof AgentAnalysisSchema>;
 
 // ExecutionPlan type for intelligence service
 export const ExecutionPlanSchema = z.object({
-  id: z.string(),
+  id: IDSchema,
   type: z.string(),
   agentId: IDSchema,
   steps: z.array(z.object({
-    id: z.string(),
+    id: IDSchema,
     type: z.string(),
     description: z.string(),
     estimatedDuration: z.number(),

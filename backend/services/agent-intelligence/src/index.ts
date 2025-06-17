@@ -35,7 +35,7 @@ class AgentIntelligenceService {
     this.eventBusService = new EventBusService({
       url: process.env.RABBITMQ_URL || 'amqp://localhost',
       serviceName: 'agent-intelligence'
-    }, logger as any);
+    }, logger);
     
     // Initialize persona and discussion services
     this.personaService = new PersonaService({
@@ -126,7 +126,9 @@ class AgentIntelligenceService {
       // Initialize database service first
       await this.databaseService.initialize();
       logger.info('DatabaseService initialized successfully');
-
+      // await this.databaseService.seedDatabase();
+      // logger.info('Database seeding completed successfully');
+      
       // Test database connection using health check
       const healthCheck = await this.databaseService.healthCheck();
       if (healthCheck.status === 'healthy') {

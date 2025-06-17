@@ -134,7 +134,7 @@ export class OrchestrationEngine extends EventEmitter {
 
       // Allocate resources
       const resourceAllocation = await this.resourceManagerService.allocateResources(
-        savedOperation.Id || 0,
+        savedOperation.id,
         resourceLimits
       );
 
@@ -153,7 +153,7 @@ export class OrchestrationEngine extends EventEmitter {
 
       // Create workflow instance
       const workflowInstance = await this.createWorkflowInstance(savedOperation);
-      this.activeOperations.set(savedOperation.Id || 0, workflowInstance);
+      this.activeOperations.set(savedOperation.id, workflowInstance);
 
       // Set operation timeout
       this.setOperationTimeout(savedOperation);
@@ -167,7 +167,7 @@ export class OrchestrationEngine extends EventEmitter {
         estimatedDuration: savedOperation.estimatedDuration
       });
 
-      return workflowInstance.Id || 0;
+      return workflowInstance.id;
 
     } catch (error) {
       logger.error('Failed to execute operation', {
@@ -176,7 +176,7 @@ export class OrchestrationEngine extends EventEmitter {
         duration: Date.now() - startTime
       });
 
-      await this.handleOperationFailure(operation.Id || 0, error);
+      await this.handleOperationFailure(operation.id, error);
       throw error;
     }
   }
@@ -345,8 +345,8 @@ export class OrchestrationEngine extends EventEmitter {
       const state = await this.stateManagerService.getOperationState(operationId);
       const workflowInstance = this.activeOperations.get(operationId);
 
-      const totalSteps = operation.executionPlan?.steps?.length || 0;
-      const completedSteps = state?.completedSteps?.length || 0;
+      const totalSteps = operation.executionPlan?.steps?.length;
+      const completedSteps = state?.completedSteps?.length;
       const percentage = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
 
       const metrics = await this.calculateOperationMetrics(operationId);
@@ -474,7 +474,7 @@ export class OrchestrationEngine extends EventEmitter {
 
     // Validate resource limits
     const limits = operation.context?.executionContext?.resourceLimits;
-    if (!limits || (limits.maxMemory || 0) <= 0 || (limits.maxCpu || 0) <= 0 || (limits.maxDuration || 0) <= 0) {
+    if (!limits || (limits.maxMemory) <= 0 || (limits.maxCpu) <= 0 || (limits.maxDuration) <= 0) {
       throw new Error('Resource limits must be positive values');
     }
 
@@ -488,7 +488,7 @@ export class OrchestrationEngine extends EventEmitter {
 
   private async createWorkflowInstance(operation: any): Promise<WorkflowInstance> {
     const workflowInstance: WorkflowInstance = {
-      operationId: operation.Id || 0,
+      operationId: operation.id,
       status: OperationStatus.QUEUED,
       currentStepIndex: 0,
       executionContext: operation.context?.executionContext || {
@@ -503,7 +503,7 @@ export class OrchestrationEngine extends EventEmitter {
         }
       },
       state: {
-        operationId: operation.Id || 0,
+        operationId: operation.id,
         completedSteps: [],
         failedSteps: [],
         variables: {},
@@ -518,8 +518,8 @@ export class OrchestrationEngine extends EventEmitter {
     await this.typeormService.create('WorkflowInstance', workflowInstance);
     
     // Initialize state
-    await this.stateManagerService.initializeOperationState(operation.Id || 0, workflowInstance.state || {
-      operationId: operation.Id || 0,
+    await this.stateManagerService.initializeOperationState(operation.id, workflowInstance.state || {
+      operationId: operation.id,
       completedSteps: [],
       failedSteps: [],
       variables: {},
@@ -536,14 +536,14 @@ export class OrchestrationEngine extends EventEmitter {
       workflowInstance.status = OperationStatus.RUNNING;
       workflowInstance.updatedAt = new Date();
 
-      await this.stateManagerService.updateOperationState(workflowInstance.operationId || 0, {
+      await this.stateManagerService.updateOperationState(workflowInstance.operationId, {
         status: OperationStatus.RUNNING,
         startedAt: new Date()
       });
 
       // Emit operation started event
       await this.emitOperationEvent(
-        workflowInstance.operationId || 0,
+        workflowInstance.operationId,
         OperationEventType.OPERATION_STARTED,
         { workflowInstanceId: workflowInstance.id }
       );
@@ -556,13 +556,13 @@ export class OrchestrationEngine extends EventEmitter {
         operationId: workflowInstance.operationId,
         error: error instanceof Error ? error.message : String(error)
       });
-      await this.handleOperationFailure(workflowInstance.operationId || 0, error);
+      await this.handleOperationFailure(workflowInstance.operationId, error);
     }
   }
 
   private async continueOperationExecution(workflowInstance: WorkflowInstance): Promise<void> {
     try {
-      const operation = await this.databaseService.getOperation(workflowInstance.operationId || 0);
+      const operation = await this.databaseService.getOperation(workflowInstance.operationId);
       if (!operation) {
         throw new Error(`Operation ${workflowInstance.operationId} not found`);
       }
@@ -584,7 +584,7 @@ export class OrchestrationEngine extends EventEmitter {
         operationId: workflowInstance.operationId,
         error: error instanceof Error ? error.message : String(error)
       });
-      await this.handleOperationFailure(workflowInstance.operationId || 0, error);
+      await this.handleOperationFailure(workflowInstance.operationId, error);
     }
   }
 
@@ -602,7 +602,7 @@ export class OrchestrationEngine extends EventEmitter {
     // Find steps that can be executed
     for (const step of steps || []) {
       // Skip if already completed or failed
-      if (completedStepIds.has(step.Id || 0) || failedStepIds.has(step.Id || 0)) {
+      if (completedStepIds.has(step.id) || failedStepIds.has(step.id)) {
         continue;
       }
 
@@ -675,16 +675,16 @@ export class OrchestrationEngine extends EventEmitter {
       if (workflowInstance.state) {
         workflowInstance.state.currentStep = step.id;
       }
-      await this.stateManagerService.updateOperationState(workflowInstance.operationId || 0, {
+      await this.stateManagerService.updateOperationState(workflowInstance.operationId, {
         currentStep: step.id
       });
 
       // Set step timeout
-      this.setStepTimeout(workflowInstance.operationId || 0, step);
+      this.setStepTimeout(workflowInstance.operationId, step);
 
       // Emit step started event
       await this.emitOperationEvent(
-        workflowInstance.operationId || 0,
+        workflowInstance.operationId,
         OperationEventType.STEP_STARTED,
         { stepId: step.id, stepName: step.name }
       );
@@ -709,7 +709,7 @@ export class OrchestrationEngine extends EventEmitter {
       );
 
       // Clear step timeout
-      this.clearStepTimeout(workflowInstance.operationId || 0, step.id);
+      this.clearStepTimeout(workflowInstance.operationId, step.id);
 
       // Process step result
       await this.processStepResult(workflowInstance, step, stepResult, startTime);
@@ -717,7 +717,7 @@ export class OrchestrationEngine extends EventEmitter {
       // Create progress checkpoint
       if (step.type !== 'delay') {
         await this.createCheckpoint(
-          workflowInstance.operationId || 0,
+          workflowInstance.operationId,
           CheckpointType.PROGRESS_MARKER,
           step.id
         );
@@ -728,7 +728,7 @@ export class OrchestrationEngine extends EventEmitter {
 
     } catch (error) {
       // Clear step timeout
-      this.clearStepTimeout(workflowInstance.operationId || 0, step.id);
+      this.clearStepTimeout(workflowInstance.operationId, step.id);
 
       await this.handleStepFailure(workflowInstance, step, error, startTime);
     }
@@ -782,7 +782,7 @@ export class OrchestrationEngine extends EventEmitter {
 
     try {
       // Get operation from database
-      const operation = await this.typeormService.findById('Operation', workflowInstance.operationId || 0);
+      const operation = await this.typeormService.findById('Operation', workflowInstance.operationId);
 
       if (!operation) {
         throw new Error(`Operation not found: ${workflowInstance.operationId}`);
@@ -806,7 +806,7 @@ export class OrchestrationEngine extends EventEmitter {
       await this.typeormService.create('StepResult', stepResultData);
 
       // Also save to legacy database service for backward compatibility
-      await this.databaseService.saveStepResult(workflowInstance.operationId || 0, result);
+      await this.databaseService.saveStepResult(workflowInstance.operationId, result);
 
       if (result.status === StepStatus.COMPLETED) {
         // Add to completed steps
@@ -831,7 +831,7 @@ export class OrchestrationEngine extends EventEmitter {
 
         // Emit step completed event
         await this.emitOperationEvent(
-          workflowInstance.operationId || 0,
+          workflowInstance.operationId,
           OperationEventType.STEP_COMPLETED,
           { 
             stepId: step.id,
@@ -847,7 +847,7 @@ export class OrchestrationEngine extends EventEmitter {
       // Update state
       if (workflowInstance.state) {
         workflowInstance.state.lastUpdated = new Date();
-        await this.stateManagerService.updateOperationState(workflowInstance.operationId || 0, workflowInstance.state);
+        await this.stateManagerService.updateOperationState(workflowInstance.operationId, workflowInstance.state);
       }
 
     } catch (error) {
@@ -882,13 +882,13 @@ export class OrchestrationEngine extends EventEmitter {
       }
 
       // Check retry policy
-      const shouldRetry = await this.shouldRetryStep(step, workflowInstance.operationId || 0, error);
+      const shouldRetry = await this.shouldRetryStep(step, workflowInstance.operationId, error);
       
       if (shouldRetry) {
         logger.info('Retrying failed step', {
           operationId: workflowInstance.operationId,
           stepId: step.id,
-          attempt: (step.retryCount || 0) + 1
+          attempt: (step.retryCount) + 1
         });
 
         // Remove from failed steps for retry
@@ -903,7 +903,7 @@ export class OrchestrationEngine extends EventEmitter {
         const shouldFailOp = await this.shouldFailOperation(workflowInstance, step);
         if (shouldFailOp) {
           await this.handleOperationFailure(
-            workflowInstance.operationId || 0,
+            workflowInstance.operationId,
             new Error(`Critical step failed: ${step.id}`)
           );
         }
@@ -911,7 +911,7 @@ export class OrchestrationEngine extends EventEmitter {
 
       // Emit step failed event
       await this.emitOperationEvent(
-        workflowInstance.operationId || 0,
+        workflowInstance.operationId,
         OperationEventType.STEP_FAILED,
         { 
           stepId: step.id,
@@ -927,11 +927,11 @@ export class OrchestrationEngine extends EventEmitter {
         originalError: error instanceof Error ? error.message : String(error),
         handlingError: handlingError instanceof Error ? handlingError.message : String(handlingError)
       });
-      await this.handleOperationFailure(workflowInstance.operationId || 0, handlingError);
+      await this.handleOperationFailure(workflowInstance.operationId, handlingError);
     }
   }
 
-  private async handleOperationFailure(operationId: number, error: any): Promise<void> {
+  private async handleOperationFailure(operationId: string, error: any): Promise<void> {
     try {
       logger.error('Operation failed', { operationId, error: error instanceof Error ? error.message : String(error) });
 
@@ -985,7 +985,7 @@ export class OrchestrationEngine extends EventEmitter {
       });
 
       // Update operation status
-      await this.stateManagerService.updateOperationState(workflowInstance.operationId || 0, {
+      await this.stateManagerService.updateOperationState(workflowInstance.operationId, {
         status: OperationStatus.FAILED,
         error: reason,
         completedAt: new Date()
@@ -993,7 +993,7 @@ export class OrchestrationEngine extends EventEmitter {
 
       // Emit operation failed event
       await this.emitOperationEvent(
-        workflowInstance.operationId || 0,
+        workflowInstance.operationId,
         OperationEventType.OPERATION_FAILED,
         { 
           error: reason,
@@ -1011,41 +1011,41 @@ export class OrchestrationEngine extends EventEmitter {
   }
 
   private async checkOperationCompletion(workflowInstance: WorkflowInstance): Promise<void> {
-    const operation = await this.databaseService.getOperation(workflowInstance.operationId || 0);
+    const operation = await this.databaseService.getOperation(workflowInstance.operationId);
     if (!operation) {
       throw new Error(`Operation ${workflowInstance.operationId} not found`);
     }
 
-    const completedSteps = workflowInstance.state?.completedSteps?.length || 0;
-    const failedSteps = workflowInstance.state?.failedSteps?.length || 0;
-    const totalSteps = operation.executionPlan?.steps?.length || 0;
+    const completedSteps = workflowInstance.state?.completedSteps?.length;
+    const failedSteps = workflowInstance.state?.failedSteps?.length;
+    const totalSteps = operation.executionPlan?.steps?.length;
 
     if (completedSteps + failedSteps >= totalSteps) {
       // Operation is complete
       const operationResult = await this.generateOperationResult(workflowInstance);
 
       // Update operation status
-      await this.databaseService.updateOperationResult(workflowInstance.operationId || 0, operationResult);
+      await this.databaseService.updateOperationResult(workflowInstance.operationId, operationResult);
 
       // Update state
-      await this.stateManagerService.updateOperationState(workflowInstance.operationId || 0, {
+      await this.stateManagerService.updateOperationState(workflowInstance.operationId, {
         status: OperationStatus.COMPLETED,
         completedAt: new Date(),
         result: operationResult.result
       });
 
       // Release resources
-      await this.resourceManagerService.releaseResources(workflowInstance.operationId || 0);
+      await this.resourceManagerService.releaseResources(workflowInstance.operationId);
 
       // Remove from active operations
-      this.activeOperations.delete(workflowInstance.operationId || 0);
+      this.activeOperations.delete(workflowInstance.operationId);
 
       // Clear timeouts
-      this.clearOperationTimeout(workflowInstance.operationId || 0);
+      this.clearOperationTimeout(workflowInstance.operationId);
 
       // Emit operation completed event
       await this.emitOperationEvent(
-        workflowInstance.operationId || 0,
+        workflowInstance.operationId,
         OperationEventType.OPERATION_COMPLETED,
         { 
           result: operationResult,
@@ -1122,7 +1122,7 @@ export class OrchestrationEngine extends EventEmitter {
       
       try {
         await this.cancelOperation(
-          operation.Id || 0,
+          operation.id,
           'Operation timeout',
           true, // compensate
           true  // force
@@ -1135,10 +1135,10 @@ export class OrchestrationEngine extends EventEmitter {
       }
     }, operation.context?.executionContext?.timeout || 300000);
 
-    this.operationTimeouts.set(operation.Id || 0, timeout);
+    this.operationTimeouts.set(operation.id, timeout);
   }
 
-  private clearOperationTimeout(operationId: number): void {
+  private clearOperationTimeout(operationId: string): void {
     const timeout = this.operationTimeouts.get(operationId);
     if (timeout) {
       clearTimeout(timeout);
@@ -1146,7 +1146,7 @@ export class OrchestrationEngine extends EventEmitter {
     }
   }
 
-  private setStepTimeout(operationId: number, step: any): void {
+  private setStepTimeout(operationId: string, step: any): void {
     const timeoutKey = `${operationId}:${step.id}`;
     const timeout = setTimeout(async () => {
       try {
@@ -1163,7 +1163,7 @@ export class OrchestrationEngine extends EventEmitter {
     this.stepTimeouts.set(timeoutKey, timeout);
   }
 
-  private clearStepTimeout(operationId: number, stepId: number): void {
+  private clearStepTimeout(operationId: string, stepId: string): void {
     const timeoutKey = `${operationId}:${stepId}`;
     const timeout = this.stepTimeouts.get(timeoutKey);
     if (timeout) {
@@ -1173,7 +1173,7 @@ export class OrchestrationEngine extends EventEmitter {
   }
 
   private async emitOperationEvent(
-    operationId: number,
+    operationId: string,
     eventType: OperationEventType,
     data: any
   ): Promise<void> {
@@ -1189,7 +1189,7 @@ export class OrchestrationEngine extends EventEmitter {
   }
 
   // Missing methods that are called but not defined
-  private async restoreFromCheckpoint(operationId: number, checkpointId: number): Promise<void> {
+  private async restoreFromCheckpoint(operationId: string, checkpointId: string): Promise<void> {
     const restoredState = await this.stateManagerService.restoreFromCheckpoint(operationId, checkpointId);
     const workflowInstance = this.activeOperations.get(operationId);
     if (workflowInstance) {
@@ -1197,7 +1197,7 @@ export class OrchestrationEngine extends EventEmitter {
     }
   }
 
-  private async calculateOperationMetrics(operationId: number): Promise<OperationMetrics> {
+  private async calculateOperationMetrics(operationId: string): Promise<OperationMetrics> {
     // Basic implementation - in production, this would calculate real metrics
     return {
       executionTime: 0,
@@ -1208,7 +1208,7 @@ export class OrchestrationEngine extends EventEmitter {
     };
   }
 
-  private async getOperationErrors(operationId: number): Promise<OperationError[]> {
+  private async getOperationErrors(operationId: string): Promise<OperationError[]> {
     // Basic implementation - in production, this would fetch real errors
     return [];
   }
@@ -1251,16 +1251,16 @@ export class OrchestrationEngine extends EventEmitter {
     }
   }
 
-  private async shouldRetryStep(step: any, operationId: number, error: any): Promise<boolean> {
+  private async shouldRetryStep(step: any, operationId: string, error: any): Promise<boolean> {
     // Simple retry logic - in production, implement sophisticated retry policies
-    const retryCount = step.metadata?.retryCount || 0;
+    const retryCount = step.metadata?.retryCount;
     const maxRetries = step.retryPolicy?.maxAttempts || 3;
     return retryCount < maxRetries;
   }
 
   private async scheduleStepRetry(workflowInstance: WorkflowInstance, step: any): Promise<void> {
     // Schedule step retry with backoff
-    const retryCount = step.metadata?.retryCount || 0;
+    const retryCount = step.metadata?.retryCount;
     const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff
     
     setTimeout(async () => {
@@ -1288,16 +1288,16 @@ export class OrchestrationEngine extends EventEmitter {
   }
 
   private async generateOperationResult(workflowInstance: WorkflowInstance): Promise<OperationResult> {
-    const operation = await this.databaseService.getOperation(workflowInstance.operationId || 0);
+    const operation = await this.databaseService.getOperation(workflowInstance.operationId);
     if (!operation) {
       throw new Error(`Operation ${workflowInstance.operationId} not found`);
     }
 
     const operationResult = {
-      operationId: workflowInstance.operationId || 0,
+      operationId: workflowInstance.operationId,
       status: OperationStatus.COMPLETED,
       result: workflowInstance.state?.variables || {},
-      metrics: await this.calculateOperationMetrics(workflowInstance.operationId || 0),
+      metrics: await this.calculateOperationMetrics(workflowInstance.operationId),
       completedAt: new Date()
     };
 

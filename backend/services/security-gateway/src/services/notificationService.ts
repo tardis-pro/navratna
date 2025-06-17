@@ -7,9 +7,9 @@ import { EventBusService } from '@uaip/shared-services';
 
 export interface ApprovalNotification {
   type: string;
-  recipientId: number;
-  workflowId: number;
-  operationId: number;
+  recipientId: string;
+  workflowId: string;
+  operationId: string;
   metadata?: Record<string, any>;
   [key: string]: any;
 }
@@ -401,7 +401,7 @@ export class NotificationService {
   /**
    * Send real-time notification
    */
-  private async sendRealTimeNotification(userId: number, notification: any): Promise<void> {
+  private async sendRealTimeNotification(userId: string, notification: any): Promise<void> {
     // This would send via WebSocket or SSE
     logger.info('Real-time notification sent', {
       userId,
@@ -616,8 +616,8 @@ export class NotificationService {
       const approvalNotification: ApprovalNotification = {
         type: notification.type,
         recipientId: notification.recipient,
-        workflowId: notification.data?.workflowId || 0,
-        operationId: notification.data?.operationId || 0,
+        workflowId: notification.data?.workflowId,
+        operationId: notification.data?.operationId,
         metadata: {
           subject: notification.subject,
           message: notification.message,

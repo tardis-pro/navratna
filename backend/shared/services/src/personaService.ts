@@ -36,7 +36,7 @@ export class PersonaService {
   private enableRecommendations: boolean;
   private enableCaching: boolean;
   private cacheTimeout: number;
-  private personaCache: Map<number, { persona: Persona; timestamp: number }>;
+  private personaCache: Map<string, { persona: Persona; timestamp: number }>;
 
   constructor(config: PersonaServiceConfig) {
     this.databaseService = config.databaseService;
@@ -142,7 +142,7 @@ export class PersonaService {
     }
   }
 
-  async getPersona(id: number): Promise<Persona | null> {
+  async getPersona(id: string): Promise<Persona | null> {
     try {
       // Check cache first
       const cached = this.getCachedPersona(id);
@@ -172,7 +172,7 @@ export class PersonaService {
     }
   }
 
-  async updatePersona(id: number, updates: UpdatePersonaRequest): Promise<Persona> {
+  async updatePersona(id: string, updates: UpdatePersonaRequest): Promise<Persona> {
     try {
       logger.info('Updating persona', { personaId: id, updates: Object.keys(updates) });
 
@@ -199,7 +199,7 @@ export class PersonaService {
       await personaRepo.update(id, {
         ...updateData,
         validation,
-        version: (existingPersona.version || 0) + 1,
+        version: (existingPersona.version) + 1,
         updatedAt: new Date()
       });
 
@@ -230,7 +230,7 @@ export class PersonaService {
     }
   }
 
-  async deletePersona(id: number, deletedBy: number): Promise<void> {
+  async deletePersona(id: string, deletedBy: string): Promise<void> {
     try {
       logger.info('Deleting persona', { personaId: id, deletedBy });
 
@@ -313,7 +313,7 @@ export class PersonaService {
   }
 
   async getPersonaRecommendations(
-    userId: number,
+    userId: string,
     context?: string,
     limit = 10
   ): Promise<PersonaRecommendation[]> {
@@ -381,7 +381,7 @@ export class PersonaService {
       // Conversational style validation
       if (persona.conversationalStyle) {
         const style = persona.conversationalStyle;
-        if ((style.empathy || 0) < 0.1 && (style.assertiveness || 0) > 0.9) {
+        if ((style.empathy) < 0.1 && (style.assertiveness) > 0.9) {
           warnings.push('Very low empathy with high assertiveness may create harsh interactions');
         }
       }
@@ -406,7 +406,7 @@ export class PersonaService {
 
   // ===== PERSONA ANALYTICS =====
 
-  async getPersonaAnalytics(personaId: number, timeframe?: {
+  async getPersonaAnalytics(personaId: string, timeframe?: {
     start: Date;
     end: Date;
   }): Promise<PersonaAnalytics | null> {
@@ -454,8 +454,8 @@ export class PersonaService {
     }
   }
 
-  async updatePersonaUsage(personaId: number, sessionData: {
-    userId: number;
+  async updatePersonaUsage(personaId: string, sessionData: {
+    userId: string;
     duration: number;
     messageCount: number;
     satisfactionScore?: number;
@@ -477,11 +477,11 @@ export class PersonaService {
       // Update usage statistics
       const updatedStats: PersonaUsageStats = {
         ...currentStats,
-        totalUsages: (currentStats.totalUsages || 0) + 1,
+        totalUsages: (currentStats.totalUsages) + 1,
         lastUsedAt: new Date(),
         averageSessionDuration: this.calculateNewAverage(
-          currentStats.averageSessionDuration || 0,
-          currentStats.totalUsages || 0,
+          currentStats.averageSessionDuration,
+          currentStats.totalUsages,
           sessionData.duration
         )
       };
@@ -489,11 +489,11 @@ export class PersonaService {
       // Update feedback score if provided
       if (sessionData.satisfactionScore !== undefined) {
         updatedStats.feedbackScore = this.calculateNewAverage(
-          currentStats.feedbackScore || 0,
-          currentStats.feedbackCount || 0,
+          currentStats.feedbackScore,
+          currentStats.feedbackCount,
           sessionData.satisfactionScore
         );
-        updatedStats.feedbackCount = (currentStats.feedbackCount || 0) + 1;
+        updatedStats.feedbackCount = (currentStats.feedbackCount) + 1;
       }
 
       // Recalculate popularity score
@@ -539,7 +539,7 @@ export class PersonaService {
         category: 'general', // Would need to add category field to entity
         traits: entity.traits,
         expertise: entity.expertise,
-        usageCount: entity.totalInteractions || 0
+        usageCount: entity.totalInteractions
       }));
 
     } catch (error) {
@@ -549,9 +549,9 @@ export class PersonaService {
   }
 
   async createPersonaFromTemplate(
-    templateId: number,
+    templateId: string,
     customizations: Partial<CreatePersonaRequest>,
-    createdBy: number
+    createdBy: string
   ): Promise<Persona> {
     try {
       // Get template persona (using existing persona as template)
@@ -609,7 +609,7 @@ export class PersonaService {
     });
   }
 
-  private getCachedPersona(id: number): Persona | null {
+  private getCachedPersona(id: string): Persona | null {
     const cached = this.personaCache.get(id);
     if (!cached) {
       return null;
@@ -684,13 +684,13 @@ export class PersonaService {
     }
   }
 
-  private async getPersonaUsageCount(personaId: number): Promise<number> {
+  private async getPersonaUsageCount(personaId: string): Promise<number> {
     // This would check active discussions, sessions, etc.
     // For now, return 0 as placeholder
     return 0;
   }
 
-  private async getUserPersonaHistory(userId: number): Promise<any[]> {
+  private async getUserPersonaHistory(userId: string): Promise<any[]> {
     // Get user's persona usage history from database
     // Placeholder implementation
     return [];
@@ -726,7 +726,7 @@ export class PersonaService {
     return Math.max(0, Math.min(100, score));
   }
 
-  private async calculatePersonaMetrics(personaId: number, timeframe: { start: Date; end: Date }): Promise<any> {
+  private async calculatePersonaMetrics(personaId: string, timeframe: { start: Date; end: Date }): Promise<any> {
     // Calculate persona metrics for the given timeframe
     // Placeholder implementation
     return {
@@ -740,7 +740,7 @@ export class PersonaService {
     };
   }
 
-  private async calculatePersonaTrends(personaId: number, timeframe: { start: Date; end: Date }): Promise<any> {
+  private async calculatePersonaTrends(personaId: string, timeframe: { start: Date; end: Date }): Promise<any> {
     // Calculate persona trends
     // Placeholder implementation
     return {
@@ -750,13 +750,13 @@ export class PersonaService {
     };
   }
 
-  private async getTopInteractions(personaId: number, timeframe: { start: Date; end: Date }): Promise<any[]> {
+  private async getTopInteractions(personaId: string, timeframe: { start: Date; end: Date }): Promise<any[]> {
     // Get top interactions for the persona
     // Placeholder implementation
     return [];
   }
 
-    private async getCommonIssues(personaId: number, timeframe: { start: Date; end: Date }): Promise<any[]> {
+    private async getCommonIssues(personaId: string, timeframe: { start: Date; end: Date }): Promise<any[]> {
     // Get common issues for the persona
     // Placeholder implementation
     return [];
@@ -770,21 +770,21 @@ export class PersonaService {
     let score = 0;
     
     // Usage frequency (max 50 points)
-    score += Math.min((stats.totalUsages || 0) * 2, 50);
+    score += Math.min((stats.totalUsages) * 2, 50);
     
     // User diversity (max 30 points)
-    score += Math.min((stats.uniqueUsers || 0) * 3, 30);
+    score += Math.min((stats.uniqueUsers) * 3, 30);
     
     // Feedback quality (max 20 points)
-    if (stats.feedbackScore && (stats.feedbackCount || 0) > 0) {
+    if (stats.feedbackScore && (stats.feedbackCount) > 0) {
       score += stats.feedbackScore * 20;
     }
     
     return Math.min(score, 100);
   }
 
-  private generatePersonaId(): number {
-    return Date.now(); // Use timestamp as simple numeric ID
+  private generatePersonaId(): string {
+    return `persona_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`; // Use timestamp as simple numeric ID
   }
 
   private async safePublishEvent(eventType: string, data: any): Promise<void> {
@@ -807,7 +807,7 @@ export class PersonaService {
       description: entity.description,
       traits: entity.traits || [],
       expertise: (entity.expertise || []).map((exp, index) => ({
-        id: Date.now() + index, // Use timestamp + index as simple numeric ID
+        id: Date.now().toString() + index, // Use timestamp + index as simple numeric ID
         name: exp,
         description: '',
         category: 'general',
@@ -828,12 +828,12 @@ export class PersonaService {
       tags: entity.tags || [],
       validation: entity.validation,
       usageStats: entity.usageStats || {
-        totalUsages: entity.totalInteractions || 0,
+        totalUsages: entity.totalInteractions,
         uniqueUsers: 0,
         averageSessionDuration: 0,
         lastUsedAt: entity.lastUsedAt || null,
         popularityScore: 0,
-        feedbackScore: entity.userSatisfaction || 0,
+        feedbackScore: entity.userSatisfaction,
         feedbackCount: 0
       },
       configuration: entity.configuration || {},

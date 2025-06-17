@@ -75,7 +75,7 @@ const resetPasswordSchema = z.object({
 });
 
 const bulkActionSchema = z.object({
-  userIds: z.array(z.string().uuid()).min(1).max(100),
+  userIds: z.array(z.string()).min(1).max(100),
   action: z.enum(['activate', 'deactivate', 'delete', 'reset_password']),
   reason: z.string().max(500).optional()
 });
@@ -648,8 +648,8 @@ router.post('/bulk-action', authMiddleware, requireAdmin, async (req, res) => {
     }
 
     const results: {
-      successful: Array<{ userId: number; email: string }>;
-      failed: Array<{ userId: number; reason: string }>;
+      successful: Array<{ userId: string; email: string }>;
+      failed: Array<{ userId: string; reason: string }>;
     } = {
       successful: [],
       failed: []

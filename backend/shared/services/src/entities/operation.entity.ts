@@ -21,11 +21,11 @@ export class Operation extends BaseEntity {
   @Column({ type: 'enum', enum: OperationStatus })
   status: OperationStatus;
 
-  @Column({ name: 'agent_id', type: 'bigint' })
-  agentId: number;
+  @Column({ name: 'agent_id', type: 'varchar' })
+  agentId: string;
 
-  @Column({ name: 'user_id', type: 'bigint' })
-  userId: number;
+  @Column({ name: 'user_id', type: 'varchar' })
+  userId: string;
 
   @Column({ length: 255 })
   name: string;
@@ -114,7 +114,7 @@ export class Operation extends BaseEntity {
   @Column({ name: 'archived_at', type: 'timestamp', nullable: true })
   archivedAt?: Date;
 
-  @Column({ name: 'archived_by', type: 'bigint', nullable: true })
+  @Column({ name: 'archived_by', type: 'varchar', nullable: true })
   archivedBy?: number;
 
   @Column({ name: 'archive_reason', type: 'text', nullable: true })

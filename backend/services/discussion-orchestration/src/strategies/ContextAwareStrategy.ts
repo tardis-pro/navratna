@@ -23,7 +23,7 @@ interface ContextAnalysis {
     nextSpeaker: string;
     reason: string;
     confidence: number;
-    alternatives: Array<{  participantId: number; score: number; reason: string }>;
+    alternatives: Array<{  participantId: string; score: number; reason: string }>;
   };
 }
 
@@ -80,7 +80,7 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
         }
 
         // Final fallback to round-robin
-        const currentTurnNumber = discussion.state.currentTurn.turnNumber || 0;
+        const currentTurnNumber = discussion.state.currentTurn.turnNumber;
         const fallbackIndex = currentTurnNumber % activeParticipants.length;
         return activeParticipants[fallbackIndex];
       }
@@ -104,7 +104,7 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
       // Fallback to round-robin on error
       const activeParticipants = participants.filter(p => p.isActive);
       if (activeParticipants.length > 0) {
-        const currentTurnNumber = discussion.state.currentTurn.turnNumber || 0;
+        const currentTurnNumber = discussion.state.currentTurn.turnNumber;
         const fallbackIndex = currentTurnNumber % activeParticipants.length;
         return activeParticipants[fallbackIndex];
       }
@@ -135,7 +135,7 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
       const contextAnalysis = await this.getOrCreateContextAnalysis(discussion, [participant]);
       
       // Check if participant is contextually relevant
-      const relevanceScore = contextAnalysis.topicRelevance.get(participant.id) || 0;
+      const relevanceScore = contextAnalysis.topicRelevance.get(participant.id);
       const minRelevanceThreshold = (config?.config.type === 'context_aware' ? config.config.relevanceThreshold : 0.3);
       
       if (relevanceScore < minRelevanceThreshold) {
@@ -149,7 +149,7 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
       }
 
       // Check engagement level
-      const engagementScore = contextAnalysis.engagementLevel.get(participant.id) || 0;
+      const engagementScore = contextAnalysis.engagementLevel.get(participant.id);
       const minEngagementThreshold = (config?.config.type === 'context_aware' ? config.config.engagementWeight : 0.2);
       
       if (engagementScore < minEngagementThreshold) {
@@ -458,7 +458,7 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
       lastSpeakers: [], // Would contain recent speaker IDs
       topicShifts: 0, // Number of topic changes detected
       questionsPending: [], // Unanswered questions
-      consensusLevel: discussion.state.consensusLevel || 0
+      consensusLevel: discussion.state.consensusLevel
     };
   }
 
@@ -472,9 +472,9 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
     
     // Calculate composite scores for each participant
     const participantScores = participants.map(participant => {
-      const relevance = topicRelevance.get(participant.id) || 0;
-      const expertise = expertiseMatch.get(participant.id) || 0;
-      const engagement = engagementLevel.get(participant.id) || 0;
+      const relevance = topicRelevance.get(participant.id);
+      const expertise = expertiseMatch.get(participant.id);
+      const engagement = engagementLevel.get(participant.id);
       
       // Weighted composite score
       const compositeScore = (relevance * 0.4) + (expertise * 0.3) + (engagement * 0.3);
@@ -528,7 +528,7 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
     return await this.analyzeDiscussionContext(discussion, participants);
   }
 
-  private async getParticipantExpertise(personaId: number): Promise<string[]> {
+  private async getParticipantExpertise(personaId: string): Promise<string[]> {
     // This would fetch persona expertise from the persona service
     // For now, return empty array
     return [];
@@ -549,7 +549,7 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
     contextAnalysis: ContextAnalysis,
     config?: TurnStrategyConfig
   ): Promise<boolean> {
-    const currentRelevance = contextAnalysis.topicRelevance.get(currentParticipant.id) || 0;
+    const currentRelevance = contextAnalysis.topicRelevance.get(currentParticipant.id);
     const threshold = 0.3; // Default threshold since config.contextAware doesn't exist
     
     // Check if any other participant has significantly higher relevance
@@ -597,7 +597,7 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
         consensusLevel: 0
       },
       recommendations: {
-        nextSpeaker: participants[0]?.Id || 0,
+        nextSpeaker: participants[0]?.id,
         reason: 'Default selection',
         confidence: 0.5,
         alternatives: []

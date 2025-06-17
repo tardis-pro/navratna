@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 import { KnowledgeType, SourceType } from '@uaip/types';
-import { BaseEntity } from './base.entity';
+import { BaseEntity } from './base.entity.js';
 
 @Entity('knowledge_items')
 @Index(['sourceType', 'sourceIdentifier'])
@@ -43,11 +43,11 @@ export class KnowledgeItemEntity extends BaseEntity {
   metadata: Record<string, any>;
 
 
-  @Column('bigint', { nullable: true })
-  createdBy?: number;
+  @Column('varchar', { length: 36, nullable: true })
+  createdBy?: string;
 
-  @Column('bigint', { nullable: true })
-  organizationId?: number;
+  @Column('varchar', { length: 36, nullable: true })
+  organizationId?: string;
 
   @Column({ length: 50, default: 'public' })
   accessLevel: string;

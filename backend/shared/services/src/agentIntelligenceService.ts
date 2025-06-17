@@ -19,6 +19,12 @@ export class AgentIntelligenceService {
       url: process.env.RABBITMQ_URL || 'amqp://localhost',
       serviceName: 'agent-intelligence'
     }, console as any);
+  //  this.databaseService.seedDatabase().then(() => {
+  //   logger.info('Database seeding completed successfully');
+  //  }).catch((error) => {
+  //   logger.error('Database seeding failed', { error });
+  //  });
+
   }
 
   public async initialize(): Promise<void> {
@@ -28,6 +34,7 @@ export class AgentIntelligenceService {
       // Initialize database service first
       await this.databaseService.initialize();
       logger.info('DatabaseService initialized successfully');
+      
 
       // Initialize event bus connection with retry logic
       const maxRetries = 3;
@@ -78,12 +85,8 @@ export class AgentIntelligenceService {
   /**
    * Validates if a value is a valid positive integer ID
    */
-  private validateIDParam(id: number | string, paramName: string = 'id'): number {
-    const numericId = typeof id === 'string' ? parseInt(id, 10) : id;
-    if (!Number.isInteger(numericId) || numericId <= 0) {
-      throw new ApiError(400, `Invalid ${paramName} format. Expected positive integer.`, 'INVALID_ID_FORMAT');
-    }
-    return numericId;
+  private validateIDParam(id: string, paramName: string = 'id'): string {
+    return id;
   }
 
   public async getAgents(): Promise<Agent[] | null> {
@@ -94,7 +97,6 @@ export class AgentIntelligenceService {
     try {
       // Use DatabaseService getActiveAgents method instead of raw SQL
       const agents = await this.databaseService.getActiveAgents(6);
-      
       if (agents.length === 0) {
         return null;
       }
@@ -118,7 +120,7 @@ export class AgentIntelligenceService {
     }
   }
 
-  public async getAgent(agentId: number | number): Promise<Agent | null> {
+  public async getAgent(agentId: string): Promise<Agent | null> {
     if (!this.isInitialized) {
       await this.initialize();
     }
@@ -298,7 +300,7 @@ export class AgentIntelligenceService {
     }
   }
 
-  public async updateAgent(agentId: number | number, updateData: any): Promise<Agent> {
+  public async updateAgent(agentId: string, updateData: any): Promise<Agent> {
     if (!this.isInitialized) {
       await this.initialize();
     }
@@ -316,7 +318,6 @@ export class AgentIntelligenceService {
 
       // Use DatabaseService updateAgent method instead of raw SQL
       const updatedAgent = await this.databaseService.updateAgent(validatedId, updatePayload);
-
       if (!updatedAgent) {
         throw new ApiError(404, 'Agent not found', 'AGENT_NOT_FOUND');
       }
@@ -353,7 +354,7 @@ export class AgentIntelligenceService {
       logger.info('Creating new agent', { name: agentData.name });
 
       // Handle ID validation - no longer generate UUIDs, let database auto-increment
-      let agentId: number | undefined;
+      let agentId: string | undefined;
       if (agentData.id) {
         // Validate provided ID is a valid positive integer
         agentId = this.validateIDParam(agentData.id, 'agentId');
@@ -437,7 +438,7 @@ export class AgentIntelligenceService {
     }
   }
 
-  public async deleteAgent(agentId: number | number): Promise<void> {
+  public async deleteAgent(agentId: string): Promise<void> {
     if (!this.isInitialized) {
       await this.initialize();
     }
@@ -467,8 +468,8 @@ export class AgentIntelligenceService {
   }
 
   public async learnFromOperation(
-    agentId: number | number,
-    operationId: string | number,
+    agentId: string,
+    operationId: string,
     outcomes: any,
     feedback: any
   ): Promise<LearningResult> {
@@ -529,7 +530,7 @@ export class AgentIntelligenceService {
 
   private extractContextualInformation(conversationContext: any): any {
     return {
-      messageCount: conversationContext.messages?.length || 0,
+      messageCount: conversationContext.messages?.length,
       participants: conversationContext.participants || [],
       topics: this.extractTopics(conversationContext.messages || []),
       sentiment: this.analyzeSentiment(conversationContext.messages || []),
@@ -768,7 +769,7 @@ export class AgentIntelligenceService {
     });
   }
 
-  private async getOperation(operationId: string | number): Promise<any> {
+  private async getOperation(operationId: string): Promise<any> {
     // Use DatabaseService getOperationById method instead of raw SQL
     const validatedId = this.validateIDParam(operationId, 'operationId');
     return await this.databaseService.getOperationById(validatedId);
@@ -782,7 +783,7 @@ export class AgentIntelligenceService {
     };
   }
 
-  private async updateAgentKnowledge(agentId: number, learningData: any): Promise<void> {
+  private async updateAgentKnowledge(agentId: string, learningData: any): Promise<void> {
     // Update agent knowledge in Neo4j graph database
     // This would implement the actual graph updates
     logger.info('Updating agent knowledge', { agentId, learningData });
@@ -796,8 +797,8 @@ export class AgentIntelligenceService {
   }
 
   private async storeLearningRecord(
-    agentId: number,
-    operationId: number,
+    agentId: string,
+    operationId: string,
     learningData: any,
     confidenceAdjustments: any
   ): Promise<void> {
@@ -821,7 +822,7 @@ export class AgentIntelligenceService {
   }
 
   private assessComplexity(context: any): string {
-    const messageCount = context.messages?.length || 0;
+    const messageCount = context.messages?.length;
     if (messageCount > 20) return 'high';
     if (messageCount > 5) return 'medium';
     return 'low';

@@ -12,11 +12,11 @@ export class WorkingMemoryManager {
     this.redisUrl = redisUrl;
   }
 
-  private getWorkingMemoryKey(agentId: number): string {
+  private getWorkingMemoryKey(agentId: string): string {
     return `agent:memory:working:${agentId}`;
   }
 
-  async initializeWorkingMemory(agentId: number, sessionId: string): Promise<WorkingMemory> {
+  async initializeWorkingMemory(agentId: string, sessionId: string): Promise<WorkingMemory> {
     const workingMemory: WorkingMemory = {
       agentId,
       sessionId,
@@ -57,7 +57,7 @@ export class WorkingMemoryManager {
     return workingMemory;
   }
 
-  async getWorkingMemory(agentId: number): Promise<WorkingMemory | null> {
+  async getWorkingMemory(agentId: string): Promise<WorkingMemory | null> {
     try {
       // In a real implementation, this would use Redis
       // For now, we'll simulate with in-memory storage
@@ -69,7 +69,7 @@ export class WorkingMemoryManager {
     }
   }
 
-  async updateWorkingMemory(agentId: number, update: WorkingMemoryUpdate): Promise<void> {
+  async updateWorkingMemory(agentId: string, update: WorkingMemoryUpdate): Promise<void> {
     const current = await this.getWorkingMemory(agentId);
     if (!current) {
       console.warn(`No working memory found for agent ${agentId}`);
@@ -143,7 +143,7 @@ export class WorkingMemoryManager {
     await this.storeWorkingMemory(agentId, current);
   }
 
-  async addThought(agentId: number, thought: string, type: 'reasoning' | 'hypothesis' | 'action' | 'uncertainty'): Promise<void> {
+  async addThought(agentId: string, thought: string, type: 'reasoning' | 'hypothesis' | 'action' | 'uncertainty'): Promise<void> {
     const current = await this.getWorkingMemory(agentId);
     if (!current) return;
 
@@ -169,7 +169,7 @@ export class WorkingMemoryManager {
     await this.storeWorkingMemory(agentId, current);
   }
 
-  async updateEmotionalState(agentId: number, emotion: Partial<EmotionalState>): Promise<void> {
+  async updateEmotionalState(agentId: string, emotion: Partial<EmotionalState>): Promise<void> {
     const current = await this.getWorkingMemory(agentId);
     if (!current) return;
 
@@ -182,7 +182,7 @@ export class WorkingMemoryManager {
     await this.storeWorkingMemory(agentId, current);
   }
 
-  async addInteraction(agentId: number, interaction: Interaction): Promise<void> {
+  async addInteraction(agentId: string, interaction: Interaction): Promise<void> {
     const current = await this.getWorkingMemory(agentId);
     if (!current) return;
 
@@ -197,7 +197,7 @@ export class WorkingMemoryManager {
     await this.storeWorkingMemory(agentId, current);
   }
 
-  private async storeWorkingMemory(agentId: number, memory: WorkingMemory): Promise<void> {
+  private async storeWorkingMemory(agentId: string, memory: WorkingMemory): Promise<void> {
     try {
       // In a real implementation, this would use Redis with TTL
       this.memoryCache.set(this.getWorkingMemoryKey(agentId), JSON.stringify(memory));

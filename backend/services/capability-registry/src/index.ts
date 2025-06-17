@@ -197,7 +197,7 @@ class CapabilityRegistryService {
           neo4j: {
             status: neo4jStatus,
             database: neo4jConnectionStatus?.database || 'unknown',
-            retries: neo4jConnectionStatus?.retries || 0
+            retries: neo4jConnectionStatus?.retries
           }
         },
         features: {

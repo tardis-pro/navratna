@@ -1,6 +1,7 @@
 import { Entity, Column, Index, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from './base.entity.js';
 import { UserEntity } from './user.entity.js';
+import { AuditEventType, SecurityLevel } from '@uaip/types';
 
 /**
  * Audit Event Entity
@@ -17,17 +18,17 @@ import { UserEntity } from './user.entity.js';
 @Index(['archivedAt'])
 export class AuditEvent extends BaseEntity {
   @Column({ name: 'event_type', length: 100 })
-  eventType: string;
+  eventType: AuditEventType;
 
-  @Column({ name: 'user_id', type: 'bigint', nullable: true })
-  userId?: number;
+  @Column({ name: 'user_id', type: 'varchar', nullable: true })
+  userId?: string;
 
   @ManyToOne(() => UserEntity, { nullable: true })
   @JoinColumn({ name: 'user_id' })
   user?: UserEntity;
 
-  @Column({ name: 'agent_id', type: 'bigint', nullable: true })
-  agentId?: number;
+  @Column({ name: 'agent_id', type: 'varchar', nullable: true })
+  agentId?: string;
 
   @Column({ name: 'resource_type', length: 100, nullable: true })
   resourceType?: string;
@@ -45,7 +46,7 @@ export class AuditEvent extends BaseEntity {
   userAgent?: string;
 
   @Column({ name: 'risk_level', length: 20, nullable: true })
-  riskLevel?: string;
+  riskLevel?: SecurityLevel;
 
   @Column({ type: 'timestamp' })
   timestamp: Date;

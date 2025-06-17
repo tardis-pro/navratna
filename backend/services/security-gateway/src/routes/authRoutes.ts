@@ -79,7 +79,7 @@ async function verifyPassword(password: string, hash: string): Promise<boolean> 
   return await bcrypt.compare(password, hash);
 }
 
-function generateTokens(userId: number, email: string, role: string) {
+function generateTokens(userId: string, email: string, role: string) {
   const jwtSecret = config.jwt.secret as string;
   const refreshSecret = config.jwt.refreshSecret as string;
   
@@ -168,7 +168,7 @@ router.post('/login',
       
       if (!isValidPassword) {
         // Increment failed login attempts
-        const failedAttempts = (user.failedLoginAttempts || 0) + 1;
+        const failedAttempts = (user.failedLoginAttempts) + 1;
         const maxAttempts = 5;
         const lockDuration = 30 * 60 * 1000; // 30 minutes
 

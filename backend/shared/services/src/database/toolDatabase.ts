@@ -37,6 +37,7 @@ export class ToolDatabase {
 
   async getTool(id: string): Promise<ToolDefinition | null> {
     try {
+      
       const entity = await this.databaseService.getTool(id);
       return entity ? this.convertEntityToTool(entity) : null;
     } catch (error) {
@@ -56,10 +57,11 @@ export class ToolDatabase {
       logger.error('Error getting tools', { category, enabled, error: (error as Error).message });
       throw error;
     }
-  }
+  } 
 
   async updateTool(id: string, updates: Partial<ToolDefinition>): Promise<void> {
     try {
+
       const entityUpdates = this.convertToolToEntity(updates);
       const result = await this.databaseService.updateTool(id, entityUpdates);
       if (!result) {
@@ -74,6 +76,7 @@ export class ToolDatabase {
 
   async deleteTool(id: string): Promise<void> {
     try {
+      
       const deleted = await this.databaseService.deleteTool(id);
       if (!deleted) {
         throw new Error(`Tool not found: ${id}`);
@@ -100,7 +103,7 @@ export class ToolDatabase {
     try {
       const entityData = this.convertExecutionToEntity(execution);
       await this.databaseService.createToolExecution(entityData);
-      logger.debug(`Tool execution created: ${execution.id}`);
+      logger.debug(`Tool execution created`);
     } catch (error) {
       logger.error('Error creating tool execution', { execution, error: (error as Error).message });
       throw error;
@@ -133,7 +136,7 @@ export class ToolDatabase {
   async getExecutions(toolId?: string, agentId?: string, status?: string, limit = 100): Promise<ToolExecution[]> {
     try {
       return await this.databaseService.getToolExecutions({
-        toolId,
+        toolId: toolId,
         agentId,
         status,
         limit
@@ -173,7 +176,7 @@ export class ToolDatabase {
     }
   }
 
-  async getUsageStats(toolId?: string, agentId?: string, days = 30): Promise<any[]> {
+    async getUsageStats(toolId?: string, agentId?: string, days = 30): Promise<any[]> {
     try {
       return await this.databaseService.getToolUsageStats({
         toolId,

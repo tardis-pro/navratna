@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 // Replace UUID with numeric ID schema
-export const IDSchema = z.number().int().positive();
+export const IDSchema = z.string();
 export type ID = z.infer<typeof IDSchema>;
 
 // Timestamp schemas

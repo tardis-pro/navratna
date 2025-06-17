@@ -38,7 +38,7 @@ export class UserRepository extends BaseRepository<UserEntity> {
   /**
    * Update user with partial data
    */
-  public async updateUser(userId: number, updates: Partial<UserEntity>): Promise<UserEntity | null> {
+  public async updateUser(userId: string, updates: Partial<UserEntity>): Promise<UserEntity | null> {
     await this.repository.update(userId, {
       ...updates,
       updatedAt: new Date()
@@ -49,7 +49,7 @@ export class UserRepository extends BaseRepository<UserEntity> {
   /**
    * Update user login attempts and lock status
    */
-  public async updateUserLoginAttempts(userId: number, failedAttempts: number, lockedUntil?: Date): Promise<void> {
+  public async updateUserLoginAttempts(userId: string, failedAttempts: number, lockedUntil?: Date): Promise<void> {
     await this.repository.update(userId, {
       failedLoginAttempts: failedAttempts,
       lockedUntil: lockedUntil,
@@ -60,7 +60,7 @@ export class UserRepository extends BaseRepository<UserEntity> {
   /**
    * Reset user login attempts and update last login
    */
-  public async resetUserLoginAttempts(userId: number): Promise<void> {
+  public async resetUserLoginAttempts(userId: string): Promise<void> {
     await this.repository.update(userId, {
       failedLoginAttempts: 0,
       lockedUntil: null,
@@ -72,7 +72,7 @@ export class UserRepository extends BaseRepository<UserEntity> {
   /**
    * Soft delete user (deactivate)
    */
-  public async deactivateUser(userId: number): Promise<void> {
+  public async deactivateUser(userId: string): Promise<void> {
     await this.repository.update(userId, {
       isActive: false,
       updatedAt: new Date()
@@ -82,7 +82,7 @@ export class UserRepository extends BaseRepository<UserEntity> {
   /**
    * Activate user
    */
-  public async activateUser(userId: number): Promise<void> {
+  public async activateUser(userId: string): Promise<void> {
     await this.repository.update(userId, {
       isActive: true,
       updatedAt: new Date()
@@ -142,7 +142,7 @@ export class UserRepository extends BaseRepository<UserEntity> {
   /**
    * Update user login tracking (failed attempts, last login, etc.)
    */
-  public async updateUserLoginTracking(userId: number, updates: {
+  public async updateUserLoginTracking(userId: string, updates: {
     failedLoginAttempts?: number;
     lockedUntil?: Date | null;
     lastLoginAt?: Date;
@@ -156,7 +156,7 @@ export class UserRepository extends BaseRepository<UserEntity> {
   /**
    * Update user password
    */
-  public async updateUserPassword(userId: number, passwordHash: string): Promise<void> {
+  public async updateUserPassword(userId: string, passwordHash: string): Promise<void> {
     await this.repository.update(userId, {
       passwordHash,
       passwordChangedAt: new Date(),
@@ -218,7 +218,7 @@ export class UserRepository extends BaseRepository<UserEntity> {
   /**
    * Update user profile
    */
-  public async updateUserProfile(userId: number, updates: {
+  public async updateUserProfile(userId: string, updates: {
     firstName?: string;
     lastName?: string;
     department?: string;
@@ -309,8 +309,8 @@ export class UserRepository extends BaseRepository<UserEntity> {
   /**
    * Get user authentication details for security validation
    */
-  public async getUserAuthDetails(userId: number): Promise<{
-    Id: number;
+  public async getUserAuthDetails(userId: string): Promise<{
+    id: string;
     isActive: boolean;
     role: string;
     securityClearance?: SecurityLevel;
@@ -336,7 +336,7 @@ export class UserRepository extends BaseRepository<UserEntity> {
   /**
    * Get user permissions for security validation
    */
-  public async getUserPermissions(userId: number): Promise<{
+  public async getUserPermissions(userId: string): Promise<{
     rolePermissions: Array<{ roleName: string; permissionType: string; operations: string[] }>;
     directPermissions: Array<{ permissionType: string; operations: string[] }>;
   }> {
@@ -388,7 +388,7 @@ export class UserRepository extends BaseRepository<UserEntity> {
   /**
    * Get user risk assessment data
    */
-  public async getUserRiskData(userId: number): Promise<{
+  public async getUserRiskData(userId: string): Promise<{
     securityClearance?: SecurityLevel;
     role: string;
     lastLoginAt?: Date;
@@ -422,7 +422,7 @@ export class UserRepository extends BaseRepository<UserEntity> {
         role: user.role,
         lastLoginAt: user.last_login_at,
         createdAt: user.created_at,
-        recentActivityCount: parseInt(user.recent_activity_count) || 0
+        recentActivityCount: parseInt(user.recent_activity_count)
       };
     } catch (error) {
       logger.error('Error getting user risk data', { userId, error: (error as Error).message });
@@ -433,7 +433,7 @@ export class UserRepository extends BaseRepository<UserEntity> {
   /**
    * Get user's highest role for data access level determination
    */
-  public async getUserHighestRole(userId: number): Promise<string | null> {
+  public async getUserHighestRole(userId: string): Promise<string | null> {
     try {
       const manager = this.getEntityManager();
       
@@ -472,7 +472,7 @@ export class RefreshTokenRepository extends BaseRepository<RefreshTokenEntity> {
    * Create refresh token
    */
   public async createRefreshToken(tokenData: {
-    userId: number;
+    userId: string;
     token: string;
     expiresAt: Date;
   }): Promise<RefreshTokenEntity> {
@@ -503,7 +503,7 @@ export class RefreshTokenRepository extends BaseRepository<RefreshTokenEntity> {
   /**
    * Revoke all user refresh tokens
    */
-  public async revokeAllUserRefreshTokens(userId: number): Promise<void> {
+  public async revokeAllUserRefreshTokens(userId: string): Promise<void> {
     await this.repository.update(
       { userId, revokedAt: null },
       { revokedAt: new Date(), updatedAt: new Date() }
@@ -517,7 +517,7 @@ export class RefreshTokenRepository extends BaseRepository<RefreshTokenEntity> {
     const result = await this.repository.delete({
       expiresAt: LessThan(new Date())
     });
-    return result.affected || 0;
+    return result.affected;
   }
 }
 
@@ -530,7 +530,7 @@ export class PasswordResetTokenRepository extends BaseRepository<PasswordResetTo
    * Create password reset token
    */
   public async createPasswordResetToken(tokenData: {
-    userId: number;
+    userId: string;
     token: string;
     expiresAt: Date;
   }): Promise<PasswordResetTokenEntity> {
@@ -565,6 +565,6 @@ export class PasswordResetTokenRepository extends BaseRepository<PasswordResetTo
     const result = await this.repository.delete({
       expiresAt: LessThan(new Date())
     });
-    return result.affected || 0;
+    return result.affected;
   }
 } 

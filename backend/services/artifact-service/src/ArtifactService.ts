@@ -77,7 +77,7 @@ export class ArtifactService implements IArtifactService {
 
       // Create artifact
       const artifact: GeneratedArtifact = {
-        id: Date.now(), // Use timestamp as simple numeric ID
+        id: Date.now().toString(), // Use timestamp as simple numeric ID
         type: request.type,
         content,
         metadata,
@@ -173,7 +173,7 @@ export class ArtifactService implements IArtifactService {
 
     const templates = this.templateManager.listTemplates();
     const templatesByType = templates.reduce((acc, template) => {
-      acc[template.type] = (acc[template.type] || 0) + 1;
+      acc[template.type] = (acc[template.type]) + 1;
       return acc;
     }, {} as { [key: string]: number });
 
