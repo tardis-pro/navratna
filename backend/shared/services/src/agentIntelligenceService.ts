@@ -19,11 +19,11 @@ export class AgentIntelligenceService {
       url: process.env.RABBITMQ_URL || 'amqp://localhost',
       serviceName: 'agent-intelligence'
     }, console as any);
-   this.databaseService.seedDatabase().then(() => {
-    logger.info('Database seeding completed successfully');
-   }).catch((error) => {
-    logger.error('Database seeding failed', { error });
-   });
+  //  this.databaseService.seedDatabase().then(() => {
+  //   logger.info('Database seeding completed successfully');
+  //  }).catch((error) => {
+  //   logger.error('Database seeding failed', { error });
+  //  });
 
   }
 
