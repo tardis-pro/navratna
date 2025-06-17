@@ -11,8 +11,8 @@ import { OperationStatus } from '@uaip/types';
 @Index(['fromStatus', 'toStatus'])
 @Index(['transitionedAt'])
 export class OperationState extends BaseEntity {
-  @Column({ name: 'operation_id', type: 'bigint' })
-  operationId: number;
+  @Column({ name: 'operation_id', type: 'string' })
+  operationId: string;
 
   @Column({ name: 'from_status', type: 'enum', enum: OperationStatus, nullable: true })
   fromStatus?: OperationStatus;
@@ -23,7 +23,7 @@ export class OperationState extends BaseEntity {
   @Column({ name: 'transitioned_at', type: 'timestamp' })
   transitionedAt: Date;
 
-  @Column({ name: 'transitioned_by', type: 'bigint', nullable: true })
+  @Column({ name: 'transitioned_by', type: 'string', nullable: true })
   transitionedBy?: number;
 
   @Column({ type: 'text', nullable: true })

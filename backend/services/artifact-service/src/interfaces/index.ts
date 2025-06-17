@@ -26,7 +26,7 @@ export interface ArtifactValidator {
 export interface SecurityManager {
   validateContent(content: string): Promise<boolean>;
   sanitizeContent(content: string): string;
-  checkPermissions(userId: number, action: string): boolean;
+  checkPermissions(userId: string, action: string): boolean;
 }
 
 export interface ConversationAnalyzer {

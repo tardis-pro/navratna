@@ -37,7 +37,7 @@ export class ToolExecutor {
 
   async executeTool(
     toolId: string,
-    agentId: number,
+    agentId: string,
     parameters: Record<string, any>,
     options: ExecutionOptions = {}
   ): Promise<ToolExecution> {
@@ -355,7 +355,7 @@ export class ToolExecutor {
   }
 
   private async updateUsagePattern(
-    agentId: number,
+    agentId: string,
     toolId: string,
     executionTime: number,
     success: boolean

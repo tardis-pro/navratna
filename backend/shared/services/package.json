@@ -15,7 +15,9 @@
     "migration:revert": "pnpm typeorm migration:revert",
     "migration:show": "pnpm typeorm migration:show",
     "schema:sync": "pnpm typeorm schema:sync",
-    "schema:drop": "pnpm typeorm schema:drop"
+    "schema:drop": "pnpm typeorm schema:drop",
+    "seed": "tsx src/database/seedScript.ts",
+    "seed:build": "tsc && node dist/database/seedScript.js"
   },
   "dependencies": {
     "@uaip/types": "workspace:*",
@@ -33,16 +35,19 @@
     "amqplib": "^0.10.3",
     "neo4j-driver": "^5.15.0",
     "winston": "^3.11.0",
-    "zod": "^3.22.4"
+    "zod": "^3.22.4",
+    "bcrypt": "^5.1.1"
   },
   "devDependencies": {
     "@types/pg": "^8.10.9",
     "@types/amqplib": "^0.10.4",
     "@types/node": "^20.10.5",
+    "@types/bcrypt": "^5.0.2",
     "typescript": "^5.3.3",
     "rimraf": "^5.0.5",
     "tsc-alias": "^1.8.8",
-    "ts-node": "^10.9.1"
+    "ts-node": "^10.9.1",
+    "tsx": "^4.6.2"
   },
   "exports": {
     ".": {

@@ -44,7 +44,7 @@ export interface ArtifactMetadata {
 }
 
 export interface TraceabilityInfo {
-  conversationId: number;
+  conversationId: string;
   generatedBy: string;
   generatedAt: Date;
   generator: string;
@@ -62,9 +62,9 @@ export interface Artifact {
 
 // Artifact Review System
 export interface ArtifactReview {
-  Id: number;
-  artifactId: number;
-  reviewerId: number;
+  id: string;
+  artifactId: string;
+  reviewerId: string;
   status: 'pending' | 'approved' | 'rejected' | 'needs-changes';
   score?: number;
   comments?: string;
@@ -75,8 +75,8 @@ export interface ArtifactReview {
 
 // Artifact Deployment System
 export interface ArtifactDeployment {
-  Id: number;
-  artifactId: number;
+  id: string;
+  artifactId: string;
   environment: string;
   status: 'pending' | 'deploying' | 'deployed' | 'failed' | 'rolled-back';
   deployedBy: string;
@@ -103,7 +103,7 @@ export interface ConversationPhase {
 }
 
 export interface Decision {
-  Id: number;
+  id: string;
   description: string;
   decidedBy?: string;
   decidedAt?: Date;
@@ -117,7 +117,7 @@ export interface Decision {
 }
 
 export interface ActionItem {
-  Id: number;
+  id: string;
   description: string;
   assignedTo?: string;
   assignee?: string;
@@ -129,7 +129,7 @@ export interface ActionItem {
 }
 
 export interface Requirement {
-  Id: number;
+  id: string;
   type: 'functional' | 'non_functional' | 'business_rule' | 'constraint';
   description: string;
   priority: 'must_have' | 'should_have' | 'could_have' | 'wont_have';
@@ -169,7 +169,7 @@ export interface ArtifactGenerationResponse {
 
 // Template system - using different name to avoid conflict with capability.ts
 export interface ArtifactGenerationTemplate {
-  Id: number;
+  id: string;
   name: string;
   description: string;
   type: ArtifactType;
@@ -185,7 +185,7 @@ export interface ArtifactGenerationTemplate {
 
 // Conversation context for artifacts
 export interface ArtifactConversationContext {
-  conversationId: number;
+  conversationId: string;
   messages: ConversationMessage[];
   participants: Participant[];
   summary?: string;
@@ -196,7 +196,7 @@ export interface ArtifactConversationContext {
 }
 
 export interface ConversationMessage {
-  Id: number;
+  id: string;
   content: string;
   role: 'user' | 'assistant' | 'system';
   timestamp: Date;
@@ -205,7 +205,7 @@ export interface ConversationMessage {
 
 // Legacy artifact message interface for backward compatibility
 export interface ArtifactMessage {
-  Id: number;
+  id: string;
   content: string;
   timestamp: string;
   author: string;
@@ -213,7 +213,7 @@ export interface ArtifactMessage {
 }
 
 export interface Participant {
-  Id: number;
+  id: string;
   name: string;
   role: string;
   type: 'human' | 'agent';

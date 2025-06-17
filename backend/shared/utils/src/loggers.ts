@@ -209,7 +209,7 @@ export const logSecurityEvent = (
 export const logAudit = (
   logger: winston.Logger,
   action: string,
-  userId: number,
+  userId: string,
   resource: string,
   details: Record<string, any> = {}
 ) => {

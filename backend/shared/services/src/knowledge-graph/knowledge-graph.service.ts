@@ -147,7 +147,7 @@ export class KnowledgeGraphService {
    */
   async findRelated(itemId: string, relationshipTypes?: string[]): Promise<KnowledgeItem[]> {
     try {
-      const relationships = await this.repository.getRelationships(itemid, relationshipTypes);
+      const relationships = await this.repository.getRelationships(itemId, relationshipTypes);
       const relatedIds = relationships.map(r => r.targetItemId);
       return this.repository.getItems(relatedIds.map(id => id));
     } catch (error) {

@@ -79,7 +79,7 @@ async function verifyPassword(password: string, hash: string): Promise<boolean> 
   return await bcrypt.compare(password, hash);
 }
 
-function generateTokens(userId: number, email: string, role: string) {
+function generateTokens(userId: string, email: string, role: string) {
   const jwtSecret = config.jwt.secret as string;
   const refreshSecret = config.jwt.refreshSecret as string;
   

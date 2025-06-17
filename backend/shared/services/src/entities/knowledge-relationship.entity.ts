@@ -9,10 +9,10 @@ import { BaseEntity } from './base.entity.js';
 export class KnowledgeRelationshipEntity extends BaseEntity {
 
   @Column('bigint')
-  sourceItemId: number;
+  sourceItemId: string;
 
   @Column('bigint')
-  targetItemId: number;
+  targetItemId: string;
 
   @Column({ length: 50 })
   relationshipType: string;

@@ -25,7 +25,7 @@ export interface ApprovalWorkflowConfig {
 }
 
 export interface ApprovalRequest {
-  operationId: number;
+  operationId: string;
   operationType: string;
   requiredApprovers: string[];
   securityLevel: SecurityLevel;
@@ -291,7 +291,7 @@ export class ApprovalWorkflowService {
   /**
    * Get workflows for a user (as approver)
    */
-  public async getUserWorkflows(userId: number, status?: ApprovalStatus): Promise<ApprovalWorkflowType[]> {
+  public async getUserWorkflows(userId: string, status?: ApprovalStatus): Promise<ApprovalWorkflowType[]> {
     try {
       const workflows = await this.databaseService.getUserApprovalWorkflows(userId, status);
 

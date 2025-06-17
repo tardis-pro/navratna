@@ -10,9 +10,9 @@ import { z } from 'zod';
 
 // Define AgentCapabilityMetric interface locally since it's not exported from types
 interface AgentCapabilityMetric {
-  Id: number;
-  agentId: number;
-  toolId: number;
+  id: string;
+  agentId: string;
+  toolId: string;
   totalExecutions: number;
   successfulExecutions: number;
   totalExecutionTime: number;
@@ -241,7 +241,7 @@ export class ToolRegistry {
     logger.info(`Relationship added: ${fromToolId} -[${relationship.type}]-> ${toToolId}`);
   }
 
-  async getRecommendations(agentId: number, context?: string, limit = 5): Promise<ToolRecommendation[]> {
+  async getRecommendations(agentId: string, context?: string, limit = 5): Promise<ToolRecommendation[]> {
     try {
       let recommendations: ToolRecommendation[] = [];
       
@@ -298,7 +298,7 @@ export class ToolRegistry {
     return await this.neo4j.getPopularTools(category, limit);
   }
 
-  async getAgentToolPreferences(agentId: number): Promise<any[]> {
+  async getAgentToolPreferences(agentId: string): Promise<any[]> {
     return await this.neo4j.getAgentToolPreferences(agentId);
   }
 
@@ -364,7 +364,7 @@ export class ToolRegistry {
   // Enhanced Tool Usage Tracking
   async recordToolUsage(
     toolId: string,
-    agentId: number,
+    agentId: string,
     executionTime: number,
     success: boolean,
     cost?: number,
@@ -394,7 +394,7 @@ export class ToolRegistry {
   }
 
   private async updateCapabilityMetrics(
-    agentId: number,
+    agentId: string,
     toolId: string,
     success: boolean,
     executionTime: number
@@ -444,7 +444,7 @@ export class ToolRegistry {
   }
 
   // Enhanced Analytics with TypeORM
-  async getAgentCapabilityMetrics(agentId: number): Promise<AgentCapabilityMetric[]> {
+  async getAgentCapabilityMetrics(agentId: string): Promise<AgentCapabilityMetric[]> {
     try {
       const repository = this.typeormService.agentCapabilityMetricRepository;
       return await repository.find({

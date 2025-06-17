@@ -36,7 +36,7 @@ export class PersonaService {
   private enableRecommendations: boolean;
   private enableCaching: boolean;
   private cacheTimeout: number;
-  private personaCache: Map<number, { persona: Persona; timestamp: number }>;
+  private personaCache: Map<string, { persona: Persona; timestamp: number }>;
 
   constructor(config: PersonaServiceConfig) {
     this.databaseService = config.databaseService;
@@ -142,7 +142,7 @@ export class PersonaService {
     }
   }
 
-  async getPersona(id: number): Promise<Persona | null> {
+  async getPersona(id: string): Promise<Persona | null> {
     try {
       // Check cache first
       const cached = this.getCachedPersona(id);
@@ -172,7 +172,7 @@ export class PersonaService {
     }
   }
 
-  async updatePersona(id: number, updates: UpdatePersonaRequest): Promise<Persona> {
+  async updatePersona(id: string, updates: UpdatePersonaRequest): Promise<Persona> {
     try {
       logger.info('Updating persona', { personaId: id, updates: Object.keys(updates) });
 
@@ -230,7 +230,7 @@ export class PersonaService {
     }
   }
 
-  async deletePersona(id: number, deletedBy: number): Promise<void> {
+  async deletePersona(id: string, deletedBy: string): Promise<void> {
     try {
       logger.info('Deleting persona', { personaId: id, deletedBy });
 
@@ -313,7 +313,7 @@ export class PersonaService {
   }
 
   async getPersonaRecommendations(
-    userId: number,
+    userId: string,
     context?: string,
     limit = 10
   ): Promise<PersonaRecommendation[]> {
@@ -406,7 +406,7 @@ export class PersonaService {
 
   // ===== PERSONA ANALYTICS =====
 
-  async getPersonaAnalytics(personaId: number, timeframe?: {
+  async getPersonaAnalytics(personaId: string, timeframe?: {
     start: Date;
     end: Date;
   }): Promise<PersonaAnalytics | null> {
@@ -454,8 +454,8 @@ export class PersonaService {
     }
   }
 
-  async updatePersonaUsage(personaId: number, sessionData: {
-    userId: number;
+  async updatePersonaUsage(personaId: string, sessionData: {
+    userId: string;
     duration: number;
     messageCount: number;
     satisfactionScore?: number;
@@ -549,9 +549,9 @@ export class PersonaService {
   }
 
   async createPersonaFromTemplate(
-    templateId: number,
+    templateId: string,
     customizations: Partial<CreatePersonaRequest>,
-    createdBy: number
+    createdBy: string
   ): Promise<Persona> {
     try {
       // Get template persona (using existing persona as template)
@@ -609,7 +609,7 @@ export class PersonaService {
     });
   }
 
-  private getCachedPersona(id: number): Persona | null {
+  private getCachedPersona(id: string): Persona | null {
     const cached = this.personaCache.get(id);
     if (!cached) {
       return null;
@@ -684,13 +684,13 @@ export class PersonaService {
     }
   }
 
-  private async getPersonaUsageCount(personaId: number): Promise<number> {
+  private async getPersonaUsageCount(personaId: string): Promise<number> {
     // This would check active discussions, sessions, etc.
     // For now, return 0 as placeholder
     return 0;
   }
 
-  private async getUserPersonaHistory(userId: number): Promise<any[]> {
+  private async getUserPersonaHistory(userId: string): Promise<any[]> {
     // Get user's persona usage history from database
     // Placeholder implementation
     return [];
@@ -726,7 +726,7 @@ export class PersonaService {
     return Math.max(0, Math.min(100, score));
   }
 
-  private async calculatePersonaMetrics(personaId: number, timeframe: { start: Date; end: Date }): Promise<any> {
+  private async calculatePersonaMetrics(personaId: string, timeframe: { start: Date; end: Date }): Promise<any> {
     // Calculate persona metrics for the given timeframe
     // Placeholder implementation
     return {
@@ -740,7 +740,7 @@ export class PersonaService {
     };
   }
 
-  private async calculatePersonaTrends(personaId: number, timeframe: { start: Date; end: Date }): Promise<any> {
+  private async calculatePersonaTrends(personaId: string, timeframe: { start: Date; end: Date }): Promise<any> {
     // Calculate persona trends
     // Placeholder implementation
     return {
@@ -750,13 +750,13 @@ export class PersonaService {
     };
   }
 
-  private async getTopInteractions(personaId: number, timeframe: { start: Date; end: Date }): Promise<any[]> {
+  private async getTopInteractions(personaId: string, timeframe: { start: Date; end: Date }): Promise<any[]> {
     // Get top interactions for the persona
     // Placeholder implementation
     return [];
   }
 
-    private async getCommonIssues(personaId: number, timeframe: { start: Date; end: Date }): Promise<any[]> {
+    private async getCommonIssues(personaId: string, timeframe: { start: Date; end: Date }): Promise<any[]> {
     // Get common issues for the persona
     // Placeholder implementation
     return [];
@@ -783,8 +783,8 @@ export class PersonaService {
     return Math.min(score, 100);
   }
 
-  private generatePersonaId(): number {
-    return Date.now(); // Use timestamp as simple numeric ID
+  private generatePersonaId(): string {
+    return `persona_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`; // Use timestamp as simple numeric ID
   }
 
   private async safePublishEvent(eventType: string, data: any): Promise<void> {
@@ -807,7 +807,7 @@ export class PersonaService {
       description: entity.description,
       traits: entity.traits || [],
       expertise: (entity.expertise || []).map((exp, index) => ({
-        id: Date.now() + index, // Use timestamp + index as simple numeric ID
+        id: Date.now().toString() + index, // Use timestamp + index as simple numeric ID
         name: exp,
         description: '',
         category: 'general',

@@ -8,7 +8,9 @@
     { "path": "./shared/services" },
     
   ],
+  
   "compilerOptions": {
-    "outDir": "./dist" // ✅ Required for tsc-alias to function
+    "outDir": "./dist",
+   
   }
 }

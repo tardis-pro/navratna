@@ -53,13 +53,13 @@ export interface AuditReport {
       riskEvents: number;
     }>;
     topUsers: Array<{
-      userId: number;
+      userId: string;
       eventCount: number;
       riskEvents: number;
     }>;
     topResources: Array<{
       resourceType: string;
-      resourceId: number;
+      resourceId: string;
       eventCount: number;
     }>;
   };

@@ -16,7 +16,7 @@ import { ApprovalWorkflowService, ApprovalRequest } from './approvalWorkflowServ
 import { AuditService } from './auditService.js';
 
 export interface SecurityPolicy {
-  Id: number;
+  id: string;
   name: string;
   description: string;
   conditions: Record<string, any>;
@@ -536,7 +536,7 @@ export class SecurityGatewayService {
     };
   }
 
-  private async assessHistoricalRisk(userId: number): Promise<RiskFactor> {
+  private async assessHistoricalRisk(userId: string): Promise<RiskFactor> {
     try {
       // Get recent security events for user
       const recentEvents = await this.auditService.queryEvents({

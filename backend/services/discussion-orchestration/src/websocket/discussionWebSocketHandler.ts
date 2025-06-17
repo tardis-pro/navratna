@@ -6,7 +6,7 @@ import { DiscussionEvent } from '@uaip/types';
 
 export interface WebSocketConnection {
   ws: WebSocket;
-  discussionId: number;
+  discussionId: string;
   userId?: string;
    participantId?: number;
   isAlive: boolean;

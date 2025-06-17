@@ -10,8 +10,8 @@ import { BaseEntity } from './base.entity.js';
 @Index(['environment', 'status'])
 @Index(['deployedBy'])
 export class ArtifactDeployment extends BaseEntity {
-  @Column({ name: 'artifact_id', type: 'bigint' })
-  artifactId: number;
+  @Column({ name: 'artifact_id', type: 'string' })
+  artifactId: string;
 
   @Column({ length: 100 })
   environment: string;
@@ -19,7 +19,7 @@ export class ArtifactDeployment extends BaseEntity {
   @Column({ type: 'enum', enum: ['pending', 'deploying', 'deployed', 'failed', 'rolled_back'], default: 'pending' })
   status: 'pending' | 'deploying' | 'deployed' | 'failed' | 'rolled_back';
 
-  @Column({ name: 'deployed_by', type: 'bigint' })
+  @Column({ name: 'deployed_by', type: 'string' })
   deployedBy: number;
 
   @Column({ name: 'deployed_at', type: 'timestamp' })
@@ -46,7 +46,7 @@ export class ArtifactDeployment extends BaseEntity {
   @Column({ name: 'rolled_back_at', type: 'timestamp', nullable: true })
   rolledBackAt?: Date;
 
-  @Column({ name: 'rolled_back_by', type: 'bigint', nullable: true })
+  @Column({ name: 'rolled_back_by', type: 'string', nullable: true })
   rolledBackBy?: number;
 
   @Column({ name: 'health_check_url', type: 'text', nullable: true })

@@ -43,7 +43,7 @@ export class SecurityValidationService {
       });
 
       // Step 1: Validate user authentication and authorization
-      const authValidation = await this.validateUserAuth(securityContext.userId || 0);
+      const authValidation = await this.validateUserAuth(securityContext.userId);
       if (!authValidation.valid) {
         return {
           allowed: false,
@@ -56,7 +56,7 @@ export class SecurityValidationService {
 
       // Step 2: Check user permissions for the operation
       const permissions = await this.getUserPermissions(
-        securityContext.userId || 0,
+        securityContext.userId,
         operation,
         resources
       );
@@ -174,7 +174,7 @@ export class SecurityValidationService {
 
   public async filterSensitiveData(
     data: any,
-    userId: number,
+    userId: string,
     operation: 'read' | 'write' | 'delete'
   ): Promise<any> {
     await this.ensureInitialized();
@@ -220,7 +220,7 @@ export class SecurityValidationService {
   }
 
   public async createApprovalWorkflow(
-    operationId: number,
+    operationId: string,
     approvers: string[],
     context: any  
   ): Promise<string> {
@@ -247,7 +247,7 @@ export class SecurityValidationService {
 
   // Private helper methods
 
-  private async validateUserAuth(userId: number): Promise<{ valid: boolean; reason?: string }> {
+  private async validateUserAuth(userId: string): Promise<{ valid: boolean; reason?: string }> {
     try {
       const user = await this.databaseService.getUserAuthDetails(userId);
       
@@ -267,7 +267,7 @@ export class SecurityValidationService {
   }
 
   private async getUserPermissions(
-    userId: number,
+    userId: string,
     operation: string,
     resources: string[]
   ): Promise<{
@@ -319,7 +319,7 @@ export class SecurityValidationService {
     const riskFactors: RiskFactor[] = [];
 
     // Assess user risk level
-    const userRisk = await this.assessUserRisk(securityContext.userId || 0);
+    const userRisk = await this.assessUserRisk(securityContext.userId);
     if (userRisk.level !== RiskLevel.LOW) {
       riskFactors.push(userRisk);
     }
@@ -348,7 +348,7 @@ export class SecurityValidationService {
     };
   }
 
-  private async assessUserRisk(userId: number): Promise<RiskFactor> {
+  private async assessUserRisk(userId: string): Promise<RiskFactor> {
     try {
       // Use DatabaseService getUserRiskData method instead of raw SQL
       const userData = await this.databaseService.getUserRiskData(userId);
@@ -666,7 +666,7 @@ export class SecurityValidationService {
     return [...new Set(mitigations)]; // Remove duplicates
   }
 
-  private async getUserDataAccessLevel(userId: number): Promise<string> {
+  private async getUserDataAccessLevel(userId: string): Promise<string> {
     try {
       // Use DatabaseService getUserHighestRole method instead of raw SQL
       const roleName = await this.databaseService.getUserHighestRole(userId);

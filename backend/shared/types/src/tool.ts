@@ -65,10 +65,10 @@ export interface ToolBudget {
 
 // Tool usage record for analytics
 export interface ToolUsageRecord {
-  Id: number;
-  toolId: number;
-  agentId: number;
-  executionId: number;
+  id: string;
+  toolId: string;
+  agentId: string;
+  executionId: string;
   startTime: Date;
   endTime?: Date;
   status: ToolExecutionStatus;
@@ -81,7 +81,7 @@ export interface ToolUsageRecord {
 
 // Tool definition interface
 export interface ToolDefinition {
-  Id: number;
+  id: string;
   name: string;
   description: string;
   category: ToolCategory;
@@ -102,9 +102,9 @@ export interface ToolDefinition {
 
 // Tool execution interface
 export interface ToolExecution {
-  Id: number;
-  toolId: number;
-  agentId: number;
+  id: string;
+  toolId: string;
+  agentId: string;
   parameters: Record<string, any>;
   status: ToolExecutionStatus;
   startTime: Date;
@@ -122,20 +122,20 @@ export interface ToolExecution {
 }
 
 export interface ToolCall {
-  Id: number;
-  toolId: number;
+  id: string;
+  toolId: string;
   parameters: Record<string, any>;
   reasoning: string; // Why the agent chose this tool
   confidence: number; // 0-1 confidence in tool selection
   alternatives?: Array<{
-    toolId: number;
+    toolId: string;
     reason: string;
   }>;
 }
 
 export interface ToolResult {
-  callId: number;
-  executionId: number;
+  callId: string;
+  executionId: string;
   success: boolean;
   result?: any;
   error?: ToolExecutionError;
@@ -167,7 +167,7 @@ export interface ToolRegistry {
 
 // Tool Execution Engine interfaces
 export interface ToolExecutionEngine {
-  execute: (toolCall: ToolCall, agentId: number) => Promise<ToolExecution>;
+  execute: (toolCall: ToolCall, agentId: string) => Promise<ToolExecution>;
   getExecution: (executionId: string) => Promise<ToolExecution | null>;
   cancelExecution: (executionId: string) => Promise<boolean>;
   getActiveExecutions: (agentId?: number) => Promise<ToolExecution[]>;
@@ -176,24 +176,24 @@ export interface ToolExecutionEngine {
 
 // Tool Permission Manager interfaces
 export interface ToolPermissionManager {
-  canUse: (agentId: number, toolId: string) => Promise<boolean>;
-  requiresApproval: (agentId: number, toolId: string) => Promise<boolean>;
-  checkBudget: (agentId: number, estimatedCost: number) => Promise<boolean>;
-  recordUsage: (agentId: number, usage: ToolUsageRecord) => Promise<void>;
-  getUsageHistory: (agentId: number, limit?: number) => Promise<ToolUsageRecord[]>;
+  canUse: (agentId: string, toolId: string) => Promise<boolean>;
+  requiresApproval: (agentId: string, toolId: string) => Promise<boolean>;
+  checkBudget: (agentId: string, estimatedCost: number) => Promise<boolean>;
+  recordUsage: (agentId: string, usage: ToolUsageRecord) => Promise<void>;
+  getUsageHistory: (agentId: string, limit?: number) => Promise<ToolUsageRecord[]>;
 }
 
 // Events for tool system observability
 export type ToolEvent = 
   | { type: 'tool-registered'; payload: { toolId: string } }
   | { type: 'tool-unregistered'; payload: { toolId: string } }
-  | { type: 'execution-started'; payload: { executionId: number; toolId: number; agentId: number } }
-  | { type: 'execution-completed'; payload: { executionId: number; success: boolean; duration: number } }
-  | { type: 'execution-failed'; payload: { executionId: number; error: ToolExecutionError } }
-  | { type: 'approval-requested'; payload: { executionId: number; toolId: number; agentId: number } }
-  | { type: 'approval-granted'; payload: { executionId: number; approvedBy: string } }
-  | { type: 'budget-exceeded'; payload: { agentId: number; limit: number; attempted: number } }
-  | { type: 'rate-limit-hit'; payload: { agentId: number; toolId: string } };
+  | { type: 'execution-started'; payload: { executionId: string; toolId: string; agentId: string } }
+  | { type: 'execution-completed'; payload: { executionId: string; success: boolean; duration: number } }
+  | { type: 'execution-failed'; payload: { executionId: string; error: ToolExecutionError } }
+  | { type: 'approval-requested'; payload: { executionId: string; toolId: string; agentId: string } }
+  | { type: 'approval-granted'; payload: { executionId: string; approvedBy: string } }
+  | { type: 'budget-exceeded'; payload: { agentId: string; limit: number; attempted: number } }
+  | { type: 'rate-limit-hit'; payload: { agentId: string; toolId: string } };
 
 export interface ToolEventHandler {
   (event: ToolEvent): void | Promise<void>;

@@ -15,15 +15,15 @@ export interface ToolRelationship {
 }
 
 export interface ToolRecommendation {
-  toolId: number;
+  toolId: string;
   score: number;
   reason: string;
   confidence: number;
 }
 
 export interface UsagePattern {
-  agentId: number;
-  toolId: number;
+  agentId: string;
+  toolId: string;
   frequency: number;
   successRate: number;
   avgExecutionTime: number;
@@ -358,7 +358,7 @@ export class ToolGraphDatabase {
     }
   }
 
-  async incrementUsage(agentId: number, toolId: string, executionTime: number, success: boolean): Promise<void> {
+  async incrementUsage(agentId: string, toolId: string, executionTime: number, success: boolean): Promise<void> {
     const session = this.driver.session({ database: this.database });
     try {
       await session.run(
@@ -384,7 +384,7 @@ export class ToolGraphDatabase {
   }
 
   // Recommendation Engine
-  async getRecommendations(agentId: number, context?: string, limit = 5): Promise<ToolRecommendation[]> {
+  async getRecommendations(agentId: string, context?: string, limit = 5): Promise<ToolRecommendation[]> {
     if (this.shouldSkipOperation(`Get recommendations for agent ${agentId}`)) {
       return []; // Return empty array if Neo4j not available
     }
@@ -540,7 +540,7 @@ export class ToolGraphDatabase {
   }
 
   // Utility Methods
-  async getAgentToolPreferences(agentId: number): Promise<any[]> {
+  async getAgentToolPreferences(agentId: string): Promise<any[]> {
     const session = this.driver.session({ database: this.database });
     try {
       const result = await session.run(

@@ -52,7 +52,7 @@ export abstract class BaseRepository<T extends ObjectLiteral> {
   }
 
   // Generic CRUD operations
-  public async findById(id: number): Promise<T | null> {
+  public async findById(id: string): Promise<T | null> {
     try {
       return await this.repository.findOne({ where: { id } as any });
     } catch (error) {
@@ -133,7 +133,7 @@ export abstract class BaseRepository<T extends ObjectLiteral> {
     }
   }
 
-  public async update(id: number, data: Partial<T>): Promise<T | null> {
+  public async update(id: string, data: Partial<T>): Promise<T | null> {
     try {
       await this.repository.update(id, { ...data, updatedAt: new Date() } as any);
       return await this.repository.findOne({ where: { id } as any });
@@ -148,7 +148,7 @@ export abstract class BaseRepository<T extends ObjectLiteral> {
     }
   }
 
-  public async delete(id: number): Promise<boolean> {
+  public async delete(id: string): Promise<boolean> {
     try {
       const result = await this.repository.delete(id);
       return (result.affected || 0) > 0;
@@ -193,7 +193,7 @@ export abstract class BaseRepository<T extends ObjectLiteral> {
     }
   }
 
-  public async batchUpdate(updates: Array<{ id: number; data: Partial<T> }>): Promise<T[]> {
+  public async batchUpdate(updates: Array<{ id: string; data: Partial<T> }>): Promise<T[]> {
     if (updates.length === 0) {
       return [];
     }

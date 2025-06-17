@@ -729,8 +729,8 @@ export type DiscussionOperation =
 export const createDiscussionOperation = (
   type: OperationType,
   context: any,
-  agentId: number,
-  userId: number
+  agentId: string,
+  userId: string
 ): any => {
   const baseOperation = {
     status: OperationStatus.PENDING,

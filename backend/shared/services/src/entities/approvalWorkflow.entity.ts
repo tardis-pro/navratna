@@ -11,14 +11,14 @@ import { BaseEntity } from './base.entity.js';
 @Index(['status', 'expiresAt'])
 @Index(['createdAt'])
 export class ApprovalWorkflow extends BaseEntity {
-  @Column({ name: 'operation_id', type: 'bigint' })
-  operationId: number;
+  @Column({ name: 'operation_id', type: 'string' })
+  operationId: string;
 
   @Column({ name: 'required_approvers', type: 'jsonb' })
-  requiredApprovers: number[];
+  requiredApprovers: string[];
 
   @Column({ name: 'current_approvers', type: 'jsonb', default: '[]' })
-  currentApprovers: number[];
+  currentApprovers: string[];
 
   @Column({ type: 'enum', enum: ['pending', 'approved', 'rejected', 'expired', 'cancelled'], default: 'pending' })
   status: 'pending' | 'approved' | 'rejected' | 'expired' | 'cancelled';

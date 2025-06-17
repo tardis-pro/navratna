@@ -44,7 +44,7 @@ export interface MCPServerConfig {
 }
 
 export interface MCPServerInstance {
-  Id: number;
+  id: string;
   config: MCPServerConfig;
   status: MCPServerStatus;
   pid?: number;
@@ -99,8 +99,8 @@ export interface MCPServerCapabilities {
 }
 
 export interface MCPToolCall {
-  Id: number;
-  serverId: number;
+  id: string;
+  serverId: string;
   toolName: string;
   parameters: Record<string, any>;
   timestamp: Date;
@@ -127,16 +127,16 @@ export interface MCPToolResult {
 
 // Events
 export type MCPServerEvent = 
-  | { type: 'server-started'; payload: { serverId: number; pid: number } }
-  | { type: 'server-stopped'; payload: { serverId: number; reason: string } }
-  | { type: 'server-error'; payload: { serverId: number; error: string } }
-  | { type: 'tool-called'; payload: { serverId: number; tool: string; duration: number } }
-  | { type: 'capabilities-updated'; payload: { serverId: number; capabilities: MCPServerCapabilities } };
+  | { type: 'server-started'; payload: { serverId: string; pid: number } }
+  | { type: 'server-stopped'; payload: { serverId: string; reason: string } }
+  | { type: 'server-error'; payload: { serverId: string; error: string } }
+  | { type: 'tool-called'; payload: { serverId: string; tool: string; duration: number } }
+  | { type: 'capabilities-updated'; payload: { serverId: string; capabilities: MCPServerCapabilities } };
 
 export type MCPServerEventHandler = (event: MCPServerEvent) => void;
 
 export interface MCPServerEventPayload {
-  serverId: number;
+  serverId: string;
   [key: string]: any;
 }
 
@@ -155,7 +155,7 @@ export interface MCPServerManager {
 
 // Configuration presets for popular MCP servers
 export interface MCPServerPreset {
-  Id: number;
+  id: string;
   name: string;
   description: string;
   config: Omit<MCPServerConfig, 'id' | 'enabled'>;
@@ -175,7 +175,7 @@ export interface MCPServerRegistry {
 
 // Unified MCP Server interface
 export interface MCPServer {
-  Id: number;
+  id: string;
   name: string;
   type: MCPServerType;
   status: MCPServerStatus;
@@ -192,14 +192,14 @@ export interface MCPServer {
 }
 
 export interface MCPRequest {
-  Id: number;
+  id: string;
   method: string;
   params?: Record<string, any>;
   timestamp: Date;
 }
 
 export interface MCPResponse {
-  Id: number;
+  id: string;
   result?: any;
   error?: {
     code: number;
@@ -210,8 +210,8 @@ export interface MCPResponse {
 }
 
 export interface MCPConnection {
-  serverId: number;
-  connectionId: number;
+  serverId: string;
+  connectionId: string;
   isConnected: boolean;
   connectedAt?: Date;
   lastActivity?: Date;

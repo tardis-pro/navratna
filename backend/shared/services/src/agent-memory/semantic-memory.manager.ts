@@ -4,7 +4,7 @@ import { KnowledgeGraphService } from '../knowledge-graph/knowledge-graph.servic
 export class SemanticMemoryManager {
   constructor(private readonly knowledgeGraph: KnowledgeGraphService) {}
 
-  async storeConcept(agentId: number, concept: SemanticMemory): Promise<void> {
+  async storeConcept(agentId: string, concept: SemanticMemory): Promise<void> {
     try {
       await this.knowledgeGraph.ingest([{
         content: `Concept: ${concept.concept}
@@ -43,7 +43,7 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
     }
   }
 
-  async getConcept(agentId: number, conceptName: string): Promise<SemanticMemory | null> {
+  async getConcept(agentId: string, conceptName: string): Promise<SemanticMemory | null> {
     try {
       const results = await this.knowledgeGraph.search({
         query: `concept ${conceptName}`,
@@ -65,7 +65,7 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
     }
   }
 
-  async updateConceptUsage(agentId: number, conceptName: string, success: boolean): Promise<void> {
+  async updateConceptUsage(agentId: string, conceptName: string, success: boolean): Promise<void> {
     try {
       const concept = await this.getConcept(agentId, conceptName);
       if (concept) {
@@ -85,7 +85,7 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
     }
   }
 
-  async getRelatedConcepts(agentId: number, conceptName: string): Promise<SemanticMemory[]> {
+  async getRelatedConcepts(agentId: string, conceptName: string): Promise<SemanticMemory[]> {
     try {
       if (!conceptName) {
         // Return all concepts for this agent
@@ -118,7 +118,7 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
     }
   }
 
-  async getConceptsByUsage(agentId: number, minUsage: number = 1, limit: number = 10): Promise<SemanticMemory[]> {
+  async getConceptsByUsage(agentId: string, minUsage: number = 1, limit: number = 10): Promise<SemanticMemory[]> {
     try {
       const results = await this.knowledgeGraph.search({
         query: `frequently used concepts`,
@@ -138,7 +138,7 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
     }
   }
 
-  async getConceptsByConfidence(agentId: number, minConfidence: number = 0.7, limit: number = 10): Promise<SemanticMemory[]> {
+  async getConceptsByConfidence(agentId: string, minConfidence: number = 0.7, limit: number = 10): Promise<SemanticMemory[]> {
     try {
       const results = await this.knowledgeGraph.search({
         query: `high confidence concepts`,
@@ -158,7 +158,7 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
     }
   }
 
-  async searchConcepts(agentId: number, query: string, limit: number = 10): Promise<SemanticMemory[]> {
+  async searchConcepts(agentId: string, query: string, limit: number = 10): Promise<SemanticMemory[]> {
     try {
       const results = await this.knowledgeGraph.search({
         query: `concept search: ${query}`,
@@ -177,7 +177,7 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
     }
   }
 
-  async addConceptRelationship(agentId: number, conceptName: string, relatedConcept: string, relationshipType: string, strength: number): Promise<void> {
+  async addConceptRelationship(agentId: string, conceptName: string, relatedConcept: string, relationshipType: string, strength: number): Promise<void> {
     try {
       const concept = await this.getConcept(agentId, conceptName);
       if (concept) {
@@ -205,7 +205,7 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
     }
   }
 
-  async reinforceConcept(agentId: number, conceptName: string, newExample?: string): Promise<void> {
+  async reinforceConcept(agentId: string, conceptName: string, newExample?: string): Promise<void> {
     try {
       const concept = await this.getConcept(agentId, conceptName);
       if (concept) {

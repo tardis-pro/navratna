@@ -137,7 +137,7 @@ export class DiscussionOrchestrationService {
    * Start a discussion
    */
   async startDiscussion(
-    discussionId: number,
+    discussionId: string,
     startedBy: string
   ): Promise<DiscussionOrchestrationResult> {
     try {
@@ -253,7 +253,7 @@ export class DiscussionOrchestrationService {
    * Add participant to discussion
    */
   async addParticipant(
-    discussionId: number,
+    discussionId: string,
     participant: Omit<DiscussionParticipant, 'id' | 'discussionId' | 'joinedAt' | 'lastActiveAt' | 'messageCount'>,
     addedBy: string
   ): Promise<DiscussionOrchestrationResult> {
@@ -339,8 +339,8 @@ export class DiscussionOrchestrationService {
    * Send a message to a discussion
    */
   async sendMessage(
-    discussionId: number,
-     participantId: number,
+    discussionId: string,
+     participantId: string,
     content: string,
     messageType?: string,
     metadata?: any
@@ -539,7 +539,7 @@ export class DiscussionOrchestrationService {
    * Pause discussion
    */
   async pauseDiscussion(
-    discussionId: number,
+    discussionId: string,
     pausedBy: string,
     reason?: string
   ): Promise<DiscussionOrchestrationResult> {
@@ -614,7 +614,7 @@ export class DiscussionOrchestrationService {
    * Resume discussion
    */
   async resumeDiscussion(
-    discussionId: number,
+    discussionId: string,
     resumedBy: string
   ): Promise<DiscussionOrchestrationResult> {
     try {
@@ -697,7 +697,7 @@ export class DiscussionOrchestrationService {
    * End discussion
    */
   async endDiscussion(
-    discussionId: number,
+    discussionId: string,
     endedBy: string,
     reason?: string
   ): Promise<DiscussionOrchestrationResult> {
@@ -809,7 +809,7 @@ export class DiscussionOrchestrationService {
   /**
    * Verify if a user has access to participate in a discussion
    */
-  async verifyParticipantAccess(discussionId: string, userId: number): Promise<boolean> {
+  async verifyParticipantAccess(discussionId: string, userId: string): Promise<boolean> {
     try {
       const discussion = await this.getDiscussion(discussionId);
       if (!discussion) {
@@ -846,7 +846,7 @@ export class DiscussionOrchestrationService {
   /**
    * Get participant by user ID
    */
-  async getParticipantByUserId(discussionId: string, userId: number): Promise<DiscussionParticipant | null> {
+  async getParticipantByUserId(discussionId: string, userId: string): Promise<DiscussionParticipant | null> {
     try {
       const discussion = await this.getDiscussion(discussionId);
       if (!discussion) {
@@ -868,7 +868,7 @@ export class DiscussionOrchestrationService {
   /**
    * Request turn for a participant
    */
-  async requestTurn(discussionId: string,  participantId: number): Promise<DiscussionOrchestrationResult> {
+  async requestTurn(discussionId: string,  participantId: string): Promise<DiscussionOrchestrationResult> {
     try {
       const discussion = await this.getDiscussion(discussionId);
       if (!discussion) {
@@ -941,7 +941,7 @@ export class DiscussionOrchestrationService {
   /**
    * End turn for a participant
    */
-  async endTurn(discussionId: string,  participantId: number): Promise<DiscussionOrchestrationResult> {
+  async endTurn(discussionId: string,  participantId: string): Promise<DiscussionOrchestrationResult> {
     try {
       const discussion = await this.getDiscussion(discussionId);
       if (!discussion) {
@@ -981,9 +981,9 @@ export class DiscussionOrchestrationService {
    * Add reaction to a message
    */
   async addReaction(
-    discussionId: number,
+    discussionId: string,
     messageId: string,
-     participantId: number,
+     participantId: string,
     emoji: string
   ): Promise<DiscussionOrchestrationResult> {
     try {

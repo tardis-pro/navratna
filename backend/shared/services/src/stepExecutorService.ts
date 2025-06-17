@@ -13,14 +13,14 @@ import {
 import { logger } from '@uaip/utils';
 
 export interface StepExecutionContext {
-  operationId: number;
-  stepId: number;
+  operationId: string;
+  stepId: string;
   variables: Record<string, any>;
   metadata: Record<string, any>;
 }
 
 export interface StepResult {
-  stepId: number;
+  stepId: string;
   status: StepStatus;
   data: Record<string, any>;
   error?: string;
@@ -35,8 +35,8 @@ export interface StepResult {
 
 export interface OperationContext {
   executionContext: ExecutionContext;
-  conversationId?: number;
-  sessionId?: number;
+  conversationId?: string;
+  sessionId?: string;
   userRequest?: string;
   environment?: string;
   constraints?: Record<string, any>;
@@ -101,7 +101,7 @@ export class StepExecutorService extends EventEmitter {
       }
 
       const result: StepResult = {
-        stepId: step.id || Date.now(),
+        stepId: step.id || Date.now().toString(),
         status: StepStatus.COMPLETED,
         data: stepData,
         executionTime: Date.now() - startTime,
@@ -121,7 +121,7 @@ export class StepExecutorService extends EventEmitter {
 
     } catch (error) {
       const result: StepResult = {
-        stepId: step.id || Date.now(),
+        stepId: step.id || Date.now().toString(),
         status: StepStatus.FAILED,
         data: {},
         error: error instanceof Error ? error.message : String(error),
@@ -222,7 +222,7 @@ export class StepExecutorService extends EventEmitter {
     await this.delay(Math.random() * 3000 + 2000, signal); // 2-5 seconds
     
     return {
-      artifactId: Date.now(), // Use timestamp as simple numeric ID
+      artifactId: Date.now().toString(), // Use timestamp as simple numeric ID
       artifactType: input.artifactType || 'document',
       artifactContent: `Generated artifact for ${step.name}`,
       createdAt: new Date().toISOString()

@@ -44,10 +44,10 @@ export class KnowledgeItemEntity extends BaseEntity {
 
 
   @Column('bigint', { nullable: true })
-  createdBy?: number;
+  createdBy?: string;
 
   @Column('bigint', { nullable: true })
-  organizationId?: number;
+  organizationId?: string;
 
   @Column({ length: 50, default: 'public' })
   accessLevel: string;

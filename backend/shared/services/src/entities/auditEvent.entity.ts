@@ -19,15 +19,15 @@ export class AuditEvent extends BaseEntity {
   @Column({ name: 'event_type', length: 100 })
   eventType: string;
 
-  @Column({ name: 'user_id', type: 'bigint', nullable: true })
-  userId?: number;
+  @Column({ name: 'user_id', type: 'string', nullable: true })
+  userId?: string;
 
   @ManyToOne(() => UserEntity, { nullable: true })
   @JoinColumn({ name: 'user_id' })
   user?: UserEntity;
 
-  @Column({ name: 'agent_id', type: 'bigint', nullable: true })
-  agentId?: number;
+  @Column({ name: 'agent_id', type: 'string', nullable: true })
+  agentId?: string;
 
   @Column({ name: 'resource_type', length: 100, nullable: true })
   resourceType?: string;

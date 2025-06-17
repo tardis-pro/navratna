@@ -77,7 +77,7 @@ export class ArtifactService implements IArtifactService {
 
       // Create artifact
       const artifact: GeneratedArtifact = {
-        id: Date.now(), // Use timestamp as simple numeric ID
+        id: Date.now().toString(), // Use timestamp as simple numeric ID
         type: request.type,
         content,
         metadata,

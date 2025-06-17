@@ -23,7 +23,7 @@ interface ContextAnalysis {
     nextSpeaker: string;
     reason: string;
     confidence: number;
-    alternatives: Array<{  participantId: number; score: number; reason: string }>;
+    alternatives: Array<{  participantId: string; score: number; reason: string }>;
   };
 }
 
@@ -528,7 +528,7 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
     return await this.analyzeDiscussionContext(discussion, participants);
   }
 
-  private async getParticipantExpertise(personaId: number): Promise<string[]> {
+  private async getParticipantExpertise(personaId: string): Promise<string[]> {
     // This would fetch persona expertise from the persona service
     // For now, return empty array
     return [];

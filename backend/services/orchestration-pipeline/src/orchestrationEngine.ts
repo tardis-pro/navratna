@@ -931,7 +931,7 @@ export class OrchestrationEngine extends EventEmitter {
     }
   }
 
-  private async handleOperationFailure(operationId: number, error: any): Promise<void> {
+  private async handleOperationFailure(operationId: string, error: any): Promise<void> {
     try {
       logger.error('Operation failed', { operationId, error: error instanceof Error ? error.message : String(error) });
 
@@ -1138,7 +1138,7 @@ export class OrchestrationEngine extends EventEmitter {
     this.operationTimeouts.set(operation.Id || 0, timeout);
   }
 
-  private clearOperationTimeout(operationId: number): void {
+  private clearOperationTimeout(operationId: string): void {
     const timeout = this.operationTimeouts.get(operationId);
     if (timeout) {
       clearTimeout(timeout);
@@ -1146,7 +1146,7 @@ export class OrchestrationEngine extends EventEmitter {
     }
   }
 
-  private setStepTimeout(operationId: number, step: any): void {
+  private setStepTimeout(operationId: string, step: any): void {
     const timeoutKey = `${operationId}:${step.id}`;
     const timeout = setTimeout(async () => {
       try {
@@ -1163,7 +1163,7 @@ export class OrchestrationEngine extends EventEmitter {
     this.stepTimeouts.set(timeoutKey, timeout);
   }
 
-  private clearStepTimeout(operationId: number, stepId: number): void {
+  private clearStepTimeout(operationId: string, stepId: string): void {
     const timeoutKey = `${operationId}:${stepId}`;
     const timeout = this.stepTimeouts.get(timeoutKey);
     if (timeout) {
@@ -1173,7 +1173,7 @@ export class OrchestrationEngine extends EventEmitter {
   }
 
   private async emitOperationEvent(
-    operationId: number,
+    operationId: string,
     eventType: OperationEventType,
     data: any
   ): Promise<void> {
@@ -1189,7 +1189,7 @@ export class OrchestrationEngine extends EventEmitter {
   }
 
   // Missing methods that are called but not defined
-  private async restoreFromCheckpoint(operationId: number, checkpointId: number): Promise<void> {
+  private async restoreFromCheckpoint(operationId: string, checkpointId: string): Promise<void> {
     const restoredState = await this.stateManagerService.restoreFromCheckpoint(operationId, checkpointId);
     const workflowInstance = this.activeOperations.get(operationId);
     if (workflowInstance) {
@@ -1197,7 +1197,7 @@ export class OrchestrationEngine extends EventEmitter {
     }
   }
 
-  private async calculateOperationMetrics(operationId: number): Promise<OperationMetrics> {
+  private async calculateOperationMetrics(operationId: string): Promise<OperationMetrics> {
     // Basic implementation - in production, this would calculate real metrics
     return {
       executionTime: 0,
@@ -1208,7 +1208,7 @@ export class OrchestrationEngine extends EventEmitter {
     };
   }
 
-  private async getOperationErrors(operationId: number): Promise<OperationError[]> {
+  private async getOperationErrors(operationId: string): Promise<OperationError[]> {
     // Basic implementation - in production, this would fetch real errors
     return [];
   }
@@ -1251,7 +1251,7 @@ export class OrchestrationEngine extends EventEmitter {
     }
   }
 
-  private async shouldRetryStep(step: any, operationId: number, error: any): Promise<boolean> {
+  private async shouldRetryStep(step: any, operationId: string, error: any): Promise<boolean> {
     // Simple retry logic - in production, implement sophisticated retry policies
     const retryCount = step.metadata?.retryCount || 0;
     const maxRetries = step.retryPolicy?.maxAttempts || 3;
