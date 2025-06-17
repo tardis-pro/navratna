@@ -14,6 +14,7 @@ export {
 export { 
   validateRequest,
   validateID,
+  validateUUID,
   validatePagination,
   validateJSON,
   requireContentType,

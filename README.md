@@ -387,3 +387,53 @@ npm run test:performance
 **🚀 Next Milestone**: Frontend Integration Complete (2 weeks)  
 **📈 Production Ready**: Backend infrastructure ready for immediate deployment  
 **🔗 Links**: [Development Setup](backend/DEV_SETUP.md) | [API Docs](http://localhost:8081/api-docs) | [Live Demo](https://lovable.dev/projects/62b3d962-89cd-4d62-9524-c25e5f3e18f8)
+
+## Features
+
+- **Multi-Agent Discussions**: Create collaborative conversations between multiple AI agents
+- **Persona System**: Choose from a rich library of personas or create custom ones
+- **API-Driven Personas**: Integrated with backend personas API for dynamic persona management
+- **Real-time Collaboration**: WebSocket-based real-time updates
+- **Intelligent Orchestration**: Smart turn management and context-aware responses
+- **Modern UI**: Beautiful, responsive interface built with React and Tailwind CSS
+
+## Persona Management
+
+The application now integrates with the UAIP backend personas API (`/api/v1/personas/search`) to provide:
+
+- **Dynamic Persona Loading**: Personas are loaded from the backend API in real-time
+- **Search and Filtering**: Search personas by name, role, expertise, or other criteria
+- **Categorization**: Automatic categorization of personas into Development, Business, Creative, etc.
+- **Fallback Support**: Graceful fallback to built-in personas if API is unavailable
+- **Hybrid Creation**: Cross-breed personas to create unique combinations
+
+### API Integration
+
+The persona system uses the following API endpoints:
+
+- `GET /api/v1/personas/search` - Search and filter personas
+- `POST /api/v1/personas` - Create new personas
+- `GET /api/v1/personas/{id}` - Get specific persona details
+- `PUT /api/v1/personas/{id}` - Update persona
+- `DELETE /api/v1/personas/{id}` - Delete persona
+
+### Usage
+
+1. **Loading Personas**: Personas are automatically loaded when the PersonaSelector component mounts
+2. **Searching**: Use the search bar to find personas by name, role, or description
+3. **Filtering**: Filter by expertise area using the expertise filter
+4. **Creating Agents**: Select a persona to create an AI agent with that personality
+
+## Getting Started
+
+1. Clone the repository
+2. Install dependencies: `npm install`
+3. Start the development server: `npm run dev`
+4. Ensure the UAIP backend is running for full persona functionality
+
+## Architecture
+
+- **Frontend**: React + TypeScript + Tailwind CSS
+- **Backend Integration**: UAIP API client with personas, agents, and discussions
+- **State Management**: React Context + Hooks
+- **Real-time**: WebSocket connections for live updates

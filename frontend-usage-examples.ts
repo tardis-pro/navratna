@@ -5,8 +5,8 @@
  * to interact with all UAIP backend services.
  */
 
-import { UAIPAPIClient, createAPIClient, isSuccessResponse, hasError } from '../src/services/api';
-import { generateUUID } from '../src/services/uaip-api';
+import { UAIPAPIClient, createAPIClient, isSuccessResponse, hasError, TurnStrategy } from './src/services/api';
+import { generateUUID } from './src/services/uaip-api';
 
 // ============================================================================
 // SETUP AND CONFIGURATION
@@ -351,7 +351,6 @@ async function orchestrationExample() {
         userId: 'user-123',
         name: 'Quarterly Sales Analysis',
         description: 'Comprehensive analysis of Q4 sales performance',
-        status: 'pending',
         context: {
           executionContext: {
             agentId: 'agent-123',
@@ -463,14 +462,20 @@ async function discussionManagementExample() {
       title: 'Q4 Strategy Planning',
       description: 'Strategic planning session for Q4 initiatives',
       topic: 'Q4 Business Strategy',
+      createdBy: generateUUID(), // Generate valid UUID
       turnStrategy: {
-        type: 'round_robin',
-        settings: {
-          maxTurns: 20,
-          turnTimeout: 300
+        strategy: TurnStrategy.ROUND_ROBIN,
+        config: {
+          type: 'round_robin',
+          skipInactive: true,
+          maxSkips: 3
         }
       },
-      createdBy: generateUUID(), // Generate valid UUID
+      settings: {
+        maxParticipants: 10,
+        turnTimeout: 300,
+        autoModeration: true
+      },
       initialParticipants: [
         {
           personaId: generateUUID(), // Generate valid UUID
@@ -482,11 +487,7 @@ async function discussionManagementExample() {
           agentId: generateUUID(),   // Generate valid UUID
           role: 'participant'
         }
-      ],
-      settings: {
-        maxTurns: 20,
-        turnTimeout: 300
-      }
+      ]
     });
 
     if (isSuccessResponse(createResponse)) {

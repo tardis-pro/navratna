@@ -86,6 +86,17 @@ export const validateID = (paramName: string = 'id') => {
 };
 
 /**
+ * Validates UUID parameters (for entities that use UUID as primary key)
+ */
+export const validateUUID = (paramName: string = 'id') => {
+  return validateRequest({
+    params: z.object({
+      [paramName]: z.string().uuid()
+    })
+  });
+};
+
+/**
  * Validates pagination parameters
  */
 export const validatePagination = validateRequest({

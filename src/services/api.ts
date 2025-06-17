@@ -969,6 +969,7 @@ export class UAIPAPIClient {
       const params = new URLSearchParams();
       if (query) params.append('query', query);
       if (expertise) params.append('expertise', expertise);
+      params.append('offset', '0');
       return this.request(buildAPIURL(`${API_ROUTES.PERSONAS}/search?${params}`));
     },
 

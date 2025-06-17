@@ -83,7 +83,6 @@ export class PersonaService {
       ) || [];
 
       const personaData = {
-        id: this.generatePersonaId(),
         name: request.name,
         role: request.role,
         description: request.description,
@@ -783,9 +782,6 @@ export class PersonaService {
     return Math.min(score, 100);
   }
 
-  private generatePersonaId(): string {
-    return `persona_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`; // Use timestamp as simple numeric ID
-  }
 
   private async safePublishEvent(eventType: string, data: any): Promise<void> {
     try {

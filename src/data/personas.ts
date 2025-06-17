@@ -11,8 +11,8 @@ import { contextualTriggers } from './contextualTriggers';
 import {
   crossBreedPersonas,
   generateRandomHybrid,
-  getAllPersonasFlat,
-  getPersonaById,
+  getAllPersonasFlat as getAllPersonasFlatUtil,
+  getPersonaById as getPersonaByIdUtil,
   getHybridSuggestions,
   shouldPersonaActivate,
   getActivationPhrase,
@@ -29,8 +29,6 @@ import {
 export {
   crossBreedPersonas,
   generateRandomHybrid,
-  getAllPersonasFlat,
-  getPersonaById,
   getHybridSuggestions,
   shouldPersonaActivate,
   getActivationPhrase,
@@ -958,6 +956,15 @@ export const allPersonas: Record<PersonaCategory, Persona[]> = {
   'Social': socialPersonas
 };
 
+// Create wrapper functions that work with our persona structure
+export const getAllPersonasFlat = (): Persona[] => {
+  return getAllPersonasFlatUtil(allPersonas);
+};
+
+export const getPersonaById = (id: string): Persona | undefined => {
+  return getPersonaByIdUtil(id, allPersonas);
+};
+
 // Generate suggested hybrid combinations
 export const suggestedHybrids: HybridSuggestion[] = [
   { parent1: 'tech-lead', parent2: 'entrepreneur', name: 'Technical Entrepreneur', description: 'Technical leadership with business acumen' },
@@ -972,13 +979,25 @@ export const suggestedHybrids: HybridSuggestion[] = [
 
 // API Conversion Types and Functions
 export interface ApiExpertise {
+  id: string;
+  name: string;
   area: string;
   level: 'beginner' | 'intermediate' | 'advanced' | 'expert';
+  category: string;
   tools: string[];
 }
 
 export interface ApiPersonality {
   traits: string[];
+}
+
+export interface ApiConversationalStyle {
+  approach: string;
+  tone: 'formal' | 'casual' | 'friendly' | 'professional' | 'academic' | 'creative' | 'analytical';
+  verbosity: 'concise' | 'moderate' | 'detailed' | 'verbose';
+  formality: 'very_informal' | 'informal' | 'neutral' | 'formal' | 'very_formal';
+  questioningStyle: 'direct' | 'socratic' | 'exploratory' | 'challenging' | 'supportive';
+  responsePattern: 'structured' | 'narrative' | 'bullet_points' | 'narrative' | 'analytical';
 }
 
 export interface ApiPersonaPayload {
@@ -989,7 +1008,7 @@ export interface ApiPersonaPayload {
   expertise: ApiExpertise[];
   personality: ApiPersonality;
   communicationStyle: string;
-  conversationalStyle: string;
+  conversationalStyle: ApiConversationalStyle;
   systemPrompt: string;
 }
 
@@ -1036,10 +1055,146 @@ const getExpertiseLevel = (expertiseArea: string): 'beginner' | 'intermediate' |
     'ecology': 'expert',
     'climate science': 'expert',
     'environmental impact': 'expert',
-    'sustainability': 'expert'
+    'sustainability': 'expert',
+    'business analysis': 'expert',
+    'strategy': 'expert',
+    'market research': 'advanced',
+    'business development': 'advanced',
+    'scaling': 'advanced',
+    'resource optimization': 'advanced',
+    'product strategy': 'expert',
+    'user research': 'advanced',
+    'roadmapping': 'advanced',
+    'stakeholder management': 'advanced',
+    'design strategy': 'expert',
+    'brand development': 'advanced',
+    'creative leadership': 'advanced',
+    'innovation methods': 'expert',
+    'design thinking': 'advanced',
+    'transformation': 'advanced',
+    'emerging trends': 'advanced',
+    'systems thinking': 'expert',
+    'process analysis': 'advanced',
+    'optimization': 'advanced',
+    'complexity theory': 'advanced',
+    'ethics': 'expert',
+    'logic': 'expert',
+    'critical thinking': 'expert',
+    'moral reasoning': 'expert',
+    'learning design': 'advanced',
+    'knowledge transfer': 'advanced',
+    'curriculum development': 'advanced',
+    'assessment': 'advanced',
+    'community building': 'advanced',
+    'stakeholder engagement': 'advanced',
+    'social movements': 'advanced',
+    'coalition building': 'advanced',
+    'cognitive science': 'expert',
+    'behavioral design': 'advanced'
   };
   
   return expertLevelMap[expertiseArea] || 'advanced';
+};
+
+const getExpertiseCategory = (expertiseArea: string): string => {
+  const categoryMap: Record<string, string> = {
+    // Technical/Development
+    'architecture': 'Technical',
+    'system design': 'Technical',
+    'team coordination': 'Management',
+    'technical strategy': 'Strategy',
+    'coding': 'Technical',
+    'debugging': 'Technical',
+    'algorithms': 'Technical',
+    'data structures': 'Technical',
+    'testing': 'Quality',
+    'quality assurance': 'Quality',
+    'bug reporting': 'Quality',
+    'user experience': 'Design',
+    'CI/CD': 'DevOps',
+    'infrastructure': 'DevOps',
+    'deployment': 'DevOps',
+    'monitoring': 'DevOps',
+    'security': 'Security',
+    'machine learning': 'Data Science',
+    'statistics': 'Data Science',
+    'data visualization': 'Data Science',
+    'predictive modeling': 'Data Science',
+    
+    // Policy/Legal
+    'policy analysis': 'Policy',
+    'research methodology': 'Research',
+    'impact assessment': 'Analysis',
+    'economics': 'Economics',
+    'market analysis': 'Business',
+    'fiscal policy': 'Policy',
+    'resource allocation': 'Strategy',
+    'law': 'Legal',
+    'regulations': 'Legal',
+    'compliance': 'Legal',
+    'legal precedent': 'Legal',
+    
+    // Social Sciences
+    'sociology': 'Social Science',
+    'human behavior': 'Psychology',
+    'cultural impacts': 'Social Science',
+    'community effects': 'Social Science',
+    
+    // Environmental
+    'ecology': 'Environmental',
+    'climate science': 'Environmental',
+    'environmental impact': 'Environmental',
+    'sustainability': 'Environmental',
+    
+    // Business
+    'business analysis': 'Business',
+    'strategy': 'Strategy',
+    'market research': 'Research',
+    'business development': 'Business',
+    'scaling': 'Strategy',
+    'resource optimization': 'Operations',
+    'product strategy': 'Product',
+    'user research': 'Research',
+    'roadmapping': 'Strategy',
+    'stakeholder management': 'Management',
+    
+    // Creative
+    'design strategy': 'Design',
+    'brand development': 'Marketing',
+    'creative leadership': 'Leadership',
+    'innovation methods': 'Innovation',
+    'design thinking': 'Design',
+    'transformation': 'Strategy',
+    'emerging trends': 'Research',
+    
+    // Analysis
+    'systems thinking': 'Analysis',
+    'process analysis': 'Analysis',
+    'optimization': 'Operations',
+    'complexity theory': 'Analysis',
+    'ethics': 'Philosophy',
+    'logic': 'Philosophy',
+    'critical thinking': 'Analysis',
+    'moral reasoning': 'Philosophy',
+    
+    // Education/Social
+    'learning design': 'Education',
+    'knowledge transfer': 'Education',
+    'curriculum development': 'Education',
+    'assessment': 'Education',
+    'community building': 'Community',
+    'stakeholder engagement': 'Management',
+    'social movements': 'Social Science',
+    'coalition building': 'Leadership',
+    'cognitive science': 'Psychology',
+    'behavioral design': 'Psychology'
+  };
+  
+  return categoryMap[expertiseArea] || 'General';
+};
+
+const generateExpertiseId = (area: string): string => {
+  return area.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 };
 
 const getToolsForExpertise = (expertiseArea: string): string[] => {
@@ -1083,7 +1238,42 @@ const getToolsForExpertise = (expertiseArea: string): string[] => {
     'ecology': ['Environmental Monitoring', 'Ecosystem Analysis', 'Biodiversity Assessment'],
     'climate science': ['Climate Modeling', 'Data Analysis', 'Environmental Monitoring'],
     'environmental impact': ['Impact Assessment', 'Environmental Monitoring', 'Sustainability Metrics'],
-    'sustainability': ['Life Cycle Analysis', 'Sustainability Frameworks', 'Green Metrics']
+    'sustainability': ['Life Cycle Analysis', 'Sustainability Frameworks', 'Green Metrics'],
+    'business analysis': ['Excel', 'Power BI', 'SQL', 'Business Intelligence'],
+    'strategy': ['SWOT', 'Porter\'s Five Forces', 'BCG Matrix', 'Strategic Planning'],
+    'market research': ['Surveys', 'Focus Groups', 'Statistical Analysis', 'Market Analysis'],
+    'business development': ['Sales Strategy', 'Partnership Development', 'Market Expansion'],
+    'scaling': ['Growth Strategy', 'Operations Scale', 'Team Building'],
+    'resource optimization': ['Process Improvement', 'Cost Analysis', 'Efficiency Tools'],
+    'product strategy': ['Product Roadmaps', 'User Research', 'Market Analysis'],
+    'user research': ['User Interviews', 'Surveys', 'Usability Testing'],
+    'roadmapping': ['Strategic Planning', 'Timeline Management', 'Priority Setting'],
+    'stakeholder management': ['Communication Plans', 'Stakeholder Mapping', 'Relationship Building'],
+    'design strategy': ['Design Systems', 'Brand Guidelines', 'Creative Direction'],
+    'brand development': ['Brand Strategy', 'Visual Identity', 'Brand Guidelines'],
+    'creative leadership': ['Creative Direction', 'Team Leadership', 'Vision Development'],
+    'innovation methods': ['Design Thinking', 'Lean Startup', 'Innovation Frameworks'],
+    'design thinking': ['Human-Centered Design', 'Ideation', 'Prototyping'],
+    'transformation': ['Change Management', 'Process Redesign', 'Digital Transformation'],
+    'emerging trends': ['Trend Analysis', 'Future Research', 'Technology Scouting'],
+    'systems thinking': ['Systems Mapping', 'Causal Loop Diagrams', 'Systems Analysis'],
+    'process analysis': ['Process Mapping', 'Workflow Analysis', 'Optimization'],
+    'optimization': ['Lean Methods', 'Six Sigma', 'Process Improvement'],
+    'complexity theory': ['Complex Systems', 'Network Analysis', 'Emergence'],
+    'ethics': ['Ethical Frameworks', 'Moral Philosophy', 'Applied Ethics'],
+    'logic': ['Formal Logic', 'Critical Reasoning', 'Logical Analysis'],
+    'critical thinking': ['Analysis', 'Evaluation', 'Reasoning'],
+    'moral reasoning': ['Ethical Decision Making', 'Value Systems', 'Moral Philosophy'],
+    'learning design': ['Instructional Design', 'Learning Theory', 'Curriculum Development'],
+    'knowledge transfer': ['Training Design', 'Documentation', 'Knowledge Management'],
+    'curriculum development': ['Learning Objectives', 'Assessment Design', 'Educational Planning'],
+    'assessment': ['Testing Methods', 'Evaluation Tools', 'Performance Measurement'],
+    'community building': ['Community Engagement', 'Relationship Building', 'Social Networks'],
+    'stakeholder engagement': ['Communication Strategy', 'Stakeholder Mapping', 'Engagement Planning'],
+    'social movements': ['Organizing', 'Advocacy', 'Social Change'],
+    'coalition building': ['Partnership Development', 'Alliance Building', 'Collaboration'],
+    'cognitive science': ['Cognitive Psychology', 'Mental Models', 'Decision Making'],
+    'behavioral design': ['Behavioral Economics', 'Nudging', 'User Behavior']
   };
   
   return toolsMap[expertiseArea] || ['General Tools', 'Analysis', 'Research'];
@@ -1104,8 +1294,8 @@ const getCommunicationStyle = (tone: string): string => {
   return styleMap[tone] || 'professional';
 };
 
-const getConversationalStyle = (style: string): string => {
-  const conversationalMap: Record<string, string> = {
+const getConversationalStyle = (persona: Persona): ApiConversationalStyle => {
+  const approachMap: Record<string, string> = {
     'structured': 'methodical',
     'freeform': 'flexible',
     'inquisitive': 'curious',
@@ -1113,18 +1303,71 @@ const getConversationalStyle = (style: string): string => {
     'collaborative': 'cooperative',
     'authoritative': 'confident'
   };
-  
-  return conversationalMap[style] || 'balanced';
+
+  const toneMap: Record<string, 'formal' | 'casual' | 'friendly' | 'professional' | 'academic' | 'creative' | 'analytical'> = {
+    'concise': 'professional',
+    'verbose': 'academic',
+    'analytical': 'analytical',
+    'casual': 'casual',
+    'empathetic': 'friendly',
+    'humorous': 'casual',
+    'cautious': 'formal',
+    'optimistic': 'friendly'
+  };
+
+  const verbosityMap: Record<string, 'concise' | 'moderate' | 'detailed' | 'verbose'> = {
+    'low': 'concise',
+    'moderate': 'moderate',
+    'high': 'detailed',
+    'dynamic': 'moderate'
+  };
+
+  const formalityMap: Record<string, 'very_informal' | 'informal' | 'neutral' | 'formal' | 'very_formal'> = {
+    'low': 'informal',
+    'moderate': 'neutral',
+    'high': 'formal',
+    'dynamic': 'neutral'
+  };
+
+  const questioningStyleMap: Record<string, 'direct' | 'socratic' | 'exploratory' | 'challenging' | 'supportive'> = {
+    'structured': 'direct',
+    'freeform': 'exploratory',
+    'inquisitive': 'socratic',
+    'decisive': 'direct',
+    'collaborative': 'supportive',
+    'authoritative': 'challenging'
+  };
+
+  const responsePatternMap: Record<string, 'structured' | 'narrative' | 'bullet_points' | 'narrative' | 'analytical'> = {
+    'structured': 'structured',
+    'freeform': 'narrative',
+    'inquisitive': 'narrative',
+    'decisive': 'bullet_points',
+    'collaborative': 'narrative',
+    'authoritative': 'structured'
+  };
+
+  return {
+    approach: approachMap[persona.style] || 'balanced',
+    tone: toneMap[persona.tone] || 'professional',
+    verbosity: verbosityMap[persona.energyLevel] || 'moderate',
+    formality: formalityMap[persona.energyLevel] || 'neutral',
+    questioningStyle: questioningStyleMap[persona.style] || 'supportive',
+    responsePattern: responsePatternMap[persona.style] || 'narrative'
+  };
 };
 
 /**
  * Converts a Persona object to the API payload format
  */
 export const convertPersonaToApiPayload = (persona: Persona): ApiPersonaPayload => {
-  // Convert expertise array to API format
+  // Convert expertise array to API format with required fields
   const apiExpertise: ApiExpertise[] = persona.expertise.map(area => ({
+    id: generateExpertiseId(area),
+    name: area.charAt(0).toUpperCase() + area.slice(1), // Capitalize first letter
     area,
     level: getExpertiseLevel(area),
+    category: getExpertiseCategory(area),
     tools: getToolsForExpertise(area)
   }));
 
@@ -1141,7 +1384,7 @@ export const convertPersonaToApiPayload = (persona: Persona): ApiPersonaPayload 
       traits: personalityTraits
     },
     communicationStyle: getCommunicationStyle(persona.tone),
-    conversationalStyle: getConversationalStyle(persona.style),
+    conversationalStyle: getConversationalStyle(persona),
     systemPrompt: persona.systemPrompt
   };
 };
@@ -1195,18 +1438,27 @@ export const businessAnalystApiExample: ApiPersonaPayload = {
   background: "10+ years of experience in market research, financial modeling, and strategic planning across multiple industries including tech, finance, and healthcare.",
   expertise: [
     {
+      id: "business-analysis",
+      name: "Business Analysis",
       area: "business analysis",
       level: "expert",
+      category: "Business",
       tools: ["Excel", "Power BI", "SQL"]
     },
     {
-      area: "strategy", 
+      id: "strategy",
+      name: "Strategy", 
+      area: "strategy",
       level: "expert",
+      category: "Strategy",
       tools: ["SWOT", "Porter's Five Forces", "BCG Matrix"]
     },
     {
+      id: "market-research",
+      name: "Market Research",
       area: "market research",
-      level: "advanced", 
+      level: "advanced",
+      category: "Research", 
       tools: ["Surveys", "Focus Groups", "Statistical Analysis"]
     }
   ],
@@ -1214,6 +1466,76 @@ export const businessAnalystApiExample: ApiPersonaPayload = {
     traits: ["analytical", "detail-oriented", "strategic"]
   },
   communicationStyle: "professional",
-  conversationalStyle: "precise", 
+  conversationalStyle: {
+    approach: "methodical",
+    tone: "professional", 
+    verbosity: "moderate",
+    formality: "neutral",
+    questioningStyle: "direct",
+    responsePattern: "structured"
+  },
   systemPrompt: "You are a highly skilled Business Analyst who helps teams make data-driven decisions. Use strategic thinking and clear reasoning to assist users."
-}; 
+};
+
+/**
+ * Get all personas converted to API format
+ */
+export const getAllPersonasApiFormat = (): Record<string, ApiPersonaPayload> => {
+  const allPersonasFlat = getAllPersonasFlat();
+  const apiPersonas: Record<string, ApiPersonaPayload> = {};
+  
+  allPersonasFlat.forEach(persona => {
+    apiPersonas[persona.id] = convertPersonaToApiPayload(persona);
+  });
+  
+  return apiPersonas;
+};
+
+/**
+ * Get all personas as an array in API format
+ */
+export const getAllPersonasApiArray = (): ApiPersonaPayload[] => {
+  return convertAllPersonasToApiFormat();
+};
+
+/**
+ * Generate axios request configs for all personas
+ */
+export const generateAllPersonaApiRequests = (baseUrl: string = 'http://localhost:3001', authToken?: string) => {
+  const allPersonasFlat = getAllPersonasFlat();
+  
+  return allPersonasFlat.map(persona => ({
+    personaId: persona.id,
+    config: generatePersonaApiRequest(persona, baseUrl, authToken)
+  }));
+};
+
+// Pre-generated API payloads for all personas
+export const allPersonasApi = getAllPersonasApiFormat();
+
+// Individual persona API examples for easy import
+export const techLeadApi = allPersonasApi['tech-lead'];
+export const softwareEngineerApi = allPersonasApi['software-engineer'];
+export const qaEngineerApi = allPersonasApi['qa-engineer'];
+export const juniorDeveloperApi = allPersonasApi['junior-developer'];
+export const devopsEngineerApi = allPersonasApi['devops-engineer'];
+export const dataScientistApi = allPersonasApi['data-scientist'];
+
+export const policyAnalystApi = allPersonasApi['policy-analyst'];
+export const economistApi = allPersonasApi['economist'];
+export const legalExpertApi = allPersonasApi['legal-expert'];
+export const socialScientistApi = allPersonasApi['social-scientist'];
+export const environmentalExpertApi = allPersonasApi['environmental-expert'];
+
+export const creativeDirectorApi = allPersonasApi['creative-director'];
+export const innovationConsultantApi = allPersonasApi['innovation-consultant'];
+
+export const philosopherApi = allPersonasApi['philosopher'];
+export const systemsAnalystApi = allPersonasApi['systems-analyst'];
+
+export const entrepreneurApi = allPersonasApi['entrepreneur'];
+export const productManagerApi = allPersonasApi['product-manager'];
+
+export const psychologistApi = allPersonasApi['psychologist'];
+export const educatorApi = allPersonasApi['educator'];
+export const communityOrganizerApi = allPersonasApi['community-organizer']; 
