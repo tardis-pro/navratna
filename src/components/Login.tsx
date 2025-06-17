@@ -90,7 +90,7 @@ export const Login: React.FC = () => {
   };
 
   const demoCredentials = [
-    { email: 'newadmin@uaip.local', password: 'AdminPass123!', role: 'Admin' },
+    { email: 'admin1@uaip.dev', password: 'admin123!', role: 'Admin' },
     { email: 'user@example.com', password: 'password123', role: 'User' },
     { email: 'demo@example.com', password: 'demo123', role: 'Demo' }
   ];

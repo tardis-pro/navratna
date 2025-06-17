@@ -95,7 +95,7 @@ export const DEV_CONFIG = {
   DEBUG_LOGGING: true,
 
   // Use proxy by default in development
-  USE_PROXY: true,
+  USE_PROXY: false,
 };
 
 /**
@@ -109,7 +109,7 @@ export const PROD_CONFIG = {
   DEBUG_LOGGING: false,
 
   // Always use API Gateway in production
-  USE_PROXY: true,
+  USE_PROXY: false,
 };
 
 /**
@@ -134,7 +134,10 @@ export const getEffectiveAPIBaseURL = () => {
   if (isProxyEnabled()) {
     return ''; // Use Vite proxy
   }
-
+  console.log('isDevelopment', isDevelopment);
+  console.log('API_GATEWAY_CONFIG.DEV_GATEWAY_URL', API_GATEWAY_CONFIG.DEV_GATEWAY_URL);
+  console.log('API_BASE_URL', API_BASE_URL);
+  console.log('API_GATEWAY_CONFIG.PROD_GATEWAY_URL', API_GATEWAY_CONFIG.PROD_GATEWAY_URL);
   if (isDevelopment) {
     return API_GATEWAY_CONFIG.DEV_GATEWAY_URL;
   }
