@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { EnhancedAgentState, Operation, ApprovalWorkflow, Capability, SecurityContext } from '../types/uaip-interfaces';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Badge } from './ui/badge';
+import { Button } from './ui/button';
+import { Separator } from './ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+
+// Context
+import { useAgents } from '../contexts/AgentContext';
+
+// UAIP Component Imports
 import { IntelligencePanel } from './uaip/IntelligencePanel';
 import { OperationsMonitor } from './uaip/OperationsMonitor';
 import { SecurityGateway } from './uaip/SecurityGateway';
@@ -7,87 +16,33 @@ import { CapabilityRegistry } from './uaip/CapabilityRegistry';
 import { InsightsPanel } from './uaip/InsightsPanel';
 import { ToolsPanel } from './uaip/ToolsPanel';
 import { EventStreamMonitor } from './uaip/EventStreamMonitor';
-import { 
-  ChartBarIcon, 
-  CogIcon, 
-  ShieldCheckIcon, 
-  PuzzlePieceIcon,
-  LightBulbIcon,
+
+// Icons
+import {
+  CpuChipIcon,
+  ShieldCheckIcon,
   WrenchScrewdriverIcon,
-  BoltIcon,
-  EyeIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon
+  ChartBarIcon,
+  LightBulbIcon,
+  CommandLineIcon,
+  SignalIcon,
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 
-interface UAIPDashboardProps {
-  agents: EnhancedAgentState[];
-  className?: string;
-}
+// Types
+import { EnhancedAgentState, Operation, ApprovalWorkflow, Capability } from '../types/uaip-interfaces';
+
+// Hooks - PRODUCTION READY
+import { useOperations, useApprovals, useCapabilities, useSystemMetrics } from '../hooks/useUAIP';
 
 type PanelType = 'intelligence' | 'operations' | 'security' | 'capabilities' | 'insights' | 'tools' | 'events';
 
-interface PanelConfig {
-  id: PanelType;
-  title: string;
-  icon: React.ComponentType<any>;
-  description: string;
-  color: string;
+interface UAIPDashboardProps {
+  agents?: EnhancedAgentState[]; // Made optional
+  className?: string;
 }
 
-const PANELS: PanelConfig[] = [
-  {
-    id: 'intelligence',
-    title: 'Intelligence',
-    icon: ChartBarIcon,
-    description: 'AI decision making and context analysis',
-    color: 'from-blue-500 to-cyan-500'
-  },
-  {
-    id: 'operations',
-    title: 'Operations',
-    icon: CogIcon,
-    description: 'Operation orchestration and monitoring',
-    color: 'from-green-500 to-emerald-500'
-  },
-  {
-    id: 'security',
-    title: 'Security',
-    icon: ShieldCheckIcon,
-    description: 'Security gateway and approvals',
-    color: 'from-red-500 to-pink-500'
-  },
-  {
-    id: 'capabilities',
-    title: 'Capabilities',
-    icon: PuzzlePieceIcon,
-    description: 'Tool and capability registry',
-    color: 'from-purple-500 to-violet-500'
-  },
-  {
-    id: 'insights',
-    title: 'Insights',
-    icon: LightBulbIcon,
-    description: 'AI insights and recommendations',
-    color: 'from-yellow-500 to-orange-500'
-  },
-  {
-    id: 'tools',
-    title: 'Tools',
-    icon: WrenchScrewdriverIcon,
-    description: 'Active tools and integrations',
-    color: 'from-indigo-500 to-blue-500'
-  },
-  {
-    id: 'events',
-    title: 'Events',
-    icon: BoltIcon,
-    description: 'Real-time event monitoring',
-    color: 'from-teal-500 to-green-500'
-  }
-];
-
-export const UAIPDashboard: React.FC<UAIPDashboardProps> = ({ agents, className = '' }) => {
+export const UAIPDashboard: React.FC<UAIPDashboardProps> = ({ agents: propAgents, className = '' }) => {
   const [activePanel, setActivePanel] = useState<PanelType>('intelligence');
   const [isExpanded, setIsExpanded] = useState(true);
   const [systemStatus, setSystemStatus] = useState({
@@ -97,20 +52,39 @@ export const UAIPDashboard: React.FC<UAIPDashboardProps> = ({ agents, className 
     lastUpdate: new Date()
   });
 
-  // Mock data - replace with actual UAIP system integration
-  const mockData = {
-    activeOperations: [] as Operation[],
-    pendingApprovals: [] as ApprovalWorkflow[],
-    capabilities: [] as Capability[],
-    securityContext: {
-      userId: 'current-user',
-      permissions: ['read', 'write', 'approve'],
-      securityLevel: 'standard'
-    } as SecurityContext
-  };
+  // Get agents from context if not provided as prop
+  const { agents: contextAgents } = useAgents();
+  const agents = propAgents || Object.values(contextAgents || {});
 
+  // Real backend data hooks
+  const { operations, isLoading: operationsLoading, error: operationsError } = useOperations();
+  const { approvals, isLoading: approvalsLoading, error: approvalsError } = useApprovals();
+  const { capabilities, isLoading: capabilitiesLoading, error: capabilitiesError } = useCapabilities();
+  const { metrics, isLoading: metricsLoading, error: metricsError } = useSystemMetrics();
+
+  // Update system status based on real data
   useEffect(() => {
-    // Set up real-time updates for system status
+    const activeOperations = operations?.filter(op => op.status === 'running' || op.status === 'queued') || [];
+    const pendingApprovals = approvals?.filter(approval => approval.status === 'pending') || [];
+    
+    // Determine system health based on errors and data
+    let health: 'healthy' | 'warning' | 'critical' = 'healthy';
+    if (operationsError || approvalsError || capabilitiesError || metricsError) {
+      health = 'critical';
+    } else if (activeOperations.length > 10 || pendingApprovals.length > 5) {
+      health = 'warning';
+    }
+
+    setSystemStatus({
+      operationsActive: activeOperations.length,
+      pendingApprovals: pendingApprovals.length,
+      systemHealth: health,
+      lastUpdate: new Date()
+    });
+  }, [operations, approvals, operationsError, approvalsError, capabilitiesError, metricsError]);
+
+  // Set up real-time updates for system status
+  useEffect(() => {
     const interval = setInterval(() => {
       setSystemStatus(prev => ({
         ...prev,
@@ -126,14 +100,18 @@ export const UAIPDashboard: React.FC<UAIPDashboardProps> = ({ agents, className 
       case 'intelligence':
         return <IntelligencePanel agents={agents} />;
       case 'operations':
-        return <OperationsMonitor operations={mockData.activeOperations} />;
+        return <OperationsMonitor operations={operations || []} />;
       case 'security':
         return <SecurityGateway 
-          pendingApprovals={mockData.pendingApprovals} 
-          securityContext={mockData.securityContext} 
+          pendingApprovals={approvals || []} 
+          securityContext={{
+            userId: 'current-user',
+            permissions: ['read', 'write', 'approve'],
+            securityLevel: 'standard'
+          }} 
         />;
       case 'capabilities':
-        return <CapabilityRegistry capabilities={mockData.capabilities} />;
+        return <CapabilityRegistry capabilities={capabilities || []} />;
       case 'insights':
         return <InsightsPanel agents={agents} />;
       case 'tools':
@@ -145,137 +123,149 @@ export const UAIPDashboard: React.FC<UAIPDashboardProps> = ({ agents, className 
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'healthy': return 'text-green-600 bg-green-100';
-      case 'warning': return 'text-yellow-600 bg-yellow-100';
-      case 'critical': return 'text-red-600 bg-red-100';
-      default: return 'text-gray-600 bg-gray-100';
+  const getPanelIcon = (panel: PanelType) => {
+    const iconClass = "w-4 h-4";
+    switch (panel) {
+      case 'intelligence': return <CpuChipIcon className={iconClass} />;
+      case 'operations': return <CommandLineIcon className={iconClass} />;
+      case 'security': return <ShieldCheckIcon className={iconClass} />;
+      case 'capabilities': return <WrenchScrewdriverIcon className={iconClass} />;
+      case 'insights': return <LightBulbIcon className={iconClass} />;
+      case 'tools': return <ChartBarIcon className={iconClass} />;
+      case 'events': return <SignalIcon className={iconClass} />;
+      default: return <CpuChipIcon className={iconClass} />;
     }
   };
 
+  const getSystemHealthColor = () => {
+    switch (systemStatus.systemHealth) {
+      case 'healthy': return 'text-green-600 bg-green-50 border-green-200';
+      case 'warning': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+      case 'critical': return 'text-red-600 bg-red-50 border-red-200';
+      default: return 'text-gray-600 bg-gray-50 border-gray-200';
+    }
+  };
+
+  const isLoading = operationsLoading || approvalsLoading || capabilitiesLoading || metricsLoading;
+  const hasError = operationsError || approvalsError || capabilitiesError || metricsError;
+
   return (
     <div className={`uaip-dashboard ${className}`}>
-      {/* Dashboard Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
-              <BoltIcon className="w-5 h-5 text-white" />
+      {/* System Status Header */}
+      <div className="mb-6">
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg font-semibold">UAIP System Status</CardTitle>
+              <div className={`px-3 py-1 rounded-full text-xs font-medium border ${getSystemHealthColor()}`}>
+                {systemStatus.systemHealth.toUpperCase()}
+              </div>
             </div>
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-              UAIP System
-            </h2>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(systemStatus.systemHealth)}`}>
-              {systemStatus.systemHealth.toUpperCase()}
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">{agents.length}</div>
+                <div className="text-xs text-gray-500">Active Agents</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-orange-600">{systemStatus.operationsActive}</div>
+                <div className="text-xs text-gray-500">Active Operations</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-red-600">{systemStatus.pendingApprovals}</div>
+                <div className="text-xs text-gray-500">Pending Approvals</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">{capabilities?.length || 0}</div>
+                <div className="text-xs text-gray-500">Available Capabilities</div>
+              </div>
             </div>
-            <span className="text-sm text-gray-500">
-              Last update: {systemStatus.lastUpdate.toLocaleTimeString()}
-            </span>
-          </div>
-        </div>
-        
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-        >
-          {isExpanded ? (
-            <ChevronLeftIcon className="w-5 h-5" />
-          ) : (
-            <ChevronRightIcon className="w-5 h-5" />
-          )}
-        </button>
-      </div>
-
-      <div className="grid grid-cols-12 gap-6">
-        {/* Panel Navigation */}
-        <div className={`${isExpanded ? 'col-span-3' : 'col-span-1'} space-y-2`}>
-          {PANELS.map((panel) => {
-            const Icon = panel.icon;
-            const isActive = activePanel === panel.id;
             
-            return (
-              <button
-                key={panel.id}
-                onClick={() => setActivePanel(panel.id)}
-                className={`w-full p-4 rounded-2xl transition-all duration-200 group ${
-                  isActive
-                    ? 'bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700'
-                    : 'hover:bg-white/50 dark:hover:bg-slate-800/50 border border-transparent'
-                }`}
-              >
-                <div className="flex items-center space-x-3">
-                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${panel.color} flex items-center justify-center shadow-lg`}>
-                    <Icon className="w-5 h-5 text-white" />
-                  </div>
-                  
-                  {isExpanded && (
-                    <div className="flex-1 text-left">
-                      <h3 className="font-semibold text-gray-900 dark:text-white group-hover:text-gray-700 dark:group-hover:text-gray-300">
-                        {panel.title}
-                      </h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        {panel.description}
-                      </p>
-                    </div>
-                  )}
-                </div>
-                
-                {/* Active indicator */}
-                {isActive && (
-                  <div className="mt-3 h-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full" />
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Main Panel Content */}
-        <div className={`${isExpanded ? 'col-span-9' : 'col-span-11'}`}>
-          <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-3xl border border-slate-200/60 dark:border-slate-700/60 shadow-2xl shadow-slate-200/30 dark:shadow-slate-900/30 overflow-hidden">
-            <div className="p-6">
-              {/* Panel Header */}
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center space-x-3">
-                  {(() => {
-                    const currentPanel = PANELS.find(p => p.id === activePanel);
-                    if (!currentPanel) return null;
-                    const Icon = currentPanel.icon;
-                    return (
-                      <>
-                        <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${currentPanel.color} flex items-center justify-center shadow-lg`}>
-                          <Icon className="w-6 h-6 text-white" />
-                        </div>
-                        <div>
-                          <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                            {currentPanel.title}
-                          </h3>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {currentPanel.description}
-                          </p>
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
-                
+            {hasError && (
+              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                 <div className="flex items-center space-x-2">
-                  <EyeIcon className="w-5 h-5 text-gray-400" />
-                  <span className="text-sm text-gray-500">Real-time</span>
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                  <ExclamationTriangleIcon className="w-4 h-4 text-red-600" />
+                  <span className="text-sm text-red-700">Backend connection issues detected</span>
                 </div>
               </div>
-
-              {/* Panel Content */}
-              <div className="min-h-[600px]">
-                {renderActivePanel()}
-              </div>
+            )}
+            
+            <div className="mt-4 text-xs text-gray-400 text-center">
+              Last updated: {systemStatus.lastUpdate.toLocaleTimeString()}
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Main Dashboard Content */}
+      <Card className="h-[600px]">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg font-semibold">System Control Panel</CardTitle>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setIsExpanded(!isExpanded)}
+            >
+              {isExpanded ? 'Collapse' : 'Expand'}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Tabs value={activePanel} onValueChange={(value) => setActivePanel(value as PanelType)}>
+            <div className="px-6 pb-4">
+              <TabsList className="grid grid-cols-7 w-full">
+                <TabsTrigger value="intelligence" className="flex items-center space-x-2">
+                  {getPanelIcon('intelligence')}
+                  <span className="hidden sm:inline">Intelligence</span>
+                </TabsTrigger>
+                <TabsTrigger value="operations" className="flex items-center space-x-2">
+                  {getPanelIcon('operations')}
+                  <span className="hidden sm:inline">Operations</span>
+                </TabsTrigger>
+                <TabsTrigger value="security" className="flex items-center space-x-2">
+                  {getPanelIcon('security')}
+                  <span className="hidden sm:inline">Security</span>
+                </TabsTrigger>
+                <TabsTrigger value="capabilities" className="flex items-center space-x-2">
+                  {getPanelIcon('capabilities')}
+                  <span className="hidden sm:inline">Capabilities</span>
+                </TabsTrigger>
+                <TabsTrigger value="insights" className="flex items-center space-x-2">
+                  {getPanelIcon('insights')}
+                  <span className="hidden sm:inline">Insights</span>
+                </TabsTrigger>
+                <TabsTrigger value="tools" className="flex items-center space-x-2">
+                  {getPanelIcon('tools')}
+                  <span className="hidden sm:inline">Tools</span>
+                </TabsTrigger>
+                <TabsTrigger value="events" className="flex items-center space-x-2">
+                  {getPanelIcon('events')}
+                  <span className="hidden sm:inline">Events</span>
+                </TabsTrigger>
+              </TabsList>
+            </div>
+            
+            <Separator />
+            
+            <div className="p-6 h-[450px] overflow-y-auto">
+              {isLoading ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p className="text-gray-500">Loading system data...</p>
+                  </div>
+                </div>
+              ) : (
+                <TabsContent value={activePanel} className="mt-0 h-full">
+                  {renderActivePanel()}
+                </TabsContent>
+              )}
+            </div>
+          </Tabs>
+        </CardContent>
+      </Card>
     </div>
   );
 }; 

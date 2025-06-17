@@ -504,8 +504,23 @@ export class UAIPAPIClient {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<APIResponse<T>> {
-    const url = `${this.config.baseURL || ''}${endpoint}`;
+    // Handle both relative and absolute URLs properly
+    let url: string;
+    
+    if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
+      // Endpoint is already a full URL, use it as-is
+      url = endpoint;
+    } else {
+      // Endpoint is relative, combine with base URL
+      const baseURL = this.config.baseURL || '';
+      const cleanBaseURL = baseURL.endsWith('/') ? baseURL.slice(0, -1) : baseURL;
+      const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+      url = `${cleanBaseURL}${cleanEndpoint}`;
+    }
+    
     const token = this.getStoredToken();
+    const userId = this.getStoredUserId();
+    const sessionId = this.getStoredSessionId();
 
     // Handle body serialization and Content-Type header
     let processedOptions = { ...options };
@@ -519,13 +534,45 @@ export class UAIPAPIClient {
       };
     }
 
+    // Build comprehensive headers including security and user context
+    const headers: Record<string, string> = {
+      ...this.config.headers,
+      ...processedOptions.headers,
+    };
+
+    // Add authentication header
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    // Add security headers
+    headers['X-Request-ID'] = this.generateRequestId();
+    headers['X-Timestamp'] = new Date().toISOString();
+    
+    // Add user context headers if available
+    if (userId) {
+      headers['X-User-ID'] = userId;
+    } else {
+      // For unauthenticated requests, use a temporary anonymous user ID
+      headers['X-User-ID'] = 'anonymous_' + Date.now();
+    }
+    
+    if (sessionId) {
+      headers['X-Session-ID'] = sessionId;
+    } else {
+      // Generate a temporary session ID for request tracking
+      headers['X-Session-ID'] = 'temp_sess_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+    }
+
+    // Add security level header for UAIP backend
+    headers['X-Security-Level'] = 'standard';
+    
+    // Add correlation ID for request tracing
+    headers['X-Correlation-ID'] = this.generateCorrelationId();
+
     const config: RequestInit = {
       ...processedOptions,
-      headers: {
-        ...this.config.headers,
-        ...(token && { Authorization: `Bearer ${token}` }),
-        ...processedOptions.headers,
-      },
+      headers,
       signal: AbortSignal.timeout(this.config.timeout || 30000),
     };
 
@@ -538,10 +585,8 @@ export class UAIPAPIClient {
           const newToken = await this.refreshAuthToken();
           if (newToken) {
             // Retry with new token
-            config.headers = {
-              ...config.headers,
-              Authorization: `Bearer ${newToken}`,
-            };
+            headers['Authorization'] = `Bearer ${newToken}`;
+            config.headers = headers;
             response = await fetch(url, config);
           }
         } catch (refreshError) {
@@ -569,7 +614,7 @@ export class UAIPAPIClient {
         data,
         meta: {
           timestamp: new Date(),
-          requestId: response.headers.get('x-request-id') || undefined,
+          requestId: response.headers.get('x-request-id') || headers['X-Request-ID'],
           version: response.headers.get('x-api-version') || undefined,
         },
       };
@@ -599,6 +644,40 @@ export class UAIPAPIClient {
       return localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken');
     }
     return null;
+  }
+
+  /**
+   * Get stored user ID
+   */
+  private getStoredUserId(): string | null {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('userId') || sessionStorage.getItem('userId');
+    }
+    return null;
+  }
+
+  /**
+   * Get stored session ID
+   */
+  private getStoredSessionId(): string | null {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('sessionId') || sessionStorage.getItem('sessionId');
+    }
+    return null;
+  }
+
+  /**
+   * Generate unique request ID
+   */
+  private generateRequestId(): string {
+    return 'req_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  }
+
+  /**
+   * Generate correlation ID for request tracing
+   */
+  private generateCorrelationId(): string {
+    return 'corr_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
   }
 
   /**
@@ -639,7 +718,12 @@ export class UAIPAPIClient {
     }
 
     try {
-      const response = await fetch(`${this.config.baseURL || ''}/api/v1/auth/refresh`, {
+      // Construct the refresh URL properly
+      const baseURL = this.config.baseURL || '';
+      const cleanBaseURL = baseURL.endsWith('/') ? baseURL.slice(0, -1) : baseURL;
+      const refreshUrl = `${cleanBaseURL}/api/v1/auth/refresh`;
+      
+      const response = await fetch(refreshUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -694,10 +778,60 @@ export class UAIPAPIClient {
   }
 
   /**
+   * Set complete authentication context (token + user info)
+   */
+  public setAuthContext(authData: {
+    token: string;
+    refreshToken?: string;
+    userId: string;
+    sessionId?: string;
+    rememberMe?: boolean;
+  }): void {
+    const { token, refreshToken, userId, sessionId, rememberMe = false } = authData;
+    
+    // Set authentication token
+    this.setAuthToken(token, refreshToken, rememberMe);
+    
+    // Set user context
+    this.setUserContext(userId, sessionId, rememberMe);
+  }
+
+  /**
+   * Set user context for security headers
+   */
+  public setUserContext(userId: string, sessionId?: string, rememberMe = false): void {
+    if (typeof window !== 'undefined') {
+      const storage = rememberMe ? localStorage : sessionStorage;
+      storage.setItem('userId', userId);
+      
+      if (sessionId) {
+        storage.setItem('sessionId', sessionId);
+      } else {
+        // Generate a session ID if not provided
+        const generatedSessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        storage.setItem('sessionId', generatedSessionId);
+      }
+    }
+  }
+
+  /**
    * Clear authentication
    */
   public clearAuth(): void {
     this.removeStoredToken();
+    this.clearUserContext();
+  }
+
+  /**
+   * Clear user context
+   */
+  private clearUserContext(): void {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('userId');
+      localStorage.removeItem('sessionId');
+      sessionStorage.removeItem('userId');
+      sessionStorage.removeItem('sessionId');
+    }
   }
 
   // ============================================================================
@@ -822,7 +956,7 @@ export class UAIPAPIClient {
      * Create a new persona
      */
     create: async (personaData: any): Promise<APIResponse<any>> => {
-      return this.request('/api/v1/personas', {
+      return this.request(buildAPIURL(API_ROUTES.PERSONAS), {
         method: 'POST',
         body: JSON.stringify(personaData),
       });
@@ -835,35 +969,35 @@ export class UAIPAPIClient {
       const params = new URLSearchParams();
       if (query) params.append('query', query);
       if (expertise) params.append('expertise', expertise);
-      return this.request(`/api/v1/personas/search?${params}`);
+      return this.request(buildAPIURL(`${API_ROUTES.PERSONAS}/search?${params}`));
     },
 
     /**
      * Get persona recommendations
      */
     getRecommendations: async (context: string): Promise<APIResponse<any[]>> => {
-      return this.request(`/api/v1/personas/recommendations?context=${encodeURIComponent(context)}`);
+      return this.request(buildAPIURL(`${API_ROUTES.PERSONAS}/recommendations?context=${encodeURIComponent(context)}`));
     },
 
     /**
      * Get persona templates
      */
     getTemplates: async (): Promise<APIResponse<any[]>> => {
-      return this.request('/api/v1/personas/templates');
+      return this.request(buildAPIURL(`${API_ROUTES.PERSONAS}/templates`));
     },
 
     /**
      * Get persona by ID
      */
     get: async (personaId: string): Promise<APIResponse<any>> => {
-      return this.request(`/api/v1/personas/${personaId}`);
+      return this.request(buildAPIURL(`${API_ROUTES.PERSONAS}/${personaId}`));
     },
 
     /**
      * Update persona
      */
     update: async (personaId: string, updates: any): Promise<APIResponse<any>> => {
-      return this.request(`/api/v1/personas/${personaId}`, {
+      return this.request(buildAPIURL(`${API_ROUTES.PERSONAS}/${personaId}`), {
         method: 'PUT',
         body: JSON.stringify(updates),
       });
@@ -873,7 +1007,7 @@ export class UAIPAPIClient {
      * Delete persona
      */
     delete: async (personaId: string): Promise<APIResponse<void>> => {
-      return this.request(`/api/v1/personas/${personaId}`, {
+      return this.request(buildAPIURL(`${API_ROUTES.PERSONAS}/${personaId}`), {
         method: 'DELETE',
       });
     },
@@ -882,14 +1016,14 @@ export class UAIPAPIClient {
      * Get persona analytics
      */
     getAnalytics: async (personaId: string): Promise<APIResponse<any>> => {
-      return this.request(`/api/v1/personas/${personaId}/analytics`);
+      return this.request(buildAPIURL(`${API_ROUTES.PERSONAS}/${personaId}/analytics`));
     },
 
     /**
      * Validate persona
      */
     validatePersona: async (personaId: string, validationData: any): Promise<APIResponse<any>> => {
-      return this.request(`/api/v1/personas/${personaId}/validate`, {
+      return this.request(buildAPIURL(`${API_ROUTES.PERSONAS}/${personaId}/validate`), {
         method: 'POST',
         body: JSON.stringify(validationData),
       });

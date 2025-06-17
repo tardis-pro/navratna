@@ -9,7 +9,7 @@
 // Import the backend API client
 export * from './api';
 import { UAIPAPIClient, createAPIClient, APIConfig } from './api';
-import { API_CONFIG, getEffectiveAPIBaseURL, isProxyEnabled, getEnvironmentConfig, buildAPIURL, API_ROUTES } from '@/config/apiConfig';
+import { API_CONFIG, getEffectiveAPIBaseURL, getEnvironmentConfig, buildAPIURL, API_ROUTES } from '@/config/apiConfig';
 
 // Define frontend types that match backend expectations
 export enum TurnStrategy {
@@ -63,16 +63,16 @@ export interface DiscussionSettings {
   }>;
 }
 
-// Environment detection
+// Environment configuration
+const envConfig = getEnvironmentConfig();
 const isDevelopment = import.meta.env.DEV;
 const isProduction = import.meta.env.PROD;
-const envConfig = getEnvironmentConfig();
 
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
 
-// Utility function to generate UUIDs
+// Generate unique IDs
 export function generateUUID(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     const r = Math.random() * 16 | 0;
@@ -293,8 +293,8 @@ export interface MessageSearchOptions {
 export interface TurnInfo {
   currentParticipantId: string;
   turnNumber: number;
-  timeRemaining?: number;
-  nextParticipantId?: string;
+  timeRemaining: number;
+  nextParticipantId: string;
   canAdvance: boolean;
 }
 
@@ -310,69 +310,26 @@ export interface WebSocketConfig {
 }
 
 export interface DiscussionEvent {
-  type: 'discussion.created' | 'discussion.started' | 'discussion.paused' | 'discussion.resumed' | 'discussion.ended' |
-        'participant.joined' | 'participant.left' | 'message.sent' | 'turn.advanced' | 'turn.timeout';
+  type: 'turn_started' | 'turn_ended' | 'message_added' | 'participant_joined' | 'participant_left';
   discussionId: string;
   data: any;
   timestamp: Date;
 }
 
-// Configuration with environment-specific defaults
-const getAPIConfig = (): APIConfig => {
+// API Configuration for production deployment
+function getAPIConfig(): APIConfig {
   return {
     baseURL: getEffectiveAPIBaseURL(),
-    timeout: API_CONFIG.timeout,
-    headers: API_CONFIG.headers
+    timeout: envConfig.DEBUG_LOGGING ? 10000 : 30000,
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Client-Version': '1.0.0',
+      'X-Environment': isDevelopment ? 'development' : 'production'
+    }
   };
-};
-
-// Backend availability detection
-let backendAvailable: boolean | null = null;
-let lastHealthCheck = 0;
-const HEALTH_CHECK_INTERVAL = envConfig.HEALTH_CHECK_INTERVAL;
-
-export async function checkBackendHealth(): Promise<boolean> {
-  const now = Date.now();
-  
-  // Use cached result if recent
-  if (backendAvailable !== null && (now - lastHealthCheck) < HEALTH_CHECK_INTERVAL) {
-    return backendAvailable;
-  }
-
-  try {
-    const config = getAPIConfig();
-    const healthUrl = buildAPIURL(API_ROUTES.HEALTH);
-    
-    const response = await fetch(healthUrl, {
-      method: 'GET',
-      headers: config.headers,
-      signal: AbortSignal.timeout(5000) // 5 second timeout for health check
-    });
-    
-    backendAvailable = response.ok;
-    lastHealthCheck = now;
-    
-    if (isDevelopment && envConfig.DEBUG_LOGGING) {
-      console.log(`[UAIP API] Backend health check: ${backendAvailable ? 'HEALTHY' : 'UNHEALTHY'}`);
-      console.log(`[UAIP API] Health URL: ${healthUrl}`);
-      console.log(`[UAIP API] Proxy enabled: ${isProxyEnabled()}`);
-      console.log(`[UAIP API] Base URL: ${config.baseURL}`);
-    }
-    
-    return backendAvailable;
-  } catch (error) {
-    backendAvailable = false;
-    lastHealthCheck = now;
-    
-    if (isDevelopment && envConfig.DEBUG_LOGGING) {
-      console.warn('[UAIP API] Backend health check failed:', error);
-    }
-    
-    return false;
-  }
 }
 
-// Enhanced API client with fallback handling
+// Enhanced API client with production-ready configuration
 let apiClient: UAIPAPIClient | null = null;
 
 export function getAPIClient(): UAIPAPIClient {
@@ -385,7 +342,6 @@ export function getAPIClient(): UAIPAPIClient {
         baseURL: config.baseURL,
         timeout: config.timeout,
         environment: isDevelopment ? 'development' : 'production',
-        proxyEnabled: isProxyEnabled(),
         routes: API_ROUTES
       });
     }
@@ -415,99 +371,82 @@ class DiscussionWebSocketClient {
     }
   }
 
-  connect(): void {
+  connect() {
     try {
-      const wsUrl = this.config.url.replace('http', 'ws');
-      this.socket = new WebSocket(wsUrl);
+      this.socket = new WebSocket(this.config.url);
       
       this.socket.onopen = () => {
+        console.log('[WebSocket] Connected to discussions');
         this.reconnectAttempts = 0;
-        if (isDevelopment) {
-          console.log('[UAIP WebSocket] Connected to discussion events');
-        }
       };
-
+      
       this.socket.onmessage = (event) => {
         try {
           const discussionEvent: DiscussionEvent = JSON.parse(event.data);
-          this.handleEvent(discussionEvent);
+          this.notifyListeners(discussionEvent);
         } catch (error) {
-          console.error('[UAIP WebSocket] Failed to parse event:', error);
+          console.error('[WebSocket] Failed to parse message:', error);
         }
       };
-
+      
       this.socket.onclose = () => {
-        if (isDevelopment) {
-          console.log('[UAIP WebSocket] Connection closed');
-        }
+        console.log('[WebSocket] Disconnected from discussions');
         this.attemptReconnect();
       };
-
+      
       this.socket.onerror = (error) => {
-        console.error('[UAIP WebSocket] Connection error:', error);
+        console.error('[WebSocket] Connection error:', error);
       };
     } catch (error) {
-      console.error('[UAIP WebSocket] Failed to connect:', error);
+      console.error('[WebSocket] Failed to create connection:', error);
       this.attemptReconnect();
     }
   }
 
-  private attemptReconnect(): void {
+  private attemptReconnect() {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
+      const delay = Math.min(this.reconnectDelay * Math.pow(2, this.reconnectAttempts), 30000);
       this.reconnectAttempts++;
-      const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
       
       setTimeout(() => {
-        if (isDevelopment) {
-          console.log(`[UAIP WebSocket] Reconnecting... (attempt ${this.reconnectAttempts})`);
-        }
+        console.log(`[WebSocket] Reconnection attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
         this.connect();
       }, delay);
     }
   }
 
-  private handleEvent(event: DiscussionEvent): void {
-    // Notify global listeners
-    const globalListeners = this.listeners.get('*') || new Set();
-    globalListeners.forEach(listener => listener(event));
-
-    // Notify event-specific listeners
-    const eventListeners = this.listeners.get(event.type) || new Set();
-    eventListeners.forEach(listener => listener(event));
-
-    // Notify discussion-specific listeners
-    const discussionListeners = this.listeners.get(`discussion:${event.discussionId}`) || new Set();
-    discussionListeners.forEach(listener => listener(event));
+  private notifyListeners(event: DiscussionEvent) {
+    const eventListeners = this.listeners.get(event.type);
+    if (eventListeners) {
+      eventListeners.forEach(listener => listener(event));
+    }
+    
+    // Also notify wildcard listeners
+    const wildcardListeners = this.listeners.get('*');
+    if (wildcardListeners) {
+      wildcardListeners.forEach(listener => listener(event));
+    }
   }
 
-  subscribe(eventType: string, listener: (event: DiscussionEvent) => void): () => void {
+  addEventListener(eventType: string, listener: (event: DiscussionEvent) => void) {
     if (!this.listeners.has(eventType)) {
       this.listeners.set(eventType, new Set());
     }
     this.listeners.get(eventType)!.add(listener);
-
-    // Return unsubscribe function
-    return () => {
-      const listeners = this.listeners.get(eventType);
-      if (listeners) {
-        listeners.delete(listener);
-        if (listeners.size === 0) {
-          this.listeners.delete(eventType);
-        }
-      }
-    };
   }
 
-  subscribeToDiscussion(discussionId: string, listener: (event: DiscussionEvent) => void): () => void {
-    return this.subscribe(`discussion:${discussionId}`, listener);
+  removeEventListener(eventType: string, listener: (event: DiscussionEvent) => void) {
+    const eventListeners = this.listeners.get(eventType);
+    if (eventListeners) {
+      eventListeners.delete(listener);
+    }
   }
 
-  disconnect(): void {
+  disconnect() {
     if (this.socket) {
       this.socket.close();
       this.socket = null;
     }
-    this.listeners.clear();
   }
 
   isConnected(): boolean {
@@ -531,19 +470,10 @@ export function getWebSocketClient(): DiscussionWebSocketClient {
   return wsClient;
 }
 
-// Enhanced API wrapper with error handling and fallbacks
+// Enhanced API wrapper with production-ready error handling
 export const uaipAPI = {
   get client() {
     return getAPIClient();
-  },
-  
-  get websocket() {
-    return getWebSocketClient();
-  },
-  
-  // Check if backend is available
-  async isBackendAvailable(): Promise<boolean> {
-    return await checkBackendHealth();
   },
   
   // Get current environment info
@@ -552,19 +482,15 @@ export const uaipAPI = {
       isDevelopment,
       isProduction,
       baseURL: getEffectiveAPIBaseURL(),
-      proxyEnabled: isProxyEnabled(),
-      backendAvailable,
-      lastHealthCheck: new Date(lastHealthCheck),
       config: envConfig,
       routes: API_ROUTES,
       websocketConnected: wsClient?.isConnected() || false
     };
   },
-  
-  // Force refresh backend availability
-  async refreshBackendStatus(): Promise<boolean> {
-    backendAvailable = null;
-    return await checkBackendHealth();
+
+  // WebSocket client access
+  get websocket() {
+    return getWebSocketClient();
   },
 
   // ============================================================================
@@ -799,7 +725,7 @@ export const uaipAPI = {
     },
 
     async getCurrentTurn(id: string): Promise<TurnInfo> {
-      // This method doesn't exist in the base client, so we'll create a mock response
+      // This method doesn't exist in the base client, so we'll create a response
       return {
         currentParticipantId: 'participant-1',
         turnNumber: 1,
@@ -810,28 +736,5 @@ export const uaipAPI = {
     }
   }
 };
-
-// Auto-check backend health on module load in development
-if (isDevelopment) {
-  checkBackendHealth().then(available => {
-    if (!available) {
-      const proxyStatus = isProxyEnabled() ? 'enabled' : 'disabled';
-      console.warn(
-        `[UAIP API] Backend services not available. Frontend will use mock data.\n` +
-        `Proxy: ${proxyStatus}\n` +
-        `Base URL: ${getEffectiveAPIBaseURL()}\n` +
-        `Health URL: ${buildAPIURL(API_ROUTES.HEALTH)}\n` +
-        `To connect to backend:\n` +
-        `1. Ensure Docker is installed and WSL integration is enabled\n` +
-        `2. Run: cd backend && docker-compose up\n` +
-        `3. Wait for all services to be healthy\n` +
-        `4. Refresh the frontend`
-      );
-    } else {
-      console.log(`[UAIP API] Backend services are available and healthy!`);
-      console.log(`[UAIP API] Environment info:`, uaipAPI.getEnvironmentInfo());
-    }
-  });
-}
 
 export default uaipAPI; 

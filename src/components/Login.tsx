@@ -22,7 +22,7 @@ interface FormErrors {
 }
 
 export const Login: React.FC = () => {
-  const { login, isLoading, error, clearError } = useAuth();
+  const { login, isLoading, error,  } = useAuth();
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
     password: '',
@@ -37,10 +37,8 @@ export const Login: React.FC = () => {
     if (Object.keys(formErrors).length > 0) {
       setFormErrors({});
     }
-    if (error) {
-      clearError();
-    }
-  }, [formData, formErrors, error, clearError]);
+    
+  }, [formData, formErrors, error]);
 
   const validateForm = (): boolean => {
     const errors: FormErrors = {};

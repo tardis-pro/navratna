@@ -1,11 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  CheckCircleIcon, 
-  ExclamationTriangleIcon, 
-  XCircleIcon,
-  ArrowPathIcon,
-  InformationCircleIcon
-} from '@heroicons/react/24/outline';
+import { CheckCircleIcon, XCircleIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { uaipAPI } from '../services/uaip-api';
 
 interface BackendStatusIndicatorProps {
@@ -17,7 +11,7 @@ export function BackendStatusIndicator({
   className = '', 
   showDetails = false 
 }: BackendStatusIndicatorProps) {
-  const [status, setStatus] = useState<'checking' | 'available' | 'unavailable'>('checking');
+  const [status, setStatus] = useState<'checking' | 'online' | 'offline'>('checking');
   const [lastCheck, setLastCheck] = useState<Date | null>(null);
   const [showTooltip, setShowTooltip] = useState(false);
   const [environmentInfo, setEnvironmentInfo] = useState<any>(null);
@@ -25,13 +19,22 @@ export function BackendStatusIndicator({
   const checkStatus = async () => {
     setStatus('checking');
     try {
-      const available = await uaipAPI.refreshBackendStatus();
-      setStatus(available ? 'available' : 'unavailable');
+      // Test backend connectivity by making a simple API call
+      const response = await fetch(`${uaipAPI.getEnvironmentInfo().baseURL}/health`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        signal: AbortSignal.timeout(5000)
+      });
+      
+      setStatus(response.ok ? 'online' : 'offline');
       setLastCheck(new Date());
       setEnvironmentInfo(uaipAPI.getEnvironmentInfo());
     } catch (error) {
-      setStatus('unavailable');
+      setStatus('offline');
       setLastCheck(new Date());
+      console.error('Backend health check failed:', error);
     }
   };
 
@@ -47,9 +50,9 @@ export function BackendStatusIndicator({
     switch (status) {
       case 'checking':
         return <ArrowPathIcon className="w-4 h-4 animate-spin text-blue-500" />;
-      case 'available':
+      case 'online':
         return <CheckCircleIcon className="w-4 h-4 text-green-500" />;
-      case 'unavailable':
+      case 'offline':
         return <XCircleIcon className="w-4 h-4 text-red-500" />;
     }
   };
@@ -58,9 +61,9 @@ export function BackendStatusIndicator({
     switch (status) {
       case 'checking':
         return 'Checking...';
-      case 'available':
+      case 'online':
         return 'Backend Online';
-      case 'unavailable':
+      case 'offline':
         return 'Backend Offline';
     }
   };
@@ -69,153 +72,99 @@ export function BackendStatusIndicator({
     switch (status) {
       case 'checking':
         return 'from-blue-50 to-blue-100 border-blue-200 text-blue-700';
-      case 'available':
+      case 'online':
         return 'from-green-50 to-emerald-100 border-green-200 text-green-700';
-      case 'unavailable':
+      case 'offline':
         return 'from-red-50 to-red-100 border-red-200 text-red-700';
     }
   };
 
-  if (!showDetails) {
-    return (
+  const getStatusMessage = () => {
+    switch (status) {
+      case 'checking':
+        return 'Verifying backend connection...';
+      case 'online':
+        return 'All backend services are operational';
+      case 'offline':
+        return 'Backend services are currently unavailable';
+    }
+  };
+
+  return (
+    <div className={`relative ${className}`}>
       <div 
-        className={`relative flex items-center space-x-2 px-3 py-2 bg-gradient-to-r ${getStatusColor()} rounded-full border ${className}`}
+        className={`inline-flex items-center space-x-2 px-3 py-2 rounded-lg border bg-gradient-to-r ${getStatusColor()} cursor-pointer transition-all duration-200 hover:shadow-md`}
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
+        onClick={checkStatus}
       >
         {getStatusIcon()}
         <span className="text-sm font-medium">{getStatusText()}</span>
-        
-        {showTooltip && (
-          <div className="absolute top-full left-0 mt-2 w-64 p-3 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 z-50">
-            <div className="text-sm">
-              <div className="font-medium mb-2">Backend Status</div>
-              <div className="space-y-1 text-slate-600 dark:text-slate-400">
-                <div>Status: {getStatusText()}</div>
-                {lastCheck && (
-                  <div>Last Check: {lastCheck.toLocaleTimeString()}</div>
-                )}
-                {environmentInfo && (
-                  <div>Environment: {environmentInfo.isDevelopment ? 'Development' : 'Production'}</div>
-                )}
-                {status === 'unavailable' && (
-                  <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded text-yellow-700 dark:text-yellow-300 text-xs">
-                    Using mock data. Start backend services to connect.
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+        {lastCheck && (
+          <span className="text-xs opacity-75">
+            {lastCheck.toLocaleTimeString()}
+          </span>
         )}
       </div>
-    );
-  }
 
-  return (
-    <div className={`bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4 ${className}`}>
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-          Backend Status
-        </h3>
-        <button
-          onClick={checkStatus}
-          disabled={status === 'checking'}
-          className="p-1 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 disabled:opacity-50"
-        >
-          <ArrowPathIcon className={`w-4 h-4 ${status === 'checking' ? 'animate-spin' : ''}`} />
-        </button>
-      </div>
+      {/* Tooltip */}
+      {showTooltip && (
+        <div className="absolute bottom-full left-0 mb-2 w-80 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-50">
+          <div className="space-y-3">
+            <div className="flex items-center space-x-2">
+              {getStatusIcon()}
+              <span className="font-semibold text-gray-900 dark:text-white">
+                Backend Status
+              </span>
+            </div>
+            
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              {getStatusMessage()}
+            </p>
 
-      <div className="space-y-3">
-        {/* Status Overview */}
-        <div className={`flex items-center space-x-3 p-3 bg-gradient-to-r ${getStatusColor()} rounded-lg border`}>
-          {getStatusIcon()}
-          <div>
-            <div className="font-medium">{getStatusText()}</div>
-            {lastCheck && (
-              <div className="text-xs opacity-75">
-                Last checked: {lastCheck.toLocaleTimeString()}
+            {environmentInfo && (
+              <div className="space-y-2 text-xs text-gray-500 dark:text-gray-400">
+                <div className="flex justify-between">
+                  <span>Base URL:</span>
+                  <span className="font-mono">{environmentInfo.baseURL}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Environment:</span>
+                  <span>{environmentInfo.isDevelopment ? 'Development' : 'Production'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>WebSocket:</span>
+                  <span className={environmentInfo.websocketConnected ? 'text-green-600' : 'text-red-600'}>
+                    {environmentInfo.websocketConnected ? 'Connected' : 'Disconnected'}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {status === 'offline' && (
+              <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <p className="text-sm text-red-700 dark:text-red-300 font-medium mb-2">
+                  Connection Issues Detected
+                </p>
+                <ul className="text-xs text-red-600 dark:text-red-400 space-y-1">
+                  <li>• Check network connectivity</li>
+                  <li>• Verify backend services are running</li>
+                  <li>• Contact system administrator if issues persist</li>
+                </ul>
+              </div>
+            )}
+
+            {showDetails && environmentInfo && (
+              <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Debug Information:</p>
+                <pre className="text-xs text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 p-2 rounded font-mono overflow-x-auto">
+                  {JSON.stringify(environmentInfo, null, 2)}
+                </pre>
               </div>
             )}
           </div>
         </div>
-
-        {/* Environment Info */}
-        {environmentInfo && (
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="space-y-1">
-              <div className="font-medium text-slate-700 dark:text-slate-300">Environment</div>
-              <div className="text-slate-600 dark:text-slate-400">
-                {environmentInfo.isDevelopment ? 'Development' : 'Production'}
-              </div>
-            </div>
-            <div className="space-y-1">
-              <div className="font-medium text-slate-700 dark:text-slate-300">Base URL</div>
-              <div className="text-slate-600 dark:text-slate-400 text-xs font-mono">
-                {environmentInfo.baseURL}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Status-specific information */}
-        {status === 'unavailable' && (
-          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
-            <div className="flex items-start space-x-2">
-              <ExclamationTriangleIcon className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
-              <div className="text-sm">
-                <div className="font-medium text-yellow-800 dark:text-yellow-200 mb-1">
-                  Backend Services Unavailable
-                </div>
-                <div className="text-yellow-700 dark:text-yellow-300 space-y-1">
-                  <div>• Frontend is using mock data</div>
-                  <div>• Real-time features are disabled</div>
-                  <div>• All functionality remains available for testing</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {status === 'available' && (
-          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
-            <div className="flex items-start space-x-2">
-              <CheckCircleIcon className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
-              <div className="text-sm">
-                <div className="font-medium text-green-800 dark:text-green-200 mb-1">
-                  All Systems Operational
-                </div>
-                <div className="text-green-700 dark:text-green-300 space-y-1">
-                  <div>• Real-time data from backend services</div>
-                  <div>• WebSocket connections active</div>
-                  <div>• All features fully functional</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Development Instructions */}
-        {environmentInfo?.isDevelopment && status === 'unavailable' && (
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-            <div className="flex items-start space-x-2">
-              <InformationCircleIcon className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-              <div className="text-sm">
-                <div className="font-medium text-blue-800 dark:text-blue-200 mb-2">
-                  To Connect Backend Services:
-                </div>
-                <div className="text-blue-700 dark:text-blue-300 space-y-1 font-mono text-xs">
-                  <div>1. Ensure Docker is installed</div>
-                  <div>2. cd backend</div>
-                  <div>3. docker-compose up</div>
-                  <div>4. Wait for services to be healthy</div>
-                  <div>5. Refresh this page</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 } 

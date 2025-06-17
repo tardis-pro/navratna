@@ -1,13 +1,13 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { uaipAPI } from '../services/uaip-api';
 
-interface User {
+export interface User {
   id: string;
   email: string;
   firstName: string;
   lastName: string;
   role: string;
-  department: string;
+  department?: string;
   permissions: string[];
   lastLoginAt?: Date;
 }
@@ -22,14 +22,13 @@ interface AuthState {
 interface AuthContextType extends AuthState {
   login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   logout: () => Promise<void>;
-  clearError: () => void;
   refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 interface AuthProviderProps {
-  children: ReactNode;
+  children: React.ReactNode;
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
@@ -50,43 +49,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setState(prev => ({ ...prev, isLoading: true, error: null }));
       
       // Check if we have a stored token
-      const hasToken = typeof window !== 'undefined' && 
-        (localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken'));
+      const accessToken = typeof window !== 'undefined' ? 
+        (localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken')) : null;
+      const refreshToken = typeof window !== 'undefined' ? 
+        (localStorage.getItem('refreshToken') || sessionStorage.getItem('refreshToken')) : null;
       
-      if (!hasToken) {
+      if (!accessToken) {
         setState(prev => ({ ...prev, isLoading: false }));
         return;
       }
 
-      // Check backend availability first
-      const isBackendAvailable = await uaipAPI.isBackendAvailable();
-      
-      if (!isBackendAvailable) {
-        // Use mock user data when backend is unavailable
-        const mockUser: User = {
-          id: 'mock-user-1',
-          email: 'demo@example.com',
-          firstName: 'Demo',
-          lastName: 'User',
-          role: 'admin',
-          department: 'engineering',
-          permissions: ['admin:*'],
-          lastLoginAt: new Date()
-        };
-        
-        setState({
-          user: mockUser,
-          isAuthenticated: true,
-          isLoading: false,
-          error: null
-        });
-        return;
-      }
+      // Set the auth token on the client before making the auth.me() call
+      const isRemembered = !!localStorage.getItem('accessToken');
+      uaipAPI.client.setAuthToken(accessToken, refreshToken || undefined, isRemembered);
 
       // Try to get current user from backend
       const response = await uaipAPI.client.auth.me();
       
       if (response.success && response.data) {
+        // Set user context for security headers
+        uaipAPI.client.setUserContext(response.data.id, undefined, isRemembered);
+        
         setState({
           user: response.data,
           isAuthenticated: true,
@@ -105,13 +88,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     } catch (error) {
       console.error('Auth status check failed:', error);
-      // Clear invalid auth state
+      
+      // Clear invalid tokens
       uaipAPI.client.clearAuth();
+      
       setState({
         user: null,
         isAuthenticated: false,
         isLoading: false,
-        error: null
+        error: 'Authentication check failed'
       });
     }
   }, []);
@@ -119,87 +104,56 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = useCallback(async (email: string, password: string, rememberMe = false) => {
     try {
       setState(prev => ({ ...prev, isLoading: true, error: null }));
-
-      // Check backend availability
-      const isBackendAvailable = await uaipAPI.isBackendAvailable();
       
-      if (!isBackendAvailable) {
-        // Mock login for demo purposes
-        const mockUser: User = {
-          id: 'mock-user-1',
-          email: email,
-          firstName: 'Demo',
-          lastName: 'User',
-          role: 'admin',
-          department: 'engineering',
-          permissions: ['admin:*'],
-          lastLoginAt: new Date()
-        };
-        
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        setState({
-          user: mockUser,
-          isAuthenticated: true,
-          isLoading: false,
-          error: null
-        });
-        return;
-      }
-
-      // Real login
-      const response = await uaipAPI.client.auth.login({
-        email,
-        password,
-        rememberMe
-      });
-
+      const response = await uaipAPI.client.auth.login({ email, password });
+      
       if (response.success && response.data) {
-        // Store tokens using the API client's method
-        uaipAPI.client.setAuthToken(
-          response.data.tokens.accessToken,
-          response.data.tokens.refreshToken,
+        const { user, tokens } = response.data;
+        const { accessToken, refreshToken } = tokens;
+        
+        // Set complete authentication context (this will store tokens AND set them on the client)
+        uaipAPI.client.setAuthContext({
+          token: accessToken,
+          refreshToken,
+          userId: user.id,
           rememberMe
-        );
-
+        });
+        
+        // Set authenticated user
         setState({
-          user: response.data.user,
+          user,
           isAuthenticated: true,
           isLoading: false,
           error: null
         });
       } else {
-        throw new Error(response.error?.message || 'Login failed');
+        setState(prev => ({
+          ...prev,
+          isLoading: false,
+          error: response.error?.message || 'Login failed'
+        }));
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Login failed';
+      console.error('Login failed:', error);
       setState(prev => ({
         ...prev,
         isLoading: false,
-        error: errorMessage
+        error: error instanceof Error ? error.message : 'Login failed'
       }));
-      throw error;
     }
   }, []);
 
   const logout = useCallback(async () => {
     try {
       setState(prev => ({ ...prev, isLoading: true }));
-
-      // Try to logout from backend if available
-      const isBackendAvailable = await uaipAPI.isBackendAvailable();
-      if (isBackendAvailable) {
-        try {
-          await uaipAPI.client.auth.logout();
-        } catch (error) {
-          console.warn('Backend logout failed:', error);
-        }
-      }
-
-      // Clear local auth state
+      
+      // Call backend logout
+      await uaipAPI.client.auth.logout();
+      
+      // Clear auth from API client (this will also clear stored tokens)
       uaipAPI.client.clearAuth();
       
+      // Clear auth state
       setState({
         user: null,
         isAuthenticated: false,
@@ -207,9 +161,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         error: null
       });
     } catch (error) {
-      console.error('Logout error:', error);
-      // Force clear auth state even if logout fails
+      console.error('Logout failed:', error);
+      
+      // Force clear state even if backend call fails
       uaipAPI.client.clearAuth();
+      
       setState({
         user: null,
         isAuthenticated: false,
@@ -219,19 +175,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, []);
 
-  const clearError = useCallback(() => {
-    setState(prev => ({ ...prev, error: null }));
-  }, []);
-
   const refreshUser = useCallback(async () => {
-    await checkAuthStatus();
-  }, [checkAuthStatus]);
+    if (!state.isAuthenticated) return;
+    
+    try {
+      const response = await uaipAPI.client.auth.me();
+      
+      if (response.success && response.data) {
+        setState(prev => ({
+          ...prev,
+          user: response.data,
+          error: null
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to refresh user data:', error);
+    }
+  }, [state.isAuthenticated]);
 
   const contextValue: AuthContextType = {
     ...state,
     login,
     logout,
-    clearError,
     refreshUser
   };
 

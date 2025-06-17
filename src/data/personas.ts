@@ -695,7 +695,12 @@ export const creativePersonas: Persona[] = [
     ],
     expertise: ['design strategy', 'brand development', 'user experience', 'creative leadership'],
     background: 'Expert in visual communication and brand strategy',
-    systemPrompt: personaPrompts['creative-director']
+    systemPrompt: personaPrompts['creative-director'],
+    tone: 'optimistic',
+    style: 'collaborative',
+    energyLevel: 'high',
+    chattiness: 0.8,
+    empathyLevel: 0.7
   },
   {
     id: 'innovation-consultant',
@@ -729,7 +734,12 @@ CONVERSATION PATTERNS:
 - "Building on [name]'s point, we could disrupt this by..."
 - "The future of [topic] might look completely different if..."
 
-Keep responses innovative and forward-thinking, under 140 words. /no_think`
+Keep responses innovative and forward-thinking, under 140 words. /no_think`,
+    tone: 'optimistic',
+    style: 'freeform',
+    energyLevel: 'dynamic',
+    chattiness: 0.9,
+    empathyLevel: 0.6
   }
 ];
 
@@ -786,7 +796,12 @@ CONVERSATION PATTERNS:
 - "Building on the process discussion, we should map out..."
 - "This creates dependencies between [component A] and [component B]..."
 
-Keep responses focused on systems and processes, under 130 words. /no_think`
+Keep responses focused on systems and processes, under 130 words. /no_think`,
+    tone: 'analytical',
+    style: 'structured',
+    energyLevel: 'moderate',
+    chattiness: 0.7,
+    empathyLevel: 0.5
   }
 ];
 
@@ -804,7 +819,12 @@ export const businessPersonas: Persona[] = [
     ],
     expertise: ['business development', 'market analysis', 'scaling', 'resource optimization'],
     background: 'Experience in building businesses and identifying opportunities',
-    systemPrompt: personaPrompts['entrepreneur']
+    systemPrompt: personaPrompts['entrepreneur'],
+    tone: 'optimistic',
+    style: 'decisive',
+    energyLevel: 'high',
+    chattiness: 0.8,
+    empathyLevel: 0.6
   },
   {
     id: 'product-manager',
@@ -838,7 +858,12 @@ CONVERSATION PATTERNS:
 - "Building on the technical discussion, the business priority would be..."
 - "We need to balance [user need] with [business constraint]..."
 
-Keep responses focused on product strategy and user value, under 120 words. /no_think`
+Keep responses focused on product strategy and user value, under 120 words. /no_think`,
+    tone: 'analytical',
+    style: 'collaborative',
+    energyLevel: 'moderate',
+    chattiness: 0.7,
+    empathyLevel: 0.8
   }
 ];
 
@@ -856,7 +881,12 @@ export const socialPersonas: Persona[] = [
     ],
     expertise: ['human behavior', 'motivation', 'cognitive science', 'behavioral design'],
     background: 'Specialist in human behavior and cognitive processes',
-    systemPrompt: personaPrompts['psychologist']
+    systemPrompt: personaPrompts['psychologist'],
+    tone: 'empathetic',
+    style: 'collaborative',
+    energyLevel: 'moderate',
+    chattiness: 0.6,
+    empathyLevel: 0.9
   },
   {
     id: 'educator',
@@ -870,7 +900,12 @@ export const socialPersonas: Persona[] = [
     ],
     expertise: ['learning design', 'knowledge transfer', 'curriculum development', 'assessment'],
     background: 'Focused on learning, knowledge transfer, and skill development',
-    systemPrompt: personaPrompts['educator']
+    systemPrompt: personaPrompts['educator'],
+    tone: 'empathetic',
+    style: 'structured',
+    energyLevel: 'moderate',
+    chattiness: 0.8,
+    empathyLevel: 0.9
   },
   {
     id: 'community-organizer',
@@ -904,7 +939,12 @@ CONVERSATION PATTERNS:
 - "Building on the policy discussion, the grassroots impact would be..."
 - "This could bring together [stakeholder group A] and [stakeholder group B]..."
 
-Keep responses focused on community and inclusion, under 130 words. /no_think`
+Keep responses focused on community and inclusion, under 130 words. /no_think`,
+    tone: 'empathetic',
+    style: 'collaborative',
+    energyLevel: 'high',
+    chattiness: 0.9,
+    empathyLevel: 0.9
   }
 ];
 
@@ -929,3 +969,251 @@ export const suggestedHybrids: HybridSuggestion[] = [
   { parent1: 'social-scientist', parent2: 'innovation-consultant', name: 'Social Innovation Expert', description: 'Social research with innovation methodology' },
   { parent1: 'legal-expert', parent2: 'product-manager', name: 'Compliance Product Manager', description: 'Product strategy with legal compliance' }
 ]; 
+
+// API Conversion Types and Functions
+export interface ApiExpertise {
+  area: string;
+  level: 'beginner' | 'intermediate' | 'advanced' | 'expert';
+  tools: string[];
+}
+
+export interface ApiPersonality {
+  traits: string[];
+}
+
+export interface ApiPersonaPayload {
+  role: string;
+  name: string;
+  description: string;
+  background: string;
+  expertise: ApiExpertise[];
+  personality: ApiPersonality;
+  communicationStyle: string;
+  conversationalStyle: string;
+  systemPrompt: string;
+}
+
+// Mapping functions for conversion
+const getExpertiseLevel = (expertiseArea: string): 'beginner' | 'intermediate' | 'advanced' | 'expert' => {
+  // Map based on common expertise patterns
+  const expertLevelMap: Record<string, 'beginner' | 'intermediate' | 'advanced' | 'expert'> = {
+    'architecture': 'expert',
+    'system design': 'expert',
+    'team coordination': 'advanced',
+    'technical strategy': 'expert',
+    'coding': 'advanced',
+    'debugging': 'advanced',
+    'algorithms': 'advanced',
+    'data structures': 'advanced',
+    'testing': 'expert',
+    'quality assurance': 'expert',
+    'bug reporting': 'advanced',
+    'user experience': 'advanced',
+    'CI/CD': 'expert',
+    'infrastructure': 'expert',
+    'deployment': 'expert',
+    'monitoring': 'advanced',
+    'security': 'advanced',
+    'machine learning': 'expert',
+    'statistics': 'expert',
+    'data visualization': 'advanced',
+    'predictive modeling': 'advanced',
+    'policy analysis': 'expert',
+    'research methodology': 'advanced',
+    'impact assessment': 'advanced',
+    'economics': 'expert',
+    'market analysis': 'advanced',
+    'fiscal policy': 'expert',
+    'resource allocation': 'advanced',
+    'law': 'expert',
+    'regulations': 'expert',
+    'compliance': 'advanced',
+    'legal precedent': 'expert',
+    'sociology': 'expert',
+    'human behavior': 'expert',
+    'cultural impacts': 'advanced',
+    'community effects': 'advanced',
+    'ecology': 'expert',
+    'climate science': 'expert',
+    'environmental impact': 'expert',
+    'sustainability': 'expert'
+  };
+  
+  return expertLevelMap[expertiseArea] || 'advanced';
+};
+
+const getToolsForExpertise = (expertiseArea: string): string[] => {
+  const toolsMap: Record<string, string[]> = {
+    'architecture': ['UML', 'C4 Model', 'System Design Tools'],
+    'system design': ['Microservices', 'API Design', 'Database Design'],
+    'team coordination': ['Jira', 'Slack', 'Project Management'],
+    'technical strategy': ['Architecture Reviews', 'Technical Roadmaps', 'Risk Assessment'],
+    'coding': ['IDE', 'Git', 'Code Review Tools'],
+    'debugging': ['Debuggers', 'Profilers', 'Log Analysis'],
+    'algorithms': ['Algorithm Design', 'Complexity Analysis', 'Data Structures'],
+    'data structures': ['Arrays', 'Trees', 'Graphs', 'Hash Tables'],
+    'testing': ['Unit Testing', 'Integration Testing', 'Test Automation'],
+    'quality assurance': ['Test Planning', 'Bug Tracking', 'Quality Metrics'],
+    'bug reporting': ['Bug Tracking Systems', 'Test Cases', 'Reproduction Steps'],
+    'user experience': ['User Research', 'Usability Testing', 'User Journey Mapping'],
+    'CI/CD': ['Jenkins', 'GitHub Actions', 'Docker', 'Kubernetes'],
+    'infrastructure': ['AWS', 'Azure', 'Terraform', 'Ansible'],
+    'deployment': ['Docker', 'Kubernetes', 'Cloud Platforms'],
+    'monitoring': ['Prometheus', 'Grafana', 'ELK Stack'],
+    'security': ['Security Scanning', 'Penetration Testing', 'Compliance Audits'],
+    'machine learning': ['Python', 'TensorFlow', 'PyTorch', 'Scikit-learn'],
+    'statistics': ['R', 'Python', 'Statistical Analysis', 'Hypothesis Testing'],
+    'data visualization': ['Tableau', 'Power BI', 'D3.js', 'Python Visualization'],
+    'predictive modeling': ['Machine Learning', 'Statistical Models', 'Time Series Analysis'],
+    'policy analysis': ['Policy Research', 'Impact Assessment', 'Stakeholder Analysis'],
+    'research methodology': ['Surveys', 'Interviews', 'Statistical Analysis'],
+    'impact assessment': ['Cost-Benefit Analysis', 'Risk Assessment', 'Evaluation Frameworks'],
+    'economics': ['Economic Modeling', 'Econometrics', 'Market Analysis'],
+    'market analysis': ['Market Research', 'Competitive Analysis', 'Consumer Behavior'],
+    'fiscal policy': ['Budget Analysis', 'Tax Policy', 'Government Finance'],
+    'resource allocation': ['Optimization Models', 'Resource Planning', 'Efficiency Analysis'],
+    'law': ['Legal Research', 'Case Analysis', 'Legal Writing'],
+    'regulations': ['Regulatory Analysis', 'Compliance Frameworks', 'Legal Interpretation'],
+    'compliance': ['Audit Tools', 'Risk Assessment', 'Compliance Monitoring'],
+    'legal precedent': ['Case Law Research', 'Legal Databases', 'Precedent Analysis'],
+    'sociology': ['Social Research', 'Survey Methods', 'Qualitative Analysis'],
+    'human behavior': ['Behavioral Analysis', 'Psychology Research', 'User Studies'],
+    'cultural impacts': ['Cultural Analysis', 'Ethnographic Methods', 'Community Research'],
+    'community effects': ['Community Assessment', 'Stakeholder Engagement', 'Social Impact'],
+    'ecology': ['Environmental Monitoring', 'Ecosystem Analysis', 'Biodiversity Assessment'],
+    'climate science': ['Climate Modeling', 'Data Analysis', 'Environmental Monitoring'],
+    'environmental impact': ['Impact Assessment', 'Environmental Monitoring', 'Sustainability Metrics'],
+    'sustainability': ['Life Cycle Analysis', 'Sustainability Frameworks', 'Green Metrics']
+  };
+  
+  return toolsMap[expertiseArea] || ['General Tools', 'Analysis', 'Research'];
+};
+
+const getCommunicationStyle = (tone: string): string => {
+  const styleMap: Record<string, string> = {
+    'concise': 'direct',
+    'verbose': 'detailed',
+    'analytical': 'professional',
+    'casual': 'informal',
+    'empathetic': 'supportive',
+    'humorous': 'engaging',
+    'cautious': 'careful',
+    'optimistic': 'positive'
+  };
+  
+  return styleMap[tone] || 'professional';
+};
+
+const getConversationalStyle = (style: string): string => {
+  const conversationalMap: Record<string, string> = {
+    'structured': 'methodical',
+    'freeform': 'flexible',
+    'inquisitive': 'curious',
+    'decisive': 'direct',
+    'collaborative': 'cooperative',
+    'authoritative': 'confident'
+  };
+  
+  return conversationalMap[style] || 'balanced';
+};
+
+/**
+ * Converts a Persona object to the API payload format
+ */
+export const convertPersonaToApiPayload = (persona: Persona): ApiPersonaPayload => {
+  // Convert expertise array to API format
+  const apiExpertise: ApiExpertise[] = persona.expertise.map(area => ({
+    area,
+    level: getExpertiseLevel(area),
+    tools: getToolsForExpertise(area)
+  }));
+
+  // Convert traits to simple string array
+  const personalityTraits = persona.traits.map(trait => trait.name);
+
+  return {
+    role: persona.role,
+    name: persona.name,
+    description: persona.description,
+    background: persona.background,
+    expertise: apiExpertise,
+    personality: {
+      traits: personalityTraits
+    },
+    communicationStyle: getCommunicationStyle(persona.tone),
+    conversationalStyle: getConversationalStyle(persona.style),
+    systemPrompt: persona.systemPrompt
+  };
+};
+
+/**
+ * Converts all personas to API format for bulk operations
+ */
+export const convertAllPersonasToApiFormat = (): ApiPersonaPayload[] => {
+  const allPersonasFlat = getAllPersonasFlat();
+  return allPersonasFlat.map(convertPersonaToApiPayload);
+};
+
+/**
+ * Generate axios request config for creating a persona via API
+ */
+export const generatePersonaApiRequest = (persona: Persona, baseUrl: string = 'http://localhost:3001', authToken?: string) => {
+  const payload = convertPersonaToApiPayload(persona);
+  
+  return {
+    method: 'post',
+    maxBodyLength: Infinity,
+    url: `${baseUrl}/api/v1/personas`,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(authToken && { 'Authorization': authToken })
+    },
+    data: JSON.stringify(payload)
+  };
+};
+
+/**
+ * Example usage function that shows how to convert and send a persona
+ */
+export const createPersonaViaApi = async (personaId: string, baseUrl?: string, authToken?: string) => {
+  const persona = getPersonaById(personaId);
+  if (!persona) {
+    throw new Error(`Persona with id '${personaId}' not found`);
+  }
+
+  const requestConfig = generatePersonaApiRequest(persona, baseUrl, authToken);
+  
+  // Return the config for use with axios
+  return requestConfig;
+};
+
+// Example: Business Analyst persona in API format
+export const businessAnalystApiExample: ApiPersonaPayload = {
+  role: "Business Analyst",
+  name: "Business Analyst", 
+  description: "Expert in business analysis and strategy",
+  background: "10+ years of experience in market research, financial modeling, and strategic planning across multiple industries including tech, finance, and healthcare.",
+  expertise: [
+    {
+      area: "business analysis",
+      level: "expert",
+      tools: ["Excel", "Power BI", "SQL"]
+    },
+    {
+      area: "strategy", 
+      level: "expert",
+      tools: ["SWOT", "Porter's Five Forces", "BCG Matrix"]
+    },
+    {
+      area: "market research",
+      level: "advanced", 
+      tools: ["Surveys", "Focus Groups", "Statistical Analysis"]
+    }
+  ],
+  personality: {
+    traits: ["analytical", "detail-oriented", "strategic"]
+  },
+  communicationStyle: "professional",
+  conversationalStyle: "precise", 
+  systemPrompt: "You are a highly skilled Business Analyst who helps teams make data-driven decisions. Use strategic thinking and clear reasoning to assist users."
+}; 
