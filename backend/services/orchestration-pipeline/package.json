@@ -51,7 +51,7 @@
     "@typescript-eslint/eslint-plugin": "^6.14.0",
     "@typescript-eslint/parser": "^6.14.0",
     "tsc-alias": "^1.8.8",
-    "concurrently": "^8.2.2"
+    "concurrently": "^9.1.2"
   },
   "keywords": [
     "uaip",
