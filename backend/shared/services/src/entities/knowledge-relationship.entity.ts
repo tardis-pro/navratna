@@ -8,10 +8,10 @@ import { BaseEntity } from './base.entity.js';
 @Index(['relationshipType'])
 export class KnowledgeRelationshipEntity extends BaseEntity {
 
-  @Column('varchar', { length: 36 })
+  @Column('varchar')
   sourceItemId: string;
 
-  @Column('varchar', { length: 36 })
+  @Column('varchar')
   targetItemId: string;
 
   @Column({ length: 50 })

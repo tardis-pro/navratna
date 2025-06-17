@@ -19,6 +19,12 @@ export class AgentIntelligenceService {
       url: process.env.RABBITMQ_URL || 'amqp://localhost',
       serviceName: 'agent-intelligence'
     }, console as any);
+   this.databaseService.seedDatabase().then(() => {
+    logger.info('Database seeding completed successfully');
+   }).catch((error) => {
+    logger.error('Database seeding failed', { error });
+   });
+
   }
 
   public async initialize(): Promise<void> {
@@ -28,6 +34,7 @@ export class AgentIntelligenceService {
       // Initialize database service first
       await this.databaseService.initialize();
       logger.info('DatabaseService initialized successfully');
+      
 
       // Initialize event bus connection with retry logic
       const maxRetries = 3;
@@ -90,7 +97,6 @@ export class AgentIntelligenceService {
     try {
       // Use DatabaseService getActiveAgents method instead of raw SQL
       const agents = await this.databaseService.getActiveAgents(6);
-      
       if (agents.length === 0) {
         return null;
       }
@@ -312,7 +318,6 @@ export class AgentIntelligenceService {
 
       // Use DatabaseService updateAgent method instead of raw SQL
       const updatedAgent = await this.databaseService.updateAgent(validatedId, updatePayload);
-
       if (!updatedAgent) {
         throw new ApiError(404, 'Agent not found', 'AGENT_NOT_FOUND');
       }

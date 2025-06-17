@@ -2,7 +2,7 @@ import { DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { initializeDatabase } from './typeorm.config.js';
 
-// Import key entities
+// Import entities
 import { UserEntity } from '../entities/user.entity.js';
 import { Agent } from '../entities/agent.entity.js';
 import { Persona } from '../entities/persona.entity.js';
@@ -11,25 +11,16 @@ import { ToolDefinition } from '../entities/toolDefinition.entity.js';
 import { SecurityPolicy } from '../entities/securityPolicy.entity.js';
 import { AuditEvent } from '../entities/auditEvent.entity.js';
 
-// Import types - fix the import paths to use the correct module structure
-import { 
-  SecurityLevel, 
-  AuditEventType,
-  AgentRole,
-  PersonaStatus, 
-  PersonaVisibility,
-  OperationStatus, 
-  OperationType, 
-  OperationPriority,
-  ToolCategory
-} from '@uaip/types';
-
-// Import ToolSecurityLevel from entity
-import { ToolSecurityLevel } from '../entities/toolDefinition.entity.js';
+// Import types from relative paths
+import { SecurityLevel, AuditEventType } from '@uaip/types';
+import { AgentRole } from '@uaip/types';
+import { PersonaStatus, PersonaVisibility } from '@uaip/types';
+import { OperationStatus, OperationType, OperationPriority } from '@uaip/types';
+import { ToolCategory, ToolExecutionStatus } from '@uaip/types';
 
 /**
- * Simple Database Seeding Script
- * Seeds core entities with realistic sample data
+ * Comprehensive Database Seeding Script
+ * Seeds all entities with realistic sample data for development and testing
  */
 export async function seedDatabase(): Promise<void> {
   let dataSource: DataSource;
@@ -37,10 +28,9 @@ export async function seedDatabase(): Promise<void> {
   try {
     console.log('🚀 Initializing database connection for seeding...');
     dataSource = await initializeDatabase();
+    console.log('🌱 Starting comprehensive database seeding...');
 
-    console.log('🌱 Starting database seeding...');
-
-    // Seed Users
+    // Seed Users with different roles and security levels
     console.log('👥 Seeding users...');
     const userRepository = dataSource.getRepository(UserEntity);
     
@@ -126,10 +116,7 @@ export async function seedDatabase(): Promise<void> {
           min_approvers: 2,
           security_level: 'high',
           allowed_roles: ['system_admin', 'operations_manager'],
-          time_constraints: {
-            max_duration: 3600,
-            business_hours_only: true
-          }
+          time_constraints: { max_duration: 3600, business_hours_only: true }
         },
         securityLevel: SecurityLevel.HIGH,
         isActive: true,
@@ -143,10 +130,7 @@ export async function seedDatabase(): Promise<void> {
           approval_required: false,
           security_level: 'medium',
           allowed_roles: ['developer', 'data_analyst', 'operations_manager'],
-          rate_limits: {
-            requests_per_hour: 100,
-            concurrent_operations: 5
-          }
+          rate_limits: { requests_per_hour: 100, concurrent_operations: 5 }
         },
         securityLevel: SecurityLevel.MEDIUM,
         isActive: true,
@@ -172,9 +156,9 @@ export async function seedDatabase(): Promise<void> {
           { name: 'systematic', value: 'follows systematic approaches to problem-solving' }
         ],
         expertise: ['data-analysis', 'system-optimization', 'performance-tuning'],
-        tone: 'analytical',
-        style: 'structured',
-        energyLevel: 'moderate',
+        tone: 'analytical' as any,
+        style: 'structured' as any,
+        energyLevel: 'moderate' as any,
         chattiness: 0.6,
         empathyLevel: 0.4,
         conversationalStyle: {
@@ -210,9 +194,9 @@ export async function seedDatabase(): Promise<void> {
           { name: 'collaborative', value: 'thrives in collaborative environments' }
         ],
         expertise: ['design-thinking', 'innovation', 'brainstorming', 'creative-solutions'],
-        tone: 'optimistic',
-        style: 'freeform',
-        energyLevel: 'high',
+        tone: 'optimistic' as any,
+        style: 'freeform' as any,
+        energyLevel: 'high' as any,
         chattiness: 0.8,
         empathyLevel: 0.8,
         conversationalStyle: {
@@ -256,18 +240,18 @@ export async function seedDatabase(): Promise<void> {
           preferences: { visualization_library: 'plotly', statistical_package: 'scipy' }
         },
         intelligenceConfig: {
-          analysisDepth: 'advanced',
+          analysisDepth: 'advanced' as any,
           contextWindowSize: 8000,
           decisionThreshold: 0.8,
           learningEnabled: true,
-          collaborationMode: 'collaborative'
+          collaborationMode: 'collaborative' as any
         },
         securityContext: {
-          securityLevel: 'high',
+          securityLevel: 'high' as any,
           allowedCapabilities: ['data-analysis', 'visualization', 'reporting'],
           restrictedDomains: ['financial-data', 'personal-data'],
           approvalRequired: true,
-          auditLevel: 'comprehensive'
+          auditLevel: 'comprehensive' as any
         },
         isActive: true,
         createdBy: users[1].id,
@@ -284,7 +268,7 @@ export async function seedDatabase(): Promise<void> {
           successRate: 0.94,
           userSatisfaction: 0.89
         },
-        securityLevel: 'high',
+        securityLevel: 'high' as any,
         complianceTags: ['GDPR', 'SOX'],
         configuration: {
           maxConcurrentOperations: 5,
@@ -297,7 +281,7 @@ export async function seedDatabase(): Promise<void> {
         successfulOperations: 1175,
         averageResponseTime: 2.5,
         modelId: 'gpt-4-turbo',
-        apiType: 'llmstudio',
+        apiType: 'llmstudio' as any,
         temperature: 0.3,
         maxTokens: 4000,
         systemPrompt: 'You are DataMaster Pro, an advanced data analysis agent. Provide thorough, accurate analysis with clear visualizations and actionable insights.',
@@ -314,18 +298,18 @@ export async function seedDatabase(): Promise<void> {
           preferences: { coding_style: 'clean-code', testing_framework: 'jest', documentation_format: 'markdown' }
         },
         intelligenceConfig: {
-          analysisDepth: 'advanced',
+          analysisDepth: 'advanced' as any,
           contextWindowSize: 10000,
           decisionThreshold: 0.85,
           learningEnabled: true,
-          collaborationMode: 'independent'
+          collaborationMode: 'independent' as any
         },
         securityContext: {
-          securityLevel: 'medium',
+          securityLevel: 'medium' as any,
           allowedCapabilities: ['code-analysis', 'code-generation', 'debugging', 'documentation'],
           restrictedDomains: ['production-systems'],
           approvalRequired: false,
-          auditLevel: 'standard'
+          auditLevel: 'standard' as any
         },
         isActive: true,
         createdBy: users[3].id,
@@ -343,7 +327,7 @@ export async function seedDatabase(): Promise<void> {
           successRate: 0.89,
           userSatisfaction: 0.91
         },
-        securityLevel: 'medium',
+        securityLevel: 'medium' as any,
         complianceTags: ['OWASP'],
         configuration: {
           maxConcurrentOperations: 3,
@@ -356,7 +340,7 @@ export async function seedDatabase(): Promise<void> {
         successfulOperations: 578,
         averageResponseTime: 3.2,
         modelId: 'claude-3-sonnet',
-        apiType: 'llmstudio',
+        apiType: 'llmstudio' as any,
         temperature: 0.2,
         maxTokens: 6000,
         systemPrompt: 'You are CodeCraft Assistant, a software development specialist. Provide clean, well-documented code solutions with best practices.',
@@ -372,10 +356,12 @@ export async function seedDatabase(): Promise<void> {
     const tools = await toolRepository.save([
       {
         name: 'data_analyzer',
+        displayName: 'Data Analyzer',
         description: 'Advanced data analysis and statistical computation tool',
         version: '2.1.0',
-        category: ToolCategory.ANALYSIS,
-        parameters: {
+        type: 'analysis' as any,
+        category: 'data-analysis' as any,
+        inputSchema: {
           type: 'object',
           properties: {
             data_source: { type: 'string', description: 'Path to data source' },
@@ -384,7 +370,7 @@ export async function seedDatabase(): Promise<void> {
           },
           required: ['data_source', 'analysis_type']
         },
-        returnType: {
+        outputSchema: {
           type: 'object',
           properties: {
             results: { type: 'object', description: 'Analysis results' },
@@ -392,34 +378,33 @@ export async function seedDatabase(): Promise<void> {
             insights: { type: 'array', description: 'Key insights and findings' }
           }
         },
-        examples: [
-          {
-            name: 'Sales Data Analysis',
-            description: 'Analyze quarterly sales data',
-            parameters: {
-              data_source: '/data/sales_q4.csv',
-              analysis_type: 'descriptive'
-            }
-          }
-        ],
-        securityLevel: ToolSecurityLevel.MODERATE,
-        author: 'UAIP System',
+        configuration: {
+          timeout: 300,
+          maxRetries: 3,
+          resourceLimits: { memory: '2GB', cpu: '2 cores' }
+        },
+        securityLevel: 'moderate' as any,
+        status: 'active' as any,
+        isPublic: true,
+        createdBy: users[1].id,
         tags: ['data', 'analysis', 'statistics'],
+        capabilities: ['statistical-analysis', 'data-visualization', 'trend-analysis'],
         dependencies: ['pandas', 'numpy', 'matplotlib'],
-        costEstimate: 0.05,
+        executionEnvironment: 'python',
+        costPerExecution: 0.05,
         averageExecutionTime: 45.5,
+        successRate: 0.94,
         totalExecutions: 1250,
-        successfulExecutions: 1175,
-        lastUsedAt: new Date(),
-        isEnabled: true,
-        requiresApproval: false
+        lastUsedAt: new Date()
       },
       {
         name: 'code_generator',
+        displayName: 'Code Generator',
         description: 'Intelligent code generation tool for multiple programming languages',
         version: '1.8.3',
-        category: ToolCategory.DEVELOPMENT,
-        parameters: {
+        type: 'generation' as any,
+        category: 'development' as any,
+        inputSchema: {
           type: 'object',
           properties: {
             language: { type: 'string', enum: ['typescript', 'python', 'javascript', 'go'] },
@@ -428,7 +413,7 @@ export async function seedDatabase(): Promise<void> {
           },
           required: ['language', 'requirements']
         },
-        returnType: {
+        outputSchema: {
           type: 'object',
           properties: {
             code: { type: 'string', description: 'Generated code' },
@@ -436,27 +421,24 @@ export async function seedDatabase(): Promise<void> {
             documentation: { type: 'string', description: 'Code documentation' }
           }
         },
-        examples: [
-          {
-            name: 'TypeScript API Generation',
-            description: 'Generate REST API endpoints',
-            parameters: {
-              language: 'typescript',
-              requirements: 'CRUD operations for user management'
-            }
-          }
-        ],
-        securityLevel: ToolSecurityLevel.SAFE,
-        author: 'UAIP System',
+        configuration: {
+          timeout: 180,
+          maxRetries: 2,
+          resourceLimits: { memory: '1GB', cpu: '1 core' }
+        },
+        securityLevel: 'safe' as any,
+        status: 'active' as any,
+        isPublic: true,
+        createdBy: users[3].id,
         tags: ['code', 'generation', 'development'],
+        capabilities: ['code-generation', 'test-generation', 'documentation'],
         dependencies: ['ast', 'jinja2'],
-        costEstimate: 0.02,
+        executionEnvironment: 'python',
+        costPerExecution: 0.02,
         averageExecutionTime: 22.3,
+        successRate: 0.91,
         totalExecutions: 850,
-        successfulExecutions: 774,
-        lastUsedAt: new Date(),
-        isEnabled: true,
-        requiresApproval: false
+        lastUsedAt: new Date()
       }
     ]);
     console.log(`   ✅ Seeded ${tools.length} tool definitions`);
@@ -467,7 +449,7 @@ export async function seedDatabase(): Promise<void> {
     
     const operations = await operationRepository.save([
       {
-        type: OperationType.DATA_ANALYSIS,
+        type: OperationType.ANALYSIS,
         status: OperationStatus.COMPLETED,
         priority: OperationPriority.HIGH,
         agent: agents[0],
@@ -495,19 +477,11 @@ export async function seedDatabase(): Promise<void> {
         completedAt: new Date('2024-01-15T09:45:00Z'),
         estimatedDuration: 2700,
         actualDuration: 2700,
-        resourcesUsed: {
-          cpu: '2 cores',
-          memory: '4GB',
-          storage: '500MB'
-        },
-        metadata: {
-          version: '1.0',
-          environment: 'production',
-          clientId: 'sales-team'
-        }
+        resourcesUsed: { cpu: '2 cores', memory: '4GB', storage: '500MB' },
+        metadata: { version: '1.0', environment: 'production', clientId: 'sales-team' }
       },
       {
-        type: OperationType.CODE_GENERATION,
+        type: OperationType.ARTIFACT_GENERATION,
         status: OperationStatus.COMPLETED,
         priority: OperationPriority.LOW,
         agent: agents[1],
@@ -539,16 +513,8 @@ export async function seedDatabase(): Promise<void> {
         completedAt: new Date('2024-01-14T14:52:00Z'),
         estimatedDuration: 1200,
         actualDuration: 1320,
-        resourcesUsed: {
-          cpu: '1 core',
-          memory: '2GB',
-          storage: '100MB'
-        },
-        metadata: {
-          version: '1.0',
-          environment: 'development',
-          projectId: 'user-mgmt-api'
-        }
+        resourcesUsed: { cpu: '1 core', memory: '2GB', storage: '100MB' },
+        metadata: { version: '1.0', environment: 'development', projectId: 'user-mgmt-api' }
       }
     ]);
     console.log(`   ✅ Seeded ${operations.length} operations`);
@@ -571,35 +537,29 @@ export async function seedDatabase(): Promise<void> {
         severity: 'info',
         category: 'authentication',
         source: 'auth-service',
-        metadata: {
-          sessionId: 'session-001',
-          location: 'New York, NY'
-        }
+        metadata: { sessionId: 'session-001', location: 'New York, NY' }
       },
       {
         eventType: AuditEventType.OPERATION_START,
         userId: users[1].id,
-        resourceId: operations[0].id.toString(),
+        resourceId: (operations[0] as any).id.toString(),
         resourceType: 'operation',
         timestamp: new Date('2024-01-15T09:00:00Z'),
         details: {
           operationType: 'data-analysis',
-          agentId: operations[0].agent.id,
+          agentId: (operations[0] as any).agent.id,
           priority: 'high',
           estimatedDuration: 2700
         },
         severity: 'info',
         category: 'operation',
         source: 'orchestration-service',
-        metadata: {
-          requestId: 'req-001',
-          clientId: 'web-app'
-        }
+        metadata: { requestId: 'req-001', clientId: 'web-app' }
       },
       {
         eventType: AuditEventType.OPERATION_COMPLETE,
         userId: users[1].id,
-        resourceId: operations[0].id.toString(),
+        resourceId: (operations[0] as any).id.toString(),
         resourceType: 'operation',
         timestamp: new Date('2024-01-15T09:45:00Z'),
         details: {
@@ -611,10 +571,7 @@ export async function seedDatabase(): Promise<void> {
         severity: 'info',
         category: 'operation',
         source: 'orchestration-service',
-        metadata: {
-          requestId: 'req-001',
-          artifacts: ['sales-report-q4.md']
-        }
+        metadata: { requestId: 'req-001', artifacts: ['sales-report-q4.md'] }
       }
     ]);
     console.log(`   ✅ Seeded ${auditEvents.length} audit events`);
@@ -630,11 +587,11 @@ export async function seedDatabase(): Promise<void> {
     console.log(`   - Audit Events: ${auditEvents.length} records`);
 
     console.log('\n🔑 User Credentials:');
-    console.log('   - admin@uaip.dev / admin123!');
-    console.log('   - manager@uaip.dev / manager123!');
-    console.log('   - analyst@uaip.dev / analyst123!');
-    console.log('   - developer@uaip.dev / dev123!');
-    console.log('   - guest@uaip.dev / guest123!');
+    console.log('   - admin@uaip.dev / admin123! (Critical Security)');
+    console.log('   - manager@uaip.dev / manager123! (High Security)');
+    console.log('   - analyst@uaip.dev / analyst123! (Medium Security)');
+    console.log('   - developer@uaip.dev / dev123! (Medium Security)');
+    console.log('   - guest@uaip.dev / guest123! (Low Security)');
 
   } catch (error) {
     console.error('💥 Database seeding failed:', error);
@@ -647,15 +604,3 @@ export async function seedDatabase(): Promise<void> {
   }
 }
 
-// Allow direct execution
-if (require.main === module) {
-  seedDatabase()
-    .then(() => {
-      console.log('✅ Seeding script completed');
-      process.exit(0);
-    })
-    .catch((error) => {
-      console.error('❌ Seeding script failed:', error);
-      process.exit(1);
-    });
-} 

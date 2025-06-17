@@ -11,7 +11,7 @@ import { BaseEntity } from './base.entity.js';
 @Index(['status', 'expiresAt'])
 @Index(['createdAt'])
 export class ApprovalWorkflow extends BaseEntity {
-  @Column({ name: 'operation_id', type: 'varchar' })
+  @Column({ name: 'operation_id' })
   operationId: string;
 
   @Column({ name: 'required_approvers', type: 'jsonb' })

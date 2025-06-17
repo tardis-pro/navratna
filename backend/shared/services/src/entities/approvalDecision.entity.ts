@@ -9,10 +9,10 @@ import { BaseEntity } from './base.entity.js';
 @Index(['workflowId', 'decidedAt'])
 @Index(['approverId'])
 export class ApprovalDecision extends BaseEntity {
-  @Column({ name: 'workflow_id', type: 'varchar' })
+  @Column({ name: 'workflow_id' })
   workflowId: string;
 
-  @Column({ name: 'approver_id', type: 'varchar' })
+  @Column({ name: 'approver_id' })
   approverId: string;
 
   @Column({ type: 'enum', enum: ['approve', 'reject'] })

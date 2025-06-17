@@ -1,4 +1,4 @@
-import { DataSource } from 'typeorm';
+import { DataSource, DeepPartial } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { initializeDatabase } from './typeorm.config.js';
 
@@ -27,39 +27,38 @@ import { PersonaAnalytics } from '../entities/personaAnalytics.entity.js';
 import { MCPServer } from '../entities/mcpServer.entity.js';
 import { MCPToolCall } from '../entities/mcpToolCall.entity.js';
 
-// Import types
+// Import types from relative paths
 import { 
   SecurityLevel, 
   AuditEventType,
-  ApprovalStatus 
-} from '@uaip/types/security';
+  ApprovalStatus, 
+  MCPServerStatus,
+  MCPServerType
+} from '@uaip/types';
 import { 
   AgentRole,
   AgentPersona,
   AgentIntelligenceConfig,
   AgentSecurityContext 
-} from '@uaip/types/agent';
+} from '@uaip/types';
 import { 
   PersonaStatus, 
   PersonaVisibility,
   PersonaTrait,
   ConversationalStyle 
-} from '@uaip/types/persona';
+} from '@uaip/types';
 import { 
   OperationStatus,
   OperationType,
   OperationPriority 
-} from '@uaip/types/operation';
+} from '@uaip/types';
 import { 
-  ToolType,
-  ToolStatus,
-  ToolSecurityLevel 
-} from '@uaip/types/tools';
+  ToolCategory,
+  ToolExecutionStatus 
+} from '@uaip/types';
 import { 
-  ArtifactType,
-  ArtifactStatus,
-  ReviewStatus 
-} from '@uaip/types/artifact';
+  ArtifactType 
+} from '@uaip/types';
 
 /**
  * Comprehensive Database Seeding Script
@@ -88,8 +87,9 @@ export class DatabaseSeeder {
       await this.seedToolDefinitions();
       await this.seedMCPServers();
       await this.seedOperations();
-      await this.seedArtifacts();
       await this.seedConversationContexts();
+
+      await this.seedArtifacts();
       await this.seedToolExecutions();
       await this.seedToolUsageRecords();
       await this.seedAgentCapabilityMetrics();
@@ -103,7 +103,7 @@ export class DatabaseSeeder {
       await this.seedDiscussionParticipants();
       await this.seedPersonaAnalytics();
       await this.seedMCPToolCalls();
-      await this.seedAuditEvents();
+      // await this.seedAuditEvents();
 
       console.log('✅ Database seeding completed successfully!');
       console.log('📊 Seeded entities summary:');
@@ -126,7 +126,7 @@ export class DatabaseSeeder {
     
     const users = [
       {
-        email: 'admin@uaip.dev',
+        email: 'admin1@uaip.dev',
         firstName: 'System',
         lastName: 'Administrator',
         department: 'IT Operations',
@@ -139,7 +139,7 @@ export class DatabaseSeeder {
         lastLoginAt: new Date()
       },
       {
-        email: 'manager@uaip.dev',
+        email: 'manager1@uaip.dev',
         firstName: 'Operations',
         lastName: 'Manager',
         department: 'Operations',
@@ -152,7 +152,7 @@ export class DatabaseSeeder {
         lastLoginAt: new Date()
       },
       {
-        email: 'analyst@uaip.dev',
+        email: 'analyst1@uaip.dev',
         firstName: 'Data',
         lastName: 'Analyst',
         department: 'Analytics',
@@ -165,7 +165,7 @@ export class DatabaseSeeder {
         lastLoginAt: new Date()
       },
       {
-        email: 'developer@uaip.dev',
+        email: 'developer1@uaip.dev',
         firstName: 'Software',
         lastName: 'Developer',
         department: 'Engineering',
@@ -178,7 +178,7 @@ export class DatabaseSeeder {
         lastLoginAt: new Date()
       },
       {
-        email: 'guest@uaip.dev',
+        email: 'guest1@uaip.dev',
         firstName: 'Guest',
         lastName: 'User',
         department: 'External',
@@ -192,7 +192,8 @@ export class DatabaseSeeder {
       }
     ];
 
-    const savedUsers = await userRepository.save(users);
+    await userRepository.save(users);
+    const savedUsers = await userRepository.find();
     this.seededEntities.set('Users', savedUsers);
     console.log(`   ✅ Seeded ${savedUsers.length} users`);
   }
@@ -206,60 +207,123 @@ export class DatabaseSeeder {
     const policyRepository = this.dataSource.getRepository(SecurityPolicy);
     const users = this.seededEntities.get('Users')!;
 
-    const policies = [
+    const policies: Omit<SecurityPolicy, 'id'>[] = [
       {
         name: 'High Security Operations Policy',
         description: 'Security policy for high-risk operations requiring approval',
-        rules: {
-          approval_required: true,
-          min_approvers: 2,
-          security_level: 'high',
-          allowed_roles: ['system_admin', 'operations_manager'],
-          time_constraints: {
-            max_duration: 3600,
-            business_hours_only: true
+        conditions: {
+          operationTypes: ['high-risk'],
+          resourceTypes: ['database', 'api'],
+          userRoles: ['system_admin', 'operations_manager'],
+          timeRestrictions: {
+            allowedHours: [9, 17],
+            allowedDays: [1, 2, 3, 4, 5],
+            timezone: 'UTC'
+          },
+          environmentRestrictions: ['production'],
+          riskThresholds: {
+            minRiskScore: 0.8,
+            maxRiskScore: 0.95
           }
         },
-        securityLevel: SecurityLevel.HIGH,
+          actions: {
+            requireApproval: true,
+            approvalRequirements: {
+            minimumApprovers: 2,
+            requiredRoles: ['system_admin', 'operations_manager'],
+            timeoutHours: 24
+          },
+          blockOperation: true,
+          logLevel: 'error',
+          notificationChannels: ['email', 'slack'],
+          additionalActions: {
+            auditLog: true,
+            notification: true
+          }
+        },
         isActive: true,
         createdBy: users[0].id,
-        version: '1.0'
+        priority: 1,
+        createdAt: new Date(),
+        updatedAt: new Date()
       },
       {
         name: 'Standard Operations Policy',
         description: 'Default security policy for standard operations',
-        rules: {
-          approval_required: false,
-          security_level: 'medium',
-          allowed_roles: ['developer', 'data_analyst', 'operations_manager'],
-          rate_limits: {
-            requests_per_hour: 100,
-            concurrent_operations: 5
+        conditions: {
+          operationTypes: ['standard'],
+          resourceTypes: ['database', 'api'],
+          userRoles: ['developer', 'data_analyst', 'operations_manager'],
+          timeRestrictions: {
+            allowedHours: [9, 17],
+            allowedDays: [1, 2, 3, 4, 5],
+            timezone: 'UTC'
+          },
+          environmentRestrictions: ['production'],
+          riskThresholds: {
+            minRiskScore: 0.8,
+            maxRiskScore: 0.95
           }
         },
-        securityLevel: SecurityLevel.MEDIUM,
+        actions: {
+          requireApproval: true,
+          approvalRequirements: {
+            minimumApprovers: 1,
+            requiredRoles: ['guest'],
+            timeoutHours: 24
+          },
+          blockOperation: true,
+          logLevel: 'error',
+          notificationChannels: ['email', 'slack'],
+          additionalActions: {
+            auditLog: true,
+            notification: true
+          }
+        },
         isActive: true,
         createdBy: users[0].id,
-        version: '1.0'
+        priority: 2,
+        createdAt: new Date(),
+        updatedAt: new Date()
       },
       {
         name: 'Guest Access Policy',
         description: 'Restricted policy for guest users',
-        rules: {
-          approval_required: true,
-          min_approvers: 1,
-          security_level: 'low',
-          allowed_roles: ['guest'],
-          restrictions: {
-            read_only: true,
-            no_sensitive_data: true,
-            session_timeout: 1800
+        conditions: {
+          operationTypes: ['standard'],
+          resourceTypes: ['database', 'api'],
+          userRoles: ['guest'],
+          timeRestrictions: {
+            allowedHours: [9, 17],
+            allowedDays: [1, 2, 3, 4, 5],
+            timezone: 'UTC'
+          },
+          environmentRestrictions: ['production'],
+          riskThresholds: {
+            minRiskScore: 0.8,
+            maxRiskScore: 0.95
           }
         },
-        securityLevel: SecurityLevel.LOW,
+        actions: {
+          requireApproval: true,
+          approvalRequirements: {
+            minimumApprovers: 1,
+            requiredRoles: ['guest'],
+            timeoutHours: 24
+          },
+          blockOperation: true,
+          logLevel: 'error',
+          notificationChannels: ['email', 'slack'],
+          additionalActions: {
+            auditLog: true,
+            notification: true
+          }
+        },
         isActive: true,
         createdBy: users[0].id,
-        version: '1.0'
+        priority: 3,
+        createdAt: new Date(),
+        updatedAt: new Date()
       }
     ];
 
@@ -290,21 +354,21 @@ export class DatabaseSeeder {
           { name: 'precise', value: 'values precision and accuracy in all work' }
         ],
         expertise: ['data-analysis', 'system-optimization', 'performance-tuning'],
-        tone: 'analytical',
-        style: 'structured',
-        energyLevel: 'moderate',
+        tone: 'analytical' as any,
+        style: 'structured' as any,
+        energyLevel: 'moderate' as any,
         chattiness: 0.6,
         empathyLevel: 0.4,
         conversationalStyle: {
-          tone: 'professional',
-          verbosity: 'detailed',
-          formality: 'formal',
+          tone: 'professional' as any,
+          verbosity: 'detailed' as any,
+          formality: 'formal' as any,
           empathy: 0.4,
           assertiveness: 0.7,
           creativity: 0.3,
           analyticalDepth: 0.9,
-          questioningStyle: 'direct',
-          responsePattern: 'structured'
+          questioningStyle: 'direct' as any,
+          responsePattern: 'structured' as any
         },
         status: PersonaStatus.ACTIVE,
         visibility: PersonaVisibility.ORGANIZATION,
@@ -329,21 +393,21 @@ export class DatabaseSeeder {
           { name: 'optimistic', value: 'maintains positive outlook on challenges' }
         ],
         expertise: ['design-thinking', 'innovation', 'brainstorming', 'creative-solutions'],
-        tone: 'optimistic',
-        style: 'freeform',
-        energyLevel: 'high',
+        tone: 'optimistic' as any,
+        style: 'freeform' as any,
+        energyLevel: 'high' as any,
         chattiness: 0.8,
         empathyLevel: 0.8,
         conversationalStyle: {
-          tone: 'creative',
-          verbosity: 'moderate',
-          formality: 'informal',
+          tone: 'creative' as any,
+          verbosity: 'moderate' as any,
+          formality: 'informal' as any,
           empathy: 0.8,
           assertiveness: 0.6,
           creativity: 0.9,
           analyticalDepth: 0.5,
-          questioningStyle: 'exploratory',
-          responsePattern: 'flowing'
+          questioningStyle: 'exploratory' as any,
+          responsePattern: 'flowing' as any
         },
         status: PersonaStatus.ACTIVE,
         visibility: PersonaVisibility.ORGANIZATION,
@@ -368,21 +432,21 @@ export class DatabaseSeeder {
           { name: 'communicative', value: 'excellent communication skills' }
         ],
         expertise: ['project-management', 'coordination', 'planning', 'team-leadership'],
-        tone: 'concise',
-        style: 'structured',
-        energyLevel: 'dynamic',
+        tone: 'concise' as any,
+        style: 'structured' as any,
+        energyLevel: 'dynamic' as any,
         chattiness: 0.7,
         empathyLevel: 0.6,
         conversationalStyle: {
-          tone: 'professional',
-          verbosity: 'concise',
-          formality: 'neutral',
+          tone: 'professional' as any,
+          verbosity: 'concise' as any,
+          formality: 'neutral' as any,
           empathy: 0.6,
           assertiveness: 0.8,
           creativity: 0.4,
           analyticalDepth: 0.6,
-          questioningStyle: 'direct',
-          responsePattern: 'structured'
+          questioningStyle: 'direct' as any,
+          responsePattern: 'structured' as any
         },
         status: PersonaStatus.ACTIVE,
         visibility: PersonaVisibility.TEAM,
@@ -423,18 +487,18 @@ export class DatabaseSeeder {
           preferences: { visualization_library: 'plotly', statistical_package: 'scipy' }
         } as AgentPersona,
         intelligenceConfig: {
-          analysisDepth: 'advanced',
+          analysisDepth: 'advanced' as any,
           contextWindowSize: 8000,
           decisionThreshold: 0.8,
           learningEnabled: true,
-          collaborationMode: 'collaborative'
+          collaborationMode: 'collaborative' as any
         } as AgentIntelligenceConfig,
         securityContext: {
-          securityLevel: 'high',
+          securityLevel: 'high' as any,
           allowedCapabilities: ['data-analysis', 'visualization', 'reporting'],
           restrictedDomains: ['financial-data', 'personal-data'],
           approvalRequired: true,
-          auditLevel: 'comprehensive'
+          auditLevel: 'comprehensive' as any
         } as AgentSecurityContext,
         isActive: true,
         createdBy: users[1].id,
@@ -451,7 +515,7 @@ export class DatabaseSeeder {
           successRate: 0.94,
           userSatisfaction: 0.89
         },
-        securityLevel: 'high',
+        securityLevel: 'high' as any,
         complianceTags: ['GDPR', 'SOX'],
         configuration: {
           maxConcurrentOperations: 5,
@@ -464,7 +528,7 @@ export class DatabaseSeeder {
         successfulOperations: 1175,
         averageResponseTime: 2.5,
         modelId: 'gpt-4-turbo',
-        apiType: 'llmstudio',
+        apiType: 'llmstudio' as any,
         temperature: 0.3,
         maxTokens: 4000,
         systemPrompt: 'You are DataMaster Pro, an advanced data analysis agent. Provide thorough, accurate analysis with clear visualizations and actionable insights.',
@@ -481,17 +545,17 @@ export class DatabaseSeeder {
           preferences: { scheduling_algorithm: 'priority-based', notification_channels: ['email', 'slack'] }
         } as AgentPersona,
         intelligenceConfig: {
-          analysisDepth: 'intermediate',
+          analysisDepth: 'intermediate' as any,
           contextWindowSize: 6000,
           decisionThreshold: 0.75,
           learningEnabled: true,
-          collaborationMode: 'supervised'
+          collaborationMode: 'supervised' as any
         } as AgentIntelligenceConfig,
         securityContext: {
-          securityLevel: 'medium',
+          securityLevel: 'medium' as any,
           allowedCapabilities: ['workflow-management', 'task-coordination', 'monitoring'],
           approvalRequired: false,
-          auditLevel: 'standard'
+          auditLevel: 'standard' as any
         } as AgentSecurityContext,
         isActive: true,
         createdBy: users[1].id,
@@ -508,7 +572,7 @@ export class DatabaseSeeder {
           successRate: 0.92,
           userSatisfaction: 0.86
         },
-        securityLevel: 'medium',
+        securityLevel: 'medium' as any,
         complianceTags: ['ISO27001'],
         configuration: {
           maxConcurrentOperations: 10,
@@ -521,7 +585,7 @@ export class DatabaseSeeder {
         successfulOperations: 782,
         averageResponseTime: 1.8,
         modelId: 'gpt-3.5-turbo',
-        apiType: 'ollama',
+        apiType: 'ollama' as any,
         temperature: 0.5,
         maxTokens: 3000,
         systemPrompt: 'You are TaskFlow Orchestrator, specialized in workflow management and task coordination. Optimize processes and ensure efficient execution.',
@@ -538,18 +602,18 @@ export class DatabaseSeeder {
           preferences: { coding_style: 'clean-code', testing_framework: 'jest', documentation_format: 'markdown' }
         } as AgentPersona,
         intelligenceConfig: {
-          analysisDepth: 'advanced',
+          analysisDepth: 'advanced' as any,
           contextWindowSize: 10000,
           decisionThreshold: 0.85,
           learningEnabled: true,
-          collaborationMode: 'independent'
+          collaborationMode: 'independent' as any
         } as AgentIntelligenceConfig,
         securityContext: {
-          securityLevel: 'medium',
+          securityLevel: 'medium' as any,
           allowedCapabilities: ['code-analysis', 'code-generation', 'debugging', 'documentation'],
           restrictedDomains: ['production-systems'],
           approvalRequired: false,
-          auditLevel: 'standard'
+          auditLevel: 'standard' as any
         } as AgentSecurityContext,
         isActive: true,
         createdBy: users[3].id,
@@ -567,7 +631,7 @@ export class DatabaseSeeder {
           successRate: 0.89,
           userSatisfaction: 0.91
         },
-        securityLevel: 'medium',
+        securityLevel: 'medium' as any,
         complianceTags: ['OWASP'],
         configuration: {
           maxConcurrentOperations: 3,
@@ -580,7 +644,7 @@ export class DatabaseSeeder {
         successfulOperations: 578,
         averageResponseTime: 3.2,
         modelId: 'claude-3-sonnet',
-        apiType: 'llmstudio',
+        apiType: 'llmstudio' as any,
         temperature: 0.2,
         maxTokens: 6000,
         systemPrompt: 'You are CodeCraft Assistant, a software development specialist. Provide clean, well-documented code solutions with best practices.',
@@ -588,7 +652,8 @@ export class DatabaseSeeder {
       }
     ];
 
-    const savedAgents = await agentRepository.save(agents);
+    await agentRepository.save(agents);
+    const savedAgents = await agentRepository.find();
     this.seededEntities.set('Agents', savedAgents);
     console.log(`   ✅ Seeded ${savedAgents.length} agents`);
   }
@@ -602,15 +667,22 @@ export class DatabaseSeeder {
     const toolRepository = this.dataSource.getRepository(ToolDefinition);
     const users = this.seededEntities.get('Users')!;
 
-    const tools = [
+    const tools: Omit<ToolDefinition, 'id'>[] = [
       {
         name: 'data_analyzer',
-        displayName: 'Data Analyzer',
         description: 'Advanced data analysis and statistical computation tool',
         version: '2.1.0',
-        type: ToolType.ANALYSIS,
-        category: 'data-analysis',
-        inputSchema: {
+        maintenanceStatus: 'active' as any,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        executions: [],
+        usageRecords: [],
+        category: 'data_analyzer' as any,
+        requiresApproval: false,
+        author: users[0].id,
+        successfulExecutions: 1250,
+        changelog: [],
+        parameters: {
           type: 'object',
           properties: {
             data_source: { type: 'string', description: 'Path to data source' },
@@ -619,7 +691,7 @@ export class DatabaseSeeder {
           },
           required: ['data_source', 'analysis_type']
         },
-        outputSchema: {
+        returnType: {
           type: 'object',
           properties: {
             results: { type: 'object', description: 'Analysis results' },
@@ -627,36 +699,42 @@ export class DatabaseSeeder {
             insights: { type: 'array', description: 'Key insights and findings' }
           }
         },
-        configuration: {
+        rateLimits: {
           timeout: 300,
           maxRetries: 3,
-          resourceLimits: {
-            memory: '2GB',
-            cpu: '2 cores'
-          }
+          resourceLimits: 1000
         },
-        securityLevel: ToolSecurityLevel.MEDIUM,
-        status: ToolStatus.ACTIVE,
-        isPublic: true,
-        createdBy: users[1].id,
+        securityLevel: 'moderate' as any,
+        isEnabled: true,    
         tags: ['data', 'analysis', 'statistics'],
-        capabilities: ['statistical-analysis', 'data-visualization', 'trend-analysis'],
         dependencies: ['pandas', 'numpy', 'matplotlib'],
-        executionEnvironment: 'python',
-        costPerExecution: 0.05,
+        costEstimate: 0.05,
         averageExecutionTime: 45.5,
-        successRate: 0.94,
         totalExecutions: 1250,
-        lastUsedAt: new Date()
+        lastUsedAt: new Date(),
+        examples: [
+          {
+            name: 'Data Analysis Example',
+            description: 'Analyze sales data and generate insights',
+            parameters: { data_source: 'sales_data.csv', analysis_type: 'descriptive' }
+          }
+        ]
       },
       {
         name: 'code_generator',
-        displayName: 'Code Generator',
         description: 'Intelligent code generation tool for multiple programming languages',
         version: '1.8.3',
-        type: ToolType.GENERATION,
-        category: 'development',
-        inputSchema: {
+        category: 'code_generator' as any,
+        maintenanceStatus: 'active' as any,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        executions: [],
+        usageRecords: [],
+        requiresApproval: false,
+        author: users[0].id,
+        successfulExecutions: 850,
+        changelog: [],
+        parameters: {
           type: 'object',
           properties: {
             language: { type: 'string', enum: ['typescript', 'python', 'javascript', 'go'] },
@@ -665,7 +743,7 @@ export class DatabaseSeeder {
           },
           required: ['language', 'requirements']
         },
-        outputSchema: {
+        returnType: {
           type: 'object',
           properties: {
             code: { type: 'string', description: 'Generated code' },
@@ -673,36 +751,42 @@ export class DatabaseSeeder {
             documentation: { type: 'string', description: 'Code documentation' }
           }
         },
-        configuration: {
+        rateLimits: {
           timeout: 180,
           maxRetries: 2,
-          resourceLimits: {
-            memory: '1GB',
-            cpu: '1 core'
-          }
+          resourceLimits: 1000
         },
-        securityLevel: ToolSecurityLevel.LOW,
-        status: ToolStatus.ACTIVE,
-        isPublic: true,
-        createdBy: users[3].id,
+        securityLevel: 'safe' as any,
+        isEnabled: true,
         tags: ['code', 'generation', 'development'],
-        capabilities: ['code-generation', 'test-generation', 'documentation'],
         dependencies: ['ast', 'jinja2'],
-        executionEnvironment: 'python',
-        costPerExecution: 0.02,
-        averageExecutionTime: 22.3,
-        successRate: 0.91,
+        costEstimate: 0.02,
+        executionTimeEstimate: 22,
         totalExecutions: 850,
-        lastUsedAt: new Date()
+        lastUsedAt: new Date(),
+        examples: [
+          {
+            name: 'Code Generation Example',
+            description: 'Generate code for a simple web application',
+            parameters: { language: 'typescript', requirements: 'Create a simple web application' }
+          }
+        ]
       },
       {
         name: 'workflow_orchestrator',
-        displayName: 'Workflow Orchestrator',
         description: 'Tool for managing and executing complex workflows',
         version: '3.2.1',
-        type: ToolType.ORCHESTRATION,
-        category: 'workflow',
-        inputSchema: {
+          category: 'workflow_orchestrator' as any,
+        maintenanceStatus: 'active' as any,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        executions: [],
+        usageRecords: [],
+        requiresApproval: false,
+        author: users[0].id,
+        successfulExecutions: 420,
+        changelog: [],
+        parameters: {
           type: 'object',
           properties: {
             workflow_definition: { type: 'object', description: 'Workflow DAG definition' },
@@ -711,7 +795,7 @@ export class DatabaseSeeder {
           },
           required: ['workflow_definition']
         },
-        outputSchema: {
+          returnType: {
           type: 'object',
           properties: {
             execution_id: { type: 'string', description: 'Workflow execution identifier' },
@@ -719,28 +803,28 @@ export class DatabaseSeeder {
             results: { type: 'object', description: 'Workflow results' }
           }
         },
-        configuration: {
+        rateLimits: {
           timeout: 1800,
           maxRetries: 1,
-          resourceLimits: {
-            memory: '4GB',
-            cpu: '4 cores'
-          }
+          resourceLimits: 1000
         },
-        securityLevel: ToolSecurityLevel.HIGH,
-        status: ToolStatus.ACTIVE,
-        isPublic: false,
-        createdBy: users[1].id,
+        securityLevel: 'restricted' as any,
+        isEnabled: true,
         tags: ['workflow', 'orchestration', 'automation'],
-        capabilities: ['workflow-execution', 'task-scheduling', 'resource-management'],
-        dependencies: ['celery', 'redis', 'kubernetes'],
-        executionEnvironment: 'kubernetes',
-        costPerExecution: 0.15,
+            dependencies: ['celery', 'redis', 'kubernetes'],
+        costEstimate: 0.15,
         averageExecutionTime: 180.7,
-        successRate: 0.96,
         totalExecutions: 420,
-        lastUsedAt: new Date()
-      }
+        lastUsedAt: new Date(),
+        examples: [
+          {
+            name: 'Workflow Orchestration Example',
+            description: 'Orchestrate a complex workflow',
+            parameters: { workflow_definition: 'workflow_definition.json' }
+          }
+        ]
+      },
+      
     ];
 
     const savedTools = await toolRepository.save(tools);
@@ -748,6 +832,7 @@ export class DatabaseSeeder {
     console.log(`   ✅ Seeded ${savedTools.length} tool definitions`);
   }
 
+  
   /**
    * Seed MCP Servers
    */
@@ -760,11 +845,13 @@ export class DatabaseSeeder {
     const mcpServers = [
       {
         name: 'filesystem-server',
+        type: MCPServerType.FILESYSTEM,
         displayName: 'Filesystem Operations Server',
         description: 'MCP server providing secure filesystem operations',
         version: '1.2.0',
         endpoint: 'http://localhost:8001/mcp',
-        capabilities: ['file-read', 'file-write', 'directory-list', 'file-search'],
+        author: users[0].id,
+        capabilities: ['file-read', 'file-write', 'directory-list', 'file-search'] as any,
         configuration: {
           baseDirectory: '/app/workspace',
           allowedExtensions: ['.txt', '.md', '.json', '.csv'],
@@ -774,8 +861,9 @@ export class DatabaseSeeder {
             concurrentOperations: 5
           }
         },
-        securityLevel: 'medium',
-        status: 'active',
+        securityLevel: SecurityLevel.MEDIUM,
+        status: MCPServerStatus.STOPPED,
+        command: 'mcp-filesystem',
         healthCheckEndpoint: 'http://localhost:8001/health',
         lastHealthCheck: new Date(),
         isHealthy: true,
@@ -789,11 +877,13 @@ export class DatabaseSeeder {
       },
       {
         name: 'database-server',
+        type: MCPServerType.DATABASE,
         displayName: 'Database Operations Server',
         description: 'MCP server for database queries and operations',
         version: '2.0.1',
         endpoint: 'http://localhost:8002/mcp',
-        capabilities: ['query-execution', 'schema-inspection', 'data-export', 'connection-pooling'],
+        author: users[0].id,
+        capabilities: ['query-execution', 'schema-inspection', 'data-export', 'connection-pooling'] as any,
         configuration: {
           supportedDatabases: ['postgresql', 'mysql', 'sqlite'],
           connectionPool: {
@@ -805,8 +895,9 @@ export class DatabaseSeeder {
             timeout: 60
           }
         },
-        securityLevel: 'high',
-        status: 'active',
+        securityLevel: SecurityLevel.HIGH,
+        status: MCPServerStatus.STOPPED,
+        command: 'mcp-database',
         healthCheckEndpoint: 'http://localhost:8002/health',
         lastHealthCheck: new Date(),
         isHealthy: true,
@@ -820,11 +911,13 @@ export class DatabaseSeeder {
       },
       {
         name: 'api-integration-server',
+        type: MCPServerType.API,
         displayName: 'API Integration Server',
         description: 'MCP server for external API integrations',
         version: '1.5.3',
         endpoint: 'http://localhost:8003/mcp',
-        capabilities: ['http-requests', 'webhook-handling', 'api-authentication', 'rate-limiting'],
+        author: users[0].id,
+        capabilities: ['http-requests', 'webhook-handling', 'api-authentication', 'rate-limiting'] as any,
         configuration: {
           supportedMethods: ['GET', 'POST', 'PUT', 'DELETE'],
           timeout: 30,
@@ -837,8 +930,9 @@ export class DatabaseSeeder {
             burstSize: 50
           }
         },
-        securityLevel: 'medium',
-        status: 'active',
+        securityLevel: SecurityLevel.MEDIUM,
+        status: MCPServerStatus.STOPPED,
+        command: 'mcp-api',
         healthCheckEndpoint: 'http://localhost:8003/health',
         lastHealthCheck: new Date(),
         isHealthy: true,
@@ -866,23 +960,59 @@ export class DatabaseSeeder {
     const operationRepository = this.dataSource.getRepository(Operation);
     const agents = this.seededEntities.get('Agents')!;
     const users = this.seededEntities.get('Users')!;
-
+    console.log(users);
+    console.log(agents);
     const operations = [
       {
-        type: OperationType.DATA_ANALYSIS,
+        name: 'Quarterly Sales Data Analysis',
+        type: OperationType.ANALYSIS,
         status: OperationStatus.COMPLETED,
         priority: OperationPriority.HIGH,
-        agent: agents[0],
-        requestedBy: users[1].id,
-        title: 'Quarterly Sales Data Analysis',
-        description: 'Comprehensive analysis of Q4 sales data with trend identification and forecasting',
-        inputData: {
+        executionPlan: {
+          steps: [
+            {
+              name: 'Data Collection',
+              description: 'Collect sales data from the source',
+              status: OperationStatus.COMPLETED,
+              startedAt: new Date('2024-01-15T09:00:00Z'),
+              completedAt: new Date('2024-01-15T09:05:00Z'),
+              resourcesUsed: {
+                cpu: '1 core',
+                memory: '2GB',
+                storage: '100MB' 
+              },
+              metadata: {
+                version: '1.0',
+                environment: 'production',
+                clientId: 'sales-team'
+              } 
+            },
+            {
+              name: 'Data Analysis',
+              description: 'Analyze the collected sales data',
+              status: OperationStatus.COMPLETED,
+              startedAt: new Date('2024-01-15T09:05:00Z'),
+              completedAt: new Date('2024-01-15T09:30:00Z'),
+              resourcesUsed: {
+                cpu: '2 cores',
+                memory: '4GB',
+                storage: '500MB'
+              },
+              metadata: {
+                version: '1.0',
+                environment: 'production',
+                clientId: 'sales-team'
+              } 
+            }
+          ]
+        },
+        context: {
           dataSource: '/data/sales/q4_2024.csv',
           analysisType: 'comprehensive',
           metrics: ['revenue', 'units_sold', 'customer_acquisition'],
           timeframe: 'Q4 2024'
         },
-        outputData: {
+        result: {
           totalRevenue: 2450000,
           growthRate: 0.15,
           topProducts: ['Product A', 'Product B', 'Product C'],
@@ -906,15 +1036,80 @@ export class DatabaseSeeder {
           version: '1.0',
           environment: 'production',
           clientId: 'sales-team'
-        }
+        },
+        agentId: agents[0].id,
+        userId: users[1].id,
+        
+        description: 'Comprehensive analysis of Q4 sales data with trend identification and forecasting',
+        inputData: {
+          dataSource: '/data/sales/q4_2024.csv',
+          analysisType: 'comprehensive',
+          metrics: ['revenue', 'units_sold', 'customer_acquisition'],
+          timeframe: 'Q4 2024'
+        },
+        outputData: {
+          totalRevenue: 2450000,
+          growthRate: 0.15,
+          topProducts: ['Product A', 'Product B', 'Product C'],
+          insights: [
+            'Revenue increased 15% compared to Q3',
+            'Product A shows strongest growth trajectory',
+            'Customer acquisition rate improved by 8%'
+          ],
+          visualizations: ['revenue_trend.png', 'product_performance.png']
+        },
+        
       },
       {
-        type: OperationType.WORKFLOW_EXECUTION,
+        name: 'Data Pipeline Orchestration',
+        type: OperationType.HYBRID_WORKFLOW,
         status: OperationStatus.RUNNING,
         priority: OperationPriority.MEDIUM,
-        agent: agents[1],
-        requestedBy: users[1].id,
-        title: 'Data Pipeline Orchestration',
+        agentId: agents[1].id,
+        userId: users[1].id,
+        executionPlan: {
+          steps: [
+            {
+              name: 'Data Collection',
+              description: 'Collect sales data from the source',
+              status: OperationStatus.COMPLETED,
+              startedAt: new Date('2024-01-15T09:00:00Z'),
+              completedAt: new Date('2024-01-15T09:05:00Z'),
+              resourcesUsed: {
+                cpu: '1 core',
+                memory: '2GB',
+                storage: '100MB' 
+              },
+              metadata: { 
+                version: '1.0',
+                environment: 'production',
+                clientId: 'sales-team'
+              } 
+            },
+            {
+              name: 'Data Analysis',
+              description: 'Analyze the collected sales data',
+              status: OperationStatus.COMPLETED,
+              startedAt: new Date('2024-01-15T09:05:00Z'),
+              completedAt: new Date('2024-01-15T09:30:00Z'),
+              resourcesUsed: {
+                cpu: '2 cores',
+                memory: '4GB',
+                storage: '500MB'
+              },  
+              metadata: {
+                version: '1.0',
+                environment: 'production',
+                clientId: 'sales-team'
+              } 
+            }
+          ]
+        },
+        context: {
+          pipelineId: 'daily-etl-v2',
+          dataSource: 'production-db',
+          outputDestination: 'data-warehouse',
+        },
         description: 'Execute daily data processing pipeline with validation and quality checks',
         inputData: {
           pipelineId: 'daily-etl-v2',
@@ -939,12 +1134,33 @@ export class DatabaseSeeder {
         }
       },
       {
-        type: OperationType.CODE_GENERATION,
+        name: 'API Endpoint Generation',
+        type: OperationType.ARTIFACT_GENERATION,
         status: OperationStatus.COMPLETED,
         priority: OperationPriority.LOW,
-        agent: agents[2],
-        requestedBy: users[3].id,
-        title: 'API Endpoint Generation',
+        agentId: agents[2].id,
+        userId: users[3].id,
+        executionPlan: {
+          steps: [
+            {
+              name: 'API Endpoint Generation',
+              description: 'Generate REST API endpoints for user management system',
+              status: OperationStatus.COMPLETED,
+              startedAt: new Date('2024-01-14T14:30:00Z'),
+              completedAt: new Date('2024-01-14T14:52:00Z'),
+              resourcesUsed: {
+                cpu: '1 core',
+                memory: '2GB',
+                storage: '100MB' 
+              },
+              metadata: {
+                version: '1.0',
+                environment: 'development',
+                projectId: 'user-mgmt-api'
+              }
+            }
+          ]
+        },
         description: 'Generate REST API endpoints for user management system',
         inputData: {
           language: 'typescript',
@@ -998,16 +1214,21 @@ export class DatabaseSeeder {
     const artifactRepository = this.dataSource.getRepository(Artifact);
     const users = this.seededEntities.get('Users')!;
     const operations = this.seededEntities.get('Operations')!;
-
+    const conversations = this.seededEntities.get('ConversationContexts')!;
     const artifacts = [
       {
-        name: 'Sales Analysis Report Q4 2024',
-        type: ArtifactType.REPORT,
+        title: 'Sales Analysis Report Q4 2024',
+        conversationId: conversations[0].id,
+        type: 'report' as ArtifactType,
+        generator: 'sales-analysis-report',
+        confidence: 0.95,
+        generatedBy: users[1].id,
+        generatedAt: new Date(),
         description: 'Comprehensive quarterly sales analysis with insights and recommendations',
         content: '# Q4 2024 Sales Analysis Report\n\n## Executive Summary\nRevenue increased by 15% compared to Q3...',
-        version: '1.0',
-        status: ArtifactStatus.PUBLISHED,
-        format: 'markdown',
+                  version: '1.0',
+          status: 'approved' as any,
+          format: 'markdown',
         size: 25600,
         metadata: {
           reportType: 'quarterly',
@@ -1021,13 +1242,18 @@ export class DatabaseSeeder {
         securityLevel: SecurityLevel.MEDIUM
       },
       {
-        name: 'User Management API',
-        type: ArtifactType.CODE,
-        description: 'REST API endpoints for user management with authentication',
+        title: 'User Management API',
+        conversationId: conversations[1].id,
+          type: 'code' as ArtifactType,
+          generator: 'user-management-api',
+          confidence: 0.95,
+          generatedBy: users[3].id,
+          generatedAt: new Date(),
+          description: 'REST API endpoints for user management with authentication',
         content: 'import { Router } from "express";\n\nconst userRouter = Router();\n\n// User CRUD operations...',
-        version: '1.0',
-        status: ArtifactStatus.PUBLISHED,
-        format: 'typescript',
+                  version: '1.0',
+              status: 'approved' as any,
+          format: 'typescript',
         size: 15400,
         metadata: {
           language: 'typescript',
@@ -1047,6 +1273,9 @@ export class DatabaseSeeder {
     console.log(`   ✅ Seeded ${savedArtifacts.length} artifacts`);
   }
 
+
+ 
+  
   /**
    * Seed Conversation Contexts
    */
@@ -1059,7 +1288,7 @@ export class DatabaseSeeder {
 
     const conversations = [
       {
-        agent: agents[0],
+        agentId: agents[0].id,
         userId: users[1].id,
         sessionId: 'session-001',
         context: {
@@ -1080,7 +1309,7 @@ export class DatabaseSeeder {
         }
       },
       {
-        agent: agents[2],
+        agentId: agents[2].id,
         userId: users[3].id,
         sessionId: 'session-002',
         context: {
@@ -1102,7 +1331,8 @@ export class DatabaseSeeder {
       }
     ];
 
-    const savedConversations = await conversationRepository.save(conversations);
+    await conversationRepository.save(conversations);
+    const savedConversations = await conversationRepository.find();
     this.seededEntities.set('ConversationContexts', savedConversations);
     console.log(`   ✅ Seeded ${savedConversations.length} conversation contexts`);
   }
@@ -1117,14 +1347,19 @@ export class DatabaseSeeder {
     const tools = this.seededEntities.get('ToolDefinitions')!;
     const agents = this.seededEntities.get('Agents')!;
     const operations = this.seededEntities.get('Operations')!;
-
+    
     const executions = [
       {
-        toolDefinition: tools[0],
-        agent: agents[0],
-        operation: operations[0],
+        toolId: tools[0].id,
+        agentId: agents[0].id,
+        operationId: operations[0].id,
         executionId: 'exec-001',
-        status: 'completed',
+        status: 'completed' as any,
+        parameters: {
+          data_source: '/data/sales/q4_2024.csv',
+          analysis_type: 'descriptive',
+          parameters: { metrics: ['revenue', 'units_sold'] }
+        },
         input: {
           data_source: '/data/sales/q4_2024.csv',
           analysis_type: 'descriptive',
@@ -1135,6 +1370,8 @@ export class DatabaseSeeder {
           visualizations: ['revenue_chart.png'],
           insights: ['Revenue growth of 15%']
         },
+        startTime: new Date('2024-01-15T09:05:00Z'),
+        endTime: new Date('2024-01-15T09:35:00Z'),
         startedAt: new Date('2024-01-15T09:05:00Z'),
         completedAt: new Date('2024-01-15T09:35:00Z'),
         duration: 1800,
@@ -1169,14 +1406,21 @@ export class DatabaseSeeder {
     const usageRepository = this.dataSource.getRepository(ToolUsageRecord);
     const tools = this.seededEntities.get('ToolDefinitions')!;
     const agents = this.seededEntities.get('Agents')!;
-
+    const operations = this.seededEntities.get('Operations')!;
+    const users = this.seededEntities.get('Users')!;
     const usageRecords = [
       {
-        toolDefinition: tools[0],
-        agent: agents[0],
+        toolId: tools[0].id,
+        agentId: agents[0].id,
+        usedAt: new Date(),
+        operationId: operations[0].id,
         executionCount: 125,
         totalDuration: 15600,
         successCount: 118,
+        approvalRequired: true,
+        approvalStatus: 'approved',
+        approvalBy: users[1].id,
+        approvalAt: new Date(),
         failureCount: 7,
         averageDuration: 124.8,
         lastUsedAt: new Date(),
@@ -1192,8 +1436,10 @@ export class DatabaseSeeder {
         }
       },
       {
-        toolDefinition: tools[1],
-        agent: agents[2],
+        toolId: tools[1].id,
+        agentId: agents[2].id,
+        usedAt: new Date(),
+        operationId: operations[2].id,
         executionCount: 85,
         totalDuration: 8500,
         successCount: 77,
@@ -1228,10 +1474,12 @@ export class DatabaseSeeder {
     const agents = this.seededEntities.get('Agents')!;
 
     const metrics = [
-      {
-        agent: agents[0],
+      { 
+        agentId: agents[0].id,
+        metricType: 'data-analysis',
         capability: 'data-analysis',
         score: 0.95,
+        recordedAt: new Date(),
         confidence: 0.92,
         sampleSize: 150,
         lastEvaluated: new Date(),
@@ -1248,9 +1496,11 @@ export class DatabaseSeeder {
         }
       },
       {
-        agent: agents[0],
+        agentId: agents[0].id,
+        metricType: 'visualization',
         capability: 'visualization',
         score: 0.88,
+        recordedAt: new Date(),
         confidence: 0.85,
         sampleSize: 120,
         lastEvaluated: new Date(),
@@ -1282,16 +1532,11 @@ export class DatabaseSeeder {
     const stateRepository = this.dataSource.getRepository(OperationState);
     const operations = this.seededEntities.get('Operations')!;
 
-    const states = [
+    const states: DeepPartial<OperationState>[] = [
       {
-        operation: operations[0],
-        phase: 'execution',
-        status: 'completed',
-        progress: 100,
-        currentStep: 'finalization',
-        stepProgress: 100,
-        estimatedTimeRemaining: 0,
-        lastUpdated: new Date('2024-01-15T09:45:00Z'),
+        operationId: operations[0].id,
+        toStatus: OperationStatus.COMPLETED,
+        transitionedAt: new Date('2024-01-15T09:45:00Z'),
         metadata: {
           totalSteps: 5,
           completedSteps: 5,
@@ -1299,14 +1544,9 @@ export class DatabaseSeeder {
         }
       },
       {
-        operation: operations[1],
-        phase: 'execution',
-        status: 'running',
-        progress: 65,
-        currentStep: 'data-validation',
-        stepProgress: 80,
-        estimatedTimeRemaining: 1260,
-        lastUpdated: new Date(),
+        operationId: operations[1].id,
+        toStatus: OperationStatus.RUNNING,
+        transitionedAt: new Date(),
         metadata: {
           totalSteps: 8,
           completedSteps: 5,
@@ -1329,18 +1569,16 @@ export class DatabaseSeeder {
     const checkpointRepository = this.dataSource.getRepository(OperationCheckpoint);
     const operations = this.seededEntities.get('Operations')!;
 
-    const checkpoints = [
+    const checkpoints: DeepPartial<OperationCheckpoint>[] = [
       {
-        operation: operations[0],
+        operationId: operations[0].id,
         name: 'data-loaded',
         description: 'Data successfully loaded and validated',
-        phase: 'initialization',
-        status: 'completed',
-        data: {
-          recordsLoaded: 15000,
-          validationErrors: 0,
-          dataQualityScore: 0.98
-        },
+            state: {
+              recordsLoaded: 15000,
+              validationErrors: 0,
+              dataQualityScore: 0.98
+            },
         createdAt: new Date('2024-01-15T09:10:00Z'),
         metadata: {
           duration: 300,
@@ -1348,12 +1586,10 @@ export class DatabaseSeeder {
         }
       },
       {
-        operation: operations[0],
+        operationId: operations[0].id,
         name: 'analysis-complete',
         description: 'Statistical analysis completed successfully',
-        phase: 'execution',
-        status: 'completed',
-        data: {
+        state: {
           analysisResults: { revenue: 2450000, growth: 0.15 },
           visualizations: ['chart1.png', 'chart2.png']
         },
@@ -1381,10 +1617,10 @@ export class DatabaseSeeder {
 
     const stepResults = [
       {
-        operation: operations[0],
+        operationId: operations[0].id,
         stepName: 'data-validation',
         stepType: 'validation',
-        status: 'completed',
+        stepNumber: 1,
         input: {
           dataSource: '/data/sales/q4_2024.csv',
           validationRules: ['completeness', 'format', 'range']
@@ -1404,10 +1640,10 @@ export class DatabaseSeeder {
         }
       },
       {
-        operation: operations[0],
+        operationId: operations[0].id,
         stepName: 'statistical-analysis',
         stepType: 'analysis',
-        status: 'completed',
+        stepNumber: 2,
         input: {
           data: 'validated-sales-data',
           analysisType: 'descriptive',
@@ -1447,17 +1683,13 @@ export class DatabaseSeeder {
     const operations = this.seededEntities.get('Operations')!;
     const users = this.seededEntities.get('Users')!;
 
-    const workflows = [
+    const workflows: DeepPartial<ApprovalWorkflow>[] = [
       {
-        operation: operations[0],
-        workflowType: 'high-value-analysis',
+        operationId: operations[0].id,
         status: ApprovalStatus.APPROVED,
         requiredApprovers: [users[0].id, users[1].id],
         currentApprovers: [users[0].id, users[1].id],
-        priority: 'high',
         expiresAt: new Date('2024-01-16T09:00:00Z'),
-        requestedAt: new Date('2024-01-15T08:45:00Z'),
-        completedAt: new Date('2024-01-15T08:58:00Z'),
         metadata: {
           reason: 'High-value financial analysis requires dual approval',
           estimatedImpact: 'high',
@@ -1483,9 +1715,9 @@ export class DatabaseSeeder {
 
     const decisions = [
       {
-        approvalWorkflow: workflows[0],
+        workflowId: workflows[0].id,
         approverId: users[0].id,
-        decision: 'approved',
+        decision: 'approve' as any,
         reasoning: 'Analysis methodology is sound and data sources are validated',
         conditions: [],
         decidedAt: new Date('2024-01-15T08:52:00Z'),
@@ -1495,9 +1727,9 @@ export class DatabaseSeeder {
         }
       },
       {
-        approvalWorkflow: workflows[0],
+        workflowId: workflows[0].id,
         approverId: users[1].id,
-        decision: 'approved',
+        decision: 'approve' as any,
         reasoning: 'Business justification is clear and risk level is acceptable',
         conditions: ['Monitor for data quality issues'],
         decidedAt: new Date('2024-01-15T08:58:00Z'),
@@ -1527,7 +1759,7 @@ export class DatabaseSeeder {
       {
         artifact: artifacts[0],
         reviewerId: users[1].id,
-        status: ReviewStatus.APPROVED,
+        status: 'approved' as any,
         rating: 4,
         feedback: 'Comprehensive analysis with clear insights. Visualization quality is excellent.',
         suggestions: ['Consider adding trend forecasting', 'Include competitive analysis'],
@@ -1540,7 +1772,7 @@ export class DatabaseSeeder {
       {
         artifact: artifacts[1],
         reviewerId: users[3].id,
-        status: ReviewStatus.APPROVED,
+        status: 'approved' as any,
         rating: 5,
         feedback: 'Clean, well-structured code following best practices. Excellent test coverage.',
         suggestions: ['Add API documentation', 'Consider rate limiting'],
@@ -1571,7 +1803,7 @@ export class DatabaseSeeder {
       {
         artifact: artifacts[1],
         environment: 'staging',
-        status: 'deployed',
+        status: 'deployed' as any,
         version: '1.0.0',
         deployedBy: users[3].id,
         deployedAt: new Date('2024-01-14T16:00:00Z'),
@@ -1580,7 +1812,7 @@ export class DatabaseSeeder {
           resources: { cpu: '500m', memory: '1Gi' },
           environment_variables: { NODE_ENV: 'staging' }
         },
-        healthStatus: 'healthy',
+        healthStatus: 'healthy' as any,
         lastHealthCheck: new Date(),
         metadata: {
           deploymentTool: 'kubernetes',
@@ -1610,7 +1842,7 @@ export class DatabaseSeeder {
         discussionId: 'discussion-001',
         persona: personas[0],
         userId: users[1].id,
-        role: 'analyst',
+        role: 'participant' as any,
         joinedAt: new Date('2024-01-15T09:00:00Z'),
         isActive: true,
         contributionCount: 12,
@@ -1629,7 +1861,7 @@ export class DatabaseSeeder {
         discussionId: 'discussion-002',
         persona: personas[1],
         userId: users[2].id,
-        role: 'facilitator',
+        role: 'facilitator' as any,
         joinedAt: new Date('2024-01-14T14:00:00Z'),
         isActive: false,
         contributionCount: 8,
@@ -1660,39 +1892,14 @@ export class DatabaseSeeder {
     const analyticsRepository = this.dataSource.getRepository(PersonaAnalytics);
     const personas = this.seededEntities.get('Personas')!;
 
-    const analytics = [
+    const analytics: DeepPartial<PersonaAnalytics>[] = [
       {
         persona: personas[0],
         period: 'monthly',
-        startDate: new Date('2024-01-01T00:00:00Z'),
-        endDate: new Date('2024-01-31T23:59:59Z'),
-        usageMetrics: {
-          totalInteractions: 150,
-          uniqueUsers: 25,
-          avgSessionDuration: 1800,
-          completionRate: 0.90
-        },
-        performanceMetrics: {
-          responseAccuracy: 0.88,
-          userSatisfaction: 0.82,
-          taskCompletionRate: 0.90,
-          avgResponseTime: 2.5
-        },
-        engagementMetrics: {
-          messagesPerSession: 8.5,
-          followUpRate: 0.65,
-          retentionRate: 0.78
-        },
-        qualityMetrics: {
-          consistencyScore: 0.90,
-          relevanceScore: 0.85,
-          helpfulnessScore: 0.87
-        },
-        trends: {
-          usageGrowth: 0.15,
-          satisfactionTrend: 'improving',
-          popularTopics: ['data-analysis', 'reporting', 'insights']
-        },
+        metricType: 'usage',
+        value: 150,
+        recordedAt: new Date('2024-01-01T00:00:00Z'),
+
         metadata: {
           reportGenerated: new Date(),
           version: '1.0'
@@ -1715,51 +1922,45 @@ export class DatabaseSeeder {
     const mcpServers = this.seededEntities.get('MCPServers')!;
     const agents = this.seededEntities.get('Agents')!;
 
-    const mcpCalls = [
+    const mcpCalls: DeepPartial<MCPToolCall>[] = [
       {
-        mcpServer: mcpServers[0],
-        agent: agents[0],
+          serverId: mcpServers[0].id,
+          agentId: agents[0].id,
         toolName: 'file-read',
-        callId: 'call-001',
-        status: 'completed',
-        input: {
+        status: 'completed' as any,
+        parameters: {
           path: '/data/sales/q4_2024.csv',
           encoding: 'utf-8',
           options: { maxSize: '10MB' }
         },
-        output: {
-          content: 'date,revenue,units...',
+        timestamp: new Date('2024-01-15T09:05:00Z'),
+        result: {
+          content: 'date,revenue,units...', 
           metadata: { size: 256000, lines: 15000 }
         },
-        startedAt: new Date('2024-01-15T09:05:00Z'),
-        completedAt: new Date('2024-01-15T09:06:00Z'),
         duration: 60,
-        cost: 0.001,
         metadata: {
           serverVersion: '1.2.0',
           clientVersion: '2.1.0'
         }
       },
       {
-        mcpServer: mcpServers[1],
-        agent: agents[0],
+        serverId: mcpServers[1].id,
+        agentId: agents[0].id,
         toolName: 'query-execution',
-        callId: 'call-002',
-        status: 'completed',
-        input: {
+        status: 'completed' as any,
+        parameters: {
           query: 'SELECT COUNT(*) FROM sales WHERE quarter = \'Q4\'',
           database: 'analytics',
           options: { timeout: 30 }
         },
-        output: {
+        timestamp: new Date('2024-01-15T09:07:00Z'),
+        result: {
           results: [{ count: 15000 }],
           executionTime: 0.25,
           rowsAffected: 0
         },
-        startedAt: new Date('2024-01-15T09:07:00Z'),
-        completedAt: new Date('2024-01-15T09:07:15Z'),
         duration: 15,
-        cost: 0.002,
         metadata: {
           serverVersion: '2.0.1',
           queryPlan: 'index_scan'
@@ -1881,7 +2082,7 @@ export async function seedDatabase(): Promise<void> {
     const seeder = new DatabaseSeeder(dataSource);
     await seeder.seedAll();
 
-    console.log('🎉 Database seeding completed successfully!');
+    console.log('🎉 Database seeding completed successfully! Yo');
   } catch (error) {
     console.error('💥 Database seeding failed:', error);
     throw error;
@@ -1891,17 +2092,4 @@ export async function seedDatabase(): Promise<void> {
       console.log('🔌 Database connection closed');
     }
   }
-}
-
-// Allow direct execution
-if (require.main === module) {
-  seedDatabase()
-    .then(() => {
-      console.log('✅ Seeding script completed');
-      process.exit(0);
-    })
-    .catch((error) => {
-      console.error('❌ Seeding script failed:', error);
-      process.exit(1);
-    });
 }

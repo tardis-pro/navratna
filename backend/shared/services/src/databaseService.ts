@@ -45,6 +45,7 @@ import { PersonaAnalytics } from './entities/personaAnalytics.entity.js';
 import { UserEntity } from './entities/user.entity.js';
 import { RefreshTokenEntity } from './entities/refreshToken.entity.js';
 import { PasswordResetTokenEntity } from './entities/passwordResetToken.entity.js';
+import { DatabaseSeeder } from './database/seedDatabase.js';
 
 export class DatabaseService {
   private static instance: DatabaseService;
@@ -528,6 +529,14 @@ export class DatabaseService {
       logger.error('Streaming query failed', { entity: entity.toString(), error });
       throw error;
     }
+  }
+
+  public async seedDatabase(): Promise<void> {
+    const dataSource = this.typeormService.getDataSource();
+    const seeder = new DatabaseSeeder(dataSource);
+    await seeder.seedAll();
+    
+    console.log('🎉 Database seeding completed successfully! Yo');
   }
 
   // Methods for StateManagerService using TypeORM
