@@ -23,8 +23,16 @@
 
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@council/shared-types": ["../../packages/shared-types/src"],
+      "@council/shared-types/*": ["../../packages/shared-types/src/*"],
+      "@council/shared-utils": ["../../packages/shared-utils/src"],
+      "@council/shared-utils/*": ["../../packages/shared-utils/src/*"]
     }
   },
-  "include": ["src"]
+  "include": ["src"],
+  "references": [
+    { "path": "../../packages/shared-types" },
+    { "path": "../../packages/shared-utils" }
+  ]
 }

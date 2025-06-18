@@ -1,0 +1,12 @@
+packages:
+  # Frontend applications
+  - 'apps/*'
+  
+  # Shared packages (frontend + backend)
+  - 'packages/*'
+  
+  # Backend services
+  - 'backend/services/*'
+  
+  # Backend shared packages
+  - 'backend/shared/*' 

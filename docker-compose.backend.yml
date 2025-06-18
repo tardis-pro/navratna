@@ -1,8 +1,7 @@
 # version: '3.8'  # Removed obsolete version field
 
 # =============================================================================
-# Council of Nycea - Unified Monorepo Docker Compose Configuration
-# Development Setup with Hot Reloading
+# UAIP Backend Services - Docker Compose Configuration
 # =============================================================================
 # 
 # Database Initialization Order:
@@ -123,12 +122,11 @@ services:
       timeout: 30s
       retries: 3
 
-  # Core Backend Services - Development with Hot Reloading
+  # Core Backend Services - Using Consolidated Dockerfile
   agent-intelligence:
     build:
       context: .
-      dockerfile: Dockerfile.dev
-      target: development
+      dockerfile: Dockerfile
     container_name: uaip-agent-intelligence
     environment:
       - SERVICE_NAME=agent-intelligence
@@ -144,13 +142,6 @@ services:
       - RABBITMQ_URL=amqp://uaip_user:uaip_password@rabbitmq:5672
     ports:
       - "3001:3001"
-    volumes:
-      # Hot reloading - mount source code
-      - ./packages:/app/packages
-      - ./backend/shared:/app/backend/shared
-      - ./backend/services/agent-intelligence:/app/backend/services/agent-intelligence
-      - /app/node_modules
-      - /app/backend/node_modules
     depends_on:
       postgres:
         condition: service_healthy
@@ -173,8 +164,7 @@ services:
   orchestration-pipeline:
     build:
       context: .
-      dockerfile: Dockerfile.dev
-      target: development
+      dockerfile: Dockerfile
     container_name: uaip-orchestration
     environment:
       - SERVICE_NAME=orchestration-pipeline
@@ -189,13 +179,6 @@ services:
       - RABBITMQ_URL=amqp://uaip_user:uaip_password@rabbitmq:5672
     ports:
       - "3002:3002"
-    volumes:
-      # Hot reloading - mount source code
-      - ./packages:/app/packages
-      - ./backend/shared:/app/backend/shared
-      - ./backend/services/orchestration-pipeline:/app/backend/services/orchestration-pipeline
-      - /app/node_modules
-      - /app/backend/node_modules
     depends_on:
       postgres:
         condition: service_healthy
@@ -216,8 +199,7 @@ services:
   capability-registry:
     build:
       context: .
-      dockerfile: Dockerfile.dev
-      target: development
+      dockerfile: Dockerfile
     container_name: uaip-capability-registry
     environment:
       - SERVICE_NAME=capability-registry
@@ -233,13 +215,6 @@ services:
       - RABBITMQ_URL=amqp://uaip_user:uaip_password@rabbitmq:5672
     ports:
       - "3003:3003"
-    volumes:
-      # Hot reloading - mount source code
-      - ./packages:/app/packages
-      - ./backend/shared:/app/backend/shared
-      - ./backend/services/capability-registry:/app/backend/services/capability-registry
-      - /app/node_modules
-      - /app/backend/node_modules
     depends_on:
       postgres:
         condition: service_healthy
@@ -262,8 +237,7 @@ services:
   discussion-orchestration:
     build:
       context: .
-      dockerfile: Dockerfile.dev
-      target: development
+      dockerfile: Dockerfile
     container_name: uaip-discussion-orchestration
     environment:
       - SERVICE_NAME=discussion-orchestration
@@ -279,13 +253,6 @@ services:
       - RABBITMQ_URL=amqp://uaip_user:uaip_password@rabbitmq:5672
     ports:
       - "3005:3005"
-    volumes:
-      # Hot reloading - mount source code
-      - ./packages:/app/packages
-      - ./backend/shared:/app/backend/shared
-      - ./backend/services/discussion-orchestration:/app/backend/services/discussion-orchestration
-      - /app/node_modules
-      - /app/backend/node_modules
     depends_on:
       postgres:
         condition: service_healthy
@@ -306,8 +273,7 @@ services:
   security-gateway:
     build:
       context: .
-      dockerfile: Dockerfile.dev
-      target: development
+      dockerfile: Dockerfile
     container_name: uaip-security-gateway
     environment:
       - SERVICE_NAME=security-gateway
@@ -320,13 +286,6 @@ services:
       - JWT_SECRET=uaip_dev_jwt_secret_key_change_in_production
     ports:
       - "3004:3004"
-    volumes:
-      # Hot reloading - mount source code
-      - ./packages:/app/packages
-      - ./backend/shared:/app/backend/shared
-      - ./backend/services/security-gateway:/app/backend/services/security-gateway
-      - /app/node_modules
-      - /app/backend/node_modules
     depends_on:
       postgres:
         condition: service_healthy
@@ -345,8 +304,7 @@ services:
   artifact-service:
     build:
       context: .
-      dockerfile: Dockerfile.dev
-      target: development
+      dockerfile: Dockerfile
     container_name: uaip-artifact-service
     environment:
       - SERVICE_NAME=artifact-service
@@ -360,13 +318,6 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
     ports:
       - "3006:3006"
-    volumes:
-      # Hot reloading - mount source code
-      - ./packages:/app/packages
-      - ./backend/shared:/app/backend/shared
-      - ./backend/services/artifact-service:/app/backend/services/artifact-service
-      - /app/node_modules
-      - /app/backend/node_modules
     depends_on:
       postgres:
         condition: service_healthy
@@ -385,8 +336,7 @@ services:
   llm-service:
     build:
       context: .
-      dockerfile: Dockerfile.dev
-      target: development
+      dockerfile: Dockerfile
     container_name: uaip-llm-service
     environment:
       - SERVICE_NAME=llm-service
@@ -403,13 +353,6 @@ services:
       - LLM_PROVIDER_ENCRYPTION_KEY=${LLM_PROVIDER_ENCRYPTION_KEY:-default-key-change-in-production}
     ports:
       - "3007:3007"
-    volumes:
-      # Hot reloading - mount source code
-      - ./packages:/app/packages
-      - ./backend/shared:/app/backend/shared
-      - ./backend/services/llm-service:/app/backend/services/llm-service
-      - /app/node_modules
-      - /app/backend/node_modules
     depends_on:
       postgres:
         condition: service_healthy
@@ -425,37 +368,7 @@ services:
       timeout: 10s
       retries: 3
 
-  # Frontend Service with Hot Reloading
-  frontend:
-    build:
-      context: .
-      dockerfile: apps/frontend/Dockerfile
-      target: development
-    container_name: council-frontend
-    environment:
-      - NODE_ENV=development
-      - VITE_API_URL=http://localhost:8081
-      - CHOKIDAR_USEPOLLING=true
-      - WATCHPACK_POLLING=true
-    ports:
-      - "5173:5173"
-    volumes:
-      # Hot reloading - mount source code
-      - ./apps/frontend/src:/app/apps/frontend/src
-      - ./apps/frontend/public:/app/apps/frontend/public
-      - ./apps/frontend/index.html:/app/apps/frontend/index.html
-      - ./apps/frontend/vite.config.ts:/app/apps/frontend/vite.config.ts
-      - ./apps/frontend/tailwind.config.ts:/app/apps/frontend/tailwind.config.ts
-      - ./apps/frontend/postcss.config.js:/app/apps/frontend/postcss.config.js
-      - ./packages:/app/packages
-      - /app/node_modules
-      - /app/apps/frontend/node_modules
-    depends_on:
-      - api-gateway
-    networks:
-      - uaip-network
-
-  # API Gateway (Nginx as reverse proxy) with Frontend routing
+  # API Gateway (Nginx as reverse proxy)
   api-gateway:
     image: nginx:alpine
     container_name: uaip-api-gateway
@@ -471,7 +384,6 @@ services:
       - security-gateway
       - artifact-service
       - llm-service
-      - frontend
     networks:
       - uaip-network
     healthcheck:
