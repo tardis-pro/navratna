@@ -103,6 +103,15 @@ export const AgentUpdateSchema = z.object({
   personaId: IDSchema.optional(),
   persona: AgentPersonaSchema.optional(),
   intelligenceConfig: AgentIntelligenceConfigSchema.optional(),
+  configuration: z.object({
+    model: z.string().optional(),
+    temperature: z.number().min(0).max(2).optional(),
+    analysisDepth: z.enum(['basic', 'intermediate', 'advanced']).optional(),
+    contextWindowSize: z.number().positive().optional(),
+    decisionThreshold: z.number().min(0).max(1).optional(),
+    learningEnabled: z.boolean().optional(),
+    collaborationMode: z.enum(['independent', 'collaborative', 'supervised']).optional()
+  }).optional(),
   securityContext: AgentSecurityContextSchema.optional(),
   isActive: z.boolean().optional(),
   lastActiveAt: z.date().optional()

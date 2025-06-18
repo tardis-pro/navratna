@@ -65,6 +65,13 @@ export interface EnhancedAgentState {
     averageResponseTime: number;
     uptime: number;
   };
+  configuration: {
+    modelId: string;
+    apiType: 'ollama' | 'llmstudio';
+    temperature: number;
+    maxTokens: number;
+    systemPrompt: string;
+  };
   capabilities: string[];
   securityLevel: 'low' | 'medium' | 'high' | 'critical';
   intelligenceMetrics: {

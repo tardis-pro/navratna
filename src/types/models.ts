@@ -1,8 +1,10 @@
 export interface ModelOption {
   id: string;
   name: string;
-  apiType: string;
-  maxTokens: number;
-  temperature: number;
-  description?: string;
+  description: string;
+  source?: string;
+  apiEndpoint?: string;
+  apiType?: 'llmstudio' | 'ollama';
+  maxTokens?: number;
+  temperature?: number;
 } 

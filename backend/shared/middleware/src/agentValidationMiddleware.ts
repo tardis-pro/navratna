@@ -103,7 +103,7 @@ export class AgentValidationMiddleware {
       if (validatedData.persona?.capabilities) {
         AgentValidationMiddleware.validateCapabilities(validatedData.persona.capabilities);
       }
-
+      console.log('validatedData', validatedData);
       req.body = validatedData;
       req.validationMeta = {
         transformationApplied: false,

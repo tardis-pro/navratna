@@ -10,13 +10,14 @@ import { DiscussionLog } from './components/DiscussionLog';
 import { AgentSelector } from './components/AgentSelector';
 import { DiscussionControls } from './components/DiscussionControls';
 import { UAIPDashboard } from './components/UAIPDashboard';
+import { SettingsContent } from './components/SettingsContent';
 import { BackendStatusIndicator } from './components/BackendStatusIndicator';
 import { Button } from './components/ui/button';
 import { Moon, Sun, Bot, Users, FileText, Settings, Activity } from 'lucide-react';
 import './App.css';
 
 function App() {
-  const [currentMode, setCurrentMode] = useState<'discussion' | 'uaip'>('discussion');
+  const [currentMode, setCurrentMode] = useState<'discussion' | 'uaip' | 'settings'>('discussion');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
   // Initialize theme from localStorage or system preference
@@ -77,6 +78,15 @@ function App() {
                       >
                         <Activity className="w-4 h-4" />
                         UAIP
+                      </Button>
+                      <Button
+                        variant={currentMode === 'settings' ? 'default' : 'ghost'}
+                        size="sm"
+                        onClick={() => setCurrentMode('settings')}
+                        className="flex items-center gap-2 px-6 py-2 text-sm"
+                      >
+                        <Settings className="w-4 h-4" />
+                        Settings
                       </Button>
                     </div>
                   </div>
@@ -202,10 +212,21 @@ function App() {
                         </div>
                       </div>
                     </div>
-                  ) : (
+                  ) : currentMode === 'uaip' ? (
                     /* UAIP Dashboard - Full width utilization */
                     <div className="w-full h-full p-8">
                       <UAIPDashboard />
+                    </div>
+                  ) : (
+                    /* Settings - Full width utilization */
+                    <div className="w-full h-full p-8">
+                      <div className="max-w-6xl mx-auto">
+                        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md rounded-2xl shadow-xl shadow-slate-200/50 dark:shadow-slate-900/50 border border-slate-200/60 dark:border-slate-700/60 overflow-hidden">
+                                                     <div className="p-8">
+                             <SettingsContent />
+                           </div>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </main>

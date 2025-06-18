@@ -78,6 +78,7 @@ const adaptBackendAgentToFrontend = (agent: any): EnhancedAgentState => ({
     averageResponseTime: agent.metrics?.averageResponseTime || 250,
     uptime: agent.metrics?.uptime || 0.99
   },
+  configuration: agent.configuration,
   capabilities: agent.persona?.capabilities || [],
   securityLevel: agent.securityContext?.securityLevel || 'low',
   intelligenceMetrics: {

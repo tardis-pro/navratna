@@ -8,7 +8,7 @@
     "clean": "pnpm exec tsc -b tsconfig.build.json --clean && pnpm exec tsc -b tsconfig.build_shared.json --clean",
     "build-services": "pnpm exec tsc -b tsconfig.build.json --clean && pnpm exec tsc -b tsconfig.build.json",
     "build-shared": "pnpm exec tsc -b tsconfig.build_shared.json --clean && pnpm exec tsc -b tsconfig.build_shared.json",
-    "build:watch": "concurrently \"pnpm build-shared --watch\" \"pnpm build-services --watch\" ",
+    "build:watch": "concurrently \"pnpm build-shared\" \"pnpm build-services \" ",
     "dev": "concurrently  \"pnpm dev:agent\" \"pnpm dev:sec\" \"pnpm dev:cap\" \"pnpm dev:art-ser\" \"pnpm dev:orch-pipe\" \"pnpm dev:disc-orch\"",
     "dev:agent": "export SERVICE_NAME=agent-intelligence && cd services/agent-intelligence && pnpm run dev",
     "dev:sec": "export SERVICE_NAME=security-gateway && cd services/security-gateway && pnpm run dev",

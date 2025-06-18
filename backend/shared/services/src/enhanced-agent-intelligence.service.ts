@@ -342,14 +342,15 @@ export class EnhancedAgentIntelligenceService {
       const updatePayload: any = {};
       if (updateData.name) updatePayload.name = updateData.name;
       if (updateData.role) updatePayload.role = updateData.role;
-      if (updateData.persona) updatePayload.persona = updateData.persona;
+      if (updateData.configuration) updatePayload.configuration = updateData.configuration;
       if (updateData.intelligenceConfig || updateData.intelligence_config) {
         updatePayload.intelligenceConfig = updateData.intelligenceConfig || updateData.intelligence_config;
       }
       if (updateData.securityContext || updateData.security_context) {
         updatePayload.securityContext = updateData.securityContext || updateData.security_context;
       }
-
+      console.log('updateData', updateData);
+      console.log('updatePayload', updatePayload);
       if (Object.keys(updatePayload).length === 0) {
         throw new ApiError(400, 'No valid fields to update', 'NO_UPDATE_FIELDS');
       }

@@ -4,10 +4,11 @@ import { useAgents } from '../contexts/AgentContext';
 import { PersonaSelector } from './PersonaSelector';
 import { AgentState, createAgentStateFromBackend } from '../types/agent';
 import { Persona } from '../types/persona';
-import { ModelOption, getModels } from './ModelSelector';
+import { ModelOption } from './ModelSelector';
 import { useDiscussion } from '../contexts/DiscussionContext';
 import { uaipAPI } from '../services/uaip-api';
 import { Users, Plus, Trash2, Bot, Cpu, AlertCircle, CheckCircle2, User, Server, Zap, Globe, X } from 'lucide-react';
+import { getModels } from '@/services/llm';
 
 // Helper function to create a short server identifier
 const getServerIdentifier = (baseUrl: string): string => {
