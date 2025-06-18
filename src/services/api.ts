@@ -823,6 +823,27 @@ export class UAIPAPIClient {
   }
 
   /**
+   * Get current authentication token (public method)
+   */
+  public getAuthToken(): string | null {
+    return this.getStoredToken();
+  }
+
+  /**
+   * Get current user ID (public method)
+   */
+  public getUserId(): string | null {
+    return this.getStoredUserId();
+  }
+
+  /**
+   * Get current session ID (public method)
+   */
+  public getSessionId(): string | null {
+    return this.getStoredSessionId();
+  }
+
+  /**
    * Clear user context
    */
   private clearUserContext(): void {

@@ -353,13 +353,22 @@ export function getAPIClient(): UAIPAPIClient {
 // WEBSOCKET CLIENT FOR REAL-TIME UPDATES
 // ============================================================================
 
+// Socket.IO client types
+interface SocketIOClient {
+  connected: boolean;
+  emit: (event: string, data: any) => void;
+  on: (event: string, callback: (data: any) => void) => void;
+  disconnect: () => void;
+}
+
 class DiscussionWebSocketClient {
-  private socket: WebSocket | null = null;
+  private socket: SocketIOClient | null = null;
   private config: WebSocketConfig;
   private listeners: Map<string, Set<(event: DiscussionEvent) => void>> = new Map();
   private reconnectAttempts = 0;
   private maxReconnectAttempts: number;
   private reconnectDelay: number;
+  private joinedDiscussions: Set<string> = new Set();
 
   constructor(config: WebSocketConfig) {
     this.config = config;
@@ -367,51 +376,142 @@ class DiscussionWebSocketClient {
     this.reconnectDelay = config.reconnectDelay || 1000;
     
     if (config.autoConnect !== false) {
-      this.connect();
+      this.connect().catch(error => {
+        console.error('[Socket.IO] Failed to initialize connection:', error);
+      });
     }
   }
 
-  connect() {
+  async connect() {
     try {
-      this.socket = new WebSocket(this.config.url);
+      // Try to dynamically import Socket.IO client
+      let io: any;
+      try {
+        const socketIO = await import('socket.io-client');
+        io = socketIO.io;
+      } catch (importError) {
+        console.error('❌ Socket.IO client not installed!');
+        console.error('📦 Please install it by running: npm install socket.io-client');
+        console.error('📖 See SOCKET_IO_SETUP.md for complete setup instructions');
+        throw new Error('socket.io-client dependency is required for WebSocket connections');
+      }
       
-      this.socket.onopen = () => {
-        console.log('[WebSocket] Connected to discussions');
+      // Get authentication tokens from the API client
+      const apiClient = getAPIClient();
+      const authToken = apiClient.getAuthToken();
+      const userId = apiClient.getUserId();
+      
+      // Validate authentication data before connecting
+      if (!authToken || !userId) {
+        console.error('[Socket.IO] Authentication required but missing:', { 
+          hasToken: !!authToken, 
+          hasUserId: !!userId,
+          authToken: authToken ? 'present' : 'missing',
+          userId: userId ? 'present' : 'missing'
+        });
+        throw new Error('Socket.IO connection requires valid authentication (token and userId)');
+      }
+      
+      console.log('[Socket.IO] Connecting with auth:', { 
+        hasToken: !!authToken, 
+        hasUserId: !!userId,
+        url: this.config.url,
+        tokenPreview: authToken ? `${authToken.substring(0, 10)}...` : 'none',
+        userIdPreview: userId ? `${userId.substring(0, 8)}...` : 'none'
+      });
+      
+      // Connect to Socket.IO server through API Gateway
+      this.socket = io(this.config.url, {
+        transports: ['websocket'],
+        auth: {
+          // Send proper authentication - ensure no undefined values
+          token: authToken,
+          userId: userId
+        },
+        reconnection: true,
+        reconnectionAttempts: this.maxReconnectAttempts,
+        reconnectionDelay: this.reconnectDelay
+      }) as SocketIOClient;
+      
+      this.socket.on('connect', () => {
+        console.log('[Socket.IO] Connected to discussions');
         this.reconnectAttempts = 0;
-      };
+        
+        // Rejoin all previously joined discussions
+        this.joinedDiscussions.forEach(discussionId => {
+          this.joinDiscussion(discussionId);
+        });
+      });
       
-      this.socket.onmessage = (event) => {
-        try {
-          const discussionEvent: DiscussionEvent = JSON.parse(event.data);
-          this.notifyListeners(discussionEvent);
-        } catch (error) {
-          console.error('[WebSocket] Failed to parse message:', error);
-        }
-      };
-      
-      this.socket.onclose = () => {
-        console.log('[WebSocket] Disconnected from discussions');
-        this.attemptReconnect();
-      };
-      
-      this.socket.onerror = (error) => {
-        console.error('[WebSocket] Connection error:', error);
-      };
-    } catch (error) {
-      console.error('[WebSocket] Failed to create connection:', error);
-      this.attemptReconnect();
-    }
-  }
+      // Listen for discussion events
+      this.socket.on('message_received', (data) => {
+        const discussionEvent: DiscussionEvent = {
+          type: 'message_added',
+          discussionId: data.discussionId,
+          data: data,
+          timestamp: new Date(data.timestamp)
+        };
+        this.notifyListeners(discussionEvent);
+      });
 
-  private attemptReconnect() {
-    if (this.reconnectAttempts < this.maxReconnectAttempts) {
-      const delay = Math.min(this.reconnectDelay * Math.pow(2, this.reconnectAttempts), 30000);
-      this.reconnectAttempts++;
+      this.socket.on('turn_started', (data) => {
+        const discussionEvent: DiscussionEvent = {
+          type: 'turn_started',
+          discussionId: data.discussionId,
+          data: data,
+          timestamp: new Date(data.timestamp)
+        };
+        this.notifyListeners(discussionEvent);
+      });
+
+      this.socket.on('turn_ended', (data) => {
+        const discussionEvent: DiscussionEvent = {
+          type: 'turn_ended',
+          discussionId: data.discussionId,
+          data: data,
+          timestamp: new Date(data.timestamp)
+        };
+        this.notifyListeners(discussionEvent);
+      });
+
+      this.socket.on('participant_joined', (data) => {
+        const discussionEvent: DiscussionEvent = {
+          type: 'participant_joined',
+          discussionId: data.discussionId,
+          data: data,
+          timestamp: new Date(data.timestamp)
+        };
+        this.notifyListeners(discussionEvent);
+      });
+
+      this.socket.on('participant_left', (data) => {
+        const discussionEvent: DiscussionEvent = {
+          type: 'participant_left',
+          discussionId: data.discussionId,
+          data: data,
+          timestamp: new Date(data.timestamp)
+        };
+        this.notifyListeners(discussionEvent);
+      });
       
-      setTimeout(() => {
-        console.log(`[WebSocket] Reconnection attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
-        this.connect();
-      }, delay);
+      this.socket.on('disconnect', () => {
+        console.log('[Socket.IO] Disconnected from discussions');
+      });
+      
+      this.socket.on('connect_error', (error) => {
+        console.error('[Socket.IO] Connection error:', error);
+      });
+
+      this.socket.on('joined_discussion', (data) => {
+        console.log('[Socket.IO] Successfully joined discussion:', data.discussionId);
+      });
+
+      this.socket.on('left_discussion', (data) => {
+        console.log('[Socket.IO] Left discussion:', data.discussionId);
+      });
+      
+    } catch (error) {
+      console.error('[Socket.IO] Failed to create connection:', error);
     }
   }
 
@@ -442,15 +542,34 @@ class DiscussionWebSocketClient {
     }
   }
 
+  joinDiscussion(discussionId: string) {
+    if (this.socket && this.socket.connected) {
+      console.log('[Socket.IO] Joining discussion:', discussionId);
+      this.socket.emit('join_discussion', { discussionId });
+      this.joinedDiscussions.add(discussionId);
+    } else {
+      console.warn('[Socket.IO] Cannot join discussion - not connected');
+    }
+  }
+
+  leaveDiscussion(discussionId: string) {
+    if (this.socket && this.socket.connected) {
+      console.log('[Socket.IO] Leaving discussion:', discussionId);
+      this.socket.emit('leave_discussion', { discussionId });
+      this.joinedDiscussions.delete(discussionId);
+    }
+  }
+
   disconnect() {
     if (this.socket) {
-      this.socket.close();
+      this.socket.disconnect();
       this.socket = null;
+      this.joinedDiscussions.clear();
     }
   }
 
   isConnected(): boolean {
-    return this.socket?.readyState === WebSocket.OPEN;
+    return this.socket?.connected || false;
   }
 }
 
@@ -459,15 +578,44 @@ let wsClient: DiscussionWebSocketClient | null = null;
 
 export function getWebSocketClient(): DiscussionWebSocketClient {
   if (!wsClient) {
-    const wsUrl = getEffectiveAPIBaseURL().replace('http', 'ws');
+    // Check authentication before creating WebSocket client
+    const apiClient = getAPIClient();
+    const authToken = apiClient.getAuthToken();
+    const userId = apiClient.getUserId();
+    
+    if (!authToken || !userId) {
+      console.warn('[WebSocket] Cannot create WebSocket client - authentication required');
+      console.warn('[WebSocket] Please ensure user is logged in before using WebSocket features');
+      throw new Error('WebSocket client requires authentication. Please log in first.');
+    }
+    
+    // Use API Gateway URL for Socket.IO connection
+    const baseUrl = getEffectiveAPIBaseURL();
+    console.log('[WebSocket] Creating authenticated WebSocket client for:', {
+      baseUrl,
+      hasAuth: !!authToken,
+      hasUserId: !!userId
+    });
+    
     wsClient = new DiscussionWebSocketClient({
-      url: `${wsUrl}/discussions/ws`,
+      url: baseUrl, // Socket.IO connects to the base URL
       autoConnect: true,
       reconnectAttempts: 5,
       reconnectDelay: 1000
     });
   }
   return wsClient;
+}
+
+/**
+ * Reset the WebSocket client (call this on login/logout)
+ */
+export function resetWebSocketClient(): void {
+  if (wsClient) {
+    console.log('[WebSocket] Resetting WebSocket client due to auth change');
+    wsClient.disconnect();
+    wsClient = null;
+  }
 }
 
 // Enhanced API wrapper with production-ready error handling

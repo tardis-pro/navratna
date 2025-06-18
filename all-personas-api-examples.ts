@@ -108,7 +108,7 @@ console.log('\n20. Community Organizer:', JSON.stringify(communityOrganizerApi, 
 console.log('\n=== AXIOS REQUEST EXAMPLES ===\n');
 
 // Generate axios configs for all personas
-const allRequests = generateAllPersonaApiRequests('http://localhost:3001', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI3YjcxMzBmNS1hZjg4LTQ4MWQtODJmOS02MzUyZTVjNWYxNTciLCJlbWFpbCI6ImFkbWluMUB1YWlwLmRldiIsInJvbGUiOiJzeXN0ZW1fYWRtaW4iLCJpYXQiOjE3NTAxOTQxNDMsImV4cCI6MTc1MDE5Nzc0M30.mcURUZyARfBEGZhzundmNzxEaOkxBoDwNhgC64epaY8');
+const allRequests = generateAllPersonaApiRequests('http://localhost:3001', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxODRkMDY4MS02ZDg1LTRiNDYtYjY2YS04Y2I2NTJiMTg4NGUiLCJlbWFpbCI6ImFkbWluMUB1YWlwLmRldiIsInJvbGUiOiJzeXN0ZW1fYWRtaW4iLCJpYXQiOjE3NTAyMzI0MTMsImV4cCI6MTc1MDIzNjAxM30.M40JHRbZ0smGgJI_NjwKAz-1-LOyNUDaibWVkDYmy0Q');
 
 console.log('Example axios requests for first 3 personas:');
 allRequests.forEach(async (request, index) => {

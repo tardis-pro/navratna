@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { uaipAPI } from '../services/uaip-api';
+import { uaipAPI, resetWebSocketClient } from '../services/uaip-api';
 
 export interface User {
   id: string;
@@ -119,6 +119,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           rememberMe
         });
         
+        // Reset WebSocket client to use new authentication
+        resetWebSocketClient();
+        
         // Set authenticated user
         setState({
           user,
@@ -153,6 +156,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Clear auth from API client (this will also clear stored tokens)
       uaipAPI.client.clearAuth();
       
+      // Reset WebSocket client since auth is cleared
+      resetWebSocketClient();
+      
       // Clear auth state
       setState({
         user: null,
@@ -165,6 +171,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       // Force clear state even if backend call fails
       uaipAPI.client.clearAuth();
+      
+      // Reset WebSocket client even on error
+      resetWebSocketClient();
       
       setState({
         user: null,

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { uaipAPI, generateUUID, TurnStrategy } from '../services/uaip-api';
+import { uaipAPI, generateUUID, TurnStrategy, DiscussionEvent } from '../services/uaip-api';
 import { AgentState, Message } from '../types/agent';
 import { DocumentContext } from '../types/document';
 import { useAuth } from '../contexts/AuthContext';
@@ -46,17 +46,7 @@ export interface DiscussionManagerHook {
   };
 }
 
-// WebSocket event types matching backend
-interface DiscussionEvent {
-  id: string;
-  type: 'discussion.created' | 'discussion.started' | 'discussion.paused' | 'discussion.resumed' | 'discussion.ended' |
-        'participant.joined' | 'participant.left' | 'message.sent' | 'turn.advanced' | 'turn.timeout' |
-        'status.changed' | 'reaction.added';
-  discussionId: string;
-  data: any;
-  timestamp: Date;
-  metadata?: any;
-}
+// WebSocket event types are now imported from uaip-api service
 
 export function useDiscussionManager(config: DiscussionManagerConfig): DiscussionManagerHook {
   const { user: currentUser, isLoading, isAuthenticated } = useAuth();
@@ -73,103 +63,7 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
   });
   const [document, setDocument] = useState<DocumentContext | null>(null);
   const [moderatorId, setModeratorId] = useState<string | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
-
-  // Initialize WebSocket connection for real-time updates
-  useEffect(() => {
-    if (discussionId) {
-      // Connect to WebSocket
-      const wsUrl = `ws://localhost:3001/discussions/${discussionId}/ws`;
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        console.log('🔌 Connected to discussion WebSocket:', discussionId);
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const discussionEvent: DiscussionEvent = JSON.parse(event.data);
-          console.log('📨 Discussion event received:', discussionEvent);
-          
-          handleDiscussionEvent(discussionEvent);
-        } catch (error) {
-          console.error('Failed to parse WebSocket message:', error);
-        }
-      };
-
-      ws.onclose = () => {
-        console.log('🔌 Disconnected from discussion WebSocket');
-      };
-
-      ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
-        setState(prev => ({
-          ...prev,
-          lastError: 'WebSocket connection error'
-        }));
-      };
-
-      // Cleanup on unmount
-      return () => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.close();
-        }
-      };
-    }
-  }, [discussionId]);
-
-  const handleDiscussionEvent = useCallback((event: DiscussionEvent) => {
-    switch (event.type) {
-      case 'message.sent':
-        // Convert backend message to frontend format
-        const backendMessage = event.data.message;
-        const frontendMessage: Message = {
-          id: backendMessage.id,
-          content: backendMessage.content,
-          sender: backendMessage.participantId,
-          timestamp: new Date(backendMessage.createdAt),
-          type: backendMessage.messageType === 'message' ? 'response' : backendMessage.messageType,
-          replyTo: backendMessage.replyTo,
-        };
-        
-        setState(prev => ({
-          ...prev,
-          messageHistory: [...prev.messageHistory, frontendMessage]
-        }));
-        break;
-        
-      case 'turn.advanced':
-        setState(prev => ({
-          ...prev,
-          currentSpeakerId: event.data.currentParticipantId,
-          currentRound: event.data.turnNumber || prev.currentRound
-        }));
-        break;
-        
-      case 'discussion.started':
-      case 'status.changed':
-        if (event.data.newStatus === 'active') {
-          setState(prev => ({ ...prev, isRunning: true }));
-        } else if (event.data.newStatus === 'paused') {
-          setState(prev => ({ ...prev, isRunning: false }));
-        } else if (['completed', 'cancelled'].includes(event.data.newStatus)) {
-          setState(prev => ({ ...prev, isRunning: false, currentSpeakerId: null }));
-        }
-        break;
-        
-      case 'participant.joined':
-        // Refresh discussion data to get updated participants
-        refreshDiscussion();
-        break;
-        
-      case 'participant.left':
-        // Refresh discussion data
-        refreshDiscussion();
-        break;
-    }
-  }, []);
-
+  
   const refreshDiscussion = useCallback(async () => {
     if (!discussionId) return;
     
@@ -208,6 +102,90 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
       }));
     }
   }, [discussionId]);
+  const handleDiscussionEvent = useCallback((event: DiscussionEvent) => {
+    switch (event.type) {
+      case 'message_added':
+        // Convert backend message to frontend format
+        const backendMessage = event.data.message || event.data;
+        const frontendMessage: Message = {
+          id: backendMessage.id,
+          content: backendMessage.content,
+          sender: backendMessage.participantId,
+          timestamp: new Date(backendMessage.createdAt || backendMessage.timestamp),
+          type: backendMessage.messageType === 'message' ? 'response' : backendMessage.messageType,
+          replyTo: backendMessage.replyTo,
+        };
+        
+        setState(prev => ({
+          ...prev,
+          messageHistory: [...prev.messageHistory, frontendMessage]
+        }));
+        break;
+        
+      case 'turn_started':
+      case 'turn_ended':
+        setState(prev => ({
+          ...prev,
+          currentSpeakerId: event.data.currentParticipantId || event.data.participantId,
+          currentRound: event.data.turnNumber || prev.currentRound + 1
+        }));
+        break;
+        
+      case 'participant_joined':
+        // Refresh discussion data to get updated participants
+        refreshDiscussion();
+        break;
+        
+      case 'participant_left':
+        // Refresh discussion data
+        refreshDiscussion();
+        break;
+    }
+  }, [refreshDiscussion]);
+
+
+  // Initialize WebSocket connection for real-time updates
+  useEffect(() => {
+    if (discussionId) {
+      console.log('🔌 Setting up WebSocket listeners for discussion:', discussionId);
+      
+      try {
+        // Use the global WebSocket client from uaipAPI
+        const wsClient = uaipAPI.websocket;
+        
+        // Join the discussion room
+        wsClient.joinDiscussion(discussionId);
+        
+        // Add event listeners for discussion events
+        const handleDiscussionEventWrapper = (event: DiscussionEvent) => {
+          // Only handle events for our specific discussion
+          if (event.discussionId === discussionId) {
+            console.log('📨 Discussion event received:', event);
+            handleDiscussionEvent(event);
+          }
+        };
+
+        // Listen for all discussion events
+        wsClient.addEventListener('*', handleDiscussionEventWrapper);
+
+        // Cleanup on unmount
+        return () => {
+          console.log('🔌 Removing WebSocket listeners for discussion:', discussionId);
+          wsClient.removeEventListener('*', handleDiscussionEventWrapper);
+          wsClient.leaveDiscussion(discussionId);
+        };
+      } catch (error) {
+        console.error('🔌 Failed to initialize WebSocket connection:', error);
+        setState(prev => ({
+          ...prev,
+          lastError: `WebSocket connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        }));
+        
+        // Continue without WebSocket - the hook will still work for basic operations
+        // Users will just need to manually refresh to see updates
+      }
+    }
+  }, [discussionId, handleDiscussionEvent]);
 
   const createDiscussion = useCallback(async () => {
     try {
