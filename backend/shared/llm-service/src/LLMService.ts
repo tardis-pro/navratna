@@ -16,6 +16,8 @@ import { BaseProvider } from './providers/BaseProvider';
 import { OllamaProvider } from './providers/OllamaProvider';
 import { LLMStudioProvider } from './providers/LLMStudioProvider';
 import { OpenAIProvider } from './providers/OpenAIProvider';
+import { LLMProviderRepository, LLMProvider } from '@uaip/shared-services';
+import { DatabaseService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -23,11 +25,10 @@ export class LLMService {
   private static instance: LLMService;
   private providers: Map<string, BaseProvider> = new Map();
   private initialized = false;
+  private llmProviderRepository: LLMProviderRepository | null = null;
 
   private constructor() {
-    // Initialize with default configuration for now
-    // TODO: Replace with database-driven configuration
-    this.initializeDefaultProviders();
+    // Database-driven configuration will be loaded on first use
   }
 
   public static getInstance(): LLMService {
@@ -37,7 +38,72 @@ export class LLMService {
     return LLMService.instance;
   }
 
-  private initializeDefaultProviders(): void {
+  private async initializeFromDatabase(): Promise<void> {
+    try {
+      if (!this.llmProviderRepository) {
+        const databaseService = DatabaseService.getInstance();
+        await databaseService.initialize();
+        this.llmProviderRepository = new LLMProviderRepository();
+      }
+
+      // Get active providers from database
+      const dbProviders = await this.llmProviderRepository.findActiveProviders();
+      
+      // Clear existing providers
+      this.providers.clear();
+
+      // Initialize providers from database configuration
+      for (const dbProvider of dbProviders) {
+        try {
+          const providerConfig = dbProvider.getProviderConfig();
+          let provider: BaseProvider;
+
+          switch (dbProvider.type) {
+            case 'ollama':
+              provider = new OllamaProvider(providerConfig, dbProvider.name);
+              break;
+            case 'llmstudio':
+              provider = new LLMStudioProvider(providerConfig, dbProvider.name);
+              break;
+            case 'openai':
+              provider = new OpenAIProvider(providerConfig, dbProvider.name);
+              break;
+            default:
+              logger.warn(`Unknown provider type: ${dbProvider.type}`, { providerId: dbProvider.id });
+              continue;
+          }
+
+          this.providers.set(dbProvider.type, provider);
+          logger.info(`Initialized provider: ${dbProvider.name}`, { 
+            type: dbProvider.type, 
+            id: dbProvider.id 
+          });
+        } catch (error) {
+          logger.error(`Failed to initialize provider: ${dbProvider.name}`, { 
+            error, 
+            providerId: dbProvider.id 
+          });
+        }
+      }
+
+      // Fallback to environment-based providers if no database providers
+      if (this.providers.size === 0) {
+        logger.warn('No database providers found, falling back to environment configuration');
+        await this.initializeFallbackProviders();
+      }
+
+      this.initialized = true;
+      logger.info(`LLM Service initialized with ${this.providers.size} providers from database`);
+    } catch (error) {
+      logger.error('Failed to initialize LLM service from database', { error });
+      // Fallback to environment-based initialization
+      await this.initializeFallbackProviders();
+    }
+  }
+
+  private async initializeFallbackProviders(): Promise<void> {
+    logger.info('Initializing fallback providers from environment');
+
     // Default Ollama provider
     const ollamaProvider = new OllamaProvider({
       type: 'ollama',
@@ -74,12 +140,12 @@ export class LLMService {
     this.providers.set('llmstudio', llmStudioProvider);
     
     this.initialized = true;
-    logger.info(`LLM Service initialized with ${this.providers.size} providers`);
+    logger.info(`LLM Service initialized with ${this.providers.size} fallback providers`);
   }
 
   private async getBestProvider(preferredType?: string): Promise<BaseProvider | null> {
     if (!this.initialized) {
-      this.initializeDefaultProviders();
+      await this.initializeFromDatabase();
     }
 
     // If preferred type is specified, try to use it

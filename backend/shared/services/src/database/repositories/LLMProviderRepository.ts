@@ -4,8 +4,8 @@ import { LLMProvider, LLMProviderType, LLMProviderStatus } from '../../entities/
 import { logger } from '@uaip/utils';
 
 export class LLMProviderRepository extends BaseRepository<LLMProvider> {
-  constructor(repository: Repository<LLMProvider>) {
-    super(repository, 'LLMProvider');
+  constructor(typeormService?: any) {
+    super(LLMProvider, typeormService);
   }
 
   /**

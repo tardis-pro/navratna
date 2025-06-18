@@ -1,4 +1,4 @@
-import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { Router, Request, Response } from 'express';
 import { 
   llmProviderManagementService,
   CreateLLMProviderRequest,
@@ -83,327 +83,223 @@ const updateProviderSchema = {
 };
 
 // Route handlers
-interface AuthenticatedRequest extends FastifyRequest {
+interface AuthenticatedRequest extends Request {
   user?: {
     id: string;
+    email: string;
     role: string;
+    sessionId?: string;
   };
 }
 
-export async function llmProviderRoutes(fastify: FastifyInstance) {
-  // Middleware to ensure admin access
-  fastify.addHook('preHandler', async (request: AuthenticatedRequest, reply: FastifyReply) => {
-    if (!request.user) {
-      reply.code(401).send({ error: 'Authentication required' });
-      return;
-    }
+const router: Router = Router();
 
-    if (request.user.role !== 'admin' && request.user.role !== 'system') {
-      reply.code(403).send({ error: 'Admin access required' });
-      return;
-    }
-  });
+// Middleware to ensure admin access
+router.use((req: AuthenticatedRequest, res: Response, next) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
 
-  // Get all LLM providers
-  fastify.get('/providers', {
-    schema: {
-      description: 'Get all LLM providers',
-      tags: ['LLM Providers'],
-      response: {
-        200: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            data: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  id: { type: 'string' },
-                  name: { type: 'string' },
-                  description: { type: 'string' },
-                  type: { type: 'string' },
-                  baseUrl: { type: 'string' },
-                  hasApiKey: { type: 'boolean' },
-                  defaultModel: { type: 'string' },
-                  modelsList: { type: 'array' },
-                  configuration: { type: 'object' },
-                  status: { type: 'string' },
-                  isActive: { type: 'boolean' },
-                  priority: { type: 'number' },
-                  stats: { type: 'object' },
-                  createdAt: { type: 'string' },
-                  updatedAt: { type: 'string' }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
-    try {
-      const providers = await llmProviderManagementService.getAllProviders();
-      
-      reply.send({
-        success: true,
-        data: providers
-      });
-    } catch (error) {
-      logger.error('Error getting LLM providers', { error, userId: request.user?.id });
-      reply.code(500).send({
+  if (req.user.role !== 'admin' && req.user.role !== 'system') {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+
+  next();
+});
+
+// Get all LLM providers
+router.get('/providers', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const providers = await llmProviderManagementService.getAllProviders();
+    
+    res.json({
+      success: true,
+      data: providers
+    });
+  } catch (error) {
+    logger.error('Error getting LLM providers', { error, userId: req.user?.id });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get LLM providers'
+    });
+  }
+});
+
+// Get active LLM providers
+router.get('/providers/active', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const providers = await llmProviderManagementService.getActiveProviders();
+    
+    res.json({
+      success: true,
+      data: providers
+    });
+  } catch (error) {
+    logger.error('Error getting active LLM providers', { error, userId: req.user?.id });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get active LLM providers'
+    });
+  }
+});
+
+// Get LLM provider by ID
+router.get('/providers/:id', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const provider = await llmProviderManagementService.getProviderById(id);
+    
+    if (!provider) {
+      return res.status(404).json({
         success: false,
-        error: 'Failed to get LLM providers'
+        error: 'LLM provider not found'
       });
     }
-  });
 
-  // Get active LLM providers
-  fastify.get('/providers/active', {
-    schema: {
-      description: 'Get active LLM providers',
-      tags: ['LLM Providers']
-    }
-  }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
-    try {
-      const providers = await llmProviderManagementService.getActiveProviders();
-      
-      reply.send({
-        success: true,
-        data: providers
-      });
-    } catch (error) {
-      logger.error('Error getting active LLM providers', { error, userId: request.user?.id });
-      reply.code(500).send({
+    res.json({
+      success: true,
+      data: provider
+    });
+  } catch (error) {
+    logger.error('Error getting LLM provider by ID', { error, userId: req.user?.id });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get LLM provider'
+    });
+  }
+});
+
+// Create new LLM provider
+router.post('/providers', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const providerData = req.body as CreateLLMProviderRequest;
+    const provider = await llmProviderManagementService.createProvider(
+      providerData,
+      req.user!.id
+    );
+    
+    res.status(201).json({
+      success: true,
+      data: provider
+    });
+  } catch (error) {
+    logger.error('Error creating LLM provider', { 
+      error, 
+      userId: req.user?.id,
+      providerData: req.body 
+    });
+    
+    if (error instanceof Error && error.message.includes('already exists')) {
+      res.status(409).json({
         success: false,
-        error: 'Failed to get active LLM providers'
+        error: error.message
       });
-    }
-  });
-
-  // Get LLM provider by ID
-  fastify.get('/providers/:id', {
-    schema: {
-      description: 'Get LLM provider by ID',
-      tags: ['LLM Providers'],
-      params: {
-        type: 'object',
-        properties: {
-          id: { type: 'string', format: 'uuid' }
-        },
-        required: ['id']
-      }
-    }
-  }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
-    try {
-      const { id } = request.params as { id: string };
-      const provider = await llmProviderManagementService.getProviderById(id);
-      
-      if (!provider) {
-        reply.code(404).send({
-          success: false,
-          error: 'LLM provider not found'
-        });
-        return;
-      }
-
-      reply.send({
-        success: true,
-        data: provider
-      });
-    } catch (error) {
-      logger.error('Error getting LLM provider by ID', { error, userId: request.user?.id });
-      reply.code(500).send({
+    } else {
+      res.status(500).json({
         success: false,
-        error: 'Failed to get LLM provider'
+        error: 'Failed to create LLM provider'
       });
     }
-  });
+  }
+});
 
-  // Create new LLM provider
-  fastify.post('/providers', {
-    schema: {
-      description: 'Create new LLM provider',
-      tags: ['LLM Providers'],
-      body: createProviderSchema
-    }
-  }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
-    try {
-      const providerData = request.body as CreateLLMProviderRequest;
-      const provider = await llmProviderManagementService.createProvider(
-        providerData,
-        request.user!.id
-      );
-      
-      reply.code(201).send({
-        success: true,
-        data: provider
-      });
-    } catch (error) {
-      logger.error('Error creating LLM provider', { 
-        error, 
-        userId: request.user?.id,
-        providerData: request.body 
-      });
-      
-      if (error instanceof Error && error.message.includes('already exists')) {
-        reply.code(409).send({
-          success: false,
-          error: error.message
-        });
-      } else {
-        reply.code(500).send({
-          success: false,
-          error: 'Failed to create LLM provider'
-        });
-      }
-    }
-  });
+// Update LLM provider
+router.put('/providers/:id', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body as UpdateLLMProviderRequest;
+    
+    const provider = await llmProviderManagementService.updateProvider(
+      id,
+      updateData,
+      req.user!.id
+    );
+    
+    res.json({
+      success: true,
+      data: provider
+    });
+  } catch (error) {
+    logger.error('Error updating LLM provider', { 
+      error, 
+      userId: req.user?.id,
+      providerId: req.params.id,
+      updateData: req.body
+    });
+    
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update LLM provider'
+    });
+  }
+});
 
-  // Update LLM provider
-  fastify.put('/providers/:id', {
-    schema: {
-      description: 'Update LLM provider',
-      tags: ['LLM Providers'],
-      params: {
-        type: 'object',
-        properties: {
-          id: { type: 'string', format: 'uuid' }
-        },
-        required: ['id']
-      },
-      body: updateProviderSchema
-    }
-  }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
-    try {
-      const { id } = request.params as { id: string };
-      const updateData = request.body as UpdateLLMProviderRequest;
-      
-      const provider = await llmProviderManagementService.updateProvider(
-        id,
-        updateData,
-        request.user!.id
-      );
-      
-      reply.send({
-        success: true,
-        data: provider
-      });
-    } catch (error) {
-      logger.error('Error updating LLM provider', { 
-        error, 
-        userId: request.user?.id,
-        providerId: (request.params as any)?.id
-      });
-      
-      if (error instanceof Error && error.message.includes('not found')) {
-        reply.code(404).send({
-          success: false,
-          error: error.message
-        });
-      } else {
-        reply.code(500).send({
-          success: false,
-          error: 'Failed to update LLM provider'
-        });
-      }
-    }
-  });
+// Delete LLM provider
+router.delete('/providers/:id', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    await llmProviderManagementService.deleteProvider(id, req.user!.id);
+    
+    res.json({
+      success: true,
+      message: 'LLM provider deleted successfully'
+    });
+  } catch (error) {
+    logger.error('Error deleting LLM provider', { 
+      error, 
+      userId: req.user?.id,
+      providerId: req.params.id
+    });
+    
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete LLM provider'
+    });
+  }
+});
 
-  // Delete LLM provider
-  fastify.delete('/providers/:id', {
-    schema: {
-      description: 'Delete LLM provider',
-      tags: ['LLM Providers'],
-      params: {
-        type: 'object',
-        properties: {
-          id: { type: 'string', format: 'uuid' }
-        },
-        required: ['id']
-      }
-    }
-  }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
-    try {
-      const { id } = request.params as { id: string };
-      
-      await llmProviderManagementService.deleteProvider(id, request.user!.id);
-      
-      reply.send({
-        success: true,
-        message: 'LLM provider deleted successfully'
-      });
-    } catch (error) {
-      logger.error('Error deleting LLM provider', { 
-        error, 
-        userId: request.user?.id,
-        providerId: (request.params as any)?.id
-      });
-      
-      reply.code(500).send({
-        success: false,
-        error: 'Failed to delete LLM provider'
-      });
-    }
-  });
+// Test LLM provider connection
+router.post('/providers/:id/test', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await llmProviderManagementService.testProviderConnection(id);
+    
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    logger.error('Error testing LLM provider connection', { 
+      error, 
+      userId: req.user?.id,
+      providerId: req.params.id
+    });
+    
+    res.status(500).json({
+      success: false,
+      error: 'Failed to test LLM provider connection'
+    });
+  }
+});
 
-  // Test LLM provider connection
-  fastify.post('/providers/:id/test', {
-    schema: {
-      description: 'Test LLM provider connection',
-      tags: ['LLM Providers'],
-      params: {
-        type: 'object',
-        properties: {
-          id: { type: 'string', format: 'uuid' }
-        },
-        required: ['id']
-      }
-    }
-  }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
-    try {
-      const { id } = request.params as { id: string };
-      
-      const result = await llmProviderManagementService.testProviderConnection(id);
-      
-      reply.send({
-        success: true,
-        data: result
-      });
-    } catch (error) {
-      logger.error('Error testing LLM provider connection', { 
-        error, 
-        userId: request.user?.id,
-        providerId: (request.params as any)?.id
-      });
-      
-      reply.code(500).send({
-        success: false,
-        error: 'Failed to test LLM provider connection'
-      });
-    }
-  });
+// Get LLM provider statistics
+router.get('/providers/statistics', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const stats = await llmProviderManagementService.getProviderStatistics();
+    
+    res.json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    logger.error('Error getting LLM provider statistics', { error, userId: req.user?.id });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get LLM provider statistics'
+    });
+  }
+});
 
-  // Get LLM provider statistics
-  fastify.get('/providers/statistics', {
-    schema: {
-      description: 'Get LLM provider statistics',
-      tags: ['LLM Providers']
-    }
-  }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
-    try {
-      const stats = await llmProviderManagementService.getProviderStatistics();
-      
-      reply.send({
-        success: true,
-        data: stats
-      });
-    } catch (error) {
-      logger.error('Error getting LLM provider statistics', { error, userId: request.user?.id });
-      reply.code(500).send({
-        success: false,
-        error: 'Failed to get LLM provider statistics'
-      });
-    }
-  });
-} 
+export default router; 

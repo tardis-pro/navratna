@@ -333,6 +333,41 @@ services:
       timeout: 10s
       retries: 3
 
+  llm-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: uaip-llm-service
+    environment:
+      - SERVICE_NAME=llm-service
+      - SERVICE_PORT=3007
+      - NODE_ENV=development
+      - PORT=3007
+      - POSTGRES_URL=postgresql://uaip_user:uaip_password@postgres:5432/uaip
+      - REDIS_URL=redis://:uaip_redis_password@redis:6379
+      - RABBITMQ_URL=amqp://uaip_user:uaip_password@rabbitmq:5672
+      - OLLAMA_URL=${OLLAMA_URL:-http://localhost:11434}
+      - LLM_STUDIO_URL=${LLM_STUDIO_URL:-http://localhost:1234}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - LLM_PROVIDER_ENCRYPTION_KEY=${LLM_PROVIDER_ENCRYPTION_KEY:-default-key-change-in-production}
+    ports:
+      - "3007:3007"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - uaip-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3007/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   # API Gateway (Nginx as reverse proxy)
   api-gateway:
     image: nginx:alpine
@@ -348,6 +383,7 @@ services:
       - discussion-orchestration
       - security-gateway
       - artifact-service
+      - llm-service
     networks:
       - uaip-network
     healthcheck:

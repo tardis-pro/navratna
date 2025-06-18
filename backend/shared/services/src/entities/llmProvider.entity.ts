@@ -90,12 +90,6 @@ export class LLMProvider extends BaseEntity {
   @Column({ type: 'uuid', nullable: true })
   updatedBy?: string;
 
-  @CreateDateColumn()
-  createdAt!: Date;
-
-  @UpdateDateColumn()
-  updatedAt!: Date;
-
   // Encryption key for API keys - should be set from environment
   private static readonly ENCRYPTION_KEY = process.env.LLM_PROVIDER_ENCRYPTION_KEY || 'default-key-change-in-production';
 

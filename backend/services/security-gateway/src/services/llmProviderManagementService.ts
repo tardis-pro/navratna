@@ -2,9 +2,9 @@ import {
   LLMProviderRepository, 
   LLMProvider, 
   LLMProviderType, 
-  LLMProviderStatus 
-} from '@uaip/llm-service';
-import { DatabaseService } from '@uaip/shared-services';
+  LLMProviderStatus,
+  DatabaseService 
+} from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 
 export interface CreateLLMProviderRequest {
@@ -87,9 +87,7 @@ export class LLMProviderManagementService {
       const databaseService = DatabaseService.getInstance();
       await databaseService.initialize();
       
-      const dataSource = databaseService.getDataSource();
-      const repository = dataSource.getRepository(LLMProvider);
-      this.llmProviderRepository = new LLMProviderRepository(repository);
+      this.llmProviderRepository = new LLMProviderRepository();
       
       this.initialized = true;
       logger.info('LLM Provider Management Service initialized');
@@ -112,7 +110,7 @@ export class LLMProviderManagementService {
     try {
       await this.ensureInitialized();
       
-      const providers = await this.llmProviderRepository.findAll();
+      const providers = await this.llmProviderRepository.findMany();
       const responses: LLMProviderResponse[] = [];
 
       for (const provider of providers) {
@@ -365,7 +363,7 @@ export class LLMProviderManagementService {
     try {
       await this.ensureInitialized();
       
-      const allProviders = await this.llmProviderRepository.findAll();
+      const allProviders = await this.llmProviderRepository.findMany();
       const activeProviders = allProviders.filter(p => p.isActive && p.status === 'active');
 
       let totalRequests = BigInt(0);

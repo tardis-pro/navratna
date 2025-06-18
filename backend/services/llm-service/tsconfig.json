@@ -1,0 +1,31 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": "./src",
+    "outDir": "./dist",
+    "paths": {
+      "@/*": ["*"],
+      "@uaip/types/*": ["../../shared/types/src/*"],
+      "@uaip/utils/*": ["../../shared/utils/src/*"],
+      "@uaip/shared-services/*": ["../../shared/services/src/*"],
+      "@uaip/llm-service/*": ["../../shared/llm-service/src/*"],
+      "@uaip/config/*": ["../../shared/config/src/*"],
+      "@uaip/middleware/*": ["../../shared/middleware/src/*"]
+    }
+  },
+  "references": [
+    { "path": "../../shared/types" },
+    { "path": "../../shared/utils" },
+    { "path": "../../shared/services" },
+    { "path": "../../shared/llm-service" },
+    { "path": "../../shared/config" },
+    { "path": "../../shared/middleware" }
+  ],
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+} 
