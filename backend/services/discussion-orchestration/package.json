@@ -32,7 +32,7 @@
     "socket.io": "^4.7.4",
 
     "winston": "^3.11.0",
-    "zod": "^3.22.4"
+    "zod": "^3.25.67"
   },
   "devDependencies": {
     "@types/compression": "^1.7.5",
