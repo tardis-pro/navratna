@@ -1550,6 +1550,7 @@ export class DatabaseService {
     persona?: any;
     intelligenceConfig: any;
     securityContext: any;
+    configuration?: any;
     createdBy?: string;
     capabilities?: string[];
   }): Promise<any> {
@@ -1571,6 +1572,7 @@ export class DatabaseService {
     persona?: any;
     intelligenceConfig?: any;
     securityContext?: any;
+    configuration?: any;
     capabilities?: string[];
   }): Promise<any | null> {
     return await this.agentRepository.updateAgent(agentId, updateData);

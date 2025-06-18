@@ -4,16 +4,16 @@ import {
   Play, 
   Pause, 
   RotateCcw, 
-  Play as Resume, 
   AlertCircle, 
-  User2, 
-  Eye, 
-  EyeOff,
-  Settings,
   Users,
   MessageSquare,
   Clock,
-  Activity
+  Activity,
+  Settings,
+  Brain,
+  Code,
+  FileText,
+  TrendingUp
 } from 'lucide-react';
 import { useDiscussion } from '../contexts/DiscussionContext';
 import { useAgents } from '../contexts/AgentContext';
@@ -29,217 +29,229 @@ export const DiscussionControls: React.FC<DiscussionControlsProps> = ({
   onThinkTokensToggle,
   showThinkTokens = false 
 }) => {
-  const { isActive, currentTurn, start, stop, history, currentRound } = useDiscussion();
+  const { 
+    isActive, 
+    start, 
+    stop, 
+    reset,
+    history, 
+    currentRound,
+    analyzeConversation,
+    generateArtifact,
+    discussionOrchestration
+  } = useDiscussion();
+  
   const { agents } = useAgents();
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const canStart = Object.keys(agents).length >= 2;
   const agentCount = Object.keys(agents).length;
   const messageCount = history?.length || 0;
 
-  const handleStart = () => {
-    if (canStart) {
-      start();
+  const handleStart = async () => {
+    if (!canStart) return;
+    setIsLoading(true);
+    try {
+      await start();
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handlePause = () => {
-    stop();
+  const handleStop = async () => {
+    setIsLoading(true);
+    try {
+      await stop();
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleResume = () => {
-    start();
+  const handleReset = async () => {
+    setIsLoading(true);
+    try {
+      await reset();
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleReset = () => {
-    stop();
-  };
-
-  const handleThinkTokensToggle = (checked: boolean) => {
-    onThinkTokensToggle?.(checked);
-  };
-
-  const getStatusColor = () => {
-    if (!isActive) return "bg-slate-500";
-    if (currentTurn) return "bg-green-500";
-    return "bg-amber-500";
-  };
-
-  const getStatusText = () => {
-    if (!isActive) return "Inactive";
-    if (currentTurn) return "Active";
-    return "Paused";
+  const handleQuickAction = async (action: string) => {
+    setIsLoading(true);
+    try {
+      switch (action) {
+        case 'analyze':
+          await analyzeConversation();
+          break;
+        case 'sentiment':
+          await discussionOrchestration.analyzeSentiment('current');
+          break;
+        case 'code':
+          await generateArtifact('code', { language: 'typescript' });
+          break;
+        case 'summary':
+          await discussionOrchestration.summarizeDiscussion('current');
+          break;
+      }
+    } catch (error) {
+      console.error('Quick action failed:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className={`p-6 ${className}`}>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
-            <Activity className="w-4 h-4 text-white" />
-          </div>
-          <div>
-            <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Discussion Controls</h2>
-            <p className="text-sm text-slate-600 dark:text-slate-400">Manage conversation flow and settings</p>
-          </div>
-        </div>
-        
-        <div className="flex items-center space-x-3">
-          <div className="flex items-center space-x-2 px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-full">
-            <div className={cn("w-2 h-2 rounded-full transition-colors duration-200", getStatusColor())} />
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{getStatusText()}</span>
-          </div>
-          
-          <button
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            className="p-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all duration-200"
-          >
-            <Settings className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="flex items-center space-x-3 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
-          <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
-            <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-slate-900 dark:text-white">{agentCount}</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Agents</p>
-          </div>
-        </div>
-        
-        <div className="flex items-center space-x-3 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
-          <div className="w-8 h-8 bg-emerald-100 dark:bg-emerald-900/20 rounded-lg flex items-center justify-center">
-            <MessageSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-slate-900 dark:text-white">{messageCount}</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Messages</p>
-          </div>
-        </div>
-        
-        <div className="flex items-center space-x-3 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
-          <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/20 rounded-lg flex items-center justify-center">
-            <Clock className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-slate-900 dark:text-white">{currentRound || 0}</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Round</p>
-          </div>
-        </div>
-      </div>
-
+    <div className={cn("space-y-4", className)}>
       {/* Main Controls */}
-      <div className="space-y-4 mb-6">
-        <div className="flex items-center gap-3 flex-wrap">
+      <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+            Discussion Controls
+          </h3>
+          <div className="flex items-center space-x-2 text-sm text-slate-500">
+            <Activity className={cn("w-4 h-4", isActive ? "text-green-500" : "text-slate-400")} />
+            <span>{isActive ? "Active" : "Inactive"}</span>
+          </div>
+        </div>
+
+        {/* Status Stats */}
+        <div className="grid grid-cols-4 gap-4 mb-4">
+          <div className="text-center">
+            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{agentCount}</div>
+            <div className="text-xs text-slate-500">Agents</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-green-600 dark:text-green-400">{messageCount}</div>
+            <div className="text-xs text-slate-500">Messages</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{currentRound}</div>
+            <div className="text-xs text-slate-500">Round</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">0</div>
+            <div className="text-xs text-slate-500">Active</div>
+          </div>
+        </div>
+
+        {/* Primary Actions */}
+        <div className="flex items-center space-x-2">
           {!isActive ? (
             <button
               onClick={handleStart}
-              disabled={!canStart}
-              className={`flex items-center space-x-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 ${
-                canStart
-                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:scale-[1.02]'
-                  : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed'
-              }`}
+              disabled={!canStart || isLoading}
+              className="flex-1 flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white px-4 py-2 rounded-lg font-medium transition-colors"
             >
               <Play className="w-4 h-4" />
               <span>Start Discussion</span>
             </button>
           ) : (
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handlePause}
-                className="flex items-center space-x-2 px-6 py-3 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 rounded-xl font-medium transition-all duration-200"
-              >
-                <Pause className="w-4 h-4" />
-                <span>Pause</span>
-              </button>
-              <button
-                onClick={handleReset}
-                className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-xl font-medium transition-all duration-200 shadow-lg shadow-red-500/25 hover:shadow-red-500/40"
-              >
-                <RotateCcw className="w-4 h-4" />
-                <span>Reset</span>
-              </button>
-            </div>
-          )}
-          
-          {isActive && !currentTurn && (
             <button
-              onClick={handleResume}
-              className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl font-medium transition-all duration-200 shadow-lg shadow-green-500/25 hover:shadow-green-500/40"
+              onClick={handleStop}
+              disabled={isLoading}
+              className="flex-1 flex items-center justify-center space-x-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
             >
-              <Resume className="w-4 h-4" />
-              <span>Resume</span>
+              <Pause className="w-4 h-4" />
+              <span>Stop</span>
             </button>
           )}
+          
+          <button
+            onClick={handleReset}
+            disabled={isLoading}
+            className="flex items-center justify-center space-x-2 bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+          >
+            <RotateCcw className="w-4 h-4" />
+            <span>Reset</span>
+          </button>
+
+          <button
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="flex items-center justify-center bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 px-3 py-2 rounded-lg transition-colors"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
         </div>
 
-        {/* Current Speaker */}
-        {currentTurn && (
-          <div className="flex items-center space-x-3 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
-            <div className="w-8 h-8 bg-blue-100 dark:bg-blue-800 rounded-lg flex items-center justify-center">
-              <User2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-blue-900 dark:text-blue-100">Current Speaker</p>
-              <p className="text-xs text-blue-700 dark:text-blue-300">{agents[currentTurn]?.name}</p>
-            </div>
+        {!canStart && (
+          <div className="mt-3 flex items-center space-x-2 text-amber-600 dark:text-amber-400 text-sm">
+            <AlertCircle className="w-4 h-4" />
+            <span>Add at least 2 agents to start a discussion</span>
           </div>
         )}
       </div>
 
-      {/* Advanced Controls */}
-      {showAdvanced && (
-        <div className="border-t border-slate-200 dark:border-slate-700 pt-6 space-y-4">
-          <h3 className="font-medium text-slate-900 dark:text-white">Advanced Settings</h3>
+      {/* Quick Actions */}
+      <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+        <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">Quick Actions</h4>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => handleQuickAction('analyze')}
+            disabled={isLoading || messageCount === 0}
+            className="flex items-center space-x-2 p-3 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+          >
+            <Brain className="w-4 h-4" />
+            <span>Analyze</span>
+          </button>
           
-          {/* Think Tokens Toggle */}
-          <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-slate-100 dark:bg-slate-700 rounded-lg flex items-center justify-center">
-                {showThinkTokens ? (
-                  <Eye className="w-4 h-4 text-slate-600 dark:text-slate-400" />
-                ) : (
-                  <EyeOff className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+          <button
+            onClick={() => handleQuickAction('sentiment')}
+            disabled={isLoading || messageCount === 0}
+            className="flex items-center space-x-2 p-3 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+          >
+            <TrendingUp className="w-4 h-4" />
+            <span>Sentiment</span>
+          </button>
+          
+          <button
+            onClick={() => handleQuickAction('code')}
+            disabled={isLoading}
+            className="flex items-center space-x-2 p-3 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+          >
+            <Code className="w-4 h-4" />
+            <span>Generate Code</span>
+          </button>
+          
+          <button
+            onClick={() => handleQuickAction('summary')}
+            disabled={isLoading || messageCount === 0}
+            className="flex items-center space-x-2 p-3 bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+          >
+            <FileText className="w-4 h-4" />
+            <span>Summary</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Advanced Settings */}
+      {showAdvanced && (
+        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+          <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">Advanced Settings</h4>
+          <div className="space-y-2 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-slate-600 dark:text-slate-400">Think Tokens</span>
+              <button
+                onClick={() => onThinkTokensToggle?.(!showThinkTokens)}
+                className={cn(
+                  "w-10 h-6 rounded-full transition-colors",
+                  showThinkTokens ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"
                 )}
-              </div>
-              <div>
-                <p className="text-sm font-medium text-slate-900 dark:text-white">Show Think Tokens</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Display internal reasoning processes</p>
+              >
+                <div className={cn(
+                  "w-4 h-4 bg-white rounded-full transition-transform",
+                  showThinkTokens ? "translate-x-5" : "translate-x-1"
+                )} />
+              </button>
+            </div>
+            <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
+              <div className="text-xs text-slate-500 space-y-1">
+                <div>Security Gateway: ✅ Online</div>
+                <div>Agent Intelligence: ✅ Online</div>
+                <div>Discussion Orchestration: ✅ Online</div>
+                <div>Capability Registry: ✅ Online</div>
               </div>
             </div>
-            <button
-              onClick={() => handleThinkTokensToggle(!showThinkTokens)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
-                showThinkTokens ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-600'
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
-                  showThinkTokens ? 'translate-x-6' : 'translate-x-1'
-                }`}
-              />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Warning Message */}
-      {!canStart && (
-        <div className="flex items-start space-x-3 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
-          <div className="w-8 h-8 bg-amber-100 dark:bg-amber-800 rounded-lg flex items-center justify-center flex-shrink-0">
-            <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-amber-800 dark:text-amber-200">Insufficient Agents</p>
-            <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
-              Please add at least two agents to start the discussion.
-            </p>
           </div>
         </div>
       )}

@@ -302,15 +302,21 @@ export const IntelligencePanel: React.FC<IntelligencePanelProps> = ({ agents }) 
         </h3>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {agents.map((agent) => (
+          {agents.filter(agent => agent && agent.persona).map((agent) => (
             <div key={agent.id} className="bg-white dark:bg-slate-700 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
               <div className="flex items-center space-x-3 mb-3">
                 <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">{agent.persona.name.charAt(0)}</span>
+                  <span className="text-white font-bold text-sm">
+                    {agent.persona?.name?.charAt(0) || agent.name?.charAt(0) || 'A'}
+                  </span>
                 </div>
                 <div>
-                  <h4 className="font-semibold text-gray-900 dark:text-white">{agent.persona.name}</h4>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{agent.persona.role}</p>
+                  <h4 className="font-semibold text-gray-900 dark:text-white">
+                    {agent.persona?.name || agent.name || 'Unknown Agent'}
+                  </h4>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {agent.persona?.role || agent.role || 'Agent'}
+                  </p>
                 </div>
               </div>
               

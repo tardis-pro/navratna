@@ -12,6 +12,7 @@ import { DiscussionControls } from './components/DiscussionControls';
 import { UAIPDashboard } from './components/UAIPDashboard';
 import { SettingsContent } from './components/SettingsContent';
 import { BackendStatusIndicator } from './components/BackendStatusIndicator';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { Button } from './components/ui/button';
 import { Moon, Sun, Bot, Users, FileText, Settings, Activity } from 'lucide-react';
 import './App.css';
@@ -45,12 +46,12 @@ function App() {
             <DiscussionProvider topic="Council of Nycea">
               <div className="h-screen w-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-800 flex flex-col overflow-hidden">
                 
-                {/* Ultra-wide Header - Full width utilization */}
-                <header className="flex-shrink-0 h-12 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between px-8">
+                {/* Header */}
+                <header className="flex-shrink-0 h-16 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between px-8">
                   
                   {/* Left: Logo + Mode Tabs */}
-                  <div className="flex items-center gap-12">
-                    <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-8">
+                    <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
                         <Bot className="w-5 h-5 text-white" />
                       </div>
@@ -65,7 +66,7 @@ function App() {
                         variant={currentMode === 'discussion' ? 'default' : 'ghost'}
                         size="sm"
                         onClick={() => setCurrentMode('discussion')}
-                        className="flex items-center gap-2 px-6 py-2 text-sm"
+                        className="flex items-center gap-2 px-4 py-2 text-sm"
                       >
                         <Users className="w-4 h-4" />
                         Discussion
@@ -74,7 +75,7 @@ function App() {
                         variant={currentMode === 'uaip' ? 'default' : 'ghost'}
                         size="sm"
                         onClick={() => setCurrentMode('uaip')}
-                        className="flex items-center gap-2 px-6 py-2 text-sm"
+                        className="flex items-center gap-2 px-4 py-2 text-sm"
                       >
                         <Activity className="w-4 h-4" />
                         UAIP
@@ -83,7 +84,7 @@ function App() {
                         variant={currentMode === 'settings' ? 'default' : 'ghost'}
                         size="sm"
                         onClick={() => setCurrentMode('settings')}
-                        className="flex items-center gap-2 px-6 py-2 text-sm"
+                        className="flex items-center gap-2 px-4 py-2 text-sm"
                       >
                         <Settings className="w-4 h-4" />
                         Settings
@@ -92,32 +93,32 @@ function App() {
                   </div>
 
                   {/* Right: Status + User + Theme */}
-                  <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-4">
                     <BackendStatusIndicator />
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={toggleTheme}
-                      className="w-10 h-10 p-0 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      className="w-9 h-9 p-0 hover:bg-slate-100 dark:hover:bg-slate-800"
                     >
-                      {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+                      {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
                     </Button>
                     <UserProfile />
                   </div>
                 </header>
 
-                {/* Main Content Area - Ultra-wide layout with CSS Grid */}
+                {/* Main Content */}
                 <main className="flex-1 overflow-hidden">
                   
                   {currentMode === 'discussion' ? (
-                    /* Ultra-wide Discussion Layout - CSS Grid for guaranteed column layout */
-                    <div className="grid grid-cols-5 w-full h-full gap-0">
+                    /* Clean 3-Column Layout */
+                    <div className="grid grid-cols-12 h-full gap-0">
                       
-                      {/* Left Sidebar: Agents (1/5 columns) */}
-                      <div className="col-span-1 bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border-r border-slate-200/60 dark:border-slate-700/60">
+                      {/* Left Sidebar: Agents (3 columns) */}
+                      <div className="col-span-3 bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border-r border-slate-200/60 dark:border-slate-700/60">
                         <div className="h-full flex flex-col">
-                          <div className="p-6 border-b border-slate-200/60 dark:border-slate-700/60">
-                            <h2 className="text-base font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-3">
+                          <div className="p-4 border-b border-slate-200/60 dark:border-slate-700/60">
+                            <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
                               <Users className="w-5 h-5" />
                               AI Agents
                             </h2>
@@ -128,103 +129,70 @@ function App() {
                         </div>
                       </div>
 
-                      {/* Center: Main Content Area (3/5 columns) */}
-                      <div className="col-span-3 flex flex-col min-w-0">
+                      {/* Center: Main Content (6 columns) */}
+                      <div className="col-span-6 flex flex-col">
                         
-                        {/* Top Section: Document + Controls */}
-                        <div className="h-[35%] grid grid-cols-4 border-b border-slate-200/60 dark:border-slate-700/60">
-                          
-                          {/* Document Viewer (3/4 columns) */}
-                          <div className="col-span-3 bg-white/40 dark:bg-slate-900/40 backdrop-blur-sm">
-                            <div className="h-full flex flex-col">
-                              <div className="p-6 border-b border-slate-200/60 dark:border-slate-700/60">
-                                <h2 className="text-base font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-3">
-                                  <FileText className="w-5 h-5" />
-                                  Document Context
-                                </h2>
-                              </div>
-                              <div className="flex-1 overflow-hidden p-2">
-                                <DocumentViewer />
-                              </div>
+                        {/* Document Context (50% height) */}
+                        <div className="h-1/2 bg-white/40 dark:bg-slate-900/40 backdrop-blur-sm border-b border-slate-200/60 dark:border-slate-700/60">
+                          <div className="h-full flex flex-col">
+                            <div className="p-4 border-b border-slate-200/60 dark:border-slate-700/60">
+                              <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                                <FileText className="w-5 h-5" />
+                                Document Context
+                              </h2>
                             </div>
-                          </div>
-
-                          {/* Discussion Controls (1/4 columns) */}
-                          <div className="col-span-1 bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border-l border-slate-200/60 dark:border-slate-700/60">
-                            <div className="h-full flex flex-col">
-                              <div className="p-6 border-b border-slate-200/60 dark:border-slate-700/60">
-                                <h2 className="text-base font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-3">
-                                  <Settings className="w-5 h-5" />
-                                  Controls
-                                </h2>
-                              </div>
-                              <div className="flex-1 overflow-hidden p-2">
-                                <DiscussionControls />
-                              </div>
+                            <div className="flex-1 overflow-hidden p-4">
+                              <DocumentViewer />
                             </div>
                           </div>
                         </div>
 
-                        {/* Bottom Section: Discussion Log */}
-                        <div className="flex-1 bg-white/20 dark:bg-slate-900/20 backdrop-blur-sm">
+                        {/* Discussion Log (50% height) */}
+                        <div className="h-1/2 bg-white/20 dark:bg-slate-900/20 backdrop-blur-sm">
                           <div className="h-full flex flex-col">
-                            <div className="p-6 border-b border-slate-200/60 dark:border-slate-700/60">
-                              <h2 className="text-base font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-3">
+                            <div className="p-4 border-b border-slate-200/60 dark:border-slate-700/60">
+                              <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
                                 <Activity className="w-5 h-5" />
                                 Discussion Log
                               </h2>
                             </div>
-                            <div className="flex-1 overflow-hidden p-2">
+                            <div className="flex-1 overflow-hidden p-4">
                               <DiscussionLog />
                             </div>
                           </div>
                         </div>
                       </div>
 
-                      {/* Right Sidebar: Live Activity (1/5 columns) */}
-                      <div className="col-span-1 bg-red-500/20 dark:bg-red-900/20 backdrop-blur-sm border-l border-slate-200/60 dark:border-slate-700/60">
+                      {/* Right Sidebar: Controls (3 columns) */}
+                      <div className="col-span-3 bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border-l border-slate-200/60 dark:border-slate-700/60">
                         <div className="h-full flex flex-col">
-                          <div className="p-6 border-b border-slate-200/60 dark:border-slate-700/60">
-                            <h2 className="text-base font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-3">
-                              <Activity className="w-5 h-5" />
-                              Live Activity
+                          <div className="p-4 border-b border-slate-200/60 dark:border-slate-700/60">
+                            <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                              <Settings className="w-5 h-5" />
+                              Controls
                             </h2>
                           </div>
-                          <div className="flex-1 overflow-hidden p-6">
-                            <div className="space-y-4">
-                              <div className="text-sm text-slate-600 dark:text-slate-400">
-                                Real-time system status, agent metrics, and discussion insights.
-                              </div>
-                              <div className="h-24 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center">
-                                <span className="text-xs text-slate-500">Activity Feed</span>
-                              </div>
-                              <div className="h-24 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center">
-                                <span className="text-xs text-slate-500">Performance</span>
-                              </div>
-                              <div className="h-24 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center">
-                                <span className="text-xs text-slate-500">System Health</span>
-                              </div>
-                              <div className="h-24 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
-                                <span className="text-xs text-blue-600 dark:text-blue-400">Agent Stats</span>
-                              </div>
-                            </div>
+                          <div className="flex-1 overflow-hidden p-4">
+                            <DiscussionControls />
                           </div>
                         </div>
                       </div>
                     </div>
                   ) : currentMode === 'uaip' ? (
-                    /* UAIP Dashboard - Full width utilization */
-                    <div className="w-full h-full p-8">
-                      <UAIPDashboard />
+                    /* UAIP Dashboard */
+                    <div className="w-full h-full p-6">
+                      <ErrorBoundary>
+                        <UAIPDashboard />
+                      </ErrorBoundary>
                     </div>
                   ) : (
-                    /* Settings - Full width utilization */
-                    <div className="w-full h-full p-8">
-                      <div className="max-w-6xl mx-auto">
-                        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md rounded-2xl shadow-xl shadow-slate-200/50 dark:shadow-slate-900/50 border border-slate-200/60 dark:border-slate-700/60 overflow-hidden">
-                                                     <div className="p-8">
-                             <SettingsContent />
-                           </div>
+                    /* Settings */
+                    <div className="w-full h-full p-6">
+                      <div className="max-w-4xl mx-auto">
+                        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md rounded-xl shadow-lg border border-slate-200/60 dark:border-slate-700/60 overflow-hidden">
+                          <div className="p-6">
+                            <SettingsContent />
+                          </div>
                         </div>
                       </div>
                     </div>

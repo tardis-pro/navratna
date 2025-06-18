@@ -8,11 +8,12 @@ export class AgentRepository extends BaseRepository<Agent> {
   }
 
   /**
-   * Get all active agents with limit
+   * Get all active agents with limit - includes persona relation
    */
   public async getActiveAgents(limit?: number): Promise<Agent[]> {
     try {
       const queryBuilder = this.repository.createQueryBuilder('agent')
+        .leftJoinAndSelect('agent.persona', 'persona')
         .where('agent.isActive = :isActive', { isActive: true })
         .orderBy('agent.createdAt', 'DESC');
 
@@ -29,12 +30,13 @@ export class AgentRepository extends BaseRepository<Agent> {
   }
 
   /**
-   * Get agent by ID with active status check
+   * Get agent by ID with active status check - includes persona relation
    */
   public async getActiveAgentById(agentId: string): Promise<Agent | null> {
     try {
       const agent = await this.repository.findOne({
-        where: { id: agentId, isActive: true }
+        where: { id: agentId, isActive: true },
+        relations: ['persona']
       });
 
       return agent;
@@ -60,6 +62,7 @@ export class AgentRepository extends BaseRepository<Agent> {
     persona?: any;
     intelligenceConfig: any;
     securityContext: any;
+    configuration?: any;
     createdBy?: string;
     capabilities?: string[];
   }): Promise<Agent> {
@@ -82,6 +85,7 @@ export class AgentRepository extends BaseRepository<Agent> {
         legacyPersona: finalLegacyPersona,
         intelligenceConfig: agentData.intelligenceConfig,
         securityContext: agentData.securityContext,
+        configuration: agentData.configuration,
         capabilities: agentData.capabilities || [],
         isActive: true,
         createdBy: agentData.createdBy
@@ -92,7 +96,8 @@ export class AgentRepository extends BaseRepository<Agent> {
       logger.info('Agent created with composition model', { 
         agentId: savedAgent.id, 
         personaId: savedAgent.personaId,
-        hasLegacyPersona: !!savedAgent.legacyPersona 
+        hasLegacyPersona: !!savedAgent.legacyPersona,
+        hasConfiguration: !!savedAgent.configuration
       });
       
       return savedAgent;
@@ -117,6 +122,7 @@ export class AgentRepository extends BaseRepository<Agent> {
     persona?: any;
     intelligenceConfig?: any;
     securityContext?: any;
+    configuration?: any;
     capabilities?: string[];
   }): Promise<Agent | null> {
     try {
@@ -140,6 +146,7 @@ export class AgentRepository extends BaseRepository<Agent> {
       
       if (updateData.intelligenceConfig !== undefined) updatePayload.intelligenceConfig = updateData.intelligenceConfig;
       if (updateData.securityContext !== undefined) updatePayload.securityContext = updateData.securityContext;
+      if (updateData.configuration !== undefined) updatePayload.configuration = updateData.configuration;
       if (updateData.capabilities !== undefined) updatePayload.capabilities = updateData.capabilities;
 
       const updateResult = await this.repository.update(
@@ -151,16 +158,18 @@ export class AgentRepository extends BaseRepository<Agent> {
         return null;
       }
 
-      // Return the updated agent
+      // Return the updated agent with persona relation
       const updatedAgent = await this.repository.findOne({
-        where: { id: agentId, isActive: true }
+        where: { id: agentId, isActive: true },
+        relations: ['persona']
       });
 
       if (updatedAgent) {
         logger.info('Agent updated with composition model', { 
           agentId: updatedAgent.id, 
           personaId: updatedAgent.personaId,
-          hasLegacyPersona: !!updatedAgent.legacyPersona 
+          hasLegacyPersona: !!updatedAgent.legacyPersona,
+          hasConfiguration: !!updatedAgent.configuration
         });
       }
 

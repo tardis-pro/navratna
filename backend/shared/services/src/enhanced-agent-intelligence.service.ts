@@ -176,12 +176,13 @@ export class EnhancedAgentIntelligenceService {
 
       const intelligenceConfig = agentData.intelligenceConfig || 
                                 agentData.intelligence_config || 
-                                agentData.configuration || 
                                 {};
       
       const securityContext = agentData.securityContext || 
                              agentData.security_context || 
                              {};
+      
+      const configuration = agentData.configuration || {};
       
       const role = agentData.role || 'assistant';
       let createdBy = agentData.createdBy || agentData.created_by;
@@ -203,6 +204,7 @@ export class EnhancedAgentIntelligenceService {
         ...(agentData.persona && { legacyPersona: agentData.persona }),
         intelligenceConfig: intelligenceConfig,
         securityContext: securityContext,
+        configuration: configuration,
         createdBy: createdBy,
         capabilities: agentData.capabilities || []
       };

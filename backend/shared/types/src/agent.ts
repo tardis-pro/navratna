@@ -47,8 +47,17 @@ export const AgentSchema = BaseEntitySchema.extend({
   intelligenceConfig: AgentIntelligenceConfigSchema,
   securityContext: AgentSecurityContextSchema,
   isActive: z.boolean().default(true),
-  createdBy: IDSchema,
-  lastActiveAt: z.date().optional()
+  createdBy: IDSchema,    
+  lastActiveAt: z.date().optional(),
+  configuration: z.object({
+    model: z.string().optional(),
+    temperature: z.number().min(0).max(2).optional(),
+    analysisDepth: z.enum(['basic', 'intermediate', 'advanced']).optional(),
+    contextWindowSize: z.number().positive().optional(),
+    decisionThreshold: z.number().min(0).max(1).optional(),
+    learningEnabled: z.boolean().optional(),
+    collaborationMode: z.enum(['independent', 'collaborative', 'supervised']).optional()
+  }).optional()
 });
 
 export type Agent = z.infer<typeof AgentSchema>;

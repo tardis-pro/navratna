@@ -93,6 +93,7 @@ export class AgentIntelligenceService {
         persona: this.mapPersonaFromEntity(agent.persona),
         intelligenceConfig: agent.intelligenceConfig,
         securityContext: agent.securityContext,
+        configuration: agent.configuration,
         isActive: agent.isActive
       }));
 
@@ -124,6 +125,7 @@ export class AgentIntelligenceService {
         persona: this.mapPersonaFromEntity(agent.persona),
         intelligenceConfig: agent.intelligenceConfig,
         securityContext: agent.securityContext,
+        configuration: agent.configuration,
         isActive: agent.isActive,
         createdBy: agent.createdBy,
         lastActiveAt: agent.lastActiveAt,
@@ -272,6 +274,7 @@ export class AgentIntelligenceService {
       if (updateData.persona) updatePayload.persona = updateData.persona;
       if (updateData.intelligenceConfig) updatePayload.intelligenceConfig = updateData.intelligenceConfig;
       if (updateData.securityContext) updatePayload.securityContext = updateData.securityContext;
+      if (updateData.configuration) updatePayload.configuration = updateData.configuration;
 
       const updatedAgent = await this.databaseService.updateAgent(validatedId, updatePayload);
       if (!updatedAgent) {
@@ -285,6 +288,7 @@ export class AgentIntelligenceService {
         persona: this.mapPersonaFromEntity(updatedAgent.persona),
         intelligenceConfig: updatedAgent.intelligenceConfig,
         securityContext: updatedAgent.securityContext,
+        configuration: updatedAgent.configuration,
         isActive: updatedAgent.isActive,
         createdBy: updatedAgent.createdBy,
         lastActiveAt: updatedAgent.lastActiveAt,
@@ -315,12 +319,13 @@ export class AgentIntelligenceService {
 
       const intelligenceConfig = agentData.intelligenceConfig || 
                                 agentData.intelligence_config || 
-                                agentData.configuration || 
                                 {};
       
       const securityContext = agentData.securityContext || 
                              agentData.security_context || 
                              {};
+      
+      const configuration = agentData.configuration || {};
       
       const role = agentData.role || 'assistant';
       
@@ -339,6 +344,7 @@ export class AgentIntelligenceService {
         persona: agentData.persona || {},
         intelligenceConfig: intelligenceConfig,
         securityContext: securityContext,
+        configuration: configuration,
         createdBy: createdBy
       };
 
@@ -351,6 +357,7 @@ export class AgentIntelligenceService {
         persona: this.mapPersonaFromEntity(savedAgent.persona),
         intelligenceConfig: savedAgent.intelligenceConfig,
         securityContext: savedAgent.securityContext,
+        configuration: savedAgent.configuration,
         isActive: savedAgent.isActive,
         createdBy: savedAgent.createdBy,
         lastActiveAt: savedAgent.lastActiveAt,
