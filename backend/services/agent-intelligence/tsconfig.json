@@ -14,6 +14,7 @@
     { "path": "../../shared/utils" },
     { "path": "../../shared/config" },
     { "path": "../../shared/services" },
+    { "path": "../../shared/llm-service" },
     { "path": "../../shared/middleware" }
   ]
 } 

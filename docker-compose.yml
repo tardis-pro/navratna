@@ -435,6 +435,7 @@ services:
     environment:
       - NODE_ENV=development
       - VITE_API_URL=http://localhost:8081
+      - VITE_API_TARGET=http://api-gateway:80
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
     ports:

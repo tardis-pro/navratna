@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { LLMService } from '@uaip/llm-service';
 import { logger } from '@uaip/utils';
 
-const router = Router();
+const router: Router = Router();
 const llmService = LLMService.getInstance();
 
 // Generate LLM response

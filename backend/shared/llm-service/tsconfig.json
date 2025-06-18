@@ -7,10 +7,10 @@
     "baseUrl": "./src"
   },
   "references": [
-    { "path": "../types" },
-    { "path": "../config" },
-    { "path": "../utils" },
-    { "path": "../services" }
+    { "path": "../../shared/types" },
+    { "path": "../../shared/utils" },
+    { "path": "../../shared/config" },
+    { "path": "../../shared/services" }
   ],
   "include": ["src/**/*"],
   "exclude": ["dist", "node_modules"]

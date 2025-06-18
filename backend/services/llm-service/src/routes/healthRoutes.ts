@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { logger } from '@uaip/utils';
 
-const router = Router();
+const router: Router = Router();
 
 router.get('/', (req, res) => {
   res.json({
