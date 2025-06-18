@@ -1,21 +1,24 @@
 {
-  "name": "@uaip/types",
+  "name": "@council/shared-types",
   "version": "1.0.0",
-  "description": "Backend-specific TypeScript types (extends @council/shared-types)",
+  "description": "Shared TypeScript types for Council of Nycea frontend and backend",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "type": "module",
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "clean": "rimraf dist"
+    "clean": "rimraf dist",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix"
   },
   "dependencies": {
-    "@council/shared-types": "workspace:*",
     "zod": "^3.22.4"
   },
   "devDependencies": {
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "rimraf": "^5.0.5",
+    "eslint": "^9.9.0"
   },
   "exports": {
     ".": {

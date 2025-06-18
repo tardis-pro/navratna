@@ -6,8 +6,12 @@
     "baseUrl": ".",      
     // "moduleSuffixes": [".js"],            // << added
     "paths": {
+      "@council/shared-types": ["../packages/shared-types/src"],
+      "@council/shared-types/*": ["../packages/shared-types/src/*"],
+      "@council/shared-utils": ["../packages/shared-utils/src"],
+      "@council/shared-utils/*": ["../packages/shared-utils/src/*"],
       "@uaip/types": ["shared/types"],
-     "@uaip/utils": ["shared/utils"],
+      "@uaip/utils": ["shared/utils"],
       "@uaip/config": ["shared/config"],
       "@uaip/shared-services": ["shared/services"],
       "@uaip/middleware": ["shared/middleware"],

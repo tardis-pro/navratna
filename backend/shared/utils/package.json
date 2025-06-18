@@ -1,7 +1,7 @@
 {
   "name": "@uaip/utils",
   "version": "1.0.0",
-  "description": "Shared utilities for UAIP backend",
+  "description": "Backend-specific utilities (extends @council/shared-utils)",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "type": "module",
@@ -11,6 +11,8 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
+    "@council/shared-types": "workspace:*",
+    "@council/shared-utils": "workspace:*",
     "@uaip/types": "workspace:*",
     "winston": "^3.11.0",
     "zod": "^3.22.4"
