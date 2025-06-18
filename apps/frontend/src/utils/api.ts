@@ -536,8 +536,8 @@ export class UAIPAPIClient {
 
     // Build comprehensive headers including security and user context
     const headers: Record<string, string> = {
-      ...this.config.headers,
-      ...processedOptions.headers,
+      ...(this.config.headers || {}),
+      ...(processedOptions.headers as Record<string, string> || {}),
     };
 
     // Add authentication header
@@ -1802,6 +1802,128 @@ export class UAIPAPIClient {
       return this.request('/api/v1/audit/cleanup', {
         method: 'DELETE',
         body: JSON.stringify(cleanupData),
+      });
+    },
+
+    async getAuditLogs(filters?: Record<string, any>): Promise<APIResponse<any[]>> {
+      return this.request(`${API_ROUTES.SECURITY}/audit/logs`, {
+        method: 'GET',
+        headers: {
+          ...this.getAuthHeaders(),
+        },
+      });
+    },
+
+    async exportAuditLogs(format: 'json' | 'csv' = 'json'): Promise<APIResponse<any>> {
+      return this.request(`${API_ROUTES.SECURITY}/audit/export?format=${format}`, {
+        method: 'GET',
+        headers: {
+          ...this.getAuthHeaders(),
+        },
+      });
+    }
+  };
+
+  llm = {
+    async getModels(): Promise<APIResponse<Array<{
+      id: string;
+      name: string;
+      description?: string;
+      source: string;
+      apiEndpoint: string;
+      apiType: 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom';
+      provider: string;
+      isAvailable: boolean;
+    }>>> {
+      return this.request(`${API_ROUTES.LLM}/models`, {
+        method: 'GET',
+      });
+    },
+
+    async getModelsFromProvider(providerType: string): Promise<APIResponse<Array<{
+      id: string;
+      name: string;
+      description?: string;
+      source: string;
+      apiEndpoint: string;
+    }>>> {
+      return this.request(`${API_ROUTES.LLM}/models/${providerType}`, {
+        method: 'GET',
+      });
+    },
+
+    async getProviders(): Promise<APIResponse<Array<{
+      name: string;
+      type: string;
+      baseUrl: string;
+      isActive: boolean;
+      defaultModel?: string;
+      modelCount: number;
+      status: 'active' | 'inactive' | 'error';
+    }>>> {
+      return this.request(`${API_ROUTES.LLM}/providers`, {
+        method: 'GET',
+      });
+    },
+
+    async getProviderStats(): Promise<APIResponse<Array<{
+      name: string;
+      type: string;
+      available: boolean;
+    }>>> {
+      return this.request(`${API_ROUTES.LLM}/providers/stats`, {
+        method: 'GET',
+      });
+    },
+
+    async generateResponse(request: {
+      prompt: string;
+      systemPrompt?: string;
+      maxTokens?: number;
+      temperature?: number;
+      model?: string;
+      preferredType?: string;
+    }): Promise<APIResponse<any>> {
+      return this.request(`${API_ROUTES.LLM}/generate`, {
+        method: 'POST',
+        body: JSON.stringify(request),
+      });
+    },
+
+    async generateAgentResponse(request: {
+      agent: any;
+      messages: any[];
+      context?: any;
+      tools?: any[];
+    }): Promise<APIResponse<any>> {
+      return this.request(`${API_ROUTES.LLM}/agent-response`, {
+        method: 'POST',
+        body: JSON.stringify(request),
+      });
+    },
+
+    async generateArtifact(request: {
+      type: string;
+      prompt: string;
+      language?: string;
+      framework?: string;
+      requirements?: string[];
+    }): Promise<APIResponse<any>> {
+      return this.request(`${API_ROUTES.LLM}/artifact`, {
+        method: 'POST',
+        body: JSON.stringify(request),
+      });
+    },
+
+    async analyzeContext(request: {
+      conversationHistory: any[];
+      currentContext?: any;
+      userRequest?: string;
+      agentCapabilities?: string[];
+    }): Promise<APIResponse<any>> {
+      return this.request(`${API_ROUTES.LLM}/analyze-context`, {
+        method: 'POST',
+        body: JSON.stringify(request),
       });
     }
   };

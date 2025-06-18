@@ -33,4 +33,39 @@ export class OllamaProvider extends BaseProvider {
       return this.handleError(error, 'generateResponse');
     }
   }
+
+  protected async fetchModelsFromProvider(): Promise<Array<{
+    id: string;
+    name: string;
+    description?: string;
+    source: string;
+    apiEndpoint: string;
+  }>> {
+    try {
+      const url = `${this.config.baseUrl}/api/tags`;
+      const data = await this.makeGetRequest(url);
+
+      if (!data.models || !Array.isArray(data.models)) {
+        return [];
+      }
+
+      return data.models.map((model: any) => ({
+        id: model.name,
+        name: model.name,
+        description: `Ollama model: ${model.name}${model.size ? ` (${this.formatSize(model.size)})` : ''}`,
+        source: this.config.baseUrl,
+        apiEndpoint: `${this.config.baseUrl}/api/generate`
+      }));
+    } catch (error) {
+      console.error(`Failed to fetch models from Ollama at ${this.config.baseUrl}:`, error);
+      return [];
+    }
+  }
+
+  private formatSize(bytes: number): string {
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    if (bytes === 0) return '0 B';
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+  }
 } 

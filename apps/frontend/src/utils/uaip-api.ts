@@ -65,8 +65,8 @@ export interface DiscussionSettings {
 
 // Environment configuration
 const envConfig = getEnvironmentConfig();
-const isDevelopment = import.meta.env.DEV;
-const isProduction = import.meta.env.PROD;
+const isDevelopment = typeof window !== 'undefined' && window.location?.hostname === 'localhost';
+const isProduction = !isDevelopment;
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -881,6 +881,312 @@ export const uaipAPI = {
         nextParticipantId: 'participant-2',
         canAdvance: true
       };
+    }
+  },
+
+  // ============================================================================
+  // AGENT API METHODS
+  // ============================================================================
+  
+  agents: {
+    async list(): Promise<any[]> {
+      const client = getAPIClient();
+      const response = await client.agents.list();
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to fetch agents');
+      }
+      
+      return response.data!;
+    },
+
+    async get(id: string): Promise<any> {
+      const client = getAPIClient();
+      const response = await client.agents.get(id);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to fetch agent');
+      }
+      
+      return response.data!;
+    },
+
+    async create(agentData: any): Promise<any> {
+      const client = getAPIClient();
+      const response = await client.agents.create(agentData);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to create agent');
+      }
+      
+      return response.data!;
+    },
+
+    async update(id: string, updates: any): Promise<any> {
+      const client = getAPIClient();
+      const response = await client.agents.update(id, updates);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to update agent');
+      }
+      
+      return response.data!;
+    },
+
+    async delete(id: string): Promise<void> {
+      const client = getAPIClient();
+      const response = await client.agents.delete(id);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to delete agent');
+      }
+    }
+  },
+
+  // ============================================================================
+  // TOOLS API METHODS
+  // ============================================================================
+  
+  tools: {
+    async list(criteria?: any): Promise<any[]> {
+      const client = getAPIClient();
+      const response = await client.capabilities.search(criteria || {});
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to fetch tools');
+      }
+      
+      return response.data?.capabilities || [];
+    },
+
+    async get(id: string): Promise<any> {
+      const client = getAPIClient();
+      const response = await client.capabilities.get(id);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to fetch tool');
+      }
+      
+      return response.data!;
+    },
+
+    async create(toolData: any): Promise<any> {
+      const client = getAPIClient();
+      const response = await client.capabilities.register(toolData);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to create tool');
+      }
+      
+      return response.data!;
+    },
+
+    async execute(toolId: string, params: any): Promise<any> {
+      // This would be a specialized execution endpoint
+      // For now, return a mock response structure
+      return {
+        success: true,
+        data: { result: 'Tool execution result' },
+        executionId: `exec_${Date.now()}`,
+        executionTime: Math.random() * 1000,
+        cost: Math.random() * 10
+      };
+    },
+
+    async getCategories(): Promise<string[]> {
+      const client = getAPIClient();
+      const response = await client.capabilities.getCategories();
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to fetch tool categories');
+      }
+      
+      return response.data!;
+    }
+  },
+
+  // ============================================================================
+  // LLM API METHODS
+  // ============================================================================
+  
+  llm: {
+    async getModels(): Promise<Array<{
+      id: string;
+      name: string;
+      description?: string;
+      source: string;
+      apiEndpoint: string;
+      apiType: 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom';
+      provider: string;
+      isAvailable: boolean;
+    }>> {
+      const client = getAPIClient();
+      const response = await client.llm.getModels();
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to fetch models');
+      }
+      
+      return response.data!;
+    },
+
+    async getModelsFromProvider(providerType: string): Promise<Array<{
+      id: string;
+      name: string;
+      description?: string;
+      source: string;
+      apiEndpoint: string;
+    }>> {
+      const client = getAPIClient();
+      const response = await client.llm.getModelsFromProvider(providerType);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to fetch models from provider');
+      }
+      
+      return response.data!;
+    },
+
+    async getProviders(): Promise<Array<{
+      name: string;
+      type: string;
+      baseUrl: string;
+      isActive: boolean;
+      defaultModel?: string;
+      modelCount: number;
+      status: 'active' | 'inactive' | 'error';
+    }>> {
+      const client = getAPIClient();
+      const response = await client.llm.getProviders();
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to fetch providers');
+      }
+      
+      return response.data!;
+    },
+
+    async getProviderStats(): Promise<Array<{
+      name: string;
+      type: string;
+      available: boolean;
+    }>> {
+      const client = getAPIClient();
+      const response = await client.llm.getProviderStats();
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to fetch provider stats');
+      }
+      
+      return response.data!;
+    },
+
+    async generateResponse(request: {
+      prompt: string;
+      systemPrompt?: string;
+      maxTokens?: number;
+      temperature?: number;
+      model?: string;
+      preferredType?: string;
+    }): Promise<any> {
+      const client = getAPIClient();
+      const response = await client.llm.generateResponse(request);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to generate response');
+      }
+      
+      return response.data!;
+    },
+
+    async generateAgentResponse(request: {
+      agent: any;
+      messages: any[];
+      context?: any;
+      tools?: any[];
+    }): Promise<any> {
+      const client = getAPIClient();
+      const response = await client.llm.generateAgentResponse(request);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to generate agent response');
+      }
+      
+      return response.data!;
+    },
+
+    async generateArtifact(request: {
+      type: string;
+      prompt: string;
+      language?: string;
+      framework?: string;
+      requirements?: string[];
+    }): Promise<any> {
+      const client = getAPIClient();
+      const response = await client.llm.generateArtifact(request);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to generate artifact');
+      }
+      
+      return response.data!;
+    },
+
+    async analyzeContext(request: {
+      conversationHistory: any[];
+      currentContext?: any;
+      userRequest?: string;
+      agentCapabilities?: string[];
+    }): Promise<any> {
+      const client = getAPIClient();
+      const response = await client.llm.analyzeContext(request);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to analyze context');
+      }
+      
+      return response.data!;
+    }
+  },
+
+  // ============================================================================
+  // APPROVALS API METHODS
+  // ============================================================================
+  
+  approvals: {
+    async approve(executionId: string, approvalData: { approverId: string }): Promise<void> {
+      const client = getAPIClient();
+      const response = await client.approvals.submitDecision(executionId, {
+        decision: 'approved',
+        comments: `Approved by ${approvalData.approverId}`
+      });
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to approve execution');
+      }
+    },
+
+    async reject(executionId: string, rejectionData: { approverId: string; reason: string }): Promise<void> {
+      const client = getAPIClient();
+      const response = await client.approvals.submitDecision(executionId, {
+        decision: 'rejected',
+        comments: rejectionData.reason
+      });
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to reject execution');
+      }
+    },
+
+    async getPending(): Promise<any[]> {
+      const client = getAPIClient();
+      const response = await client.approvals.getPendingApprovals();
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to fetch pending approvals');
+      }
+      
+      return response.data!;
     }
   }
 };

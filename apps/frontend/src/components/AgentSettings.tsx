@@ -23,9 +23,20 @@ import { uaipAPI } from '../utils/uaip-api';
 import { PersonaSelector } from './PersonaSelector';
 
 const getModels = async () => {
-  // const models = await uaipAPI.getModels();
-  const models = [];
-  return models;
+  try {
+    const models = await uaipAPI.llm.getModels();
+    return models.map(model => ({
+      id: model.id,
+      name: model.name,
+      description: model.description,
+      source: model.source,
+      apiEndpoint: model.apiEndpoint,
+      apiType: model.apiType
+    }));
+  } catch (error) {
+    console.error('Failed to fetch models:', error);
+    return [];
+  }
 };
 
 interface AgentModelConfig {

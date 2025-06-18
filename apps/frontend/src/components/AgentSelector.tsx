@@ -11,9 +11,20 @@ import { Users, Plus, Trash2, Bot, Cpu, AlertCircle, CheckCircle2, User, Server,
 // import { getModels } from '@/services/llm';
 
 const getModels = async () => {
-  // const models = await uaipAPI.getModels();
-  const models = [];
-  return models;
+  try {
+    const models = await uaipAPI.llm.getModels();
+    return models.map(model => ({
+      id: model.id,
+      name: model.name,
+      description: model.description,
+      source: model.source,
+      apiEndpoint: model.apiEndpoint,
+      apiType: model.apiType
+    }));
+  } catch (error) {
+    console.error('Failed to fetch models:', error);
+    return [];
+  }
 };
 
 // Helper function to create a short server identifier

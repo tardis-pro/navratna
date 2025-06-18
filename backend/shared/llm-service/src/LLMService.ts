@@ -362,6 +362,136 @@ export class LLMService {
     return stats;
   }
 
+  async getAvailableModels(): Promise<Array<{
+    id: string;
+    name: string;
+    description?: string;
+    source: string;
+    apiEndpoint: string;
+    apiType: 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom';
+    provider: string;
+    isAvailable: boolean;
+  }>> {
+    if (!this.initialized) {
+      await this.initializeFromDatabase();
+    }
+
+    const allModels = [];
+
+    for (const [providerType, provider] of this.providers) {
+      try {
+        const models = await provider.getAvailableModels();
+        allModels.push(...models.map(model => ({
+          ...model,
+          provider: providerType,
+          apiType: providerType as any,
+          isAvailable: true
+        })));
+      } catch (error) {
+        logger.error(`Failed to get models from provider ${providerType}`, { error });
+      }
+    }
+
+    return allModels;
+  }
+
+  async getModelsFromProvider(providerType: string): Promise<Array<{
+    id: string;
+    name: string;
+    description?: string;
+    source: string;
+    apiEndpoint: string;
+  }>> {
+    if (!this.initialized) {
+      await this.initializeFromDatabase();
+    }
+
+    const provider = this.providers.get(providerType);
+    if (!provider) {
+      throw new Error(`Provider ${providerType} not found`);
+    }
+
+    try {
+      return await provider.getAvailableModels();
+    } catch (error) {
+      logger.error(`Failed to get models from provider ${providerType}`, { error });
+      throw error;
+    }
+  }
+
+  async getConfiguredProviders(): Promise<Array<{
+    name: string;
+    type: string;
+    baseUrl: string;
+    isActive: boolean;
+    defaultModel?: string;
+    modelCount: number;
+    status: 'active' | 'inactive' | 'error';
+  }>> {
+    if (!this.initialized) {
+      await this.initializeFromDatabase();
+    }
+
+    const providers = [];
+
+    // Get database providers if available
+    if (this.llmProviderRepository) {
+      try {
+        const dbProviders = await this.llmProviderRepository.findAll();
+        for (const dbProvider of dbProviders) {
+          const isInitialized = this.providers.has(dbProvider.type);
+          let modelCount = 0;
+          
+          if (isInitialized) {
+            try {
+              const models = await this.getModelsFromProvider(dbProvider.type);
+              modelCount = models.length;
+            } catch (error) {
+              logger.warn(`Failed to get model count for provider ${dbProvider.name}`, { error });
+            }
+          }
+
+          providers.push({
+            name: dbProvider.name,
+            type: dbProvider.type,
+            baseUrl: dbProvider.baseUrl,
+            isActive: dbProvider.isActive && isInitialized,
+            defaultModel: dbProvider.defaultModel,
+            modelCount,
+            status: dbProvider.isActive && isInitialized ? 'active' : 'inactive'
+          });
+        }
+      } catch (error) {
+        logger.error('Failed to get database providers', { error });
+      }
+    }
+
+    // Add fallback providers if no database providers
+    if (providers.length === 0) {
+      for (const [providerType, provider] of this.providers) {
+        let modelCount = 0;
+        try {
+          const models = await provider.getAvailableModels();
+          modelCount = models.length;
+        } catch (error) {
+          logger.warn(`Failed to get model count for fallback provider ${providerType}`, { error });
+        }
+
+        providers.push({
+          name: `Default ${providerType.charAt(0).toUpperCase() + providerType.slice(1)}`,
+          type: providerType,
+          baseUrl: provider.getBaseUrl(),
+          isActive: true,
+          defaultModel: provider.getDefaultModel(),
+          modelCount,
+          status: 'active'
+        });
+      }
+    }
+
+    return providers;
+  }
+
   // Private helper methods
   private buildAgentPrompt(request: AgentResponseRequest): string {
     const { agent, messages, context } = request;

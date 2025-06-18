@@ -39,4 +39,32 @@ export class LLMStudioProvider extends BaseProvider {
       return this.handleError(error, 'generateResponse');
     }
   }
+
+  protected async fetchModelsFromProvider(): Promise<Array<{
+    id: string;
+    name: string;
+    description?: string;
+    source: string;
+    apiEndpoint: string;
+  }>> {
+    try {
+      const url = `${this.config.baseUrl}/v1/models`;
+      const data = await this.makeGetRequest(url);
+
+      if (!data.data || !Array.isArray(data.data)) {
+        return [];
+      }
+
+      return data.data.map((model: any) => ({
+        id: model.id,
+        name: model.id,
+        description: `LLM Studio model: ${model.id}${model.owned_by ? ` (${model.owned_by})` : ''}`,
+        source: this.config.baseUrl,
+        apiEndpoint: `${this.config.baseUrl}/v1/chat/completions`
+      }));
+    } catch (error) {
+      console.error(`Failed to fetch models from LLM Studio at ${this.config.baseUrl}:`, error);
+      return [];
+    }
+  }
 } 

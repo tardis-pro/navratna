@@ -5,6 +5,43 @@ import { logger } from '@uaip/utils';
 const router: Router = Router();
 const llmService = LLMService.getInstance();
 
+// Get available models from all providers
+router.get('/models', async (req: Request, res: Response) => {
+  try {
+    const models = await llmService.getAvailableModels();
+
+    res.json({
+      success: true,
+      data: models
+    });
+  } catch (error) {
+    logger.error('Error getting available models', { error });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get available models'
+    });
+  }
+});
+
+// Get models from a specific provider
+router.get('/models/:providerType', async (req: Request, res: Response) => {
+  try {
+    const { providerType } = req.params;
+    const models = await llmService.getModelsFromProvider(providerType);
+
+    res.json({
+      success: true,
+      data: models
+    });
+  } catch (error) {
+    logger.error('Error getting models from provider', { error, providerType: req.params.providerType });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get models from provider'
+    });
+  }
+});
+
 // Generate LLM response
 router.post('/generate', async (req: Request, res: Response) => {
   try {
@@ -149,6 +186,24 @@ router.get('/providers/stats', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Failed to get provider statistics'
+    });
+  }
+});
+
+// Get all configured providers
+router.get('/providers', async (req: Request, res: Response) => {
+  try {
+    const providers = await llmService.getConfiguredProviders();
+
+    res.json({
+      success: true,
+      data: providers
+    });
+  } catch (error) {
+    logger.error('Error getting configured providers', { error });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get configured providers'
     });
   }
 });
