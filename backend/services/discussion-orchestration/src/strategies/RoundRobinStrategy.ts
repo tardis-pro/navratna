@@ -43,8 +43,7 @@ export class RoundRobinStrategy implements TurnStrategyInterface {
     try {
       // Filter active participants
       const activeParticipants = participants.filter(p => 
-        p.isActive && 
-        p.permissions?.canSendMessages !== false
+        p.isActive
       );
 
       if (activeParticipants.length === 0) {
@@ -94,9 +93,7 @@ export class RoundRobinStrategy implements TurnStrategyInterface {
         return false;
       }
 
-      if (participant.permissions?.canSendMessages === false) {
-        return false;
-      }
+      // No permissions check needed - using isActive instead
 
       // Check if participant is in the discussion
       if (participant.discussionId !== discussion.id) {

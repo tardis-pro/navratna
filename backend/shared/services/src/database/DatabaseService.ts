@@ -731,10 +731,13 @@ export class DatabaseService {
   }
 
   // Generic CRUD operations (for backward compatibility)
-  public async findById<T extends ObjectLiteral>(entity: EntityTarget<T>, id: string): Promise<T | null> {
+  public async findById<T extends ObjectLiteral>(entity: EntityTarget<T>, id: string, relations?: string[]): Promise<T | null> {
     try {
       const repository = this.getRepository(entity);
-      return await repository.findOne({ where: { id } as any });
+      return await repository.findOne({ 
+        where: { id } as any,
+        relations: relations
+      });
     } catch (error) {
       logger.error('Failed to find by ID', { entity: entity.toString(), id, error });
       throw error;

@@ -1,0 +1,23 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.app.json" },
+    { "path": "./tsconfig.node.json" }
+  ],
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@council/shared-types": ["../../packages/shared-types/src"],
+      "@council/shared-types/*": ["../../packages/shared-types/src/*"],
+      "@council/shared-utils": ["../../packages/shared-utils/src"],
+      "@council/shared-utils/*": ["../../packages/shared-utils/src/*"]
+    },
+    "noImplicitAny": false,
+    "noUnusedParameters": false,
+    "skipLibCheck": true,
+    "allowJs": true,
+    "noUnusedLocals": false,
+    "strictNullChecks": false
+  }
+} 

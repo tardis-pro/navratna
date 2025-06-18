@@ -3,21 +3,21 @@ import { BaseEntity } from './base.entity.js';
 
 /**
  * Discussion Participant Entity
- * Tracks persona participation in discussions and conversations
+ * Tracks agent participation in discussions and conversations
  */
 @Entity('discussion_participants')
-@Index(['personaId', 'discussionId'])
+@Index(['agentId', 'discussionId'])
 @Index(['joinedAt', 'leftAt'])
 @Index(['role', 'isActive'])
 export class DiscussionParticipant extends BaseEntity {
-  @Column({ name: 'persona_id', type: 'varchar' })
-  personaId: string;
+  @Column({ name: 'agent_id', type: 'varchar' })
+  agentId: string;
 
   @Column({ name: 'discussion_id', type: 'varchar' })
   discussionId: string;
 
-  @Column({ name: 'user_id', type: 'varchar' })
-  userId: string;
+  @Column({ name: 'user_id', type: 'varchar', nullable: true })
+  userId?: string;
 
   @Column({ type: 'enum', enum: ['participant', 'moderator', 'observer', 'facilitator'], default: 'participant' })
   role: 'participant' | 'moderator' | 'observer' | 'facilitator';
@@ -74,7 +74,11 @@ export class DiscussionParticipant extends BaseEntity {
   metadata?: Record<string, any>;
 
   // Relationships
-  @ManyToOne('Persona', 'discussionParticipants')
-  @JoinColumn({ name: 'persona_id' })
-  persona: any;
+  @ManyToOne('Agent', 'discussionParticipants')
+  @JoinColumn({ name: 'agent_id' })
+  agent: any;
+
+  @ManyToOne('Discussion', 'participants')
+  @JoinColumn({ name: 'discussion_id' })
+  discussion: any;
 } 

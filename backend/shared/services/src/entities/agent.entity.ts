@@ -1,4 +1,4 @@
-import { Entity, Column, Index, OneToMany, JoinColumn } from 'typeorm';
+import { Entity, Column, Index, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from './base.entity.js';
 import { 
   AgentRole, 
@@ -12,12 +12,18 @@ import {
 /**
  * Enhanced Agent Entity with comprehensive intelligence and security features
  * Implements the enhanced agent model from the TypeORM migration plan
+ * 
+ * COMPOSITION MODEL: Agent → Persona
+ * - Agent handles capabilities, execution, and intelligence
+ * - Persona handles personality, behavior, and conversation style
+ * - Agent references a Persona via personaId
  */
 @Entity('agents')
 @Index(['role', 'isActive'])
 @Index(['createdBy'])
 @Index(['lastActiveAt'])
 @Index(['securityLevel'])
+@Index(['personaId']) // Add index for persona relationship
 export class Agent extends BaseEntity {
   @Column({ length: 255 })
   name: string;
@@ -25,9 +31,18 @@ export class Agent extends BaseEntity {
   @Column({ type: 'enum', enum: AgentRole })
   role: AgentRole;
 
-  // Core persona and intelligence
-  @Column({ type: 'jsonb' })
-  persona: AgentPersona;
+  // COMPOSITION: Reference to Persona entity
+  @Column({ name: 'persona_id', type: 'uuid' })
+  personaId: string;
+
+  @ManyToOne('Persona', { nullable: false })
+  @JoinColumn({ name: 'persona_id' })
+  persona: any; // Will be populated when queried with relations
+
+  // Legacy persona field - keeping for backwards compatibility during migration
+  // TODO: Remove this field after migration is complete
+  @Column({ name: 'legacy_persona', type: 'jsonb', nullable: true })
+  legacyPersona?: AgentPersona;
 
   @Column({ name: 'intelligence_config', type: 'jsonb' })
   intelligenceConfig: AgentIntelligenceConfig;

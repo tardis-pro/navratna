@@ -367,15 +367,13 @@ class DiscussionOrchestrationServer {
 // Create and start the server
 const server = new DiscussionOrchestrationServer();
 
-// Handle startup
-// if (require.main === module) {
-//   server.start().catch((error) => {
-//     logger.error('Failed to start server', {
-//       error: error instanceof Error ? error.message : 'Unknown error'
-//     });
-//     process.exit(1);
-//   });
-// }
+// Handle startup - Start the server immediately
+server.start().catch((error) => {
+  logger.error('Failed to start server', {
+    error: error instanceof Error ? error.message : 'Unknown error'
+  });
+  process.exit(1);
+});
 
 export { server as discussionOrchestrationServer };
 export default server; 

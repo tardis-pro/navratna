@@ -42,12 +42,16 @@ export { ArtifactReview } from './artifactReview.entity.js';
 export { ArtifactDeployment } from './artifactDeployment.entity.js';
 
 // Persona System entities
+export { Discussion } from './discussion.entity.js';
 export { DiscussionParticipant } from './discussionParticipant.entity.js';
 export { PersonaAnalytics } from './personaAnalytics.entity.js';
 
 // MCP Integration entities
 export { MCPServer } from './mcpServer.entity.js';
 export { MCPToolCall } from './mcpToolCall.entity.js';
+
+// LLM Integration entities
+export { LLMProvider } from './llmProvider.entity.js';
 
 // Entity arrays for TypeORM configuration - kept for backward compatibility
 export const getAllEntities = () => {

@@ -1,0 +1,133 @@
+FROM node:20 AS development
+
+# Install pnpm and development tools for hot reloading
+RUN npm install -g pnpm nodemon tsx typescript
+
+# Set working directory and create user first
+WORKDIR /app
+RUN addgroup -gid 1001 nodejs && \
+    adduser -u 1001 -ingroup nodejs -disabled-login uaip
+
+# Copy root workspace configuration files as root first
+COPY pnpm-workspace.yaml ./
+COPY package.json ./
+COPY pnpm-lock.yaml ./
+COPY tsconfig.json ./
+
+# Copy shared packages (monorepo-wide)
+COPY packages/ ./packages/
+
+# Copy backend configuration and code
+COPY backend/package.json ./backend/
+COPY backend/pnpm-workspace.yaml ./backend/
+COPY backend/pnpm-lock.yaml ./backend/
+COPY backend/tsconfig.json ./backend/
+COPY backend/tsconfig.build.json ./backend/
+COPY backend/tsconfig.build_shared.json ./backend/
+COPY backend/esbuild.config.js ./backend/
+COPY backend/.env ./backend/
+
+# Copy backend shared dependencies and services
+COPY backend/shared/ ./backend/shared/
+COPY backend/services/ ./backend/services/
+
+# Now change ownership of everything to uaip user
+RUN chown -R uaip:nodejs /app
+
+# Switch to uaip user for the rest of the build
+USER uaip
+
+RUN echo "Checking workspace packages..." && \
+    find . -name "package.json" && \
+    echo "Root workspace file:" && cat pnpm-workspace.yaml && \
+    echo "Backend workspace file:" && cat backend/pnpm-workspace.yaml
+
+# Install dependencies (this installs workspace dependencies properly)
+RUN pnpm install
+
+# Build shared packages first (monorepo-wide)
+RUN pnpm build:shared
+
+# Build backend shared packages
+RUN cd backend && pnpm build-shared
+
+# Create development entrypoint script with hot reloading
+USER root
+COPY --chown=uaip:nodejs <<'EOF' /app/entrypoint-dev.sh
+#!/bin/sh
+
+# Default values
+SERVICE_NAME=${SERVICE_NAME:-orchestration-pipeline}
+SERVICE_PORT=${SERVICE_PORT:-3002}
+
+# Validate service name
+case "$SERVICE_NAME" in
+  "artifact-service"|"orchestration-pipeline"|"security-gateway"|"capability-registry"|"agent-intelligence"|"discussion-orchestration"|"llm-service")
+    echo "Starting development service: $SERVICE_NAME on port: $SERVICE_PORT with hot reloading"
+    ;;
+  *)
+    echo "Error: Invalid SERVICE_NAME. Must be one of: orchestration-pipeline, security-gateway, capability-registry, agent-intelligence, discussion-orchestration, artifact-service, llm-service"
+    exit 1
+    ;;
+esac
+
+# Change to service directory
+cd "/app/backend/services/$SERVICE_NAME"
+
+# Check if src directory exists
+if [ ! -d "src" ]; then
+  echo "Error: src directory not found for service $SERVICE_NAME"
+  echo "Available files in service directory:"
+  ls -la .
+  echo "Available services:"
+  ls -la /app/backend/services/
+  exit 1
+fi
+
+# Check if main entry file exists
+if [ ! -f "src/index.ts" ]; then
+  echo "Error: src/index.ts not found for service $SERVICE_NAME"
+  echo "Available files in src directory:"
+  ls -la src/
+  exit 1
+fi
+
+echo "Starting $SERVICE_NAME with nodemon for hot reloading..."
+echo "Watching: src/**/*.ts"
+echo "Entry point: src/index.ts"
+
+# Ensure shared packages are built before starting
+echo "Building shared packages if needed..."
+cd /app && pnpm build:shared > /dev/null 2>&1 || true
+cd /app/backend && pnpm build-shared > /dev/null 2>&1 || true
+
+# Return to service directory
+cd "/app/backend/services/$SERVICE_NAME"
+
+# Start the service with nodemon for hot reloading
+exec nodemon \
+  --watch src \
+  --watch ../../shared \
+  --watch ../../../packages \
+  --ext ts,js,json \
+  --ignore "**/*.test.ts" \
+  --ignore "**/*.spec.ts" \
+  --ignore "**/dist/**" \
+  --ignore "**/node_modules/**" \
+  --delay 2 \
+  --exec "tsx src/index.ts"
+EOF
+
+RUN chmod +x /app/entrypoint-dev.sh
+
+# Switch back to uaip user for runtime
+USER uaip
+
+# Expose port (will be overridden by SERVICE_PORT)
+EXPOSE 3001 3002 3003 3004 3005 3006 3007
+
+# Health check script that uses the SERVICE_PORT
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:${SERVICE_PORT:-3002}/health || exit 1
+
+ENTRYPOINT ["/app/entrypoint-dev.sh"] 

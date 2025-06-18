@@ -40,8 +40,7 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
     try {
       // Get active participants
       const activeParticipants = participants.filter(p => 
-        p.isActive && 
-        p.permissions?.canSendMessages !== false
+        p.isActive
       );
 
       if (activeParticipants.length === 0) {
@@ -123,9 +122,7 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
         return false;
       }
 
-      if (participant.permissions?.canSendMessages === false) {
-        return false;
-      }
+      // No permissions check needed - using isActive instead
 
       if (participant.discussionId !== discussion.id) {
         return false;
@@ -367,8 +364,8 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
       if (discussion.topic) {
         // Simplified keyword matching - in real implementation, use semantic analysis
         const topicKeywords = discussion.topic.toLowerCase().split(' ');
-        const participantExpertise = participant.personaId ? 
-          await this.getParticipantExpertise(participant.personaId) : [];
+                const participantExpertise = participant.agentId ?
+          await this.getParticipantExpertise(participant.agentId) : [];
         
         const expertiseMatch = participantExpertise.some(expertise =>
           topicKeywords.some(keyword => expertise.toLowerCase().includes(keyword))
@@ -399,8 +396,8 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
     for (const participant of participants) {
       let expertiseScore = 0.5; // Base score
       
-      // Boost for expert role
-      if (participant.role === ParticipantRole.EXPERT) {
+      // Boost for facilitator role (closest to expert)
+      if (participant.role === ParticipantRole.FACILITATOR) {
         expertiseScore += 0.3;
       }
       
@@ -429,8 +426,8 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
       let engagementScore = 0.5; // Base score
       
       // Recent activity boost
-      if (participant.lastActiveAt) {
-        const timeSinceActive = new Date().getTime() - new Date(participant.lastActiveAt).getTime();
+      if (participant.lastMessageAt) {
+        const timeSinceActive = new Date().getTime() - new Date(participant.lastMessageAt).getTime();
         const hoursSinceActive = timeSinceActive / (1000 * 60 * 60);
         
         if (hoursSinceActive < 1) {
@@ -528,8 +525,8 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
     return await this.analyzeDiscussionContext(discussion, participants);
   }
 
-  private async getParticipantExpertise(personaId: string): Promise<string[]> {
-    // This would fetch persona expertise from the persona service
+  private async getParticipantExpertise(agentId: string): Promise<string[]> {
+    // This would fetch agent expertise from the agent service
     // For now, return empty array
     return [];
   }

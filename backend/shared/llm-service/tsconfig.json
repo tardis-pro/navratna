@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "outDir": "dist",
+    "rootDir": "src",
+    "baseUrl": "./src"
+  },
+  "references": [
+    { "path": "../types" },
+    { "path": "../config" },
+    { "path": "../utils" },
+    { "path": "../services" }
+  ],
+  "include": ["src/**/*"],
+  "exclude": ["dist", "node_modules"]
+} 

@@ -1,0 +1,22 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": "./src",
+    "outDir": "./dist",
+  },
+  "references": [
+    { "path": "../../shared/types" },
+    { "path": "../../shared/utils" },
+    { "path": "../../shared/services" },
+    { "path": "../../shared/llm-service" },
+    { "path": "../../shared/config" },
+    { "path": "../../shared/middleware" }
+  ],
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+} 

@@ -628,11 +628,15 @@ export class DatabaseService {
   // Generic CRUD operations using TypeORM
   public async findById<T extends ObjectLiteral>(
     entity: EntityTarget<T>,
-    id: string
+    id: string,
+    relations?: string[]
   ): Promise<T | null> {
     try {
       const repository = await this.getRepository(entity);
-      return await repository.findOne({ where: { id } as any });
+      return await repository.findOne({ 
+        where: { id } as any,
+        relations: relations
+      });
     } catch (error) {
       logger.error('Failed to find by ID', { entity: entity.toString(), id, error });
       throw error;
@@ -1532,28 +1536,50 @@ export class DatabaseService {
 
   /**
    * Create a new agent
+   * COMPOSITION MODEL: Agent → Persona
    */
   public async createAgent(agentData: {
     id?: string;
     name: string;
     role: string;
-    persona: any;
+    // COMPOSITION MODEL: personaId reference
+    personaId?: string;
+    // Legacy persona data for backwards compatibility
+    legacyPersona?: any;
+    // Deprecated: old persona field (for backwards compatibility)
+    persona?: any;
     intelligenceConfig: any;
     securityContext: any;
+    configuration?: any;
     createdBy?: string;
+    capabilities?: string[];
   }): Promise<any> {
     return await this.agentRepository.createAgent(agentData);
   }
 
   /**
    * Update an agent
+   * COMPOSITION MODEL: Agent → Persona
    */
   public async updateAgent(agentId: string, updateData: {
     name?: string;
     role?: string;
+    // COMPOSITION MODEL: personaId reference
+    personaId?: string;
+    // Legacy persona data for backwards compatibility
+    legacyPersona?: any;
+    // Deprecated: old persona field (for backwards compatibility)
     persona?: any;
     intelligenceConfig?: any;
     securityContext?: any;
+    configuration?: any;
+    capabilities?: string[];
+    // Model configuration fields
+    modelId?: string;
+    apiType?: 'ollama' | 'llmstudio';
+    temperature?: number;
+    maxTokens?: number;
+    systemPrompt?: string;
   }): Promise<any | null> {
     return await this.agentRepository.updateAgent(agentId, updateData);
   }

@@ -20,6 +20,12 @@ export {
 export { ToolDatabase } from './toolDatabase.js';
 export { ToolGraphDatabase } from './toolGraphDatabase.js';
 
+// Repositories
+export { LLMProviderRepository } from './repositories/LLMProviderRepository.js';
+
+// Entities
+export { LLMProvider, LLMProviderType, LLMProviderStatus } from '../entities/llmProvider.entity.js';
+
 // Types
 export type { 
   ToolRelationship,

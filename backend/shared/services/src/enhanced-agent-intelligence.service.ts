@@ -135,6 +135,7 @@ export class EnhancedAgentIntelligenceService {
 
   /**
    * Create a new agent with enhanced capabilities
+   * COMPOSITION MODEL: Agent → Persona
    */
   async createAgent(agentData: any): Promise<Agent> {
     if (!this.isInitialized) {
@@ -151,14 +152,45 @@ export class EnhancedAgentIntelligenceService {
       }
       // If no ID provided, let database auto-generate
 
+      // COMPOSITION MODEL: Handle personaId validation
+      let personaId: string | undefined;
+      if (agentData.personaId) {
+        personaId = this.validateIDParam(agentData.personaId, 'personaId');
+        
+        // Validate that the persona exists
+        if (this.personaService) {
+          const persona = await this.personaService.getPersona(personaId);
+          if (!persona) {
+            throw new ApiError(400, `Persona not found: ${personaId}`, 'PERSONA_NOT_FOUND');
+          }
+          logger.info('Validated persona for agent creation', { personaId, personaName: persona.name });
+        } else {
+          logger.warn('PersonaService not available, skipping persona validation');
+        }
+      } else if (agentData.persona) {
+        // Legacy mode: persona data provided directly (for transformation)
+        logger.info('Creating agent with legacy persona data (transformation mode)');
+      } else {
+        throw new ApiError(400, 'Either personaId or persona data must be provided', 'MISSING_PERSONA');
+      }
+
       const intelligenceConfig = agentData.intelligenceConfig || 
                                 agentData.intelligence_config || 
-                                agentData.configuration || 
                                 {};
       
       const securityContext = agentData.securityContext || 
                              agentData.security_context || 
                              {};
+      
+      const configuration = agentData.configuration || {
+        model: 'gpt-3.5-turbo',
+        temperature: 0.7,
+        analysisDepth: 'intermediate',
+        contextWindowSize: 4000,
+        decisionThreshold: 0.7,
+        learningEnabled: true,
+        collaborationMode: 'collaborative'
+      };
       
       const role = agentData.role || 'assistant';
       let createdBy = agentData.createdBy || agentData.created_by;
@@ -174,10 +206,15 @@ export class EnhancedAgentIntelligenceService {
         ...(agentId && { id: agentId }),
         name: agentData.name,
         role: role,
-        persona: agentData.persona || {},
+        // COMPOSITION MODEL: Include personaId
+        ...(personaId && { personaId }),
+        // Legacy persona data for backwards compatibility
+        ...(agentData.persona && { legacyPersona: agentData.persona }),
         intelligenceConfig: intelligenceConfig,
         securityContext: securityContext,
-        createdBy: createdBy
+        configuration: configuration,
+        createdBy: createdBy,
+        capabilities: agentData.capabilities || []
       };
 
       // Use DatabaseService createAgent method instead of raw SQL
@@ -187,8 +224,16 @@ export class EnhancedAgentIntelligenceService {
         agentId: savedAgent.id,
         name: savedAgent.name,
         role: savedAgent.role,
+        personaId: savedAgent.personaId,
         createdBy: savedAgent.createdBy,
         timestamp: new Date()
+      });
+
+      logger.info('Agent created successfully with persona relationship', { 
+        agentId: savedAgent.id, 
+        personaId: savedAgent.personaId,
+        hasConfiguration: !!savedAgent.configuration,
+        configurationKeys: savedAgent.configuration ? Object.keys(savedAgent.configuration) : []
       });
 
       return savedAgent;
@@ -217,10 +262,86 @@ export class EnhancedAgentIntelligenceService {
       // Use DatabaseService getActiveAgentById method instead of raw SQL
       const agent = await this.databaseService.getActiveAgentById(validatedId);
       
-      return agent;
+      if (!agent) {
+        return null;
+      }
+
+      // Map the agent entity to the Agent type, including model configuration fields
+      const mappedAgent: Agent = {
+        id: agent.id,
+        name: agent.name,
+        role: agent.role,
+        personaId: agent.personaId,
+        persona: agent.persona,
+        intelligenceConfig: agent.intelligenceConfig,
+        securityContext: agent.securityContext,
+        configuration: agent.configuration,
+        isActive: agent.isActive,
+        createdBy: agent.createdBy,
+        lastActiveAt: agent.lastActiveAt,
+        createdAt: agent.createdAt,
+        updatedAt: agent.updatedAt,
+        // Include model configuration fields
+        modelId: agent.modelId,
+        apiType: agent.apiType,
+        temperature: agent.temperature,
+        maxTokens: agent.maxTokens,
+        systemPrompt: agent.systemPrompt
+      };
+
+      return mappedAgent;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Error getting agent', { agentId, error: errorMessage });
+      throw error;
+    }
+  }
+
+  /**
+   * Get an agent with its persona data populated
+   * COMPOSITION MODEL: Returns agent with persona relationship
+   */
+  async getAgentWithPersona(agentId: string): Promise<(Agent & { personaData?: any }) | null> {
+    if (!this.isInitialized) {
+      await this.initialize();
+    }
+    
+    try {
+      const validatedId = this.validateIDParam(agentId, 'agentId');
+
+      // Get the agent first
+      const agent = await this.databaseService.getActiveAgentById(validatedId);
+      if (!agent) {
+        return null;
+      }
+
+      // If agent has a personaId, fetch the persona data
+      let personaData = null;
+      if (agent.personaId && this.personaService) {
+        try {
+          personaData = await this.personaService.getPersona(agent.personaId);
+          logger.info('Fetched persona data for agent', { 
+            agentId: agent.id, 
+            personaId: agent.personaId,
+            personaName: personaData?.name 
+          });
+        } catch (error) {
+          logger.warn('Failed to fetch persona data for agent', { 
+            agentId: agent.id, 
+            personaId: agent.personaId,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+        }
+      }
+
+      // Return agent with persona data
+      return {
+        ...agent,
+        personaData
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error getting agent with persona', { agentId, error: errorMessage });
       throw error;
     }
   }
@@ -260,14 +381,48 @@ export class EnhancedAgentIntelligenceService {
       const updatePayload: any = {};
       if (updateData.name) updatePayload.name = updateData.name;
       if (updateData.role) updatePayload.role = updateData.role;
-      if (updateData.persona) updatePayload.persona = updateData.persona;
+      if (updateData.personaId) updatePayload.personaId = updateData.personaId;
+      if (updateData.isActive !== undefined) updatePayload.isActive = updateData.isActive;
+      
+      // Handle configuration object
+      if (updateData.configuration) {
+        updatePayload.configuration = updateData.configuration;
+        
+        // Extract modelId and apiType from configuration if present
+        if (updateData.configuration.modelId && !updateData.modelId) {
+          updatePayload.modelId = updateData.configuration.modelId;
+          logger.info('Extracted modelId from configuration', { modelId: updateData.configuration.modelId });
+        }
+        if (updateData.configuration.apiType && !updateData.apiType) {
+          updatePayload.apiType = updateData.configuration.apiType;
+          logger.info('Extracted apiType from configuration', { apiType: updateData.configuration.apiType });
+        }
+      }
+      
       if (updateData.intelligenceConfig || updateData.intelligence_config) {
         updatePayload.intelligenceConfig = updateData.intelligenceConfig || updateData.intelligence_config;
       }
       if (updateData.securityContext || updateData.security_context) {
         updatePayload.securityContext = updateData.securityContext || updateData.security_context;
       }
-
+      
+      // Handle direct model configuration fields (these take precedence)
+      if (updateData.modelId) updatePayload.modelId = updateData.modelId;
+      if (updateData.apiType) updatePayload.apiType = updateData.apiType;
+      if (updateData.temperature !== undefined) updatePayload.temperature = updateData.temperature;
+      if (updateData.maxTokens) updatePayload.maxTokens = updateData.maxTokens;
+      if (updateData.systemPrompt) updatePayload.systemPrompt = updateData.systemPrompt;
+      
+      console.log('updateData', updateData);
+      console.log('updatePayload', updatePayload);
+      
+      logger.info('Updating agent with enhanced payload', { 
+        agentId: validatedId, 
+        updateFields: Object.keys(updatePayload),
+        modelId: updatePayload.modelId,
+        apiType: updatePayload.apiType
+      });
+      
       if (Object.keys(updatePayload).length === 0) {
         throw new ApiError(400, 'No valid fields to update', 'NO_UPDATE_FIELDS');
       }
@@ -591,7 +746,7 @@ Personality Traits: ${JSON.stringify(persona.traits)}`,
           tags: ['agent-persona', `agent-${agentId}`, 'initialization'],
           source: {
             type: SourceType.AGENT_INTERACTION,
-            identifier: `persona-${personaId}`,
+            identifier: personaId,
             metadata: { agentId, personaId, persona }
           },
           confidence: 0.9

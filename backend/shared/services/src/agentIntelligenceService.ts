@@ -2,7 +2,7 @@ import { Pool } from 'pg';
 import { DatabaseService } from './databaseService.js';
 import { EventBusService } from './eventBusService.js';
 import { logger, ApiError } from '@uaip/utils';
-import { Agent, AgentAnalysis, AgentRole, ExecutionPlan, LearningResult } from '@uaip/types';
+import { Agent, AgentAnalysis, AgentRole, ExecutionPlan, LearningResult, Persona, PersonaStatus, PersonaVisibility } from '@uaip/types';
 
 interface MessageWithContent {
   content?: string;
@@ -19,24 +19,15 @@ export class AgentIntelligenceService {
       url: process.env.RABBITMQ_URL || 'amqp://localhost',
       serviceName: 'agent-intelligence'
     }, console as any);
-  //  this.databaseService.seedDatabase().then(() => {
-  //   logger.info('Database seeding completed successfully');
-  //  }).catch((error) => {
-  //   logger.error('Database seeding failed', { error });
-  //  });
-
   }
 
   public async initialize(): Promise<void> {
     if (this.isInitialized) return;
 
     try {
-      // Initialize database service first
       await this.databaseService.initialize();
       logger.info('DatabaseService initialized successfully');
-      
 
-      // Initialize event bus connection with retry logic
       const maxRetries = 3;
       let retryCount = 0;
       
@@ -53,9 +44,8 @@ export class AgentIntelligenceService {
           
           if (retryCount >= maxRetries) {
             logger.error('Failed to initialize EventBus after max retries, continuing without event publishing');
-            this.isInitialized = true; // Allow service to work without events
+            this.isInitialized = true;
           } else {
-            // Wait before retry
             await new Promise(resolve => setTimeout(resolve, 2000));
           }
         }
@@ -78,13 +68,9 @@ export class AgentIntelligenceService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Failed to publish event', { eventType, error: errorMessage });
-      // Don't throw error - continue operation even if event publishing fails
     }
   }
 
-  /**
-   * Validates if a value is a valid positive integer ID
-   */
   private validateIDParam(id: string, paramName: string = 'id'): string {
     return id;
   }
@@ -95,28 +81,27 @@ export class AgentIntelligenceService {
     }
     
     try {
-      // Use DatabaseService getActiveAgents method instead of raw SQL
       const agents = await this.databaseService.getActiveAgents(6);
       if (agents.length === 0) {
         return null;
       }
 
-      // Map database entities to Agent interface
       const mappedAgents: Agent[] = agents.map(agent => ({
         id: agent.id,
         name: agent.name,
         role: agent.role as AgentRole,
-        persona: agent.persona,
+        persona: this.mapPersonaFromEntity(agent.persona),
         intelligenceConfig: agent.intelligenceConfig,
         securityContext: agent.securityContext,
+        configuration: agent.configuration,
         isActive: agent.isActive
       }));
 
       return mappedAgents;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('Error getting agent', { error: errorMessage });
-      throw new ApiError(500, 'Failed to retrieve agent', 'DATABASE_ERROR');
+      logger.error('Error getting agents', { error: errorMessage });
+      throw new ApiError(500, 'Failed to retrieve agents', 'DATABASE_ERROR');
     }
   }
 
@@ -126,29 +111,31 @@ export class AgentIntelligenceService {
     }
     
     try {
-      // Validate ID format
       const validatedId = this.validateIDParam(agentId, 'agentId');
-
-      // Use DatabaseService getActiveAgentById method instead of raw SQL
       const agent = await this.databaseService.getActiveAgentById(validatedId);
       
       if (!agent) {
         return null;
       }
 
-      // Map database entity to Agent interface
       const mappedAgent: Agent = {
         id: agent.id,
         name: agent.name,
         role: agent.role,
-        persona: agent.persona,
+        persona: this.mapPersonaFromEntity(agent.persona),
         intelligenceConfig: agent.intelligenceConfig,
         securityContext: agent.securityContext,
+        configuration: agent.configuration,
         isActive: agent.isActive,
         createdBy: agent.createdBy,
         lastActiveAt: agent.lastActiveAt,
         createdAt: agent.createdAt,
-        updatedAt: agent.updatedAt
+        updatedAt: agent.updatedAt,
+        modelId: agent.modelId,
+        apiType: agent.apiType,
+        temperature: agent.temperature,
+        maxTokens: agent.maxTokens,
+        systemPrompt: agent.systemPrompt
       };
 
       return mappedAgent;
@@ -172,13 +159,8 @@ export class AgentIntelligenceService {
     try {
       logger.info('Analyzing context for agent', { agentId: agent.id });
 
-      // Extract key information from conversation context
       const contextAnalysis = this.extractContextualInformation(conversationContext);
-      
-      // Analyze user intent and requirements
       const intentAnalysis = this.analyzeUserIntent(userRequest);
-      
-      // Generate action recommendations based on agent's capabilities and context
       const actionRecommendations = await this.generateActionRecommendations(
         agent,
         contextAnalysis,
@@ -186,7 +168,6 @@ export class AgentIntelligenceService {
         constraints
       );
 
-      // Calculate confidence score
       const confidence = this.calculateConfidence(
         contextAnalysis,
         intentAnalysis,
@@ -194,7 +175,6 @@ export class AgentIntelligenceService {
         agent.intelligenceConfig
       );
 
-      // Generate explanation
       const explanation = this.generateExplanation(
         contextAnalysis,
         intentAnalysis,
@@ -215,7 +195,6 @@ export class AgentIntelligenceService {
         timestamp: new Date()
       };
 
-      // Emit analysis event for monitoring
       await this.safePublishEvent('agent.context.analyzed', {
         agentId: agent.id,
         confidence,
@@ -244,19 +223,10 @@ export class AgentIntelligenceService {
     try {
       logger.info('Generating execution plan', { agentId: agent.id });
 
-      // Determine plan type based on analysis
       const planType = this.determinePlanType(analysis);
-      
-      // Generate plan steps
       const steps = await this.generatePlanSteps(agent, analysis, planType);
-      
-      // Calculate dependencies
       const dependencies = await this.calculateDependencies(steps);
-      
-      // Estimate duration
       const estimatedDuration = this.estimateDuration(steps, dependencies);
-      
-      // Apply user preferences
       const optimizedSteps = this.applyUserPreferences(steps, userPreferences);
 
       const plan: ExecutionPlan = {
@@ -277,13 +247,9 @@ export class AgentIntelligenceService {
         created_at: new Date()
       };
 
-      // Validate plan against security constraints
       await this.validatePlanSecurity(plan, securityContext);
-
-      // Store plan in database
       await this.storePlan(plan);
 
-      // Emit plan generation event
       await this.safePublishEvent('agent.plan.generated', {
         agentId: agent.id,
         planId: plan.id,
@@ -306,30 +272,58 @@ export class AgentIntelligenceService {
     }
     
     try {
-      // Validate ID format
       const validatedId = this.validateIDParam(agentId, 'agentId');
 
-      // Prepare update data for DatabaseService
       const updatePayload: any = {};
       if (updateData.name) updatePayload.name = updateData.name;
       if (updateData.persona) updatePayload.persona = updateData.persona;
+      if (updateData.personaId) updatePayload.personaId = updateData.personaId;
       if (updateData.intelligenceConfig) updatePayload.intelligenceConfig = updateData.intelligenceConfig;
       if (updateData.securityContext) updatePayload.securityContext = updateData.securityContext;
+      if (updateData.isActive !== undefined) updatePayload.isActive = updateData.isActive;
+      
+      // Handle configuration object
+      if (updateData.configuration) {
+        updatePayload.configuration = updateData.configuration;
+        
+        // Extract modelId and apiType from configuration if present
+        if (updateData.configuration.modelId && !updateData.modelId) {
+          updatePayload.modelId = updateData.configuration.modelId;
+          logger.info('Extracted modelId from configuration', { modelId: updateData.configuration.modelId });
+        }
+        if (updateData.configuration.apiType && !updateData.apiType) {
+          updatePayload.apiType = updateData.configuration.apiType;
+          logger.info('Extracted apiType from configuration', { apiType: updateData.configuration.apiType });
+        }
+      }
+      
+      // Handle direct model configuration fields (these take precedence)
+      if (updateData.modelId) updatePayload.modelId = updateData.modelId;
+      if (updateData.apiType) updatePayload.apiType = updateData.apiType;
+      if (updateData.temperature !== undefined) updatePayload.temperature = updateData.temperature;
+      if (updateData.maxTokens) updatePayload.maxTokens = updateData.maxTokens;
+      if (updateData.systemPrompt) updatePayload.systemPrompt = updateData.systemPrompt;
 
-      // Use DatabaseService updateAgent method instead of raw SQL
+      logger.info('Updating agent with payload', { 
+        agentId: validatedId, 
+        updateFields: Object.keys(updatePayload),
+        modelId: updatePayload.modelId,
+        apiType: updatePayload.apiType
+      });
+
       const updatedAgent = await this.databaseService.updateAgent(validatedId, updatePayload);
       if (!updatedAgent) {
         throw new ApiError(404, 'Agent not found', 'AGENT_NOT_FOUND');
       }
 
-      // Map database entity to Agent interface
       const agent: Agent = {
         id: updatedAgent.id,
         name: updatedAgent.name,
         role: updatedAgent.role,
-        persona: updatedAgent.persona,
+        persona: this.mapPersonaFromEntity(updatedAgent.persona),
         intelligenceConfig: updatedAgent.intelligenceConfig,
         securityContext: updatedAgent.securityContext,
+        configuration: updatedAgent.configuration,
         isActive: updatedAgent.isActive,
         createdBy: updatedAgent.createdBy,
         lastActiveAt: updatedAgent.lastActiveAt,
@@ -351,63 +345,66 @@ export class AgentIntelligenceService {
     }
     
     try {
-      logger.info('Creating new agent', { name: agentData.name });
+      logger.info('Creating new agent', { 
+        name: agentData.name,
+        hasConfiguration: !!agentData.configuration,
+        configurationKeys: agentData.configuration ? Object.keys(agentData.configuration) : []
+      });
 
-      // Handle ID validation - no longer generate UUIDs, let database auto-increment
       let agentId: string | undefined;
       if (agentData.id) {
-        // Validate provided ID is a valid positive integer
         agentId = this.validateIDParam(agentData.id, 'agentId');
       }
-      // If no ID provided, let database auto-generate
 
-      // Map configuration to intelligenceConfig if provided, handle both camelCase and snake_case
       const intelligenceConfig = agentData.intelligenceConfig || 
                                 agentData.intelligence_config || 
-                                agentData.configuration || 
                                 {};
       
-      // Handle securityContext mapping
       const securityContext = agentData.securityContext || 
                              agentData.security_context || 
                              {};
       
-      // Default role if not provided
+      const configuration = agentData.configuration || {
+        model: 'gpt-3.5-turbo',
+        temperature: 0.7,
+        analysisDepth: 'intermediate',
+        contextWindowSize: 4000,
+        decisionThreshold: 0.7,
+        learningEnabled: true,
+        collaborationMode: 'collaborative'
+      };
+      
       const role = agentData.role || 'assistant';
       
-      // Default createdBy if not provided, handle both camelCase and snake_case
       let createdBy = agentData.createdBy || agentData.created_by;
       
-      // Validate createdBy if provided - it must be a valid positive integer since it references users(id)
       if (createdBy) {
         createdBy = this.validateIDParam(createdBy, 'createdBy');
       } else {
-        // If no createdBy provided, set to null (database allows this)
         createdBy = null;
       }
 
-      // Prepare data for DatabaseService
       const createPayload = {
-        ...(agentId && { id: agentId }), // Only include ID if provided
+        ...(agentId && { id: agentId }),
         name: agentData.name,
         role: role,
         persona: agentData.persona || {},
         intelligenceConfig: intelligenceConfig,
         securityContext: securityContext,
+        configuration: configuration,
         createdBy: createdBy
       };
 
-      // Use DatabaseService createAgent method instead of raw SQL
       const savedAgent = await this.databaseService.createAgent(createPayload);
       
-      // Map database entity to Agent interface
       const agent: Agent = {
         id: savedAgent.id,
         name: savedAgent.name,
         role: savedAgent.role,
-        persona: savedAgent.persona,
+        persona: this.mapPersonaFromEntity(savedAgent.persona),
         intelligenceConfig: savedAgent.intelligenceConfig,
         securityContext: savedAgent.securityContext,
+        configuration: savedAgent.configuration,
         isActive: savedAgent.isActive,
         createdBy: savedAgent.createdBy,
         lastActiveAt: savedAgent.lastActiveAt,
@@ -415,7 +412,6 @@ export class AgentIntelligenceService {
         updatedAt: savedAgent.updatedAt
       };
 
-      // Emit agent creation event
       await this.safePublishEvent('agent.created', {
         agentId: agent.id,
         name: agent.name,
@@ -429,7 +425,6 @@ export class AgentIntelligenceService {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Error creating agent', { error: errorMessage });
       
-      // Re-throw ApiError instances (like UUID validation errors) as-is
       if (error instanceof ApiError) {
         throw error;
       }
@@ -444,17 +439,13 @@ export class AgentIntelligenceService {
     }
     
     try {
-      // Validate ID format
       const validatedId = this.validateIDParam(agentId, 'agentId');
-
-      // Use DatabaseService method instead of raw SQL
       const wasDeactivated = await this.databaseService.deactivateAgent(validatedId);
 
       if (!wasDeactivated) {
         throw new ApiError(404, 'Agent not found', 'AGENT_NOT_FOUND');
       }
 
-      // Emit agent deletion event
       await this.safePublishEvent('agent.deleted', {
         agentId: validatedId,
         timestamp: new Date()
@@ -478,30 +469,23 @@ export class AgentIntelligenceService {
     }
     
     try {
-      // Validate ID formats
       const validatedAgentId = this.validateIDParam(agentId, 'agentId');
       const validatedOperationId = this.validateIDParam(operationId, 'operationId');
 
-      // Get operation details
       const operation = await this.getOperation(validatedOperationId);
       if (!operation || operation.agent_id !== validatedAgentId) {
         throw new ApiError(404, 'Operation not found', 'OPERATION_NOT_FOUND');
       }
 
-      // Analyze outcomes and extract learning
       const learningData = this.extractLearning(operation, outcomes, feedback);
-      
-      // Update agent's knowledge base in Neo4j
       await this.updateAgentKnowledge(validatedAgentId, learningData);
       
-      // Adjust confidence scores based on outcomes
       const confidenceAdjustments = this.calculateConfidenceAdjustments(
         operation,
         outcomes,
         feedback
       );
 
-      // Store learning record
       await this.storeLearningRecord(validatedAgentId, validatedOperationId, learningData, confidenceAdjustments);
 
       const result: LearningResult = {
@@ -511,7 +495,6 @@ export class AgentIntelligenceService {
         improvedCapabilities: learningData.improvedCapabilities
       };
 
-      // Emit learning event
       await this.safePublishEvent('agent.learning.applied', {
         agentId: validatedAgentId,
         operationId: validatedOperationId,
@@ -528,6 +511,105 @@ export class AgentIntelligenceService {
 
   // Private helper methods
 
+  private mapPersonaFromEntity(personaData: any): Persona {
+    if (!personaData) {
+      return this.getDefaultPersona();
+    }
+
+    return {
+      id: personaData.id || 'default',
+      name: personaData.name || 'Default Persona',
+      role: personaData.role || 'Assistant',
+      description: personaData.description || 'A helpful AI assistant',
+      traits: personaData.traits || [],
+      expertise: personaData.expertise?.map((exp: any, index: number) => ({
+        id: `${Date.now()}-${index}`,
+        name: typeof exp === 'string' ? exp : exp.name || 'General',
+        description: '',
+        category: 'general',
+        level: 'intermediate' as const,
+        keywords: [],
+        relatedDomains: []
+      })) || [],
+      background: personaData.background || 'AI assistant background',
+      systemPrompt: personaData.systemPrompt || 'You are a helpful AI assistant.',
+      conversationalStyle: personaData.conversationalStyle || {
+        tone: 'friendly',
+        verbosity: 'moderate',
+        formality: 'neutral',
+        empathy: 0.7,
+        assertiveness: 0.5,
+        creativity: 0.5,
+        analyticalDepth: 0.6,
+        questioningStyle: 'exploratory',
+        responsePattern: 'structured'
+      },
+      status: personaData.status || PersonaStatus.ACTIVE,
+      visibility: personaData.visibility || PersonaVisibility.PRIVATE,
+      createdBy: personaData.createdBy || 'system',
+      organizationId: personaData.organizationId,
+      teamId: personaData.teamId,
+      version: personaData.version || 1,
+      parentPersonaId: personaData.parentPersonaId,
+      tags: personaData.tags || [],
+      validation: personaData.validation,
+      usageStats: personaData.usageStats || {
+        totalUsages: 0,
+        uniqueUsers: 0,
+        averageSessionDuration: 0,
+        popularityScore: 0,
+        feedbackCount: 0
+      },
+      configuration: personaData.configuration || {},
+      capabilities: personaData.capabilities || [],
+      restrictions: personaData.restrictions || {},
+      metadata: personaData.metadata,
+      createdAt: personaData.createdAt || new Date(),
+      updatedAt: personaData.updatedAt || new Date()
+    };
+  }
+
+  private getDefaultPersona(): Persona {
+    return {
+      id: 'default',
+      name: 'Default Assistant',
+      role: 'AI Assistant',
+      description: 'A helpful AI assistant',
+      traits: [],
+      expertise: [],
+      background: 'General AI assistant',
+      systemPrompt: 'You are a helpful AI assistant.',
+      conversationalStyle: {
+        tone: 'friendly',
+        verbosity: 'moderate',
+        formality: 'neutral',
+        empathy: 0.7,
+        assertiveness: 0.5,
+        creativity: 0.5,
+        analyticalDepth: 0.6,
+        questioningStyle: 'exploratory',
+        responsePattern: 'structured'
+      },
+      status: PersonaStatus.ACTIVE,
+      visibility: PersonaVisibility.PRIVATE,
+      createdBy: 'system',
+      version: 1,
+      tags: [],
+      usageStats: {
+        totalUsages: 0,
+        uniqueUsers: 0,
+        averageSessionDuration: 0,
+        popularityScore: 0,
+        feedbackCount: 0
+      },
+      configuration: {},
+      capabilities: [],
+      restrictions: {},
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+  }
+
   private extractContextualInformation(conversationContext: any): any {
     return {
       messageCount: conversationContext.messages?.length,
@@ -540,7 +622,6 @@ export class AgentIntelligenceService {
   }
 
   private analyzeUserIntent(userRequest: string): any {
-    // Simple intent analysis - in production, use NLP models
     const intentPatterns = {
       create: /create|make|build|generate|develop/i,
       analyze: /analyze|examine|check|review|assess/i,
@@ -570,7 +651,6 @@ export class AgentIntelligenceService {
   ): Promise<any[]> {
     const recommendations = [];
 
-    // Based on intent, generate appropriate actions
     switch (intentAnalysis.primary) {
       case 'create':
         recommendations.push({
@@ -645,8 +725,8 @@ export class AgentIntelligenceService {
     return {
       timeOfDay: new Date().getHours(),
       userLoad: conversationContext.participants?.length || 1,
-      systemLoad: 'normal', // This would come from monitoring
-      availableResources: 'high' // This would come from resource monitoring
+      systemLoad: 'normal',
+      availableResources: 'high'
     };
   }
 
@@ -661,7 +741,6 @@ export class AgentIntelligenceService {
   }
 
   private async generatePlanSteps(agent: Agent, analysis: any, planType: string): Promise<any[]> {
-    // Generate steps based on plan type and analysis
     const baseSteps = [
       {
         id: 'validate_input',
@@ -730,17 +809,14 @@ export class AgentIntelligenceService {
   }
 
   private async calculateDependencies(steps: any[]): Promise<string[]> {
-    // Simple dependency calculation - in production, use more sophisticated analysis
     return steps.slice(0, -1).map(step => step.id);
   }
 
   private estimateDuration(steps: any[], dependencies: string[]): number {
-    // Calculate total duration considering dependencies
     return steps.reduce((total, step) => total + step.estimatedDuration, 0);
   }
 
   private applyUserPreferences(steps: any[], userPreferences: any): any[] {
-    // Apply user preferences like speed vs accuracy trade-offs
     if (userPreferences?.speed === 'fast') {
       return steps.map(step => ({
         ...step,
@@ -751,26 +827,23 @@ export class AgentIntelligenceService {
   }
 
   private async validatePlanSecurity(plan: ExecutionPlan, securityContext: any): Promise<void> {
-    // Validate plan doesn't violate security constraints
     if (securityContext?.maxDuration && plan.estimatedDuration && plan.estimatedDuration > securityContext.maxDuration) {
       throw new ApiError(403, 'Plan exceeds maximum allowed duration', 'SECURITY_VIOLATION');
     }
   }
 
   private async storePlan(plan: ExecutionPlan): Promise<void> {
-    // Use DatabaseService storeExecutionPlan method instead of raw SQL
     await this.databaseService.storeExecutionPlan({
       id: plan.id,
       type: plan.type,
       agentId: plan.agentId,
-      plan: plan, // This indicates it should go to operations table
+      plan: plan,
       context: plan.metadata,
       createdAt: plan.created_at
     });
   }
 
   private async getOperation(operationId: string): Promise<any> {
-    // Use DatabaseService getOperationById method instead of raw SQL
     const validatedId = this.validateIDParam(operationId, 'operationId');
     return await this.databaseService.getOperationById(validatedId);
   }
@@ -784,8 +857,6 @@ export class AgentIntelligenceService {
   }
 
   private async updateAgentKnowledge(agentId: string, learningData: any): Promise<void> {
-    // Update agent knowledge in Neo4j graph database
-    // This would implement the actual graph updates
     logger.info('Updating agent knowledge', { agentId, learningData });
   }
 
@@ -802,13 +873,10 @@ export class AgentIntelligenceService {
     learningData: any,
     confidenceAdjustments: any
   ): Promise<void> {
-    // Store learning record for future analysis
     logger.info('Storing learning record', { agentId, operationId });
   }
 
-  // Additional helper methods for text analysis
   private extractTopics(messages: any[]): string[] {
-    // Simple topic extraction - use NLP libraries in production
     const commonWords = messages
       .flatMap(msg => msg.content?.split(' ') || [])
       .filter(word => word.length > 3)
@@ -817,7 +885,6 @@ export class AgentIntelligenceService {
   }
 
   private analyzeSentiment(messages: any[]): string {
-    // Simple sentiment analysis
     return 'neutral';
   }
 
@@ -829,7 +896,6 @@ export class AgentIntelligenceService {
   }
 
   private detectUrgency(context: any): string {
-    // Simple urgency detection
     const urgentWords = /urgent|asap|immediately|critical|emergency/i;
     const hasUrgentWords = context.messages?.some((msg: MessageWithContent) => 
       urgentWords.test(msg.content || '')
@@ -838,7 +904,6 @@ export class AgentIntelligenceService {
   }
 
   private extractEntities(text: string): any[] {
-    // Simple entity extraction - use NER in production
     return [];
   }
 

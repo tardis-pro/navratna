@@ -1,14 +1,24 @@
 {
   "files": [],
   "references": [
-    { "path": "./tsconfig.app.json" },
-    { "path": "./tsconfig.node.json" }
+    { "path": "./apps/frontend" },
+    { "path": "./packages/shared-types" },
+    { "path": "./packages/shared-utils" },
+    { "path": "./backend" }
   ],
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
+      "@council/shared-types": ["./packages/shared-types/src"],
+      "@council/shared-types/*": ["./packages/shared-types/src/*"],
+      "@council/shared-utils": ["./packages/shared-utils/src"],
+      "@council/shared-utils/*": ["./packages/shared-utils/src/*"],
       "@/*": ["./src/*"]
     },
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
     "noImplicitAny": false,
     "noUnusedParameters": false,
     "skipLibCheck": true,

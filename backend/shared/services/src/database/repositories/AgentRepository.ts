@@ -8,11 +8,12 @@ export class AgentRepository extends BaseRepository<Agent> {
   }
 
   /**
-   * Get all active agents with limit
+   * Get all active agents with limit - includes persona relation
    */
   public async getActiveAgents(limit?: number): Promise<Agent[]> {
     try {
       const queryBuilder = this.repository.createQueryBuilder('agent')
+        .leftJoinAndSelect('agent.persona', 'persona')
         .where('agent.isActive = :isActive', { isActive: true })
         .orderBy('agent.createdAt', 'DESC');
 
@@ -21,6 +22,22 @@ export class AgentRepository extends BaseRepository<Agent> {
       }
 
       const agents = await queryBuilder.getMany();
+      
+      // Ensure all agents have proper configuration
+      agents.forEach(agent => {
+        if (!agent.configuration || Object.keys(agent.configuration).length === 0) {
+          agent.configuration = {
+            model: 'gpt-3.5-turbo',
+            temperature: 0.7,
+            analysisDepth: 'intermediate',
+            contextWindowSize: 4000,
+            decisionThreshold: 0.7,
+            learningEnabled: true,
+            collaborationMode: 'collaborative'
+          };
+        }
+      });
+      
       return agents;
     } catch (error) {
       logger.error('Error getting active agents', { limit, error: (error as Error).message });
@@ -29,13 +46,28 @@ export class AgentRepository extends BaseRepository<Agent> {
   }
 
   /**
-   * Get agent by ID with active status check
+   * Get agent by ID with active status check - includes persona relation
    */
   public async getActiveAgentById(agentId: string): Promise<Agent | null> {
     try {
       const agent = await this.repository.findOne({
-        where: { id: agentId, isActive: true }
+        where: { id: agentId, isActive: true },
+        relations: ['persona']
       });
+
+      // Only set default configuration if configuration is completely null/undefined
+      // Don't override if it's an empty object - that's a valid state
+      if (agent && agent.configuration === null || agent.configuration === undefined) {
+        agent.configuration = {
+          model: 'gpt-3.5-turbo',
+          temperature: 0.7,
+          analysisDepth: 'intermediate',
+          contextWindowSize: 4000,
+          decisionThreshold: 0.7,
+          learningEnabled: true,
+          collaborationMode: 'collaborative'
+        };
+      }
 
       return agent;
     } catch (error) {
@@ -46,29 +78,72 @@ export class AgentRepository extends BaseRepository<Agent> {
 
   /**
    * Create a new agent
+   * COMPOSITION MODEL: Agent → Persona
    */
   public async createAgent(agentData: {
     id?: string;
     name: string;
     role: string;
-    persona: any;
+    // COMPOSITION MODEL: personaId reference
+    personaId?: string;
+    // Legacy persona data for backwards compatibility
+    legacyPersona?: any;
+    // Deprecated: old persona field (for backwards compatibility)
+    persona?: any;
     intelligenceConfig: any;
     securityContext: any;
+    configuration?: any;
     createdBy?: string;
+    capabilities?: string[];
   }): Promise<Agent> {
     try {
+      // Handle backwards compatibility: if old persona field is provided, use it as legacyPersona
+      let finalPersonaId = agentData.personaId;
+      let finalLegacyPersona = agentData.legacyPersona;
+      
+      if (agentData.persona && !agentData.legacyPersona) {
+        finalLegacyPersona = agentData.persona;
+        logger.warn('Using deprecated persona field as legacyPersona', { agentName: agentData.name });
+      }
+
       const agent = this.repository.create({
         id: agentData.id,
         name: agentData.name,
         role: agentData.role as any,
-        persona: agentData.persona,
+        // COMPOSITION MODEL: Use personaId and legacyPersona
+        personaId: finalPersonaId,
+        legacyPersona: finalLegacyPersona,
         intelligenceConfig: agentData.intelligenceConfig,
         securityContext: agentData.securityContext,
+        configuration: agentData.configuration,
+        capabilities: agentData.capabilities || [],
         isActive: true,
         createdBy: agentData.createdBy
       });
 
       const savedAgent = await this.repository.save(agent);
+      
+      // Ensure configuration is not null/empty
+      if (!savedAgent.configuration || Object.keys(savedAgent.configuration).length === 0) {
+        savedAgent.configuration = {
+          model: 'gpt-3.5-turbo',
+          temperature: 0.7,
+          analysisDepth: 'intermediate',
+          contextWindowSize: 4000,
+          decisionThreshold: 0.7,
+          learningEnabled: true,
+          collaborationMode: 'collaborative'
+        };
+      }
+
+      logger.info('Agent created with composition model', { 
+        agentId: savedAgent.id, 
+        personaId: savedAgent.personaId,
+        hasLegacyPersona: !!savedAgent.legacyPersona,
+        hasConfiguration: !!savedAgent.configuration,
+        configurationKeys: Object.keys(savedAgent.configuration)
+      });
+      
       return savedAgent;
     } catch (error) {
       logger.error('Error creating agent', { agentData, error: (error as Error).message });
@@ -78,13 +153,27 @@ export class AgentRepository extends BaseRepository<Agent> {
 
   /**
    * Update an agent
+   * COMPOSITION MODEL: Agent → Persona
    */
   public async updateAgent(agentId: string, updateData: {
     name?: string;
     role?: string;
+    // COMPOSITION MODEL: personaId reference
+    personaId?: string;
+    // Legacy persona data for backwards compatibility
+    legacyPersona?: any;
+    // Deprecated: old persona field (for backwards compatibility)
     persona?: any;
     intelligenceConfig?: any;
     securityContext?: any;
+    configuration?: any;
+    capabilities?: string[];
+    // Model configuration fields
+    modelId?: string;
+    apiType?: 'ollama' | 'llmstudio';
+    temperature?: number;
+    maxTokens?: number;
+    systemPrompt?: string;
   }): Promise<Agent | null> {
     try {
       // Prepare the update payload with proper typing
@@ -94,9 +183,28 @@ export class AgentRepository extends BaseRepository<Agent> {
 
       if (updateData.name !== undefined) updatePayload.name = updateData.name;
       if (updateData.role !== undefined) updatePayload.role = updateData.role as any;
-      if (updateData.persona !== undefined) updatePayload.persona = updateData.persona;
+      
+      // COMPOSITION MODEL: Handle personaId and legacyPersona
+      if (updateData.personaId !== undefined) updatePayload.personaId = updateData.personaId;
+      if (updateData.legacyPersona !== undefined) updatePayload.legacyPersona = updateData.legacyPersona;
+      
+      // Handle backwards compatibility: if old persona field is provided, use it as legacyPersona
+      if (updateData.persona !== undefined && updateData.legacyPersona === undefined) {
+        updatePayload.legacyPersona = updateData.persona;
+        logger.warn('Using deprecated persona field as legacyPersona in update', { agentId });
+      }
+      
       if (updateData.intelligenceConfig !== undefined) updatePayload.intelligenceConfig = updateData.intelligenceConfig;
       if (updateData.securityContext !== undefined) updatePayload.securityContext = updateData.securityContext;
+      if (updateData.configuration !== undefined) updatePayload.configuration = updateData.configuration;
+      if (updateData.capabilities !== undefined) updatePayload.capabilities = updateData.capabilities;
+
+      // Handle model configuration fields
+      if (updateData.modelId !== undefined) updatePayload.modelId = updateData.modelId;
+      if (updateData.apiType !== undefined) updatePayload.apiType = updateData.apiType;
+      if (updateData.temperature !== undefined) updatePayload.temperature = updateData.temperature;
+      if (updateData.maxTokens !== undefined) updatePayload.maxTokens = updateData.maxTokens;
+      if (updateData.systemPrompt !== undefined) updatePayload.systemPrompt = updateData.systemPrompt;
 
       const updateResult = await this.repository.update(
         { id: agentId, isActive: true },
@@ -107,10 +215,36 @@ export class AgentRepository extends BaseRepository<Agent> {
         return null;
       }
 
-      // Return the updated agent
+      // Return the updated agent with persona relation
       const updatedAgent = await this.repository.findOne({
-        where: { id: agentId, isActive: true }
+        where: { id: agentId, isActive: true },
+        relations: ['persona']
       });
+
+      if (updatedAgent) {
+        // Ensure configuration is not null/empty
+        if (!updatedAgent.configuration || Object.keys(updatedAgent.configuration).length === 0) {
+          updatedAgent.configuration = {
+            model: 'gpt-3.5-turbo',
+            temperature: 0.7,
+            analysisDepth: 'intermediate',
+            contextWindowSize: 4000,
+            decisionThreshold: 0.7,
+            learningEnabled: true,
+            collaborationMode: 'collaborative'
+          };
+        }
+
+        logger.info('Agent updated with composition model', { 
+          agentId: updatedAgent.id, 
+          personaId: updatedAgent.personaId,
+          hasLegacyPersona: !!updatedAgent.legacyPersona,
+          hasConfiguration: !!updatedAgent.configuration,
+          configurationKeys: Object.keys(updatedAgent.configuration),
+          modelId: updatedAgent.modelId,
+          apiType: updatedAgent.apiType
+        });
+      }
 
       return updatedAgent;
     } catch (error) {

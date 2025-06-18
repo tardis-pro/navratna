@@ -23,6 +23,7 @@ import { ToolExecution } from '../entities/toolExecution.entity.js';
 import { Artifact } from '../entities/artifact.entity.js';
 import { ArtifactReview } from '../entities/artifactReview.entity.js';
 import { ArtifactDeployment } from '../entities/artifactDeployment.entity.js';
+import { Discussion } from '../entities/discussion.entity.js';
 import { DiscussionParticipant } from '../entities/discussionParticipant.entity.js';
 import { PersonaAnalytics } from '../entities/personaAnalytics.entity.js';
 import { MCPServer } from '../entities/mcpServer.entity.js';
@@ -58,6 +59,7 @@ const allEntities = [
   Artifact,
   ArtifactReview,
   ArtifactDeployment,
+  Discussion,
   DiscussionParticipant,
   PersonaAnalytics,
   MCPServer,
@@ -65,10 +67,10 @@ const allEntities = [
   KnowledgeItemEntity,
   KnowledgeRelationshipEntity,
 ];
-
+const syncandReset = process.env.SYNC_AND_RESET === 'true';
 export const createTypeOrmConfig = (entities?: any[], disableCache = false): DataSourceOptions => {
   const dbConfig = config.database.postgres;
-  
+
   // Prepare cache configuration conditionally with better error handling
   let cacheConfig: any = false;
   if (!disableCache && process.env.NODE_ENV !== 'migration') {
@@ -110,22 +112,22 @@ export const createTypeOrmConfig = (entities?: any[], disableCache = false): Dat
     password: dbConfig.password,
     database: dbConfig.database,
     ssl: dbConfig.ssl ? { rejectUnauthorized: false } : false,
-    
+
     // Entity configuration - use explicit entity imports
     entities: entities || allEntities,
-    
+
     // Migration configuration
     migrations: ['dist/migrations/*.js'],
     migrationsTableName: 'typeorm_migrations',
     migrationsRun: false, // Set to true for auto-migration in development
-    
+
     // Synchronization (NEVER use in production)
-    synchronize: true,
-    
+    synchronize: syncandReset,
+
     // Logging configuration
     logging: config.logging.enableDetailedLogging ? ['query', 'error', 'warn'] : ['error'],
     logger: 'advanced-console',
-    
+
     // Connection pool configuration
     extra: {
       max: dbConfig.maxConnections,
@@ -134,14 +136,14 @@ export const createTypeOrmConfig = (entities?: any[], disableCache = false): Dat
       statement_timeout: config.timeouts.database,
       query_timeout: config.timeouts.database,
     },
-    
+
     // Cache configuration (conditionally set)
     cache: cacheConfig,
-    
+
     // Development features
-    dropSchema: true,
-    
-        // Use default naming strategy for now
+    dropSchema: syncandReset,
+
+    // Use default naming strategy for now
     // namingStrategy: 'snake_case',
   };
 
@@ -156,7 +158,7 @@ export const AppDataSource = new DataSource(createTypeOrmConfig());
  */
 export const initializeDatabase = async (maxRetries = 3): Promise<DataSource> => {
   let lastError: Error;
-  
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       if (!AppDataSource.isInitialized) {
@@ -168,7 +170,7 @@ export const initializeDatabase = async (maxRetries = 3): Promise<DataSource> =>
     } catch (error) {
       lastError = error as Error;
       console.error(`❌ Error initializing TypeORM DataSource (attempt ${attempt}/${maxRetries}):`, error.message);
-      
+
       if (attempt < maxRetries) {
         const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000); // Exponential backoff, max 10s
         console.log(`⏳ Retrying in ${delay}ms...`);
@@ -176,7 +178,7 @@ export const initializeDatabase = async (maxRetries = 3): Promise<DataSource> =>
       }
     }
   }
-  
+
   throw new Error(`Failed to initialize TypeORM after ${maxRetries} attempts. Last error: ${lastError.message}`);
 };
 
@@ -219,7 +221,7 @@ export const checkDatabaseHealth = async (): Promise<{
   };
 }> => {
   const startTime = Date.now();
-  
+
   try {
     if (!AppDataSource.isInitialized) {
       return {
@@ -235,9 +237,9 @@ export const checkDatabaseHealth = async (): Promise<{
 
     // Simple query to test connection
     await AppDataSource.query('SELECT 1');
-    
+
     const responseTime = Date.now() - startTime;
-    
+
     return {
       status: 'healthy',
       details: {

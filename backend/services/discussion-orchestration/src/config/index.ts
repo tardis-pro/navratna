@@ -3,7 +3,7 @@ import { config as sharedConfig } from '@uaip/config';
 
 // Discussion orchestration specific configuration schema
 const DiscussionOrchestrationConfigSchema = z.object({
-  port: z.number().default(3003),
+  port: z.number().default(3005),
   host: z.string().default('0.0.0.0'),
   
   // WebSocket configuration
@@ -89,7 +89,9 @@ type DiscussionOrchestrationConfig = z.infer<typeof DiscussionOrchestrationConfi
 // Load and validate configuration
 const loadConfig = (): DiscussionOrchestrationConfig => {
   const envConfig = {
-    port: process.env.DISCUSSION_ORCHESTRATION_PORT ? parseInt(process.env.DISCUSSION_ORCHESTRATION_PORT) : undefined,
+    port: process.env.PORT ? parseInt(process.env.PORT) : 
+          process.env.SERVICE_PORT ? parseInt(process.env.SERVICE_PORT) :
+          process.env.DISCUSSION_ORCHESTRATION_PORT ? parseInt(process.env.DISCUSSION_ORCHESTRATION_PORT) : undefined,
     host: process.env.DISCUSSION_ORCHESTRATION_HOST,
     
     websocket: {

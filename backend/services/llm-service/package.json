@@ -1,0 +1,42 @@
+{
+  "name": "@uaip/llm-service-api",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "UAIP LLM Service API - Centralized LLM Provider Management and Request Handling",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "nodemon --exec tsx src/index.ts",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@uaip/types": "workspace:*",
+    "@uaip/utils": "workspace:*",
+    "@uaip/config": "workspace:*",
+    "@uaip/shared-services": "workspace:*",
+    "@uaip/llm-service": "workspace:*",
+    "@uaip/middleware": "workspace:*",
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "compression": "^1.7.4"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.0.0",
+    "@types/cors": "^2.8.17",
+    "@types/compression": "^1.7.5",
+    "typescript": "^5.3.2",
+    "tsx": "^4.6.2",
+    "nodemon": "^3.0.2"
+  },
+  "keywords": [
+    "uaip",
+    "llm",
+    "ai",
+    "language-model",
+    "api"
+  ],
+  "author": "UAIP Team",
+  "license": "MIT"
+} 

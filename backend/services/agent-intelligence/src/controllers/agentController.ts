@@ -142,7 +142,8 @@ export class AgentController {
   }
 
   /**
-   * Create a new agent with enhanced capabilities and persona transformation
+   * Create a new agent with enhanced capabilities and persona composition
+   * COMPOSITION MODEL: Agent → Persona
    */
   public async createAgent(req: Request, res: Response, next: NextFunction): Promise<void> {
     const rawData = req.body;
@@ -150,18 +151,22 @@ export class AgentController {
     try {
       logger.info('Creating new enhanced agent', { 
         name: rawData.name, 
-        inputFormat: this.detectInputFormat(rawData)
+        inputFormat: this.detectInputFormat(rawData),
+        hasPersonaId: !!rawData.personaId,
+        hasPersonaData: !!rawData.persona
       });
 
-      // Check if request is in persona format (legacy frontend) or needs transformation
-      const isPersonaFormat = this.isPersonaFormat(rawData);
-      
+      // COMPOSITION MODEL: Handle different input formats
       let agentRequest;
       
-      if (isPersonaFormat) {
+      if (rawData.personaId) {
+        // COMPOSITION MODEL: Direct personaId provided
+        logger.info('Creating agent with persona reference', { personaId: rawData.personaId });
+        agentRequest = rawData;
+      } else if (rawData.persona || this.isPersonaFormat(rawData)) {
+        // TRANSFORMATION MODE: Persona data provided, need to transform
         logger.info('Transforming persona format to agent request', { name: rawData.name });
         
-        // Transform persona format to agent request format
         agentRequest = AgentTransformationService.transformPersonaToAgentRequest(rawData);
         
         // Validate transformation result
@@ -175,8 +180,8 @@ export class AgentController {
           capabilities: agentRequest.capabilities
         });
       } else {
-        // Already in correct format, just normalize
-        agentRequest = rawData;
+        // ERROR: Neither personaId nor persona data provided
+        throw new ApiError(400, 'Either personaId or persona data must be provided', 'MISSING_PERSONA_REFERENCE');
       }
 
       // Validate the final request against schema
@@ -188,16 +193,28 @@ export class AgentController {
         createdBy: req.user?.id || 'anonymous' // TODO: Fix when auth middleware is configured
       };
 
-      // Create the agent
+      // Create the agent (service will validate persona exists)
       const agent = await this.agentIntelligenceService.createAgent(agentData);
 
       logger.info('Enhanced agent created successfully', { 
         agentId: agent.id,
         role: agent.role,
-        transformationApplied: isPersonaFormat
+        personaId: agent.personaId,
+        transformationApplied: !rawData.personaId
       });
 
-      this.sendSuccessResponse(res, agent, 201);
+      // Return agent with composition information
+      const response = {
+        ...agent,
+        meta: {
+          compositionModel: true,
+          personaLinked: !!agent.personaId,
+          transformationApplied: !rawData.personaId,
+          timestamp: new Date()
+        }
+      };
+
+      this.sendSuccessResponse(res, response, 201);
 
     } catch (error) {
       this.handleEnhancedError(error, 'agent creation', { name: rawData.name }, next);
@@ -216,6 +233,43 @@ export class AgentController {
 
     } catch (error) {
       this.handleError(error, 'get agent', { agentId }, next);
+    }
+  }
+
+  /**
+   * Get agent with persona data populated
+   * COMPOSITION MODEL: Returns agent with persona relationship
+   */
+  public async getAgentWithPersona(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const { agentId } = req.params;
+
+    try {
+      const agentWithPersona = await this.agentIntelligenceService.getAgentWithPersona(agentId);
+      if (!agentWithPersona) {
+        throw new ApiError(404, 'Agent not found', 'AGENT_NOT_FOUND');
+      }
+
+      // Add composition metadata
+      const response = {
+        ...agentWithPersona,
+        meta: {
+          compositionModel: true,
+          personaLinked: !!agentWithPersona.personaId,
+          personaDataFetched: !!agentWithPersona.personaData,
+          timestamp: new Date()
+        }
+      };
+
+      logger.info('Fetched agent with persona data', { 
+        agentId, 
+        personaId: agentWithPersona.personaId,
+        personaName: agentWithPersona.personaData?.name 
+      });
+
+      this.sendSuccessResponse(res, response);
+
+    } catch (error) {
+      this.handleError(error, 'get agent with persona', { agentId }, next);
     }
   }
 

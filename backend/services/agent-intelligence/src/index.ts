@@ -7,11 +7,11 @@ import path from 'path';
 
 import { logger } from '@uaip/utils';
 import { errorHandler, rateLimiter, metricsMiddleware, metricsEndpoint } from '@uaip/middleware';
-import { 
-  DatabaseService, 
-  EventBusService, 
-  PersonaService, 
-  DiscussionService 
+import {
+  DatabaseService,
+  EventBusService,
+  PersonaService,
+  DiscussionService
 } from '@uaip/shared-services';
 import { agentRoutes } from './routes/agentRoutes.js';
 import { createPersonaRoutes } from './routes/personaRoutes.js';
@@ -36,7 +36,7 @@ class AgentIntelligenceService {
       url: process.env.RABBITMQ_URL || 'amqp://localhost',
       serviceName: 'agent-intelligence'
     }, logger);
-    
+
     // Initialize persona and discussion services
     this.personaService = new PersonaService({
       databaseService: this.databaseService,
@@ -44,7 +44,7 @@ class AgentIntelligenceService {
       enableCaching: true,
       enableAnalytics: true
     });
-    
+
     this.discussionService = new DiscussionService({
       databaseService: this.databaseService,
       eventBusService: this.eventBusService,
@@ -58,7 +58,7 @@ class AgentIntelligenceService {
     // Initialize controllers with service dependencies
     this.personaController = new PersonaController(this.personaService);
     this.discussionController = new DiscussionController(this.discussionService);
-    
+
     this.setupMiddleware();
     this.setupRoutes();
     this.setupErrorHandling();
@@ -92,10 +92,10 @@ class AgentIntelligenceService {
   private setupRoutes(): void {
     // Metrics endpoint for Prometheus
     this.app.get('/metrics', metricsEndpoint);
-    
+
     // Health check routes
     this.app.use('/health', healthRoutes);
-    
+
     // API routes
     this.app.use('/api/v1/agents', agentRoutes);
     this.app.use('/api/v1/personas', createPersonaRoutes(this.personaController));
@@ -125,10 +125,13 @@ class AgentIntelligenceService {
     try {
       // Initialize database service first
       await this.databaseService.initialize();
-      logger.info('DatabaseService initialized successfully');
-      // await this.databaseService.seedDatabase();
-      // logger.info('Database seeding completed successfully');
       
+      logger.info('DatabaseService initialized successfully');
+      if(process.env.SYNC_AND_RESET === 'true'){
+        await this.databaseService.seedDatabase();
+        logger.info('Database seeding completed successfully');
+      }
+
       // Test database connection using health check
       const healthCheck = await this.databaseService.healthCheck();
       if (healthCheck.status === 'healthy') {
