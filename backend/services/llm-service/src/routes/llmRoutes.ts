@@ -84,10 +84,10 @@ router.post('/artifact', async (req: Request, res: Response) => {
 
     const response = await llmService.generateArtifact({
       type,
-      prompt,
+      context: prompt,
       language,
-      framework,
-      requirements
+      requirements,
+      constraints: []
     });
 
     res.json({
@@ -106,9 +106,9 @@ router.post('/artifact', async (req: Request, res: Response) => {
 // Analyze context
 router.post('/analyze-context', async (req: Request, res: Response) => {
   try {
-    const { messages, context, analysisType } = req.body;
+    const { conversationHistory, currentContext, userRequest, agentCapabilities } = req.body;
 
-    if (!messages) {
+    if (!conversationHistory) {
       return res.status(400).json({
         success: false,
         error: 'Messages are required'
@@ -116,9 +116,10 @@ router.post('/analyze-context', async (req: Request, res: Response) => {
     }
 
     const response = await llmService.analyzeContext({
-      messages,
-      context,
-      analysisType
+      conversationHistory,
+      currentContext,
+      userRequest,
+      agentCapabilities
     });
 
     res.json({

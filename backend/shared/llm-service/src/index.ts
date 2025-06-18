@@ -1,3 +1,5 @@
+import { LLMService } from './LLMService';
+
 // Main exports for the LLM service package
 export { LLMService, llmService } from './LLMService';
 
@@ -25,6 +27,4 @@ export { OllamaProvider } from './providers/OllamaProvider';
 export { LLMStudioProvider } from './providers/LLMStudioProvider';
 export { OpenAIProvider } from './providers/OpenAIProvider';
 
-// Re-export database entities and repositories for convenience
-export { LLMProvider, LLMProviderType, LLMProviderStatus } from './entities/llmProvider.entity';
-export { LLMProviderRepository } from './database/repositories/LLMProviderRepository'; 
+

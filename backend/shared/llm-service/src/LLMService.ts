@@ -225,9 +225,9 @@ export class LLMService {
       const response = await this.generateResponse({
         prompt,
         systemPrompt,
-        maxTokens: request.agent.intelligence_config?.maxTokens || 500,
-        temperature: request.agent.intelligence_config?.temperature || 0.7,
-        model: request.agent.intelligence_config?.modelId
+        maxTokens: request.agent.maxTokens || 500,
+        temperature: request.agent.temperature || 0.7,
+        model: request.agent.configuration?.model
       }, preferredType);
 
       // Parse tool calls if agent has tools
@@ -485,7 +485,7 @@ export class LLMService {
 
   private getPreferredProviderType(agent: any): string | undefined {
     // Logic to determine preferred provider based on agent configuration
-    const modelId = agent.intelligence_config?.modelId;
+    const modelId = agent.configuration?.model;
     
     if (!modelId) return undefined;
     
