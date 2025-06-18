@@ -1,6 +1,6 @@
 import {
-  Discussion,
-  DiscussionParticipant,
+  Discussion as DiscussionType,
+  DiscussionParticipant as DiscussionParticipantType,
   DiscussionMessage,
   DiscussionSearchFilters,
   CreateDiscussionRequest,
@@ -16,6 +16,8 @@ import {
   MessageSentiment
 } from '@uaip/types';
 import { Persona } from '@uaip/types';
+import { Discussion } from './entities/discussion.entity.js';
+import { DiscussionParticipant } from './entities/discussionParticipant.entity.js';
 import { DatabaseService } from './databaseService.js';
 import { EventBusService } from './eventBusService.js';
 import { PersonaService } from './personaService.js';
@@ -54,7 +56,7 @@ export class DiscussionService {
 
   // ===== DISCUSSION LIFECYCLE MANAGEMENT =====
 
-  async createDiscussion(request: CreateDiscussionRequest): Promise<Discussion> {
+  async createDiscussion(request: CreateDiscussionRequest): Promise<DiscussionType> {
     try {
       logger.info('Creating discussion', { 
         title: request.title, 
@@ -82,11 +84,28 @@ export class DiscussionService {
       };
 
       // Create discussion in database
-      const discussion = await this.databaseService.create<Discussion>('discussions', {
-        ...request,
-        participants: [],
-        state: initialState,
+      const discussionData = {
+        title: request.title,
+        topic: request.topic,
+        description: request.description,
+        documentId: request.documentId,
+        operationId: request.operationId,
+        settings: request.settings,
+        turnStrategy: request.turnStrategy,
         status: DiscussionStatus.DRAFT,
+        visibility: request.visibility,
+        createdBy: request.createdBy,
+        organizationId: request.organizationId,
+        teamId: request.teamId,
+        scheduledFor: request.scheduledFor,
+        estimatedDuration: request.estimatedDuration,
+        tags: request.tags || [],
+        objectives: request.objectives || [],
+        outcomes: [],
+        relatedDiscussions: request.relatedDiscussions || [],
+        parentDiscussionId: request.parentDiscussionId,
+        childDiscussions: request.childDiscussions || [],
+        state: initialState,
         analytics: {
           totalMessages: 0,
           uniqueParticipants: 0,
@@ -95,19 +114,26 @@ export class DiscussionService {
           sentimentDistribution: {},
           topicProgression: []
         },
+        metadata: request.metadata,
         createdAt: new Date(),
         updatedAt: new Date()
-      });
+      };
+      
+      const discussion = await this.databaseService.create<Discussion>(Discussion, discussionData);
 
       // Add initial participants
       if (request.initialParticipants) {
+        logger.debug('Adding initial participants', {
+          discussionId: discussion.id,
+          participantCount: request.initialParticipants.length,
+          discussionSettings: discussion.settings
+        });
         for (const participantRequest of request.initialParticipants) {
-          if (participantRequest && participantRequest.personaId && participantRequest.agentId) {
-            await this.addParticipant(discussion.id!, participantRequest as {
-              personaId: string;
-              agentId: string;
-              role?: ParticipantRole;
-              userId?: string;
+          if (participantRequest && participantRequest.agentId) {
+            await this.addParticipant(discussion.id!, {
+              agentId: participantRequest.agentId,
+              role: participantRequest.role,
+              userId: undefined
             });
           }
         }
@@ -132,7 +158,7 @@ export class DiscussionService {
     }
   }
 
-  async getDiscussion(id: string): Promise<Discussion | null> {
+  async getDiscussion(id: string): Promise<DiscussionType | null> {
     try {
       // Check active discussions cache first
       const cached = this.activeDiscussions.get(id);
@@ -141,7 +167,7 @@ export class DiscussionService {
       }
 
       // Fetch from database
-      const discussion = await this.databaseService.findById<Discussion>('discussions', id);
+      const discussion = await this.databaseService.findById<Discussion>(Discussion, id);
       if (discussion && discussion.status === DiscussionStatus.ACTIVE) {
         this.activeDiscussions.set(id, discussion);
       }
@@ -154,7 +180,7 @@ export class DiscussionService {
     }
   }
 
-  async updateDiscussion(id: string, updates: UpdateDiscussionRequest): Promise<Discussion> {
+  async updateDiscussion(id: string, updates: UpdateDiscussionRequest): Promise<DiscussionType> {
     try {
       logger.info('Updating discussion', { discussionId: id, updates: Object.keys(updates) });
 
@@ -164,8 +190,10 @@ export class DiscussionService {
       }
 
       // Update discussion in database
-      const discussion = await this.databaseService.update<Discussion>('discussions', id, {
-        ...updates,
+      // Exclude complex fields from updates - they should be managed separately
+      const { participants, outcomes, analytics, ...discussionUpdates } = updates;
+      const discussion = await this.databaseService.update<Discussion>(Discussion, id, {
+        ...discussionUpdates,
         updatedAt: new Date()
       });
 
@@ -195,7 +223,7 @@ export class DiscussionService {
     }
   }
 
-  async startDiscussion(id: string, startedBy: string): Promise<Discussion> {
+  async startDiscussion(id: string, startedBy: string): Promise<DiscussionType> {
     try {
       logger.info('Starting discussion', { discussionId: id, startedBy });
 
@@ -243,7 +271,7 @@ export class DiscussionService {
     }
   }
 
-  async endDiscussion(id: string, endedBy: string, reason?: string): Promise<Discussion> {
+  async endDiscussion(id: string, endedBy: string, reason?: string): Promise<DiscussionType> {
     try {
       logger.info('Ending discussion', { discussionId: id, endedBy, reason });
 
@@ -300,15 +328,13 @@ export class DiscussionService {
   // ===== PARTICIPANT MANAGEMENT =====
 
   async addParticipant(discussionId: string, participantRequest: {
-    personaId: string;
     agentId: string;
-    role?: ParticipantRole;
+    role?: 'participant' | 'moderator' | 'observer' | 'facilitator';
     userId?: string;
-  }): Promise<DiscussionParticipant> {
+  }): Promise<DiscussionParticipantType> {
     try {
       logger.info('Adding participant to discussion', { 
         discussionId, 
-        personaId: participantRequest.personaId,
         agentId: participantRequest.agentId 
       });
 
@@ -317,34 +343,47 @@ export class DiscussionService {
         throw new Error(`Discussion not found: ${discussionId}`);
       }
 
+      logger.debug('Retrieved discussion for addParticipant', {
+        discussionId,
+        hasSettings: !!discussion.settings,
+        settingsMaxParticipants: discussion.settings?.maxParticipants,
+        participantsLength: discussion.participants?.length || 0
+      });
+
       // Check participant limit
-      if (!discussion.participants || discussion.participants.length >= this.maxParticipants) {
-        throw new Error(`Discussion has reached maximum participants limit: ${this.maxParticipants}`);
+      const maxParticipants = discussion.settings?.maxParticipants || this.maxParticipants;
+      logger.debug('Checking participant limit', {
+        discussionId,
+        currentParticipants: discussion.participants?.length || 0,
+        maxParticipants,
+        discussionSettingsMaxParticipants: discussion.settings?.maxParticipants,
+        serviceMaxParticipants: this.maxParticipants
+      });
+      if (!discussion.participants || discussion.participants.length >= maxParticipants) {
+        throw new Error(`Discussion has reached maximum participants limit: ${maxParticipants}`);
       }
 
       // Check if participant already exists
       const existingParticipant = discussion.participants.find(
-        (p: DiscussionParticipant) => p.personaId === participantRequest.personaId || p.agentId === participantRequest.agentId
+        (p: DiscussionParticipant) => p.agentId === participantRequest.agentId
       );
       if (existingParticipant) {
         throw new Error('Participant already exists in discussion');
       }
 
-      // Validate persona exists
-      const persona = await this.personaService.getPersona(participantRequest.personaId);
-      if (!persona) {
-        throw new Error(`Persona not found: ${participantRequest.personaId}`);
+      // Validate agent exists (and get persona through agent)
+      const agent = await this.databaseService.findById('agents', participantRequest.agentId);
+      if (!agent) {
+        throw new Error(`Agent not found: ${participantRequest.agentId}`);
       }
 
       // Create participant
-      const participant = await this.databaseService.create<DiscussionParticipant>('discussion_participants', {
+      const participant = await this.databaseService.create<DiscussionParticipant>(DiscussionParticipant, {
         discussionId,
-        personaId: participantRequest.personaId,
         agentId: participantRequest.agentId,
         userId: participantRequest.userId,
-        role: participantRequest.role || ParticipantRole.PARTICIPANT,
+        role: participantRequest.role || 'participant',
         joinedAt: new Date(),
-        lastActiveAt: new Date(),
         messageCount: 0,
         isActive: true,
         createdAt: new Date(),
@@ -362,7 +401,6 @@ export class DiscussionService {
       // Emit participant joined event
       await this.emitDiscussionEvent(discussionId, DiscussionEventType.PARTICIPANT_JOINED, {
         participantId: participant.id,
-        personaId: participant.personaId,
         agentId: participant.agentId,
         role: participant.role
       });
@@ -711,15 +749,15 @@ export class DiscussionService {
       throw new Error('Discussion requires at least 2 initial participants');
     }
 
-    // Validate personas exist
+    // Validate agents exist
     for (const participant of request.initialParticipants) {
-      if (participant.personaId) {
-        const persona = await this.personaService.getPersona(participant.personaId);
-        if (!persona) {
-          throw new Error(`Persona not found: ${participant.personaId}`);
+      if (participant.agentId) {
+        const agent = await this.databaseService.findById('agents', participant.agentId);
+        if (!agent) {
+          throw new Error(`Agent not found: ${participant.agentId}`);
         }
       } else {
-        throw new Error('Participant personaId is required');
+        throw new Error('Participant agentId is required');
       }
     }
   }
@@ -743,14 +781,14 @@ export class DiscussionService {
     });
   }
 
-      private async determineNextParticipant(discussion: Discussion): Promise<string | undefined> {
-    const activeParticipants = (discussion.participants || []).filter((p: DiscussionParticipant) => p.isActive);
+      private async determineNextParticipant(discussion: DiscussionType): Promise<string | undefined> {
+    const activeParticipants = (discussion.participants || []).filter((p: DiscussionParticipantType) => p.isActive);
     if (activeParticipants.length === 0) return undefined;
 
     // Simple round-robin for now
     // In a full implementation, this would use the turn strategy configuration
     const currentIndex = discussion.state?.currentTurn?.participantId ? 
-      activeParticipants.findIndex((p: DiscussionParticipant) => p.id === discussion.state?.currentTurn?.participantId) : -1;
+      activeParticipants.findIndex((p: DiscussionParticipantType) => p.id === discussion.state?.currentTurn?.participantId) : -1;
     
     const nextIndex = (currentIndex + 1) % activeParticipants.length;
     return activeParticipants[nextIndex]?.id;
@@ -779,7 +817,7 @@ export class DiscussionService {
     return Math.ceil(content.split(/\s+/).length * 1.3);
   }
 
-  private extractMentions(content: string, participants: DiscussionParticipant[]):  string[] {
+  private extractMentions(content: string, participants: DiscussionParticipantType[]):  string[] {
     // Extract @mentions from content
     const mentions: string[] = [];
     const mentionRegex = /@(\w+)/g;
@@ -787,9 +825,9 @@ export class DiscussionService {
 
     while ((match = mentionRegex.exec(content)) !== null) {
       const mentionedName = match[1];
-      // Find participant by name or agent ID
+      // Find participant by agent ID
       const participant = participants.find(
-        (p: DiscussionParticipant) => p.agentId && p.agentId.includes(mentionedName.toLowerCase())
+        (p: DiscussionParticipantType) => p.agentId && p.agentId.includes(mentionedName.toLowerCase())
       );
       if (participant && participant.id) {
         mentions.push(participant.id);

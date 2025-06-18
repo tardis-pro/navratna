@@ -276,13 +276,12 @@ export class DiscussionOrchestrationService {
       }
 
       // Validate required fields
-      if (!participant.personaId || !participant.agentId) {
-        return { success: false, error: 'personaId and agentId are required' };
+      if (!participant.agentId) {
+        return { success: false, error: 'agentId is required' };
       }
 
       // Add participant through shared service - only pass the fields it expects
       const newParticipant = await this.discussionService.addParticipant(discussionId, {
-        personaId: participant.personaId,
         agentId: participant.agentId,
         role: participant.role,
         userId: participant.userId

@@ -22,6 +22,7 @@ import { OperationState } from '../entities/operationState.entity.js';
 import { OperationCheckpoint } from '../entities/operationCheckpoint.entity.js';
 import { StepResult } from '../entities/stepResult.entity.js';
 import { AgentCapabilityMetric } from '../entities/agentCapabilityMetric.entity.js';
+import { Discussion } from '../entities/discussion.entity.js';
 import { DiscussionParticipant } from '../entities/discussionParticipant.entity.js';
 import { PersonaAnalytics } from '../entities/personaAnalytics.entity.js';
 import { MCPServer } from '../entities/mcpServer.entity.js';
@@ -36,6 +37,9 @@ import {
   MCPServerType,
   Persona,
   getAllPersonasFlatWrapper,
+  DiscussionStatus,
+  DiscussionVisibility,
+  TurnStrategy
 } from '@uaip/types';
 import { 
   AgentRole,
@@ -90,6 +94,7 @@ export class DatabaseSeeder {
       await this.seedMCPServers();
       await this.seedOperations();
       await this.seedConversationContexts();
+      await this.seedDiscussions();
 
       await this.seedArtifacts();
       await this.seedToolExecutions();
@@ -1793,49 +1798,132 @@ export class DatabaseSeeder {
   }
 
   /**
+   * Seed Discussions
+   */
+  private async seedDiscussions(): Promise<void> {
+    console.log('💬 Seeding discussions...');
+
+    const discussionRepository = this.dataSource.getRepository(Discussion);
+    const users = this.seededEntities.get('Users')!;
+
+        const discussions: DeepPartial<Discussion>[] = [
+      {
+        title: 'Q4 2024 Sales Analysis Strategy',
+        topic: 'Data Analysis and Visualization',
+        description: 'Collaborative discussion on analyzing Q4 2024 sales data and creating actionable insights',
+        status: DiscussionStatus.DRAFT,
+        visibility: DiscussionVisibility.PRIVATE,
+        createdBy: users[1].id,
+        settings: {
+          maxParticipants: 10,
+          autoModeration: true,
+          requireApproval: false,
+          allowInvites: true,
+          allowFileSharing: true,
+          allowAnonymous: false,
+          recordTranscript: true,
+          enableAnalytics: true,
+          turnTimeout: 300,
+          responseTimeout: 60,
+          moderationRules: []
+        },
+        turnStrategy: {
+          strategy: TurnStrategy.ROUND_ROBIN,
+          config: {
+            type: 'round_robin' as const,
+            skipInactive: true,
+            maxSkips: 3
+          }
+        } as any, // TypeORM has issues with complex union types
+        tags: ['sales', 'analysis', 'q4-2024'],
+        objectives: [
+          'Analyze Q4 2024 sales performance',
+          'Identify key trends and patterns',
+          'Generate actionable recommendations'
+        ]
+      },
+      {
+        title: 'Product Roadmap Discussion',
+        topic: 'Strategic Planning',
+        description: 'Planning the next quarter product roadmap with stakeholder input',
+        status: DiscussionStatus.DRAFT,
+        visibility: DiscussionVisibility.TEAM,
+        createdBy: users[2].id,
+        settings: {
+          maxParticipants: 8,
+          autoModeration: false,
+          requireApproval: true,
+          allowInvites: false,
+          allowFileSharing: true,
+          allowAnonymous: false,
+          recordTranscript: true,
+          enableAnalytics: true,
+          turnTimeout: 600,
+          responseTimeout: 120,
+          moderationRules: []
+        },
+        turnStrategy: {
+          strategy: TurnStrategy.MODERATED,
+          config: {
+            type: 'moderated' as const,
+            moderatorId: users[2].id,
+            requireApproval: true,
+            autoAdvance: false
+          }
+        } as any, // TypeORM has issues with complex union types
+        tags: ['product', 'roadmap', 'planning'],
+        objectives: [
+          'Define Q1 2025 product priorities',
+          'Align on resource allocation',
+          'Set measurable goals'
+        ]
+      }
+    ];
+
+    const savedDiscussions = await discussionRepository.save(discussions);
+    this.seededEntities.set('Discussions', savedDiscussions);
+    console.log(`   ✅ Seeded ${savedDiscussions.length} discussions`);
+  }
+
+  /**
    * Seed Discussion Participants
    */
   private async seedDiscussionParticipants(): Promise<void> {
     console.log('👥 Seeding discussion participants...');
 
     const participantRepository = this.dataSource.getRepository(DiscussionParticipant);
-    const personas = this.seededEntities.get('Personas')!;
     const users = this.seededEntities.get('Users')!;
+    const discussions = this.seededEntities.get('Discussions')!;
+    const agents = this.seededEntities.get('Agents')!;
 
     const participants = [
       {
-        discussionId: 'discussion-001',
-        persona: personas[0],
+        discussionId: discussions[0].id,
+        agentId: agents[0].id,
         userId: users[1].id,
         role: 'participant' as any,
         joinedAt: new Date('2024-01-15T09:00:00Z'),
         isActive: true,
-        contributionCount: 12,
-        lastContribution: new Date('2024-01-15T09:45:00Z'),
-        engagement: {
-          messagesCount: 12,
-          avgResponseTime: 45,
-          qualityScore: 0.88
-        },
+        messageCount: 12,
+        lastMessageAt: new Date('2024-01-15T09:45:00Z'),
+        contributionScore: 0.88,
+        engagementLevel: 0.92,
         metadata: {
           sessionId: 'session-001',
           client: 'web-app'
         }
       },
       {
-        discussionId: 'discussion-002',
-        persona: personas[1],
+        discussionId: discussions[1].id,
+        agentId: agents[1].id,
         userId: users[2].id,
         role: 'facilitator' as any,
         joinedAt: new Date('2024-01-14T14:00:00Z'),
         isActive: false,
-        contributionCount: 8,
-        lastContribution: new Date('2024-01-14T15:30:00Z'),
-        engagement: {
-          messagesCount: 8,
-          avgResponseTime: 32,
-          qualityScore: 0.92
-        },
+        messageCount: 8,
+        lastMessageAt: new Date('2024-01-14T15:30:00Z'),
+        contributionScore: 0.92,
+        engagementLevel: 0.85,
         metadata: {
           sessionId: 'session-002',
           client: 'mobile-app'

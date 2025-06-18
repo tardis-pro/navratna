@@ -42,6 +42,7 @@ export { ArtifactReview } from './artifactReview.entity.js';
 export { ArtifactDeployment } from './artifactDeployment.entity.js';
 
 // Persona System entities
+export { Discussion } from './discussion.entity.js';
 export { DiscussionParticipant } from './discussionParticipant.entity.js';
 export { PersonaAnalytics } from './personaAnalytics.entity.js';
 

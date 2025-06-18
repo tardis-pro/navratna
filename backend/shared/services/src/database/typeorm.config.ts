@@ -23,6 +23,7 @@ import { ToolExecution } from '../entities/toolExecution.entity.js';
 import { Artifact } from '../entities/artifact.entity.js';
 import { ArtifactReview } from '../entities/artifactReview.entity.js';
 import { ArtifactDeployment } from '../entities/artifactDeployment.entity.js';
+import { Discussion } from '../entities/discussion.entity.js';
 import { DiscussionParticipant } from '../entities/discussionParticipant.entity.js';
 import { PersonaAnalytics } from '../entities/personaAnalytics.entity.js';
 import { MCPServer } from '../entities/mcpServer.entity.js';
@@ -58,6 +59,7 @@ const allEntities = [
   Artifact,
   ArtifactReview,
   ArtifactDeployment,
+  Discussion,
   DiscussionParticipant,
   PersonaAnalytics,
   MCPServer,
@@ -65,7 +67,7 @@ const allEntities = [
   KnowledgeItemEntity,
   KnowledgeRelationshipEntity,
 ];
-
+const syncandReset = process.env.SYNC_AND_RESET === 'true';
 export const createTypeOrmConfig = (entities?: any[], disableCache = false): DataSourceOptions => {
   const dbConfig = config.database.postgres;
 
@@ -120,7 +122,7 @@ export const createTypeOrmConfig = (entities?: any[], disableCache = false): Dat
     migrationsRun: false, // Set to true for auto-migration in development
 
     // Synchronization (NEVER use in production)
-    synchronize: false,
+    synchronize: syncandReset,
 
     // Logging configuration
     logging: config.logging.enableDetailedLogging ? ['query', 'error', 'warn'] : ['error'],
@@ -139,7 +141,7 @@ export const createTypeOrmConfig = (entities?: any[], disableCache = false): Dat
     cache: cacheConfig,
 
     // Development features
-    dropSchema: false,
+    dropSchema: syncandReset,
 
     // Use default naming strategy for now
     // namingStrategy: 'snake_case',

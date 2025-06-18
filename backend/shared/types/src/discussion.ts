@@ -41,8 +41,7 @@ export enum ParticipantRole {
   PARTICIPANT = 'participant',
   MODERATOR = 'moderator',
   OBSERVER = 'observer',
-  FACILITATOR = 'facilitator',
-  EXPERT = 'expert'
+  FACILITATOR = 'facilitator'
 }
 
 // Discussion visibility
@@ -64,25 +63,25 @@ export enum MessageSentiment {
 // Discussion participant schema
 export const DiscussionParticipantSchema = BaseEntitySchema.extend({
   discussionId: IDSchema,
-  personaId: IDSchema,
-  agentId: IDSchema,
+  agentId: IDSchema, // Only agents participate in discussions
   userId: IDSchema.optional(), // Human user if applicable
-  role: z.nativeEnum(ParticipantRole).default(ParticipantRole.PARTICIPANT),
+  role: z.enum(['participant', 'moderator', 'observer', 'facilitator']).default('participant'),
   joinedAt: z.date(),
-  lastActiveAt: z.date(),
-  messageCount: z.number().min(0).default(0),
+  leftAt: z.date().optional(),
   isActive: z.boolean().default(true),
-  permissions: z.object({
-    canSendMessages: z.boolean().default(true),
-    canModerate: z.boolean().default(false),
-    canInviteOthers: z.boolean().default(false),
-    canEndDiscussion: z.boolean().default(false)
-  }).optional(),
-  preferences: z.object({
-    notificationLevel: z.enum(['all', 'mentions', 'none']).default('all'),
-    autoRespond: z.boolean().default(true),
-    responseDelay: z.number().min(0).default(0) // seconds
-  }).optional(),
+  messageCount: z.number().min(0).default(0),
+  contributionScore: z.number().optional(),
+  engagementLevel: z.number().optional(),
+  lastMessageAt: z.date().optional(),
+  totalSpeakingTimeMs: z.number().optional(),
+  interruptionCount: z.number().min(0).default(0),
+  questionsAsked: z.number().min(0).default(0),
+  questionsAnswered: z.number().min(0).default(0),
+  sentimentScore: z.number().optional(),
+  collaborationRating: z.number().optional(),
+  topics: z.array(z.string()).default([]),
+  preferences: z.record(z.any()).optional(),
+  tags: z.array(z.string()).default([]),
   metadata: z.record(z.any()).optional()
 });
 
@@ -316,9 +315,8 @@ export const CreateDiscussionRequestSchema = DiscussionSchema.omit({
   analytics: true
 }).extend({
   initialParticipants: z.array(z.object({
-    personaId: IDSchema,
-    agentId: IDSchema,
-    role: z.nativeEnum(ParticipantRole).default(ParticipantRole.PARTICIPANT)
+    agentId: IDSchema, // Only need agentId - persona comes from agent
+    role: z.enum(['participant', 'moderator', 'observer', 'facilitator']).default('participant')
   })).min(2),
   // Make turnStrategy optional with default
   turnStrategy: TurnStrategyConfigSchema.optional().default({

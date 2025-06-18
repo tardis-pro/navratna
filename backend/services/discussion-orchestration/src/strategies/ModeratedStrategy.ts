@@ -58,7 +58,7 @@ export class ModeratedStrategy implements TurnStrategyInterface {
       }
 
       // If no pending selection, return the moderator to make the selection
-      const primaryModerator = moderators.find(m => m.permissions?.canModerate) || moderators[0];
+      const primaryModerator = moderators[0]; // Use first moderator as primary
       
       logger.debug('Returning moderator for participant selection', {
         discussionId: discussion.id,
@@ -87,9 +87,7 @@ export class ModeratedStrategy implements TurnStrategyInterface {
         return false;
       }
 
-      if (participant.permissions?.canSendMessages === false) {
-        return false;
-      }
+      // No permissions check needed - using isActive instead
 
       // Check if participant is in the discussion
       if (participant.discussionId !== discussion.id) {
@@ -195,8 +193,8 @@ export class ModeratedStrategy implements TurnStrategyInterface {
       }
 
       // Adjust based on participant expertise and role
-      if (participant.role === ParticipantRole.EXPERT) {
-        baseDuration *= 1.3; // Experts might need more time for detailed responses
+      if (participant.role === ParticipantRole.FACILITATOR) {
+        baseDuration *= 1.3; // Facilitators might need more time for detailed responses
       }
 
       // Adjust based on discussion complexity
