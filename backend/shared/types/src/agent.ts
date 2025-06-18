@@ -42,7 +42,8 @@ export type AgentSecurityContext = z.infer<typeof AgentSecurityContextSchema>;
 export const AgentSchema = BaseEntitySchema.extend({
   name: z.string().min(1).max(255),
   role: z.nativeEnum(AgentRole),
-  persona: AgentPersonaSchema,
+  personaId: IDSchema,
+  persona: AgentPersonaSchema.optional(),
   intelligenceConfig: AgentIntelligenceConfigSchema,
   securityContext: AgentSecurityContextSchema,
   isActive: z.boolean().default(true),
@@ -56,7 +57,8 @@ export type Agent = z.infer<typeof AgentSchema>;
 export const AgentCreateSchema = z.object({
   name: z.string().min(1).max(255),
   role: z.nativeEnum(AgentRole),
-  persona: AgentPersonaSchema,
+  personaId: IDSchema,
+  persona: AgentPersonaSchema.optional(),
   intelligenceConfig: AgentIntelligenceConfigSchema.optional(),
   securityContext: AgentSecurityContextSchema.optional(),
   isActive: z.boolean().default(true).optional(),
@@ -71,6 +73,8 @@ export const AgentCreateRequestSchema = z.object({
   description: z.string().min(1),
   capabilities: z.array(z.string()).min(1),
   role: z.nativeEnum(AgentRole).optional().default(AgentRole.ASSISTANT),
+  personaId: IDSchema.optional(),
+  persona: AgentPersonaSchema.optional(),
   configuration: z.object({
     model: z.string().optional(),
     temperature: z.number().min(0).max(2).optional(),
@@ -82,7 +86,13 @@ export const AgentCreateRequestSchema = z.object({
   }).optional(),
   securityLevel: z.enum(['low', 'medium', 'high', 'critical']).optional().default('medium'),
   isActive: z.boolean().optional().default(true)
-});
+}).refine(
+  (data) => data.personaId || data.persona,
+  {
+    message: "Either personaId or persona data must be provided",
+    path: ["personaId"]
+  }
+);
 
 export type AgentCreateRequest = z.infer<typeof AgentCreateRequestSchema>;
 
@@ -90,6 +100,7 @@ export type AgentCreateRequest = z.infer<typeof AgentCreateRequestSchema>;
 export const AgentUpdateSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   role: z.nativeEnum(AgentRole).optional(),
+  personaId: IDSchema.optional(),
   persona: AgentPersonaSchema.optional(),
   intelligenceConfig: AgentIntelligenceConfigSchema.optional(),
   securityContext: AgentSecurityContextSchema.optional(),

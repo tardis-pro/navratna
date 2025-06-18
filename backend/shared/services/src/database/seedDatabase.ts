@@ -5,7 +5,7 @@ import { initializeDatabase } from './typeorm.config.js';
 // Import all entities
 import { UserEntity } from '../entities/user.entity.js';
 import { Agent } from '../entities/agent.entity.js';
-import { Persona } from '../entities/persona.entity.js';
+import { Persona as PersonaEntity } from '../entities/persona.entity.js';
 import { Operation } from '../entities/operation.entity.js';
 import { ToolDefinition } from '../entities/toolDefinition.entity.js';
 import { ToolExecution } from '../entities/toolExecution.entity.js';
@@ -33,7 +33,9 @@ import {
   AuditEventType,
   ApprovalStatus, 
   MCPServerStatus,
-  MCPServerType
+  MCPServerType,
+  Persona,
+  getAllPersonasFlatWrapper,
 } from '@uaip/types';
 import { 
   AgentRole,
@@ -331,139 +333,85 @@ export class DatabaseSeeder {
     this.seededEntities.set('SecurityPolicies', savedPolicies);
     console.log(`   ✅ Seeded ${savedPolicies.length} security policies`);
   }
-
+// Combine all personas for easy access
+ 
   /**
    * Seed Personas with diverse characteristics
    */
   private async seedPersonas(): Promise<void> {
     console.log('🎭 Seeding personas...');
 
-    const personaRepository = this.dataSource.getRepository(Persona);
+    const personaRepository = this.dataSource.getRepository(PersonaEntity);
     const users = this.seededEntities.get('Users')!;
 
-    const personas = [
-      {
-        name: 'Technical Analyst',
-        role: 'Data Analysis Specialist',
-        description: 'Expert in technical data analysis and system optimization',
-        background: 'Experienced technical analyst with 10+ years in system performance analysis',
-        systemPrompt: 'You are a technical analyst specializing in data analysis and system optimization. Provide detailed, analytical responses with concrete recommendations.',
-        traits: [
-          { name: 'analytical', value: 'highly analytical and detail-oriented' },
-          { name: 'systematic', value: 'follows systematic approaches to problem-solving' },
-          { name: 'precise', value: 'values precision and accuracy in all work' }
-        ],
-        expertise: ['data-analysis', 'system-optimization', 'performance-tuning'],
-        tone: 'analytical' as any,
-        style: 'structured' as any,
-        energyLevel: 'moderate' as any,
-        chattiness: 0.6,
-        empathyLevel: 0.4,
-        conversationalStyle: {
-          tone: 'professional' as any,
-          verbosity: 'detailed' as any,
-          formality: 'formal' as any,
-          empathy: 0.4,
-          assertiveness: 0.7,
-          creativity: 0.3,
-          analyticalDepth: 0.9,
-          questioningStyle: 'direct' as any,
-          responsePattern: 'structured' as any
-        },
-        status: PersonaStatus.ACTIVE,
-        visibility: PersonaVisibility.ORGANIZATION,
-        createdBy: users[1].id,
-        version: 1,
-        tags: ['technical', 'analysis', 'data'],
-        qualityScore: 0.85,
-        consistencyScore: 0.90,
-        userSatisfaction: 0.82,
-        totalInteractions: 150,
-        successfulInteractions: 135
+    // Get all personas as a flat array
+    const allPersonasFlat: Persona[] = getAllPersonasFlatWrapper();
+    
+    // Convert personas to database entities, assigning createdBy from seeded users
+    const personaEntities: Omit<PersonaEntity, 'id'>[] = allPersonasFlat.map((persona: Persona, index: number) => ({
+      name: persona.name,
+      role: persona.role,
+      description: persona.description,
+      background: persona.background,
+      systemPrompt: persona.systemPrompt,
+      traits: persona.traits,
+      expertise: persona.expertise?.map(e => e.name) || [], // Convert ExpertiseDomain[] to string[]
+      conversationalStyle: persona.conversationalStyle,
+      status: persona.status,
+      visibility: persona.visibility,
+      createdBy: users[index % users.length].id, // Distribute across available users
+      organizationId: persona.organizationId,
+      teamId: persona.teamId,
+      version: persona.version || 1,
+      parentPersonaId: persona.parentPersonaId,
+      tags: persona.tags || [],
+      validation: persona.validation,
+      usageStats: persona.usageStats,
+      configuration: persona.configuration || {
+        maxTokens: 4000,
+        temperature: 0.7,
+        topP: 0.9,
+        frequencyPenalty: 0,
+        presencePenalty: 0,
+        stopSequences: []
       },
-      {
-        name: 'Creative Problem Solver',
-        role: 'Innovation Facilitator',
-        description: 'Creative thinker focused on innovative solutions and brainstorming',
-        background: 'Creative professional with expertise in design thinking and innovation methodologies',
-        systemPrompt: 'You are a creative problem solver who approaches challenges with innovative thinking and creative methodologies. Encourage out-of-the-box thinking.',
-        traits: [
-          { name: 'creative', value: 'highly creative and imaginative' },
-          { name: 'collaborative', value: 'thrives in collaborative environments' },
-          { name: 'optimistic', value: 'maintains positive outlook on challenges' }
-        ],
-        expertise: ['design-thinking', 'innovation', 'brainstorming', 'creative-solutions'],
-        tone: 'optimistic' as any,
-        style: 'freeform' as any,
-        energyLevel: 'high' as any,
-        chattiness: 0.8,
-        empathyLevel: 0.8,
-        conversationalStyle: {
-          tone: 'creative' as any,
-          verbosity: 'moderate' as any,
-          formality: 'informal' as any,
-          empathy: 0.8,
-          assertiveness: 0.6,
-          creativity: 0.9,
-          analyticalDepth: 0.5,
-          questioningStyle: 'exploratory' as any,
-          responsePattern: 'flowing' as any
-        },
-        status: PersonaStatus.ACTIVE,
-        visibility: PersonaVisibility.ORGANIZATION,
-        createdBy: users[2].id,
-        version: 1,
-        tags: ['creative', 'innovation', 'collaboration'],
-        qualityScore: 0.78,
-        consistencyScore: 0.75,
-        userSatisfaction: 0.88,
-        totalInteractions: 200,
-        successfulInteractions: 185
+      capabilities: persona.capabilities || [],
+      restrictions: persona.restrictions || {
+        allowedTopics: [],
+        forbiddenTopics: [],
+        requiresApproval: false
       },
-      {
-        name: 'Project Coordinator',
-        role: 'Project Management Specialist',
-        description: 'Experienced project coordinator focused on organization and efficiency',
-        background: 'Certified project manager with extensive experience in coordinating complex initiatives',
-        systemPrompt: 'You are a project coordinator who excels at organizing tasks, managing timelines, and ensuring efficient project execution.',
-        traits: [
-          { name: 'organized', value: 'highly organized and structured' },
-          { name: 'efficient', value: 'focuses on efficiency and productivity' },
-          { name: 'communicative', value: 'excellent communication skills' }
-        ],
-        expertise: ['project-management', 'coordination', 'planning', 'team-leadership'],
-        tone: 'concise' as any,
-        style: 'structured' as any,
-        energyLevel: 'dynamic' as any,
-        chattiness: 0.7,
-        empathyLevel: 0.6,
-        conversationalStyle: {
-          tone: 'professional' as any,
-          verbosity: 'concise' as any,
-          formality: 'neutral' as any,
-          empathy: 0.6,
-          assertiveness: 0.8,
-          creativity: 0.4,
-          analyticalDepth: 0.6,
-          questioningStyle: 'direct' as any,
-          responsePattern: 'structured' as any
-        },
-        status: PersonaStatus.ACTIVE,
-        visibility: PersonaVisibility.TEAM,
-        createdBy: users[1].id,
-        version: 1,
-        tags: ['project-management', 'coordination', 'leadership'],
-        qualityScore: 0.92,
-        consistencyScore: 0.88,
-        userSatisfaction: 0.90,
-        totalInteractions: 300,
-        successfulInteractions: 285
-      }
-    ];
+      // Add missing required properties from PersonaEntity
+      totalInteractions: 0,
+      successfulInteractions: 0,
+      discussionParticipants: [],
+      analytics: [],
+      // Optional properties with defaults
+      qualityScore: undefined,
+      consistencyScore: undefined,
+      userSatisfaction: undefined,
+      lastUsedAt: undefined,
+      lastUpdatedBy: undefined,
+      // Hybrid persona properties (optional)
+      tone: undefined,
+      style: undefined,
+      energyLevel: undefined,
+      chattiness: undefined,
+      empathyLevel: undefined,
+      parentPersonas: undefined,
+      hybridTraits: undefined,
+      dominantExpertise: persona.expertise?.[0]?.name,
+      personalityBlend: undefined,
+      
+      createdAt: persona.createdAt || new Date(),
+      updatedAt: persona.updatedAt || new Date(),
+      metadata: persona.metadata || {}
+    }));
 
-    const savedPersonas = await personaRepository.save(personas);
+    await personaRepository.save(personaEntities);
+    const savedPersonas = await personaRepository.find();
     this.seededEntities.set('Personas', savedPersonas);
-    console.log(`   ✅ Seeded ${savedPersonas.length} personas`);
+    console.log(`   ✅ Seeded ${savedPersonas.length} personas from persona utilities`);
   }
 
   /**
@@ -474,12 +422,27 @@ export class DatabaseSeeder {
 
     const agentRepository = this.dataSource.getRepository(Agent);
     const users = this.seededEntities.get('Users')!;
+    const personas = this.seededEntities.get('Personas')!;
+
+    // Map agent names to persona IDs based on similar roles/capabilities
+    const getPersonaIdByRole = (agentRole: string): string => {
+      const roleMapping: Record<string, string> = {
+        'DataMaster Pro': 'data-scientist',
+        'TaskFlow Orchestrator': 'tech-lead', 
+        'CodeCraft Assistant': 'software-engineer'
+      };
+      
+      const personaKey = roleMapping[agentRole];
+      const persona = personas.find(p => p.id === personaKey);
+      return persona?.id || personas[0].id; // Fallback to first persona if not found
+    };
 
     const agents = [
       {
         name: 'DataMaster Pro',
         role: AgentRole.ANALYZER,
-        persona: {
+        personaId: getPersonaIdByRole('DataMaster Pro'),
+        legacyPersona: {
           name: 'DataMaster Pro',
           description: 'Advanced data analysis and visualization agent',
           capabilities: ['data-analysis', 'visualization', 'statistical-modeling', 'reporting'],
@@ -537,7 +500,8 @@ export class DatabaseSeeder {
       {
         name: 'TaskFlow Orchestrator',
         role: AgentRole.ORCHESTRATOR,
-        persona: {
+        personaId: getPersonaIdByRole('TaskFlow Orchestrator'),
+        legacyPersona: {
           name: 'TaskFlow Orchestrator',
           description: 'Workflow orchestration and task management agent',
           capabilities: ['workflow-management', 'task-coordination', 'resource-allocation', 'monitoring'],
@@ -594,7 +558,8 @@ export class DatabaseSeeder {
       {
         name: 'CodeCraft Assistant',
         role: AgentRole.SPECIALIST,
-        persona: {
+        personaId: getPersonaIdByRole('CodeCraft Assistant'),
+        legacyPersona: {
           name: 'CodeCraft Assistant',
           description: 'Software development and code analysis specialist',
           capabilities: ['code-analysis', 'code-generation', 'debugging', 'code-review', 'documentation'],

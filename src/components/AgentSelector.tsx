@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useAgents } from '../contexts/AgentContext';
 import { PersonaSelector } from './PersonaSelector';
-import { AgentState, toBackendAgent, fromBackendAgent } from '../types/agent';
+import { AgentState, createAgentStateFromBackend } from '../types/agent';
 import { Persona } from '../types/persona';
 import { ModelOption, getModels } from './ModelSelector';
 import { useDiscussion } from '../contexts/DiscussionContext';
@@ -400,9 +400,9 @@ export const AgentSelector: React.FC = () => {
       if (apiResponse.success && apiResponse.data) {
         console.log('Loaded agents from API:', apiResponse.data);
         
-        // Convert backend agents to frontend AgentState objects using the new serialization function
+        // Convert backend agents to frontend AgentState objects
         const frontendAgents = apiResponse.data.map(backendAgent => {
-          return fromBackendAgent(backendAgent);
+          return createAgentStateFromBackend(backendAgent);
         });
 
         // Add all loaded agents to the context
@@ -473,77 +473,29 @@ export const AgentSelector: React.FC = () => {
         return roleMapping[normalizedRole] || 'assistant';
       };
 
-      // Create a complete AgentState object first
-      const newAgentState: AgentState = {
-        id: '', // Will be set by backend
+      // Try the simplest approach: just provide personaId
+      const apiAgentData = {
         name: agentName.trim(),
         role: mapPersonaRoleToBackendRole(persona.role || 'assistant'),
-        currentResponse: null,
-        conversationHistory: [],
-        isThinking: false,
-        error: null,
-        modelId: selectedModelId,
-        apiType: selectedModel.apiType as 'ollama' | 'llmstudio',
-        persona: persona,
-        systemPrompt: persona.systemPrompt || `You are ${persona.name}. ${persona.description || persona.background || ''}`,
-        temperature: 0.7,
-        maxTokens: 2048,
-        
-        // Backend properties
+        personaId: persona.id, // Use persona ID if available, fallback to default
         description: persona.description || persona.background || `AI agent with ${persona.name} persona`,
         capabilities: persona.expertise && persona.expertise.length > 0 ? persona.expertise : ['general_assistance'],
         intelligenceConfig: {
-          analysisDepth: 'intermediate',
+          analysisDepth: 'intermediate' as const,
           contextWindowSize: 4096,
           decisionThreshold: 0.7,
           learningEnabled: true,
-          collaborationMode: 'collaborative'
+          collaborationMode: 'collaborative' as const
         },
         securityContext: {
-          securityLevel: 'medium',
+          securityLevel: 'medium' as const,
           allowedCapabilities: persona.expertise && persona.expertise.length > 0 ? persona.expertise : ['general_assistance'],
           approvalRequired: false,
-          auditLevel: 'standard'
+          auditLevel: 'standard' as const
         },
         isActive: true,
-        createdBy: 'frontend-user', // TODO: Get actual user ID from auth context
-        
-        // Tool properties
-        availableTools: [],
-        toolPermissions: {
-          allowedTools: [],
-          deniedTools: [],
-          requireApprovalFor: [],
-          canApproveTools: false,
-          maxCostPerHour: 100,
-          maxExecutionsPerHour: 50
-        },
-        toolUsageHistory: [],
-        toolPreferences: {
-          preferredTools: {
-            'api': [],
-            'computation': [],
-            'file-system': [],
-            'database': [],
-            'web-search': [],
-            'code-execution': [],
-            'communication': [],
-            'knowledge-graph': [],
-            'deployment': [],
-            'monitoring': [],
-            'analysis': [],
-            'generation': []
-          },
-          fallbackTools: {},
-          timeoutPreference: 30000,
-          costLimit: 10
-        },
-        maxConcurrentTools: 1,
-        isUsingTool: false
+        createdBy: 'frontend-user' // TODO: Get actual user ID from auth context
       };
-
-      // Convert to backend format using the serialization function
-      const apiAgentData = toBackendAgent(newAgentState);
 
       console.log('Creating agent via API:', apiAgentData);
       const apiResponse = await uaipAPI.client.agents.create(apiAgentData);
@@ -555,8 +507,8 @@ export const AgentSelector: React.FC = () => {
       const backendAgent = apiResponse.data;
       console.log('Agent created via API:', backendAgent);
 
-      // Convert the backend response back to a complete AgentState using the serialization function
-      const finalAgentState = fromBackendAgent(backendAgent, newAgentState);
+      // Convert the backend response to a complete AgentState
+      const finalAgentState = createAgentStateFromBackend(backendAgent);
 
       console.log('Created frontend agent state:', finalAgentState);
 

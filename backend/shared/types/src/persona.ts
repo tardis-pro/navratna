@@ -9,6 +9,38 @@ export enum PersonaTraitType {
   BEHAVIOR = 'behavior',
   COGNITIVE = 'cognitive'
 }
+export enum PersonaTone {
+  CONCISE = 'concise',
+  VERBOSE = 'verbose',
+  ANALYTICAL = 'analytical',
+  CASUAL = 'casual',
+  EMPATHETIC = 'empathetic',
+  HUMOROUS = 'humorous',
+  CAUTIOUS = 'cautious',
+  OPTIMISTIC = 'optimistic'
+}
+
+
+
+export enum PersonaStyle {
+  STRUCTURED = 'structured',
+  FREEFORM = 'freeform',
+  INQUISITIVE = 'inquisitive',
+  DECISIVE = 'decisive',
+  COLLABORATIVE = 'collaborative',
+  AUTHORITATIVE = 'authoritative'
+}
+
+
+
+
+
+export enum PersonaEnergyLevel {
+  LOW = 'low',
+  MODERATE = 'moderate',
+  HIGH = 'high',
+  DYNAMIC = 'dynamic'
+}
 
 export const PersonaTraitSchema = z.object({
   id: IDSchema,

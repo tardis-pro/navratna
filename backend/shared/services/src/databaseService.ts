@@ -1532,28 +1532,42 @@ export class DatabaseService {
 
   /**
    * Create a new agent
+   * COMPOSITION MODEL: Agent → Persona
    */
   public async createAgent(agentData: {
     id?: string;
     name: string;
     role: string;
-    persona: any;
+    // COMPOSITION MODEL: personaId reference
+    personaId?: string;
+    // Legacy persona data for backwards compatibility
+    legacyPersona?: any;
+    // Deprecated: old persona field (for backwards compatibility)
+    persona?: any;
     intelligenceConfig: any;
     securityContext: any;
     createdBy?: string;
+    capabilities?: string[];
   }): Promise<any> {
     return await this.agentRepository.createAgent(agentData);
   }
 
   /**
    * Update an agent
+   * COMPOSITION MODEL: Agent → Persona
    */
   public async updateAgent(agentId: string, updateData: {
     name?: string;
     role?: string;
+    // COMPOSITION MODEL: personaId reference
+    personaId?: string;
+    // Legacy persona data for backwards compatibility
+    legacyPersona?: any;
+    // Deprecated: old persona field (for backwards compatibility)
     persona?: any;
     intelligenceConfig?: any;
     securityContext?: any;
+    capabilities?: string[];
   }): Promise<any | null> {
     return await this.agentRepository.updateAgent(agentId, updateData);
   }

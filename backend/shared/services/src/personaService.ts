@@ -17,7 +17,6 @@ import { DatabaseService } from './databaseService.js';
 import { EventBusService } from './eventBusService.js';
 import { logger } from '@uaip/utils';
 import { Persona as PersonaEntity } from './entities/persona.entity.js';
-
 import { SelectQueryBuilder } from 'typeorm';
 
 export interface PersonaServiceConfig {
@@ -50,23 +49,6 @@ export class PersonaService {
 
   // ===== PERSONA CRUD OPERATIONS =====
 
-  // Helper function to safely parse JSON or return object if already parsed
-  private safeJsonParse(value: any, defaultValue: any = null): any {
-    if (value === null || value === undefined) {
-      return defaultValue;
-    }
-    if (typeof value === 'string') {
-      try {
-        return JSON.parse(value);
-      } catch (error) {
-        logger.warn('Failed to parse JSON string', { value, error: (error as Error).message });
-        return defaultValue;
-      }
-    }
-    // If it's already an object, return as-is
-    return value;
-  }
-
   async createPersona(request: CreatePersonaRequest): Promise<Persona> {
     try {
       logger.info('Creating new persona', { name: request.name, role: request.role });
@@ -74,26 +56,20 @@ export class PersonaService {
       // Validate the persona data
       const validation = await this.validatePersona(request);
 
-      // Create persona using TypeORM repository
       const personaRepo = await this.databaseService.getRepository(PersonaEntity);
       
-      // Convert expertise from complex objects to simple strings for entity
-      const expertiseStrings = request.expertise?.map(exp => 
-        typeof exp === 'string' ? exp : exp.name || exp.category || 'Unknown'
-      ) || [];
-
       const personaData = {
         name: request.name,
         role: request.role,
         description: request.description,
         traits: request.traits || [],
-        expertise: expertiseStrings,
+        expertise: this.extractExpertiseNames(request.expertise || []),
         background: request.background,
         systemPrompt: request.systemPrompt,
         conversationalStyle: request.conversationalStyle,
         status: request.status || PersonaStatus.ACTIVE,
         visibility: request.visibility || PersonaVisibility.PRIVATE,
-        createdBy: request.createdBy,
+        createdBy: request.createdBy || 'system',
         organizationId: request.organizationId,
         teamId: request.teamId,
         version: 1,
@@ -101,12 +77,11 @@ export class PersonaService {
         tags: request.tags || [],
         validation,
         usageStats: {
-          totalSessions: 0,
-          totalMessages: 0,
+          totalUsages: 0,
+          uniqueUsers: 0,
           averageSessionDuration: 0,
-          averageSatisfactionScore: 0,
-          lastUsed: null,
-          popularityScore: 0
+          popularityScore: 0,
+          feedbackCount: 0
         },
         configuration: request.configuration || {},
         capabilities: request.capabilities || [],
@@ -117,14 +92,10 @@ export class PersonaService {
       };
 
       const savedEntity = await personaRepo.save(personaData);
+      const persona = this.entityToPersona(savedEntity);
 
-      // Convert entity back to Persona type for return
-      const persona: Persona = this.entityToPersona(savedEntity);
-
-      // Cache the persona
       this.cachePersona(persona);
 
-      // Emit creation event
       await this.safePublishEvent('persona.created', {
         personaId: persona.id,
         createdBy: persona.createdBy,
@@ -143,13 +114,11 @@ export class PersonaService {
 
   async getPersona(id: string): Promise<Persona | null> {
     try {
-      // Check cache first
       const cached = this.getCachedPersona(id);
       if (cached) {
         return cached;
       }
 
-      // Fetch from database using TypeORM repository
       const personaRepo = await this.databaseService.getRepository(PersonaEntity);
       const entity = await personaRepo.findOne({ where: { id } });
       
@@ -158,11 +127,7 @@ export class PersonaService {
       }
 
       const persona = this.entityToPersona(entity);
-
-      if (persona) {
-        this.cachePersona(persona);
-      }
-
+      this.cachePersona(persona);
       return persona;
 
     } catch (error) {
@@ -175,30 +140,24 @@ export class PersonaService {
     try {
       logger.info('Updating persona', { personaId: id, updates: Object.keys(updates) });
 
-      // Get existing persona
       const existingPersona = await this.getPersona(id);
       if (!existingPersona) {
         throw new Error(`Persona not found: ${id}`);
       }
 
-      // Validate updates
       const updatedPersona = { ...existingPersona, ...updates };
       const validation = await this.validatePersona(updatedPersona);
       
-      // Convert expertise if provided
       const updateData: any = { ...updates };
       if (updates.expertise) {
-        updateData.expertise = updates.expertise.map(exp => 
-          typeof exp === 'string' ? exp : exp.name || exp.category || 'Unknown'
-        );
+        updateData.expertise = this.extractExpertiseNames(updates.expertise);
       }
       
-      // Update persona using TypeORM repository
       const personaRepo = await this.databaseService.getRepository(PersonaEntity);
       await personaRepo.update(id, {
         ...updateData,
         validation,
-        version: (existingPersona.version) + 1,
+        version: existingPersona.version + 1,
         updatedAt: new Date()
       });
 
@@ -208,11 +167,8 @@ export class PersonaService {
       }
 
       const persona = this.entityToPersona(updatedEntity);
-
-      // Update cache
       this.cachePersona(persona);
 
-      // Emit update event
       await this.safePublishEvent('persona.updated', {
         personaId: persona.id,
         updatedBy: existingPersona.createdBy,
@@ -233,16 +189,13 @@ export class PersonaService {
     try {
       logger.info('Deleting persona', { personaId: id, deletedBy });
 
-      // Check if persona exists
       const persona = await this.getPersona(id);
       if (!persona) {
         throw new Error(`Persona not found: ${id}`);
       }
 
-      // Check if persona is in use
       const usageCount = await this.getPersonaUsageCount(id);
       if (usageCount > 0) {
-        // Soft delete - mark as archived instead
         await this.updatePersona(id, { 
           status: PersonaStatus.ARCHIVED,
           updatedAt: new Date()
@@ -251,14 +204,11 @@ export class PersonaService {
         return;
       }
 
-      // Hard delete using TypeORM repository
       const personaRepo = await this.databaseService.getRepository(PersonaEntity);
       await personaRepo.delete(id);
 
-      // Remove from cache
       this.personaCache.delete(id);
 
-      // Emit deletion event
       await this.safePublishEvent('persona.deleted', {
         personaId: id,
         deletedBy,
@@ -284,13 +234,10 @@ export class PersonaService {
       const personaRepo = await this.databaseService.getRepository(PersonaEntity);
       const queryBuilder = personaRepo.createQueryBuilder('persona');
 
-      // Apply filters using TypeORM QueryBuilder
       this.applySearchFilters(queryBuilder, filters);
 
-      // Get total count
       const total = await queryBuilder.getCount();
 
-      // Apply pagination and ordering
       queryBuilder
         .orderBy('persona.createdAt', 'DESC')
         .skip(offset)
@@ -323,10 +270,7 @@ export class PersonaService {
     try {
       logger.debug('Getting persona recommendations', { userId, context, limit });
 
-      // Get user's persona usage history
       const userHistory = await this.getUserPersonaHistory(userId);
-      
-      // Get similar personas based on usage patterns
       const recommendations = await this.generateRecommendations(userHistory, context, limit);
 
       return recommendations;
@@ -345,7 +289,6 @@ export class PersonaService {
     const suggestions: string[] = [];
 
     try {
-      // Required field validation
       if (!persona.name || persona.name.trim().length === 0) {
         errors.push('Persona name is required');
       }
@@ -358,7 +301,6 @@ export class PersonaService {
         errors.push('System prompt must be at least 10 characters long');
       }
 
-      // Content quality validation
       if (persona.description && persona.description.length < 20) {
         warnings.push('Description is quite short, consider adding more detail');
       }
@@ -367,25 +309,21 @@ export class PersonaService {
         warnings.push('Background is quite brief, consider expanding');
       }
 
-      // Expertise validation
       if (persona.expertise && persona.expertise.length === 0) {
         warnings.push('No expertise domains defined');
       }
 
-      // Traits validation
       if (persona.traits && persona.traits.length === 0) {
         suggestions.push('Consider adding personality traits for better persona definition');
       }
 
-      // Conversational style validation
       if (persona.conversationalStyle) {
         const style = persona.conversationalStyle;
-        if ((style.empathy) < 0.1 && (style.assertiveness) > 0.9) {
+        if (style.empathy < 0.1 && style.assertiveness > 0.9) {
           warnings.push('Very low empathy with high assertiveness may create harsh interactions');
         }
       }
 
-      // Calculate validation score
       const score = this.calculateValidationScore(persona, errors, warnings);
 
       return {
@@ -420,22 +358,15 @@ export class PersonaService {
       }
 
       const defaultTimeframe = {
-        start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
+        start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
         end: new Date()
       };
 
       const analyticsTimeframe = timeframe || defaultTimeframe;
 
-      // Get usage metrics
       const metrics = await this.calculatePersonaMetrics(personaId, analyticsTimeframe);
-      
-      // Get trends
       const trends = await this.calculatePersonaTrends(personaId, analyticsTimeframe);
-
-      // Get interaction data
       const topInteractions = await this.getTopInteractions(personaId, analyticsTimeframe);
-
-      // Get common issues
       const commonIssues = await this.getCommonIssues(personaId, analyticsTimeframe);
 
       return {
@@ -473,10 +404,9 @@ export class PersonaService {
         feedbackCount: 0
       };
 
-      // Update usage statistics
       const updatedStats: PersonaUsageStats = {
         ...currentStats,
-        totalUsages: (currentStats.totalUsages) + 1,
+        totalUsages: currentStats.totalUsages + 1,
         lastUsedAt: new Date(),
         averageSessionDuration: this.calculateNewAverage(
           currentStats.averageSessionDuration,
@@ -485,22 +415,19 @@ export class PersonaService {
         )
       };
 
-      // Update feedback score if provided
       if (sessionData.satisfactionScore !== undefined) {
         updatedStats.feedbackScore = this.calculateNewAverage(
-          currentStats.feedbackScore,
+          currentStats.feedbackScore || 0,
           currentStats.feedbackCount,
           sessionData.satisfactionScore
         );
-        updatedStats.feedbackCount = (currentStats.feedbackCount) + 1;
+        updatedStats.feedbackCount = currentStats.feedbackCount + 1;
       }
 
-      // Recalculate popularity score
       updatedStats.popularityScore = this.calculatePopularityScore(updatedStats);
 
       await this.updatePersona(personaId, { usageStats: updatedStats });
 
-      // Emit usage event
       await this.safePublishEvent('persona.used', {
         personaId,
         userId: sessionData.userId,
@@ -523,19 +450,17 @@ export class PersonaService {
       const queryBuilder = personaRepo.createQueryBuilder('persona');
 
       if (category) {
-        // Note: Would need to add category field to entity for proper filtering
         queryBuilder.where('persona.tags LIKE :category', { category: `%${category}%` });
       }
 
       queryBuilder.orderBy('persona.totalInteractions', 'DESC');
       const entities = await queryBuilder.getMany();
 
-      // Convert entities to templates (simplified for now)
       return entities.map(entity => ({
         id: entity.id,
         name: entity.name,
         description: entity.description,
-        category: 'general', // Would need to add category field to entity
+        category: 'general',
         traits: entity.traits,
         expertise: entity.expertise,
         usageCount: entity.totalInteractions
@@ -553,13 +478,11 @@ export class PersonaService {
     createdBy: string
   ): Promise<Persona> {
     try {
-      // Get template persona (using existing persona as template)
       const templatePersona = await this.getPersona(templateId);
       if (!templatePersona) {
         throw new Error(`Template persona not found: ${templateId}`);
       }
 
-      // Merge template with customizations
       const personaRequest: CreatePersonaRequest = {
         name: customizations.name || `${templatePersona.name} (Copy)`,
         role: customizations.role || templatePersona.role,
@@ -574,7 +497,7 @@ export class PersonaService {
         createdBy,
         organizationId: customizations.organizationId || templatePersona.organizationId,
         teamId: customizations.teamId || templatePersona.teamId,
-        parentPersonaId: templateId, // Link to template
+        parentPersonaId: templateId,
         tags: customizations.tags || templatePersona.tags,
         configuration: customizations.configuration || templatePersona.configuration,
         capabilities: customizations.capabilities || templatePersona.capabilities,
@@ -584,7 +507,6 @@ export class PersonaService {
 
       const persona = await this.createPersona(personaRequest);
 
-      // Update template usage stats
       await this.updatePersonaUsage(templateId, {
         userId: createdBy,
         duration: 0,
@@ -601,6 +523,10 @@ export class PersonaService {
 
   // ===== PRIVATE HELPER METHODS =====
 
+  private extractExpertiseNames(expertise: ExpertiseDomain[]): string[] {
+    return expertise.map(exp => exp.name);
+  }
+
   private cachePersona(persona: Persona): void {
     this.personaCache.set(persona.id!, {
       persona,
@@ -614,7 +540,6 @@ export class PersonaService {
       return null;
     }
 
-    // Check if cache is expired
     if (Date.now() - cached.timestamp > this.cacheTimeout) {
       this.personaCache.delete(id);
       return null;
@@ -632,7 +557,6 @@ export class PersonaService {
     }
 
     if (filters.expertise && filters.expertise.length > 0) {
-      // For JSON array field, use JSON operations
       queryBuilder.andWhere(
         'EXISTS (SELECT 1 FROM jsonb_array_elements_text(persona.expertise) AS exp WHERE exp = ANY(:expertise))',
         { expertise: filters.expertise }
@@ -684,14 +608,10 @@ export class PersonaService {
   }
 
   private async getPersonaUsageCount(personaId: string): Promise<number> {
-    // This would check active discussions, sessions, etc.
-    // For now, return 0 as placeholder
     return 0;
   }
 
   private async getUserPersonaHistory(userId: string): Promise<any[]> {
-    // Get user's persona usage history from database
-    // Placeholder implementation
     return [];
   }
 
@@ -700,8 +620,6 @@ export class PersonaService {
     context?: string,
     limit = 10
   ): Promise<PersonaRecommendation[]> {
-    // Generate persona recommendations based on user history and context
-    // Placeholder implementation
     return [];
   }
 
@@ -712,11 +630,9 @@ export class PersonaService {
   ): number {
     let score = 100;
 
-    // Deduct points for errors and warnings
     score -= errors.length * 20;
     score -= warnings.length * 5;
 
-    // Add points for completeness
     if (persona.description && persona.description.length > 100) score += 5;
     if (persona.background && persona.background.length > 200) score += 5;
     if (persona.expertise && persona.expertise.length > 2) score += 5;
@@ -726,8 +642,6 @@ export class PersonaService {
   }
 
   private async calculatePersonaMetrics(personaId: string, timeframe: { start: Date; end: Date }): Promise<any> {
-    // Calculate persona metrics for the given timeframe
-    // Placeholder implementation
     return {
       totalSessions: 0,
       totalMessages: 0,
@@ -740,8 +654,6 @@ export class PersonaService {
   }
 
   private async calculatePersonaTrends(personaId: string, timeframe: { start: Date; end: Date }): Promise<any> {
-    // Calculate persona trends
-    // Placeholder implementation
     return {
       usageGrowth: 0,
       satisfactionTrend: 0,
@@ -750,14 +662,10 @@ export class PersonaService {
   }
 
   private async getTopInteractions(personaId: string, timeframe: { start: Date; end: Date }): Promise<any[]> {
-    // Get top interactions for the persona
-    // Placeholder implementation
     return [];
   }
 
-    private async getCommonIssues(personaId: string, timeframe: { start: Date; end: Date }): Promise<any[]> {
-    // Get common issues for the persona
-    // Placeholder implementation
+  private async getCommonIssues(personaId: string, timeframe: { start: Date; end: Date }): Promise<any[]> {
     return [];
   }
 
@@ -768,27 +676,21 @@ export class PersonaService {
   private calculatePopularityScore(stats: PersonaUsageStats): number {
     let score = 0;
     
-    // Usage frequency (max 50 points)
-    score += Math.min((stats.totalUsages) * 2, 50);
+    score += Math.min(stats.totalUsages * 2, 50);
+    score += Math.min(stats.uniqueUsers * 3, 30);
     
-    // User diversity (max 30 points)
-    score += Math.min((stats.uniqueUsers) * 3, 30);
-    
-    // Feedback quality (max 20 points)
-    if (stats.feedbackScore && (stats.feedbackCount) > 0) {
+    if (stats.feedbackScore && stats.feedbackCount > 0) {
       score += stats.feedbackScore * 20;
     }
     
     return Math.min(score, 100);
   }
 
-
   private async safePublishEvent(eventType: string, data: any): Promise<void> {
     try {
       await this.eventBusService.publish(eventType, data);
     } catch (error) {
       logger.warn(`Failed to publish event ${eventType}, continuing without event:`, error);
-      // Don't throw - allow operation to continue even if event publishing fails
     }
   }
 
@@ -802,9 +704,9 @@ export class PersonaService {
       role: entity.role,
       description: entity.description,
       traits: entity.traits || [],
-      expertise: (entity.expertise || []).map((exp, index) => ({
-        id: Date.now().toString() + index, // Use timestamp + index as simple numeric ID
-        name: exp,
+      expertise: (entity.expertise || []).map((expName, index) => ({
+        id: `${Date.now()}-${index}`,
+        name: expName,
         description: '',
         category: 'general',
         level: 'intermediate' as const,
@@ -813,7 +715,7 @@ export class PersonaService {
       })),
       background: entity.background,
       systemPrompt: entity.systemPrompt,
-      conversationalStyle: entity.conversationalStyle,
+      conversationalStyle: entity.conversationalStyle!,
       status: entity.status,
       visibility: entity.visibility,
       createdBy: entity.createdBy,
@@ -827,7 +729,7 @@ export class PersonaService {
         totalUsages: entity.totalInteractions,
         uniqueUsers: 0,
         averageSessionDuration: 0,
-        lastUsedAt: entity.lastUsedAt || null,
+        lastUsedAt: entity.lastUsedAt || undefined,
         popularityScore: 0,
         feedbackScore: entity.userSatisfaction,
         feedbackCount: 0

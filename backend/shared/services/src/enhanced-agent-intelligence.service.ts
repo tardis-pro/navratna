@@ -135,6 +135,7 @@ export class EnhancedAgentIntelligenceService {
 
   /**
    * Create a new agent with enhanced capabilities
+   * COMPOSITION MODEL: Agent → Persona
    */
   async createAgent(agentData: any): Promise<Agent> {
     if (!this.isInitialized) {
@@ -150,6 +151,28 @@ export class EnhancedAgentIntelligenceService {
         agentId = this.validateIDParam(agentData.id, 'agentId');
       }
       // If no ID provided, let database auto-generate
+
+      // COMPOSITION MODEL: Handle personaId validation
+      let personaId: string | undefined;
+      if (agentData.personaId) {
+        personaId = this.validateIDParam(agentData.personaId, 'personaId');
+        
+        // Validate that the persona exists
+        if (this.personaService) {
+          const persona = await this.personaService.getPersona(personaId);
+          if (!persona) {
+            throw new ApiError(400, `Persona not found: ${personaId}`, 'PERSONA_NOT_FOUND');
+          }
+          logger.info('Validated persona for agent creation', { personaId, personaName: persona.name });
+        } else {
+          logger.warn('PersonaService not available, skipping persona validation');
+        }
+      } else if (agentData.persona) {
+        // Legacy mode: persona data provided directly (for transformation)
+        logger.info('Creating agent with legacy persona data (transformation mode)');
+      } else {
+        throw new ApiError(400, 'Either personaId or persona data must be provided', 'MISSING_PERSONA');
+      }
 
       const intelligenceConfig = agentData.intelligenceConfig || 
                                 agentData.intelligence_config || 
@@ -174,10 +197,14 @@ export class EnhancedAgentIntelligenceService {
         ...(agentId && { id: agentId }),
         name: agentData.name,
         role: role,
-        persona: agentData.persona || {},
+        // COMPOSITION MODEL: Include personaId
+        ...(personaId && { personaId }),
+        // Legacy persona data for backwards compatibility
+        ...(agentData.persona && { legacyPersona: agentData.persona }),
         intelligenceConfig: intelligenceConfig,
         securityContext: securityContext,
-        createdBy: createdBy
+        createdBy: createdBy,
+        capabilities: agentData.capabilities || []
       };
 
       // Use DatabaseService createAgent method instead of raw SQL
@@ -187,8 +214,14 @@ export class EnhancedAgentIntelligenceService {
         agentId: savedAgent.id,
         name: savedAgent.name,
         role: savedAgent.role,
+        personaId: savedAgent.personaId,
         createdBy: savedAgent.createdBy,
         timestamp: new Date()
+      });
+
+      logger.info('Agent created successfully with persona relationship', { 
+        agentId: savedAgent.id, 
+        personaId: savedAgent.personaId 
       });
 
       return savedAgent;
@@ -221,6 +254,55 @@ export class EnhancedAgentIntelligenceService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Error getting agent', { agentId, error: errorMessage });
+      throw error;
+    }
+  }
+
+  /**
+   * Get an agent with its persona data populated
+   * COMPOSITION MODEL: Returns agent with persona relationship
+   */
+  async getAgentWithPersona(agentId: string): Promise<(Agent & { personaData?: any }) | null> {
+    if (!this.isInitialized) {
+      await this.initialize();
+    }
+    
+    try {
+      const validatedId = this.validateIDParam(agentId, 'agentId');
+
+      // Get the agent first
+      const agent = await this.databaseService.getActiveAgentById(validatedId);
+      if (!agent) {
+        return null;
+      }
+
+      // If agent has a personaId, fetch the persona data
+      let personaData = null;
+      if (agent.personaId && this.personaService) {
+        try {
+          personaData = await this.personaService.getPersona(agent.personaId);
+          logger.info('Fetched persona data for agent', { 
+            agentId: agent.id, 
+            personaId: agent.personaId,
+            personaName: personaData?.name 
+          });
+        } catch (error) {
+          logger.warn('Failed to fetch persona data for agent', { 
+            agentId: agent.id, 
+            personaId: agent.personaId,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+        }
+      }
+
+      // Return agent with persona data
+      return {
+        ...agent,
+        personaData
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error getting agent with persona', { agentId, error: errorMessage });
       throw error;
     }
   }
@@ -591,7 +673,7 @@ Personality Traits: ${JSON.stringify(persona.traits)}`,
           tags: ['agent-persona', `agent-${agentId}`, 'initialization'],
           source: {
             type: SourceType.AGENT_INTERACTION,
-            identifier: `persona-${personaId}`,
+            identifier: personaId,
             metadata: { agentId, personaId, persona }
           },
           confidence: 0.9

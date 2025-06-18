@@ -46,29 +46,55 @@ export class AgentRepository extends BaseRepository<Agent> {
 
   /**
    * Create a new agent
+   * COMPOSITION MODEL: Agent → Persona
    */
   public async createAgent(agentData: {
     id?: string;
     name: string;
     role: string;
-    persona: any;
+    // COMPOSITION MODEL: personaId reference
+    personaId?: string;
+    // Legacy persona data for backwards compatibility
+    legacyPersona?: any;
+    // Deprecated: old persona field (for backwards compatibility)
+    persona?: any;
     intelligenceConfig: any;
     securityContext: any;
     createdBy?: string;
+    capabilities?: string[];
   }): Promise<Agent> {
     try {
+      // Handle backwards compatibility: if old persona field is provided, use it as legacyPersona
+      let finalPersonaId = agentData.personaId;
+      let finalLegacyPersona = agentData.legacyPersona;
+      
+      if (agentData.persona && !agentData.legacyPersona) {
+        finalLegacyPersona = agentData.persona;
+        logger.warn('Using deprecated persona field as legacyPersona', { agentName: agentData.name });
+      }
+
       const agent = this.repository.create({
         id: agentData.id,
         name: agentData.name,
         role: agentData.role as any,
-        persona: agentData.persona,
+        // COMPOSITION MODEL: Use personaId and legacyPersona
+        personaId: finalPersonaId,
+        legacyPersona: finalLegacyPersona,
         intelligenceConfig: agentData.intelligenceConfig,
         securityContext: agentData.securityContext,
+        capabilities: agentData.capabilities || [],
         isActive: true,
         createdBy: agentData.createdBy
       });
 
       const savedAgent = await this.repository.save(agent);
+      
+      logger.info('Agent created with composition model', { 
+        agentId: savedAgent.id, 
+        personaId: savedAgent.personaId,
+        hasLegacyPersona: !!savedAgent.legacyPersona 
+      });
+      
       return savedAgent;
     } catch (error) {
       logger.error('Error creating agent', { agentData, error: (error as Error).message });
@@ -78,13 +104,20 @@ export class AgentRepository extends BaseRepository<Agent> {
 
   /**
    * Update an agent
+   * COMPOSITION MODEL: Agent → Persona
    */
   public async updateAgent(agentId: string, updateData: {
     name?: string;
     role?: string;
+    // COMPOSITION MODEL: personaId reference
+    personaId?: string;
+    // Legacy persona data for backwards compatibility
+    legacyPersona?: any;
+    // Deprecated: old persona field (for backwards compatibility)
     persona?: any;
     intelligenceConfig?: any;
     securityContext?: any;
+    capabilities?: string[];
   }): Promise<Agent | null> {
     try {
       // Prepare the update payload with proper typing
@@ -94,9 +127,20 @@ export class AgentRepository extends BaseRepository<Agent> {
 
       if (updateData.name !== undefined) updatePayload.name = updateData.name;
       if (updateData.role !== undefined) updatePayload.role = updateData.role as any;
-      if (updateData.persona !== undefined) updatePayload.persona = updateData.persona;
+      
+      // COMPOSITION MODEL: Handle personaId and legacyPersona
+      if (updateData.personaId !== undefined) updatePayload.personaId = updateData.personaId;
+      if (updateData.legacyPersona !== undefined) updatePayload.legacyPersona = updateData.legacyPersona;
+      
+      // Handle backwards compatibility: if old persona field is provided, use it as legacyPersona
+      if (updateData.persona !== undefined && updateData.legacyPersona === undefined) {
+        updatePayload.legacyPersona = updateData.persona;
+        logger.warn('Using deprecated persona field as legacyPersona in update', { agentId });
+      }
+      
       if (updateData.intelligenceConfig !== undefined) updatePayload.intelligenceConfig = updateData.intelligenceConfig;
       if (updateData.securityContext !== undefined) updatePayload.securityContext = updateData.securityContext;
+      if (updateData.capabilities !== undefined) updatePayload.capabilities = updateData.capabilities;
 
       const updateResult = await this.repository.update(
         { id: agentId, isActive: true },
@@ -111,6 +155,14 @@ export class AgentRepository extends BaseRepository<Agent> {
       const updatedAgent = await this.repository.findOne({
         where: { id: agentId, isActive: true }
       });
+
+      if (updatedAgent) {
+        logger.info('Agent updated with composition model', { 
+          agentId: updatedAgent.id, 
+          personaId: updatedAgent.personaId,
+          hasLegacyPersona: !!updatedAgent.legacyPersona 
+        });
+      }
 
       return updatedAgent;
     } catch (error) {

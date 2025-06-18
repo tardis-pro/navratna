@@ -16,3 +16,5 @@ export * from './tools.js';
 export * from './mcp.js';
 // Knowledge Graph types - NEW
 export * from './knowledge-graph.js';
+export * from './personaDefaults.js';
+export * from './personaUtils.js';

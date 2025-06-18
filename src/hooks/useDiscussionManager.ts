@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { uaipAPI, generateUUID, TurnStrategy } from '../services/uaip-api';
 import { AgentState, Message } from '../types/agent';
 import { DocumentContext } from '../types/document';
+import { useAuth } from '../contexts/AuthContext';
+import { useAgents } from '../contexts/AgentContext';
 
 export interface DiscussionManagerConfig {
   topic: string;
@@ -57,6 +59,9 @@ interface DiscussionEvent {
 }
 
 export function useDiscussionManager(config: DiscussionManagerConfig): DiscussionManagerHook {
+  const { user: currentUser, isLoading, isAuthenticated } = useAuth();
+  const { agents } = useAgents();
+  const user = currentUser.user;
   const [discussionId, setDiscussionId] = useState<string | null>(null);
   const [state, setState] = useState<DiscussionState>({
     isRunning: false,
@@ -66,7 +71,6 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
     currentRound: 0,
     lastError: null,
   });
-  const [agents, setAgents] = useState<Record<string, AgentState>>({});
   const [document, setDocument] = useState<DocumentContext | null>(null);
   const [moderatorId, setModeratorId] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -207,6 +211,42 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
 
   const createDiscussion = useCallback(async () => {
     try {
+      // Just use the current hook values - the ref approach isn't working
+      console.log('🔍 Creating discussion - Using direct hook values:', {
+        user,
+        hasUser: !!user,
+        userId: user?.id,
+        userType: typeof user,
+        userKeys: user ? Object.keys(user) : 'N/A',
+        isLoading,
+        isAuthenticated,
+        agentCount: Object.keys(agents).length
+      });
+
+      // Check if auth is still loading
+      if (isLoading) {
+        throw new Error('Authentication is still loading, please wait...');
+      }
+
+      // Check if user is authenticated
+      if (!isAuthenticated) {
+        throw new Error('User is not authenticated - please log in');
+      }
+
+      // Ensure we have a valid user ID
+      if (!user?.id) {
+        console.error('❌ User authentication issue:', {
+          user,
+          userType: typeof user,
+          userKeys: user ? Object.keys(user) : 'N/A',
+          isLoading,
+          isAuthenticated
+        });
+        throw new Error(`User authenticated but missing ID - user: ${JSON.stringify(user)}`);
+      }
+
+      console.log('✅ Using userId:', user.id);
+
       // Create proper TurnStrategyConfig based on the strategy
       const turnStrategyConfig = (() => {
         const strategy = config.turnStrategy || 'round_robin';
@@ -225,7 +265,7 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
               strategy: TurnStrategy.MODERATED,
               config: {
                 type: 'moderated' as const,
-                moderatorId: generateUUID(), // Will be updated when moderator is set
+                moderatorId: moderatorId || user.id, // Use actual moderator or user ID
                 requireApproval: true,
                 autoAdvance: false
               }
@@ -252,24 +292,23 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
         }
       })();
 
+      // Get actual agents from context instead of generating fake ones
+      const agentEntries = Object.entries(agents);
+      const initialParticipants = agentEntries.slice(0, 2).map(([agentId, agentState]) => ({
+        personaId: agentState.personaId , // Use actual persona ID or fallback to agent ID
+        agentId: agentId, // Use actual agent ID
+        role: moderatorId === agentId ? 'moderator' : 'participant'
+      }));
+
+      // If no agents available, create discussion without initial participants
+      // (they can be added later via addAgent)
       const discussion = await uaipAPI.discussions.create({
         title: `Discussion: ${config.topic}`,
         description: `A collaborative discussion about ${config.topic}`,
         topic: config.topic,
-        createdBy: generateUUID(), // Generate a valid UUID for the user
+        createdBy: user.id, // Use actual authenticated user ID
         turnStrategy: turnStrategyConfig,
-        initialParticipants: [
-          {
-            personaId: generateUUID(), // Generate valid UUID for persona
-            agentId: generateUUID(),   // Generate valid UUID for agent
-            role: 'participant'
-          },
-          {
-            personaId: generateUUID(), // Generate valid UUID for persona
-            agentId: generateUUID(),   // Generate valid UUID for agent
-            role: 'participant'
-          }
-        ]
+        initialParticipants: initialParticipants // Use actual agents or empty array
       });
       
       setDiscussionId(discussion.id);
@@ -282,7 +321,7 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
       }));
       throw error;
     }
-  }, [config]);
+  }, [config, user, agents, moderatorId, isLoading, isAuthenticated]);
 
   const addAgent = useCallback(async (agentId: string, agentState: AgentState) => {
     try {
@@ -293,19 +332,19 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
         currentDiscussionId = await createDiscussion();
       }
       
+      // Validate that we have proper IDs
+      if (!agentState.personaId) {
+        throw new Error(`Agent ${agentId} does not have a valid persona ID`);
+      }
+      
       // Add participant to backend discussion
       await uaipAPI.discussions.addParticipant(currentDiscussionId, {
-        personaId: agentState.persona?.id || generateUUID(), // Use persona ID or generate UUID
+        personaId: agentState.personaId, // Use actual persona ID
         agentId: agentId, // Use the provided agent ID
         role: moderatorId === agentId ? 'moderator' : 'participant'
       });
       
-      // Update local agents state
-      setAgents(prev => ({
-        ...prev,
-        [agentId]: agentState
-      }));
-      
+      // Note: We don't need to update local agents state anymore since we're using AgentContext
       // The WebSocket will handle the participant.joined event
     } catch (error) {
       console.error('Failed to add agent:', error);
@@ -328,12 +367,7 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
         await uaipAPI.discussions.removeParticipant(discussionId, participant.id);
       }
       
-      // Update local agents state
-      setAgents(prev => {
-        const newAgents = { ...prev };
-        delete newAgents[agentId];
-        return newAgents;
-      });
+      // Note: We don't need to update local agents state anymore since we're using AgentContext
       
       // The WebSocket will handle the participant.left event
     } catch (error) {
@@ -488,7 +522,7 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
         currentRound: 0,
         lastError: null,
       });
-      setAgents({});
+      // Note: We don't need to clear agents state since we're using AgentContext
     } catch (error) {
       console.error('Failed to reset discussion:', error);
       setState(prev => ({

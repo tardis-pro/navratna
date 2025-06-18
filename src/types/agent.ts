@@ -35,20 +35,7 @@ export interface SecurityContext {
 }
 
 // Extended persona for backend compatibility
-export interface BackendPersona {
-  name: string;
-  description: string;
-  capabilities: string[];
-  constraints: {
-    modelId: string;
-    apiType: string;
-  };
-  preferences: {
-    temperature: number;
-    maxTokens: number;
-    systemPrompt: string;
-  };
-}
+
 
 export interface AgentState {
   // Core Identity
@@ -67,7 +54,7 @@ export interface AgentState {
   apiType: 'ollama' | 'llmstudio';
   
   // Persona & Behavior (hybrid - some persisted, some runtime)
-  persona?: Persona; // Frontend persona (rich)
+  personaId?: string; // Frontend persona (rich)
   systemPrompt?: string;
   temperature?: number;
   maxTokens?: number;
@@ -93,93 +80,27 @@ export interface AgentState {
   isUsingTool?: boolean;
 }
 
-// Serialization helpers for backend compatibility
-export interface SerializableAgentState {
-  // Core properties for backend persistence
-  name: string;
-  description: string;
-  role: AgentRole;
-  capabilities: string[];
-  persona: BackendPersona;
-  intelligenceConfig: IntelligenceConfig;
-  securityContext: SecurityContext;
-  isActive: boolean;
-  createdBy: string;
-}
-
-// Utility functions for conversion between frontend and backend formats
-export const toBackendAgent = (agentState: AgentState): SerializableAgentState => {
-  return {
-    name: agentState.name,
-    description: agentState.description || agentState.persona?.description || agentState.persona?.background || `AI agent: ${agentState.name}`,
-    role: agentState.role,
-    capabilities: agentState.capabilities || agentState.persona?.expertise || ['general_assistance'],
-    persona: {
-      name: agentState.persona?.name || agentState.name,
-      description: agentState.persona?.description || agentState.persona?.background || `AI agent with ${agentState.persona?.name || 'default'} persona`,
-      capabilities: agentState.persona?.expertise || ['general_assistance'],
-      constraints: {
-        modelId: agentState.modelId,
-        apiType: agentState.apiType
-      },
-      preferences: {
-        temperature: agentState.temperature || 0.7,
-        maxTokens: agentState.maxTokens || 2048,
-        systemPrompt: agentState.systemPrompt || agentState.persona?.systemPrompt || `You are ${agentState.name}.`
-      }
-    },
-    intelligenceConfig: agentState.intelligenceConfig || {
-      analysisDepth: 'intermediate',
-      contextWindowSize: 4096,
-      decisionThreshold: 0.7,
-      learningEnabled: true,
-      collaborationMode: 'collaborative'
-    },
-    securityContext: agentState.securityContext || {
-      securityLevel: 'medium',
-      allowedCapabilities: agentState.capabilities || agentState.persona?.expertise || ['general_assistance'],
-      approvalRequired: false,
-      auditLevel: 'standard'
-    },
-    isActive: agentState.isActive !== undefined ? agentState.isActive : true,
-    createdBy: agentState.createdBy || 'frontend-user'
-  };
-};
-
-export const fromBackendAgent = (backendAgent: any, existingState?: Partial<AgentState>): AgentState => {
+// Helper function to convert backend agent response to frontend AgentState
+export const createAgentStateFromBackend = (backendAgent: any): AgentState => {
   return {
     // Core identity from backend
     id: backendAgent.id,
     name: backendAgent.name,
     role: backendAgent.role,
     
-    // Runtime state (preserved from existing or defaults)
-    currentResponse: existingState?.currentResponse || null,
-    conversationHistory: existingState?.conversationHistory || [],
-    isThinking: existingState?.isThinking || false,
-    error: existingState?.error || null,
+    // Runtime state (defaults)
+    currentResponse: null,
+    conversationHistory: [],
+    isThinking: false,
+    error: null,
     
-    // Model configuration from backend
+    // Model configuration from backend persona constraints
     modelId: backendAgent.persona?.constraints?.modelId || 'unknown',
     apiType: (backendAgent.persona?.constraints?.apiType as 'ollama' | 'llmstudio') || 'ollama',
     
-    // Persona reconstruction
-    persona: existingState?.persona || {
-      id: `persona-${backendAgent.id}`,
-      name: backendAgent.persona?.name || backendAgent.name,
-      role: backendAgent.role,
-      description: backendAgent.persona?.description || backendAgent.description,
-      background: backendAgent.persona?.description || backendAgent.description,
-      expertise: backendAgent.persona?.capabilities || backendAgent.capabilities || [],
-      systemPrompt: backendAgent.persona?.preferences?.systemPrompt || '',
-      traits: [],
-      createdAt: backendAgent.createdAt ? new Date(backendAgent.createdAt) : new Date(),
-      updatedAt: backendAgent.updatedAt ? new Date(backendAgent.updatedAt) : new Date(),
-      createdBy: backendAgent.createdBy || 'unknown',
-      isPublic: false,
-      usageCount: 0,
-      version: 1
-    },
+    // Persona from backend (simplified mapping)
+    personaId: backendAgent.personaId,
+    
     
     // Behavior settings from backend
     systemPrompt: backendAgent.persona?.preferences?.systemPrompt,
@@ -196,9 +117,9 @@ export const fromBackendAgent = (backendAgent: any, existingState?: Partial<Agen
     createdAt: backendAgent.createdAt ? new Date(backendAgent.createdAt) : undefined,
     updatedAt: backendAgent.updatedAt ? new Date(backendAgent.updatedAt) : undefined,
     
-    // Tool system (preserved from existing or defaults)
-    availableTools: existingState?.availableTools || [],
-    toolPermissions: existingState?.toolPermissions || {
+    // Tool system (defaults)
+    availableTools: [],
+    toolPermissions: {
       allowedTools: [],
       deniedTools: [],
       requireApprovalFor: [],
@@ -206,9 +127,8 @@ export const fromBackendAgent = (backendAgent: any, existingState?: Partial<Agen
       maxCostPerHour: 100,
       maxExecutionsPerHour: 50
     },
-    toolUsageHistory: existingState?.toolUsageHistory || [],
-    currentToolExecution: existingState?.currentToolExecution,
-    toolPreferences: existingState?.toolPreferences || {
+    toolUsageHistory: [],
+    toolPreferences: {
       preferredTools: {
         'api': [],
         'computation': [],
@@ -227,9 +147,8 @@ export const fromBackendAgent = (backendAgent: any, existingState?: Partial<Agen
       timeoutPreference: 30000,
       costLimit: 10
     },
-    maxConcurrentTools: existingState?.maxConcurrentTools || 1,
-    toolBudget: existingState?.toolBudget,
-    isUsingTool: existingState?.isUsingTool || false
+    maxConcurrentTools: 1,
+    isUsingTool: false
   };
 };
 
@@ -269,7 +188,7 @@ export interface Message extends ToolCapableMessage {
 export interface AgentProps {
   id: string;
   name: string;
-  persona: Persona;
+  personaId: string;
   onResponse: (response: string) => void;
   conversationHistory: Message[];
 }
