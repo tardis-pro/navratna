@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircleIcon, XCircleIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
-import { uaipAPI } from '../services/uaip-api';
+import { uaipAPI } from '../utils/uaip-api';
 
 interface BackendStatusIndicatorProps {
   className?: string;

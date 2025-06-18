@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Persona } from '../types/persona';
-import { uaipAPI } from '../services/uaip-api';
+import { uaipAPI } from '../utils/uaip-api';
 
 interface UsePersonaReturn {
   availablePersonas: Persona[];

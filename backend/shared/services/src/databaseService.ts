@@ -1574,6 +1574,12 @@ export class DatabaseService {
     securityContext?: any;
     configuration?: any;
     capabilities?: string[];
+    // Model configuration fields
+    modelId?: string;
+    apiType?: 'ollama' | 'llmstudio';
+    temperature?: number;
+    maxTokens?: number;
+    systemPrompt?: string;
   }): Promise<any | null> {
     return await this.agentRepository.updateAgent(agentId, updateData);
   }

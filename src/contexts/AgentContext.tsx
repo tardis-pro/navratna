@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer } from 'react';
+import React, { createContext, useContext, useReducer, useState } from 'react';
 import { AgentState, AgentContextValue, Message } from '../types/agent';
 import { 
   ToolCall, 
@@ -8,11 +8,7 @@ import {
   ToolPreferences,
   ToolBudget 
 } from '../types/tool';
-import { 
-  executeToolCall as executeToolCallService, 
-  getToolExecutionStatus,
-  approveToolExecution as approveToolExecutionService 
-} from '../services/tools/tool-execution-engine';
+import uaipAPI from '@/utils/uaip-api';
 
 type AgentAction = 
   | { type: 'ADD_AGENT'; payload: AgentState }
@@ -22,6 +18,95 @@ type AgentAction =
   | { type: 'REMOVE_MESSAGE'; payload: { agentId: string; messageId: string } }
   | { type: 'UPDATE_TOOL_PERMISSIONS'; payload: { agentId: string; permissions: Partial<ToolPermissionSet> } }
   | { type: 'ADD_TOOL_USAGE'; payload: { agentId: string; usage: ToolUsageRecord } };
+
+// Agent Intelligence Flow - Moved from DiscussionContext
+interface AgentIntelligenceFlow {
+  registerAgent: (config: any) => Promise<string>;
+  analyzeContext: (context: any) => Promise<any>;
+  makeDecision: (options: any) => Promise<any>;
+  generatePlan: (request: any) => Promise<any>;
+  discoverCapabilities: () => Promise<any>;
+  recognizeIntent: (input: string) => Promise<any>;
+  generateResponse: (context: any) => Promise<string>;
+  retrieveKnowledge: (query: string) => Promise<any>;
+  adaptBehavior: (metrics: any) => Promise<any>;
+  manageMemory: (context: any) => Promise<any>;
+  assessSkills: (agentId: string) => Promise<any>;
+  optimizePerformance: (agentId: string) => Promise<any>;
+  collaborate: (requirements: any) => Promise<any>;
+  reasonChain: (problem: any) => Promise<any>;
+  recognizeEmotion: (text: string) => Promise<any>;
+  manageGoals: (objectives: any) => Promise<any>;
+  resolveConflict: (conflict: any) => Promise<any>;
+  assessQuality: (response: any) => Promise<any>;
+  managePersona: (persona: any) => Promise<string>;
+  searchPersonas: (criteria: any) => Promise<any>;
+  analyzePersona: (personaId: string) => Promise<any>;
+  coordinateAgents: (tasks: any) => Promise<any>;
+  switchContext: (newContext: any) => Promise<any>;
+}
+
+// Capability Registry Flow
+interface CapabilityRegistryFlow {
+  registerTool: (toolDef: any) => Promise<string>;
+  discoverTools: (criteria: any) => Promise<any>;
+  executeTool: (toolId: string, params: any) => Promise<any>;
+  validateCapability: (toolId: string) => Promise<any>;
+  recommendTools: (context: any) => Promise<any>;
+  getToolDependencies: (toolId: string) => Promise<any>;
+  getToolPerformance: (toolId: string) => Promise<any>;
+  getToolCategories: () => Promise<any>;
+  versionTool: (toolId: string, version: any) => Promise<any>;
+  getUsageAnalytics: () => Promise<any>;
+  getToolDocumentation: (toolId: string) => Promise<any>;
+  assessToolSecurity: (toolId: string) => Promise<any>;
+  integrateTool: (integration: any) => Promise<any>;
+  mapCapabilities: () => Promise<any>;
+  monitorTool: (toolId: string) => Promise<any>;
+  getToolMarketplace: () => Promise<any>;
+  createCustomTool: (spec: any) => Promise<string>;
+  backupTool: (toolId: string) => Promise<any>;
+  migrateTool: (toolId: string, target: any) => Promise<any>;
+  auditCapabilities: () => Promise<any>;
+}
+
+// Orchestration Pipeline Flow - Moved from DiscussionContext
+interface OrchestrationPipelineFlow {
+  createOperation: (operationDef: any) => Promise<string>;
+  executeOperation: (operationId: string) => Promise<any>;
+  getOperationStatus: (operationId: string) => Promise<any>;
+  cancelOperation: (operationId: string) => Promise<void>;
+  defineWorkflow: (workflowSpec: any) => Promise<string>;
+  executeStep: (operationId: string, stepId: string) => Promise<any>;
+  manageResources: () => Promise<any>;
+  getOperationLogs: (operationId: string) => Promise<any>;
+  executeBatch: (operations: any[]) => Promise<string>;
+  getOperationTemplates: () => Promise<any>;
+  monitorPipeline: () => Promise<any>;
+  recoverOperation: (operationId: string) => Promise<any>;
+  resolveDependencies: (operationId: string) => Promise<any>;
+  scheduleOperation: (schedule: any) => Promise<any>;
+  optimizePerformance: () => Promise<any>;
+}
+
+// Artifact Management Flow - Moved from DiscussionContext
+interface ArtifactManagementFlow {
+  generateArtifact: (request: any) => Promise<any>;
+  generateCode: (requirements: any) => Promise<any>;
+  generateDocumentation: (codebase: any) => Promise<any>;
+  generateTests: (code: any) => Promise<any>;
+  generatePRD: (requirements: any) => Promise<any>;
+  getArtifactTemplates: () => Promise<any>;
+  validateArtifact: (artifactId: string) => Promise<any>;
+  versionArtifact: (artifactId: string) => Promise<any>;
+  exportArtifact: (artifactId: string, format: string) => Promise<string>;
+  assessArtifactQuality: (artifactId: string) => Promise<any>;
+  searchArtifacts: (query: string) => Promise<any>;
+  analyzeArtifactDependencies: (artifactId: string) => Promise<any>;
+  collaborateOnArtifact: (artifactId: string) => Promise<any>;
+  testArtifactIntegration: (artifactId: string) => Promise<any>;
+  getArtifactAnalytics: () => Promise<any>;
+}
 
 const AgentContext = createContext<AgentContextValue | undefined>(undefined);
 
@@ -185,6 +270,245 @@ function agentReducer(state: Record<string, AgentState>, action: AgentAction): R
 
 export function AgentProvider({ children }: { children: React.ReactNode }) {
   const [agents, dispatch] = useReducer(agentReducer, {});
+  const [activeFlows, setActiveFlows] = useState<string[]>([]);
+  const [flowResults, setFlowResults] = useState<Map<string, any>>(new Map());
+  const [flowErrors, setFlowErrors] = useState<Map<string, string>>(new Map());
+
+  // Generic flow execution handler
+  const executeFlow = async (service: string, flow: string, params?: any) => {
+    const flowId = `${service}.${flow}`;
+    
+    try {
+      setActiveFlows(prev => [...prev.filter(f => f !== flowId), flowId]);
+      setFlowErrors(prev => { 
+        const newMap = new Map(prev);
+        newMap.delete(flowId);
+        return newMap;
+      });
+
+      let result: any;
+
+      // Route to actual UAIP API calls based on service
+      if (service === 'agentIntelligence') {
+        result = await executeAgentIntelligenceFlow(flow, params);
+      } else if (service === 'capabilityRegistry') {
+        result = await executeCapabilityRegistryFlow(flow, params);
+      } else if (service === 'orchestrationPipeline') {
+        result = await executeOrchestrationPipelineFlow(flow, params);
+      } else if (service === 'artifactManagement') {
+        result = await executeArtifactManagementFlow(flow, params);
+      } else {
+        // For other services, use mock implementation
+        result = await mockApiCall(service, flow, params);
+      }
+      
+      setFlowResults(prev => {
+        const newMap = new Map(prev);
+        newMap.set(flowId, result);
+        return newMap;
+      });
+      
+      setActiveFlows(prev => prev.filter(f => f !== flowId));
+      return result;
+    } catch (error) {
+      setFlowErrors(prev => {
+        const newMap = new Map(prev);
+        newMap.set(flowId, error instanceof Error ? error.message : 'Unknown error');
+        return newMap;
+      });
+      setActiveFlows(prev => prev.filter(f => f !== flowId));
+      throw error;
+    }
+  };
+
+  // Execute Agent Intelligence flows using UAIP API
+  const executeAgentIntelligenceFlow = async (flow: string, params: any) => {
+    switch (flow) {
+      case 'registerAgent':
+        return await uaipAPI.agents.create(params);
+      case 'analyzeContext':
+        // This would be a specialized endpoint
+        return await mockApiCall('agentIntelligence', flow, params);
+      case 'searchPersonas':
+        return await uaipAPI.personas.list(params.criteria);
+      case 'managePersona':
+        return await uaipAPI.personas.create(params);
+      case 'analyzePersona':
+        return await uaipAPI.personas.get(params.personaId);
+      default:
+        return await mockApiCall('agentIntelligence', flow, params);
+    }
+  };
+
+  // Execute Capability Registry flows using UAIP API
+  const executeCapabilityRegistryFlow = async (flow: string, params: any) => {
+    switch (flow) {
+      case 'discoverTools':
+        return await uaipAPI.tools.list(params.criteria);
+      case 'executeTool':
+        return await uaipAPI.tools.execute(params.toolId, params.params);
+      case 'registerTool':
+        return await uaipAPI.tools.create(params);
+      case 'getToolCategories':
+        return await uaipAPI.tools.getCategories();
+      default:
+        return await mockApiCall('capabilityRegistry', flow, params);
+    }
+  };
+
+  // Execute Orchestration Pipeline flows
+  const executeOrchestrationPipelineFlow = async (flow: string, params: any) => {
+    // These would be actual orchestration API calls
+    return await mockApiCall('orchestrationPipeline', flow, params);
+  };
+
+  // Execute Artifact Management flows
+  const executeArtifactManagementFlow = async (flow: string, params: any) => {
+    // These would be actual artifact service API calls
+    return await mockApiCall('artifactManagement', flow, params);
+  };
+
+  // Mock API call function for flows not yet implemented
+  const mockApiCall = async (service: string, flow: string, params: any) => {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, Math.random() * 1000 + 200));
+    
+    // Mock different responses based on service and flow
+    if (service === 'agentIntelligence' && flow === 'analyzeContext') {
+      return { 
+        intent: 'information_seeking',
+        sentiment: 'neutral',
+        entities: ['discussion', 'context'],
+        confidence: 0.85
+      };
+    }
+    
+    if (service === 'capabilityRegistry' && flow === 'recommendTools') {
+      return {
+        tools: ['text-analysis', 'math-calculator'],
+        reasons: ['Context suggests analysis needed', 'Mathematical computation detected']
+      };
+    }
+    
+    // Default mock response
+    return { 
+      success: true, 
+      service, 
+      flow, 
+      params, 
+      timestamp: new Date().toISOString(),
+      data: `Mock result for ${service}.${flow}`
+    };
+  };
+
+  const getFlowStatus = (flowId: string): 'idle' | 'running' | 'completed' | 'error' => {
+    if (activeFlows.includes(flowId)) return 'running';
+    if (flowErrors.has(flowId)) return 'error';
+    if (flowResults.has(flowId)) return 'completed';
+    return 'idle';
+  };
+
+  const clearFlowResult = (flowId: string) => {
+    setFlowResults(prev => {
+      const newMap = new Map(prev);
+      newMap.delete(flowId);
+      return newMap;
+    });
+    setFlowErrors(prev => {
+      const newMap = new Map(prev);
+      newMap.delete(flowId);
+      return newMap;
+    });
+  };
+
+  // Agent Intelligence Flows
+  const agentIntelligence: AgentIntelligenceFlow = {
+    registerAgent: (config) => executeFlow('agentIntelligence', 'registerAgent', config),
+    analyzeContext: (context) => executeFlow('agentIntelligence', 'analyzeContext', context),
+    makeDecision: (options) => executeFlow('agentIntelligence', 'makeDecision', options),
+    generatePlan: (request) => executeFlow('agentIntelligence', 'generatePlan', request),
+    discoverCapabilities: () => executeFlow('agentIntelligence', 'discoverCapabilities'),
+    recognizeIntent: (input) => executeFlow('agentIntelligence', 'recognizeIntent', { input }),
+    generateResponse: (context) => executeFlow('agentIntelligence', 'generateResponse', context),
+    retrieveKnowledge: (query) => executeFlow('agentIntelligence', 'retrieveKnowledge', { query }),
+    adaptBehavior: (metrics) => executeFlow('agentIntelligence', 'adaptBehavior', metrics),
+    manageMemory: (context) => executeFlow('agentIntelligence', 'manageMemory', context),
+    assessSkills: (agentId) => executeFlow('agentIntelligence', 'assessSkills', { agentId }),
+    optimizePerformance: (agentId) => executeFlow('agentIntelligence', 'optimizePerformance', { agentId }),
+    collaborate: (requirements) => executeFlow('agentIntelligence', 'collaborate', requirements),
+    reasonChain: (problem) => executeFlow('agentIntelligence', 'reasonChain', problem),
+    recognizeEmotion: (text) => executeFlow('agentIntelligence', 'recognizeEmotion', { text }),
+    manageGoals: (objectives) => executeFlow('agentIntelligence', 'manageGoals', objectives),
+    resolveConflict: (conflict) => executeFlow('agentIntelligence', 'resolveConflict', conflict),
+    assessQuality: (response) => executeFlow('agentIntelligence', 'assessQuality', response),
+    managePersona: (persona) => executeFlow('agentIntelligence', 'managePersona', persona),
+    searchPersonas: (criteria) => executeFlow('agentIntelligence', 'searchPersonas', criteria),
+    analyzePersona: (personaId) => executeFlow('agentIntelligence', 'analyzePersona', { personaId }),
+    coordinateAgents: (tasks) => executeFlow('agentIntelligence', 'coordinateAgents', tasks),
+    switchContext: (newContext) => executeFlow('agentIntelligence', 'switchContext', newContext),
+  };
+
+  // Capability Registry Flows
+  const capabilityRegistry: CapabilityRegistryFlow = {
+    registerTool: (toolDef) => executeFlow('capabilityRegistry', 'registerTool', toolDef),
+    discoverTools: (criteria) => executeFlow('capabilityRegistry', 'discoverTools', criteria),
+    executeTool: (toolId, params) => executeFlow('capabilityRegistry', 'executeTool', { toolId, params }),
+    validateCapability: (toolId) => executeFlow('capabilityRegistry', 'validateCapability', { toolId }),
+    recommendTools: (context) => executeFlow('capabilityRegistry', 'recommendTools', context),
+    getToolDependencies: (toolId) => executeFlow('capabilityRegistry', 'getToolDependencies', { toolId }),
+    getToolPerformance: (toolId) => executeFlow('capabilityRegistry', 'getToolPerformance', { toolId }),
+    getToolCategories: () => executeFlow('capabilityRegistry', 'getToolCategories'),
+    versionTool: (toolId, version) => executeFlow('capabilityRegistry', 'versionTool', { toolId, version }),
+    getUsageAnalytics: () => executeFlow('capabilityRegistry', 'getUsageAnalytics'),
+    getToolDocumentation: (toolId) => executeFlow('capabilityRegistry', 'getToolDocumentation', { toolId }),
+    assessToolSecurity: (toolId) => executeFlow('capabilityRegistry', 'assessToolSecurity', { toolId }),
+    integrateTool: (integration) => executeFlow('capabilityRegistry', 'integrateTool', integration),
+    mapCapabilities: () => executeFlow('capabilityRegistry', 'mapCapabilities'),
+    monitorTool: (toolId) => executeFlow('capabilityRegistry', 'monitorTool', { toolId }),
+    getToolMarketplace: () => executeFlow('capabilityRegistry', 'getToolMarketplace'),
+    createCustomTool: (spec) => executeFlow('capabilityRegistry', 'createCustomTool', spec),
+    backupTool: (toolId) => executeFlow('capabilityRegistry', 'backupTool', { toolId }),
+    migrateTool: (toolId, target) => executeFlow('capabilityRegistry', 'migrateTool', { toolId, target }),
+    auditCapabilities: () => executeFlow('capabilityRegistry', 'auditCapabilities'),
+  };
+
+  // Orchestration Pipeline Flows
+  const orchestrationPipeline: OrchestrationPipelineFlow = {
+    createOperation: (operationDef) => executeFlow('orchestrationPipeline', 'createOperation', operationDef),
+    executeOperation: (operationId) => executeFlow('orchestrationPipeline', 'executeOperation', { operationId }),
+    getOperationStatus: (operationId) => executeFlow('orchestrationPipeline', 'getOperationStatus', { operationId }),
+    cancelOperation: (operationId) => executeFlow('orchestrationPipeline', 'cancelOperation', { operationId }),
+    defineWorkflow: (workflowSpec) => executeFlow('orchestrationPipeline', 'defineWorkflow', workflowSpec),
+    executeStep: (operationId, stepId) => executeFlow('orchestrationPipeline', 'executeStep', { operationId, stepId }),
+    manageResources: () => executeFlow('orchestrationPipeline', 'manageResources'),
+    getOperationLogs: (operationId) => executeFlow('orchestrationPipeline', 'getOperationLogs', { operationId }),
+    executeBatch: (operations) => executeFlow('orchestrationPipeline', 'executeBatch', { operations }),
+    getOperationTemplates: () => executeFlow('orchestrationPipeline', 'getOperationTemplates'),
+    monitorPipeline: () => executeFlow('orchestrationPipeline', 'monitorPipeline'),
+    recoverOperation: (operationId) => executeFlow('orchestrationPipeline', 'recoverOperation', { operationId }),
+    resolveDependencies: (operationId) => executeFlow('orchestrationPipeline', 'resolveDependencies', { operationId }),
+    scheduleOperation: (schedule) => executeFlow('orchestrationPipeline', 'scheduleOperation', schedule),
+    optimizePerformance: () => executeFlow('orchestrationPipeline', 'optimizePerformance'),
+  };
+
+  // Artifact Management Flows
+  const artifactManagement: ArtifactManagementFlow = {
+    generateArtifact: (request) => executeFlow('artifactManagement', 'generateArtifact', request),
+    generateCode: (requirements) => executeFlow('artifactManagement', 'generateCode', requirements),
+    generateDocumentation: (codebase) => executeFlow('artifactManagement', 'generateDocumentation', codebase),
+    generateTests: (code) => executeFlow('artifactManagement', 'generateTests', code),
+    generatePRD: (requirements) => executeFlow('artifactManagement', 'generatePRD', requirements),
+    getArtifactTemplates: () => executeFlow('artifactManagement', 'getArtifactTemplates'),
+    validateArtifact: (artifactId) => executeFlow('artifactManagement', 'validateArtifact', { artifactId }),
+    versionArtifact: (artifactId) => executeFlow('artifactManagement', 'versionArtifact', { artifactId }),
+    exportArtifact: (artifactId, format) => executeFlow('artifactManagement', 'exportArtifact', { artifactId, format }),
+    assessArtifactQuality: (artifactId) => executeFlow('artifactManagement', 'assessArtifactQuality', { artifactId }),
+    searchArtifacts: (query) => executeFlow('artifactManagement', 'searchArtifacts', { query }),
+    analyzeArtifactDependencies: (artifactId) => executeFlow('artifactManagement', 'analyzeArtifactDependencies', { artifactId }),
+    collaborateOnArtifact: (artifactId) => executeFlow('artifactManagement', 'collaborateOnArtifact', { artifactId }),
+    testArtifactIntegration: (artifactId) => executeFlow('artifactManagement', 'testArtifactIntegration', { artifactId }),
+    getArtifactAnalytics: () => executeFlow('artifactManagement', 'getArtifactAnalytics'),
+  };
 
   const addAgent = (agent: AgentState) => {
     if (!agent) {
@@ -226,7 +550,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     return allMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   };
 
-  // Tool-related methods
+  // Tool-related methods using UAIP API
   const executeToolCall = async (agentId: string, toolCall: ToolCall): Promise<ToolResult> => {
     const agent = agents[agentId];
     if (!agent) {
@@ -250,16 +574,11 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
         currentToolExecution: undefined // Will be set by execution engine
       });
 
-      // Execute the tool call
-      const execution = await executeToolCallService(toolCall, agentId);
-      
-      // Update current tool execution
-      updateAgentState(agentId, { 
-        currentToolExecution: execution 
+      // Execute the tool call using UAIP API
+      const result = await uaipAPI.tools.execute(toolCall.toolId, {
+        ...toolCall.parameters,
+        agentId
       });
-
-      // Wait for completion (for now, poll - in production use events)
-      const result = await waitForExecution(execution.id);
       
       // Record usage
       const usage: ToolUsageRecord = {
@@ -267,8 +586,8 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
         agentId,
         timestamp: new Date(),
         success: result.success,
-        executionTime: result.executionTime,
-        cost: result.cost,
+        executionTime: result.executionTime || 0,
+        cost: result.cost || 0,
         errorType: result.error?.type
       };
       
@@ -280,7 +599,15 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
         currentToolExecution: undefined 
       });
 
-      return result;
+      return {
+        callId: toolCall.id,
+        executionId: result.executionId || toolCall.id,
+        success: result.success,
+        result: result.data,
+        executionTime: result.executionTime || 0,
+        cost: result.cost || 0,
+        error: result.error
+      };
     } catch (error) {
       // Update agent state on error
       updateAgentState(agentId, { 
@@ -292,7 +619,14 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   };
 
   const approveToolExecution = async (executionId: string, approverId: string): Promise<boolean> => {
-    return approveToolExecutionService(executionId, approverId);
+    // This would use UAIP approval workflow API
+    try {
+      await uaipAPI.approvals.approve(executionId, { approverId });
+      return true;
+    } catch (error) {
+      console.error('Failed to approve tool execution:', error);
+      return false;
+    }
   };
 
   const getToolUsageHistory = (agentId: string): ToolUsageRecord[] => {
@@ -303,48 +637,6 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   const updateToolPermissions = (agentId: string, permissions: Partial<ToolPermissionSet>) => {
     dispatch({ type: 'UPDATE_TOOL_PERMISSIONS', payload: { agentId, permissions } });
   };
-
-  // Helper function to wait for tool execution completion
-  async function waitForExecution(executionId: string): Promise<ToolResult> {
-    // Simple polling implementation - in production, use WebSockets or events
-    const maxAttempts = 30; // 30 seconds max wait
-    let attempts = 0;
-    
-    while (attempts < maxAttempts) {
-      const execution = await getToolExecutionStatus(executionId);
-      if (!execution) {
-        throw new Error(`Execution ${executionId} not found`);
-      }
-
-      if (execution.status === 'completed') {
-        return {
-          callId: execution.id,
-          executionId: execution.id,
-          success: true,
-          result: execution.result,
-          executionTime: execution.executionTimeMs || 0,
-          cost: execution.cost
-        };
-      }
-
-      if (execution.status === 'failed') {
-        return {
-          callId: execution.id,
-          executionId: execution.id,
-          success: false,
-          error: execution.error,
-          executionTime: execution.executionTimeMs || 0,
-          cost: execution.cost
-        };
-      }
-
-      // Wait 1 second before checking again
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      attempts++;
-    }
-
-    throw new Error(`Tool execution ${executionId} timed out`);
-  }
 
   const value: AgentContextValue = {
     agents,
@@ -357,7 +649,21 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     executeToolCall,
     approveToolExecution,
     getToolUsageHistory,
-    updateToolPermissions
+    updateToolPermissions,
+    
+    // UAIP Backend Flow Integration
+    agentIntelligence,
+    capabilityRegistry,
+    orchestrationPipeline,
+    artifactManagement,
+    
+    // UI State Management
+    activeFlows,
+    flowResults,
+    flowErrors,
+    executeFlow,
+    getFlowStatus,
+    clearFlowResult,
   };
 
   return (

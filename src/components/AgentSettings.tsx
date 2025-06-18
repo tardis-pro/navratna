@@ -18,9 +18,15 @@ import {
 import { AgentState } from '../types/agent';
 import { ModelOption } from '../types/models';
 import { Persona } from '../types/persona';
-import { getModels } from '../services/llm';
-import { uaipAPI } from '../services/uaip-api';
+// import { getModels } from '../services/llm';
+import { uaipAPI } from '../utils/uaip-api';
 import { PersonaSelector } from './PersonaSelector';
+
+const getModels = async () => {
+  // const models = await uaipAPI.getModels();
+  const models = [];
+  return models;
+};
 
 interface AgentModelConfig {
   agentId: string;

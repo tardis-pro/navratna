@@ -6,9 +6,15 @@ import { AgentState, createAgentStateFromBackend } from '../types/agent';
 import { Persona } from '../types/persona';
 import { ModelOption } from './ModelSelector';
 import { useDiscussion } from '../contexts/DiscussionContext';
-import { uaipAPI } from '../services/uaip-api';
+import { uaipAPI } from '../utils/uaip-api';
 import { Users, Plus, Trash2, Bot, Cpu, AlertCircle, CheckCircle2, User, Server, Zap, Globe, X } from 'lucide-react';
-import { getModels } from '@/services/llm';
+// import { getModels } from '@/services/llm';
+
+const getModels = async () => {
+  // const models = await uaipAPI.getModels();
+  const models = [];
+  return models;
+};
 
 // Helper function to create a short server identifier
 const getServerIdentifier = (baseUrl: string): string => {

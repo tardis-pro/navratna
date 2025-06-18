@@ -12,7 +12,7 @@ import {
   UIError,
   WebSocketEvent
 } from '../types/uaip-interfaces';
-import { uaipAPI } from '../services/uaip-api';
+import { uaipAPI } from '../utils/uaip-api';
 
 // Enhanced error handling for production deployment
 const createUIError = (error: any, context: string): UIError => ({

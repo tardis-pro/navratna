@@ -202,9 +202,103 @@ export interface AgentContextValue {
   removeMessage: (agentId: string, messageId: string) => void;
   getAllMessages: () => Message[];
   
-  // Tool-related methods (new)
+  // Tool-related methods
   executeToolCall: (agentId: string, toolCall: ToolCall) => Promise<ToolResult>;
   approveToolExecution: (executionId: string, approverId: string) => Promise<boolean>;
   getToolUsageHistory: (agentId: string) => ToolUsageRecord[];
   updateToolPermissions: (agentId: string, permissions: Partial<ToolPermissionSet>) => void;
+  
+  // UAIP Backend Flow Integration
+  agentIntelligence: {
+    registerAgent: (config: any) => Promise<string>;
+    analyzeContext: (context: any) => Promise<any>;
+    makeDecision: (options: any) => Promise<any>;
+    generatePlan: (request: any) => Promise<any>;
+    discoverCapabilities: () => Promise<any>;
+    recognizeIntent: (input: string) => Promise<any>;
+    generateResponse: (context: any) => Promise<string>;
+    retrieveKnowledge: (query: string) => Promise<any>;
+    adaptBehavior: (metrics: any) => Promise<any>;
+    manageMemory: (context: any) => Promise<any>;
+    assessSkills: (agentId: string) => Promise<any>;
+    optimizePerformance: (agentId: string) => Promise<any>;
+    collaborate: (requirements: any) => Promise<any>;
+    reasonChain: (problem: any) => Promise<any>;
+    recognizeEmotion: (text: string) => Promise<any>;
+    manageGoals: (objectives: any) => Promise<any>;
+    resolveConflict: (conflict: any) => Promise<any>;
+    assessQuality: (response: any) => Promise<any>;
+    managePersona: (persona: any) => Promise<string>;
+    searchPersonas: (criteria: any) => Promise<any>;
+    analyzePersona: (personaId: string) => Promise<any>;
+    coordinateAgents: (tasks: any) => Promise<any>;
+    switchContext: (newContext: any) => Promise<any>;
+  };
+  
+  capabilityRegistry: {
+    registerTool: (toolDef: any) => Promise<string>;
+    discoverTools: (criteria: any) => Promise<any>;
+    executeTool: (toolId: string, params: any) => Promise<any>;
+    validateCapability: (toolId: string) => Promise<any>;
+    recommendTools: (context: any) => Promise<any>;
+    getToolDependencies: (toolId: string) => Promise<any>;
+    getToolPerformance: (toolId: string) => Promise<any>;
+    getToolCategories: () => Promise<any>;
+    versionTool: (toolId: string, version: any) => Promise<any>;
+    getUsageAnalytics: () => Promise<any>;
+    getToolDocumentation: (toolId: string) => Promise<any>;
+    assessToolSecurity: (toolId: string) => Promise<any>;
+    integrateTool: (integration: any) => Promise<any>;
+    mapCapabilities: () => Promise<any>;
+    monitorTool: (toolId: string) => Promise<any>;
+    getToolMarketplace: () => Promise<any>;
+    createCustomTool: (spec: any) => Promise<string>;
+    backupTool: (toolId: string) => Promise<any>;
+    migrateTool: (toolId: string, target: any) => Promise<any>;
+    auditCapabilities: () => Promise<any>;
+  };
+  
+  orchestrationPipeline: {
+    createOperation: (operationDef: any) => Promise<string>;
+    executeOperation: (operationId: string) => Promise<any>;
+    getOperationStatus: (operationId: string) => Promise<any>;
+    cancelOperation: (operationId: string) => Promise<void>;
+    defineWorkflow: (workflowSpec: any) => Promise<string>;
+    executeStep: (operationId: string, stepId: string) => Promise<any>;
+    manageResources: () => Promise<any>;
+    getOperationLogs: (operationId: string) => Promise<any>;
+    executeBatch: (operations: any[]) => Promise<string>;
+    getOperationTemplates: () => Promise<any>;
+    monitorPipeline: () => Promise<any>;
+    recoverOperation: (operationId: string) => Promise<any>;
+    resolveDependencies: (operationId: string) => Promise<any>;
+    scheduleOperation: (schedule: any) => Promise<any>;
+    optimizePerformance: () => Promise<any>;
+  };
+  
+  artifactManagement: {
+    generateArtifact: (request: any) => Promise<any>;
+    generateCode: (requirements: any) => Promise<any>;
+    generateDocumentation: (codebase: any) => Promise<any>;
+    generateTests: (code: any) => Promise<any>;
+    generatePRD: (requirements: any) => Promise<any>;
+    getArtifactTemplates: () => Promise<any>;
+    validateArtifact: (artifactId: string) => Promise<any>;
+    versionArtifact: (artifactId: string) => Promise<any>;
+    exportArtifact: (artifactId: string, format: string) => Promise<string>;
+    assessArtifactQuality: (artifactId: string) => Promise<any>;
+    searchArtifacts: (query: string) => Promise<any>;
+    analyzeArtifactDependencies: (artifactId: string) => Promise<any>;
+    collaborateOnArtifact: (artifactId: string) => Promise<any>;
+    testArtifactIntegration: (artifactId: string) => Promise<any>;
+    getArtifactAnalytics: () => Promise<any>;
+  };
+  
+  // UI State Management
+  activeFlows: string[];
+  flowResults: Map<string, any>;
+  flowErrors: Map<string, string>;
+  executeFlow: (service: string, flow: string, params?: any) => Promise<any>;
+  getFlowStatus: (flowId: string) => 'idle' | 'running' | 'completed' | 'error';
+  clearFlowResult: (flowId: string) => void;
 } 

@@ -182,7 +182,15 @@ export class EnhancedAgentIntelligenceService {
                              agentData.security_context || 
                              {};
       
-      const configuration = agentData.configuration || {};
+      const configuration = agentData.configuration || {
+        model: 'gpt-3.5-turbo',
+        temperature: 0.7,
+        analysisDepth: 'intermediate',
+        contextWindowSize: 4000,
+        decisionThreshold: 0.7,
+        learningEnabled: true,
+        collaborationMode: 'collaborative'
+      };
       
       const role = agentData.role || 'assistant';
       let createdBy = agentData.createdBy || agentData.created_by;
@@ -223,7 +231,9 @@ export class EnhancedAgentIntelligenceService {
 
       logger.info('Agent created successfully with persona relationship', { 
         agentId: savedAgent.id, 
-        personaId: savedAgent.personaId 
+        personaId: savedAgent.personaId,
+        hasConfiguration: !!savedAgent.configuration,
+        configurationKeys: savedAgent.configuration ? Object.keys(savedAgent.configuration) : []
       });
 
       return savedAgent;
@@ -252,7 +262,34 @@ export class EnhancedAgentIntelligenceService {
       // Use DatabaseService getActiveAgentById method instead of raw SQL
       const agent = await this.databaseService.getActiveAgentById(validatedId);
       
-      return agent;
+      if (!agent) {
+        return null;
+      }
+
+      // Map the agent entity to the Agent type, including model configuration fields
+      const mappedAgent: Agent = {
+        id: agent.id,
+        name: agent.name,
+        role: agent.role,
+        personaId: agent.personaId,
+        persona: agent.persona,
+        intelligenceConfig: agent.intelligenceConfig,
+        securityContext: agent.securityContext,
+        configuration: agent.configuration,
+        isActive: agent.isActive,
+        createdBy: agent.createdBy,
+        lastActiveAt: agent.lastActiveAt,
+        createdAt: agent.createdAt,
+        updatedAt: agent.updatedAt,
+        // Include model configuration fields
+        modelId: agent.modelId,
+        apiType: agent.apiType,
+        temperature: agent.temperature,
+        maxTokens: agent.maxTokens,
+        systemPrompt: agent.systemPrompt
+      };
+
+      return mappedAgent;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Error getting agent', { agentId, error: errorMessage });
@@ -344,15 +381,48 @@ export class EnhancedAgentIntelligenceService {
       const updatePayload: any = {};
       if (updateData.name) updatePayload.name = updateData.name;
       if (updateData.role) updatePayload.role = updateData.role;
-      if (updateData.configuration) updatePayload.configuration = updateData.configuration;
+      if (updateData.personaId) updatePayload.personaId = updateData.personaId;
+      if (updateData.isActive !== undefined) updatePayload.isActive = updateData.isActive;
+      
+      // Handle configuration object
+      if (updateData.configuration) {
+        updatePayload.configuration = updateData.configuration;
+        
+        // Extract modelId and apiType from configuration if present
+        if (updateData.configuration.modelId && !updateData.modelId) {
+          updatePayload.modelId = updateData.configuration.modelId;
+          logger.info('Extracted modelId from configuration', { modelId: updateData.configuration.modelId });
+        }
+        if (updateData.configuration.apiType && !updateData.apiType) {
+          updatePayload.apiType = updateData.configuration.apiType;
+          logger.info('Extracted apiType from configuration', { apiType: updateData.configuration.apiType });
+        }
+      }
+      
       if (updateData.intelligenceConfig || updateData.intelligence_config) {
         updatePayload.intelligenceConfig = updateData.intelligenceConfig || updateData.intelligence_config;
       }
       if (updateData.securityContext || updateData.security_context) {
         updatePayload.securityContext = updateData.securityContext || updateData.security_context;
       }
+      
+      // Handle direct model configuration fields (these take precedence)
+      if (updateData.modelId) updatePayload.modelId = updateData.modelId;
+      if (updateData.apiType) updatePayload.apiType = updateData.apiType;
+      if (updateData.temperature !== undefined) updatePayload.temperature = updateData.temperature;
+      if (updateData.maxTokens) updatePayload.maxTokens = updateData.maxTokens;
+      if (updateData.systemPrompt) updatePayload.systemPrompt = updateData.systemPrompt;
+      
       console.log('updateData', updateData);
       console.log('updatePayload', updatePayload);
+      
+      logger.info('Updating agent with enhanced payload', { 
+        agentId: validatedId, 
+        updateFields: Object.keys(updatePayload),
+        modelId: updatePayload.modelId,
+        apiType: updatePayload.apiType
+      });
+      
       if (Object.keys(updatePayload).length === 0) {
         throw new ApiError(400, 'No valid fields to update', 'NO_UPDATE_FIELDS');
       }

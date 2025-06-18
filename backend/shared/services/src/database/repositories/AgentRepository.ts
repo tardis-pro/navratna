@@ -22,6 +22,22 @@ export class AgentRepository extends BaseRepository<Agent> {
       }
 
       const agents = await queryBuilder.getMany();
+      
+      // Ensure all agents have proper configuration
+      agents.forEach(agent => {
+        if (!agent.configuration || Object.keys(agent.configuration).length === 0) {
+          agent.configuration = {
+            model: 'gpt-3.5-turbo',
+            temperature: 0.7,
+            analysisDepth: 'intermediate',
+            contextWindowSize: 4000,
+            decisionThreshold: 0.7,
+            learningEnabled: true,
+            collaborationMode: 'collaborative'
+          };
+        }
+      });
+      
       return agents;
     } catch (error) {
       logger.error('Error getting active agents', { limit, error: (error as Error).message });
@@ -38,6 +54,20 @@ export class AgentRepository extends BaseRepository<Agent> {
         where: { id: agentId, isActive: true },
         relations: ['persona']
       });
+
+      // Only set default configuration if configuration is completely null/undefined
+      // Don't override if it's an empty object - that's a valid state
+      if (agent && agent.configuration === null || agent.configuration === undefined) {
+        agent.configuration = {
+          model: 'gpt-3.5-turbo',
+          temperature: 0.7,
+          analysisDepth: 'intermediate',
+          contextWindowSize: 4000,
+          decisionThreshold: 0.7,
+          learningEnabled: true,
+          collaborationMode: 'collaborative'
+        };
+      }
 
       return agent;
     } catch (error) {
@@ -93,11 +123,25 @@ export class AgentRepository extends BaseRepository<Agent> {
 
       const savedAgent = await this.repository.save(agent);
       
+      // Ensure configuration is not null/empty
+      if (!savedAgent.configuration || Object.keys(savedAgent.configuration).length === 0) {
+        savedAgent.configuration = {
+          model: 'gpt-3.5-turbo',
+          temperature: 0.7,
+          analysisDepth: 'intermediate',
+          contextWindowSize: 4000,
+          decisionThreshold: 0.7,
+          learningEnabled: true,
+          collaborationMode: 'collaborative'
+        };
+      }
+
       logger.info('Agent created with composition model', { 
         agentId: savedAgent.id, 
         personaId: savedAgent.personaId,
         hasLegacyPersona: !!savedAgent.legacyPersona,
-        hasConfiguration: !!savedAgent.configuration
+        hasConfiguration: !!savedAgent.configuration,
+        configurationKeys: Object.keys(savedAgent.configuration)
       });
       
       return savedAgent;
@@ -124,6 +168,12 @@ export class AgentRepository extends BaseRepository<Agent> {
     securityContext?: any;
     configuration?: any;
     capabilities?: string[];
+    // Model configuration fields
+    modelId?: string;
+    apiType?: 'ollama' | 'llmstudio';
+    temperature?: number;
+    maxTokens?: number;
+    systemPrompt?: string;
   }): Promise<Agent | null> {
     try {
       // Prepare the update payload with proper typing
@@ -149,6 +199,13 @@ export class AgentRepository extends BaseRepository<Agent> {
       if (updateData.configuration !== undefined) updatePayload.configuration = updateData.configuration;
       if (updateData.capabilities !== undefined) updatePayload.capabilities = updateData.capabilities;
 
+      // Handle model configuration fields
+      if (updateData.modelId !== undefined) updatePayload.modelId = updateData.modelId;
+      if (updateData.apiType !== undefined) updatePayload.apiType = updateData.apiType;
+      if (updateData.temperature !== undefined) updatePayload.temperature = updateData.temperature;
+      if (updateData.maxTokens !== undefined) updatePayload.maxTokens = updateData.maxTokens;
+      if (updateData.systemPrompt !== undefined) updatePayload.systemPrompt = updateData.systemPrompt;
+
       const updateResult = await this.repository.update(
         { id: agentId, isActive: true },
         updatePayload
@@ -165,11 +222,27 @@ export class AgentRepository extends BaseRepository<Agent> {
       });
 
       if (updatedAgent) {
+        // Ensure configuration is not null/empty
+        if (!updatedAgent.configuration || Object.keys(updatedAgent.configuration).length === 0) {
+          updatedAgent.configuration = {
+            model: 'gpt-3.5-turbo',
+            temperature: 0.7,
+            analysisDepth: 'intermediate',
+            contextWindowSize: 4000,
+            decisionThreshold: 0.7,
+            learningEnabled: true,
+            collaborationMode: 'collaborative'
+          };
+        }
+
         logger.info('Agent updated with composition model', { 
           agentId: updatedAgent.id, 
           personaId: updatedAgent.personaId,
           hasLegacyPersona: !!updatedAgent.legacyPersona,
-          hasConfiguration: !!updatedAgent.configuration
+          hasConfiguration: !!updatedAgent.configuration,
+          configurationKeys: Object.keys(updatedAgent.configuration),
+          modelId: updatedAgent.modelId,
+          apiType: updatedAgent.apiType
         });
       }
 

@@ -57,7 +57,13 @@ export const AgentSchema = BaseEntitySchema.extend({
     decisionThreshold: z.number().min(0).max(1).optional(),
     learningEnabled: z.boolean().optional(),
     collaborationMode: z.enum(['independent', 'collaborative', 'supervised']).optional()
-  }).optional()
+  }).optional(),
+  // Model configuration fields (direct agent fields, not in configuration)
+  modelId: z.string().optional(),
+  apiType: z.enum(['ollama', 'llmstudio']).optional(),
+  temperature: z.number().min(0).max(2).optional(),
+  maxTokens: z.number().positive().optional(),
+  systemPrompt: z.string().optional()
 });
 
 export type Agent = z.infer<typeof AgentSchema>;
@@ -123,7 +129,13 @@ export const AgentUpdateSchema = z.object({
   }).optional(),
   securityContext: AgentSecurityContextSchema.optional(),
   isActive: z.boolean().optional(),
-  lastActiveAt: z.date().optional()
+  lastActiveAt: z.date().optional(),
+  // Model configuration fields (direct agent fields, not in configuration)
+  modelId: z.string().optional(),
+  apiType: z.enum(['ollama', 'llmstudio']).optional(),
+  temperature: z.number().min(0).max(2).optional(),
+  maxTokens: z.number().positive().optional(),
+  systemPrompt: z.string().optional()
 });
 
 export type AgentUpdate = z.infer<typeof AgentUpdateSchema>;

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { uaipAPI, generateUUID, TurnStrategy, DiscussionEvent } from '../services/uaip-api';
+import { uaipAPI, generateUUID, TurnStrategy, DiscussionEvent } from '../utils/uaip-api';
 import { AgentState, Message } from '../types/agent';
 import { DocumentContext } from '../types/document';
 import { useAuth } from '../contexts/AuthContext';

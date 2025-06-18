@@ -130,7 +130,12 @@ export class AgentIntelligenceService {
         createdBy: agent.createdBy,
         lastActiveAt: agent.lastActiveAt,
         createdAt: agent.createdAt,
-        updatedAt: agent.updatedAt
+        updatedAt: agent.updatedAt,
+        modelId: agent.modelId,
+        apiType: agent.apiType,
+        temperature: agent.temperature,
+        maxTokens: agent.maxTokens,
+        systemPrompt: agent.systemPrompt
       };
 
       return mappedAgent;
@@ -272,9 +277,39 @@ export class AgentIntelligenceService {
       const updatePayload: any = {};
       if (updateData.name) updatePayload.name = updateData.name;
       if (updateData.persona) updatePayload.persona = updateData.persona;
+      if (updateData.personaId) updatePayload.personaId = updateData.personaId;
       if (updateData.intelligenceConfig) updatePayload.intelligenceConfig = updateData.intelligenceConfig;
       if (updateData.securityContext) updatePayload.securityContext = updateData.securityContext;
-      if (updateData.configuration) updatePayload.configuration = updateData.configuration;
+      if (updateData.isActive !== undefined) updatePayload.isActive = updateData.isActive;
+      
+      // Handle configuration object
+      if (updateData.configuration) {
+        updatePayload.configuration = updateData.configuration;
+        
+        // Extract modelId and apiType from configuration if present
+        if (updateData.configuration.modelId && !updateData.modelId) {
+          updatePayload.modelId = updateData.configuration.modelId;
+          logger.info('Extracted modelId from configuration', { modelId: updateData.configuration.modelId });
+        }
+        if (updateData.configuration.apiType && !updateData.apiType) {
+          updatePayload.apiType = updateData.configuration.apiType;
+          logger.info('Extracted apiType from configuration', { apiType: updateData.configuration.apiType });
+        }
+      }
+      
+      // Handle direct model configuration fields (these take precedence)
+      if (updateData.modelId) updatePayload.modelId = updateData.modelId;
+      if (updateData.apiType) updatePayload.apiType = updateData.apiType;
+      if (updateData.temperature !== undefined) updatePayload.temperature = updateData.temperature;
+      if (updateData.maxTokens) updatePayload.maxTokens = updateData.maxTokens;
+      if (updateData.systemPrompt) updatePayload.systemPrompt = updateData.systemPrompt;
+
+      logger.info('Updating agent with payload', { 
+        agentId: validatedId, 
+        updateFields: Object.keys(updatePayload),
+        modelId: updatePayload.modelId,
+        apiType: updatePayload.apiType
+      });
 
       const updatedAgent = await this.databaseService.updateAgent(validatedId, updatePayload);
       if (!updatedAgent) {
@@ -310,7 +345,11 @@ export class AgentIntelligenceService {
     }
     
     try {
-      logger.info('Creating new agent', { name: agentData.name });
+      logger.info('Creating new agent', { 
+        name: agentData.name,
+        hasConfiguration: !!agentData.configuration,
+        configurationKeys: agentData.configuration ? Object.keys(agentData.configuration) : []
+      });
 
       let agentId: string | undefined;
       if (agentData.id) {
@@ -325,7 +364,15 @@ export class AgentIntelligenceService {
                              agentData.security_context || 
                              {};
       
-      const configuration = agentData.configuration || {};
+      const configuration = agentData.configuration || {
+        model: 'gpt-3.5-turbo',
+        temperature: 0.7,
+        analysisDepth: 'intermediate',
+        contextWindowSize: 4000,
+        decisionThreshold: 0.7,
+        learningEnabled: true,
+        collaborationMode: 'collaborative'
+      };
       
       const role = agentData.role || 'assistant';
       
