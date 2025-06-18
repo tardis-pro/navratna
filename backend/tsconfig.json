@@ -11,6 +11,7 @@
       "@uaip/config": ["shared/config"],
       "@uaip/shared-services": ["shared/services"],
       "@uaip/middleware": ["shared/middleware"],
+      "@uaip/llm-service": ["shared/llm-service"],
       "@uaip/agent-intelligence": ["services/agent-intelligence"],
       "@uaip/artifact-service": ["services/artifact-service"],
       "@uaip/capability-registry": ["services/capability-registry"],

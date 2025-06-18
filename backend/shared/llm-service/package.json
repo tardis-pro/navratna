@@ -1,0 +1,29 @@
+{
+  "name": "@uaip/llm-service",
+  "version": "1.0.0",
+  "description": "Unified LLM service for all UAIP backend services",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@uaip/types": "workspace:*",
+    "@uaip/config": "workspace:*",
+    "@uaip/utils": "workspace:*",
+    "uuid": "^9.0.0",
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "@types/uuid": "^9.0.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "files": [
+    "dist",
+    "package.json",
+    "README.md"
+  ]
+} 

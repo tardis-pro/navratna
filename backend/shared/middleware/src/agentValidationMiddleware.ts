@@ -91,7 +91,7 @@ export class AgentValidationMiddleware {
       if (!rawData || typeof rawData !== 'object') {
         throw new ApiError(400, 'Request body is required and must be an object', 'INVALID_REQUEST_BODY');
       }
-
+      
       // For updates, we're more permissive but still validate structure
       const validatedData = AgentUpdateSchema.parse(rawData);
 

@@ -50,6 +50,9 @@ export { PersonaAnalytics } from './personaAnalytics.entity.js';
 export { MCPServer } from './mcpServer.entity.js';
 export { MCPToolCall } from './mcpToolCall.entity.js';
 
+// LLM Integration entities
+export { LLMProvider } from './llmProvider.entity.js';
+
 // Entity arrays for TypeORM configuration - kept for backward compatibility
 export const getAllEntities = () => {
   // This function is deprecated - entities are now imported directly in typeorm.config.ts
