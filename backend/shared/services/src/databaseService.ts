@@ -628,11 +628,15 @@ export class DatabaseService {
   // Generic CRUD operations using TypeORM
   public async findById<T extends ObjectLiteral>(
     entity: EntityTarget<T>,
-    id: string
+    id: string,
+    relations?: string[]
   ): Promise<T | null> {
     try {
       const repository = await this.getRepository(entity);
-      return await repository.findOne({ where: { id } as any });
+      return await repository.findOne({ 
+        where: { id } as any,
+        relations: relations
+      });
     } catch (error) {
       logger.error('Failed to find by ID', { entity: entity.toString(), id, error });
       throw error;

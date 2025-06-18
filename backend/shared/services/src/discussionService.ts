@@ -158,16 +158,18 @@ export class DiscussionService {
     }
   }
 
-  async getDiscussion(id: string): Promise<DiscussionType | null> {
+  async getDiscussion(id: string, forceRefresh = false): Promise<DiscussionType | null> {
     try {
-      // Check active discussions cache first
-      const cached = this.activeDiscussions.get(id);
-      if (cached) {
-        return cached;
+      // Check active discussions cache first (unless force refresh)
+      if (!forceRefresh) {
+        const cached = this.activeDiscussions.get(id);
+        if (cached) {
+          return cached;
+        }
       }
 
-      // Fetch from database
-      const discussion = await this.databaseService.findById<Discussion>(Discussion, id);
+      // Fetch from database with relations
+      const discussion = await this.databaseService.findById<Discussion>(Discussion, id, ['participants']);
       if (discussion && discussion.status === DiscussionStatus.ACTIVE) {
         this.activeDiscussions.set(id, discussion);
       }
@@ -227,7 +229,7 @@ export class DiscussionService {
     try {
       logger.info('Starting discussion', { discussionId: id, startedBy });
 
-      const discussion = await this.getDiscussion(id);
+      const discussion = await this.getDiscussion(id, true); // Force refresh to get latest participants
       if (!discussion) {
         throw new Error(`Discussion not found: ${id}`);
       }
@@ -237,6 +239,12 @@ export class DiscussionService {
       }
 
       // Validate minimum participants
+      logger.debug('Validating participants for discussion start', {
+        discussionId: id,
+        participantsLength: discussion.participants?.length || 0,
+        participants: discussion.participants?.map(p => ({ id: p.id, agentId: p.agentId, isActive: p.isActive })) || []
+      });
+      
       if (!discussion.participants || discussion.participants.length < 2) {
         throw new Error('Discussion requires at least 2 participants to start');
       }
@@ -338,7 +346,7 @@ export class DiscussionService {
         agentId: participantRequest.agentId 
       });
 
-      const discussion = await this.getDiscussion(discussionId);
+      const discussion = await this.getDiscussion(discussionId, true); // Force refresh to get latest participants
       if (!discussion) {
         throw new Error(`Discussion not found: ${discussionId}`);
       }
@@ -347,19 +355,25 @@ export class DiscussionService {
         discussionId,
         hasSettings: !!discussion.settings,
         settingsMaxParticipants: discussion.settings?.maxParticipants,
-        participantsLength: discussion.participants?.length || 0
+        participantsLength: discussion.participants?.length || 0,
+        participants: discussion.participants?.map(p => ({ id: p.id, agentId: p.agentId, isActive: p.isActive })) || []
       });
 
-      // Check participant limit
+      // Check participant limit - only count active participants
       const maxParticipants = discussion.settings?.maxParticipants || this.maxParticipants;
+      const activeParticipants = discussion.participants?.filter(p => p.isActive) || [];
+      const currentParticipantCount = activeParticipants.length;
+      
       logger.debug('Checking participant limit', {
         discussionId,
-        currentParticipants: discussion.participants?.length || 0,
+        totalParticipants: discussion.participants?.length || 0,
+        activeParticipants: currentParticipantCount,
         maxParticipants,
         discussionSettingsMaxParticipants: discussion.settings?.maxParticipants,
         serviceMaxParticipants: this.maxParticipants
       });
-      if (!discussion.participants || discussion.participants.length >= maxParticipants) {
+      
+      if (currentParticipantCount >= maxParticipants) {
         throw new Error(`Discussion has reached maximum participants limit: ${maxParticipants}`);
       }
 
