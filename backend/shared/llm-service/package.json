@@ -15,7 +15,7 @@
     "@uaip/config": "workspace:*",
     "@uaip/utils": "workspace:*",
     "@uaip/shared-services": "workspace:*",
-    "uuid": "^9.0.0",
+    "uuid": "^11.1.0",
     "node-fetch": "^3.3.2"
   },
   "devDependencies": {
