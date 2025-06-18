@@ -6,9 +6,11 @@
     { "path": "./shared/config" },
     { "path": "./shared/middleware" },
     { "path": "./shared/services" },
+    { "path": "./shared/llm-service" },
     { "path": "./services/agent-intelligence" },
     { "path": "./services/capability-registry" },
     { "path": "./services/artifact-service" },
+    { "path": "./services/llm-service" },
     { "path": "./services/orchestration-pipeline" },
     { "path": "./services/security-gateway" },
     { "path": "./services/discussion-orchestration" }
