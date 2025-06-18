@@ -77,7 +77,7 @@ export interface AvailableTool {
 
 // Provider configuration
 export interface LLMProviderConfig {
-  type: 'ollama' | 'openai' | 'llmstudio';
+  type: 'ollama' | 'openai' | 'llmstudio' | 'anthropic' | 'custom';
   baseUrl: string;
   apiKey?: string;
   defaultModel?: string;
