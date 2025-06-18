@@ -1,7 +1,7 @@
 FROM node:20 AS base
 
 # Install build dependencies for native modules
-RUN npm install -g pnpm
+RUN npm install -g pnpm typescript
 
 # Set working directory and create user first
 WORKDIR /app
@@ -19,6 +19,7 @@ COPY packages/ ./packages/
 
 # Copy backend configuration and code
 COPY backend/package.json ./backend/
+COPY backend/pnpm-workspace.yaml ./backend/
 COPY backend/pnpm-lock.yaml ./backend/
 COPY backend/tsconfig.json ./backend/
 COPY backend/tsconfig.build.json ./backend/

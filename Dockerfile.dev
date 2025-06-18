@@ -1,7 +1,7 @@
 FROM node:20 AS development
 
-# Install pnpm and nodemon for hot reloading
-RUN npm install -g pnpm nodemon tsx
+# Install pnpm and development tools for hot reloading
+RUN npm install -g pnpm nodemon tsx typescript
 
 # Set working directory and create user first
 WORKDIR /app
@@ -19,6 +19,7 @@ COPY packages/ ./packages/
 
 # Copy backend configuration and code
 COPY backend/package.json ./backend/
+COPY backend/pnpm-workspace.yaml ./backend/
 COPY backend/pnpm-lock.yaml ./backend/
 COPY backend/tsconfig.json ./backend/
 COPY backend/tsconfig.build.json ./backend/
@@ -94,6 +95,14 @@ fi
 echo "Starting $SERVICE_NAME with nodemon for hot reloading..."
 echo "Watching: src/**/*.ts"
 echo "Entry point: src/index.ts"
+
+# Ensure shared packages are built before starting
+echo "Building shared packages if needed..."
+cd /app && pnpm build:shared > /dev/null 2>&1 || true
+cd /app/backend && pnpm build-shared > /dev/null 2>&1 || true
+
+# Return to service directory
+cd "/app/backend/services/$SERVICE_NAME"
 
 # Start the service with nodemon for hot reloading
 exec nodemon \

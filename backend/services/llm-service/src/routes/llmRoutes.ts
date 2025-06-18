@@ -13,7 +13,7 @@ router.post('/generate', async (req: Request, res: Response) => {
     if (!prompt) {
       return res.status(400).json({
         success: false,
-        error: 'Prompt is required'
+        error: 'Prompt is defined in the body'
       });
     }
 

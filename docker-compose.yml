@@ -450,8 +450,6 @@ services:
       - ./packages:/app/packages
       - /app/node_modules
       - /app/apps/frontend/node_modules
-    depends_on:
-      - api-gateway
     networks:
       - uaip-network
 

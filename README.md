@@ -172,6 +172,99 @@ import { config } from '@/config';
 - **Unified ESLint** configuration
 - **Consistent TypeScript** configuration
 
+## 🔥 Development Environment
+
+### Hot Reloading Setup
+The development environment provides instant feedback with hot reloading across the entire stack:
+
+#### Frontend Hot Reloading
+- **Vite HMR**: Instant component updates without page refresh
+- **CSS Hot Reload**: Style changes apply immediately
+- **State Preservation**: Component state maintained during updates
+- **Error Overlay**: Compilation errors shown in browser
+
+#### Backend Hot Reloading
+- **Nodemon**: Automatic server restart on file changes
+- **TypeScript Compilation**: On-the-fly TypeScript compilation with `tsx`
+- **Shared Package Watching**: Monitors changes in shared packages
+- **Service Isolation**: Each service restarts independently
+
+#### Volume Mounting Strategy
+```yaml
+volumes:
+  # Source code hot reloading
+  - ./apps/frontend/src:/app/apps/frontend/src
+  - ./packages:/app/packages
+  - ./backend/shared:/app/backend/shared
+  - ./backend/services/[service]:/app/backend/services/[service]
+  
+  # Preserve node_modules for performance
+  - /app/node_modules
+  - /app/apps/frontend/node_modules
+```
+
+### Development URLs
+- **Frontend**: http://localhost:8081 (React app with HMR)
+- **API Gateway**: http://localhost:8081/api (Backend API routes)
+- **Individual Services**: http://localhost:300[1-7] (Direct service access)
+- **WebSocket**: ws://localhost:8081/socket.io (Real-time communication)
+
+### Monitoring & Admin
+- **Grafana**: http://localhost:3000 (admin/admin)
+- **Prometheus**: http://localhost:9090
+- **RabbitMQ Management**: http://localhost:15672 (uaip_user/uaip_password)
+- **Neo4j Browser**: http://localhost:7474 (neo4j/uaip_dev_password)
+
+### 🔧 Development Troubleshooting
+
+#### Common Issues & Solutions
+
+**Services won't start:**
+```bash
+# Check Docker is running
+docker info
+
+# Clean up old containers
+docker-compose down --volumes
+docker system prune -f
+
+# Rebuild containers
+./dev-start.sh
+```
+
+**Hot reloading not working:**
+```bash
+# Check file watching limits (Linux)
+echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf
+sudo sysctl -p
+
+# Restart with fresh build
+docker-compose down
+docker-compose up --build
+```
+
+**Port conflicts:**
+```bash
+# Check what's using ports
+lsof -i :8081
+lsof -i :5173
+
+# Stop conflicting services
+sudo systemctl stop nginx  # If nginx is running locally
+```
+
+**Database connection issues:**
+```bash
+# Check database health
+docker-compose ps
+docker-compose logs postgres
+docker-compose logs neo4j
+
+# Reset databases
+docker-compose down -v
+docker-compose up -d postgres neo4j
+```
+
 ## 🔄 Build Process
 
 The monorepo uses TypeScript project references for efficient incremental builds:

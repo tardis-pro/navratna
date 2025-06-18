@@ -26,5 +26,5 @@ export { LLMStudioProvider } from './providers/LLMStudioProvider';
 export { OpenAIProvider } from './providers/OpenAIProvider';
 
 // Re-export database entities and repositories for convenience
-export { LLMProvider, LLMProviderType, LLMProviderStatus } from '@uaip/shared-services/entities/llmProvider.entity';
-export { LLMProviderRepository } from '@uaip/shared-services/database/repositories/LLMProviderRepository'; 
+export { LLMProvider, LLMProviderType, LLMProviderStatus } from './entities/llmProvider.entity';
+export { LLMProviderRepository } from './database/repositories/LLMProviderRepository'; 
