@@ -14,15 +14,18 @@ alwaysApply: true
 
 ## Monorepo Structure:
 ```
-backend/
-├── shared/
-│   ├── types/
-│   ├── utils/
-│   ├── services/
-│   └── config/
-└── services/
-    ├── orchestration-pipeline/
-    └── agent-intelligence/
+council-of-nycea/
+├── packages/
+│   ├── shared-types/    # @uaip/types
+│   └── shared-utils/    # @uaip/utils
+└── backend/
+    ├── shared/
+    │   ├── services/    # @uaip/shared-services
+    │   ├── middleware/  # @uaip/middleware
+    │   └── config/      # @uaip/config
+    └── services/
+        ├── orchestration-pipeline/
+        └── agent-intelligence/
 ```
 
 ## Correct Import Patterns:
@@ -55,14 +58,14 @@ import { logger } from '../../../shared/utils/src/logger';
     "baseUrl": "./src",
     "paths": {
       "@/*": ["*"],
-      "@uaip/types/*": ["../../shared/types/src/*"],
-      "@uaip/utils/*": ["../../shared/utils/src/*"],
+      "@uaip/types/*": ["../../../packages/shared-types/src/*"],
+      "@uaip/utils/*": ["../../../packages/shared-utils/src/*"],
       "@uaip/shared-services/*": ["../../shared/services/src/*"]
     }
   },
   "references": [
-    { "path": "../../shared/types" },
-    { "path": "../../shared/utils" },
+    { "path": "../../../packages/shared-types" },
+    { "path": "../../../packages/shared-utils" },
     { "path": "../../shared/services" }
   ]
 }
@@ -97,19 +100,21 @@ import { logger } from '../../../shared/utils/src/logger';
 ## Target Architecture
 
 ```
-uaip-backend/
-├── shared/
-│   ├── types/                 # @uaip/types package
-│   ├── services/             # @uaip/shared-services package  
-│   ├── middleware/           # @uaip/middleware package
-│   ├── utils/               # @uaip/utils package
-│   └── config/              # @uaip/config package
-├── services/
-│   ├── agent-intelligence/   # @uaip/agent-intelligence
-│   ├── orchestration-pipeline/ # @uaip/orchestration-pipeline
-│   ├── capability-registry/  # @uaip/capability-registry
-│   └── security-gateway/     # @uaip/security-gateway
-└── api-gateway/             # @uaip/api-gateway
+council-of-nycea/
+├── packages/
+│   ├── shared-types/         # @uaip/types package
+│   └── shared-utils/         # @uaip/utils package
+└── backend/
+    ├── shared/
+    │   ├── services/         # @uaip/shared-services package  
+    │   ├── middleware/       # @uaip/middleware package
+    │   └── config/           # @uaip/config package
+    ├── services/
+    │   ├── agent-intelligence/   # @uaip/agent-intelligence
+    │   ├── orchestration-pipeline/ # @uaip/orchestration-pipeline
+    │   ├── capability-registry/  # @uaip/capability-registry
+    │   └── security-gateway/     # @uaip/security-gateway
+    └── api-gateway/         # @uaip/api-gateway
 ```
 
 ## Implementation Steps

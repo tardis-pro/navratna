@@ -1,12 +1,11 @@
 {
   "files": [],               // leave empty
   "references": [
-    { "path": "./shared/types" },
-    { "path": "./shared/utils" },
+    { "path": "../packages/shared-types" },
+    { "path": "../packages/shared-utils" },
     { "path": "./shared/config" },
     { "path": "./shared/middleware" },
-    { "path": "./shared/services" },
-    
+    { "path": "./shared/services" }
   ],
   
   "compilerOptions": {

@@ -1,0 +1,44 @@
+{
+  "name": "@uaip/api-annotations",
+  "version": "1.0.0",
+  "description": "Annotation-based API documentation and SDK generation for UAIP",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "generate": "node dist/generate-sdk.js",
+    "test": "jest",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "reflect-metadata": "^0.1.13",
+    "typescript": "^5.3.3",
+    "handlebars": "^4.7.8",
+    "fs-extra": "^11.2.0",
+    "prettier": "^3.1.1",
+    "chalk": "^5.3.0",
+    "yargs": "^17.7.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.6",
+    "@types/fs-extra": "^11.0.4",
+    "ts-node": "^10.9.2",
+    "jest": "^29.7.0",
+    "rimraf": "^5.0.5"
+  },
+  "peerDependencies": {
+    "@uaip/types": "workspace:*",
+    "@uaip/utils": "workspace:*"
+  },
+  "keywords": [
+    "api",
+    "annotations",
+    "sdk",
+    "generator",
+    "typescript",
+    "decorators"
+  ],
+  "author": "UAIP Team",
+  "license": "MIT"
+} 

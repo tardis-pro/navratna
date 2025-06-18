@@ -19,6 +19,8 @@
     "build:backend": "cd backend && pnpm build-services",
     "build:frontend": "cd apps/frontend && pnpm build",
     "build:dev": "pnpm build:shared && pnpm build:backend && cd apps/frontend && pnpm build:dev",
+    "generate:sdk": "cd backend && pnpm build:sdk-generator && tsx scripts/generate-sdk.ts",
+    "generate:sdk:watch": "cd backend && pnpm build:sdk-generator && tsx scripts/generate-sdk.ts --watch",
     "lint": "pnpm -r lint",
     "lint:fix": "pnpm -r lint:fix",
     "clean": "pnpm -r clean",

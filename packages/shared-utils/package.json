@@ -1,5 +1,5 @@
 {
-  "name": "@council/shared-utils",
+  "name": "@uaip/utils",
   "version": "1.0.0",
   "description": "Shared utilities for Council of Nycea frontend and backend",
   "main": "./dist/index.js",
@@ -13,7 +13,7 @@
     "lint:fix": "eslint src --ext .ts --fix"
   },
   "dependencies": {
-    "@council/shared-types": "workspace:*",
+    "@uaip/types": "workspace:*",
     "winston": "^3.11.0",
     "zod": "^3.22.4"
   },

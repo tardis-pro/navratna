@@ -1,17 +1,27 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
     "composite": true,
-    "outDir": "dist",
-    "rootDir": "src",
-    "baseUrl": "./src"
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "baseUrl": "."
   },
-  "references": [
-    { "path": "../../shared/types" },
-    { "path": "../../shared/utils" },
-    { "path": "../../shared/config" },
-    { "path": "../../shared/services" }
-  ],
   "include": ["src/**/*"],
-  "exclude": ["dist", "node_modules"]
+  "exclude": ["dist", "node_modules"],
+  "references": [
+    { "path": "../../../packages/shared-types" },
+    { "path": "../../../packages/shared-utils" },
+    { "path": "../config" },
+    { "path": "../services" }
+  ]
 } 

@@ -15,13 +15,27 @@
     "skipLibCheck": true,
     "strict": false,
     "baseUrl": ".",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "paths": {
+      "@/*": ["*"],
+      "@uaip/types/*": ["../../../packages/shared-types/src/*"],
+      "@uaip/utils/*": ["../../../packages/shared-utils/src/*"]
+    },
+    "incremental": true,
     "tsBuildInfoFile": "./tsconfig.tsbuildinfo"
   },
-  "include": ["src/**/*"],
-  "exclude": ["dist", "node_modules", "src/migrations/**/*"],
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "dist",
+    "node_modules",
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ],
   "references": [
     { "path": "../../../packages/shared-types" },
-    { "path": "../config" },
     { "path": "../../../packages/shared-utils" }
   ]
 } 

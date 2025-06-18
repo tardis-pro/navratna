@@ -11,9 +11,9 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@uaip/types": "workspace:*",
-    "@uaip/config": "workspace:*",
     "@uaip/utils": "workspace:*",
+    "@uaip/config": "workspace:*",
+    "@uaip/types": "workspace:*",
     "@uaip/shared-services": "workspace:*",
     "uuid": "^9.0.0",
     "node-fetch": "^3.3.2"

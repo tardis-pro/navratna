@@ -10,8 +10,8 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@uaip/types": "workspace:*",
     "@uaip/utils": "workspace:*",
+    "@uaip/types": "workspace:*",
     "@uaip/config": "workspace:*",
     "@uaip/shared-services": "workspace:*",
     "@uaip/llm-service": "workspace:*",

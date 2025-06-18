@@ -87,14 +87,14 @@ docker-compose down
 
 ## 📦 Shared Packages
 
-### `@council/shared-types`
+### `@uaip/types`
 Shared TypeScript types used by both frontend and backend:
 - Agent types
 - API interfaces
 - Common data structures
 - Validation schemas
 
-### `@council/shared-utils`
+### `@uaip/utils`
 Shared utilities used by both frontend and backend:
 - Logging utilities
 - Error handling
@@ -106,8 +106,8 @@ Shared utilities used by both frontend and backend:
 ### Frontend Imports
 ```typescript
 // Shared packages
-import { AgentType } from '@council/shared-types';
-import { logger } from '@council/shared-utils';
+import { AgentType } from '@uaip/types';
+import { logger } from '@uaip/utils';
 
 // Local imports
 import { Component } from '@/components/Component';
@@ -116,8 +116,8 @@ import { Component } from '@/components/Component';
 ### Backend Imports
 ```typescript
 // Shared packages (monorepo-wide)
-import { AgentType } from '@council/shared-types';
-import { logger } from '@council/shared-utils';
+import { AgentType } from '@uaip/types';
+import { logger } from '@uaip/utils';
 
 // Backend shared packages
 import { DatabaseService } from '@uaip/shared-services';

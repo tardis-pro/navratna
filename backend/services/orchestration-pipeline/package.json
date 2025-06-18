@@ -15,9 +15,9 @@
     "lint:fix": "eslint src/**/*.ts --fix"
   },
   "dependencies": {
+    "@uaip/types": "workspace:*",
     "@uaip/utils": "workspace:*",
     "@uaip/shared-services": "workspace:*",
-    "@uaip/types": "workspace:*",
     "@uaip/config": "workspace:*",
     "@uaip/middleware": "workspace:*",
     "express": "^4.18.2",

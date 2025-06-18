@@ -16,13 +16,24 @@
     "strict": false,
     "baseUrl": ".",
     "paths": {
-      "@uaip/types": ["../shared-types/src"],
-      "@uaip/types/*": ["../shared-types/src/*"]
-    }
+      "@/*": ["*"],
+      "@uaip/types/*": ["../../../packages/shared-types/src/*"],
+      "@uaip/utils/*": ["../../../packages/shared-utils/src/*"]
+    },
+    "incremental": true,
+    "tsBuildInfoFile": "./tsconfig.tsbuildinfo"
   },
-  "include": ["src/**/*"],
-  "exclude": ["dist", "node_modules"],
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "dist",
+    "node_modules",
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ],
   "references": [
-    { "path": "../shared-types" }
+    { "path": "../../../packages/shared-types" },
+    { "path": "../../../packages/shared-utils" }
   ]
 } 

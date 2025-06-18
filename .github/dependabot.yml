@@ -44,9 +44,9 @@ updates:
       prefix: "chore(backend-deps)"
       include: "scope"
 
-  # Backend shared packages
+  # Shared packages
   - package-ecosystem: "npm"
-    directory: "/backend/shared/types"
+    directory: "/packages/shared-types"
     schedule:
       interval: "weekly"
       day: "tuesday"
@@ -56,7 +56,7 @@ updates:
       prefix: "chore(shared-types)"
 
   - package-ecosystem: "npm"
-    directory: "/backend/shared/utils"
+    directory: "/packages/shared-utils"
     schedule:
       interval: "weekly"
       day: "tuesday"

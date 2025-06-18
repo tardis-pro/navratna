@@ -1,5 +1,5 @@
 {
-  "name": "@council/shared-types",
+  "name": "@uaip/types",
   "version": "1.0.0",
   "description": "Shared TypeScript types for Council of Nycea frontend and backend",
   "main": "./dist/index.js",
