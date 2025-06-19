@@ -1825,7 +1825,7 @@ export class UAIPAPIClient {
   };
 
   llm = {
-    async getModels(): Promise<APIResponse<Array<{
+    getModels: async (): Promise<APIResponse<Array<{
       id: string;
       name: string;
       description?: string;
@@ -1834,25 +1834,25 @@ export class UAIPAPIClient {
       apiType: 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom';
       provider: string;
       isAvailable: boolean;
-    }>>> {
+    }>>> => {
       return this.request(`${API_ROUTES.LLM}/models`, {
         method: 'GET',
       });
     },
 
-    async getModelsFromProvider(providerType: string): Promise<APIResponse<Array<{
+    getModelsFromProvider: async (providerType: string): Promise<APIResponse<Array<{
       id: string;
       name: string;
       description?: string;
       source: string;
       apiEndpoint: string;
-    }>>> {
+    }>>> => {
       return this.request(`${API_ROUTES.LLM}/models/${providerType}`, {
         method: 'GET',
       });
     },
 
-    async getProviders(): Promise<APIResponse<Array<{
+    getProviders: async (): Promise<APIResponse<Array<{
       name: string;
       type: string;
       baseUrl: string;
@@ -1860,67 +1860,67 @@ export class UAIPAPIClient {
       defaultModel?: string;
       modelCount: number;
       status: 'active' | 'inactive' | 'error';
-    }>>> {
+    }>>> => {
       return this.request(`${API_ROUTES.LLM}/providers`, {
         method: 'GET',
       });
     },
 
-    async getProviderStats(): Promise<APIResponse<Array<{
+    getProviderStats: async (): Promise<APIResponse<Array<{
       name: string;
       type: string;
       available: boolean;
-    }>>> {
+    }>>> => {
       return this.request(`${API_ROUTES.LLM}/providers/stats`, {
         method: 'GET',
       });
     },
 
-    async generateResponse(request: {
+    generateResponse: async (request: {
       prompt: string;
       systemPrompt?: string;
       maxTokens?: number;
       temperature?: number;
       model?: string;
       preferredType?: string;
-    }): Promise<APIResponse<any>> {
+    }): Promise<APIResponse<any>> => {
       return this.request(`${API_ROUTES.LLM}/generate`, {
         method: 'POST',
         body: JSON.stringify(request),
       });
     },
 
-    async generateAgentResponse(request: {
+    generateAgentResponse: async (request: {
       agent: any;
       messages: any[];
       context?: any;
       tools?: any[];
-    }): Promise<APIResponse<any>> {
+    }): Promise<APIResponse<any>> => {
       return this.request(`${API_ROUTES.LLM}/agent-response`, {
         method: 'POST',
         body: JSON.stringify(request),
       });
     },
 
-    async generateArtifact(request: {
+    generateArtifact: async (request: {
       type: string;
       prompt: string;
       language?: string;
       framework?: string;
       requirements?: string[];
-    }): Promise<APIResponse<any>> {
+    }): Promise<APIResponse<any>> => {
       return this.request(`${API_ROUTES.LLM}/artifact`, {
         method: 'POST',
         body: JSON.stringify(request),
       });
     },
 
-    async analyzeContext(request: {
+    analyzeContext: async (request: {
       conversationHistory: any[];
       currentContext?: any;
       userRequest?: string;
       agentCapabilities?: string[];
-    }): Promise<APIResponse<any>> {
+    }): Promise<APIResponse<any>> => {
       return this.request(`${API_ROUTES.LLM}/analyze-context`, {
         method: 'POST',
         body: JSON.stringify(request),

@@ -68,24 +68,31 @@ export class OpenAIProvider extends BaseProvider {
         apiEndpoint: `${this.config.baseUrl || 'https://api.openai.com'}/v1/chat/completions`
       }));
     } catch (error) {
-      console.error(`Failed to fetch models from OpenAI:`, error);
-      // Return common OpenAI models as fallback
-      return [
-        {
-          id: 'gpt-3.5-turbo',
-          name: 'gpt-3.5-turbo',
-          description: 'OpenAI GPT-3.5 Turbo',
-          source: this.config.baseUrl || 'https://api.openai.com',
-          apiEndpoint: `${this.config.baseUrl || 'https://api.openai.com'}/v1/chat/completions`
-        },
-        {
-          id: 'gpt-4',
-          name: 'gpt-4',
-          description: 'OpenAI GPT-4',
-          source: this.config.baseUrl || 'https://api.openai.com',
-          apiEndpoint: `${this.config.baseUrl || 'https://api.openai.com'}/v1/chat/completions`
-        }
-      ];
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`Failed to fetch models from OpenAI:`, errorMessage);
+      
+      // If we have an API key, return fallback models, otherwise throw error
+      if (this.config.apiKey) {
+        console.log('Returning fallback OpenAI models since API key is available');
+        return [
+          {
+            id: 'gpt-3.5-turbo',
+            name: 'gpt-3.5-turbo',
+            description: 'OpenAI GPT-3.5 Turbo',
+            source: this.config.baseUrl || 'https://api.openai.com',
+            apiEndpoint: `${this.config.baseUrl || 'https://api.openai.com'}/v1/chat/completions`
+          },
+          {
+            id: 'gpt-4',
+            name: 'gpt-4',
+            description: 'OpenAI GPT-4',
+            source: this.config.baseUrl || 'https://api.openai.com',
+            apiEndpoint: `${this.config.baseUrl || 'https://api.openai.com'}/v1/chat/completions`
+          }
+        ];
+      } else {
+        throw new Error(`OpenAI connection failed: ${errorMessage}`);
+      }
     }
   }
 } 

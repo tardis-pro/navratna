@@ -57,8 +57,10 @@ export class OllamaProvider extends BaseProvider {
         apiEndpoint: `${this.config.baseUrl}/api/generate`
       }));
     } catch (error) {
-      console.error(`Failed to fetch models from Ollama at ${this.config.baseUrl}:`, error);
-      return [];
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`Failed to fetch models from Ollama at ${this.config.baseUrl}:`, errorMessage);
+      // Re-throw the error so it can be properly logged by BaseProvider
+      throw new Error(`Ollama connection failed: ${errorMessage}`);
     }
   }
 

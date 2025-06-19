@@ -12,7 +12,19 @@ import { Users, Plus, Trash2, Bot, Cpu, AlertCircle, CheckCircle2, User, Server,
 
 const getModels = async () => {
   try {
-    const models = await uaipAPI.llm.getModels();
+    console.log('[AgentSelector] Loading models...');
+    console.log('[AgentSelector] API client info:', uaipAPI.getEnvironmentInfo());
+    
+    const response = await uaipAPI.llm.getModels();
+    console.log('[AgentSelector] Models response:', response);
+    
+    if (!response.success) {
+      console.error('Failed to fetch models:', response.error?.message);
+      return [];
+    }
+    
+    const models = response.data || [];
+    console.log('[AgentSelector] Models loaded:', models);
     return models.map(model => ({
       id: model.id,
       name: model.name,

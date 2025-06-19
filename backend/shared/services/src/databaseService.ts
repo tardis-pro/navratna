@@ -22,7 +22,8 @@ import { ApprovalWorkflowRepository } from './database/repositories/SecurityRepo
 import { ApprovalDecisionRepository } from './database/repositories/SecurityRepository.js';
 import { CapabilityRepository } from './database/repositories/CapabilityRepository.js';
 import { DiscussionRepository } from './database/repositories/DiscussionRepository.js';
-
+import { UserLLMProviderRepository } from './database/repositories/UserLLMProviderRepository.js';
+import { LLMProviderRepository } from './database/repositories/LLMProviderRepository.js';
 // Import entities for backward compatibility
 import { Operation } from './entities/operation.entity.js';
 import { OperationState } from './entities/operationState.entity.js';
@@ -71,7 +72,8 @@ export class DatabaseService {
   private _approvalDecisionRepository: ApprovalDecisionRepository | null = null;
   private _capabilityRepository: CapabilityRepository | null = null;
   private _discussionRepository: DiscussionRepository | null = null;
-
+  private _userLLMProviderRepository: UserLLMProviderRepository | null = null;
+  private _llmProviderRepository: LLMProviderRepository | null = null;
   constructor() {
     // Debug: Log the actual config values being used
     console.log('[DB DEBUG] Database config:', {
@@ -277,6 +279,20 @@ export class DatabaseService {
   }
 
   // Singleton pattern for database connection
+  public get userLLMProviderRepository(): UserLLMProviderRepository {
+    if (!this._userLLMProviderRepository) {
+      this._userLLMProviderRepository = new UserLLMProviderRepository();
+    }
+    return this._userLLMProviderRepository;
+  }
+
+  public get llmProviderRepository(): LLMProviderRepository {
+    if (!this._llmProviderRepository) {
+      this._llmProviderRepository = new LLMProviderRepository();
+    }
+    return this._llmProviderRepository;
+  }
+  
   public static getInstance(): DatabaseService {
     if (!DatabaseService.instance) {
       DatabaseService.instance = new DatabaseService();

@@ -24,7 +24,14 @@ import { PersonaSelector } from './PersonaSelector';
 
 const getModels = async () => {
   try {
-    const models = await uaipAPI.llm.getModels();
+    const response = await uaipAPI.llm.getModels();
+    
+    if (!response.success) {
+      console.error('Failed to fetch models:', response.error?.message);
+      return [];
+    }
+    
+    const models = response.data || [];
     return models.map(model => ({
       id: model.id,
       name: model.name,

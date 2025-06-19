@@ -48,8 +48,18 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({ cl
     setError(null);
     
     try {
-      const providersData = await uaipAPI.llm.getProviders();
-      setProviders(providersData);
+      console.log('[ModelProviderSettings] Loading providers...');
+      console.log('[ModelProviderSettings] API client info:', uaipAPI.getEnvironmentInfo());
+      
+      const response = await uaipAPI.llm.getProviders();
+      console.log('[ModelProviderSettings] Providers response:', response);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to fetch providers');
+      }
+      
+      console.log('[ModelProviderSettings] Providers loaded:', response.data);
+      setProviders(response.data || []);
     } catch (error) {
       console.error('Failed to load providers:', error);
       setError(error instanceof Error ? error.message : 'Failed to load providers');
@@ -66,10 +76,15 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({ cl
     setLoadingModels(prev => new Set(prev).add(providerType));
     
     try {
-      const models = await uaipAPI.llm.getModelsFromProvider(providerType);
+      const response = await uaipAPI.llm.getModelsFromProvider(providerType);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to fetch models');
+      }
+      
       setProviderModels(prev => ({
         ...prev,
-        [providerType]: models
+        [providerType]: response.data || []
       }));
     } catch (error) {
       console.error(`Failed to load models for ${providerType}:`, error);

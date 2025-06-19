@@ -42,8 +42,10 @@ export class LLMService {
     try {
       if (!this.llmProviderRepository) {
         const databaseService = DatabaseService.getInstance();
+        // Ensure database is fully initialized
         await databaseService.initialize();
-        this.llmProviderRepository = new LLMProviderRepository();
+        // Use the properly initialized repository from DatabaseService
+        this.llmProviderRepository = databaseService.llmProviderRepository;
       }
 
       // Get active providers from database
@@ -93,9 +95,14 @@ export class LLMService {
       }
 
       this.initialized = true;
-      logger.info(`LLM Service initialized with ${this.providers.size} providers from database`);
+      logger.info(`LLM Service initialized with ${this.providers.size} providers from database`, {
+        providerTypes: Array.from(this.providers.keys())
+      });
     } catch (error) {
-      logger.error('Failed to initialize LLM service from database', { error });
+      logger.error('Failed to initialize LLM service from database', { 
+        error: error instanceof Error ? error.message : error,
+        stack: error instanceof Error ? error.stack : undefined 
+      });
       // Fallback to environment-based initialization
       await this.initializeFallbackProviders();
     }
@@ -140,7 +147,9 @@ export class LLMService {
     this.providers.set('llmstudio', llmStudioProvider);
     
     this.initialized = true;
-    logger.info(`LLM Service initialized with ${this.providers.size} fallback providers`);
+    logger.info(`LLM Service initialized with ${this.providers.size} fallback providers`, {
+      providerTypes: Array.from(this.providers.keys())
+    });
   }
 
   private async getBestProvider(preferredType?: string): Promise<BaseProvider | null> {
@@ -376,11 +385,22 @@ export class LLMService {
       await this.initializeFromDatabase();
     }
 
+    logger.info(`Getting available models from ${this.providers.size} providers`, {
+      providerTypes: Array.from(this.providers.keys())
+    });
+
     const allModels = [];
 
     for (const [providerType, provider] of this.providers) {
       try {
+        logger.info(`Fetching models from provider: ${providerType}`, {
+          baseUrl: provider.getBaseUrl()
+        });
+        
         const models = await provider.getAvailableModels();
+        
+        logger.info(`Provider ${providerType} returned ${models.length} models`);
+        
         allModels.push(...models.map(model => ({
           ...model,
           provider: providerType,
@@ -388,10 +408,15 @@ export class LLMService {
           isAvailable: true
         })));
       } catch (error) {
-        logger.error(`Failed to get models from provider ${providerType}`, { error });
+        logger.error(`Failed to get models from provider ${providerType}`, { 
+          error: error instanceof Error ? error.message : error,
+          stack: error instanceof Error ? error.stack : undefined,
+          baseUrl: provider.getBaseUrl()
+        });
       }
     }
 
+    logger.info(`Total models available: ${allModels.length}`);
     return allModels;
   }
 
@@ -432,12 +457,17 @@ export class LLMService {
       await this.initializeFromDatabase();
     }
 
+    logger.info(`Getting configured providers. Initialized providers: ${this.providers.size}`, {
+      providerTypes: Array.from(this.providers.keys()),
+      hasRepository: !!this.llmProviderRepository
+    });
+
     const providers = [];
 
     // Get database providers if available
     if (this.llmProviderRepository) {
       try {
-        const dbProviders = await this.llmProviderRepository.findAll();
+        const dbProviders = await this.llmProviderRepository.findMany();
         for (const dbProvider of dbProviders) {
           const isInitialized = this.providers.has(dbProvider.type);
           let modelCount = 0;
@@ -490,6 +520,50 @@ export class LLMService {
     }
 
     return providers;
+  }
+
+  // Health check method to test provider connectivity
+  async checkProviderHealth(): Promise<Array<{
+    name: string;
+    type: string;
+    baseUrl: string;
+    isHealthy: boolean;
+    error?: string;
+    modelCount: number;
+  }>> {
+    if (!this.initialized) {
+      await this.initializeFromDatabase();
+    }
+
+    const healthResults = [];
+
+    for (const [providerType, provider] of this.providers) {
+      try {
+        const startTime = Date.now();
+        const models = await provider.getAvailableModels();
+        const responseTime = Date.now() - startTime;
+
+        healthResults.push({
+          name: `Default ${providerType.charAt(0).toUpperCase() + providerType.slice(1)}`,
+          type: providerType,
+          baseUrl: provider.getBaseUrl(),
+          isHealthy: true,
+          modelCount: models.length,
+          responseTime
+        });
+      } catch (error) {
+        healthResults.push({
+          name: `Default ${providerType.charAt(0).toUpperCase() + providerType.slice(1)}`,
+          type: providerType,
+          baseUrl: provider.getBaseUrl(),
+          isHealthy: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+          modelCount: 0
+        });
+      }
+    }
+
+    return healthResults;
   }
 
   // Private helper methods

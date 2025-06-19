@@ -17,14 +17,17 @@ export {
 } from './dataSource.js';
 
 // Database Services
+export { DatabaseService } from './DatabaseService.js';
 export { ToolDatabase } from './toolDatabase.js';
 export { ToolGraphDatabase } from './toolGraphDatabase.js';
 
 // Repositories
 export { LLMProviderRepository } from './repositories/LLMProviderRepository.js';
+export { UserLLMProviderRepository } from './repositories/UserLLMProviderRepository.js';
 
 // Entities
 export { LLMProvider, LLMProviderType, LLMProviderStatus } from '../entities/llmProvider.entity.js';
+export { UserLLMProvider, UserLLMProviderType, UserLLMProviderStatus } from '../entities/userLLMProvider.entity.js';
 
 // Types
 export type { 

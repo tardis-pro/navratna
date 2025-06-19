@@ -63,8 +63,10 @@ export class LLMStudioProvider extends BaseProvider {
         apiEndpoint: `${this.config.baseUrl}/v1/chat/completions`
       }));
     } catch (error) {
-      console.error(`Failed to fetch models from LLM Studio at ${this.config.baseUrl}:`, error);
-      return [];
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`Failed to fetch models from LLM Studio at ${this.config.baseUrl}:`, errorMessage);
+      // Re-throw the error so it can be properly logged by BaseProvider
+      throw new Error(`LLM Studio connection failed: ${errorMessage}`);
     }
   }
 } 

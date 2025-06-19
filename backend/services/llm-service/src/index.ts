@@ -5,6 +5,7 @@ import compression from 'compression';
 import { config } from '@uaip/config';
 import { logger } from '@uaip/utils';
 import llmRoutes from './routes/llmRoutes';
+import userLLMRoutes from './routes/userLLMRoutes';
 import healthRoutes from './routes/healthRoutes';
 
 const app = express();
@@ -31,6 +32,7 @@ app.use((req, res, next) => {
 // Routes
 app.use('/health', healthRoutes);
 app.use('/api/v1/llm', llmRoutes);
+app.use('/api/v1/user/llm', userLLMRoutes);
 
 // Error handling
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {

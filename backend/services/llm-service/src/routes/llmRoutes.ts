@@ -15,10 +15,14 @@ router.get('/models', async (req: Request, res: Response) => {
       data: models
     });
   } catch (error) {
-    logger.error('Error getting available models', { error });
+    logger.error('Error getting available models', { 
+      error: error instanceof Error ? error.message : error,
+      stack: error instanceof Error ? error.stack : undefined 
+    });
     res.status(500).json({
       success: false,
-      error: 'Failed to get available models'
+      error: 'Failed to get available models',
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
@@ -200,10 +204,36 @@ router.get('/providers', async (req: Request, res: Response) => {
       data: providers
     });
   } catch (error) {
-    logger.error('Error getting configured providers', { error });
+    logger.error('Error getting configured providers', { 
+      error: error instanceof Error ? error.message : error,
+      stack: error instanceof Error ? error.stack : undefined 
+    });
     res.status(500).json({
       success: false,
-      error: 'Failed to get configured providers'
+      error: 'Failed to get configured providers',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Check provider health
+router.get('/providers/health', async (req: Request, res: Response) => {
+  try {
+    const healthResults = await llmService.checkProviderHealth();
+
+    res.json({
+      success: true,
+      data: healthResults
+    });
+  } catch (error) {
+    logger.error('Error checking provider health', { 
+      error: error instanceof Error ? error.message : error,
+      stack: error instanceof Error ? error.stack : undefined 
+    });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to check provider health',
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });

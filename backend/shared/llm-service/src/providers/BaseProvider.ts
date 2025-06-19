@@ -21,10 +21,16 @@ export abstract class BaseProvider {
   }>> {
     // Default implementation - should be overridden by specific providers
     try {
+      logger.info(`${this.name}: Fetching models from ${this.config.baseUrl}`);
       const models = await this.fetchModelsFromProvider();
+      logger.info(`${this.name}: Successfully fetched ${models.length} models`);
       return models;
     } catch (error) {
-      logger.error(`Failed to fetch models from ${this.name}`, { error });
+      logger.error(`Failed to fetch models from ${this.name}`, { 
+        error: error instanceof Error ? error.message : error,
+        baseUrl: this.config.baseUrl,
+        stack: error instanceof Error ? error.stack : undefined
+      });
       return [];
     }
   }
