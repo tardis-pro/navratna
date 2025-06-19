@@ -545,7 +545,7 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
       const content = message.content.toLowerCase();
       // Simple topic extraction - look for common discussion topics
       const topics = [
-        'ai', 'artificial intelligence', 'machine learning', 'neural network',
+        'ai', 'artificial intelligence', 'machine learning', ' network',
         'algorithm', 'data', 'model', 'training', 'prediction', 'analysis',
         'automation', 'optimization', 'performance', 'efficiency', 'innovation',
         'technology', 'development', 'implementation', 'strategy', 'solution'

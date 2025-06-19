@@ -422,6 +422,127 @@ export class AgentController {
     }
   }
 
+  /**
+   * Casual chat with agent - leverages persona and memories for natural conversation
+   */
+  public async chatWithAgent(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const { agentId } = req.params;
+    const { message, conversationHistory, context } = req.body;
+
+    try {
+      logger.info('Starting casual chat with agent', { 
+        agentId, 
+        messageLength: message?.length,
+        hasHistory: !!conversationHistory?.length,
+        hasContext: !!context
+      });
+
+      // Validate agent exists and get with persona data
+      const agentWithPersona = await this.agentIntelligenceService.getAgentWithPersona(agentId);
+      if (!agentWithPersona) {
+        throw new ApiError(404, 'Agent not found', 'AGENT_NOT_FOUND');
+      }
+
+      // Validate required fields
+      if (!message || typeof message !== 'string') {
+        throw new ApiError(400, 'Message is required and must be a string', 'INVALID_MESSAGE');
+      }
+
+      // Build conversation messages from history
+      const messages = [];
+      
+      // Add conversation history if provided
+      if (conversationHistory && Array.isArray(conversationHistory)) {
+        conversationHistory.forEach((msg, index) => {
+          messages.push({
+            id: `history-${index}`,
+            content: msg.content || msg.message || String(msg),
+            sender: msg.sender || msg.from || (msg.role === 'assistant' ? agentWithPersona.name : 'user'),
+            timestamp: msg.timestamp || new Date().toISOString(),
+            type: msg.type || msg.role || 'user'
+          });
+        });
+      }
+
+      // Add current message
+      messages.push({
+        id: `current-${Date.now()}`,
+        content: message,
+        sender: 'user',
+        timestamp: new Date().toISOString(),
+        type: 'user'
+      });
+
+      // Get user ID from request for LLM service context
+      const userId = req.user?.id || agentWithPersona.createdBy;
+
+      // Generate response using the enhanced agent intelligence service
+      const result = await this.agentIntelligenceService.generateAgentResponse(
+        agentId,
+        messages,
+        {
+          conversationType: 'casual_chat',
+          agentPersona: agentWithPersona.personaData,
+          additionalContext: context,
+          enableMemoryRetrieval: true,
+          enableKnowledgeSearch: true
+        },
+        userId
+      );
+
+      // Build response with persona and memory information
+      const response = {
+        agentId,
+        agentName: agentWithPersona.name,
+        response: result.response,
+        confidence: result.confidence || 0.8,
+        model: result.model,
+        tokensUsed: result.tokensUsed,
+        // Memory and knowledge context
+        memoryEnhanced: result.memoryEnhanced,
+        knowledgeUsed: result.knowledgeUsed,
+        // Persona information
+        persona: agentWithPersona.personaData ? {
+          name: agentWithPersona.personaData.name,
+          role: agentWithPersona.personaData.role,
+          personality: agentWithPersona.personaData.traits,
+          expertise: agentWithPersona.personaData.expertise?.map((e: any) => e.name || e) || [],
+          communicationStyle: agentWithPersona.personaData.conversationalStyle
+        } : null,
+        // Conversation metadata
+        conversationContext: {
+          messageCount: messages.length,
+          hasHistory: conversationHistory?.length > 0,
+          contextProvided: !!context
+        },
+        timestamp: new Date(),
+        error: result.error
+      };
+
+      if (result.error) {
+        logger.warn('Chat response generated with errors', { 
+          agentId, 
+          error: result.error,
+          fallbackUsed: true
+        });
+      }
+
+      logger.info('Casual chat completed successfully', { 
+        agentId,
+        agentName: agentWithPersona.name,
+        responseLength: result.response?.length,
+        memoryEnhanced: result.memoryEnhanced,
+        knowledgeUsed: result.knowledgeUsed,
+        hasPersona: !!agentWithPersona.personaData
+      });
+
+      this.sendSuccessResponse(res, response);
+
+    } catch (error) {
+      this.handleError(error, 'casual chat', { agentId }, next);
+    }
+  }
+
   // ===== PRIVATE HELPER METHODS =====
 
   /**

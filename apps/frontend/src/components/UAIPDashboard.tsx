@@ -19,14 +19,12 @@ import { EventStreamMonitor } from './uaip/EventStreamMonitor';
 
 // Icons
 import {
-  CpuChipIcon,
   ShieldCheckIcon,
   WrenchScrewdriverIcon,
   ChartBarIcon,
-  LightBulbIcon,
   CommandLineIcon,
   SignalIcon,
-  ExclamationTriangleIcon
+  LightBulbIcon
 } from '@heroicons/react/24/outline';
 
 // Types
@@ -126,14 +124,14 @@ export const UAIPDashboard: React.FC<UAIPDashboardProps> = ({ agents: propAgents
   const getPanelIcon = (panel: PanelType) => {
     const iconClass = "w-4 h-4";
     switch (panel) {
-      case 'intelligence': return <CpuChipIcon className={iconClass} />;
+      case 'intelligence': return <ChartBarIcon className={iconClass} />;
       case 'operations': return <CommandLineIcon className={iconClass} />;
       case 'security': return <ShieldCheckIcon className={iconClass} />;
       case 'capabilities': return <WrenchScrewdriverIcon className={iconClass} />;
       case 'insights': return <LightBulbIcon className={iconClass} />;
       case 'tools': return <ChartBarIcon className={iconClass} />;
       case 'events': return <SignalIcon className={iconClass} />;
-      default: return <CpuChipIcon className={iconClass} />;
+      default: return <ChartBarIcon className={iconClass} />;
     }
   };
 
@@ -185,7 +183,7 @@ export const UAIPDashboard: React.FC<UAIPDashboardProps> = ({ agents: propAgents
             {hasError && (
               <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                 <div className="flex items-center space-x-2">
-                  <ExclamationTriangleIcon className="w-4 h-4 text-red-600" />
+                  <LightBulbIcon className="w-4 h-4 text-red-600" />
                   <span className="text-sm text-red-700">Backend connection issues detected</span>
                 </div>
               </div>

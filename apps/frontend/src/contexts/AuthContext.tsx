@@ -116,8 +116,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       } else if (service === 'systemOperations') {
         result = await executeSystemOperationsFlow(flow, params);
       } else {
-        // For other services, use mock implementation
-        result = await mockApiCall(service, flow, params);
+        // For other services, throw an error indicating they're not implemented
+        throw new Error(`Service '${service}' is not yet implemented. Available services: security, systemOperations`);
       }
       
       setFlowResults(prev => {
@@ -150,15 +150,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return await uaipAPI.client.auth.refreshToken();
       case 'validatePermissions':
         // This would be a specialized security endpoint
-        return await mockApiCall('security', flow, params);
+        throw new Error(`Security flow '${flow}' is not yet implemented`);
       case 'assessRisk':
         // This would be a risk assessment endpoint
-        return await mockApiCall('security', flow, params);
+        throw new Error(`Security flow '${flow}' is not yet implemented`);
       case 'auditLog':
         // This would be an audit log endpoint
-        return await mockApiCall('security', flow, params);
+        throw new Error(`Security flow '${flow}' is not yet implemented`);
       default:
-        return await mockApiCall('security', flow, params);
+        throw new Error(`Security flow '${flow}' is not yet implemented`);
     }
   };
 
@@ -169,48 +169,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return await uaipAPI.client.health();
       case 'getSystemMetrics':
         // This would be a system metrics endpoint
-        return await mockApiCall('systemOperations', flow, params);
+        throw new Error(`System operations flow '${flow}' is not yet implemented`);
       case 'getSystemConfig':
         // This would be a system config endpoint
-        return await mockApiCall('systemOperations', flow, params);
+        throw new Error(`System operations flow '${flow}' is not yet implemented`);
       default:
-        return await mockApiCall('systemOperations', flow, params);
+        throw new Error(`System operations flow '${flow}' is not yet implemented`);
     }
   };
 
-  // Mock API call function for flows not yet implemented
-  const mockApiCall = async (service: string, flow: string, params: any) => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, Math.random() * 1000 + 200));
-    
-    // Mock different responses based on service and flow
-    if (service === 'security' && flow === 'validatePermissions') {
-      return {
-        hasPermission: true,
-        permissions: ['read', 'write'],
-        resource: params.resource
-      };
-    }
-    
-    if (service === 'systemOperations' && flow === 'getSystemMetrics') {
-      return {
-        cpu: { usage: 45.2, cores: 8 },
-        memory: { used: 2.1, total: 8.0, unit: 'GB' },
-        disk: { used: 125.5, total: 500.0, unit: 'GB' },
-        network: { in: 1024, out: 512, unit: 'KB/s' }
-      };
-    }
-    
-    // Default mock response
-    return { 
-      success: true, 
-      service, 
-      flow, 
-      params, 
-      timestamp: new Date().toISOString(),
-      data: `Mock result for ${service}.${flow}`
-    };
-  };
+
 
   const getFlowStatus = (flowId: string): 'idle' | 'running' | 'completed' | 'error' => {
     if (activeFlows.includes(flowId)) return 'running';

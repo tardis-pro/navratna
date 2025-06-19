@@ -571,8 +571,8 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
       } else if (service === 'artifactManagement') {
         result = await executeArtifactManagementFlow(flow, params);
       } else {
-        // For other services, use mock implementation
-        result = await mockApiCall(service, flow, params);
+        // For other services, throw an error indicating they're not implemented
+        throw new Error(`Service '${service}' is not yet implemented. Available services: agentIntelligence, capabilityRegistry, orchestrationPipeline, artifactManagement`);
       }
       
       setFlowResults(prev => {
@@ -600,8 +600,8 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
       case 'registerAgent':
         return await uaipAPI.agents.create(params);
       case 'analyzeContext':
-        // This would be a specialized endpoint - using mock for now
-        return await mockApiCall('agentIntelligence', flow, params);
+        // This would be a specialized endpoint - not yet implemented
+        throw new Error(`Agent intelligence flow '${flow}' is not yet implemented`);
       case 'searchPersonas':
         // Use the new simplified search endpoint
         return await uaipAPI.personas.search(params.query, params.expertise);
@@ -623,7 +623,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
       case 'getPersonaCategories':
         return await uaipAPI.personas.getCategories();
       default:
-        return await mockApiCall('agentIntelligence', flow, params);
+        throw new Error(`Agent intelligence flow '${flow}' is not yet implemented`);
     }
   };
 
@@ -639,54 +639,23 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
       case 'getToolCategories':
         return await uaipAPI.tools.getCategories();
       default:
-        return await mockApiCall('capabilityRegistry', flow, params);
+        throw new Error(`Capability registry flow '${flow}' is not yet implemented`);
     }
   };
 
   // Execute Orchestration Pipeline flows
   const executeOrchestrationPipelineFlow = async (flow: string, params: any) => {
-    // These would be actual orchestration API calls
-    return await mockApiCall('orchestrationPipeline', flow, params);
+    // These would be actual orchestration API calls - not yet implemented
+    throw new Error(`Orchestration pipeline flow '${flow}' is not yet implemented`);
   };
 
   // Execute Artifact Management flows
   const executeArtifactManagementFlow = async (flow: string, params: any) => {
-    // These would be actual artifact service API calls
-    return await mockApiCall('artifactManagement', flow, params);
+    // These would be actual artifact service API calls - not yet implemented
+    throw new Error(`Artifact management flow '${flow}' is not yet implemented`);
   };
 
-  // Mock API call function for flows not yet implemented
-  const mockApiCall = async (service: string, flow: string, params: any) => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, Math.random() * 1000 + 200));
-    
-    // Mock different responses based on service and flow
-    if (service === 'agentIntelligence' && flow === 'analyzeContext') {
-      return { 
-        intent: 'information_seeking',
-        sentiment: 'neutral',
-        entities: ['discussion', 'context'],
-        confidence: 0.85
-      };
-    }
-    
-    if (service === 'capabilityRegistry' && flow === 'recommendTools') {
-      return {
-        tools: ['text-analysis', 'math-calculator'],
-        reasons: ['Context suggests analysis needed', 'Mathematical computation detected']
-      };
-    }
-    
-    // Default mock response
-    return { 
-      success: true, 
-      service, 
-      flow, 
-      params, 
-      timestamp: new Date().toISOString(),
-      data: `Mock result for ${service}.${flow}`
-    };
-  };
+
 
   const getFlowStatus = (flowId: string): 'idle' | 'running' | 'completed' | 'error' => {
     if (activeFlows.includes(flowId)) return 'running';

@@ -101,32 +101,32 @@ export const DiscussionControls: React.FC<DiscussionControlsProps> = ({
   return (
     <div className={cn("space-y-4", className)}>
       {/* Status Stats */}
-      <div className="grid grid-cols-4 gap-2 mb-4">
-        <div className="text-center">
-          <div className="text-lg font-bold text-blue-600 dark:text-blue-400">{agentCount}</div>
-          <div className="text-xs text-slate-500 dark:text-slate-400">Agents</div>
+      <div className="grid grid-cols-4 gap-3 mb-6">
+        <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl p-3 text-center backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50">
+          <div className="text-xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-400 dark:to-blue-500 bg-clip-text text-transparent">{agentCount}</div>
+          <div className="text-xs font-medium text-slate-600 dark:text-slate-400">Agents</div>
         </div>
-        <div className="text-center">
-          <div className="text-lg font-bold text-green-600 dark:text-green-400">{messageCount}</div>
-          <div className="text-xs text-slate-500 dark:text-slate-400">Messages</div>
+        <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl p-3 text-center backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50">
+          <div className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-700 dark:from-emerald-400 dark:to-emerald-500 bg-clip-text text-transparent">{messageCount}</div>
+          <div className="text-xs font-medium text-slate-600 dark:text-slate-400">Messages</div>
         </div>
-        <div className="text-center">
-          <div className="text-lg font-bold text-purple-600 dark:text-purple-400">{currentRound}</div>
-          <div className="text-xs text-slate-500 dark:text-slate-400">Round</div>
+        <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl p-3 text-center backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50">
+          <div className="text-xl font-bold bg-gradient-to-r from-purple-600 to-purple-700 dark:from-purple-400 dark:to-purple-500 bg-clip-text text-transparent">{currentRound}</div>
+          <div className="text-xs font-medium text-slate-600 dark:text-slate-400">Round</div>
         </div>
-        <div className="text-center">
-          <div className="text-lg font-bold text-orange-600 dark:text-orange-400">0</div>
-          <div className="text-xs text-slate-500 dark:text-slate-400">Active</div>
+        <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl p-3 text-center backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50">
+          <div className="text-xl font-bold bg-gradient-to-r from-orange-600 to-orange-700 dark:from-orange-400 dark:to-orange-500 bg-clip-text text-transparent">0</div>
+          <div className="text-xs font-medium text-slate-600 dark:text-slate-400">Active</div>
         </div>
       </div>
 
       {/* Primary Actions */}
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex items-center gap-3 mb-6">
         {!isActive ? (
           <button
             onClick={handleStart}
             disabled={!canStart || isLoading}
-            className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:from-slate-400 disabled:to-slate-500 disabled:cursor-not-allowed text-white px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 disabled:shadow-none"
           >
             <Play className="w-4 h-4" />
             <span>Start Discussion</span>
@@ -135,7 +135,7 @@ export const DiscussionControls: React.FC<DiscussionControlsProps> = ({
           <button
             onClick={handleStop}
             disabled={isLoading}
-            className="flex-1 flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 shadow-lg shadow-red-500/25 hover:shadow-red-500/40"
           >
             <Pause className="w-4 h-4" />
             <span>Stop</span>
@@ -145,7 +145,7 @@ export const DiscussionControls: React.FC<DiscussionControlsProps> = ({
         <button
           onClick={handleReset}
           disabled={isLoading}
-          className="flex items-center justify-center gap-1 bg-slate-600 hover:bg-slate-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+          className="flex items-center justify-center gap-2 bg-slate-600 hover:bg-slate-700 text-white px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 shadow-lg shadow-slate-500/25 hover:shadow-slate-500/40"
         >
           <RotateCcw className="w-4 h-4" />
           <span>Reset</span>
@@ -153,25 +153,27 @@ export const DiscussionControls: React.FC<DiscussionControlsProps> = ({
 
         <button
           onClick={() => setShowAdvanced(!showAdvanced)}
-          className="flex items-center justify-center bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 px-2 py-2 rounded-lg transition-colors"
+          className="flex items-center justify-center bg-white/80 dark:bg-slate-700/80 hover:bg-white dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 px-3 py-3 rounded-xl transition-all duration-200 shadow-md border border-slate-200/50 dark:border-slate-600/50"
         >
           <Settings className="w-4 h-4" />
         </button>
       </div>
 
       {!canStart && (
-        <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 text-sm mb-4">
-          <AlertCircle className="w-4 h-4" />
-          <span>Add at least 2 agents to start</span>
+        <div className="flex items-center gap-3 text-amber-700 dark:text-amber-300 text-sm mb-6 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-800/50">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <span className="font-medium">Add at least 2 agents to start</span>
         </div>
       )}
 
       {/* Status Indicator */}
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-slate-600 dark:text-slate-400">Status</span>
+      <div className="flex items-center justify-between p-3 bg-white/60 dark:bg-slate-800/60 rounded-xl border border-slate-200/50 dark:border-slate-700/50">
+        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Status</span>
         <div className="flex items-center gap-2">
-          <Activity className={cn("w-4 h-4", isActive ? "text-green-500" : "text-slate-400")} />
-          <span className="text-slate-600 dark:text-slate-400">{isActive ? "Active" : "Inactive"}</span>
+          <Activity className={cn("w-4 h-4", isActive ? "text-emerald-500" : "text-slate-400")} />
+          <span className={cn("text-sm font-medium", isActive ? "text-emerald-600 dark:text-emerald-400" : "text-slate-600 dark:text-slate-400")}>
+            {isActive ? "Active" : "Inactive"}
+          </span>
         </div>
       </div>
 
