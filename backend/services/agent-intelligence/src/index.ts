@@ -103,7 +103,7 @@ class AgentIntelligenceService {
     this.app.use('/api/v1/discussions', createDiscussionRoutes(this.discussionController));
 
     // 404 handler
-    this.app.use('*', (req, res) => {
+    this.app.use((req, res) => {
       res.status(404).json({
         success: false,
         error: {

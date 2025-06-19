@@ -79,7 +79,7 @@ export class CapabilityRegistryApp {
     this.app.use('/api/v1/tools', toolRoutes);
 
     // 404 handler
-    this.app.use('*', (req, res) => {
+    this.app.use((req, res) => {
       res.status(404).json({
         success: false,
         error: {
