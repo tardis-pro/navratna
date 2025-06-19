@@ -17,18 +17,18 @@
     "@uaip/types": "workspace:*",
     "@uaip/utils": "workspace:*",
     "compression": "^1.8.0",
-    "cors": "^2.8.5",
-    "express": "^5.1.0",
+    "cors": "catalog:backend",
+    "express": "catalog:backend",
     "helmet": "^8.1.0"
   },
   "devDependencies": {
     "@types/compression": "^1.8.1",
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.3",
-    "@types/node": "^24.0.3",
-    "nodemon": "^3.1.10",
+    "@types/cors": "catalog:backend",
+    "@types/express": "catalog:backend",
+    "@types/node": "catalog:backend",
+    "nodemon": "catalog:backend",
     "tsx": "^4.20.3",
-    "typescript": "^5.8.3"
+    "typescript": "catalog:"
   },
   "keywords": [
     "uaip",

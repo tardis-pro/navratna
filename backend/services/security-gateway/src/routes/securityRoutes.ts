@@ -152,10 +152,12 @@ router.post('/assess-risk', authMiddleware, async (req, res) => {
   try {
     const { error, value } = validateWithZod(riskAssessmentSchema, req.body);
     if (error) {
-      return res.status(400).json({
+      res.status(400).json({
         error: 'Validation Error',
         details: error.details.map(d => d.message)
       });
+      return;
+        return;
     }
 
     const userId = (req as any).user.userId;
@@ -197,6 +199,8 @@ router.post('/assess-risk', authMiddleware, async (req, res) => {
       error: 'Internal Server Error',
       message: 'An error occurred during risk assessment'
     });
+      return;
+        return;
   }
 });
 
@@ -209,10 +213,12 @@ router.post('/check-approval-required', authMiddleware, async (req, res) => {
   try {
     const { error, value } = validateWithZod(riskAssessmentSchema, req.body);
     if (error) {
-      return res.status(400).json({
+      res.status(400).json({
         error: 'Validation Error',
         details: error.details.map(d => d.message)
       });
+      return;
+        return;
     }
 
     const userId = (req as any).user.userId;
@@ -242,6 +248,8 @@ router.post('/check-approval-required', authMiddleware, async (req, res) => {
       error: 'Internal Server Error',
       message: 'An error occurred during approval requirement check'
     });
+      return;
+        return;
   }
 });
 
@@ -286,6 +294,8 @@ router.get('/policies', authMiddleware, requireAdmin, async (req, res) => {
       error: 'Internal Server Error',
       message: 'An error occurred while retrieving security policies'
     });
+      return;
+        return;
   }
 });
 
@@ -301,10 +311,12 @@ router.get('/policies/:policyId', authMiddleware, requireAdmin, async (req, res)
     const policy = await databaseService.getSecurityPolicy(policyId);
     
     if (!policy) {
-      return res.status(404).json({
+      res.status(404).json({
         error: 'Policy Not Found',
         message: 'Security policy not found'
       });
+      return;
+        return;
     }
 
     res.json({
@@ -318,6 +330,8 @@ router.get('/policies/:policyId', authMiddleware, requireAdmin, async (req, res)
       error: 'Internal Server Error',
       message: 'An error occurred while retrieving the security policy'
     });
+      return;
+        return;
   }
 });
 
@@ -330,10 +344,12 @@ router.post('/policies', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { error, value } = validateWithZod(securityPolicySchema, req.body);
     if (error) {
-      return res.status(400).json({
+      res.status(400).json({
         error: 'Validation Error',
         details: error.details.map(d => d.message)
       });
+      return;
+        return;
     }
 
     const userId = (req as any).user.userId;
@@ -367,6 +383,8 @@ router.post('/policies', authMiddleware, requireAdmin, async (req, res) => {
       message: 'Security policy created successfully',
       policy: newPolicy
     });
+      return;
+        return;
 
   } catch (error) {
     logger.error('Create policy error', { error, userId: (req as any).user?.userId });
@@ -374,6 +392,8 @@ router.post('/policies', authMiddleware, requireAdmin, async (req, res) => {
       error: 'Internal Server Error',
       message: 'An error occurred while creating the security policy'
     });
+      return;
+        return;
   }
 });
 
@@ -387,10 +407,12 @@ router.put('/policies/:policyId', authMiddleware, requireAdmin, async (req, res)
     const { policyId } = req.params;
     const { error, value } = validateWithZod(updatePolicySchema, req.body);
     if (error) {
-      return res.status(400).json({
+      res.status(400).json({
         error: 'Validation Error',
         details: error.details.map(d => d.message)
       });
+      return;
+        return;
     }
 
     const userId = (req as any).user.userId;
@@ -399,27 +421,33 @@ router.put('/policies/:policyId', authMiddleware, requireAdmin, async (req, res)
     const existingPolicy = await databaseService.getSecurityPolicy(policyId);
 
     if (!existingPolicy) {
-      return res.status(404).json({
+      res.status(404).json({
         error: 'Policy Not Found',
         message: 'Security policy not found'
       });
+      return;
+        return;
     }
 
     if (Object.keys(value).length === 0) {
-      return res.status(400).json({
+      res.status(400).json({
         error: 'No Updates',
         message: 'No valid fields provided for update'
       });
+      return;
+        return;
     }
 
     // Update policy using DatabaseService
     const updatedPolicy = await databaseService.updateSecurityPolicy(policyId, value);
 
     if (!updatedPolicy) {
-      return res.status(500).json({
+      res.status(500).json({
         error: 'Update Failed',
         message: 'Failed to update security policy'
       });
+      return;
+        return;
     }
 
     const { auditService } = await getSecurityServices();
@@ -448,6 +476,8 @@ router.put('/policies/:policyId', authMiddleware, requireAdmin, async (req, res)
       error: 'Internal Server Error',
       message: 'An error occurred while updating the security policy'
     });
+      return;
+        return;
   }
 });
 
@@ -465,20 +495,24 @@ router.delete('/policies/:policyId', authMiddleware, requireAdmin, async (req, r
     const existingPolicy = await databaseService.getSecurityPolicy(policyId);
 
     if (!existingPolicy) {
-      return res.status(404).json({
+      res.status(404).json({
         error: 'Policy Not Found',
         message: 'Security policy not found'
       });
+      return;
+        return;
     }
 
     // Delete policy using DatabaseService
     const deleted = await databaseService.deleteSecurityPolicy(policyId);
 
     if (!deleted) {
-      return res.status(500).json({
+      res.status(500).json({
         error: 'Delete Failed',
         message: 'Failed to delete security policy'
       });
+      return;
+        return;
     }
 
     const { auditService } = await getSecurityServices();
@@ -505,6 +539,8 @@ router.delete('/policies/:policyId', authMiddleware, requireAdmin, async (req, r
       error: 'Internal Server Error',
       message: 'An error occurred while deleting the security policy'
     });
+      return;
+        return;
   }
 });
 
@@ -611,6 +647,8 @@ router.get('/stats', authMiddleware, requireAdmin, async (req, res) => {
       error: 'Internal Server Error',
       message: 'An error occurred while retrieving security statistics'
     });
+      return;
+        return;
   }
 });
 

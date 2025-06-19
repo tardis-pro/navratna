@@ -19,9 +19,9 @@
     "uuid": "^11.1.0"
   },
   "devDependencies": {
-    "@types/node": "^24.0.3",
+    "@types/node": "catalog:backend",
     "@types/uuid": "^10.0.0",
-    "typescript": "^5.8.3"
+    "typescript": "catalog:"
   },
   "files": [
     "dist",

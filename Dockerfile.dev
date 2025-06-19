@@ -1,4 +1,4 @@
-FROM node:20 AS development
+FROM node:22 AS development
 
 # Install pnpm and development tools for hot reloading
 RUN npm install -g pnpm nodemon tsx typescript

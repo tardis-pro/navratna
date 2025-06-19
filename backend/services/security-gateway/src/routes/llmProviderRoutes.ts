@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { 
   llmProviderManagementService,
   CreateLLMProviderRequest,
@@ -95,13 +95,19 @@ interface AuthenticatedRequest extends Request {
 const router: Router = Router();
 
 // Middleware to ensure admin access
-router.use((req: AuthenticatedRequest, res: Response, next) => {
+router.use((req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   if (!req.user) {
-    return res.status(401).json({ error: 'Authentication required' });
+    res.status(401).json({ error: 'Authentication required' });
+      return;
+        return;
+    return;
   }
 
   if (req.user.role !== 'admin' && req.user.role !== 'system') {
-    return res.status(403).json({ error: 'Admin access required' });
+    res.status(403).json({ error: 'Admin access required' });
+      return;
+        return;
+    return;
   }
 
   next();
@@ -122,6 +128,8 @@ router.get('/providers', async (req: AuthenticatedRequest, res: Response) => {
       success: false,
       error: 'Failed to get LLM providers'
     });
+      return;
+        return;
   }
 });
 
@@ -140,6 +148,8 @@ router.get('/providers/active', async (req: AuthenticatedRequest, res: Response)
       success: false,
       error: 'Failed to get active LLM providers'
     });
+      return;
+        return;
   }
 });
 
@@ -150,10 +160,13 @@ router.get('/providers/:id', async (req: AuthenticatedRequest, res: Response) =>
     const provider = await llmProviderManagementService.getProviderById(id);
     
     if (!provider) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         error: 'LLM provider not found'
       });
+      return;
+        return;
+      return;
     }
 
     res.json({
@@ -166,6 +179,8 @@ router.get('/providers/:id', async (req: AuthenticatedRequest, res: Response) =>
       success: false,
       error: 'Failed to get LLM provider'
     });
+      return;
+        return;
   }
 });
 
@@ -182,6 +197,8 @@ router.post('/providers', async (req: AuthenticatedRequest, res: Response) => {
       success: true,
       data: provider
     });
+      return;
+        return;
   } catch (error) {
     logger.error('Error creating LLM provider', { 
       error, 
@@ -194,11 +211,15 @@ router.post('/providers', async (req: AuthenticatedRequest, res: Response) => {
         success: false,
         error: error.message
       });
+      return;
+        return;
     } else {
       res.status(500).json({
         success: false,
         error: 'Failed to create LLM provider'
       });
+      return;
+        return;
     }
   }
 });
@@ -231,6 +252,8 @@ router.put('/providers/:id', async (req: AuthenticatedRequest, res: Response) =>
       success: false,
       error: 'Failed to update LLM provider'
     });
+      return;
+        return;
   }
 });
 
@@ -256,6 +279,8 @@ router.delete('/providers/:id', async (req: AuthenticatedRequest, res: Response)
       success: false,
       error: 'Failed to delete LLM provider'
     });
+      return;
+        return;
   }
 });
 
@@ -281,6 +306,8 @@ router.post('/providers/:id/test', async (req: AuthenticatedRequest, res: Respon
       success: false,
       error: 'Failed to test LLM provider connection'
     });
+      return;
+        return;
   }
 });
 
@@ -299,6 +326,8 @@ router.get('/providers/statistics', async (req: AuthenticatedRequest, res: Respo
       success: false,
       error: 'Failed to get LLM provider statistics'
     });
+      return;
+        return;
   }
 });
 

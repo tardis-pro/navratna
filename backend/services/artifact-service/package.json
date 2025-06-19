@@ -14,24 +14,24 @@
     "@uaip/shared-services": "workspace:*",
     "@uaip/types": "workspace:*",
     "@uaip/utils": "workspace:*",
-    "cors": "^2.8.5",
-    "express": "^5.1.0",
+    "cors": "catalog:backend",
+    "express": "catalog:backend",
     "helmet": "^8.1.0",
-    "zod": "^3.25.67"
+    "zod": "catalog:"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.3",
+    "@types/cors": "catalog:backend",
+    "@types/express": "catalog:backend",
     "@types/jest": "^30.0.0",
-    "@types/node": "^24.0.3",
-    "@typescript-eslint/eslint-plugin": "^8.34.1",
-    "@typescript-eslint/parser": "^8.34.1",
-    "eslint": "^9.29.0",
+    "@types/node": "catalog:backend",
+    "@typescript-eslint/eslint-plugin": "catalog:",
+    "@typescript-eslint/parser": "catalog:",
+    "eslint": "catalog:",
     "jest": "^30.0.2",
-    "nodemon": "^3.1.10",
-    "ts-node": "^10.9.2",
+    "nodemon": "catalog:backend",
+    "ts-node": "catalog:backend",
     "tsx": "^4.20.3",
-    "typescript": "^5.8.3"
+    "typescript": "catalog:"
   },
   "keywords": [
     "uaip",

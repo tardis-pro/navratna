@@ -83,10 +83,13 @@ router.get('/logs', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { error, value } = validateWithZod(auditQuerySchema, req.query);
     if (error) {
-      return res.status(400).json({
+      res.status(400).json({
         error: 'Validation Error',
         details: error.details.map(d => d.message)
       });
+      return;
+        return;
+      return;
     }
 
     const {
@@ -144,6 +147,8 @@ router.get('/logs', authMiddleware, requireAdmin, async (req, res) => {
       error: 'Internal Server Error',
       message: 'An error occurred while retrieving audit logs'
     });
+      return;
+        return;
   }
 });
 
@@ -160,10 +165,13 @@ router.get('/logs/:logId', authMiddleware, requireAdmin, async (req, res) => {
     const log = await databaseService.getAuditLogById(logId);
 
     if (!log) {
-      return res.status(404).json({
+      res.status(404).json({
         error: 'Log Not Found',
         message: 'Audit log entry not found'
       });
+      return;
+        return;
+      return;
     }
 
     res.json({
@@ -177,6 +185,8 @@ router.get('/logs/:logId', authMiddleware, requireAdmin, async (req, res) => {
       error: 'Internal Server Error',
       message: 'An error occurred while retrieving the audit log'
     });
+      return;
+        return;
   }
 });
 
@@ -201,6 +211,8 @@ router.get('/events/types', authMiddleware, requireAdmin, async (req, res) => {
       error: 'Internal Server Error',
       message: 'An error occurred while retrieving event types'
     });
+      return;
+        return;
   }
 });
 
@@ -234,6 +246,8 @@ router.get('/stats', authMiddleware, requireAdmin, async (req, res) => {
       error: 'Internal Server Error',
       message: 'An error occurred while retrieving audit statistics'
     });
+      return;
+        return;
   }
 });
 
@@ -246,10 +260,13 @@ router.post('/export', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { error, value } = validateWithZod(exportSchema, req.body);
     if (error) {
-      return res.status(400).json({
+      res.status(400).json({
         error: 'Validation Error',
         details: error.details.map(d => d.message)
       });
+      return;
+        return;
+      return;
     }
 
     const { startDate, endDate, format } = value;
@@ -294,15 +311,18 @@ router.post('/export', authMiddleware, requireAdmin, async (req, res) => {
         res.setHeader('Content-Disposition', `attachment; filename="audit-logs-${new Date().toISOString().split('T')[0]}.json"`);
     }
 
-    res.json({
-      message: 'Audit logs exported successfully',
-      format,
-      recordCount: parsedData.recordCount,
-      exportedAt: new Date().toISOString()
-    });
-
-    // Send the actual data
-    res.send(parsedData.data || exportData);
+    // Send the actual data with appropriate headers
+    if (value.format === 'json') {
+      res.json({
+        message: 'Audit logs exported successfully',
+        format,
+        recordCount: parsedData.recordCount,
+        exportedAt: new Date().toISOString(),
+        data: parsedData.data || exportData
+      });
+    } else {
+      res.send(parsedData.data || exportData);
+    }
 
   } catch (error) {
     logger.error('Export audit logs error', { error, userId: (req as any).user?.userId });
@@ -310,6 +330,8 @@ router.post('/export', authMiddleware, requireAdmin, async (req, res) => {
       error: 'Internal Server Error',
       message: 'An error occurred while exporting audit logs'
     });
+      return;
+        return;
   }
 });
 
@@ -322,10 +344,13 @@ router.post('/compliance-report', authMiddleware, requireAdmin, async (req, res)
   try {
     const { error, value } = validateWithZod(complianceReportSchema, req.body);
     if (error) {
-      return res.status(400).json({
+      res.status(400).json({
         error: 'Validation Error',
         details: error.details.map(d => d.message)
       });
+      return;
+        return;
+      return;
     }
 
     const { startDate, endDate, format, includeDetails, complianceFramework } = value;
@@ -363,6 +388,8 @@ router.post('/compliance-report', authMiddleware, requireAdmin, async (req, res)
       error: 'Internal Server Error',
       message: 'An error occurred while generating the compliance report'
     });
+      return;
+        return;
   }
 });
 
@@ -379,10 +406,12 @@ router.get('/user-activity/:userId', authMiddleware, requireAdmin, async (req, r
     // Validate userId format
     // const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     // if (!uuidRegex.test(userId)) {
-    //   return res.status(400).json({
+    //   res.status(400).json({
     //     error: 'Invalid User ID',
     //     message: 'User ID must be a valid UUID'
     //   });
+      return;
+        return;
     // }
 
     // Calculate offset for pagination
@@ -418,6 +447,8 @@ router.get('/user-activity/:userId', authMiddleware, requireAdmin, async (req, r
       error: 'Internal Server Error',
       message: 'An error occurred while retrieving user activity'
     });
+      return;
+        return;
   }
 });
 
@@ -453,6 +484,8 @@ router.delete('/cleanup', authMiddleware, requireAdmin, async (req, res) => {
       error: 'Internal Server Error',
       message: 'An error occurred during audit cleanup'
     });
+      return;
+        return;
   }
 });
 

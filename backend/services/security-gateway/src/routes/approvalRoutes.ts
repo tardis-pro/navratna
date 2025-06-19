@@ -143,6 +143,8 @@ router.post('/workflows',
         },
         message: 'Approval workflow created successfully'
       });
+      return;
+        return;
 
     } catch (error) {
       logger.error('Failed to create approval workflow', {

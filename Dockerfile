@@ -1,4 +1,4 @@
-FROM node:20 AS base
+FROM node:22 AS base
 
 # Install build dependencies for native modules
 RUN npm install -g pnpm typescript

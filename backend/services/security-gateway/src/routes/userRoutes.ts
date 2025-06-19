@@ -183,6 +183,8 @@ router.get('/',
         error: 'Internal Server Error',
         message: 'An error occurred while retrieving users'
       });
+      return;
+        return;
     }
   });
 
@@ -199,10 +201,12 @@ router.get('/:userId', authMiddleware, requireAdmin, async (req, res) => {
     const user = await databaseService.getUserById(userId);
 
     if (!user) {
-      return res.status(404).json({
+      res.status(404).json({
         error: 'User Not Found',
         message: 'User not found'
       });
+      return;
+        return;
     }
 
     // Remove sensitive data from response
@@ -219,6 +223,8 @@ router.get('/:userId', authMiddleware, requireAdmin, async (req, res) => {
       error: 'Internal Server Error',
       message: 'An error occurred while retrieving the user'
     });
+      return;
+        return;
   }
 });
 
@@ -231,10 +237,12 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { error, value } = validateWithZod(createUserSchema, req.body);
     if (error) {
-      return res.status(400).json({
+      res.status(400).json({
         error: 'Validation Error',
         details: error.details.map(d => d.message)
       });
+      return;
+        return;
     }
 
     const adminUserId = (req as any).user.userId;
@@ -243,10 +251,12 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
     const existingUser = await databaseService.getUserByEmail(value.email);
 
     if (existingUser) {
-      return res.status(409).json({
+      res.status(409).json({
         error: 'User Already Exists',
         message: 'A user with this email already exists'
       });
+      return;
+        return;
     }
 
     // Hash password
@@ -303,6 +313,8 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
       message: 'User created successfully',
       user: userResponse
     });
+      return;
+        return;
 
   } catch (error) {
     logger.error('Create user error', { error, adminUserId: (req as any).user?.userId });
@@ -310,6 +322,8 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
       error: 'Internal Server Error',
       message: 'An error occurred while creating the user'
     });
+      return;
+        return;
   }
 });
 
@@ -323,10 +337,12 @@ router.put('/:userId', authMiddleware, requireAdmin, async (req, res) => {
     const { userId } = req.params;
     const { error, value } = validateWithZod(updateUserSchema, req.body);
     if (error) {
-      return res.status(400).json({
+      res.status(400).json({
         error: 'Validation Error',
         details: error.details.map(d => d.message)
       });
+      return;
+        return;
     }
 
     const adminUserId = (req as any).user.userId;
@@ -335,10 +351,12 @@ router.put('/:userId', authMiddleware, requireAdmin, async (req, res) => {
     const currentUser = await databaseService.getUserById(userId);
 
     if (!currentUser) {
-      return res.status(404).json({
+      res.status(404).json({
         error: 'User Not Found',
         message: 'User not found'
       });
+      return;
+        return;
     }
 
     // Check if email is being changed and if it conflicts
@@ -346,20 +364,24 @@ router.put('/:userId', authMiddleware, requireAdmin, async (req, res) => {
       const emailCheck = await databaseService.getUserByEmail(value.email);
 
       if (emailCheck && emailCheck.id !== userId) {
-        return res.status(409).json({
+        res.status(409).json({
           error: 'Email Already Exists',
           message: 'Another user with this email already exists'
         });
+      return;
+        return;
       }
     }
 
     // Check if there are any fields to update
     const hasUpdates = Object.keys(value).length > 0;
     if (!hasUpdates) {
-      return res.status(400).json({
+      res.status(400).json({
         error: 'No Updates',
         message: 'No valid fields provided for update'
       });
+      return;
+        return;
     }
 
     // Update user using DatabaseService
@@ -383,10 +405,12 @@ router.put('/:userId', authMiddleware, requireAdmin, async (req, res) => {
     }
 
     if (!updatedUser) {
-      return res.status(500).json({
+      res.status(500).json({
         error: 'Update Failed',
         message: 'Failed to update user'
       });
+      return;
+        return;
     }
 
     await auditService.logSecurityEvent({
@@ -419,6 +443,8 @@ router.put('/:userId', authMiddleware, requireAdmin, async (req, res) => {
       error: 'Internal Server Error',
       message: 'An error occurred while updating the user'
     });
+      return;
+        return;
   }
 });
 
@@ -434,30 +460,36 @@ router.delete('/:userId', authMiddleware, requireAdmin, async (req, res) => {
 
     // Prevent self-deletion
     if (userId === adminUserId) {
-      return res.status(400).json({
+      res.status(400).json({
         error: 'Cannot Delete Self',
         message: 'You cannot delete your own account'
       });
+      return;
+        return;
     }
 
     // Check if user exists using DatabaseService
     const user = await databaseService.getUserById(userId);
 
     if (!user) {
-      return res.status(404).json({
+      res.status(404).json({
         error: 'User Not Found',
         message: 'User not found'
       });
+      return;
+        return;
     }
 
     // Soft delete using DatabaseService (deactivates user)
     const deleted = await databaseService.deleteUser(userId);
 
     if (!deleted) {
-      return res.status(500).json({
+      res.status(500).json({
         error: 'Delete Failed',
         message: 'Failed to delete user'
       });
+      return;
+        return;
     }
 
     // Revoke all refresh tokens using DatabaseService
@@ -485,6 +517,8 @@ router.delete('/:userId', authMiddleware, requireAdmin, async (req, res) => {
       error: 'Internal Server Error',
       message: 'An error occurred while deleting the user'
     });
+      return;
+        return;
   }
 });
 
@@ -498,10 +532,12 @@ router.post('/:userId/reset-password', authMiddleware, requireAdmin, async (req,
     const { userId } = req.params;
     const { error, value } = validateWithZod(resetPasswordSchema, req.body);
     if (error) {
-      return res.status(400).json({
+      res.status(400).json({
         error: 'Validation Error',
         details: error.details.map(d => d.message)
       });
+      return;
+        return;
     }
 
     const adminUserId = (req as any).user.userId;
@@ -510,10 +546,12 @@ router.post('/:userId/reset-password', authMiddleware, requireAdmin, async (req,
     const user = await databaseService.getUserById(userId);
 
     if (!user) {
-      return res.status(404).json({
+      res.status(404).json({
         error: 'User Not Found',
         message: 'User not found'
       });
+      return;
+        return;
     }
 
     // Generate new password if not provided
@@ -569,6 +607,8 @@ router.post('/:userId/reset-password', authMiddleware, requireAdmin, async (req,
       error: 'Internal Server Error',
       message: 'An error occurred while resetting the password'
     });
+      return;
+        return;
   }
 });
 
@@ -586,10 +626,12 @@ router.post('/:userId/unlock', authMiddleware, requireAdmin, async (req, res) =>
     const user = await databaseService.getUserById(userId);
 
     if (!user) {
-      return res.status(404).json({
+      res.status(404).json({
         error: 'User Not Found',
         message: 'User not found'
       });
+      return;
+        return;
     }
 
     // Unlock the account using DatabaseService
@@ -618,6 +660,8 @@ router.post('/:userId/unlock', authMiddleware, requireAdmin, async (req, res) =>
       error: 'Internal Server Error',
       message: 'An error occurred while unlocking the user account'
     });
+      return;
+        return;
   }
 });
 
@@ -630,10 +674,12 @@ router.post('/bulk-action', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { error, value } = validateWithZod(bulkActionSchema, req.body);
     if (error) {
-      return res.status(400).json({
+      res.status(400).json({
         error: 'Validation Error',
         details: error.details.map(d => d.message)
       });
+      return;
+        return;
     }
 
     const adminUserId = (req as any).user.userId;
@@ -641,10 +687,12 @@ router.post('/bulk-action', authMiddleware, requireAdmin, async (req, res) => {
 
     // Prevent admin from performing bulk actions on themselves
     if (userIds.includes(adminUserId)) {
-      return res.status(400).json({
+      res.status(400).json({
         error: 'Cannot Perform Action on Self',
         message: 'You cannot perform bulk actions on your own account'
       });
+      return;
+        return;
     }
 
     const results: {
@@ -728,6 +776,8 @@ router.post('/bulk-action', authMiddleware, requireAdmin, async (req, res) => {
       error: 'Internal Server Error',
       message: 'An error occurred while performing bulk action'
     });
+      return;
+        return;
   }
 });
 
@@ -767,6 +817,8 @@ router.get('/stats', authMiddleware, requireAdmin, async (req, res) => {
       error: 'Internal Server Error',
       message: 'An error occurred while retrieving user statistics'
     });
+      return;
+        return;
   }
 });
 
