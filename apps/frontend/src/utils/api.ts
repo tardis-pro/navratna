@@ -1927,6 +1927,123 @@ export class UAIPAPIClient {
       });
     }
   };
+
+  // User-specific LLM methods (using user LLM routes)
+  userLLM = {
+    getProviders: async (): Promise<APIResponse<Array<{
+      id: string;
+      name: string;
+      description?: string;
+      type: string;
+      baseUrl: string;
+      defaultModel?: string;
+      status: string;
+      isActive: boolean;
+      priority: number;
+      totalTokensUsed: number;
+      totalRequests: number;
+      totalErrors: number;
+      lastUsedAt?: string;
+      healthCheckResult?: any;
+      hasApiKey: boolean;
+      createdAt: string;
+      updatedAt: string;
+    }>>> => {
+      return this.request(`${API_ROUTES.USER_LLM}/providers`, {
+        method: 'GET',
+      });
+    },
+
+    createProvider: async (providerData: {
+      name: string;
+      description?: string;
+      type: string;
+      baseUrl: string;
+      apiKey?: string;
+      defaultModel?: string;
+      configuration?: any;
+      priority?: number;
+    }): Promise<APIResponse<any>> => {
+      return this.request(`${API_ROUTES.USER_LLM}/providers`, {
+        method: 'POST',
+        body: JSON.stringify(providerData),
+      });
+    },
+
+    updateProviderConfig: async (providerId: string, config: {
+      name?: string;
+      description?: string;
+      baseUrl?: string;
+      defaultModel?: string;
+      priority?: number;
+      configuration?: any;
+    }): Promise<APIResponse<void>> => {
+      return this.request(`${API_ROUTES.USER_LLM}/providers/${providerId}`, {
+        method: 'PUT',
+        body: JSON.stringify(config),
+      });
+    },
+
+    updateProviderApiKey: async (providerId: string, apiKey: string): Promise<APIResponse<void>> => {
+      return this.request(`${API_ROUTES.USER_LLM}/providers/${providerId}/api-key`, {
+        method: 'PUT',
+        body: JSON.stringify({ apiKey }),
+      });
+    },
+
+    testProvider: async (providerId: string): Promise<APIResponse<any>> => {
+      return this.request(`${API_ROUTES.USER_LLM}/providers/${providerId}/test`, {
+        method: 'POST',
+      });
+    },
+
+    deleteProvider: async (providerId: string): Promise<APIResponse<void>> => {
+      return this.request(`${API_ROUTES.USER_LLM}/providers/${providerId}`, {
+        method: 'DELETE',
+      });
+    },
+
+    getModels: async (): Promise<APIResponse<Array<{
+      id: string;
+      name: string;
+      description?: string;
+      source: string;
+      apiEndpoint: string;
+      apiType: 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom';
+      provider: string;
+      isAvailable: boolean;
+    }>>> => {
+      return this.request(`${API_ROUTES.USER_LLM}/models`, {
+        method: 'GET',
+      });
+    },
+
+    generateResponse: async (request: {
+      prompt: string;
+      systemPrompt?: string;
+      maxTokens?: number;
+      temperature?: number;
+      model?: string;
+      preferredType?: string;
+    }): Promise<APIResponse<any>> => {
+      return this.request(`${API_ROUTES.USER_LLM}/generate`, {
+        method: 'POST',
+        body: JSON.stringify(request),
+      });
+    },
+
+    generateAgentResponse: async (request: {
+      agent: any;
+      messages: any[];
+      context?: any;
+      tools?: any[];
+    }): Promise<APIResponse<any>> => {
+      return this.request(`${API_ROUTES.USER_LLM}/agent-response`, {
+        method: 'POST',
+        body: JSON.stringify(request),
+      });
+    }
+  };
 }
 
 // ============================================================================

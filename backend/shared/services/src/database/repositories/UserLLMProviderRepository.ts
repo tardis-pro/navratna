@@ -106,10 +106,12 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
     priority?: number;
   }): Promise<UserLLMProvider> {
     try {
-      // Check if user already has this provider type
-      const existing = await this.findByUserAndType(data.userId, data.type);
-      if (existing) {
-        throw new Error(`User already has a ${data.type} provider configured`);
+      // Check if user already has a provider with this name
+      const existingByName = await this.repository.findOne({ 
+        where: { userId: data.userId, name: data.name } 
+      });
+      if (existingByName) {
+        throw new Error(`Provider name "${data.name}" is already in use. Please choose a different name.`);
       }
 
       const provider = this.repository.create({
@@ -138,6 +140,47 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
       return savedProvider;
     } catch (error) {
       logger.error('Error creating user LLM provider', { data, error });
+      throw error;
+    }
+  }
+
+  /**
+   * Update provider configuration
+   */
+  async updateProviderConfig(id: string, userId: string, config: {
+    name?: string;
+    description?: string;
+    baseUrl?: string;
+    defaultModel?: string;
+    priority?: number;
+    configuration?: any;
+  }): Promise<void> {
+    try {
+      const provider = await this.repository.findOne({ where: { id, userId } });
+      if (!provider) {
+        throw new Error(`User LLM provider with id ${id} not found for user ${userId}`);
+      }
+
+      // Update only provided fields
+      if (config.name !== undefined) provider.name = config.name;
+      if (config.description !== undefined) provider.description = config.description;
+      if (config.baseUrl !== undefined) provider.baseUrl = config.baseUrl;
+      if (config.defaultModel !== undefined) provider.defaultModel = config.defaultModel;
+      if (config.priority !== undefined) provider.priority = config.priority;
+      if (config.configuration !== undefined) provider.configuration = config.configuration;
+      
+      provider.updatedAt = new Date();
+      
+      await this.repository.save(provider);
+      
+      logger.info('Updated user LLM provider configuration', { 
+        id, 
+        userId, 
+        name: provider.name,
+        updatedFields: Object.keys(config)
+      });
+    } catch (error) {
+      logger.error('Error updating user LLM provider configuration', { id, userId, config, error });
       throw error;
     }
   }
@@ -325,6 +368,24 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
       });
     } catch (error) {
       logger.error('Error getting user providers needing health check', { userId, error });
+      throw error;
+    }
+  }
+
+  /**
+   * Find all providers of a specific type for a user
+   */
+  async findProvidersByUserAndType(userId: string, type: UserLLMProviderType): Promise<UserLLMProvider[]> {
+    try {
+      return await this.repository.find({
+        where: { userId, type, isActive: true },
+        order: { 
+          priority: 'ASC',
+          lastUsedAt: 'ASC'
+        }
+      });
+    } catch (error) {
+      logger.error('Error finding user LLM providers by type', { userId, type, error });
       throw error;
     }
   }

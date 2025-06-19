@@ -52,6 +52,7 @@ export interface AgentState {
   // Model Configuration
   modelId: string;
   apiType: 'ollama' | 'llmstudio';
+  providerId?: string; // ID of the selected model provider
   
   // Persona & Behavior (hybrid - some persisted, some runtime)
   personaId?: string; // Frontend persona (rich)
@@ -207,6 +208,87 @@ export interface AgentContextValue {
   approveToolExecution: (executionId: string, approverId: string) => Promise<boolean>;
   getToolUsageHistory: (agentId: string) => ToolUsageRecord[];
   updateToolPermissions: (agentId: string, permissions: Partial<ToolPermissionSet>) => void;
+  setAgentModel: (agentId: string, modelId: string, providerId: string) => void;
+  
+  // Model Provider Management
+  modelState: {
+    providers: Array<{
+      id: string;
+      name: string;
+      description?: string;
+      type: string;
+      baseUrl: string;
+      defaultModel?: string;
+      status: string;
+      isActive: boolean;
+      priority: number;
+      totalTokensUsed: number;
+      totalRequests: number;
+      totalErrors: number;
+      lastUsedAt?: string;
+      healthCheckResult?: any;
+      hasApiKey: boolean;
+      createdAt: string;
+      updatedAt: string;
+    }>;
+    models: Array<{
+      id: string;
+      name: string;
+      description?: string;
+      source: string;
+      apiEndpoint: string;
+      apiType: 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom';
+      provider: string;
+      isAvailable: boolean;
+    }>;
+    loadingProviders: boolean;
+    loadingModels: boolean;
+    providersError: string | null;
+    modelsError: string | null;
+  };
+  loadProviders: () => Promise<void>;
+  loadModels: () => Promise<void>;
+  refreshModelData: () => Promise<void>;
+  createProvider: (providerData: {
+    name: string;
+    description?: string;
+    type: string;
+    baseUrl: string;
+    apiKey?: string;
+    defaultModel?: string;
+    configuration?: any;
+    priority?: number;
+  }) => Promise<boolean>;
+  updateProvider: (providerId: string, config: {
+    name?: string;
+    description?: string;
+    baseUrl?: string;
+    defaultModel?: string;
+    priority?: number;
+    configuration?: any;
+  }) => Promise<boolean>;
+  testProvider: (providerId: string) => Promise<any>;
+  deleteProvider: (providerId: string) => Promise<boolean>;
+  getModelsForProvider: (providerId: string) => Array<{
+    id: string;
+    name: string;
+    description?: string;
+    source: string;
+    apiEndpoint: string;
+    apiType: 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom';
+    provider: string;
+    isAvailable: boolean;
+  }>;
+  getRecommendedModels: (agentRole?: string) => Array<{
+    id: string;
+    name: string;
+    description?: string;
+    source: string;
+    apiEndpoint: string;
+    apiType: 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom';
+    provider: string;
+    isAvailable: boolean;
+  }>;
   
   // UAIP Backend Flow Integration
   agentIntelligence: {

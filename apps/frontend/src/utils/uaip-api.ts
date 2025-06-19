@@ -1006,7 +1006,7 @@ export const uaipAPI = {
   },
 
   // ============================================================================
-  // LLM API METHODS
+  // LLM API METHODS (User-specific)
   // ============================================================================
   
   llm: {
@@ -1021,7 +1021,7 @@ export const uaipAPI = {
       isAvailable: boolean;
     }>> {
       const client = getAPIClient();
-      const response = await client.llm.getModels();
+      const response = await client.userLLM.getModels();
       
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to fetch models');
@@ -1030,34 +1030,27 @@ export const uaipAPI = {
       return response.data!;
     },
 
-    async getModelsFromProvider(providerType: string): Promise<Array<{
+    async getProviders(): Promise<Array<{
       id: string;
       name: string;
       description?: string;
-      source: string;
-      apiEndpoint: string;
-    }>> {
-      const client = getAPIClient();
-      const response = await client.llm.getModelsFromProvider(providerType);
-      
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to fetch models from provider');
-      }
-      
-      return response.data!;
-    },
-
-    async getProviders(): Promise<Array<{
-      name: string;
       type: string;
       baseUrl: string;
-      isActive: boolean;
       defaultModel?: string;
-      modelCount: number;
-      status: 'active' | 'inactive' | 'error';
+      status: string;
+      isActive: boolean;
+      priority: number;
+      totalTokensUsed: number;
+      totalRequests: number;
+      totalErrors: number;
+      lastUsedAt?: string;
+      healthCheckResult?: any;
+      hasApiKey: boolean;
+      createdAt: string;
+      updatedAt: string;
     }>> {
       const client = getAPIClient();
-      const response = await client.llm.getProviders();
+      const response = await client.userLLM.getProviders();
       
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to fetch providers');
@@ -1066,19 +1059,69 @@ export const uaipAPI = {
       return response.data!;
     },
 
-    async getProviderStats(): Promise<Array<{
+    async createProvider(providerData: {
       name: string;
+      description?: string;
       type: string;
-      available: boolean;
-    }>> {
+      baseUrl: string;
+      apiKey?: string;
+      defaultModel?: string;
+      configuration?: any;
+      priority?: number;
+    }): Promise<any> {
       const client = getAPIClient();
-      const response = await client.llm.getProviderStats();
+      const response = await client.userLLM.createProvider(providerData);
       
       if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to fetch provider stats');
+        throw new Error(response.error?.message || 'Failed to create provider');
       }
       
       return response.data!;
+    },
+
+    async updateProviderConfig(providerId: string, config: {
+      name?: string;
+      description?: string;
+      baseUrl?: string;
+      defaultModel?: string;
+      priority?: number;
+      configuration?: any;
+    }): Promise<void> {
+      const client = getAPIClient();
+      const response = await client.userLLM.updateProviderConfig(providerId, config);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to update provider configuration');
+      }
+    },
+
+    async updateProviderApiKey(providerId: string, apiKey: string): Promise<void> {
+      const client = getAPIClient();
+      const response = await client.userLLM.updateProviderApiKey(providerId, apiKey);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to update API key');
+      }
+    },
+
+    async testProvider(providerId: string): Promise<any> {
+      const client = getAPIClient();
+      const response = await client.userLLM.testProvider(providerId);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to test provider');
+      }
+      
+      return response.data!;
+    },
+
+    async deleteProvider(providerId: string): Promise<void> {
+      const client = getAPIClient();
+      const response = await client.userLLM.deleteProvider(providerId);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to delete provider');
+      }
     },
 
     async generateResponse(request: {
@@ -1090,7 +1133,7 @@ export const uaipAPI = {
       preferredType?: string;
     }): Promise<any> {
       const client = getAPIClient();
-      const response = await client.llm.generateResponse(request);
+      const response = await client.userLLM.generateResponse(request);
       
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to generate response');
@@ -1106,13 +1149,45 @@ export const uaipAPI = {
       tools?: any[];
     }): Promise<any> {
       const client = getAPIClient();
-      const response = await client.llm.generateAgentResponse(request);
+      const response = await client.userLLM.generateAgentResponse(request);
       
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to generate agent response');
       }
       
       return response.data!;
+    },
+
+    // Legacy methods for backward compatibility
+    async getModelsFromProvider(providerType: string): Promise<Array<{
+      id: string;
+      name: string;
+      description?: string;
+      source: string;
+      apiEndpoint: string;
+    }>> {
+      // This method is not available in user LLM routes, so we'll return empty array
+      console.warn('getModelsFromProvider is not available in user LLM routes');
+      return [];
+    },
+
+    async getProviderStats(): Promise<Array<{
+      name: string;
+      type: string;
+      available: boolean;
+    }>> {
+      try {
+        // Convert user providers to provider stats format
+        const providers = await this.getProviders();
+        return providers.map(provider => ({
+          name: provider.name,
+          type: provider.type,
+          available: provider.isActive && provider.status === 'active'
+        }));
+      } catch (error) {
+        console.warn('Failed to get user provider stats, returning empty array:', error);
+        return [];
+      }
     },
 
     async generateArtifact(request: {
@@ -1122,14 +1197,13 @@ export const uaipAPI = {
       framework?: string;
       requirements?: string[];
     }): Promise<any> {
-      const client = getAPIClient();
-      const response = await client.llm.generateArtifact(request);
-      
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to generate artifact');
-      }
-      
-      return response.data!;
+      // Use general generate response for artifacts
+      return this.generateResponse({
+        prompt: `Generate a ${request.type} ${request.language ? `in ${request.language}` : ''} based on: ${request.prompt}`,
+        systemPrompt: `You are an expert ${request.type} generator. Generate clean, well-structured code.`,
+        maxTokens: 2000,
+        temperature: 0.3
+      });
     },
 
     async analyzeContext(request: {
@@ -1138,14 +1212,14 @@ export const uaipAPI = {
       userRequest?: string;
       agentCapabilities?: string[];
     }): Promise<any> {
-      const client = getAPIClient();
-      const response = await client.llm.analyzeContext(request);
-      
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to analyze context');
-      }
-      
-      return response.data!;
+      // Use general generate response for context analysis
+      const prompt = `Analyze the following conversation context: ${JSON.stringify(request)}`;
+      return this.generateResponse({
+        prompt,
+        systemPrompt: 'You are an expert conversation analyst. Provide structured insights.',
+        maxTokens: 1000,
+        temperature: 0.2
+      });
     }
   },
 

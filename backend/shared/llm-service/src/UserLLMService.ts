@@ -17,12 +17,21 @@ import { DatabaseService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 
 export class UserLLMService {
-  private userLLMProviderRepository: UserLLMProviderRepository;
+  private userLLMProviderRepository: UserLLMProviderRepository | null = null;
   private providerCache: Map<string, BaseProvider> = new Map(); // Cache providers by user+type
 
   constructor() {
-    const databaseService = DatabaseService.getInstance();
-    this.userLLMProviderRepository = databaseService.userLLMProviderRepository;
+    // Don't initialize repository in constructor - use lazy initialization
+  }
+
+  // Lazy initialization of repository
+  private async getUserLLMProviderRepository(): Promise<UserLLMProviderRepository> {
+    if (!this.userLLMProviderRepository) {
+      const databaseService = DatabaseService.getInstance();
+      await databaseService.initialize(); // Ensure database is initialized
+      this.userLLMProviderRepository = databaseService.userLLMProviderRepository;
+    }
+    return this.userLLMProviderRepository;
   }
 
   // Provider Management Methods
@@ -41,7 +50,8 @@ export class UserLLMService {
     priority?: number;
   }): Promise<UserLLMProvider> {
     try {
-      const provider = await this.userLLMProviderRepository.createUserProvider({
+      const repository = await this.getUserLLMProviderRepository();
+      const provider = await repository.createUserProvider({
         userId,
         ...data
       });
@@ -68,7 +78,8 @@ export class UserLLMService {
    */
   async getUserProviders(userId: string): Promise<UserLLMProvider[]> {
     try {
-      return await this.userLLMProviderRepository.findAllProvidersByUser(userId);
+      const repository = await this.getUserLLMProviderRepository();
+      return await repository.findAllProvidersByUser(userId);
     } catch (error) {
       logger.error('Error getting user LLM providers', { userId, error });
       throw error;
@@ -80,9 +91,48 @@ export class UserLLMService {
    */
   async getActiveUserProviders(userId: string): Promise<UserLLMProvider[]> {
     try {
-      return await this.userLLMProviderRepository.findActiveProvidersByUser(userId);
+      const repository = await this.getUserLLMProviderRepository();
+      return await repository.findActiveProvidersByUser(userId);
     } catch (error) {
       logger.error('Error getting active user LLM providers', { userId, error });
+      throw error;
+    }
+  }
+
+  /**
+   * Get providers by type for a user
+   */
+  async getUserProvidersByType(userId: string, type: UserLLMProviderType): Promise<UserLLMProvider[]> {
+    try {
+      const repository = await this.getUserLLMProviderRepository();
+      return await repository.findProvidersByUserAndType(userId, type);
+    } catch (error) {
+      logger.error('Error getting user LLM providers by type', { userId, type, error });
+      throw error;
+    }
+  }
+
+  /**
+   * Update a user's provider configuration
+   */
+  async updateUserProviderConfig(userId: string, providerId: string, config: {
+    name?: string;
+    description?: string;
+    baseUrl?: string;
+    defaultModel?: string;
+    priority?: number;
+    configuration?: any;
+  }): Promise<void> {
+    try {
+      const repository = await this.getUserLLMProviderRepository();
+      await repository.updateProviderConfig(providerId, userId, config);
+      
+      // Clear cache for this user
+      this.clearUserCache(userId);
+
+      logger.info('Updated user LLM provider configuration', { userId, providerId, config });
+    } catch (error) {
+      logger.error('Error updating user LLM provider configuration', { userId, providerId, config, error });
       throw error;
     }
   }
@@ -92,7 +142,8 @@ export class UserLLMService {
    */
   async updateUserProviderApiKey(userId: string, providerId: string, apiKey: string): Promise<void> {
     try {
-      await this.userLLMProviderRepository.updateApiKey(providerId, apiKey, userId);
+      const repository = await this.getUserLLMProviderRepository();
+      await repository.updateApiKey(providerId, apiKey, userId);
       
       // Clear cache for this user
       this.clearUserCache(userId);
@@ -109,7 +160,8 @@ export class UserLLMService {
    */
   async deleteUserProvider(userId: string, providerId: string): Promise<void> {
     try {
-      await this.userLLMProviderRepository.deleteUserProvider(providerId, userId);
+      const repository = await this.getUserLLMProviderRepository();
+      await repository.deleteUserProvider(providerId, userId);
       
       // Clear cache for this user
       this.clearUserCache(userId);
@@ -131,7 +183,8 @@ export class UserLLMService {
     responseTime: number;
   }> {
     try {
-      const userProvider = await this.userLLMProviderRepository.findById(providerId);
+      const repository = await this.getUserLLMProviderRepository();
+      const userProvider = await repository.findById(providerId);
       if (!userProvider || userProvider.userId !== userId) {
         throw new Error('Provider not found or access denied');
       }
@@ -144,7 +197,7 @@ export class UserLLMService {
         const responseTime = Date.now() - startTime;
 
         // Update health check result
-        await this.userLLMProviderRepository.updateHealthCheck(providerId, {
+        await repository.updateHealthCheck(providerId, {
           status: 'healthy',
           latency: responseTime
         });
@@ -159,7 +212,7 @@ export class UserLLMService {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
         // Update health check result
-        await this.userLLMProviderRepository.updateHealthCheck(providerId, {
+        await repository.updateHealthCheck(providerId, {
           status: 'unhealthy',
           error: errorMessage,
           latency: responseTime
@@ -211,7 +264,8 @@ export class UserLLMService {
       
       // Update usage statistics
       if (response.tokensUsed) {
-        await this.userLLMProviderRepository.updateUsageStats(
+        const repository = await this.getUserLLMProviderRepository();
+        await repository.updateUsageStats(
           provider.id, 
           response.tokensUsed, 
           !!response.error
@@ -290,12 +344,13 @@ export class UserLLMService {
     try {
       const userProviders = await this.getActiveUserProviders(userId);
       const allModels = [];
-
+      logger.info('Getting models for user', { userId, userProviders });
       for (const userProvider of userProviders) {
         try {
           const providerInstance = await this.getOrCreateProviderInstance(userProvider);
+          logger.info('Getting models from provider', { userId, providerId: userProvider.id, providerName: userProvider.name });
           const models = await providerInstance.getAvailableModels();
-          
+          logger.info('Models from provider', { userId, providerId: userProvider.id, providerName: userProvider.name, models });
           allModels.push(...models.map(model => ({
             ...model,
             provider: userProvider.name,
@@ -322,7 +377,8 @@ export class UserLLMService {
 
   private async getBestUserProvider(userId: string, preferredType?: UserLLMProviderType): Promise<UserLLMProvider | null> {
     try {
-      return await this.userLLMProviderRepository.findBestProviderForUser(userId, preferredType);
+      const repository = await this.getUserLLMProviderRepository();
+      return await repository.findBestProviderForUser(userId, preferredType);
     } catch (error) {
       logger.error('Error getting best user provider', { userId, preferredType, error });
       return null;

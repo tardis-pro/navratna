@@ -4,7 +4,15 @@ import { authMiddleware } from '@uaip/middleware';
 import { logger } from '@uaip/utils';
 
 const router: Router = Router();
-const userLLMService = new UserLLMService();
+let userLLMService: UserLLMService | null = null;
+
+// Lazy initialization of UserLLMService
+function getUserLLMService(): UserLLMService {
+  if (!userLLMService) {
+    userLLMService = new UserLLMService();
+  }
+  return userLLMService;
+}
 
 // Apply authentication middleware to all routes
 router.use(authMiddleware);
@@ -22,7 +30,7 @@ router.get('/providers', async (req: Request, res: Response) => {
       });
     }
 
-    const providers = await userLLMService.getUserProviders(userId);
+    const providers = await getUserLLMService().getUserProviders(userId);
 
     // Remove sensitive data (API keys) from response
     const sanitizedProviders = providers.map(provider => ({
@@ -82,7 +90,7 @@ router.post('/providers', async (req: Request, res: Response) => {
       });
     }
 
-    const provider = await userLLMService.createUserProvider(userId, {
+    const provider = await getUserLLMService().createUserProvider(userId, {
       name,
       description,
       type,
@@ -123,6 +131,47 @@ router.post('/providers', async (req: Request, res: Response) => {
   }
 });
 
+// Update provider configuration
+router.put('/providers/:providerId', async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User authentication required'
+      });
+    }
+
+    const { providerId } = req.params;
+    const { name, description, baseUrl, defaultModel, priority, configuration } = req.body;
+
+    await getUserLLMService().updateUserProviderConfig(userId, providerId, {
+      name,
+      description,
+      baseUrl,
+      defaultModel,
+      priority,
+      configuration
+    });
+
+    res.json({
+      success: true,
+      message: 'Provider configuration updated successfully'
+    });
+  } catch (error) {
+    logger.error('Error updating user provider configuration', { 
+      userId: req.user?.id,
+      providerId: req.params.providerId,
+      error: error instanceof Error ? error.message : error 
+    });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update provider configuration',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 // Update provider API key
 router.put('/providers/:providerId/api-key', async (req: Request, res: Response) => {
   try {
@@ -144,7 +193,7 @@ router.put('/providers/:providerId/api-key', async (req: Request, res: Response)
       });
     }
 
-    await userLLMService.updateUserProviderApiKey(userId, providerId, apiKey);
+    await getUserLLMService().updateUserProviderApiKey(userId, providerId, apiKey);
 
     res.json({
       success: true,
@@ -176,7 +225,7 @@ router.post('/providers/:providerId/test', async (req: Request, res: Response) =
     }
 
     const { providerId } = req.params;
-    const result = await userLLMService.testUserProvider(userId, providerId);
+    const result = await getUserLLMService().testUserProvider(userId, providerId);
 
     res.json({
       success: true,
@@ -208,7 +257,7 @@ router.delete('/providers/:providerId', async (req: Request, res: Response) => {
     }
 
     const { providerId } = req.params;
-    await userLLMService.deleteUserProvider(userId, providerId);
+    await getUserLLMService().deleteUserProvider(userId, providerId);
 
     res.json({
       success: true,
@@ -228,6 +277,59 @@ router.delete('/providers/:providerId', async (req: Request, res: Response) => {
   }
 });
 
+// Get user's providers by type
+router.get('/providers/type/:type', async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User authentication required'
+      });
+    }
+
+    const { type } = req.params;
+    const providers = await getUserLLMService().getUserProvidersByType(userId, type as any);
+
+    // Remove sensitive data (API keys) from response
+    const sanitizedProviders = providers.map(provider => ({
+      id: provider.id,
+      name: provider.name,
+      description: provider.description,
+      type: provider.type,
+      baseUrl: provider.baseUrl,
+      defaultModel: provider.defaultModel,
+      status: provider.status,
+      isActive: provider.isActive,
+      priority: provider.priority,
+      totalTokensUsed: provider.totalTokensUsed,
+      totalRequests: provider.totalRequests,
+      totalErrors: provider.totalErrors,
+      lastUsedAt: provider.lastUsedAt,
+      healthCheckResult: provider.healthCheckResult,
+      hasApiKey: provider.hasApiKey(),
+      createdAt: provider.createdAt,
+      updatedAt: provider.updatedAt
+    }));
+
+    res.json({
+      success: true,
+      data: sanitizedProviders
+    });
+  } catch (error) {
+    logger.error('Error getting user providers by type', { 
+      userId: req.user?.id,
+      type: req.params.type,
+      error: error instanceof Error ? error.message : error 
+    });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get user providers by type',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 // LLM Generation Routes
 
 // Get available models for user
@@ -240,9 +342,9 @@ router.get('/models', async (req: Request, res: Response) => {
         error: 'User authentication required'
       });
     }
-
-    const models = await userLLMService.getAvailableModels(userId);
-
+    console.log('Getting available models for user', userId);
+    const models = await getUserLLMService().getAvailableModels(userId);
+    
     res.json({
       success: true,
       data: models
@@ -280,7 +382,7 @@ router.post('/generate', async (req: Request, res: Response) => {
       });
     }
 
-    const response = await userLLMService.generateResponse(userId, {
+    const response = await getUserLLMService().generateResponse(userId, {
       prompt,
       systemPrompt,
       maxTokens,
@@ -325,7 +427,7 @@ router.post('/agent-response', async (req: Request, res: Response) => {
       });
     }
 
-    const response = await userLLMService.generateAgentResponse(userId, {
+    const response = await getUserLLMService().generateAgentResponse(userId, {
       agent,
       messages,
       context,

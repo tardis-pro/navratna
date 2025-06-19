@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useState } from 'react';
+import React, { createContext, useContext, useReducer, useState, useCallback } from 'react';
 import { AgentState, AgentContextValue, Message } from '../types/agent';
 import { 
   ToolCall, 
@@ -10,6 +10,47 @@ import {
 } from '../types/tool';
 import uaipAPI from '@/utils/uaip-api';
 
+// Model Provider Types
+interface ModelProvider {
+  id: string;
+  name: string;
+  description?: string;
+  type: string;
+  baseUrl: string;
+  defaultModel?: string;
+  status: string;
+  isActive: boolean;
+  priority: number;
+  totalTokensUsed: number;
+  totalRequests: number;
+  totalErrors: number;
+  lastUsedAt?: string;
+  healthCheckResult?: any;
+  hasApiKey: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface AvailableModel {
+  id: string;
+  name: string;
+  description?: string;
+  source: string;
+  apiEndpoint: string;
+  apiType: 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom';
+  provider: string;
+  isAvailable: boolean;
+}
+
+interface ModelSelectionState {
+  providers: ModelProvider[];
+  models: AvailableModel[];
+  loadingProviders: boolean;
+  loadingModels: boolean;
+  providersError: string | null;
+  modelsError: string | null;
+}
+
 type AgentAction = 
   | { type: 'ADD_AGENT'; payload: AgentState }
   | { type: 'REMOVE_AGENT'; payload: string }
@@ -17,7 +58,8 @@ type AgentAction =
   | { type: 'ADD_MESSAGE'; payload: { agentId: string; message: Message } }
   | { type: 'REMOVE_MESSAGE'; payload: { agentId: string; messageId: string } }
   | { type: 'UPDATE_TOOL_PERMISSIONS'; payload: { agentId: string; permissions: Partial<ToolPermissionSet> } }
-  | { type: 'ADD_TOOL_USAGE'; payload: { agentId: string; usage: ToolUsageRecord } };
+  | { type: 'ADD_TOOL_USAGE'; payload: { agentId: string; usage: ToolUsageRecord } }
+  | { type: 'SET_AGENT_MODEL'; payload: { agentId: string; modelId: string; providerId: string } };
 
 // Agent Intelligence Flow - Moved from DiscussionContext
 interface AgentIntelligenceFlow {
@@ -263,6 +305,18 @@ function agentReducer(state: Record<string, AgentState>, action: AgentAction): R
         }
       };
     }
+    case 'SET_AGENT_MODEL': {
+      const agent = state[action.payload.agentId];
+      if (!agent) return state;
+      return {
+        ...state,
+        [action.payload.agentId]: {
+          ...agent,
+          modelId: action.payload.modelId,
+          providerId: action.payload.providerId
+        }
+      };
+    }
     default:
       return state;
   }
@@ -273,6 +327,213 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   const [activeFlows, setActiveFlows] = useState<string[]>([]);
   const [flowResults, setFlowResults] = useState<Map<string, any>>(new Map());
   const [flowErrors, setFlowErrors] = useState<Map<string, string>>(new Map());
+
+  // Model Provider Management State
+  const [modelState, setModelState] = useState<ModelSelectionState>({
+    providers: [],
+    models: [],
+    loadingProviders: false,
+    loadingModels: false,
+    providersError: null,
+    modelsError: null
+  });
+
+  // Loading state management to prevent concurrent calls
+  const [loadingStates, setLoadingStates] = useState({
+    providersLoading: false,
+    modelsLoading: false,
+    providersLoaded: false,
+    modelsLoaded: false
+  });
+
+  // Load available providers
+  const loadProviders = useCallback(async () => {
+    // Prevent concurrent calls
+    if (loadingStates.providersLoading || loadingStates.providersLoaded) {
+      console.log('[AgentContext] Skipping loadProviders - already loading or loaded', loadingStates);
+      return;
+    }
+
+    console.log('[AgentContext] Starting loadProviders...');
+    setLoadingStates(prev => ({ ...prev, providersLoading: true }));
+    setModelState(prev => ({ ...prev, loadingProviders: true, providersError: null }));
+    
+    try {
+      const providers = await uaipAPI.llm.getProviders();
+      console.log('[AgentContext] Providers loaded successfully:', providers.length);
+      setModelState(prev => ({ 
+        ...prev, 
+        providers, 
+        loadingProviders: false 
+      }));
+      setLoadingStates(prev => ({ ...prev, providersLoaded: true }));
+    } catch (error) {
+      console.error('[AgentContext] Failed to load providers:', error);
+      setModelState(prev => ({ 
+        ...prev, 
+        loadingProviders: false, 
+        providersError: error instanceof Error ? error.message : 'Failed to load providers'
+      }));
+    } finally {
+      setLoadingStates(prev => ({ ...prev, providersLoading: false }));
+    }
+  }, [loadingStates.providersLoading, loadingStates.providersLoaded]); // Dependencies to prevent infinite loops
+
+  // Load available models
+  const loadModels = useCallback(async () => {
+    // Prevent concurrent calls
+    if (loadingStates.modelsLoading || loadingStates.modelsLoaded) {
+      console.log('[AgentContext] Skipping loadModels - already loading or loaded', loadingStates);
+      return;
+    }
+
+    console.log('[AgentContext] Starting loadModels...');
+    setLoadingStates(prev => ({ ...prev, modelsLoading: true }));
+    setModelState(prev => ({ ...prev, loadingModels: true, modelsError: null }));
+    
+    try {
+      const models = await uaipAPI.llm.getModels();
+      console.log('[AgentContext] Models loaded successfully:', models.length);
+      setModelState(prev => ({ 
+        ...prev, 
+        models, 
+        loadingModels: false 
+      }));
+      setLoadingStates(prev => ({ ...prev, modelsLoaded: true }));
+    } catch (error) {
+      console.error('[AgentContext] Failed to load models:', error);
+      setModelState(prev => ({ 
+        ...prev, 
+        loadingModels: false, 
+        modelsError: error instanceof Error ? error.message : 'Failed to load models'
+      }));
+    } finally {
+      setLoadingStates(prev => ({ ...prev, modelsLoading: false }));
+    }
+  }, [loadingStates.modelsLoading, loadingStates.modelsLoaded]); // Dependencies to prevent infinite loops
+
+  // Create a new provider
+  const createProvider = useCallback(async (providerData: {
+    name: string;
+    description?: string;
+    type: string;
+    baseUrl: string;
+    apiKey?: string;
+    defaultModel?: string;
+    configuration?: any;
+    priority?: number;
+  }) => {
+    try {
+      await uaipAPI.llm.createProvider(providerData);
+      await loadProviders(); // Refresh providers list
+      return true;
+    } catch (error) {
+      console.error('Failed to create provider:', error);
+      throw error;
+    }
+  }, [loadProviders]);
+
+  // Update provider configuration
+  const updateProvider = useCallback(async (providerId: string, config: {
+    name?: string;
+    description?: string;
+    baseUrl?: string;
+    defaultModel?: string;
+    priority?: number;
+    configuration?: any;
+  }) => {
+    try {
+      await uaipAPI.llm.updateProviderConfig(providerId, config);
+      await loadProviders(); // Refresh providers list
+      return true;
+    } catch (error) {
+      console.error('Failed to update provider:', error);
+      throw error;
+    }
+  }, [loadProviders]);
+
+  // Test provider connectivity
+  const testProvider = useCallback(async (providerId: string) => {
+    try {
+      const result = await uaipAPI.llm.testProvider(providerId);
+      return result;
+    } catch (error) {
+      console.error('Failed to test provider:', error);
+      throw error;
+    }
+  }, []);
+
+  // Delete provider
+  const deleteProvider = useCallback(async (providerId: string) => {
+    try {
+      await uaipAPI.llm.deleteProvider(providerId);
+      await loadProviders(); // Refresh providers list
+      return true;
+    } catch (error) {
+      console.error('Failed to delete provider:', error);
+      throw error;
+    }
+  }, [loadProviders]);
+
+  // Get models for a specific provider
+  const getModelsForProvider = useCallback((providerId: string): AvailableModel[] => {
+    const provider = modelState.providers.find(p => p.id === providerId);
+    if (!provider) return [];
+    
+    return modelState.models.filter(model => 
+      model.provider === provider.name || 
+      model.apiType === provider.type
+    );
+  }, [modelState.providers, modelState.models]);
+
+  // Get recommended models for agent role
+  const getRecommendedModels = useCallback((agentRole?: string): AvailableModel[] => {
+    return modelState.models.filter(model => {
+      if (!model.isAvailable) return false;
+      
+      if (agentRole) {
+        switch (agentRole) {
+          case 'assistant':
+            return model.name.toLowerCase().includes('gpt') || 
+                   model.name.toLowerCase().includes('claude') ||
+                   model.name.toLowerCase().includes('llama');
+          case 'analyzer':
+            return model.name.toLowerCase().includes('claude') || 
+                   model.name.toLowerCase().includes('gpt-4');
+          case 'orchestrator':
+            return model.name.toLowerCase().includes('gpt-4') ||
+                   model.name.toLowerCase().includes('claude');
+          default:
+            return true;
+        }
+      }
+      
+      return true;
+    });
+  }, [modelState.models]);
+
+  // Refresh method to reset loading states and reload data
+  const refreshModelData = useCallback(async () => {
+    // Reset loading states to allow fresh loading
+    setLoadingStates({
+      providersLoading: false,
+      modelsLoading: false,
+      providersLoaded: false,
+      modelsLoaded: false
+    });
+    
+    // Clear existing data
+    setModelState(prev => ({
+      ...prev,
+      providers: [],
+      models: [],
+      providersError: null,
+      modelsError: null
+    }));
+    
+    // Load fresh data
+    await Promise.allSettled([loadProviders(), loadModels()]);
+  }, [loadProviders, loadModels]);
 
   // Generic flow execution handler
   const executeFlow = async (service: string, flow: string, params?: any) => {
@@ -638,6 +899,10 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'UPDATE_TOOL_PERMISSIONS', payload: { agentId, permissions } });
   };
 
+  const setAgentModel = (agentId: string, modelId: string, providerId: string) => {
+    dispatch({ type: 'SET_AGENT_MODEL', payload: { agentId, modelId, providerId } });
+  };
+
   const value: AgentContextValue = {
     agents,
     addAgent,
@@ -650,6 +915,19 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     approveToolExecution,
     getToolUsageHistory,
     updateToolPermissions,
+    setAgentModel,
+    
+    // Model Provider Management
+    modelState,
+    loadProviders,
+    loadModels,
+    refreshModelData,
+    createProvider,
+    updateProvider,
+    testProvider,
+    deleteProvider,
+    getModelsForProvider,
+    getRecommendedModels,
     
     // UAIP Backend Flow Integration
     agentIntelligence,

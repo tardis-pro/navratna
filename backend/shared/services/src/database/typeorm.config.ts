@@ -30,6 +30,8 @@ import { MCPServer } from '../entities/mcpServer.entity.js';
 import { MCPToolCall } from '../entities/mcpToolCall.entity.js';
 import { KnowledgeItemEntity } from '../entities/knowledge-item.entity.js';
 import { KnowledgeRelationshipEntity } from '../entities/knowledge-relationship.entity.js';
+import { LLMProvider } from '../entities/llmProvider.entity.js';
+import { UserLLMProvider } from '../entities/userLLMProvider.entity.js';
 
 /**
  * TypeORM Configuration for UAIP Backend
@@ -66,6 +68,8 @@ const allEntities = [
   MCPToolCall,
   KnowledgeItemEntity,
   KnowledgeRelationshipEntity,
+  LLMProvider,
+  UserLLMProvider,
 ];
 const syncandReset = process.env.SYNC_AND_RESET === 'true';
 export const createTypeOrmConfig = (entities?: any[], disableCache = false): DataSourceOptions => {

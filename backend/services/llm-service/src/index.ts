@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import compression from 'compression';
 import { config } from '@uaip/config';
 import { logger } from '@uaip/utils';
+import { DatabaseService } from '@uaip/shared-services';
 import llmRoutes from './routes/llmRoutes';
 import userLLMRoutes from './routes/userLLMRoutes';
 import healthRoutes from './routes/healthRoutes';
@@ -54,6 +55,12 @@ app.use('*', (req, res) => {
 // Start server
 async function startServer() {
   try {
+    // Initialize database service before starting server
+    logger.info('Initializing database service...');
+    const databaseService = DatabaseService.getInstance();
+    await databaseService.initialize();
+    logger.info('Database service initialized successfully');
+
     app.listen(PORT, () => {
       logger.info(`LLM Service API running on port ${PORT}`, {
         service: 'llm-service-api',

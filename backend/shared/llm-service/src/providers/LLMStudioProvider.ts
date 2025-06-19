@@ -50,7 +50,7 @@ export class LLMStudioProvider extends BaseProvider {
     try {
       const url = `${this.config.baseUrl}/v1/models`;
       const data = await this.makeGetRequest(url);
-
+      console.log('LLM Studio data:', data);
       if (!data.data || !Array.isArray(data.data)) {
         return [];
       }

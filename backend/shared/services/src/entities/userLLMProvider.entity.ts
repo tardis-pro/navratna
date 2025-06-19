@@ -7,8 +7,9 @@ export type UserLLMProviderType = 'openai' | 'anthropic' | 'google' | 'ollama' |
 export type UserLLMProviderStatus = 'active' | 'inactive' | 'error' | 'testing';
 
 @Entity('user_llm_providers')
-@Index(['userId', 'type'], { unique: true }) // One provider per type per user
+@Index(['userId', 'name'], { unique: true }) // Unique name per user (allows multiple providers of same type)
 @Index(['userId', 'isActive'])
+@Index(['userId', 'type', 'priority']) // For efficient provider selection by type and priority
 export class UserLLMProvider extends BaseEntity {
   
   @Column({ type: 'uuid' })
