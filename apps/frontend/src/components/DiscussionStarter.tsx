@@ -14,6 +14,7 @@ export const DiscussionStarter: React.FC<DiscussionStarterProps> = ({
   discussionTopic = "AI and Technology Innovation"
 }) => {
   const { agents } = useAgents();
+  const agentList = Object.values(agents);
   const { 
     isActive, 
     discussionId, 
@@ -32,7 +33,7 @@ export const DiscussionStarter: React.FC<DiscussionStarterProps> = ({
     setIsStarting(true);
     try {
       // Start discussion with selected agents
-      const agentIds = selectedAgents.length > 0 ? selectedAgents : agents.slice(0, 3).map(a => a.id);
+      const agentIds = selectedAgents.length > 0 ? selectedAgents : agentList.slice(0, 3).map(a => a.id);
       await start(discussionTopic, agentIds);
     } catch (error) {
       console.error('Failed to start discussion:', error);
@@ -49,7 +50,7 @@ export const DiscussionStarter: React.FC<DiscussionStarterProps> = ({
     );
   };
 
-  const availableAgents = agents.filter(agent => agent.status === 'active');
+  const availableAgents = agentList.filter(agent => agent.status === 'active');
 
   return (
     <div className={cn("space-y-4 p-4 border rounded-lg", className)}>

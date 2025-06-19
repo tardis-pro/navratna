@@ -416,7 +416,7 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
         </motion.h3>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {agents.filter(agent => agent && agent.persona).map((agent, index) => (
+          {agentList.filter(agent => agent && agent.persona).map((agent, index) => (
             <motion.div
               key={agent.id}
               initial={{ opacity: 0, scale: 0.9 }}
@@ -483,7 +483,7 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
           ))}
           
           {/* Add Agent Placeholder */}
-          {agents.length === 0 && (
+          {agentList.length === 0 && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
