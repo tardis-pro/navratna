@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Operation } from '../../types/uaip-interfaces';
+import type { Operation, OperationStatus, OperationPriority } from '@uaip/types';
 import { 
   CogIcon, 
   PlayIcon,
@@ -31,7 +31,7 @@ interface OperationMetrics {
 interface ExecutionStep {
   id: string;
   name: string;
-  status: 'pending' | 'running' | 'completed' | 'failed';
+  status: OperationStatus;
   duration?: number;
   error?: string;
   output?: any;
@@ -43,13 +43,13 @@ interface MockOperation {
   agentId: string;
   agentName: string;
   description: string;
-  status: 'pending' | 'running' | 'paused' | 'completed' | 'failed' | 'cancelled';
+  status: OperationStatus;
   progress: number;
   startTime: Date;
   estimatedDuration: number;
   actualDuration?: number;
   steps: ExecutionStep[];
-  priority: 'low' | 'medium' | 'high' | 'critical';
+  priority: OperationPriority;
   resourceUsage: {
     cpu: number;
     memory: number;
@@ -78,17 +78,17 @@ export const OperationsMonitor: React.FC<OperationsMonitorProps> = ({ operations
         agentId: 'agent-1',
         agentName: 'Technical Lead',
         description: 'Analyzing React component structure for performance optimization',
-        status: 'running',
+        status: OperationStatus.RUNNING,
         progress: 67,
         startTime: new Date(Date.now() - 180000),
         estimatedDuration: 300000,
         steps: [
-          { id: 'step-1', name: 'Parse AST', status: 'completed' },
-          { id: 'step-2', name: 'Analyze Dependencies', status: 'completed' },
-          { id: 'step-3', name: 'Performance Check', status: 'running' },
-          { id: 'step-4', name: 'Generate Report', status: 'pending' }
+          { id: 'step-1', name: 'Parse AST', status: OperationStatus.COMPLETED },
+          { id: 'step-2', name: 'Analyze Dependencies', status: OperationStatus.COMPLETED },
+          { id: 'step-3', name: 'Performance Check', status: OperationStatus.RUNNING },
+          { id: 'step-4', name: 'Generate Report', status: OperationStatus.PENDING }
         ],
-        priority: 'high',
+        priority: OperationPriority.HIGH,
         resourceUsage: { cpu: 45, memory: 128, network: 12 }
       },
       {

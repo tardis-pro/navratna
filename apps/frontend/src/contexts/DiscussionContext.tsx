@@ -1,16 +1,33 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { AgentState, Message } from '../types/agent';
 import { useAgents } from './AgentContext';
-import uaipAPI, { 
-  DiscussionParticipant, 
-  TurnInfo
-} from '@/utils/uaip-api';
+import uaipAPI from '@/utils/uaip-api';
+
+// Import shared types
+import type {
+  DiscussionParticipant,
+  DiscussionMessage,
+  Discussion,
+  DiscussionStatus,
+  TurnStrategy,
+  CreateDiscussionRequest,
+  MessageType
+} from '@uaip/types';
+
+// Import frontend-specific message type
+import type { Message } from '@/types/frontend-extensions';
 
 interface DiscussionProviderProps {
   topic?: string;
   maxRounds?: number;
-  turnStrategy?: 'round_robin' | 'moderated' | 'free_form';
+  turnStrategy?: TurnStrategy;
   children: React.ReactNode;
+}
+
+interface TurnInfo {
+  participantId: string;
+  startedAt?: Date;
+  expectedEndAt?: Date;
+  turnNumber: number;
 }
 
 interface DiscussionContextType {
@@ -43,7 +60,7 @@ export const useDiscussion = (): DiscussionContextType => {
 export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
   topic,
   maxRounds,
-  turnStrategy = 'round_robin',
+  turnStrategy = TurnStrategy.ROUND_ROBIN,
   children
 }) => {
   const [isActive, setIsActive] = useState<boolean>(false);
@@ -111,13 +128,13 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
       let currentDiscussionId = discussionId;
       
       if (!currentDiscussionId) {
-        const newDiscussion = await uaipAPI.discussions.create({
+        const createRequest: CreateDiscussionRequest = {
           title: `Discussion: ${discussionTopic}`,
           description: `Automated discussion on ${discussionTopic}`,
           topic: discussionTopic,
           createdBy: 'system', // TODO: Use actual user ID
           initialParticipants: selectedAgentIds.map(agentId => ({
-            agentId, // Only send agentId, backend doesn't need personaId
+            agentId,
             role: 'participant'
           })),
           settings: {
@@ -129,13 +146,15 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
             maxMessageLength: 2000
           },
           turnStrategy: {
-            strategy: 'round_robin',
+            strategy: TurnStrategy.ROUND_ROBIN,
             config: {
+              type: 'round_robin',
               timeoutSeconds: 300,
               maxConsecutiveTurns: 1
             }
           }
-        });
+        };
+        const newDiscussion = await uaipAPI.discussions.create(createRequest);
         currentDiscussionId = newDiscussion.id;
         setDiscussionId(currentDiscussionId);
       }
@@ -218,7 +237,7 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
     try {
       const message = await uaipAPI.discussions.sendMessage(discussionId, {
         content,
-        messageType: 'message',
+        messageType: MessageType.MESSAGE,
         metadata: agentId ? { agentId } : {}
       });
 
@@ -228,7 +247,7 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
         content: message.content,
         sender: agentId || 'user',
         timestamp: new Date(message.createdAt),
-        type: 'message'
+        type: 'response' // Map to frontend message type
       };
       
       setMessages(prev => [...prev, newMessage]);

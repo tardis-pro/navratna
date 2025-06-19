@@ -350,4 +350,41 @@ export const ProviderTestResultSchema = z.object({
   testedAt: z.date()
 });
 
-export type ProviderTestResult = z.infer<typeof ProviderTestResultSchema>; 
+export type ProviderTestResult = z.infer<typeof ProviderTestResultSchema>;
+
+// Additional approval workflow types
+export const CreateApprovalWorkflowRequestSchema = z.object({
+  operationId: IDSchema,
+  operationType: z.string(),
+  requestedBy: IDSchema,
+  description: z.string(),
+  priority: z.enum(['low', 'normal', 'high', 'urgent']).default('normal'),
+  requiredApprovers: z.array(IDSchema),
+  autoApprovalRules: z.array(z.object({
+    condition: z.string(),
+    action: z.enum(['approve', 'reject', 'escalate'])
+  })).optional(),
+  expiresAt: z.date().optional(),
+  metadata: z.record(z.any()).optional()
+});
+
+export type CreateApprovalWorkflowRequest = z.infer<typeof CreateApprovalWorkflowRequestSchema>;
+
+export const ApprovalStatsSchema = z.object({
+  totalWorkflows: z.number().min(0),
+  pendingApprovals: z.number().min(0),
+  approvedToday: z.number().min(0),
+  rejectedToday: z.number().min(0),
+  expiredToday: z.number().min(0),
+  averageApprovalTime: z.number().min(0), // minutes
+  approvalsByType: z.record(z.number()),
+  approverStats: z.array(z.object({
+    approverId: IDSchema,
+    totalApprovals: z.number().min(0),
+    averageTime: z.number().min(0),
+    rejectionRate: z.number().min(0).max(100)
+  })),
+  generatedAt: z.date()
+});
+
+export type ApprovalStats = z.infer<typeof ApprovalStatsSchema>; 

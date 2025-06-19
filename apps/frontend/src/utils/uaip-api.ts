@@ -11,57 +11,60 @@ export * from './api';
 import { UAIPAPIClient, createAPIClient, APIConfig } from './api';
 import { API_CONFIG, getEffectiveAPIBaseURL, getEnvironmentConfig, buildAPIURL, API_ROUTES } from '@/config/apiConfig';
 
-// Define frontend types that match backend expectations
-export enum TurnStrategy {
-  ROUND_ROBIN = 'round_robin',
-  MODERATED = 'moderated',
-  FREE_FORM = 'free_form',
-  CONTEXT_AWARE = 'context_aware',
-  PRIORITY_BASED = 'priority_based',
-  EXPERTISE_DRIVEN = 'expertise_driven'
-}
+// Import shared types - using regular imports for enums and type imports for interfaces
+import type {
+  // Persona types
+  Persona,
+  PersonaTrait,
+  ExpertiseDomain,
+  ConversationalStyle,
+  CreatePersonaRequest,
+  UpdatePersonaRequest,
+  PersonaSearchFilters,
+  PersonaRecommendation,
+  
+  // Discussion types
+  Discussion,
+  DiscussionParticipant,
+  DiscussionMessage,
+  DiscussionSettings,
+  DiscussionState,
+  TurnStrategy,
+  TurnStrategyConfig,
+  CreateDiscussionRequest,
+  UpdateDiscussionRequest,
+  DiscussionSearchFilters,
+  
+  // WebSocket types
+  WebSocketConfig,
+  WebSocketEvent,
+  TurnInfo,
+  DiscussionWebSocketEvent,
+  
+  // System types
+  HealthStatus,
+  SystemMetrics,
+  
+  // LLM types
+  LLMGenerationRequest
+} from '@uaip/types';
 
-export interface TurnStrategyConfig {
-  strategy: TurnStrategy;
-  config: {
-    type: 'round_robin' | 'moderated' | 'context_aware' | 'priority_based' | 'free_form' | 'expertise_driven';
-    skipInactive?: boolean;
-    maxSkips?: number;
-    moderatorId?: string;
-    requireApproval?: boolean;
-    autoAdvance?: boolean;
-    relevanceThreshold?: number;
-    expertiseWeight?: number;
-    engagementWeight?: number;
-    priorities?: Array<{
-      participantId: string;
-      priority: number;
-    }>;
-    cooldownPeriod?: number;
-    topicKeywords?: string[];
-    expertiseThreshold?: number;
-  };
-}
+// Import enums separately (not as type imports)
+import { 
+  DiscussionStatus, 
+  MessageType,
+  LLMProviderType
+} from '@uaip/types';
 
-export interface DiscussionSettings {
-  maxParticipants?: number;
-  maxDuration?: number;
-  maxMessages?: number;
-  autoModeration?: boolean;
-  requireApproval?: boolean;
-  allowInvites?: boolean;
-  allowFileSharing?: boolean;
-  allowAnonymous?: boolean;
-  recordTranscript?: boolean;
-  enableAnalytics?: boolean;
-  turnTimeout?: number;
-  responseTimeout?: number;
-  moderationRules?: Array<{
-    rule: string;
-    action: 'warn' | 'mute' | 'remove' | 'flag';
-    severity: 'low' | 'medium' | 'high';
-  }>;
-}
+// Import frontend-specific types
+import type {
+  MessageSearchOptions,
+  DiscussionEvent,
+  PersonaSearchResponse,
+  DiscussionSearchResponse,
+  DiscussionParticipantCreate,
+  DiscussionMessageCreate
+} from '@/types/frontend-extensions';
 
 // Environment configuration
 const envConfig = getEnvironmentConfig();
@@ -82,275 +85,27 @@ export function generateUUID(): string {
 }
 
 // ============================================================================
-// PERSONA AND DISCUSSION TYPES (Missing from main API client)
+// API CLIENT CONFIGURATION
 // ============================================================================
 
-export interface Persona {
-  id: string;
-  name: string;
-  role: string;
-  description: string;
-  traits: PersonaTrait[];
-  expertise: ExpertiseDomain[];
-  background: string;
-  systemPrompt: string;
-  conversationalStyle: ConversationalStyle;
-  createdAt: Date;
-  updatedAt: Date;
-  createdBy: string;
-  isPublic: boolean;
-  usageCount: number;
-  version: number;
-}
-
-export interface PersonaTrait {
-  name: string;
-  value: string | number | boolean;
-  weight: number;
-  category: 'personality' | 'behavior' | 'communication' | 'expertise';
-}
-
-export interface ExpertiseDomain {
-  domain: string;
-  level: 'beginner' | 'intermediate' | 'advanced' | 'expert';
-  keywords: string[];
-  experience?: string;
-}
-
-export interface ConversationalStyle {
-  tone: 'formal' | 'casual' | 'friendly' | 'professional' | 'technical';
-  verbosity: 'concise' | 'moderate' | 'detailed' | 'comprehensive';
-  responsePattern: 'direct' | 'analytical' | 'creative' | 'supportive';
-  preferredFormats: string[];
-}
-
-export interface PersonaCreate {
-  name: string;
-  role: string;
-  description: string;
-  traits: PersonaTrait[];
-  expertise: ExpertiseDomain[];
-  background: string;
-  systemPrompt: string;
-  conversationalStyle: ConversationalStyle;
-  isPublic?: boolean;
-  createdBy: string;
-}
-
-export interface PersonaUpdate {
-  name?: string;
-  role?: string;
-  description?: string;
-  traits?: PersonaTrait[];
-  expertise?: ExpertiseDomain[];
-  background?: string;
-  systemPrompt?: string;
-  conversationalStyle?: ConversationalStyle;
-  isPublic?: boolean;
-}
-
-export interface PersonaSearchRequest {
-  query?: string;
-  role?: string;
-  expertise?: string[];
-  traits?: string[];
-  publicOnly?: boolean;
-  createdBy?: string;
-  sortBy?: 'name' | 'usage_count' | 'created_at' | 'updated_at';
-  sortOrder?: 'asc' | 'desc';
-  limit?: number;
-  offset?: number;
-}
-
-export interface PersonaSearchResponse {
-  personas: Persona[];
-  totalCount: number;
-  recommendations: string[];
-  searchTime: number;
-}
-
-export interface PersonaRecommendation {
-  persona: Persona;
-  relevanceScore: number;
-  reasoning: string;
-  alternatives?: string[];
-  usageExamples?: Record<string, any>[];
-}
-
-export interface Discussion {
-  id: string;
-  title: string;
-  topic: string;
-  documentId?: string;
-  operationId?: string;
-  participants: DiscussionParticipant[];
-  state: DiscussionState;
-  settings: DiscussionSettings;
-  currentTurnAgentId?: string;
-  turnStrategy: TurnStrategy;
-  createdAt: Date;
-  updatedAt: Date;
-  createdBy: string;
-  status: DiscussionStatus;
-}
-
-export interface DiscussionParticipant {
-  id: string;
-  discussionId: string;
-  agentId: string;
-  role: 'participant' | 'moderator';
-  joinedAt: Date;
-  lastActiveAt: Date;
-  messageCount: number;
-}
-
-export interface DiscussionState {
-  phase: 'setup' | 'active' | 'paused' | 'ended';
-  currentTurn: number;
-  totalTurns?: number;
-  timeRemaining?: number;
-  lastActivity: Date;
-}
-
-export type DiscussionStatus = 'draft' | 'active' | 'paused' | 'ended' | 'archived';
-
-export interface DiscussionCreate {
-  title: string;
-  description: string;
-  topic: string;
-  createdBy: string;
-  turnStrategy?: TurnStrategyConfig;
-  initialParticipants: Array<{ 
-    agentId: string;
-    role: string; 
-  }>;
-  settings?: Partial<DiscussionSettings>;
-}
-
-export interface DiscussionUpdate {
-  title?: string;
-  topic?: string;
-  settings?: Partial<DiscussionSettings>;
-  turnStrategy?: TurnStrategy;
-  status?: DiscussionStatus;
-}
-
-export interface DiscussionMessage {
-  id: string;
-  discussionId: string;
-  participantId: string;
-  content: string;
-  messageType: 'message' | 'system' | 'action';
-  replyTo?: string;
-  createdAt: Date;
-  metadata: Record<string, any>;
-}
-
-export interface DiscussionMessageCreate {
-  content: string;
-  messageType?: 'message' | 'system' | 'action';
-  replyTo?: string;
-  metadata?: Record<string, any>;
-}
-
-export interface DiscussionParticipantCreate {
-  agentId: string;
-  role?: 'participant' | 'moderator';
-}
-
-export interface DiscussionSearchRequest {
-  query?: string;
-  status?: DiscussionStatus[];
-  createdBy?: string;
-  participantId?: string;
-  turnStrategy?: TurnStrategy[];
-  dateFrom?: Date;
-  dateTo?: Date;
-  sortBy?: 'title' | 'created_at' | 'updated_at' | 'last_activity';
-  sortOrder?: 'asc' | 'desc';
-  limit?: number;
-  offset?: number;
-}
-
-export interface DiscussionSearchResponse {
-  discussions: Discussion[];
-  totalCount: number;
-  searchTime: number;
-}
-
-export interface MessageSearchOptions {
-  participantId?: string;
-  messageType?: string[];
-  dateFrom?: Date;
-  dateTo?: Date;
-  limit?: number;
-  offset?: number;
-}
-
-export interface TurnInfo {
-  currentParticipantId: string;
-  turnNumber: number;
-  timeRemaining: number;
-  nextParticipantId: string;
-  canAdvance: boolean;
-}
-
-// ============================================================================
-// WEBSOCKET INTEGRATION
-// ============================================================================
-
-export interface WebSocketConfig {
-  url: string;
-  autoConnect?: boolean;
-  reconnectAttempts?: number;
-  reconnectDelay?: number;
-}
-
-export interface DiscussionEvent {
-  type: 'turn_started' | 'turn_ended' | 'message_added' | 'participant_joined' | 'participant_left';
-  discussionId: string;
-  data: any;
-  timestamp: Date;
-}
-
-// API Configuration for production deployment
 function getAPIConfig(): APIConfig {
   return {
     baseURL: getEffectiveAPIBaseURL(),
-    timeout: envConfig.DEBUG_LOGGING ? 10000 : 30000,
+    timeout: 30000,
     headers: {
       'Content-Type': 'application/json',
-      'X-Client-Version': '1.0.0',
-      'X-Environment': isDevelopment ? 'development' : 'production'
     }
   };
 }
 
-// Enhanced API client with production-ready configuration
-let apiClient: UAIPAPIClient | null = null;
-
 export function getAPIClient(): UAIPAPIClient {
-  if (!apiClient) {
-    const config = getAPIConfig();
-    apiClient = createAPIClient(config);
-    
-    if (isDevelopment && envConfig.DEBUG_LOGGING) {
-      console.log('[UAIP API] Client initialized with config:', {
-        baseURL: config.baseURL,
-        timeout: config.timeout,
-        environment: isDevelopment ? 'development' : 'production',
-        routes: API_ROUTES
-      });
-    }
-  }
-  return apiClient;
+  return createAPIClient(getAPIConfig());
 }
 
 // ============================================================================
-// WEBSOCKET CLIENT FOR REAL-TIME UPDATES
+// WEBSOCKET CLIENT
 // ============================================================================
 
-// Socket.IO client types
 interface SocketIOClient {
   connected: boolean;
   emit: (event: string, data: any) => void;
@@ -372,10 +127,8 @@ class DiscussionWebSocketClient {
     this.maxReconnectAttempts = config.reconnectAttempts || 5;
     this.reconnectDelay = config.reconnectDelay || 1000;
     
-    if (config.autoConnect !== false) {
-      this.connect().catch(error => {
-        console.error('[Socket.IO] Failed to initialize connection:', error);
-      });
+    if (config.autoConnect) {
+      this.connect();
     }
   }
 
@@ -643,7 +396,7 @@ export const uaipAPI = {
   // ============================================================================
   
   personas: {
-    async list(filters?: PersonaSearchRequest): Promise<PersonaSearchResponse> {
+    async list(filters?: PersonaSearchFilters): Promise<PersonaSearchResponse> {
       const client = getAPIClient();
       const response = await client.personas.search(filters?.query, filters?.expertise?.[0]);
       
@@ -667,7 +420,7 @@ export const uaipAPI = {
       return response.data!;
     },
 
-    async create(persona: PersonaCreate): Promise<Persona> {
+    async create(persona: CreatePersonaRequest): Promise<Persona> {
       const client = getAPIClient();
       const response = await client.personas.create(persona);
       
@@ -678,7 +431,7 @@ export const uaipAPI = {
       return response.data!;
     },
 
-    async update(id: string, updates: PersonaUpdate): Promise<Persona> {
+    async update(id: string, updates: UpdatePersonaRequest): Promise<Persona> {
       const client = getAPIClient();
       const response = await client.personas.update(id, updates);
       
@@ -715,7 +468,7 @@ export const uaipAPI = {
   // ============================================================================
   
   discussions: {
-    async list(filters?: DiscussionSearchRequest): Promise<DiscussionSearchResponse> {
+    async list(filters?: DiscussionSearchFilters): Promise<DiscussionSearchResponse> {
       const client = getAPIClient();
       const response = await client.discussions.search(filters?.query, filters?.status?.[0]);
       
@@ -738,7 +491,7 @@ export const uaipAPI = {
       return response.data!;
     },
 
-    async create(discussion: DiscussionCreate): Promise<Discussion> {
+    async create(discussion: CreateDiscussionRequest): Promise<Discussion> {
       const client = getAPIClient();
       const response = await client.discussions.create({
         title: discussion.title,
@@ -757,7 +510,7 @@ export const uaipAPI = {
       return response.data!;
     },
 
-    async update(id: string, updates: DiscussionUpdate): Promise<Discussion> {
+    async update(id: string, updates: UpdateDiscussionRequest): Promise<Discussion> {
       const client = getAPIClient();
       const response = await client.discussions.update(id, updates);
       
@@ -779,7 +532,7 @@ export const uaipAPI = {
 
     async pause(id: string): Promise<void> {
       const client = getAPIClient();
-      const response = await client.discussions.update(id, { status: 'paused' });
+      const response = await client.discussions.update(id, { status: DiscussionStatus.PAUSED });
       
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to pause discussion');
@@ -788,7 +541,7 @@ export const uaipAPI = {
 
     async resume(id: string): Promise<void> {
       const client = getAPIClient();
-      const response = await client.discussions.update(id, { status: 'active' });
+      const response = await client.discussions.update(id, { status: DiscussionStatus.ACTIVE });
       
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to resume discussion');
@@ -876,7 +629,9 @@ export const uaipAPI = {
         turnNumber: 1,
         timeRemaining: 300,
         nextParticipantId: 'participant-2',
-        canAdvance: true
+        canAdvance: true,
+        startedAt: new Date(),
+        turnTimeout: 300
       };
     }
   },
@@ -1024,7 +779,17 @@ export const uaipAPI = {
         throw new Error(response.error?.message || 'Failed to fetch models');
       }
       
-      return response.data!;
+      // Transform the response to match expected interface
+      return (response.data || []).map((model: any) => ({
+        id: model.id || 'unknown',
+        name: model.name || 'Unknown Model',
+        description: model.description,
+        source: model.source || 'unknown',
+        apiEndpoint: model.apiEndpoint || '',
+        apiType: model.apiType || 'custom',
+        provider: model.provider || 'unknown',
+        isAvailable: model.isAvailable || false
+      }));
     },
 
     async getProviders(): Promise<Array<{
@@ -1053,13 +818,32 @@ export const uaipAPI = {
         throw new Error(response.error?.message || 'Failed to fetch providers');
       }
       
-      return response.data!;
+      // Transform the response to match expected interface
+      return (response.data || []).map((provider: any) => ({
+        id: provider.id || 'unknown',
+        name: provider.name || 'Unknown Provider',
+        description: provider.description,
+        type: provider.type || 'custom',
+        baseUrl: provider.baseUrl || '',
+        defaultModel: provider.defaultModel,
+        status: provider.status || 'inactive',
+        isActive: provider.isActive || false,
+        priority: provider.priority || 0,
+        totalTokensUsed: provider.totalTokensUsed || 0,
+        totalRequests: provider.totalRequests || 0,
+        totalErrors: provider.totalErrors || 0,
+        lastUsedAt: provider.lastUsedAt?.toISOString(),
+        healthCheckResult: provider.healthCheckResult,
+        hasApiKey: provider.hasApiKey || false,
+        createdAt: provider.createdAt?.toISOString() || new Date().toISOString(),
+        updatedAt: provider.updatedAt?.toISOString() || new Date().toISOString()
+      }));
     },
 
     async createProvider(providerData: {
       name: string;
       description?: string;
-      type: string;
+      type: 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom';
       baseUrl: string;
       apiKey?: string;
       defaultModel?: string;
@@ -1127,7 +911,7 @@ export const uaipAPI = {
       maxTokens?: number;
       temperature?: number;
       model?: string;
-      preferredType?: string;
+      preferredType?: LLMProviderType;
     }): Promise<any> {
       const client = getAPIClient();
       const response = await client.userLLM.generateResponse(request);
@@ -1228,8 +1012,9 @@ export const uaipAPI = {
     async approve(executionId: string, approvalData: { approverId: string }): Promise<void> {
       const client = getAPIClient();
       const response = await client.approvals.submitDecision(executionId, {
-        decision: 'approved',
-        comments: `Approved by ${approvalData.approverId}`
+        decision: 'approve',
+        approverId: approvalData.approverId,
+        feedback: `Approved by ${approvalData.approverId}`
       });
       
       if (!response.success) {
@@ -1240,8 +1025,9 @@ export const uaipAPI = {
     async reject(executionId: string, rejectionData: { approverId: string; reason: string }): Promise<void> {
       const client = getAPIClient();
       const response = await client.approvals.submitDecision(executionId, {
-        decision: 'rejected',
-        comments: rejectionData.reason
+        decision: 'reject',
+        approverId: rejectionData.approverId,
+        feedback: rejectionData.reason
       });
       
       if (!response.success) {

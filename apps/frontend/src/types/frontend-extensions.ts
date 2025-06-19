@@ -6,7 +6,6 @@
 
 import type {
   Agent,
-  AgentRole,
   AgentIntelligenceConfig,
   AgentSecurityContext,
   AgentCreateRequest,
@@ -35,7 +34,6 @@ import type {
   ToolDefinition,
   ToolCategory,
   ToolExecutionStatus,
-  SecurityLevel,
   Capability,
   CapabilityType,
   CapabilityStatus,
@@ -71,7 +69,12 @@ import type {
   Requirement
 } from '@uaip/types';
 
-import { Persona } from './persona';
+// Import enums separately (not as type imports)
+import { 
+  AgentRole, 
+  MessageType, 
+  SecurityLevel 
+} from '@uaip/types';
 
 // Frontend-specific message extensions
 export type ConversationPattern = 'interruption' | 'build-on' | 'clarification' | 'concern' | 'expertise';
@@ -105,6 +108,50 @@ export interface Message extends ToolCapableMessage {
     }>;
     hasValidArgument: boolean;
   };
+}
+
+// Message search options for frontend API calls
+export interface MessageSearchOptions {
+  participantId?: string;
+  messageType?: string[];
+  dateFrom?: Date;
+  dateTo?: Date;
+  limit?: number;
+  offset?: number;
+}
+
+// Discussion events for WebSocket (extending the shared type)
+export interface DiscussionEvent {
+  type: 'turn_started' | 'turn_ended' | 'message_added' | 'participant_joined' | 'participant_left';
+  discussionId: string;
+  data: any;
+  timestamp: Date;
+}
+
+// Search response interfaces for frontend
+export interface PersonaSearchResponse {
+  personas: Persona[];
+  totalCount: number;
+  recommendations: PersonaRecommendation[];
+  searchTime: number;
+}
+
+export interface DiscussionSearchResponse {
+  discussions: Discussion[];
+  totalCount: number;
+  searchTime: number;
+}
+
+// Create types for API requests
+export interface DiscussionParticipantCreate {
+  agentId: string;
+  role?: 'participant' | 'moderator' | 'observer' | 'facilitator';
+}
+
+export interface DiscussionMessageCreate {
+  content: string;
+  messageType?: MessageType;
+  metadata?: Record<string, any>;
 }
 
 // Frontend-specific agent state (extends shared Agent with runtime properties)
@@ -161,7 +208,7 @@ export const createAgentStateFromShared = (sharedAgent: Agent, persona?: Persona
     toolPermissions: {
       allowedTools: [],
       deniedTools: [],
-      requireApprovalFor: ['restricted', 'dangerous'],
+      requireApprovalFor: [SecurityLevel.HIGH, SecurityLevel.CRITICAL],
       canApproveTools: false,
       maxCostPerHour: 100,
       maxExecutionsPerHour: 50

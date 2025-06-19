@@ -21,3 +21,9 @@ export * from './personaUtils.js';
 // Audit and LLM types - NEW
 export * from './audit.js';
 export * from './llm.js';
+// User management types - NEW
+export * from './user.js';
+// System health and metrics types - NEW
+export * from './system.js';
+// WebSocket and real-time types - NEW
+export * from './websocket.js';

@@ -6,62 +6,16 @@ import {
   ToolUsageRecord, 
   ToolPermissionSet,
   ToolPreferences,
-  ToolBudget 
-} from '../types/tool';
+  ToolBudget,
+  LLMModel,
+  ProviderConfig,
+  ProviderTestResult,
+  HealthStatus,
+  SystemMetrics
+} from '@uaip/types';
 import uaipAPI from '@/utils/uaip-api';
 
-// Model Provider Types
-interface ModelProvider {
-  id: string;
-  name: string;
-  description?: string;
-  type: string;
-  baseUrl: string;
-  defaultModel?: string;
-  status: string;
-  isActive: boolean;
-  priority: number;
-  totalTokensUsed: number;
-  totalRequests: number;
-  totalErrors: number;
-  lastUsedAt?: string;
-  healthCheckResult?: any;
-  hasApiKey: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface AvailableModel {
-  id: string;
-  name: string;
-  description?: string;
-  source: string;
-  apiEndpoint: string;
-  apiType: 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom';
-  provider: string;
-  isAvailable: boolean;
-}
-
-interface ModelSelectionState {
-  providers: ModelProvider[];
-  models: AvailableModel[];
-  loadingProviders: boolean;
-  loadingModels: boolean;
-  providersError: string | null;
-  modelsError: string | null;
-}
-
-type AgentAction = 
-  | { type: 'ADD_AGENT'; payload: AgentState }
-  | { type: 'REMOVE_AGENT'; payload: string }
-  | { type: 'UPDATE_AGENT'; payload: { id: string; updates: Partial<AgentState> } }
-  | { type: 'ADD_MESSAGE'; payload: { agentId: string; message: Message } }
-  | { type: 'REMOVE_MESSAGE'; payload: { agentId: string; messageId: string } }
-  | { type: 'UPDATE_TOOL_PERMISSIONS'; payload: { agentId: string; permissions: Partial<ToolPermissionSet> } }
-  | { type: 'ADD_TOOL_USAGE'; payload: { agentId: string; usage: ToolUsageRecord } }
-  | { type: 'SET_AGENT_MODEL'; payload: { agentId: string; modelId: string; providerId: string } };
-
-// Agent Intelligence Flow - Moved from DiscussionContext
+// Agent Intelligence Flow - using backend API
 interface AgentIntelligenceFlow {
   registerAgent: (config: any) => Promise<string>;
   analyzeContext: (context: any) => Promise<any>;
@@ -112,7 +66,7 @@ interface CapabilityRegistryFlow {
   auditCapabilities: () => Promise<any>;
 }
 
-// Orchestration Pipeline Flow - Moved from DiscussionContext
+// Orchestration Pipeline Flow
 interface OrchestrationPipelineFlow {
   createOperation: (operationDef: any) => Promise<string>;
   executeOperation: (operationId: string) => Promise<any>;
@@ -131,7 +85,7 @@ interface OrchestrationPipelineFlow {
   optimizePerformance: () => Promise<any>;
 }
 
-// Artifact Management Flow - Moved from DiscussionContext
+// Artifact Management Flow
 interface ArtifactManagementFlow {
   generateArtifact: (request: any) => Promise<any>;
   generateCode: (requirements: any) => Promise<any>;
@@ -148,6 +102,16 @@ interface ArtifactManagementFlow {
   collaborateOnArtifact: (artifactId: string) => Promise<any>;
   testArtifactIntegration: (artifactId: string) => Promise<any>;
   getArtifactAnalytics: () => Promise<any>;
+}
+
+// Model Provider State - using shared types
+interface ModelSelectionState {
+  providers: ProviderConfig[];
+  models: LLMModel[];
+  loadingProviders: boolean;
+  loadingModels: boolean;
+  providersError: string | null;
+  modelsError: string | null;
 }
 
 const AgentContext = createContext<AgentContextValue | undefined>(undefined);
@@ -211,6 +175,16 @@ function createDefaultToolProperties(): {
     }
   };
 }
+
+type AgentAction = 
+  | { type: 'ADD_AGENT'; payload: AgentState }
+  | { type: 'REMOVE_AGENT'; payload: string }
+  | { type: 'UPDATE_AGENT'; payload: { id: string; updates: Partial<AgentState> } }
+  | { type: 'ADD_MESSAGE'; payload: { agentId: string; message: Message } }
+  | { type: 'REMOVE_MESSAGE'; payload: { agentId: string; messageId: string } }
+  | { type: 'UPDATE_TOOL_PERMISSIONS'; payload: { agentId: string; permissions: Partial<ToolPermissionSet> } }
+  | { type: 'ADD_TOOL_USAGE'; payload: { agentId: string; usage: ToolUsageRecord } }
+  | { type: 'SET_AGENT_MODEL'; payload: { agentId: string; modelId: string; providerId: string } };
 
 function agentReducer(state: Record<string, AgentState>, action: AgentAction): Record<string, AgentState> {
   switch (action.type) {
@@ -476,7 +450,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   }, [loadProviders]);
 
   // Get models for a specific provider
-  const getModelsForProvider = useCallback((providerId: string): AvailableModel[] => {
+  const getModelsForProvider = useCallback((providerId: string): LLMModel[] => {
     const provider = modelState.providers.find(p => p.id === providerId);
     if (!provider) return [];
     
@@ -487,7 +461,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   }, [modelState.providers, modelState.models]);
 
   // Get recommended models for agent role
-  const getRecommendedModels = useCallback((agentRole?: string): AvailableModel[] => {
+  const getRecommendedModels = useCallback((agentRole?: string): LLMModel[] => {
     return modelState.models.filter(model => {
       if (!model.isAvailable) return false;
       
