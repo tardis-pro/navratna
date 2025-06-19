@@ -29,7 +29,7 @@ export const validateRequest = (schemas: ValidationSchemas) => {
 
       // Validate query parameters
       if (schemas.query) {
-        req.query = schemas.query.parse(req.query);
+        (req as any).validatedQuery = schemas.query.parse(req.query);
       }
 
       // Validate route parameters

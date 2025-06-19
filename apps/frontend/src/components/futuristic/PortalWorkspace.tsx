@@ -5,11 +5,12 @@ import { DiscussionControlsPortal } from './portals/DiscussionControlsPortal';
 import { AgentSelectorPortal } from './portals/AgentSelectorPortal';
 import { IntelligencePanelPortal } from './portals/IntelligencePanelPortal';
 import { SettingsPortal } from './portals/SettingsPortal';
-import { Plus, Layout, Users, Brain, Settings, MessageSquare } from 'lucide-react';
+import { ChatPortal } from './portals/ChatPortal';
+import { Plus, Layout, Users, Brain, Settings, MessageSquare, MessageCircle } from 'lucide-react';
 
 interface PortalInstance {
   id: string;
-  type: 'discussion' | 'agents' | 'intelligence' | 'settings';
+  type: 'discussion' | 'agents' | 'intelligence' | 'settings' | 'chat';
   title: string;
   component: React.ComponentType<any>;
   position: { x: number; y: number };
@@ -38,6 +39,13 @@ const PORTAL_CONFIGS = {
     defaultSize: { width: 450, height: 550 },
     type: 'analysis' as const,
     icon: Brain
+  },
+  chat: {
+    title: 'Agent Chat',
+    component: ChatPortal,
+    defaultSize: { width: 500, height: 700 },
+    type: 'communication' as const,
+    icon: MessageCircle
   },
   settings: {
     title: 'Settings',

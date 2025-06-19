@@ -411,14 +411,14 @@ export class EnhancedAgentIntelligenceService {
   /**
    * Get all active agents
    */
-  async getAgents(): Promise<Agent[]> {
+  async getAgents(limit?: number): Promise<Agent[]> {
     if (!this.isInitialized) {
       await this.initialize();
     }
     
     try {
       // Use DatabaseService getActiveAgents method instead of raw SQL
-      const agents = await this.databaseService.getActiveAgents();
+      const agents = await this.databaseService.getActiveAgents(limit);
       
       return agents;
     } catch (error) {

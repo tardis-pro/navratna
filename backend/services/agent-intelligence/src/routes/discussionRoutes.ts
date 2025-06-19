@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { DiscussionController } from '../controllers/discussionController';
 import { 
   validateRequest, 
@@ -76,16 +77,24 @@ export function createDiscussionRoutes(discussionController: DiscussionControlle
   // DELETE /api/v1/discussions/:discussionId/participants/:participantId
   router.delete(
     '/:discussionId/participants/:participantId',
-    validateUUID('discussionId'),
-    validateUUID('participantId'),
+    validateRequest({
+      params: z.object({
+        discussionId: z.string().uuid(),
+        participantId: z.string().uuid()
+      })
+    }),
     discussionController.removeParticipant.bind(discussionController)
   );
 
   // POST /api/v1/discussions/:discussionId/participants/:participantId/messages
   router.post(
     '/:discussionId/participants/:participantId/messages',
-    validateUUID('discussionId'),
-    validateUUID('participantId'),
+    validateRequest({
+      params: z.object({
+        discussionId: z.string().uuid(),
+        participantId: z.string().uuid()
+      })
+    }),
     discussionController.sendMessage.bind(discussionController)
   );
 

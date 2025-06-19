@@ -280,8 +280,70 @@ export class AgentController {
    */
   public async getAgents(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const agents = await this.agentIntelligenceService.getAgents();
-      this.sendSuccessResponse(res, agents);
+      // Get validated query parameters from middleware
+      const queryParams = (req as any).validatedQuery || {};
+      
+      // For now, pass the limit parameter to the service
+      const limit = queryParams.limit;
+      const agents = await this.agentIntelligenceService.getAgents(limit);
+      
+      // Apply client-side filtering for other parameters until we implement server-side filtering
+      let filteredAgents = agents;
+      
+      if (queryParams.role) {
+        filteredAgents = filteredAgents.filter(agent => agent.role === queryParams.role);
+      }
+      
+      if (queryParams.isActive !== undefined) {
+        filteredAgents = filteredAgents.filter(agent => agent.isActive === queryParams.isActive);
+      }
+      
+             if (queryParams.capabilities && queryParams.capabilities.length > 0) {
+         filteredAgents = filteredAgents.filter(agent => 
+           queryParams.capabilities.some((cap: string) => 
+             (agent as any).capabilities?.includes(cap)
+           )
+         );
+       }
+      
+      // Apply sorting
+      if (queryParams.sortBy) {
+        const sortField = queryParams.sortBy;
+        const sortOrder = queryParams.sortOrder || 'desc';
+        
+        filteredAgents.sort((a: any, b: any) => {
+          let aVal = a[sortField];
+          let bVal = b[sortField];
+          
+          // Handle date fields
+          if (sortField === 'createdAt' || sortField === 'lastActiveAt') {
+            aVal = new Date(aVal).getTime();
+            bVal = new Date(bVal).getTime();
+          }
+          
+          if (sortOrder === 'asc') {
+            return aVal > bVal ? 1 : -1;
+          } else {
+            return aVal < bVal ? 1 : -1;
+          }
+        });
+      }
+      
+      // Apply offset
+      if (queryParams.offset) {
+        filteredAgents = filteredAgents.slice(queryParams.offset);
+      }
+      
+      // Apply limit after filtering and offset
+      if (queryParams.limit && !limit) { // Only apply if we didn't already limit at DB level
+        filteredAgents = filteredAgents.slice(0, queryParams.limit);
+      }
+
+      this.sendSuccessResponse(res, {
+        agents: filteredAgents,
+        total: filteredAgents.length,
+        filters: queryParams
+      });
 
     } catch (error) {
       this.handleError(error, 'get agents', {}, next);

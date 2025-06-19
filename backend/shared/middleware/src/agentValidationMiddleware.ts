@@ -135,7 +135,16 @@ export class AgentValidationMiddleware {
       });
 
       const validatedQuery = querySchema.parse(req.query);
-      req.query = validatedQuery as any;
+      
+      // Store validated query in a custom property instead of overwriting req.query
+      (req as any).validatedQuery = validatedQuery;
+
+      // Add validation metadata
+      req.validationMeta = {
+        transformationApplied: false,
+        originalFormat: 'query-parameters',
+        validatedAt: new Date()
+      };
 
       next();
 
@@ -306,6 +315,7 @@ declare global {
         originalFormat: string;
         validatedAt: Date;
       };
+      validatedQuery?: any;
     }
   }
 } 

@@ -736,6 +736,36 @@ export const uaipAPI = {
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to delete agent');
       }
+    },
+
+    async chat(agentId: string, request: {
+      message: string;
+      conversationHistory?: Array<{
+        content: string;
+        sender: string;
+        timestamp: string;
+      }>;
+      context?: any;
+    }): Promise<{
+      response: string;
+      agentName: string;
+      confidence: number;
+      model: string;
+      tokensUsed: number;
+      memoryEnhanced: boolean;
+      knowledgeUsed: number;
+      persona?: any;
+      conversationContext: any;
+      timestamp: string;
+    }> {
+      const client = getAPIClient();
+      const response = await client.request('POST', `/agents/${agentId}/chat`, request);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to send chat message');
+      }
+      
+      return response.data;
     }
   },
 
