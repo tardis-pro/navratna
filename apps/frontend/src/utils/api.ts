@@ -12,6 +12,7 @@
  */
 
 import { API_ROUTES, buildAPIURL } from '@/config/apiConfig';
+import { ModelProvider } from '@/types';
 
 // Import types from shared-types package
 import type {
@@ -248,6 +249,7 @@ export interface CancelOperationRequest {
 
 export class UAIPAPIClient {
   private config: APIConfig;
+  private authFailureCallbacks: Set<() => void> = new Set();
 
   constructor(config: APIConfig = {}) {
     this.config = {
@@ -347,11 +349,16 @@ export class UAIPAPIClient {
             headers['Authorization'] = `Bearer ${newToken}`;
             config.headers = headers;
             response = await fetch(url, config);
+          } else {
+            // No new token received, clear auth and fail
+            this.handleAuthFailure();
+            throw new Error('Authentication failed: Unable to refresh token');
           }
         } catch (refreshError) {
           // Token refresh failed, redirect to login
+          console.error('Token refresh failed:', refreshError);
           this.handleAuthFailure();
-          throw new Error('Authentication failed');
+          throw new Error('Authentication failed: Token refresh error');
         }
       }
 
@@ -495,7 +502,19 @@ export class UAIPAPIClient {
       }
 
       const data = await response.json();
-      const newToken = data.tokens?.accessToken;
+      
+      // Handle both old and new response formats
+      let newToken: string | null = null;
+      if (data.success && data.data?.tokens?.accessToken) {
+        // New APIResponse format
+        newToken = data.data.tokens.accessToken;
+      } else if (data.tokens?.accessToken) {
+        // Old format (fallback)
+        newToken = data.tokens.accessToken;
+      } else if (data.accessToken) {
+        // Even older format (fallback)
+        newToken = data.accessToken;
+      }
 
       if (newToken) {
         this.storeToken(newToken);
@@ -515,10 +534,35 @@ export class UAIPAPIClient {
   private handleAuthFailure(): void {
     this.removeStoredToken();
     
-    // Redirect to login if in browser environment
+    // Notify all registered callbacks
+    this.authFailureCallbacks.forEach(callback => {
+      try {
+        callback();
+      } catch (error) {
+        console.error('Auth failure callback error:', error);
+      }
+    });
+    
+    // Redirect to login if in browser environment and not already on login page
     if (typeof window !== 'undefined' && window.location) {
-      window.location.href = '/login';
+      const currentPath = window.location.pathname;
+      if (currentPath !== '/login' && currentPath !== '/') {
+        console.log('Authentication failed, redirecting to login');
+        window.location.href = '/login';
+      }
     }
+  }
+
+  /**
+   * Register callback for authentication failures
+   */
+  public onAuthFailure(callback: () => void): () => void {
+    this.authFailureCallbacks.add(callback);
+    
+    // Return unsubscribe function
+    return () => {
+      this.authFailureCallbacks.delete(callback);
+    };
   }
 
   /**
@@ -600,6 +644,29 @@ export class UAIPAPIClient {
    */
   public getSessionId(): string | null {
     return this.getStoredSessionId();
+  }
+
+  /**
+   * Check if user is authenticated (has valid token)
+   */
+  public isAuthenticated(): boolean {
+    const token = this.getStoredToken();
+    if (!token) return false;
+    
+    try {
+      // Basic JWT structure check without verification
+      const parts = token.split('.');
+      if (parts.length !== 3) return false;
+      
+      // Decode payload to check expiration
+      const payload = JSON.parse(atob(parts[1]));
+      const now = Math.floor(Date.now() / 1000);
+      
+      // Check if token is expired (with 30 second buffer)
+      return payload.exp && payload.exp > (now + 30);
+    } catch (error) {
+      return false;
+    }
   }
 
   /**
@@ -713,6 +780,19 @@ export class UAIPAPIClient {
       return this.request<void>(buildAPIURL(`${API_ROUTES.AGENTS}/${agentId}/learn`), {
         method: 'POST',
         body: JSON.stringify(learningData),
+      });
+    },
+
+    /**
+     * Agent participation in discussion
+     */
+    participate: async (agentId: string, participationData: {
+      discussionId: string;
+      comment?: string;
+    }): Promise<APIResponse<any>> => {
+      return this.request<any>(buildAPIURL(`${API_ROUTES.AGENTS}/${agentId}/participate`), {
+        method: 'POST',
+        body: JSON.stringify(participationData),
       });
     },
 
@@ -1603,16 +1683,7 @@ export class UAIPAPIClient {
       });
     },
 
-    createProvider: async (providerData: {
-      name: string;
-      description?: string;
-      type: 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom';
-      baseUrl: string;
-      apiKey?: string;
-      defaultModel?: string;
-      configuration?: Record<string, unknown>;
-      priority?: number;
-    }): Promise<APIResponse<ProviderConfig>> => {
+    createProvider: async (providerData: ModelProvider): Promise<APIResponse<ProviderConfig>> => {
       return this.request(`${API_ROUTES.USER_LLM}/providers`, {
         method: 'POST',
         body: JSON.stringify(providerData),

@@ -1,13 +1,29 @@
 // Tool System Type Definitions for Council of Nycea
 // This file defines the comprehensive type system for agent tooling capabilities
 
-export type ToolCategory = 
-  | 'api' | 'computation' | 'file-system' | 'database' 
-  | 'web-search' | 'code-execution' | 'communication' 
-  | 'knowledge-graph' | 'deployment' | 'monitoring'
-  | 'analysis' | 'generation';
+export enum ToolCategory {
+  API = 'api',
+  COMPUTATION = 'computation',
+  FILE_SYSTEM = 'file-system',
+  DATABASE = 'database',
+  WEB_SEARCH = 'web-search',
+  CODE_EXECUTION = 'code-execution',
+  COMMUNICATION = 'communication',
+  KNOWLEDGE_GRAPH = 'knowledge-graph',
+  DEPLOYMENT = 'deployment',
+  MONITORING = 'monitoring',
+  ANALYSIS = 'analysis',
+  GENERATION = 'generation'
+}
 
-export type ToolExecutionStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'approval-required';
+export enum ToolExecutionStatus {
+  PENDING = 'pending',
+  RUNNING = 'running',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+  CANCELLED = 'cancelled',
+  APPROVAL_REQUIRED = 'approval-required'
+}
 
 // SecurityLevel is imported from security.ts to avoid duplication
 import type { SecurityLevel } from './security.js';

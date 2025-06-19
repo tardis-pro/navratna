@@ -2,14 +2,21 @@ import { z } from 'zod';
 import { BaseEntitySchema, IDSchema } from './common.js';
 
 // LLM provider types
+
+export enum LLMProviderStatus {
+  ACTIVE = 'active',
+  INACTIVE = 'inactive',
+  ERROR = 'error',
+  TESTING = 'testing'
+}
+
 export enum LLMProviderType {
   OLLAMA = 'ollama',
-  LLM_STUDIO = 'llmstudio',
   OPENAI = 'openai',
+  LLMSTUDIO = 'llmstudio',
   ANTHROPIC = 'anthropic',
   CUSTOM = 'custom'
 }
-
 // LLM model information
 export const LLMModelSchema = z.object({
   id: z.string(),

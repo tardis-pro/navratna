@@ -10,7 +10,7 @@ export type ValidationStatus = 'valid' | 'invalid' | 'warning';
 export interface ValidationError {
   code: string;
   message: string;
-  severity: 'error' | 'warning';
+  severity: 'error' | 'warning' | 'info';
 }
 
 export interface ValidationWarning {
@@ -26,6 +26,7 @@ export interface ValidationResult {
   warnings: ValidationWarning[];
   suggestions: string[];
   score: number;
+  issues?: ValidationError[]; // For backward compatibility
 }
 
 export interface ArtifactMetadata {
@@ -41,6 +42,8 @@ export interface ArtifactMetadata {
   author?: string;
   createdAt?: Date;
   updatedAt?: Date;
+  generatedBy?: string; // Added for service tracking
+  template?: string; // Added for template tracking
 }
 
 export interface TraceabilityInfo {
@@ -53,6 +56,7 @@ export interface TraceabilityInfo {
 }
 
 export interface Artifact {
+  id?: string; // Added id property
   type: string;
   content: string;
   metadata: ArtifactMetadata;
@@ -154,6 +158,11 @@ export interface ArtifactGenerationRequest {
   constraints?: string[];
   preferences?: Record<string, any>;
   metadata?: Record<string, any>;
+  options?: { // Added options property
+    template?: string;
+    language?: string;
+    framework?: string;
+  };
 }
 
 export interface ArtifactGenerationResponse {
@@ -181,9 +190,11 @@ export interface ArtifactGenerationTemplate {
   author: string;
   isEnabled: boolean;
   metadata?: Record<string, any>;
+  language?: string; // Added language property
+  framework?: string; // Added framework property
 }
 
-// Conversation context for artifacts
+// Extended conversation context for artifacts
 export interface ArtifactConversationContext {
   conversationId: string;
   messages: ConversationMessage[];
@@ -193,6 +204,27 @@ export interface ArtifactConversationContext {
   decisions: Decision[];
   actionItems: ActionItem[];
   metadata?: Record<string, any>;
+  // Added properties for artifact generation
+  agent?: {
+    id: string;
+    name?: string;
+    type?: string;
+  };
+  persona?: {
+    role: string;
+    communicationStyle?: string;
+    name?: string;
+  };
+  discussion?: {
+    id: string;
+    messages: ConversationMessage[];
+    participants?: Participant[];
+  };
+  technical?: {
+    language?: string;
+    framework?: string;
+    requirements?: string[];
+  };
 }
 
 export interface ConversationMessage {

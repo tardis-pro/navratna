@@ -686,7 +686,8 @@ export class DatabaseSeeder {
           {
             name: 'Data Analysis Example',
             description: 'Analyze sales data and generate insights',
-            parameters: { data_source: 'sales_data.csv', analysis_type: 'descriptive' }
+            input: { data_source: 'sales_data.csv', analysis_type: 'descriptive' },
+            expectedOutput: { insights: 'Generated insights from sales data', charts: ['revenue_chart.png'] }
           }
         ]
       },
@@ -738,7 +739,8 @@ export class DatabaseSeeder {
           {
             name: 'Code Generation Example',
             description: 'Generate code for a simple web application',
-            parameters: { language: 'typescript', requirements: 'Create a simple web application' }
+            input: { language: 'typescript', requirements: 'Create a simple web application' },
+            expectedOutput: { code: 'Generated TypeScript code', tests: 'Generated test cases', documentation: 'API documentation' }
           }
         ]
       },
@@ -790,7 +792,8 @@ export class DatabaseSeeder {
           {
             name: 'Workflow Orchestration Example',
             description: 'Orchestrate a complex workflow',
-            parameters: { workflow_definition: 'workflow_definition.json' }
+            input: { workflow_definition: 'workflow_definition.json' },
+            expectedOutput: { execution_id: 'wf-12345', status: 'completed', results: 'Workflow execution results' }
           }
         ]
       },
@@ -2056,7 +2059,7 @@ export class DatabaseSeeder {
         }
       },
       {
-        eventType: AuditEventType.OPERATION_START,
+        eventType: AuditEventType.OPERATION_STARTED,
         userId: users[1].id,
         resourceId: operations[0].id.toString(),
         resourceType: 'operation',
@@ -2076,7 +2079,7 @@ export class DatabaseSeeder {
         }
       },
       {
-        eventType: AuditEventType.OPERATION_COMPLETE,
+        eventType: AuditEventType.OPERATION_COMPLETED,
         userId: users[1].id,
         resourceId: operations[0].id.toString(),
         resourceType: 'operation',
@@ -2096,7 +2099,7 @@ export class DatabaseSeeder {
         }
       },
       {
-        eventType: AuditEventType.PERMISSION_GRANTED,
+        eventType: AuditEventType.APPROVAL_GRANTED,
         userId: users[0].id,
         resourceId: operations[0].id.toString(),
         resourceType: 'operation',

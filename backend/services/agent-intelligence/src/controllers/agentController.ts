@@ -12,6 +12,7 @@ import {
   AgentPlanResponse,
   Agent,
   RiskLevel,
+  SecurityLevel,
   AgentCreateRequestSchema
 } from '@uaip/types';
 import { z } from 'zod';
@@ -112,7 +113,7 @@ export class AgentController {
         agent.securityContext
       );
 
-      const approvalRequired = this.isApprovalRequired(riskAssessment.overallRisk);
+      const approvalRequired = this.isApprovalRequired(riskAssessment.level);
 
       const response: AgentPlanResponse = {
         operationPlan: plan,
@@ -472,8 +473,8 @@ export class AgentController {
   /**
    * Check if approval is required based on risk level
    */
-  private isApprovalRequired(riskLevel: RiskLevel): boolean {
-    return riskLevel === RiskLevel.HIGH || riskLevel === RiskLevel.CRITICAL;
+  private isApprovalRequired(securityLevel: SecurityLevel): boolean {
+    return securityLevel === SecurityLevel.HIGH || securityLevel === SecurityLevel.CRITICAL;
   }
 
   /**

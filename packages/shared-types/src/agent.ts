@@ -60,7 +60,7 @@ export const AgentSchema = BaseEntitySchema.extend({
   }).optional(),
   // Model configuration fields (direct agent fields, not in configuration)
   modelId: z.string().optional(),
-  apiType: z.enum(['ollama', 'llmstudio']).optional(),
+  apiType: z.enum(['ollama', 'llmstudio', 'openai', 'anthropic', 'custom']).optional(),
   temperature: z.number().min(0).max(2).optional(),
   maxTokens: z.number().positive().optional(),
   systemPrompt: z.string().optional()
@@ -135,7 +135,7 @@ export const AgentUpdateSchema = z.object({
   lastActiveAt: z.date().optional(),
   // Model configuration fields (direct agent fields, not in configuration)
   modelId: z.string().optional(),
-  apiType: z.enum(['ollama', 'llmstudio']).optional(),
+  apiType: z.enum(['ollama', 'llmstudio', 'openai', 'anthropic', 'custom']).optional(),
   temperature: z.number().min(0).max(2).optional(),
   maxTokens: z.number().positive().optional(),
   systemPrompt: z.string().optional()

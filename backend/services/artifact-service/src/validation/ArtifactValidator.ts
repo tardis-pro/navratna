@@ -1,14 +1,21 @@
-import { IArtifactValidator } from '../interfaces/ArtifactTypes';
-import { ValidationResult, ValidationError as ValidationIssue, ArtifactType } from '@uaip/types';
+import { ValidationResult, ArtifactType, ValidationError } from '@uaip/types';
+import { IArtifactValidator } from '../interfaces/ArtifactTypes.js';
 import { logger } from '@uaip/utils';
 
+// Internal validation issue type that can handle all severities
+interface ValidationIssue {
+  code: string;
+  message: string;
+  severity: 'error' | 'warning' | 'info';
+}
+
 export class ArtifactValidator implements IArtifactValidator {
-  
+
   validate(content: string, type: ArtifactType): ValidationResult {
     const issues: ValidationIssue[] = [];
-    let score = 100;
-
+    
     try {
+      // Type-specific validation
       switch (type) {
         case 'code':
           this.validateCode(content, issues);
@@ -23,15 +30,11 @@ export class ArtifactValidator implements IArtifactValidator {
           this.validatePRD(content, issues);
           break;
         default:
-          issues.push({
-            code: 'UNKNOWN_TYPE',
-            message: `Unknown artifact type: ${type}`,
-            severity: 'error'
-          });
+          this.validateGeneric(content, issues);
       }
 
-      // Calculate score based on issues
-      score = this.calculateScore(issues);
+      // Calculate score
+      const score = this.calculateScore(issues);
 
       // Separate issues by severity
       const errors = issues.filter(i => i.severity === 'error');
@@ -54,29 +57,29 @@ export class ArtifactValidator implements IArtifactValidator {
       return {
         status,
         isValid: errors.length === 0,
-        issues,
+        errors: errors as ValidationError[],
+        warnings: warnings.filter(w => w.severity === 'warning' || w.severity === 'info') as any[],
+        suggestions,
         score,
-        errors,
-        warnings,
-        suggestions
+        issues: issues as ValidationError[] // For backward compatibility
       };
 
     } catch (error) {
       logger.error('Validation error:', error);
-      const errorIssue = {
+      const errorIssue: ValidationError = {
         code: 'VALIDATION_ERROR',
         message: 'Internal validation error',
-        severity: 'error' as const
+        severity: 'error'
       };
       
       return {
         status: 'invalid',
         isValid: false,
-        issues: [errorIssue],
-        score: 0,
         errors: [errorIssue],
         warnings: [],
-        suggestions: []
+        suggestions: [],
+        score: 0,
+        issues: [errorIssue]
       };
     }
   }
@@ -241,17 +244,14 @@ export class ArtifactValidator implements IArtifactValidator {
     }
 
     // Check for essential PRD sections
-    const requiredSections = [
-      { pattern: /overview/i, name: 'Overview' },
-      { pattern: /requirements?/i, name: 'Requirements' },
-      { pattern: /features?/i, name: 'Features' }
-    ];
-
+    const requiredSections = ['overview', 'requirements', 'objectives', 'goals'];
+    const lowerContent = content.toLowerCase();
+    
     for (const section of requiredSections) {
-      if (!section.pattern.test(content)) {
+      if (!lowerContent.includes(section)) {
         issues.push({
           code: 'MISSING_SECTION',
-          message: `Missing ${section.name} section`,
+          message: `Missing '${section}' section in PRD`,
           severity: 'warning'
         });
       }
@@ -268,10 +268,30 @@ export class ArtifactValidator implements IArtifactValidator {
     }
 
     // Check minimum length
-    if (content.length < 200) {
+    if (content.length < 500) {
       issues.push({
         code: 'SHORT_PRD',
-        message: 'PRD seems very short for a complete document',
+        message: 'PRD seems very short for a comprehensive document',
+        severity: 'info'
+      });
+    }
+  }
+
+  private validateGeneric(content: string, issues: ValidationIssue[]): void {
+    if (content.trim().length === 0) {
+      issues.push({
+        code: 'EMPTY_CONTENT',
+        message: 'Content is empty',
+        severity: 'error'
+      });
+    }
+
+    // Check for TODO items
+    const todoCount = (content.match(/TODO:/g) || []).length;
+    if (todoCount > 0) {
+      issues.push({
+        code: 'INCOMPLETE_CONTENT',
+        message: `Found ${todoCount} TODO item(s) to complete`,
         severity: 'info'
       });
     }
@@ -283,13 +303,13 @@ export class ArtifactValidator implements IArtifactValidator {
     for (const issue of issues) {
       switch (issue.severity) {
         case 'error':
-          score -= 25;
+          score -= 30;
           break;
         case 'warning':
           score -= 10;
           break;
         case 'info':
-          score -= 5;
+          score -= 2;
           break;
       }
     }

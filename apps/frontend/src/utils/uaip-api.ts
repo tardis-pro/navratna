@@ -46,7 +46,8 @@ import type {
   SystemMetrics,
   
   // LLM types
-  LLMGenerationRequest
+  LLMGenerationRequest,
+  LLMModel
 } from '@uaip/types';
 
 // Import enums separately (not as type imports)
@@ -63,7 +64,8 @@ import type {
   PersonaSearchResponse,
   DiscussionSearchResponse,
   DiscussionParticipantCreate,
-  DiscussionMessageCreate
+  DiscussionMessageCreate,
+  ModelProvider,
 } from '@/types/frontend-extensions';
 
 // Environment configuration
@@ -599,7 +601,7 @@ export const uaipAPI = {
       // Find the participant ID for this discussion - for now use a placeholder
       const response = await client.discussions.sendMessage(id, 'current-participant', {
         content: message.content,
-        messageType: message.messageType || 'message',
+        messageType: message.messageType || MessageType.MESSAGE,
         metadata: message.metadata
       });
       
@@ -762,16 +764,7 @@ export const uaipAPI = {
   // ============================================================================
   
   llm: {
-    async getModels(): Promise<Array<{
-      id: string;
-      name: string;
-      description?: string;
-      source: string;
-      apiEndpoint: string;
-      apiType: 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom';
-      provider: string;
-      isAvailable: boolean;
-    }>> {
+    async getModels(): Promise<Array<LLMModel>> {
       const client = getAPIClient();
       const response = await client.userLLM.getModels();
       
@@ -835,21 +828,12 @@ export const uaipAPI = {
         lastUsedAt: provider.lastUsedAt?.toISOString(),
         healthCheckResult: provider.healthCheckResult,
         hasApiKey: provider.hasApiKey || false,
-        createdAt: provider.createdAt?.toISOString() || new Date().toISOString(),
-        updatedAt: provider.updatedAt?.toISOString() || new Date().toISOString()
+        createdAt: provider.createdAt || new Date().toISOString(),
+        updatedAt: provider.updatedAt || new Date().toISOString()
       }));
     },
 
-    async createProvider(providerData: {
-      name: string;
-      description?: string;
-      type: 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom';
-      baseUrl: string;
-      apiKey?: string;
-      defaultModel?: string;
-      configuration?: any;
-      priority?: number;
-    }): Promise<any> {
+    async createProvider(providerData: ModelProvider): Promise<any> {
       const client = getAPIClient();
       const response = await client.userLLM.createProvider(providerData);
       

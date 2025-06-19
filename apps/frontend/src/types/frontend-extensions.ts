@@ -66,12 +66,14 @@ import type {
   ArtifactConversationContext,
   Decision,
   ActionItem,
-  Requirement
+  Requirement,
+  LLMModel,
 } from '@uaip/types';
 
 // Import enums separately (not as type imports)
 import { 
   AgentRole, 
+  LLMProviderType, 
   MessageType, 
   SecurityLevel 
 } from '@uaip/types';
@@ -109,6 +111,7 @@ export interface Message extends ToolCapableMessage {
     hasValidArgument: boolean;
   };
 }
+
 
 // Message search options for frontend API calls
 export interface MessageSearchOptions {
@@ -155,9 +158,8 @@ export interface DiscussionMessageCreate {
 }
 
 // Frontend-specific agent state (extends shared Agent with runtime properties)
-export interface AgentState extends Omit<Agent, 'apiType'> {
+export interface AgentState extends Agent {
   // Override apiType to include frontend-specific options
-  apiType?: 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom';
   
   // Runtime State (frontend-only, not persisted)
   currentResponse: string | null;
@@ -198,7 +200,7 @@ export const createAgentStateFromShared = (sharedAgent: Agent, persona?: Persona
     
     // Model configuration from shared agent
     modelId: sharedAgent.modelId || 'unknown',
-    apiType: (sharedAgent.apiType || 'ollama') as 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom',
+    apiType: (sharedAgent.apiType || LLMProviderType.OLLAMA),
     
     // Frontend persona
     persona,
@@ -299,7 +301,7 @@ export interface AgentContextValue {
   // Model Provider Management
   modelState: {
     providers: ModelProvider[];
-    models: ModelInfo[];
+    models: LLMModel[];
     loadingProviders: boolean;
     loadingModels: boolean;
     providersError: string | null;
@@ -310,28 +312,12 @@ export interface AgentContextValue {
   refreshModelData: () => Promise<void>;
   
   // Provider management methods
-  createProvider: (config: {
-    name: string;
-    description?: string;
-    type: string;
-    baseUrl: string;
-    apiKey?: string;
-    defaultModel?: string;
-    configuration?: Record<string, unknown>;
-    priority?: number;
-  }) => Promise<boolean>;
-  updateProvider: (providerId: string, config: {
-    name?: string;
-    description?: string;
-    baseUrl?: string;
-    defaultModel?: string;
-    priority?: number;
-    configuration?: Record<string, unknown>;
-  }) => Promise<boolean>;
+  createProvider: (config: ModelProvider) => Promise<boolean>;
+  updateProvider: (providerId: string, config: ModelProvider) => Promise<boolean>;
   testProvider: (providerId: string) => Promise<Record<string, unknown>>;
   deleteProvider: (providerId: string) => Promise<boolean>;
-  getModelsForProvider: (providerId: string) => ModelInfo[];
-  getRecommendedModels: (agentRole?: string) => ModelInfo[];
+  getModelsForProvider: (providerId: string) => LLMModel[];
+  getRecommendedModels: (agentRole?: string) => LLMModel[];
   
   // UAIP Backend Flow Integration
   agentIntelligence: {
@@ -419,22 +405,7 @@ export interface AgentContextValue {
     getArtifactAnalytics: () => Promise<Record<string, unknown>>;
   };
   
-  // Discussion Management
-  discussionManagement: {
-    createDiscussion: (request: CreateDiscussionRequest) => Promise<Discussion>;
-    updateDiscussion: (discussionId: string, updates: UpdateDiscussionRequest) => Promise<Discussion>;
-    getDiscussion: (discussionId: string) => Promise<Discussion>;
-    startDiscussion: (discussionId: string) => Promise<void>;
-    endDiscussion: (discussionId: string, summary: string) => Promise<DiscussionSummary>;
-    addParticipant: (discussionId: string, participant: Omit<DiscussionParticipant, 'id' | 'createdAt' | 'updatedAt'>) => Promise<DiscussionParticipant>;
-    removeParticipant: (discussionId: string, participantId: string) => Promise<void>;
-    sendMessage: (discussionId: string, message: Omit<DiscussionMessage, 'id' | 'createdAt' | 'updatedAt'>) => Promise<DiscussionMessage>;
-    getMessages: (discussionId: string, limit?: number, offset?: number) => Promise<DiscussionMessage[]>;
-    advanceTurn: (discussionId: string, force?: boolean) => Promise<void>;
-    getAnalytics: (discussionId: string) => Promise<DiscussionAnalytics>;
-    updateSettings: (discussionId: string, settings: Partial<DiscussionSettings>) => Promise<DiscussionSettings>;
-    getState: (discussionId: string) => Promise<DiscussionState>;
-  };
+
   
   // UI State Management
   activeFlows: string[];

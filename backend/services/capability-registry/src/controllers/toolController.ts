@@ -5,7 +5,7 @@
 import { Request, Response } from 'express';
 import { ToolRegistry } from '../services/toolRegistry.js';
 import { ToolExecutor } from '../services/toolExecutor.js';
-import { ToolDefinition } from '@uaip/types';
+import { ToolDefinition, ToolCategory, SecurityLevel } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { z } from 'zod';
 
@@ -146,7 +146,8 @@ export class ToolController {
   async registerTool(req: Request, res: Response): Promise<void> {
     try {
       const validatedTool = RegisterToolSchema.parse(req.body);
-      await this.toolRegistry.registerTool(validatedTool as ToolDefinition);
+      const toolDefinition = this.transformToToolDefinition(validatedTool);
+      await this.toolRegistry.registerTool(toolDefinition);
       
       res.status(201).json({
         success: true,
@@ -192,8 +193,9 @@ export class ToolController {
       }
       
       const updates = RegisterToolSchema.partial().parse(req.body);
+      const transformedUpdates = this.transformToPartialToolDefinition(updates);
       
-      await this.toolRegistry.updateTool(validationResult.data, updates);
+      await this.toolRegistry.updateTool(validationResult.data, transformedUpdates);
       
       res.json({
         success: true,
@@ -761,5 +763,97 @@ export class ToolController {
         message: error.message
       });
     }
+  }
+
+  private transformToToolDefinition(validatedTool: any): ToolDefinition {
+    const transformed: any = { ...validatedTool };
+    
+    // Transform category string to ToolCategory enum
+    if (transformed.category) {
+      const categoryMap: Record<string, ToolCategory> = {
+        'api': ToolCategory.API,
+        'computation': ToolCategory.COMPUTATION,
+        'file-system': ToolCategory.FILE_SYSTEM,
+        'database': ToolCategory.DATABASE,
+        'web-search': ToolCategory.WEB_SEARCH,
+        'code-execution': ToolCategory.CODE_EXECUTION,
+        'communication': ToolCategory.COMMUNICATION,
+        'knowledge-graph': ToolCategory.KNOWLEDGE_GRAPH,
+        'deployment': ToolCategory.DEPLOYMENT,
+        'monitoring': ToolCategory.MONITORING,
+        'analysis': ToolCategory.ANALYSIS,
+        'generation': ToolCategory.GENERATION
+      };
+      transformed.category = categoryMap[transformed.category] || ToolCategory.API;
+    }
+    
+    // Transform securityLevel string to SecurityLevel enum
+    if (transformed.securityLevel) {
+      const securityMap: Record<string, SecurityLevel> = {
+        'safe': SecurityLevel.LOW,
+        'moderate': SecurityLevel.MEDIUM,
+        'restricted': SecurityLevel.HIGH,
+        'dangerous': SecurityLevel.CRITICAL
+      };
+      transformed.securityLevel = securityMap[transformed.securityLevel] || SecurityLevel.MEDIUM;
+    }
+    
+    // Transform examples to proper ToolExample format
+    if (transformed.examples && Array.isArray(transformed.examples)) {
+      transformed.examples = transformed.examples.map((example: any, index: number) => ({
+        name: example.name || `Example ${index + 1}`,
+        description: example.description || `Example usage ${index + 1}`,
+        input: example.input || example.parameters || {},
+        expectedOutput: example.expectedOutput || example.output || 'Expected output'
+      }));
+    }
+    
+    return transformed;
+  }
+
+  private transformToPartialToolDefinition(validatedTool: any): Partial<ToolDefinition> {
+    const transformed: any = { ...validatedTool };
+    
+    // Transform category string to ToolCategory enum
+    if (transformed.category) {
+      const categoryMap: Record<string, ToolCategory> = {
+        'api': ToolCategory.API,
+        'computation': ToolCategory.COMPUTATION,
+        'file-system': ToolCategory.FILE_SYSTEM,
+        'database': ToolCategory.DATABASE,
+        'web-search': ToolCategory.WEB_SEARCH,
+        'code-execution': ToolCategory.CODE_EXECUTION,
+        'communication': ToolCategory.COMMUNICATION,
+        'knowledge-graph': ToolCategory.KNOWLEDGE_GRAPH,
+        'deployment': ToolCategory.DEPLOYMENT,
+        'monitoring': ToolCategory.MONITORING,
+        'analysis': ToolCategory.ANALYSIS,
+        'generation': ToolCategory.GENERATION
+      };
+      transformed.category = categoryMap[transformed.category] || ToolCategory.API;
+    }
+    
+    // Transform securityLevel string to SecurityLevel enum
+    if (transformed.securityLevel) {
+      const securityMap: Record<string, SecurityLevel> = {
+        'safe': SecurityLevel.LOW,
+        'moderate': SecurityLevel.MEDIUM,
+        'restricted': SecurityLevel.HIGH,
+        'dangerous': SecurityLevel.CRITICAL
+      };
+      transformed.securityLevel = securityMap[transformed.securityLevel] || SecurityLevel.MEDIUM;
+    }
+    
+    // Transform examples to proper ToolExample format
+    if (transformed.examples && Array.isArray(transformed.examples)) {
+      transformed.examples = transformed.examples.map((example: any, index: number) => ({
+        name: example.name || `Example ${index + 1}`,
+        description: example.description || `Example usage ${index + 1}`,
+        input: example.input || example.parameters || {},
+        expectedOutput: example.expectedOutput || example.output || 'Expected output'
+      }));
+    }
+    
+    return transformed;
   }
 } 

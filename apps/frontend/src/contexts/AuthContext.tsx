@@ -81,6 +81,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Check for existing authentication on mount
   useEffect(() => {
     checkAuthStatus();
+    
+    // Listen for auth failures from the API client
+    const unsubscribe = uaipAPI.client.onAuthFailure(() => {
+      console.log('Auth failure detected, clearing state');
+      setState({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+        error: null
+      });
+    });
+    
+    return unsubscribe;
   }, []);
 
   // Generic flow execution handler
@@ -246,13 +259,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setState(prev => ({ ...prev, isLoading: true, error: null }));
       
-      // Check if we have a stored token
+      // Check if we have a valid stored token
       const accessToken = typeof window !== 'undefined' ? 
         (localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken')) : null;
       const refreshToken = typeof window !== 'undefined' ? 
         (localStorage.getItem('refreshToken') || sessionStorage.getItem('refreshToken')) : null;
       
-      if (!accessToken) {
+      if (!accessToken || !uaipAPI.client.isAuthenticated()) {
         setState(prev => ({ ...prev, isLoading: false }));
         return;
       }
@@ -276,6 +289,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         });
       } else {
         // Token is invalid, clear it
+        console.warn('Auth check failed:', response.error?.message || 'Unknown error');
         uaipAPI.client.clearAuth();
         setState({
           user: null,
@@ -290,11 +304,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Clear invalid tokens
       uaipAPI.client.clearAuth();
       
+      // Don't set error state for failed auth checks - just silently log out
       setState({
         user: null,
         isAuthenticated: false,
         isLoading: false,
-        error: 'Authentication check failed'
+        error: null
       });
     }
   }, []);
@@ -394,9 +409,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           user: response.data,
           error: null
         }));
+      } else {
+        // If user refresh fails, it might mean the token is invalid
+        console.warn('User refresh failed, clearing auth');
+        uaipAPI.client.clearAuth();
+        setState({
+          user: null,
+          isAuthenticated: false,
+          isLoading: false,
+          error: null
+        });
       }
     } catch (error) {
       console.error('Failed to refresh user data:', error);
+      // Don't clear auth on network errors, only on auth failures
+      if (error instanceof Error && error.message.includes('Authentication failed')) {
+        uaipAPI.client.clearAuth();
+        setState({
+          user: null,
+          isAuthenticated: false,
+          isLoading: false,
+          error: null
+        });
+      }
     }
   }, [state.isAuthenticated]);
 

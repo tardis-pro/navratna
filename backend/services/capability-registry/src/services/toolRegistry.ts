@@ -2,7 +2,7 @@
 // Combines PostgreSQL and Neo4j for comprehensive tool management
 // Part of capability-registry microservice
 
-import { ToolDefinition, ToolUsageRecord } from '@uaip/types';
+import { ToolDefinition, ToolUsageRecord, ToolCategory, SecurityLevel } from '@uaip/types';
 import { ToolDatabase, ToolGraphDatabase, ToolRelationship, ToolRecommendation, TypeOrmService, DatabaseService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { z } from 'zod';
@@ -72,15 +72,16 @@ export class ToolRegistry {
   }
 
   // Tool Registration and Management
-  async registerTool(tool: ToolDefinition): Promise<void> {
+  async registerTool(tool: Partial<ToolDefinition>): Promise<void> {
     // Validate tool definition
     const validatedTool = ToolDefinitionSchema.parse(tool);
     
     try {
       // Store in PostgreSQL
       
-      // Create node in Neo4j
-      await this.neo4j.createToolNode(validatedTool as ToolDefinition);
+      // Transform and create node in Neo4j
+      const transformedTool = this.transformValidatedToToolDefinition(validatedTool);
+      await this.neo4j.createToolNode(transformedTool as ToolDefinition);
 
       // Create TypeORM ToolDefinition entity for enhanced tracking
       await this.typeormService.create('ToolDefinition', {
@@ -132,7 +133,9 @@ export class ToolRegistry {
       // Update in PostgreSQL
       
       // Update node in Neo4j
-      await this.neo4j.updateToolNode(validatedId, validatedUpdates);
+      // Transform and update node in Neo4j
+      const transformedUpdates = this.transformValidatedToToolDefinition(validatedUpdates);
+      await this.neo4j.updateToolNode(validatedId, transformedUpdates);
 
       // Update TypeORM entity
       await this.typeormService.update('ToolDefinition', validatedId, {
@@ -171,7 +174,8 @@ export class ToolRegistry {
   async getTool(id: string): Promise<ToolDefinition | null> {
     await this.ensureInitialized();
     const validatedId = z.string().parse(id);
-    return await this.postgresql.getTool(validatedId);
+    const tool = await this.postgresql.getTool(validatedId);
+    return tool ? this.transformEntityToInterface(tool) : null;
   }
 
   async getTools(category?: string, enabled?: boolean): Promise<ToolDefinition[]> {
@@ -180,12 +184,14 @@ export class ToolRegistry {
     logger.info(`Getting tools with category: ${category}, enabled: ${enabled}`);
     if (category) filters.category = category;
     if (enabled !== undefined) filters.enabled = enabled;
-    return await this.postgresql.getTools(filters);
+    const tools = await this.postgresql.getTools(filters);
+    return tools.map(tool => this.transformEntityToInterface(tool));
   }
 
   async searchTools(query: string): Promise<ToolDefinition[]> {
     await this.ensureInitialized();
-    return await this.postgresql.searchTools(query);
+    const tools = await this.postgresql.searchTools(query);
+    return tools.map(tool => this.transformEntityToInterface(tool));
   }
 
   async isEnabled(toolId: string): Promise<boolean> {
@@ -207,7 +213,8 @@ export class ToolRegistry {
     if (toolIds.length === 0) return [];
     
     const tools = await this.postgresql.getTools({});
-    return tools.filter(tool => toolIds.includes(tool.id) && tool.isEnabled);
+    const transformedTools = tools.map(tool => this.transformEntityToInterface(tool));
+    return transformedTools.filter(tool => toolIds.includes(tool.id) && tool.isEnabled);
   }
 
   async addToolRelationship(
@@ -374,10 +381,11 @@ export class ToolRegistry {
       const usageRecord: Partial<ToolUsageRecord> = {
         toolId,
         agentId,
-        executionTime,
+        duration: executionTime,
         success,
         cost: cost,
-        timestamp: new Date(),
+        startTime: new Date(),
+        endTime: new Date(),
         metadata: metadata || {}
       };
 
@@ -490,5 +498,103 @@ export class ToolRegistry {
       logger.error(`Failed to get tool usage stats for ${toolId}:`, error);
       return null;
     }
+  }
+
+  private transformEntityToInterface(entity: any): ToolDefinition {
+    return {
+      ...entity,
+      // Transform ToolSecurityLevel to SecurityLevel if needed
+      securityLevel: this.mapToolSecurityLevelToSecurityLevel(entity.securityLevel),
+      // Transform category string to ToolCategory enum if needed  
+      category: this.mapStringToToolCategory(entity.category)
+    };
+  }
+
+  private mapToolSecurityLevelToSecurityLevel(toolSecurityLevel: any): SecurityLevel {
+    // If it's already a SecurityLevel, return as is
+    if (Object.values(SecurityLevel).includes(toolSecurityLevel)) {
+      return toolSecurityLevel;
+    }
+    
+    // Map from ToolSecurityLevel to SecurityLevel
+    const mapping: Record<string, SecurityLevel> = {
+      'SAFE': SecurityLevel.LOW,
+      'MODERATE': SecurityLevel.MEDIUM,
+      'RESTRICTED': SecurityLevel.HIGH,
+      'DANGEROUS': SecurityLevel.CRITICAL
+    };
+    
+    return mapping[toolSecurityLevel] || SecurityLevel.MEDIUM;
+  }
+
+  private mapStringToToolCategory(category: any): ToolCategory {
+    // If it's already a ToolCategory, return as is
+    if (Object.values(ToolCategory).includes(category)) {
+      return category;
+    }
+    
+    // Map string to ToolCategory enum
+    const mapping: Record<string, ToolCategory> = {
+      'api': ToolCategory.API,
+      'computation': ToolCategory.COMPUTATION,
+      'file-system': ToolCategory.FILE_SYSTEM,
+      'database': ToolCategory.DATABASE,
+      'web-search': ToolCategory.WEB_SEARCH,
+      'code-execution': ToolCategory.CODE_EXECUTION,
+      'communication': ToolCategory.COMMUNICATION,
+      'knowledge-graph': ToolCategory.KNOWLEDGE_GRAPH,
+      'deployment': ToolCategory.DEPLOYMENT,
+      'monitoring': ToolCategory.MONITORING,
+      'analysis': ToolCategory.ANALYSIS,
+      'generation': ToolCategory.GENERATION
+    };
+    
+    return mapping[category] || ToolCategory.API;
+  }
+
+  private transformValidatedToToolDefinition(validatedTool: any): Partial<ToolDefinition> {
+    const transformed: any = { ...validatedTool };
+    
+    // Transform category string to ToolCategory enum
+    if (transformed.category) {
+      const categoryMap: Record<string, ToolCategory> = {
+        'api': ToolCategory.API,
+        'computation': ToolCategory.COMPUTATION,
+        'file-system': ToolCategory.FILE_SYSTEM,
+        'database': ToolCategory.DATABASE,
+        'web-search': ToolCategory.WEB_SEARCH,
+        'code-execution': ToolCategory.CODE_EXECUTION,
+        'communication': ToolCategory.COMMUNICATION,
+        'knowledge-graph': ToolCategory.KNOWLEDGE_GRAPH,
+        'deployment': ToolCategory.DEPLOYMENT,
+        'monitoring': ToolCategory.MONITORING,
+        'analysis': ToolCategory.ANALYSIS,
+        'generation': ToolCategory.GENERATION
+      };
+      transformed.category = categoryMap[transformed.category] || ToolCategory.API;
+    }
+    
+    // Transform securityLevel string to SecurityLevel enum
+    if (transformed.securityLevel) {
+      const securityMap: Record<string, SecurityLevel> = {
+        'safe': SecurityLevel.LOW,
+        'moderate': SecurityLevel.MEDIUM,
+        'restricted': SecurityLevel.HIGH,
+        'dangerous': SecurityLevel.CRITICAL
+      };
+      transformed.securityLevel = securityMap[transformed.securityLevel] || SecurityLevel.MEDIUM;
+    }
+    
+    // Transform examples to proper ToolExample format
+    if (transformed.examples && Array.isArray(transformed.examples)) {
+      transformed.examples = transformed.examples.map((example: any, index: number) => ({
+        name: example.name || `Example ${index + 1}`,
+        description: example.description || `Example usage ${index + 1}`,
+        input: example.input || example.parameters || {},
+        expectedOutput: example.expectedOutput || example.output || 'Expected output'
+      }));
+    }
+    
+    return transformed;
   }
 } 

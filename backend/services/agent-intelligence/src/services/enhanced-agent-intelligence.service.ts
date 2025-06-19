@@ -28,7 +28,7 @@ import {
   KnowledgeItem
 } from '@uaip/types';
 import { logger, ApiError } from '@uaip/utils';
-import { LLMService } from '@uaip/llm-service';
+import { LLMService, UserLLMService } from '@uaip/llm-service';
 import { 
   LLMRequest, 
   LLMResponse, 
@@ -48,6 +48,8 @@ export class EnhancedAgentIntelligenceService {
   private personaService?: PersonaService;
   private discussionService?: DiscussionService;
   private llmService: LLMService;
+  private userLLMService: UserLLMService;
+  private initializationPromise?: Promise<void>;
 
   constructor(
     knowledgeGraph?: KnowledgeGraphService,
@@ -58,44 +60,47 @@ export class EnhancedAgentIntelligenceService {
     eventBusService?: EventBusService,
     llmService?: LLMService
   ) {
-    // Initialize services with defaults if not provided
+    // Initialize core services with defaults if not provided
     this.databaseService = databaseService || new DatabaseService();
     this.eventBusService = eventBusService || new EventBusService({
       url: process.env.RABBITMQ_URL || 'amqp://localhost',
       serviceName: 'enhanced-agent-intelligence'
     }, logger as any);
     
-    // Initialize LLM service
+    // Initialize LLM services
     this.llmService = llmService || LLMService.getInstance();
+    this.userLLMService = new UserLLMService();
     
-    // Initialize enhanced services with defaults if not provided
-    // Note: These services require complex dependencies, so we'll initialize them as undefined
-    // and check for their existence before using them
+    // Store optional services - DO NOT create new instances to avoid circular dependencies
     this.knowledgeGraph = knowledgeGraph;
     this.agentMemory = agentMemory;
-    this.personaService = personaService || new PersonaService({
-      databaseService: this.databaseService,
-      eventBusService: this.eventBusService,
-      enableCaching: true,
-      enableAnalytics: true
-    });
-    this.discussionService = discussionService || new DiscussionService({
-      databaseService: this.databaseService,
-      eventBusService: this.eventBusService,
-      personaService: this.personaService,
-      enableRealTimeEvents: true,
-      enableAnalytics: true,
-      maxParticipants: 20,
-      defaultTurnTimeout: 300
-    });
+    this.personaService = personaService;
+    this.discussionService = discussionService;
+    
+    // Note: PersonaService and DiscussionService will be initialized lazily if needed
+    // This prevents circular dependencies during construction
   }
 
   /**
    * Initialize the service and its dependencies
+   * Uses singleton pattern to prevent multiple initializations
    */
   private async initialize(): Promise<void> {
     if (this.isInitialized) return;
     
+    // Prevent concurrent initialization
+    if (this.initializationPromise) {
+      return this.initializationPromise;
+    }
+    
+    this.initializationPromise = this._doInitialize();
+    return this.initializationPromise;
+  }
+
+  /**
+   * Internal initialization method
+   */
+  private async _doInitialize(): Promise<void> {
     try {
       // Initialize database service first
       await this.databaseService.initialize();
@@ -107,17 +112,53 @@ export class EnhancedAgentIntelligenceService {
         throw new Error('Database health check failed');
       }
       
-      // Connect to event bus (optional)
+      // Connect to event bus (optional - don't fail if unavailable)
       try {
         await this.eventBusService.connect();
+        logger.info('EventBusService connected successfully');
       } catch (error) {
         logger.warn('Event bus connection failed, continuing without event publishing:', error);
       }
       
+      // Initialize optional services lazily only if they weren't provided
+      if (!this.personaService) {
+        try {
+          this.personaService = new PersonaService({
+            databaseService: this.databaseService,
+            eventBusService: this.eventBusService,
+            enableCaching: true,
+            enableAnalytics: true
+          });
+          logger.info('PersonaService initialized successfully');
+        } catch (error) {
+          logger.warn('Failed to initialize PersonaService, will continue without it:', error);
+        }
+      }
+      
+      if (!this.discussionService && this.personaService) {
+        try {
+          this.discussionService = new DiscussionService({
+            databaseService: this.databaseService,
+            eventBusService: this.eventBusService,
+            personaService: this.personaService,
+            enableRealTimeEvents: true,
+            enableAnalytics: true,
+            maxParticipants: 20,
+            defaultTurnTimeout: 300
+          });
+          logger.info('DiscussionService initialized successfully');
+        } catch (error) {
+          logger.warn('Failed to initialize DiscussionService, will continue without it:', error);
+        }
+      }
+      
       this.isInitialized = true;
-      logger.info('Enhanced Agent Intelligence Service initialized');
+      logger.info('Enhanced Agent Intelligence Service initialized successfully');
     } catch (error) {
       logger.error('Failed to initialize Enhanced Agent Intelligence Service:', error);
+      // Reset initialization state on failure
+      this.isInitialized = false;
+      this.initializationPromise = undefined;
       throw error;
     }
   }
@@ -539,7 +580,7 @@ export class EnhancedAgentIntelligenceService {
       };
       
       // Analyze user intent using LLM
-      const intentAnalysis = await this.analyzeLLMUserIntent(userRequest, conversationContext, agent);
+      const intentAnalysis = await this.analyzeLLMUserIntent(userRequest, conversationContext, agent, agent.createdBy);
       
       // Generate enhanced action recommendations using LLM
       const actionRecommendations = await this.generateLLMEnhancedActionRecommendations(
@@ -548,7 +589,8 @@ export class EnhancedAgentIntelligenceService {
         intentAnalysis,
         constraints,
         relevantKnowledge,
-        similarEpisodes
+        similarEpisodes,
+        agent.createdBy
       );
 
       // Calculate enhanced confidence score
@@ -569,7 +611,8 @@ export class EnhancedAgentIntelligenceService {
         confidence,
         relevantKnowledge,
         similarEpisodes,
-        agent
+        agent,
+        agent.createdBy
       );
 
       const analysis: AgentAnalysis = {
@@ -848,7 +891,15 @@ Personality Traits: ${JSON.stringify(persona.traits)}`,
       const reasoning = await this.generateReasoning(input.message, relevantKnowledge, similarEpisodes, workingMemory);
       
       // Generate LLM-enhanced agent response
-      const response = await this.generateLLMAgentResponse(agent, input, relevantKnowledge, reasoning, workingMemory);
+      // Use provided userId or fall back to agent's creator
+      const effectiveUserId = input.userId || agent.createdBy;
+      logger.info('Processing agent input with user context', { 
+        agentId, 
+        userId: effectiveUserId, 
+        source: input.userId ? 'provided' : 'agent-creator',
+        hasUserContext: !!effectiveUserId 
+      });
+      const response = await this.generateLLMAgentResponse(agent, input, relevantKnowledge, reasoning, workingMemory, effectiveUserId);
       
       // Update working memory with this interaction
       if (this.agentMemory) {
@@ -890,7 +941,8 @@ Personality Traits: ${JSON.stringify(persona.traits)}`,
     input: any,
     relevantKnowledge: KnowledgeItem[],
     reasoning: string[],
-    workingMemory: any
+    workingMemory: any,
+    userId?: string
   ): Promise<string> {
     try {
       // Build conversation history from context
@@ -939,24 +991,31 @@ Personality Traits: ${JSON.stringify(persona.traits)}`,
         };
       }
 
-      // Use LLM service to generate agent response
+      // Use appropriate LLM service to generate agent response
       const agentRequest: AgentResponseRequest = {
         agent,
         messages,
         context: documentContext
       };
 
-      const llmResponse = await this.llmService.generateAgentResponse(agentRequest);
+      let llmResponse;
+      if (userId) {
+        // Use user-specific LLM service if userId is provided
+        llmResponse = await this.userLLMService.generateAgentResponse(userId, agentRequest);
+      } else {
+        // Fall back to global LLM service
+        llmResponse = await this.llmService.generateAgentResponse(agentRequest);
+      }
       
       if (llmResponse.error) {
         logger.warn('LLM agent response failed, using fallback', { error: llmResponse.error });
-        return this.generateResponse(input.message, reasoning, relevantKnowledge);
+        return this.generateResponse(input.message, reasoning, relevantKnowledge, userId);
       }
 
       return llmResponse.content;
     } catch (error) {
       logger.error('Error generating LLM agent response', { error });
-      return this.generateResponse(input.message, reasoning, relevantKnowledge);
+      return this.generateResponse(input.message, reasoning, relevantKnowledge, userId);
     }
   }
 
@@ -1002,12 +1061,16 @@ Personality Traits: ${JSON.stringify(persona.traits)}`,
         }
       });
 
+      // Get the agent to access creator information
+      const agent = await this.getAgent(agentId);
+      
       // Generate knowledge-enhanced response
       const response = await this.generateDiscussionResponseInternal(
         message, 
         discussion, 
         contextualKnowledge,
-        agentId
+        agentId,
+        agent?.createdBy
       );
 
       // Store discussion participation as an episode
@@ -1222,14 +1285,26 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
         };
       }
 
-      // Use LLM service to generate response
+      // Use appropriate LLM service based on user context
       const agentRequest: AgentResponseRequest = {
         agent,
         messages: llmMessages,
         context: documentContext
       };
 
-      const llmResponse = await this.llmService.generateAgentResponse(agentRequest);
+      // Use provided userId or fall back to agent's creator
+      const effectiveUserId = userId || agent.createdBy;
+      
+      let llmResponse;
+      if (effectiveUserId) {
+        // Use user-specific LLM service if userId is available
+        logger.info('Using user-specific LLM service for agent response', { agentId, userId: effectiveUserId, source: userId ? 'provided' : 'agent-creator' });
+        llmResponse = await this.userLLMService.generateAgentResponse(effectiveUserId, agentRequest);
+      } else {
+        // Fall back to global LLM service
+        logger.warn('No userId available (neither provided nor agent creator), using global LLM service for agent response', { agentId });
+        llmResponse = await this.llmService.generateAgentResponse(agentRequest);
+      }
 
       // Update working memory with this interaction if available
       if (this.agentMemory && !llmResponse.error) {
@@ -1399,7 +1474,7 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
   /**
    * Analyze user intent using LLM
    */
-  private async analyzeLLMUserIntent(userRequest: string, conversationContext: any, agent: Agent): Promise<any> {
+  private async analyzeLLMUserIntent(userRequest: string, conversationContext: any, agent: Agent, userId?: string): Promise<any> {
     try {
       const llmRequest: LLMRequest = {
         prompt: `Analyze the user's intent from this request: "${userRequest}"
@@ -1419,7 +1494,14 @@ Respond in JSON format.`,
         temperature: 0.3
       };
 
-      const response = await this.llmService.generateResponse(llmRequest);
+      let response;
+      if (userId) {
+        // Use user-specific LLM service if userId is provided
+        response = await this.userLLMService.generateResponse(userId, llmRequest);
+      } else {
+        // Fall back to global LLM service
+        response = await this.llmService.generateResponse(llmRequest);
+      }
       
       if (response.error) {
         return this.analyzeUserIntent(userRequest);
@@ -1453,7 +1535,8 @@ Respond in JSON format.`,
     intentAnalysis: any,
     constraints: any,
     relevantKnowledge: KnowledgeItem[],
-    similarEpisodes: Episode[]
+    similarEpisodes: Episode[],
+    userId?: string
   ): Promise<any[]> {
     try {
       const llmRequest: LLMRequest = {
@@ -1479,7 +1562,14 @@ Respond in JSON array format.`,
         temperature: 0.4
       };
 
-      const response = await this.llmService.generateResponse(llmRequest);
+      let response;
+      if (userId) {
+        // Use user-specific LLM service if userId is provided
+        response = await this.userLLMService.generateResponse(userId, llmRequest);
+      } else {
+        // Fall back to global LLM service
+        response = await this.llmService.generateResponse(llmRequest);
+      }
       
       if (response.error) {
         return this.generateEnhancedActionRecommendations(
@@ -1514,7 +1604,8 @@ Respond in JSON array format.`,
     confidence: number,
     relevantKnowledge: KnowledgeItem[],
     similarEpisodes: Episode[],
-    agent: Agent
+    agent: Agent,
+    userId?: string
   ): Promise<string> {
     try {
       const llmRequest: LLMRequest = {
@@ -1538,7 +1629,14 @@ Keep it conversational and helpful, as if speaking directly to the user.`,
         temperature: 0.6
       };
 
-      const response = await this.llmService.generateResponse(llmRequest);
+      let response;
+      if (userId) {
+        // Use user-specific LLM service if userId is provided
+        response = await this.userLLMService.generateResponse(userId, llmRequest);
+      } else {
+        // Fall back to global LLM service
+        response = await this.llmService.generateResponse(llmRequest);
+      }
       
       if (response.error) {
         return this.generateEnhancedExplanation(
@@ -2160,7 +2258,7 @@ Based on Analysis: ${analysis.intent?.primary}`,
     return reasoning;
   }
 
-  private async generateResponse(input: string, reasoning: string[], knowledge: KnowledgeItem[]): Promise<string> {
+  private async generateResponse(input: string, reasoning: string[], knowledge: KnowledgeItem[], userId?: string): Promise<string> {
     try {
       // Build context from knowledge and reasoning
       let contextInfo = '';
@@ -2194,7 +2292,14 @@ Please provide a helpful, accurate response based on the available knowledge and
         temperature: 0.7
       };
 
-      const response = await this.llmService.generateResponse(llmRequest);
+      let response;
+      if (userId) {
+        // Use user-specific LLM service if userId is provided
+        response = await this.userLLMService.generateResponse(userId, llmRequest);
+      } else {
+        // Fall back to global LLM service
+        response = await this.llmService.generateResponse(llmRequest);
+      }
       
       if (response.error) {
         logger.warn('LLM response generation failed, falling back to structured response', { error: response.error });
@@ -2246,7 +2351,8 @@ Please provide a helpful, accurate response based on the available knowledge and
     message: string, 
     discussion: any, 
     knowledge: KnowledgeItem[],
-    agentId: string
+    agentId: string,
+    userId?: string
   ): Promise<string> {
     try {
       // Get the agent for context
@@ -2287,7 +2393,14 @@ Be helpful, knowledgeable, and constructive in your contributions.`,
         temperature: 0.7
       };
 
-      const response = await this.llmService.generateResponse(llmRequest);
+      let response;
+      if (userId) {
+        // Use user-specific LLM service if userId is provided
+        response = await this.userLLMService.generateResponse(userId, llmRequest);
+      } else {
+        // Fall back to global LLM service
+        response = await this.llmService.generateResponse(llmRequest);
+      }
       
       if (response.error) {
         logger.warn('LLM discussion response failed, using fallback', { error: response.error });
@@ -2526,7 +2639,8 @@ Context: ${JSON.stringify(input.context || {})}`,
         agent,
         context,
         relevantKnowledge,
-        reasoning
+        reasoning,
+        agent.createdBy
       );
       
       // Calculate confidence based on knowledge availability and context clarity
@@ -2743,7 +2857,8 @@ Context: ${JSON.stringify(input.context || {})}`,
     agent: Agent,
     context: any,
     knowledge: KnowledgeItem[],
-    reasoning: string[]
+    reasoning: string[],
+    userId?: string
   ): Promise<string> {
     try {
       const llmRequest: LLMRequest = {
@@ -2774,7 +2889,14 @@ Be conversational, intelligent, and engaging. Stay true to your personality whil
         temperature: 0.7
       };
 
-      const response = await this.llmService.generateResponse(llmRequest);
+      let response;
+      if (userId) {
+        // Use user-specific LLM service if userId is provided
+        response = await this.userLLMService.generateResponse(userId, llmRequest);
+      } else {
+        // Fall back to global LLM service
+        response = await this.llmService.generateResponse(llmRequest);
+      }
       
       if (response.error) {
         logger.warn('LLM response failed, using fallback', { error: response.error });

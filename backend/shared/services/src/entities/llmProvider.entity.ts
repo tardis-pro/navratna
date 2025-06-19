@@ -1,9 +1,9 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, BeforeInsert, BeforeUpdate } from 'typeorm';
 import { BaseEntity } from './base.entity.js';
 import * as crypto from 'crypto';
+import { LLMProviderStatus, LLMProviderType } from '@uaip/types';
 
-export type LLMProviderType = 'ollama' | 'openai' | 'llmstudio' | 'anthropic' | 'custom';
-export type LLMProviderStatus = 'active' | 'inactive' | 'error' | 'testing';
+
 
 @Entity('llm_providers')
 @Index(['name'], { unique: true })
@@ -18,8 +18,8 @@ export class LLMProvider extends BaseEntity {
 
   @Column({
     type: 'enum',
-    enum: ['ollama', 'openai', 'llmstudio', 'anthropic', 'custom'],
-    default: 'custom'
+    enum: LLMProviderType,
+    default: LLMProviderType.CUSTOM
   })
   type!: LLMProviderType;
 
@@ -50,8 +50,8 @@ export class LLMProvider extends BaseEntity {
 
   @Column({
     type: 'enum',
-    enum: ['active', 'inactive', 'error', 'testing'],
-    default: 'active'
+    enum: LLMProviderStatus,
+    default: LLMProviderStatus.ACTIVE
   })
   status!: LLMProviderStatus;
 
@@ -169,9 +169,9 @@ export class LLMProvider extends BaseEntity {
     
     // Update status based on health check
     if (result.status === 'unhealthy') {
-      this.status = 'error';
-    } else if (this.status === 'error' && result.status === 'healthy') {
-      this.status = 'active';
+      this.status = LLMProviderStatus.INACTIVE;
+    } else if (this.status === LLMProviderStatus.INACTIVE && result.status === 'healthy') {
+      this.status = LLMProviderStatus.ACTIVE;
     }
   }
 

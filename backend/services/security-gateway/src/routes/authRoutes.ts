@@ -226,17 +226,26 @@ router.post('/login',
       });
 
       res.json({
-        message: 'Login successful',
-        user: {
-          id: user.id,
-          email: user.email,
-          role: user.role,
-          lastLoginAt: user.lastLoginAt
+        success: true,
+        data: {
+          user: {
+            id: user.id,
+            email: user.email,
+            firstName: user.firstName || '',
+            lastName: user.lastName || '',
+            role: user.role,
+            department: user.department || '',
+            permissions: user.permissions || [],
+            lastLoginAt: user.lastLoginAt
+          },
+          tokens: {
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
+            expiresIn: config.jwt.accessTokenExpiry || '15m'
+          }
         },
-        tokens: {
-          accessToken: tokens.accessToken,
-          refreshToken: tokens.refreshToken,
-          expiresIn: config.jwt.accessTokenExpiry || '15m'
+        meta: {
+          timestamp: new Date()
         }
       });
 
@@ -309,9 +318,16 @@ router.post('/refresh',
       });
 
       res.json({
-        message: 'Token refreshed successfully',
-        accessToken: newAccessToken,
-        expiresIn: config.jwt.accessTokenExpiry || '15m'
+        success: true,
+        data: {
+          tokens: {
+            accessToken: newAccessToken,
+            expiresIn: config.jwt.accessTokenExpiry || '15m'
+          }
+        },
+        meta: {
+          timestamp: new Date()
+        }
       });
 
     } catch (error) {
@@ -350,7 +366,13 @@ router.post('/logout', authMiddleware, async (req, res) => {
     });
 
     res.json({
-      message: 'Logout successful'
+      success: true,
+      data: {
+        message: 'Logout successful'
+      },
+      meta: {
+        timestamp: new Date()
+      }
     });
 
   } catch (error) {
@@ -448,28 +470,48 @@ router.get('/me', authMiddleware, async (req, res) => {
     
     if (!user) {
       return res.status(404).json({
-        error: 'User Not Found',
-        message: 'User account not found'
+        success: false,
+        error: {
+          code: 'USER_NOT_FOUND',
+          message: 'User account not found'
+        },
+        meta: {
+          timestamp: new Date()
+        }
       });
     }
 
     res.json({
-      user: {
+      success: true,
+      data: {
         id: user.id,
         email: user.email,
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
         role: user.role,
+        department: user.department || '',
+        permissions: user.permissions || [],
         isActive: user.isActive,
         createdAt: user.createdAt,
         lastLoginAt: user.lastLoginAt,
         passwordChangedAt: user.passwordChangedAt
+      },
+      meta: {
+        timestamp: new Date()
       }
     });
 
   } catch (error) {
     logger.error('Get user info error', { error, userId: (req as any).user?.id });
     res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'An error occurred while fetching user information'
+      success: false,
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'An error occurred while fetching user information'
+      },
+      meta: {
+        timestamp: new Date()
+      }
     });
   }
 });

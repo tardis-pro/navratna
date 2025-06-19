@@ -26,7 +26,7 @@ export { LLMProviderRepository } from './repositories/LLMProviderRepository.js';
 export { UserLLMProviderRepository } from './repositories/UserLLMProviderRepository.js';
 
 // Entities
-export { LLMProvider, LLMProviderType, LLMProviderStatus } from '../entities/llmProvider.entity.js';
+export { LLMProvider } from '../entities/llmProvider.entity.js';
 export { UserLLMProvider, UserLLMProviderType, UserLLMProviderStatus } from '../entities/userLLMProvider.entity.js';
 
 // Types

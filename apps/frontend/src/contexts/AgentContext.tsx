@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useReducer, useState, useCallback } from 'react';
-import { AgentState, AgentContextValue, Message } from '../types/agent';
+import React, { createContext, useContext, useReducer, useState, useCallback, useRef } from 'react';
+import { AgentState, AgentContextValue, Message, ModelProvider } from '../types/agent';
 import { 
   ToolCall, 
   ToolResult, 
@@ -11,7 +11,9 @@ import {
   ProviderConfig,
   ProviderTestResult,
   HealthStatus,
-  SystemMetrics
+  SystemMetrics,
+  SecurityLevel,
+  ToolExecutionStatus
 } from '@uaip/types';
 import uaipAPI from '@/utils/uaip-api';
 
@@ -106,7 +108,7 @@ interface ArtifactManagementFlow {
 
 // Model Provider State - using shared types
 interface ModelSelectionState {
-  providers: ProviderConfig[];
+  providers: ModelProvider[];
   models: LLMModel[];
   loadingProviders: boolean;
   loadingModels: boolean;
@@ -142,7 +144,7 @@ function createDefaultToolProperties(): {
       deniedTools: [],
       maxCostPerHour: 100,
       maxExecutionsPerHour: 50,
-      requireApprovalFor: ['restricted', 'dangerous'],
+      requireApprovalFor: [SecurityLevel.MEDIUM, SecurityLevel.HIGH],
       canApproveTools: false
     },
     toolUsageHistory: [],
@@ -312,94 +314,122 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     modelsError: null
   });
 
-  // Loading state management to prevent concurrent calls
-  const [loadingStates, setLoadingStates] = useState({
+  // Use refs to track loading operations and prevent concurrent calls
+  const loadingRefs = useRef({
     providersLoading: false,
     modelsLoading: false,
     providersLoaded: false,
     modelsLoaded: false
   });
 
-  // Load available providers
+  // Debounce timer refs
+  const debounceRefs = useRef({
+    providersTimer: null as NodeJS.Timeout | null,
+    modelsTimer: null as NodeJS.Timeout | null
+  });
+
+  // Cleanup function for timers
+  React.useEffect(() => {
+    return () => {
+      // Clear all timers on unmount
+      if (debounceRefs.current.providersTimer) {
+        clearTimeout(debounceRefs.current.providersTimer);
+      }
+      if (debounceRefs.current.modelsTimer) {
+        clearTimeout(debounceRefs.current.modelsTimer);
+      }
+    };
+  }, []);
+
+  // Load available providers - Fixed to eliminate infinite loops
   const loadProviders = useCallback(async () => {
-    // Prevent concurrent calls
-    if (loadingStates.providersLoading || loadingStates.providersLoaded) {
-      console.log('[AgentContext] Skipping loadProviders - already loading or loaded', loadingStates);
+    // Prevent concurrent calls using refs instead of state
+    if (loadingRefs.current.providersLoading || loadingRefs.current.providersLoaded) {
+      console.log('[AgentContext] Skipping loadProviders - already loading or loaded');
       return;
     }
 
-    console.log('[AgentContext] Starting loadProviders...');
-    setLoadingStates(prev => ({ ...prev, providersLoading: true }));
-    setModelState(prev => ({ ...prev, loadingProviders: true, providersError: null }));
-    
-    try {
-      const providers = await uaipAPI.llm.getProviders();
-      console.log('[AgentContext] Providers loaded successfully:', providers.length);
-      setModelState(prev => ({ 
-        ...prev, 
-        providers, 
-        loadingProviders: false 
-      }));
-      setLoadingStates(prev => ({ ...prev, providersLoaded: true }));
-    } catch (error) {
-      console.error('[AgentContext] Failed to load providers:', error);
-      setModelState(prev => ({ 
-        ...prev, 
-        loadingProviders: false, 
-        providersError: error instanceof Error ? error.message : 'Failed to load providers'
-      }));
-    } finally {
-      setLoadingStates(prev => ({ ...prev, providersLoading: false }));
+    // Clear any existing debounce timer
+    if (debounceRefs.current.providersTimer) {
+      clearTimeout(debounceRefs.current.providersTimer);
     }
-  }, [loadingStates.providersLoading, loadingStates.providersLoaded]); // Dependencies to prevent infinite loops
 
-  // Load available models
+    // Debounce the actual loading
+    debounceRefs.current.providersTimer = setTimeout(async () => {
+      console.log('[AgentContext] Starting loadProviders...');
+      loadingRefs.current.providersLoading = true;
+      setModelState(prev => ({ ...prev, loadingProviders: true, providersError: null }));
+      
+      try {
+        const providers = await uaipAPI.llm.getProviders();
+        console.log('[AgentContext] Providers loaded successfully:', providers.length);
+        setModelState(prev => ({ 
+          ...prev, 
+          providers: providers as ModelProvider[], 
+          loadingProviders: false 
+        }));
+        loadingRefs.current.providersLoaded = true;
+      } catch (error) {
+        console.error('[AgentContext] Failed to load providers:', error);
+        setModelState(prev => ({ 
+          ...prev, 
+          loadingProviders: false, 
+          providersError: error instanceof Error ? error.message : 'Failed to load providers'
+        }));
+      } finally {
+        loadingRefs.current.providersLoading = false;
+      }
+    }, 100); // 100ms debounce
+  }, []); // Empty dependency array to prevent infinite loops
+
+  // Load available models - Fixed to eliminate infinite loops
   const loadModels = useCallback(async () => {
-    // Prevent concurrent calls
-    if (loadingStates.modelsLoading || loadingStates.modelsLoaded) {
-      console.log('[AgentContext] Skipping loadModels - already loading or loaded', loadingStates);
+    // Prevent concurrent calls using refs instead of state
+    if (loadingRefs.current.modelsLoading || loadingRefs.current.modelsLoaded) {
+      console.log('[AgentContext] Skipping loadModels - already loading or loaded');
       return;
     }
 
-    console.log('[AgentContext] Starting loadModels...');
-    setLoadingStates(prev => ({ ...prev, modelsLoading: true }));
-    setModelState(prev => ({ ...prev, loadingModels: true, modelsError: null }));
-    
-    try {
-      const models = await uaipAPI.llm.getModels();
-      console.log('[AgentContext] Models loaded successfully:', models.length);
-      setModelState(prev => ({ 
-        ...prev, 
-        models, 
-        loadingModels: false 
-      }));
-      setLoadingStates(prev => ({ ...prev, modelsLoaded: true }));
-    } catch (error) {
-      console.error('[AgentContext] Failed to load models:', error);
-      setModelState(prev => ({ 
-        ...prev, 
-        loadingModels: false, 
-        modelsError: error instanceof Error ? error.message : 'Failed to load models'
-      }));
-    } finally {
-      setLoadingStates(prev => ({ ...prev, modelsLoading: false }));
+    // Clear any existing debounce timer
+    if (debounceRefs.current.modelsTimer) {
+      clearTimeout(debounceRefs.current.modelsTimer);
     }
-  }, [loadingStates.modelsLoading, loadingStates.modelsLoaded]); // Dependencies to prevent infinite loops
+
+    // Debounce the actual loading
+    debounceRefs.current.modelsTimer = setTimeout(async () => {
+      console.log('[AgentContext] Starting loadModels...');
+      loadingRefs.current.modelsLoading = true;
+      setModelState(prev => ({ ...prev, loadingModels: true, modelsError: null }));
+      
+      try {
+        const models = await uaipAPI.llm.getModels();
+        console.log('[AgentContext] Models loaded successfully:', models.length);
+        setModelState(prev => ({ 
+          ...prev, 
+          models, 
+          loadingModels: false 
+        }));
+        loadingRefs.current.modelsLoaded = true;
+      } catch (error) {
+        console.error('[AgentContext] Failed to load models:', error);
+        setModelState(prev => ({ 
+          ...prev, 
+          loadingModels: false, 
+          modelsError: error instanceof Error ? error.message : 'Failed to load models'
+        }));
+      } finally {
+        loadingRefs.current.modelsLoading = false;
+      }
+    }, 100); // 100ms debounce
+  }, []); // Empty dependency array to prevent infinite loops
 
   // Create a new provider
-  const createProvider = useCallback(async (providerData: {
-    name: string;
-    description?: string;
-    type: string;
-    baseUrl: string;
-    apiKey?: string;
-    defaultModel?: string;
-    configuration?: any;
-    priority?: number;
-  }) => {
+  const createProvider = useCallback(async (providerData: ModelProvider) => {
     try {
       await uaipAPI.llm.createProvider(providerData);
-      await loadProviders(); // Refresh providers list
+      // Reset loading state to allow fresh reload
+      loadingRefs.current.providersLoaded = false;
+      await loadProviders();
       return true;
     } catch (error) {
       console.error('Failed to create provider:', error);
@@ -408,17 +438,12 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   }, [loadProviders]);
 
   // Update provider configuration
-  const updateProvider = useCallback(async (providerId: string, config: {
-    name?: string;
-    description?: string;
-    baseUrl?: string;
-    defaultModel?: string;
-    priority?: number;
-    configuration?: any;
-  }) => {
+  const updateProvider = useCallback(async (providerId: string, config: ModelProvider) => {
     try {
       await uaipAPI.llm.updateProviderConfig(providerId, config);
-      await loadProviders(); // Refresh providers list
+      // Reset loading state to allow fresh reload
+      loadingRefs.current.providersLoaded = false;
+      await loadProviders();
       return true;
     } catch (error) {
       console.error('Failed to update provider:', error);
@@ -441,7 +466,9 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   const deleteProvider = useCallback(async (providerId: string) => {
     try {
       await uaipAPI.llm.deleteProvider(providerId);
-      await loadProviders(); // Refresh providers list
+      // Reset loading state to allow fresh reload
+      loadingRefs.current.providersLoaded = false;
+      await loadProviders();
       return true;
     } catch (error) {
       console.error('Failed to delete provider:', error);
@@ -488,13 +515,23 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
 
   // Refresh method to reset loading states and reload data
   const refreshModelData = useCallback(async () => {
+    // Clear all debounce timers
+    if (debounceRefs.current.providersTimer) {
+      clearTimeout(debounceRefs.current.providersTimer);
+      debounceRefs.current.providersTimer = null;
+    }
+    if (debounceRefs.current.modelsTimer) {
+      clearTimeout(debounceRefs.current.modelsTimer);
+      debounceRefs.current.modelsTimer = null;
+    }
+
     // Reset loading states to allow fresh loading
-    setLoadingStates({
+    loadingRefs.current = {
       providersLoading: false,
       modelsLoading: false,
       providersLoaded: false,
       modelsLoaded: false
-    });
+    };
     
     // Clear existing data
     setModelState(prev => ({
@@ -819,11 +856,14 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
       const usage: ToolUsageRecord = {
         toolId: toolCall.toolId,
         agentId,
-        timestamp: new Date(),
+        startTime: new Date(),
         success: result.success,
-        executionTime: result.executionTime || 0,
+        endTime: new Date(),
         cost: result.cost || 0,
-        errorType: result.error?.type
+        errorCode: result.error?.type,
+        status: ToolExecutionStatus.COMPLETED,
+        id: result.executionId || toolCall.id,
+        executionId: result.executionId || toolCall.id,
       };
       
       dispatch({ type: 'ADD_TOOL_USAGE', payload: { agentId, usage } });
@@ -841,7 +881,8 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
         result: result.data,
         executionTime: result.executionTime || 0,
         cost: result.cost || 0,
-        error: result.error
+        error: result.error,
+        metadata: result.metadata
       };
     } catch (error) {
       // Update agent state on error
@@ -908,7 +949,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     capabilityRegistry,
     orchestrationPipeline,
     artifactManagement,
-    
+          
     // UI State Management
     activeFlows,
     flowResults,

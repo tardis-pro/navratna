@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useAgents } from './AgentContext';
+import { useAuth } from './AuthContext';
 import uaipAPI from '@/utils/uaip-api';
 
 // Import shared types
-import type {
+import {
   DiscussionParticipant,
   DiscussionMessage,
   Discussion,
@@ -14,7 +15,7 @@ import type {
 } from '@uaip/types';
 
 // Import frontend-specific message type
-import type { Message } from '@/types/frontend-extensions';
+import { Message } from '@/types/frontend-extensions';
 
 interface DiscussionProviderProps {
   topic?: string;
@@ -73,6 +74,7 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
   const [discussionId, setDiscussionId] = useState<string | null>(null);
   
   const { agents } = useAgents();
+  const { user } = useAuth();
 
   const start = async (topic?: string, agentIds?: string[]) => {
     if (isActive) {
@@ -82,6 +84,12 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
 
     if (!isWebSocketConnected) {
       console.warn('Cannot start discussion: WebSocket not connected');
+      return;
+    }
+
+    if (!user?.id) {
+      console.error('Cannot start discussion: User not authenticated');
+      setLastError('User not authenticated');
       return;
     }
 
@@ -132,7 +140,7 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
           title: `Discussion: ${discussionTopic}`,
           description: `Automated discussion on ${discussionTopic}`,
           topic: discussionTopic,
-          createdBy: 'system', // TODO: Use actual user ID
+          createdBy: user.id, // Use actual logged-in user ID (guaranteed to exist due to check above)
           initialParticipants: selectedAgentIds.map(agentId => ({
             agentId,
             role: 'participant'
@@ -140,17 +148,21 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
           settings: {
             maxParticipants: 10,
             allowAnonymous: false,
-            moderationEnabled: true,
-            autoAdvanceTurns: true,
-            turnTimeout: 300,
-            maxMessageLength: 2000
+            autoModeration: true,
+            requireApproval: true,
+            allowInvites: true,
+            allowFileSharing: true,
+            integrations: {
+              webhooks: [],
+              externalTools: []
+            }
           },
           turnStrategy: {
             strategy: TurnStrategy.ROUND_ROBIN,
             config: {
-              type: 'round_robin',
-              timeoutSeconds: 300,
-              maxConsecutiveTurns: 1
+              type: TurnStrategy.ROUND_ROBIN,
+              skipInactive: true,
+              maxSkips: 1
             }
           }
         };
@@ -177,21 +189,18 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
       // Trigger agent participation for each selected agent
       for (const agentId of selectedAgentIds) {
         try {
-          // Call the agent intelligence service to participate
-          await fetch(`/api/v1/agents/${agentId}/participate`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              discussionId: currentDiscussionId,
-              agentId: agentId,
-              comment: `Joining discussion about ${discussionTopic}`
-            })
+          // Call the agent intelligence service to participate using authenticated API
+          const response = await uaipAPI.client.agents.participate(agentId, {
+            discussionId: currentDiscussionId,
+            comment: `Joining discussion about ${discussionTopic}`
           });
           
-          console.log(`Agent ${agentId} triggered to participate in discussion`);
-      } catch (error) {
+          if (response.success) {
+            console.log(`Agent ${agentId} triggered to participate in discussion`);
+          } else {
+            console.error(`Failed to trigger agent ${agentId} participation:`, response.error?.message);
+          }
+        } catch (error) {
           console.error(`Failed to trigger agent ${agentId} participation:`, error);
         }
       }
