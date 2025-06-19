@@ -14,7 +14,8 @@ const PORT = process.env.PORT || 3007;
 
 // Middleware
 app.use(helmet());
-app.use(cors());
+// CORS is handled by nginx API gateway - disable service-level CORS
+// app.use(cors());
 app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));

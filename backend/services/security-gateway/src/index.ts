@@ -106,13 +106,13 @@ class SecurityGatewayServer {
       }
     }));
 
-    // CORS configuration
-    this.app.use(cors({
-      origin: config.cors.allowedOrigins,
-      credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-    }));
+    // CORS is handled by nginx API gateway - disable service-level CORS
+    // this.app.use(cors({
+    //   origin: config.cors.allowedOrigins,
+    //   credentials: true,
+    //   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    //   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+    // }));
 
     // Compression and parsing
     this.app.use(compression());

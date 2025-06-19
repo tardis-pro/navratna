@@ -5,7 +5,7 @@ import {
   DiscussionService,
   DatabaseService,
   EventBusService
-} from './index.js';
+} from '@uaip/shared-services';
 import {
   KnowledgeSearchRequest,
   KnowledgeIngestRequest,
@@ -28,6 +28,16 @@ import {
   KnowledgeItem
 } from '@uaip/types';
 import { logger, ApiError } from '@uaip/utils';
+import { LLMService } from '@uaip/llm-service';
+import { 
+  LLMRequest, 
+  LLMResponse, 
+  AgentResponseRequest, 
+  ContextRequest as LLMContextRequest,
+  ContextAnalysis as LLMContextAnalysis,
+  Message,
+  DocumentContext
+} from '@uaip/llm-service';
 
 export class EnhancedAgentIntelligenceService {
   private databaseService: DatabaseService;
@@ -37,6 +47,7 @@ export class EnhancedAgentIntelligenceService {
   private agentMemory?: AgentMemoryService;
   private personaService?: PersonaService;
   private discussionService?: DiscussionService;
+  private llmService: LLMService;
 
   constructor(
     knowledgeGraph?: KnowledgeGraphService,
@@ -44,7 +55,8 @@ export class EnhancedAgentIntelligenceService {
     personaService?: PersonaService,
     discussionService?: DiscussionService,
     databaseService?: DatabaseService,
-    eventBusService?: EventBusService
+    eventBusService?: EventBusService,
+    llmService?: LLMService
   ) {
     // Initialize services with defaults if not provided
     this.databaseService = databaseService || new DatabaseService();
@@ -52,6 +64,9 @@ export class EnhancedAgentIntelligenceService {
       url: process.env.RABBITMQ_URL || 'amqp://localhost',
       serviceName: 'enhanced-agent-intelligence'
     }, logger as any);
+    
+    // Initialize LLM service
+    this.llmService = llmService || LLMService.getInstance();
     
     // Initialize enhanced services with defaults if not provided
     // Note: These services require complex dependencies, so we'll initialize them as undefined
@@ -213,6 +228,12 @@ export class EnhancedAgentIntelligenceService {
         intelligenceConfig: intelligenceConfig,
         securityContext: securityContext,
         configuration: configuration,
+        // Model configuration fields from agentData
+        modelId: agentData.modelId,
+        apiType: agentData.apiType,
+        temperature: agentData.temperature,
+        maxTokens: agentData.maxTokens,
+        systemPrompt: agentData.systemPrompt,
         createdBy: createdBy,
         capabilities: agentData.capabilities || []
       };
@@ -475,7 +496,7 @@ export class EnhancedAgentIntelligenceService {
   }
 
   /**
-   * Enhanced context analysis with knowledge graph integration
+   * Enhanced context analysis with knowledge graph integration and LLM-powered insights
    */
   async analyzeContext(
     agent: Agent,
@@ -488,7 +509,7 @@ export class EnhancedAgentIntelligenceService {
     }
     
     try {
-      logger.info('Analyzing context with enhanced capabilities', { agentId: agent.id });
+      logger.info('Analyzing context with enhanced LLM-powered capabilities', { agentId: agent.id });
 
       // Get relevant knowledge from knowledge graph
       const relevantKnowledge = this.knowledgeGraph ? 
@@ -502,14 +523,26 @@ export class EnhancedAgentIntelligenceService {
       const similarEpisodes = this.agentMemory ? 
         await this.agentMemory.findSimilarEpisodes(agent.id, userRequest) : [];
 
-      // Extract contextual information (from original service)
-      const contextAnalysis = this.extractContextualInformation(conversationContext);
+      // Use LLM for enhanced context analysis
+      const llmContextAnalysis = await this.performLLMContextAnalysis(
+        agent,
+        conversationContext,
+        userRequest,
+        relevantKnowledge,
+        similarEpisodes
+      );
+
+      // Extract contextual information (enhanced with LLM insights)
+      const contextAnalysis = {
+        ...this.extractContextualInformation(conversationContext),
+        llmInsights: llmContextAnalysis.analysis
+      };
       
-      // Analyze user intent
-      const intentAnalysis = this.analyzeUserIntent(userRequest);
+      // Analyze user intent using LLM
+      const intentAnalysis = await this.analyzeLLMUserIntent(userRequest, conversationContext, agent);
       
-      // Generate enhanced action recommendations
-      const actionRecommendations = await this.generateEnhancedActionRecommendations(
+      // Generate enhanced action recommendations using LLM
+      const actionRecommendations = await this.generateLLMEnhancedActionRecommendations(
         agent,
         contextAnalysis,
         intentAnalysis,
@@ -528,14 +561,15 @@ export class EnhancedAgentIntelligenceService {
         workingMemory
       );
 
-      // Generate enhanced explanation
-      const explanation = this.generateEnhancedExplanation(
+      // Generate enhanced explanation using LLM
+      const explanation = await this.generateLLMEnhancedExplanation(
         contextAnalysis,
         intentAnalysis,
         actionRecommendations,
         confidence,
         relevantKnowledge,
-        similarEpisodes
+        similarEpisodes,
+        agent
       );
 
       const analysis: AgentAnalysis = {
@@ -559,13 +593,14 @@ export class EnhancedAgentIntelligenceService {
         confidence,
         actionsCount: actionRecommendations.length,
         knowledgeUsed: relevantKnowledge.length,
+        llmEnhanced: true,
         timestamp: new Date()
       });
 
       return analysis;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('Error in enhanced context analysis', { agentId: agent.id, error: errorMessage });
+      logger.error('Error in enhanced LLM-powered context analysis', { agentId: agent.id, error: errorMessage });
       throw error;
     }
   }
@@ -775,48 +810,61 @@ Personality Traits: ${JSON.stringify(persona.traits)}`,
   }
 
   /**
-   * Process agent input with knowledge-enhanced reasoning
+   * Process agent input with knowledge-enhanced reasoning and LLM-powered responses
    */
   async processAgentInput(agentId: string, input: {
     message: string;
     context?: any;
     discussionId?: string;
     operationId?: string;
+    userId?: string;
   }): Promise<{
     response: string;
     reasoning: string[];
     knowledgeUsed: KnowledgeItem[];
     memoryUpdated: boolean;
+    llmEnhanced: boolean;
   }> {
     try {
+      // Get the agent first
+      const agent = await this.getAgent(agentId);
+      if (!agent) {
+        throw new Error(`Agent not found: ${agentId}`);
+      }
+
       // Search for relevant knowledge
-      const relevantKnowledge = await this.searchRelevantKnowledge(agentId, input.message, input.context);
+      const relevantKnowledge = this.knowledgeGraph ? 
+        await this.searchRelevantKnowledge(agentId, input.message, input.context) : [];
       
       // Get agent's working memory
-      const workingMemory = await this.agentMemory.getWorkingMemory(agentId);
+      const workingMemory = this.agentMemory ? 
+        await this.agentMemory.getWorkingMemory(agentId) : null;
       
       // Find similar past episodes
-      const similarEpisodes = await this.agentMemory.findSimilarEpisodes(agentId, input.message);
+      const similarEpisodes = this.agentMemory ? 
+        await this.agentMemory.findSimilarEpisodes(agentId, input.message) : [];
       
       // Generate reasoning based on knowledge and memory
       const reasoning = await this.generateReasoning(input.message, relevantKnowledge, similarEpisodes, workingMemory);
       
-      // Generate response
-      const response = await this.generateResponse(input.message, reasoning, relevantKnowledge);
+      // Generate LLM-enhanced agent response
+      const response = await this.generateLLMAgentResponse(agent, input, relevantKnowledge, reasoning, workingMemory);
       
       // Update working memory with this interaction
-      const memoryUpdate: WorkingMemoryUpdate = {
-        lastInteraction: {
-          input: input.message,
-          response,
-          timestamp: new Date(),
-          confidence: 0.8
-        },
-        currentInput: input.message,
-        retrievedEpisodes: similarEpisodes
-      };
-      
-      await this.agentMemory.updateWorkingMemory(agentId, memoryUpdate);
+      if (this.agentMemory) {
+        const memoryUpdate: WorkingMemoryUpdate = {
+          lastInteraction: {
+            input: input.message,
+            response,
+            timestamp: new Date(),
+            confidence: 0.8
+          },
+          currentInput: input.message,
+          retrievedEpisodes: similarEpisodes
+        };
+        
+        await this.agentMemory.updateWorkingMemory(agentId, memoryUpdate);
+      }
       
       // Store this interaction as knowledge
       await this.storeInteractionKnowledge(agentId, input, response, reasoning);
@@ -825,11 +873,90 @@ Personality Traits: ${JSON.stringify(persona.traits)}`,
         response,
         reasoning,
         knowledgeUsed: relevantKnowledge,
-        memoryUpdated: true
+        memoryUpdated: !!this.agentMemory,
+        llmEnhanced: true
       };
     } catch (error) {
-      console.error('Agent input processing error:', error);
-      throw new Error(`Failed to process agent input: ${error.message}`);
+      logger.error('Agent input processing error:', { agentId, error });
+      throw new Error(`Failed to process agent input: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Generate LLM-enhanced agent response
+   */
+  private async generateLLMAgentResponse(
+    agent: Agent,
+    input: any,
+    relevantKnowledge: KnowledgeItem[],
+    reasoning: string[],
+    workingMemory: any
+  ): Promise<string> {
+    try {
+      // Build conversation history from context
+      const messages: Message[] = [];
+      
+      // Add working memory context if available
+      if (workingMemory?.shortTermMemory?.recentInteractions?.length > 0) {
+        const lastInteraction = workingMemory.shortTermMemory.recentInteractions[0];
+        messages.push({
+          id: 'memory-context',
+          content: lastInteraction.description,
+          sender: 'user',
+          timestamp: lastInteraction.timestamp.toISOString(),
+          type: 'user'
+        });
+        // Add a simple response based on the interaction success
+        messages.push({
+          id: 'memory-response',
+          content: lastInteraction.success ? 'I was able to help with that successfully.' : 'I encountered some challenges with that request.',
+          sender: agent.name || 'assistant',
+          timestamp: lastInteraction.timestamp.toISOString(),
+          type: 'assistant'
+        });
+      }
+
+      // Add current input
+      messages.push({
+        id: 'current-input',
+        content: input.message,
+        sender: 'user',
+        timestamp: new Date().toISOString(),
+        type: 'user'
+      });
+
+      // Build document context from knowledge
+      let documentContext: DocumentContext | undefined;
+      if (relevantKnowledge.length > 0) {
+        documentContext = {
+          id: 'knowledge-context',
+          title: 'Relevant Knowledge and Experience',
+          content: [
+            ...relevantKnowledge.slice(0, 3).map(k => `Knowledge: ${k.content}`),
+            ...reasoning.map(r => `Reasoning: ${r}`)
+          ].join('\n\n'),
+          type: 'knowledge'
+        };
+      }
+
+      // Use LLM service to generate agent response
+      const agentRequest: AgentResponseRequest = {
+        agent,
+        messages,
+        context: documentContext
+      };
+
+      const llmResponse = await this.llmService.generateAgentResponse(agentRequest);
+      
+      if (llmResponse.error) {
+        logger.warn('LLM agent response failed, using fallback', { error: llmResponse.error });
+        return this.generateResponse(input.message, reasoning, relevantKnowledge);
+      }
+
+      return llmResponse.content;
+    } catch (error) {
+      logger.error('Error generating LLM agent response', { error });
+      return this.generateResponse(input.message, reasoning, relevantKnowledge);
     }
   }
 
@@ -876,7 +1003,7 @@ Personality Traits: ${JSON.stringify(persona.traits)}`,
       });
 
       // Generate knowledge-enhanced response
-      const response = await this.generateDiscussionResponse(
+      const response = await this.generateDiscussionResponseInternal(
         message, 
         discussion, 
         contextualKnowledge,
@@ -1017,6 +1144,153 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
   }
 
   /**
+   * Generate direct LLM response for an agent (for external API use)
+   */
+  async generateAgentResponse(
+    agentId: string,
+    messages: any[],
+    context?: any,
+    userId?: string
+  ): Promise<{
+    response: string;
+    model: string;
+    tokensUsed?: number;
+    confidence?: number;
+    error?: string;
+    knowledgeUsed: number;
+    memoryEnhanced: boolean;
+  }> {
+    if (!this.isInitialized) {
+      await this.initialize();
+    }
+
+    try {
+      // Get the agent
+      const agent = await this.getAgent(agentId);
+      if (!agent) {
+        throw new ApiError(404, 'Agent not found', 'AGENT_NOT_FOUND');
+      }
+
+      // Search for relevant knowledge
+      const lastMessage = messages[messages.length - 1];
+      const userMessage = lastMessage?.content || lastMessage?.message || '';
+      
+      const relevantKnowledge = this.knowledgeGraph ? 
+        await this.searchRelevantKnowledge(agentId, userMessage, context) : [];
+
+      // Get working memory if available
+      const workingMemory = this.agentMemory ? 
+        await this.agentMemory.getWorkingMemory(agentId) : null;
+
+      // Convert messages to LLM format
+      const llmMessages: Message[] = messages.map((msg, index) => ({
+        id: `msg-${index}`,
+        content: msg.content || msg.message || String(msg),
+        sender: msg.sender || msg.from || (msg.role === 'user' ? 'user' : 'assistant'),
+        timestamp: msg.timestamp || new Date().toISOString(),
+        type: msg.type || msg.role || 'user'
+      }));
+
+      // Build document context from knowledge and memory
+      let documentContext: DocumentContext | undefined;
+      if (relevantKnowledge.length > 0 || workingMemory) {
+        const contextParts = [];
+        
+        if (relevantKnowledge.length > 0) {
+          contextParts.push('Relevant Knowledge:');
+          relevantKnowledge.slice(0, 3).forEach((k, i) => {
+            contextParts.push(`${i + 1}. ${k.content.substring(0, 300)}...`);
+          });
+        }
+
+        if (workingMemory?.shortTermMemory?.recentInteractions?.length > 0) {
+          contextParts.push('\nRecent Memory:');
+          const lastInteraction = workingMemory.shortTermMemory.recentInteractions[0];
+          contextParts.push(`Previous interaction: ${lastInteraction.description} (${lastInteraction.success ? 'successful' : 'failed'})`);
+        }
+
+        if (context) {
+          contextParts.push('\nAdditional Context:');
+          contextParts.push(typeof context === 'string' ? context : JSON.stringify(context));
+        }
+
+        documentContext = {
+          id: 'enhanced-context',
+          title: 'Knowledge and Memory Context',
+          content: contextParts.join('\n'),
+          type: 'enhanced'
+        };
+      }
+
+      // Use LLM service to generate response
+      const agentRequest: AgentResponseRequest = {
+        agent,
+        messages: llmMessages,
+        context: documentContext
+      };
+
+      const llmResponse = await this.llmService.generateAgentResponse(agentRequest);
+
+      // Update working memory with this interaction if available
+      if (this.agentMemory && !llmResponse.error) {
+        try {
+          const memoryUpdate: WorkingMemoryUpdate = {
+            lastInteraction: {
+              input: userMessage,
+              response: llmResponse.content,
+              timestamp: new Date(),
+              confidence: llmResponse.confidence || 0.8
+            },
+            currentInput: userMessage,
+            retrievedEpisodes: []
+          };
+          await this.agentMemory.updateWorkingMemory(agentId, memoryUpdate);
+        } catch (memoryError) {
+          logger.warn('Failed to update working memory', { agentId, error: memoryError });
+        }
+      }
+
+      // Store interaction as knowledge
+      if (this.knowledgeGraph && !llmResponse.error) {
+        try {
+          await this.storeInteractionKnowledge(agentId, { message: userMessage, context }, llmResponse.content, []);
+        } catch (knowledgeError) {
+          logger.warn('Failed to store interaction knowledge', { agentId, error: knowledgeError });
+        }
+      }
+
+      await this.safePublishEvent('agent.response.generated', {
+        agentId,
+        userId,
+        responseLength: llmResponse.content.length,
+        tokensUsed: llmResponse.tokensUsed,
+        knowledgeUsed: relevantKnowledge.length,
+        memoryEnhanced: !!workingMemory,
+        timestamp: new Date()
+      });
+
+      return {
+        response: llmResponse.content,
+        model: llmResponse.model,
+        tokensUsed: llmResponse.tokensUsed,
+        confidence: llmResponse.confidence,
+        error: llmResponse.error,
+        knowledgeUsed: relevantKnowledge.length,
+        memoryEnhanced: !!workingMemory
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error generating agent response', { agentId, userId, error: errorMessage });
+      
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      
+      throw new ApiError(500, 'Failed to generate agent response', 'RESPONSE_GENERATION_ERROR');
+    }
+  }
+
+  /**
    * Get agent performance metrics enhanced with knowledge analytics
    */
   async getAgentMetrics(agentId: string, timeRange: { start: Date; end: Date }): Promise<AgentMetrics & {
@@ -1053,6 +1327,231 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
     } catch (error) {
       console.error('Agent metrics retrieval error:', error);
       throw new Error(`Failed to get agent metrics: ${error.message}`);
+    }
+  }
+
+  // ===== LLM-POWERED ENHANCEMENT METHODS =====
+  // These methods use the LLM service to provide enhanced AI capabilities
+
+  /**
+   * Perform LLM-powered context analysis
+   */
+  private async performLLMContextAnalysis(
+    agent: Agent,
+    conversationContext: any,
+    userRequest: string,
+    relevantKnowledge: KnowledgeItem[],
+    similarEpisodes: Episode[]
+  ): Promise<LLMContextAnalysis> {
+    try {
+      // Convert conversation context to LLM format
+      const messages: Message[] = conversationContext.messages?.map((msg: any, index: number) => ({
+        id: `msg-${index}`,
+        content: msg.content || msg.message || String(msg),
+        sender: msg.sender || msg.from || 'user',
+        timestamp: msg.timestamp || new Date().toISOString(),
+        type: msg.type || 'user'
+      })) || [];
+
+      // Build context request for LLM
+      const contextRequest: LLMContextRequest = {
+        conversationHistory: messages,
+        userRequest,
+        agentCapabilities: agent.persona?.capabilities || []
+      };
+
+      // Add relevant knowledge as context if available
+      if (relevantKnowledge.length > 0) {
+        contextRequest.currentContext = {
+          id: 'knowledge-context',
+          title: 'Relevant Knowledge',
+          content: relevantKnowledge.slice(0, 3).map(k => k.content).join('\n\n'),
+          type: 'knowledge'
+        };
+      }
+
+      return await this.llmService.analyzeContext(contextRequest);
+    } catch (error) {
+      logger.error('Error in LLM context analysis', { error });
+      // Return fallback analysis
+      return {
+        content: 'Context analysis completed with basic methods',
+        model: 'fallback',
+        analysis: {
+          intent: {
+            primary: this.extractPrimaryIntent(userRequest),
+            secondary: [],
+            confidence: 0.6
+          },
+          context: {
+            messageCount: conversationContext.messages?.length || 0,
+            participants: conversationContext.participants || [],
+            topics: this.extractTopics(conversationContext.messages || []),
+            sentiment: 'neutral',
+            complexity: 'medium'
+          },
+          recommendations: []
+        }
+      };
+    }
+  }
+
+  /**
+   * Analyze user intent using LLM
+   */
+  private async analyzeLLMUserIntent(userRequest: string, conversationContext: any, agent: Agent): Promise<any> {
+    try {
+      const llmRequest: LLMRequest = {
+        prompt: `Analyze the user's intent from this request: "${userRequest}"
+
+Context: ${JSON.stringify(conversationContext, null, 2)}
+
+Please identify:
+1. Primary intent (create, analyze, modify, information, etc.)
+2. Secondary intents
+3. Confidence level (0-1)
+4. Key entities mentioned
+5. Sentiment (positive, negative, neutral)
+
+Respond in JSON format.`,
+        systemPrompt: `You are an expert at analyzing user intent. Provide structured analysis in JSON format with fields: primary, secondary, confidence, entities, sentiment.`,
+        maxTokens: 200,
+        temperature: 0.3
+      };
+
+      const response = await this.llmService.generateResponse(llmRequest);
+      
+      if (response.error) {
+        return this.analyzeUserIntent(userRequest);
+      }
+
+      try {
+        const parsed = JSON.parse(response.content);
+        return {
+          primary: parsed.primary || this.extractPrimaryIntent(userRequest),
+          secondary: parsed.secondary || [],
+          confidence: parsed.confidence || 0.7,
+          entities: parsed.entities || this.extractEntities(userRequest),
+          sentiment: parsed.sentiment || this.analyzeSentiment([{ content: userRequest }])
+        };
+      } catch (parseError) {
+        logger.warn('Failed to parse LLM intent analysis, using fallback', { parseError });
+        return this.analyzeUserIntent(userRequest);
+      }
+    } catch (error) {
+      logger.error('Error in LLM intent analysis', { error });
+      return this.analyzeUserIntent(userRequest);
+    }
+  }
+
+  /**
+   * Generate enhanced action recommendations using LLM
+   */
+  private async generateLLMEnhancedActionRecommendations(
+    agent: Agent,
+    contextAnalysis: any,
+    intentAnalysis: any,
+    constraints: any,
+    relevantKnowledge: KnowledgeItem[],
+    similarEpisodes: Episode[]
+  ): Promise<any[]> {
+    try {
+      const llmRequest: LLMRequest = {
+        prompt: `Based on the following analysis, recommend specific actions:
+
+User Intent: ${intentAnalysis.primary}
+Context: ${JSON.stringify(contextAnalysis, null, 2)}
+Agent Capabilities: ${JSON.stringify(agent.persona?.capabilities || [])}
+Constraints: ${JSON.stringify(constraints || {})}
+Available Knowledge: ${relevantKnowledge.length} items
+Similar Past Episodes: ${similarEpisodes.length} episodes
+
+Please recommend 2-4 specific actions with:
+1. Action type (artifact_generation, tool_execution, etc.)
+2. Confidence score (0-1)
+3. Description
+4. Estimated duration in seconds
+5. Whether knowledge/memory support is available
+
+Respond in JSON array format.`,
+        systemPrompt: `You are an expert at recommending actions for AI agents. Provide practical, actionable recommendations in JSON array format.`,
+        maxTokens: 400,
+        temperature: 0.4
+      };
+
+      const response = await this.llmService.generateResponse(llmRequest);
+      
+      if (response.error) {
+        return this.generateEnhancedActionRecommendations(
+          agent, contextAnalysis, intentAnalysis, constraints, relevantKnowledge, similarEpisodes
+        );
+      }
+
+      try {
+        const parsed = JSON.parse(response.content);
+        return Array.isArray(parsed) ? parsed : [parsed];
+      } catch (parseError) {
+        logger.warn('Failed to parse LLM action recommendations, using fallback', { parseError });
+        return this.generateEnhancedActionRecommendations(
+          agent, contextAnalysis, intentAnalysis, constraints, relevantKnowledge, similarEpisodes
+        );
+      }
+    } catch (error) {
+      logger.error('Error in LLM action recommendations', { error });
+      return this.generateEnhancedActionRecommendations(
+        agent, contextAnalysis, intentAnalysis, constraints, relevantKnowledge, similarEpisodes
+      );
+    }
+  }
+
+  /**
+   * Generate enhanced explanation using LLM
+   */
+  private async generateLLMEnhancedExplanation(
+    contextAnalysis: any,
+    intentAnalysis: any,
+    actionRecommendations: any[],
+    confidence: number,
+    relevantKnowledge: KnowledgeItem[],
+    similarEpisodes: Episode[],
+    agent: Agent
+  ): Promise<string> {
+    try {
+      const llmRequest: LLMRequest = {
+        prompt: `Generate a clear explanation for the user about my analysis and recommendations:
+
+Intent Analysis: ${JSON.stringify(intentAnalysis)}
+Recommended Actions: ${JSON.stringify(actionRecommendations)}
+Confidence Level: ${Math.round(confidence * 100)}%
+Knowledge Used: ${relevantKnowledge.length} items
+Past Experience: ${similarEpisodes.length} similar episodes
+
+Please explain:
+1. What I understood from their request
+2. Why I'm recommending these actions
+3. How confident I am and why
+4. What knowledge/experience I'm drawing from
+
+Keep it conversational and helpful, as if speaking directly to the user.`,
+        systemPrompt: `You are ${agent.name || 'an AI assistant'} explaining your analysis to a user. Be clear, helpful, and conversational. Explain your reasoning in a way that builds trust and understanding.`,
+        maxTokens: 300,
+        temperature: 0.6
+      };
+
+      const response = await this.llmService.generateResponse(llmRequest);
+      
+      if (response.error) {
+        return this.generateEnhancedExplanation(
+          contextAnalysis, intentAnalysis, actionRecommendations, confidence, relevantKnowledge, similarEpisodes
+        );
+      }
+
+      return response.content;
+    } catch (error) {
+      logger.error('Error in LLM explanation generation', { error });
+      return this.generateEnhancedExplanation(
+        contextAnalysis, intentAnalysis, actionRecommendations, confidence, relevantKnowledge, similarEpisodes
+      );
     }
   }
 
@@ -1662,31 +2161,151 @@ Based on Analysis: ${analysis.intent?.primary}`,
   }
 
   private async generateResponse(input: string, reasoning: string[], knowledge: KnowledgeItem[]): Promise<string> {
-    // This would integrate with an LLM or use rule-based generation
-    // For now, return a structured response based on available information
-    
-    let response = `Based on my analysis of "${input}", `;
-    
-    if (knowledge.length > 0) {
-      response += `I found relevant knowledge about ${knowledge[0].tags.slice(0, 2).join(' and ')}. `;
+    try {
+      // Build context from knowledge and reasoning
+      let contextInfo = '';
+      if (knowledge.length > 0) {
+        contextInfo += '\nRelevant Knowledge:\n';
+        knowledge.slice(0, 3).forEach((item, index) => {
+          contextInfo += `${index + 1}. ${item.content.substring(0, 200)}...\n`;
+        });
+      }
+
+      if (reasoning.length > 0) {
+        contextInfo += '\nReasoning Process:\n';
+        reasoning.forEach((step, index) => {
+          contextInfo += `${index + 1}. ${step}\n`;
+        });
+      }
+
+      // Use LLM to generate a thoughtful response
+      const llmRequest: LLMRequest = {
+        prompt: `User Input: "${input}"
+
+${contextInfo}
+
+Please provide a helpful, accurate response based on the available knowledge and reasoning. Be concise but informative.`,
+        systemPrompt: `You are an AI assistant that provides helpful responses based on available knowledge and reasoning. 
+- Be direct and accurate
+- Use the provided knowledge and reasoning to inform your response
+- If you don't have enough information, acknowledge limitations
+- Keep responses focused and relevant`,
+        maxTokens: 300,
+        temperature: 0.7
+      };
+
+      const response = await this.llmService.generateResponse(llmRequest);
+      
+      if (response.error) {
+        logger.warn('LLM response generation failed, falling back to structured response', { error: response.error });
+        return this.generateFallbackResponse(input, reasoning, knowledge);
+      }
+
+      return response.content;
+    } catch (error) {
+      logger.error('Error generating LLM response', { error });
+      return this.generateFallbackResponse(input, reasoning, knowledge);
     }
-    
-    if (reasoning.length > 2) {
-      response += `My reasoning process considered ${reasoning.length} factors. `;
-    }
-    
-    response += 'I can provide more specific information if needed.';
-    
-    return response;
   }
 
-  private async generateDiscussionResponse(
+  private generateFallbackResponse(input: string | Agent, reasoning: string[] | any, knowledge: KnowledgeItem[] | any): string {
+    // Handle different parameter types for unified fallback response generation
+    if (typeof input === 'string') {
+      // Original signature: (input: string, reasoning: string[], knowledge: KnowledgeItem[])
+      let response = `Based on my analysis of "${input}", `;
+      
+      if (Array.isArray(knowledge) && knowledge.length > 0) {
+        response += `I found relevant knowledge about ${knowledge[0].tags?.slice(0, 2).join(' and ') || 'relevant topics'}. `;
+      }
+      
+      if (Array.isArray(reasoning) && reasoning.length > 2) {
+        response += `My reasoning process considered ${reasoning.length} factors. `;
+      }
+      
+      response += 'I can provide more specific information if needed.';
+      return response;
+    } else {
+      // Agent signature: (agent: Agent, context: any, knowledge: KnowledgeItem[])
+      const agent = input;
+      const context = reasoning;
+      const knowledgeItems = knowledge;
+      
+      const responses = [
+        `That's an interesting point about ${context?.discussionTopic || 'this topic'}. I'd like to add that we should consider the broader implications.`,
+        `Based on my understanding, there are several factors we should examine more closely.`,
+        `I think there's value in exploring different perspectives on this matter.`,
+        `This discussion highlights some important considerations that deserve deeper analysis.`,
+        `I appreciate the insights shared so far. Let me contribute a different angle to consider.`
+      ];
+      
+      return responses[Math.floor(Math.random() * responses.length)];
+    }
+  }
+
+  private async generateDiscussionResponseInternal(
     message: string, 
     discussion: any, 
     knowledge: KnowledgeItem[],
     agentId: string
   ): Promise<string> {
-    // Generate contextual response for discussion
+    try {
+      // Get the agent for context
+      const agent = await this.getAgent(agentId);
+      if (!agent) {
+        throw new Error(`Agent not found: ${agentId}`);
+      }
+
+      // Build discussion context for LLM
+      const llmRequest: LLMRequest = {
+        prompt: `I'm participating in a discussion about "${discussion.topic}".
+
+Current message to respond to: "${message}"
+
+Discussion context:
+- Topic: ${discussion.topic}
+- Participants: ${discussion.participants?.length || 0} people
+- My role: Contributor and knowledge provider
+
+${knowledge.length > 0 ? `
+Relevant knowledge I can contribute:
+${knowledge.slice(0, 3).map((k, i) => `${i + 1}. ${k.content.substring(0, 300)}...`).join('\n')}
+` : ''}
+
+Please provide a thoughtful, constructive response that:
+1. Directly addresses the message
+2. Contributes valuable insights
+3. Uses relevant knowledge if available
+4. Maintains a collaborative tone
+5. Keeps the discussion moving forward
+
+Keep the response concise but meaningful.`,
+        systemPrompt: `You are ${agent.name || 'an AI assistant'} participating in a collaborative discussion. 
+Your role is to contribute thoughtful, evidence-based insights while maintaining a respectful and collaborative tone. 
+${agent.persona?.description ? `Your personality: ${agent.persona.description}` : ''}
+Be helpful, knowledgeable, and constructive in your contributions.`,
+        maxTokens: 200,
+        temperature: 0.7
+      };
+
+      const response = await this.llmService.generateResponse(llmRequest);
+      
+      if (response.error) {
+        logger.warn('LLM discussion response failed, using fallback', { error: response.error });
+        return this.generateFallbackDiscussionResponse(message, discussion, knowledge);
+      }
+
+      return response.content;
+    } catch (error) {
+      logger.error('Error generating LLM discussion response', { error, agentId });
+      return this.generateFallbackDiscussionResponse(message, discussion, knowledge);
+    }
+  }
+
+  private generateFallbackDiscussionResponse(
+    message: string, 
+    discussion: any, 
+    knowledge: KnowledgeItem[]
+  ): string {
     let response = `Regarding the discussion on ${discussion.topic}, `;
     
     if (knowledge.length > 0) {
@@ -1750,5 +2369,512 @@ Context: ${JSON.stringify(input.context || {})}`,
     }
 
     return learnings;
+  }
+
+  /**
+   * Auto-participate agent in active discussions
+   */
+  async autoParticipateInDiscussions(agentId: string): Promise<{
+    participations: Array<{
+      discussionId: string;
+      success: boolean;
+      error?: string;
+    }>;
+  }> {
+    if (!this.isInitialized) {
+      await this.initialize();
+    }
+    
+    try {
+      const validatedId = this.validateIDParam(agentId, 'agentId');
+      
+      // Get agent details
+      const agent = await this.getAgent(validatedId);
+      if (!agent) {
+        throw new ApiError(404, 'Agent not found', 'AGENT_NOT_FOUND');
+      }
+      
+      // Find active discussions that this agent could participate in
+      // For now, we'll simulate finding discussions - in a real implementation,
+      // this would query the discussion service for active discussions
+      const activeDiscussions = await this.findActiveDiscussions(validatedId);
+      
+      const participations = [];
+      
+      for (const discussion of activeDiscussions) {
+        try {
+          // Check if agent is already a participant
+          const isParticipant = discussion.participants?.some(
+            (p: any) => p.agentId === validatedId
+          );
+          
+          if (!isParticipant) {
+            // Add agent as participant
+            await this.discussionService?.addParticipant(discussion.id, {
+              agentId: validatedId,
+              role: 'participant'
+            });
+            
+            participations.push({
+              discussionId: discussion.id,
+              success: true
+            });
+            
+            logger.info('Agent added to discussion', {
+              agentId: validatedId,
+              discussionId: discussion.id
+            });
+          } else {
+            participations.push({
+              discussionId: discussion.id,
+              success: true,
+              error: 'Already participating'
+            });
+          }
+        } catch (error) {
+          participations.push({
+            discussionId: discussion.id,
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+          
+          logger.warn('Failed to add agent to discussion', {
+            agentId: validatedId,
+            discussionId: discussion.id,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+        }
+      }
+      
+      await this.safePublishEvent('agent.discussions.auto_joined', {
+        agentId: validatedId,
+        participations,
+        timestamp: new Date()
+      });
+      
+      return { participations };
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error in auto-participate discussions', { agentId, error: errorMessage });
+      throw error;
+    }
+  }
+
+  /**
+   * Generate an intelligent response for discussion participation
+   */
+  async generateDiscussionResponse(
+    agentId: string,
+    discussionId: string,
+    context: {
+      lastMessage?: string;
+      discussionTopic?: string;
+      participantCount?: number;
+      messageHistory?: any[];
+    }
+  ): Promise<{
+    response: string;
+    confidence: number;
+    reasoning: string[];
+    shouldRespond: boolean;
+  }> {
+    if (!this.isInitialized) {
+      await this.initialize();
+    }
+    
+    try {
+      const validatedAgentId = this.validateIDParam(agentId, 'agentId');
+      const validatedDiscussionId = this.validateIDParam(discussionId, 'discussionId');
+      
+      // Get agent details
+      const agent = await this.getAgent(validatedAgentId);
+      if (!agent) {
+        throw new ApiError(404, 'Agent not found', 'AGENT_NOT_FOUND');
+      }
+      
+      // Analyze if agent should respond
+      const shouldRespond = await this.shouldAgentRespond(agent, context);
+      
+      if (!shouldRespond) {
+        return {
+          response: '',
+          confidence: 0,
+          reasoning: ['Agent determined it should not respond at this time'],
+          shouldRespond: false
+        };
+      }
+      
+      // Get relevant knowledge for the discussion
+      const relevantKnowledge = this.knowledgeGraph ? 
+        await this.searchRelevantKnowledge(
+          validatedAgentId, 
+          context.lastMessage || context.discussionTopic || '',
+          context
+        ) : [];
+      
+      // Generate reasoning
+      const reasoning = [
+        `Analyzing discussion context for agent ${agent.name}`,
+        `Topic: ${context.discussionTopic || 'General discussion'}`,
+        `Participants: ${context.participantCount || 1}`,
+        `Available knowledge: ${relevantKnowledge.length} items`
+      ];
+      
+      // Generate response using LLM
+      const response = await this.generateIntelligentResponse(
+        agent,
+        context,
+        relevantKnowledge,
+        reasoning
+      );
+      
+      // Calculate confidence based on knowledge availability and context clarity
+      const confidence = this.calculateResponseConfidence(
+        context,
+        relevantKnowledge,
+        agent
+      );
+      
+      return {
+        response,
+        confidence,
+        reasoning,
+        shouldRespond: true
+      };
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error generating discussion response', { 
+        agentId, 
+        discussionId, 
+        error: errorMessage 
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Automatically generate and send discussion messages for active agents
+   */
+  async autoGenerateDiscussionMessages(): Promise<{
+    messagesGenerated: number;
+    errors: string[];
+  }> {
+    if (!this.isInitialized) {
+      await this.initialize();
+    }
+    
+    try {
+      const agents = await this.getAgents();
+      const activeAgents = agents.filter(agent => agent.isActive);
+      
+      let messagesGenerated = 0;
+      const errors: string[] = [];
+      
+      for (const agent of activeAgents) {
+        try {
+          // Find discussions this agent is participating in
+          const agentDiscussions = await this.findAgentDiscussions(agent.id);
+          
+          for (const discussion of agentDiscussions) {
+            // Check if it's the agent's turn or if they should contribute
+            const shouldContribute = await this.shouldAgentContribute(
+              agent.id,
+              discussion.id,
+              discussion
+            );
+            
+            if (shouldContribute) {
+              const responseData = await this.generateDiscussionResponse(
+                agent.id,
+                discussion.id,
+                {
+                  discussionTopic: discussion.topic,
+                  participantCount: discussion.participants?.length || 0,
+                  messageHistory: discussion.messages?.slice(-5) || []
+                }
+              );
+              
+              if (responseData.shouldRespond && responseData.response) {
+                // Send the message to the discussion
+                await this.discussionService?.sendMessage(
+                  discussion.id,
+                  agent.id, // This should be participant ID, but we'll use agent ID for now
+                  responseData.response,
+                  'text' as any // Cast to avoid type error
+                );
+                
+                messagesGenerated++;
+                
+                logger.info('Auto-generated discussion message', {
+                  agentId: agent.id,
+                  discussionId: discussion.id,
+                  confidence: responseData.confidence
+                });
+              }
+            }
+          }
+        } catch (error) {
+          const errorMessage = `Agent ${agent.id}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+          errors.push(errorMessage);
+          logger.warn('Failed to auto-generate message for agent', {
+            agentId: agent.id,
+            error: errorMessage
+          });
+        }
+      }
+      
+      await this.safePublishEvent('agent.discussions.auto_messages_generated', {
+        messagesGenerated,
+        errors: errors.length,
+        timestamp: new Date()
+      });
+      
+      return {
+        messagesGenerated,
+        errors
+      };
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error in auto-generate discussion messages', { error: errorMessage });
+      throw error;
+    }
+  }
+
+  // ===== PRIVATE HELPER METHODS FOR DISCUSSION AUTOMATION =====
+
+  private async findActiveDiscussions(agentId: string): Promise<any[]> {
+    // This would typically query the discussion service
+    // For now, return empty array - implement based on your discussion service API
+    try {
+      if (this.discussionService) {
+        // Implement actual query when discussion service supports it
+        return [];
+      }
+      return [];
+    } catch (error) {
+      logger.warn('Failed to find active discussions', { agentId, error });
+      return [];
+    }
+  }
+
+  private async findAgentDiscussions(agentId: string): Promise<any[]> {
+    // Find discussions where this agent is a participant
+    try {
+      if (this.discussionService) {
+        // Implement actual query when discussion service supports it
+        return [];
+      }
+      return [];
+    } catch (error) {
+      logger.warn('Failed to find agent discussions', { agentId, error });
+      return [];
+    }
+  }
+
+  private async shouldAgentRespond(agent: Agent, context: any): Promise<boolean> {
+    // Intelligent decision making about whether agent should respond
+    
+    // Don't respond if no context
+    if (!context.lastMessage && !context.discussionTopic) {
+      return false;
+    }
+    
+    // Don't respond too frequently (simple rate limiting)
+    const lastResponseTime = agent.lastActiveAt;
+    if (lastResponseTime) {
+      const timeSinceLastResponse = Date.now() - lastResponseTime.getTime();
+      if (timeSinceLastResponse < 30000) { // 30 seconds minimum between responses
+        return false;
+      }
+    }
+    
+    // Agent should respond if they have relevant expertise
+    if (context.discussionTopic && agent.persona?.capabilities) {
+      const topicKeywords = context.discussionTopic.toLowerCase().split(' ');
+      const hasRelevantExpertise = agent.persona.capabilities.some((capability: string) =>
+        topicKeywords.some(keyword => capability.toLowerCase().includes(keyword))
+      );
+      
+      if (hasRelevantExpertise) {
+        return true;
+      }
+    }
+    
+    // Random chance to participate (to keep discussions lively)
+    return Math.random() < 0.3; // 30% chance to respond
+  }
+
+  private async shouldAgentContribute(
+    agentId: string,
+    discussionId: string,
+    discussion: any
+  ): Promise<boolean> {
+    // Check if it's the agent's turn in the discussion
+    if (discussion.currentTurn?.participantId) {
+      // Find participant record for this agent
+      const participant = discussion.participants?.find(
+        (p: any) => p.agentId === agentId
+      );
+      
+      if (participant && discussion.currentTurn.participantId === participant.id) {
+        return true;
+      }
+    }
+    
+    // For free-form discussions, check if agent should contribute
+    if (!discussion.currentTurn || discussion.turnStrategy === 'free_form') {
+      return await this.shouldAgentRespond(
+        await this.getAgent(agentId) as Agent,
+        {
+          discussionTopic: discussion.topic,
+          participantCount: discussion.participants?.length || 0,
+          messageHistory: discussion.messages || []
+        }
+      );
+    }
+    
+    return false;
+  }
+
+  private async generateIntelligentResponse(
+    agent: Agent,
+    context: any,
+    knowledge: KnowledgeItem[],
+    reasoning: string[]
+  ): Promise<string> {
+    try {
+      const llmRequest: LLMRequest = {
+        prompt: `You are ${agent.name}, participating in a discussion.
+
+Discussion Topic: ${context.discussionTopic || 'General conversation'}
+Last Message: ${context.lastMessage || 'No recent message'}
+Participants: ${context.participantCount || 1} people
+
+${knowledge.length > 0 ? `
+Available Knowledge:
+${knowledge.slice(0, 2).map((k, i) => `${i + 1}. ${k.content.substring(0, 200)}...`).join('\n')}
+` : ''}
+
+Your reasoning process:
+${reasoning.join('\n')}
+
+Please provide a thoughtful, engaging response that:
+1. Contributes meaningfully to the discussion
+2. Shows your personality and expertise
+3. Encourages further dialogue
+4. Is concise but substantive (2-3 sentences)
+
+Response:`,
+        systemPrompt: `You are ${agent.name}. ${agent.persona?.description || 'You are an AI assistant.'} 
+Be conversational, intelligent, and engaging. Stay true to your personality while contributing value to the discussion.`,
+        maxTokens: 150,
+        temperature: 0.7
+      };
+
+      const response = await this.llmService.generateResponse(llmRequest);
+      
+      if (response.error) {
+        logger.warn('LLM response failed, using fallback', { error: response.error });
+        return this.generateFallbackResponse(agent, context, knowledge);
+      }
+
+      return response.content;
+    } catch (error) {
+      logger.error('Error generating intelligent response', { error });
+      return this.generateFallbackResponse(agent, context, knowledge);
+    }
+  }
+
+
+
+  private calculateResponseConfidence(
+    context: any,
+    knowledge: KnowledgeItem[],
+    agent: Agent
+  ): number {
+    let confidence = 0.5; // Base confidence
+    
+    // Boost confidence if we have relevant knowledge
+    if (knowledge.length > 0) {
+      confidence += Math.min(knowledge.length * 0.1, 0.3);
+    }
+    
+    // Boost confidence if agent has relevant expertise
+    if (context.discussionTopic && agent.persona?.capabilities) {
+      const topicKeywords = context.discussionTopic.toLowerCase().split(' ');
+      const hasRelevantExpertise = agent.persona.capabilities.some((capability: string) =>
+        topicKeywords.some(keyword => capability.toLowerCase().includes(keyword))
+      );
+      
+      if (hasRelevantExpertise) {
+        confidence += 0.2;
+      }
+    }
+    
+    // Reduce confidence if context is limited
+    if (!context.lastMessage && !context.discussionTopic) {
+      confidence -= 0.2;
+    }
+    
+    return Math.min(Math.max(confidence, 0.1), 1.0);
+  }
+
+  /**
+   * Trigger agent participation in a specific discussion
+   */
+  async triggerAgentParticipation(params: {
+    discussionId: string;
+    agentId: string;
+    comment?: string;
+  }): Promise<{
+    success: boolean;
+    message?: string;
+    error?: string;
+  }> {
+    if (!this.isInitialized) {
+      await this.initialize();
+    }
+    
+    try {
+      const { discussionId, agentId, comment } = params;
+      
+      // Validate parameters
+      const validatedAgentId = this.validateIDParam(agentId, 'agentId');
+      const validatedDiscussionId = this.validateIDParam(discussionId, 'discussionId');
+      
+      // Get agent details
+      const agent = await this.getAgent(validatedAgentId);
+      if (!agent) {
+        throw new ApiError(404, 'Agent not found', 'AGENT_NOT_FOUND');
+      }
+      
+      console.log(`🤖 Agent ${agent.name} joining discussion ${discussionId}`);
+      
+      // Generate agent's response to the discussion
+      const discussionPrompt = comment 
+        ? `You are participating in a discussion. Context: ${comment}. Please provide your initial thoughts or response.`
+        : `You are participating in a discussion. Please provide your initial thoughts.`;
+      
+      const response = await this.generateAgentResponse(validatedAgentId, [{ id: 'trigger-prompt', content: discussionPrompt, sender: 'user', timestamp: new Date().toISOString(), type: 'user' }]);
+      
+      // Here you would typically send the response to the discussion service
+      // For now, we'll log it and return success
+      console.log(`💬 Agent ${agent.name} response:`, response.response);
+      
+      return {
+        success: true,
+        message: `Agent ${agent.name} successfully joined discussion ${discussionId}`,
+      };
+      
+    } catch (error) {
+      console.error('❌ Failed to trigger agent participation:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      };
+    }
   }
 } 

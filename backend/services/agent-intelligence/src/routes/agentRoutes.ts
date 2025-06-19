@@ -88,4 +88,11 @@ router.post(
   agentController.learnFromOperation.bind(agentController)
 );
 
+// POST /api/v1/agents/:agentId/participate
+router.post(
+  '/:agentId/participate',
+  validateUUID('agentId'),
+  agentController.participateInDiscussion.bind(agentController)
+);
+
 export { router as agentRoutes }; 

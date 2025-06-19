@@ -99,6 +99,9 @@ export const AgentCreateRequestSchema = z.object({
     learningEnabled: z.boolean().optional(),
     collaborationMode: z.enum(['independent', 'collaborative', 'supervised']).optional()
   }).optional(),
+  // Model configuration fields (direct agent fields)
+  modelId: z.string().optional(),
+  apiType: z.enum(['ollama', 'llmstudio', 'openai', 'anthropic', 'custom']).optional(),
   securityLevel: z.enum(['low', 'medium', 'high', 'critical']).optional().default('medium'),
   isActive: z.boolean().optional().default(true)
 }).refine(

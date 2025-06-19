@@ -11,10 +11,13 @@ export * from './persona.js';
 export * from './discussion.js'; 
 export * from './artifact.js';
 // Tool types - NEW
-export * from './tools.js';
+export * from './tool.js';
 // MCP types - NEW
 export * from './mcp.js';
 // Knowledge Graph types - NEW
 export * from './knowledge-graph.js';
 export * from './personaDefaults.js';
 export * from './personaUtils.js';
+// Audit and LLM types - NEW
+export * from './audit.js';
+export * from './llm.js';

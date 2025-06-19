@@ -197,7 +197,6 @@ export interface Discussion {
 export interface DiscussionParticipant {
   id: string;
   discussionId: string;
-  personaId: string;
   agentId: string;
   role: 'participant' | 'moderator';
   joinedAt: Date;
@@ -222,7 +221,6 @@ export interface DiscussionCreate {
   createdBy: string;
   turnStrategy?: TurnStrategyConfig;
   initialParticipants: Array<{ 
-    personaId: string;
     agentId: string;
     role: string; 
   }>;
@@ -256,7 +254,6 @@ export interface DiscussionMessageCreate {
 }
 
 export interface DiscussionParticipantCreate {
-  personaId: string;
   agentId: string;
   role?: 'participant' | 'moderator';
 }
@@ -813,7 +810,7 @@ export const uaipAPI = {
     async addParticipant(id: string, participant: DiscussionParticipantCreate): Promise<DiscussionParticipant> {
       const client = getAPIClient();
       const response = await client.discussions.addParticipant(id, {
-        personaId: participant.personaId,
+        agentId: participant.agentId,
         role: participant.role || 'participant'
       });
       

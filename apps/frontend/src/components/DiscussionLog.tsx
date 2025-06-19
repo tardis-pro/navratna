@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { useAgents } from '../contexts/AgentContext';
 import { useDiscussion } from '../contexts/DiscussionContext';
 import type { Message } from '../types/agent';
 import { cn } from '../lib/utils';
-import { MessageSquare, Brain, Clock, User } from 'lucide-react';
+import { MessageSquare, Brain, Clock, User, Play, Users, AlertCircle, Loader2 } from 'lucide-react';
 
 // Function to parse and clean content with think tags
 const parseMessageContent = (content: string, showThoughts: boolean): string => {
@@ -35,8 +35,72 @@ export const DiscussionLog: React.FC<DiscussionLogProps> = ({
   showThinkTokens = false 
 }) => {
   const { agents } = useAgents();
-  const { history } = useDiscussion();
+  const { 
+    history, 
+    isActive, 
+    discussionId, 
+    participants, 
+    start, 
+    lastError,
+    isWebSocketConnected,
+    websocketError 
+  } = useDiscussion();
+  
+  const [isStarting, setIsStarting] = useState(false);
+  const [initializationStatus, setInitializationStatus] = useState<{
+    hasAgents: boolean;
+    hasParticipants: boolean;
+    hasDiscussion: boolean;
+    isConnected: boolean;
+  }>({
+    hasAgents: false,
+    hasParticipants: false,
+    hasDiscussion: false,
+    isConnected: false
+  });
 
+  // Monitor initialization status
+  useEffect(() => {
+    setInitializationStatus({
+      hasAgents: Object.keys(agents).length > 0,
+      hasParticipants: participants.length > 0,
+      hasDiscussion: !!discussionId,
+      isConnected: isWebSocketConnected
+    });
+  }, [agents, participants, discussionId, isWebSocketConnected]);
+
+  // Auto-start discussion when conditions are met
+  useEffect(() => {
+    const { hasAgents, hasParticipants, hasDiscussion, isConnected } = initializationStatus;
+    
+    // Only auto-start if we have agents but no active discussion
+    if (hasAgents && !isActive && !isStarting && !hasDiscussion) {
+      console.log('🚀 Auto-starting discussion with available agents');
+      handleStartDiscussion();
+    }
+  }, [initializationStatus, isActive, isStarting]);
+
+  const handleStartDiscussion = async () => {
+    if (isStarting || isActive) return;
+    
+    setIsStarting(true);
+    try {
+      console.log('🎬 Starting discussion...', { 
+        agentCount: Object.keys(agents).length,
+        participants: participants.length 
+      });
+      
+      await start();
+      console.log('✅ Discussion started successfully');
+    } catch (error) {
+      console.error('❌ Failed to start discussion:', error);
+    } finally {
+      setIsStarting(false);
+    }
+  };
+  if(!history) {
+    return <div>No messages</div>;
+  }
   // Filter and sort messages
   const messages = history
     .filter(message => showThinkTokens || message.type !== 'thought')
@@ -123,6 +187,128 @@ export const DiscussionLog: React.FC<DiscussionLogProps> = ({
     );
   };
 
+  const renderInitializationStatus = () => {
+    const { hasAgents, hasParticipants, hasDiscussion, isConnected } = initializationStatus;
+    
+    return (
+      <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+        <div className="flex items-center space-x-3 mb-4">
+          <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+            <Users className="w-4 h-4 text-white" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+              Discussion Status
+            </h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400">
+              System initialization and connection status
+            </p>
+          </div>
+        </div>
+        
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-slate-600 dark:text-slate-400">Available Agents</span>
+            <div className="flex items-center space-x-2">
+              {hasAgents ? (
+                <span className="text-green-600 dark:text-green-400 text-sm font-medium">
+                  {Object.keys(agents).length} agents
+                </span>
+              ) : (
+                <span className="text-amber-600 dark:text-amber-400 text-sm">
+                  No agents available
+                </span>
+              )}
+            </div>
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-slate-600 dark:text-slate-400">Discussion Participants</span>
+            <div className="flex items-center space-x-2">
+              {hasParticipants ? (
+                <span className="text-green-600 dark:text-green-400 text-sm font-medium">
+                  {participants.length} participants
+                </span>
+              ) : (
+                <span className="text-amber-600 dark:text-amber-400 text-sm">
+                  No participants
+                </span>
+              )}
+            </div>
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-slate-600 dark:text-slate-400">Discussion Session</span>
+            <div className="flex items-center space-x-2">
+              {hasDiscussion ? (
+                <span className="text-green-600 dark:text-green-400 text-sm font-medium">
+                  Active
+                </span>
+              ) : (
+                <span className="text-slate-500 dark:text-slate-400 text-sm">
+                  Not started
+                </span>
+              )}
+            </div>
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-slate-600 dark:text-slate-400">WebSocket Connection</span>
+            <div className="flex items-center space-x-2">
+              {isConnected ? (
+                <span className="text-green-600 dark:text-green-400 text-sm font-medium">
+                  Connected
+                </span>
+              ) : (
+                <span className="text-red-600 dark:text-red-400 text-sm">
+                  Disconnected
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        {/* Error Display */}
+        {(lastError || websocketError) && (
+          <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
+              <span className="text-sm font-medium text-red-800 dark:text-red-200">
+                Error
+              </span>
+            </div>
+            <p className="text-sm text-red-600 dark:text-red-300 mt-1">
+              {lastError || websocketError}
+            </p>
+          </div>
+        )}
+        
+        {/* Start Discussion Button */}
+        {hasAgents && !isActive && !hasDiscussion && (
+          <div className="mt-4">
+            <button
+              onClick={handleStartDiscussion}
+              disabled={isStarting}
+              className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors"
+            >
+              {isStarting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Starting Discussion...</span>
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4" />
+                  <span>Start Discussion</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className={cn("space-y-4", className)}>
       {/* Header */}
@@ -137,40 +323,46 @@ export const DiscussionLog: React.FC<DiscussionLogProps> = ({
                 Discussion Log
               </h3>
               <p className="text-sm text-slate-600 dark:text-slate-400">
-                Real-time conversation history
+                {isActive ? 'Active discussion' : 'Real-time conversation history'}
               </p>
             </div>
           </div>
           
-          {messages.length > 0 && (
-            <div className="flex items-center space-x-2 text-sm text-slate-500">
-              <MessageSquare className="w-4 h-4" />
-              <span>{messages.length} messages</span>
+          <div className="flex items-center space-x-4">
+            {/* Connection Status Indicator */}
+            <div className="flex items-center space-x-2">
+              <div className={cn(
+                "w-2 h-2 rounded-full",
+                isWebSocketConnected ? "bg-green-500" : "bg-red-500"
+              )} />
+              <span className="text-xs text-slate-500">
+                {isWebSocketConnected ? 'Connected' : 'Disconnected'}
+              </span>
             </div>
-          )}
+            
+            {messages.length > 0 && (
+              <div className="flex items-center space-x-2 text-sm text-slate-500">
+                <MessageSquare className="w-4 h-4" />
+                <span>{messages.length} messages</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
+      {/* Show initialization status if no messages */}
+      {messages.length === 0 && renderInitializationStatus()}
+
       {/* Messages */}
-      <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
-        <div className="p-4">
-          {messages.length > 0 ? (
+      {messages.length > 0 && (
+        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
+          <div className="p-4">
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {messages.map(renderMessage)}
             </div>
-          ) : (
-            <div className="text-center py-8">
-              <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center mx-auto mb-3">
-                <MessageSquare className="w-6 h-6 text-slate-400" />
-              </div>
-              <p className="text-slate-500 dark:text-slate-400 font-medium">No messages yet</p>
-              <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">
-                Start a discussion to see messages here
-              </p>
-            </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }; 

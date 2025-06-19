@@ -1,99 +1,38 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { useDiscussionManager, DiscussionManagerConfig } from '../hooks/useDiscussionManager';
 import { AgentState, Message } from '../types/agent';
-import { ModelOption } from '../components/ModelSelector';
-import { ArtifactType } from '../types/artifact';
+import { useAgents } from './AgentContext';
 import uaipAPI, { 
-  DiscussionEvent, 
-  Discussion, 
   DiscussionParticipant, 
-  DiscussionMessage,
-  TurnInfo,
-  Persona
+  TurnInfo
 } from '@/utils/uaip-api';
 
-// Discussion Orchestration Flow - Only discussion-related functionality
-interface DiscussionOrchestrationFlow {
-  createDiscussion: (params: any) => Promise<any>;
-  manageParticipants: (discussionId: string, participants: any) => Promise<any>;
-  routeMessage: (discussionId: string, message: any) => Promise<any>;
-  manageTurn: (discussionId: string) => Promise<any>;
-  getDiscussionState: (discussionId: string) => Promise<any>;
-  getMessageHistory: (discussionId: string, pagination?: any) => Promise<any>;
-  searchDiscussions: (query: string) => Promise<any>;
-  analyzeDiscussion: (discussionId: string) => Promise<any>;
-  moderateDiscussion: (discussionId: string, action: any) => Promise<any>;
-  exportDiscussion: (discussionId: string, format: string) => Promise<any>;
-  analyzeSentiment: (discussionId: string) => Promise<any>;
-  extractTopics: (discussionId: string) => Promise<any>;
-  summarizeDiscussion: (discussionId: string) => Promise<any>;
-  getParticipantInsights: (discussionId: string) => Promise<any>;
-  getDiscussionTemplates: () => Promise<any>;
-  detectConflicts: (discussionId: string) => Promise<any>;
-  scheduleDiscussion: (schedule: any) => Promise<any>;
-  measureQuality: (discussionId: string) => Promise<any>;
-  archiveDiscussion: (discussionId: string) => Promise<any>;
-  transcribeDiscussion: (discussionId: string) => Promise<any>;
-  branchDiscussion: (discussionId: string, branchPoint: any) => Promise<any>;
-  trackEngagement: (discussionId: string) => Promise<any>;
-  getRecommendations: (userId: string) => Promise<any>;
-  optimizeTurnStrategy: (discussionId: string) => Promise<any>;
-}
-
-interface DiscussionContextValue {
-  currentTurn: string | null;
-  isActive: boolean;
-  history: Message[];
-  currentRound: number;
-  discussionId: string | null;
-  discussion: Discussion | null;
-  participants: DiscussionParticipant[];
-  currentTurnInfo: TurnInfo | null;
-  addAgent: (agentId: string, state: AgentState) => Promise<void>;
-  removeAgent: (agentId: string) => Promise<void>;
-  setModerator: (agentId: string) => void;
-  start: () => Promise<void>;
-  stop: () => Promise<void>;
-  addMessage: (agentId: string, content: string) => Promise<void>;
-  setInitialDocument: (document: string) => void;
-  pause: () => Promise<void>;
-  resume: () => Promise<void>;
-  reset: () => Promise<void>;
-  syncWithBackend: () => Promise<void>;
-  lastError: string | null;
-  // Model-related properties
-  availableModels: ModelOption[];
-  modelsLoading: boolean;
-  modelsError: string | null;
-  createAgentFromPersona?: (persona: any, name: string, modelId: string) => Promise<any>;
-  // Discussion orchestration capabilities
-  analyzeConversation: () => Promise<{
-    triggers: any[];
-    phase: any;
-    summary: any;
-    suggestions: string[];
-  }>;
-  generateArtifact: (type: ArtifactType, parameters?: Record<string, any>) => Promise<any>;
-  getAvailableArtifactTypes: () => string[];
-  
-  // Discussion Orchestration Flow Integration
-  discussionOrchestration: DiscussionOrchestrationFlow;
-  
-  // WebSocket connection status
-  isWebSocketConnected: boolean;
-  websocketError: string | null;
-}
-
 interface DiscussionProviderProps {
-  topic: string;
+  topic?: string;
   maxRounds?: number;
-  turnStrategy?: 'round_robin' | 'moderated' | 'context_aware';
+  turnStrategy?: 'round_robin' | 'moderated' | 'free_form';
   children: React.ReactNode;
 }
 
-const DiscussionContext = createContext<DiscussionContextValue | null>(null);
+interface DiscussionContextType {
+  // State
+  isActive: boolean;
+  isWebSocketConnected: boolean;
+  participants: DiscussionParticipant[];
+  messages: Message[];
+  currentTurn: TurnInfo | null;
+  discussionId: string | null;
+  isLoading: boolean;
+  lastError: string | null;
 
-export const useDiscussion = (): DiscussionContextValue => {
+  // Actions
+  start: (topic?: string, agentIds?: string[]) => Promise<void>;
+  stop: () => Promise<void>;
+  addMessage: (content: string, agentId?: string) => Promise<void>;
+}
+
+const DiscussionContext = createContext<DiscussionContextType | null>(null);
+
+export const useDiscussion = (): DiscussionContextType => {
   const context = useContext(DiscussionContext);
   if (!context) {
     throw new Error('useDiscussion must be used within a DiscussionProvider');
@@ -107,238 +46,214 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
   turnStrategy = 'round_robin',
   children
 }) => {
-  const [discussion, setDiscussion] = useState<Discussion | null>(null);
+  const [isActive, setIsActive] = useState<boolean>(false);
+  const [isWebSocketConnected, setIsWebSocketConnected] = useState<boolean>(true); // Assume connected for now
   const [participants, setParticipants] = useState<DiscussionParticipant[]>([]);
-  const [currentTurnInfo, setCurrentTurnInfo] = useState<TurnInfo | null>(null);
-  const [isWebSocketConnected, setIsWebSocketConnected] = useState<boolean>(false);
-  const [websocketError, setWebsocketError] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [currentTurn, setCurrentTurn] = useState<TurnInfo | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [lastError, setLastError] = useState<string | null>(null);
+  const [discussionId, setDiscussionId] = useState<string | null>(null);
   
-  const config: DiscussionManagerConfig = {
-    topic,
-    maxRounds,
-    turnStrategy
-  };
+  const { agents } = useAgents();
 
-  const discussionManager = useDiscussionManager(config);
-
-  // Monitor WebSocket connection status
-  useEffect(() => {
-    try {
-      const wsClient = uaipAPI.websocket;
-      setIsWebSocketConnected(wsClient.isConnected());
-      setWebsocketError(null);
-    } catch (error) {
-      setIsWebSocketConnected(false);
-      setWebsocketError(error instanceof Error ? error.message : 'WebSocket connection failed');
+  const start = async (topic?: string, agentIds?: string[]) => {
+    if (isActive) {
+      console.warn('Discussion is already active');
+      return;
     }
-  }, [discussionManager.discussionId]);
 
-  // Sync discussion data when discussionId changes
-  useEffect(() => {
-    if (discussionManager.discussionId) {
-      syncDiscussionData();
+    if (!isWebSocketConnected) {
+      console.warn('Cannot start discussion: WebSocket not connected');
+      return;
     }
-  }, [discussionManager.discussionId]);
 
-  const syncDiscussionData = async () => {
-    if (!discussionManager.discussionId) return;
-    
     try {
-      // Get full discussion data
-      const discussionData = await uaipAPI.discussions.get(discussionManager.discussionId);
-      setDiscussion(discussionData);
-      setParticipants(discussionData.participants);
+      setIsLoading(true);
+      setLastError(null);
+
+      // Use provided topic or default
+      const discussionTopic = topic || 'General Discussion';
       
-      // Get current turn info
+      // Get available agents
+      const availableAgents = Object.values(agents).filter(agent => agent.isActive);
+      
+      if (availableAgents.length === 0) {
+        throw new Error('No active agents available for discussion');
+      }
+
+      // Use provided agent IDs or select first few available agents
+      const selectedAgentIds = agentIds && agentIds.length > 0 
+        ? agentIds.filter(id => availableAgents.some(agent => agent.id === id))
+        : availableAgents.slice(0, 3).map(agent => agent.id);
+
+      if (selectedAgentIds.length < 2) {
+        throw new Error('At least 2 agents are required for a discussion');
+      }
+
+      console.log('Starting discussion with agents:', selectedAgentIds);
+
+      // Check if discussion already exists and is active
+      if (discussionId) {
+        try {
+          const existingDiscussion = await uaipAPI.discussions.get(discussionId);
+          if (existingDiscussion && existingDiscussion.status === 'active') {
+            console.log('Discussion is already active, joining existing discussion');
+            setIsActive(true);
+            return;
+          }
+        } catch (error) {
+          console.warn('Could not check existing discussion status:', error);
+    }
+      }
+
+      // Create new discussion if none exists or existing one is not active
+      let currentDiscussionId = discussionId;
+      
+      if (!currentDiscussionId) {
+        const newDiscussion = await uaipAPI.discussions.create({
+          title: `Discussion: ${discussionTopic}`,
+          description: `Automated discussion on ${discussionTopic}`,
+          topic: discussionTopic,
+          createdBy: 'system', // TODO: Use actual user ID
+          initialParticipants: selectedAgentIds.map(agentId => ({
+            agentId, // Only send agentId, backend doesn't need personaId
+            role: 'participant'
+          })),
+          settings: {
+            maxParticipants: 10,
+            allowAnonymous: false,
+            moderationEnabled: true,
+            autoAdvanceTurns: true,
+            turnTimeout: 300,
+            maxMessageLength: 2000
+          },
+          turnStrategy: {
+            strategy: 'round_robin',
+            config: {
+              timeoutSeconds: 300,
+              maxConsecutiveTurns: 1
+            }
+          }
+        });
+        currentDiscussionId = newDiscussion.id;
+        setDiscussionId(currentDiscussionId);
+      }
+
+      // Try to start the discussion, but handle the case where it's already active
       try {
-        const turnInfo = await uaipAPI.discussions.getCurrentTurn(discussionManager.discussionId);
-        setCurrentTurnInfo(turnInfo);
+        await uaipAPI.discussions.start(currentDiscussionId);
+        console.log('Discussion started successfully');
+      } catch (error: any) {
+        if (error.message?.includes('cannot be started from status: active')) {
+          console.log('Discussion is already active, proceeding...');
+        } else {
+          throw error;
+        }
+      }
+
+      // Set discussion as active
+      setIsActive(true);
+      
+      // Trigger agent participation for each selected agent
+      for (const agentId of selectedAgentIds) {
+        try {
+          // Call the agent intelligence service to participate
+          await fetch(`/api/v1/agents/${agentId}/participate`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              discussionId: currentDiscussionId,
+              agentId: agentId,
+              comment: `Joining discussion about ${discussionTopic}`
+            })
+          });
+          
+          console.log(`Agent ${agentId} triggered to participate in discussion`);
       } catch (error) {
-        console.warn('Could not get turn info:', error);
-        setCurrentTurnInfo(null);
+          console.error(`Failed to trigger agent ${agentId} participation:`, error);
+        }
       }
+
+      console.log('Discussion setup completed');
+
     } catch (error) {
-      console.error('Failed to sync discussion data:', error);
+      console.error('Failed to start discussion:', error);
+      setLastError(error instanceof Error ? error.message : 'Failed to start discussion');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Execute actual discussion orchestration flows
-  const executeDiscussionOrchestrationFlow = async (flow: string, params: any) => {
-    switch (flow) {
-      case 'createDiscussion':
-        return await uaipAPI.discussions.create(params);
-      case 'getDiscussionState':
-        return await uaipAPI.discussions.get(params.discussionId);
-      case 'getMessageHistory':
-        return await uaipAPI.discussions.getMessages(params.discussionId, params.pagination);
-      case 'searchDiscussions':
-        return await uaipAPI.discussions.list({ query: params.query });
-      case 'manageTurn':
-        await uaipAPI.discussions.advanceTurn(params.discussionId);
-        return await uaipAPI.discussions.getCurrentTurn(params.discussionId);
-      case 'manageParticipants':
-        if (params.action === 'add') {
-          return await uaipAPI.discussions.addParticipant(params.discussionId, params.participant);
-        } else if (params.action === 'remove') {
-          return await uaipAPI.discussions.removeParticipant(params.discussionId, params.participantId);
-        }
-        break;
-      case 'routeMessage':
-        return await uaipAPI.discussions.sendMessage(params.discussionId, params.message);
-      case 'archiveDiscussion':
-        return await uaipAPI.discussions.update(params.discussionId, { status: 'archived' });
-      default:
-        // For flows not yet implemented in the API, return mock data
-        return await mockDiscussionApiCall(flow, params);
+  const stop = async () => {
+    if (!isActive || !discussionId) {
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      await uaipAPI.discussions.end(discussionId);
+      setIsActive(false);
+      setDiscussionId(null);
+      setParticipants([]);
+      setMessages([]);
+      setCurrentTurn(null);
+      console.log('Discussion stopped successfully');
+    } catch (error) {
+      console.error('Failed to stop discussion:', error);
+      setLastError(error instanceof Error ? error.message : 'Failed to stop discussion');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Mock API call function for discussion flows not yet implemented
-  const mockDiscussionApiCall = async (flow: string, params: any) => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, Math.random() * 1000 + 200));
-    
-    // Mock different responses based on flow
-    if (flow === 'analyzeSentiment') {
-      return {
-        overall: 'positive',
-        timeline: [
-          { timestamp: Date.now() - 60000, sentiment: 'neutral' },
-          { timestamp: Date.now() - 30000, sentiment: 'positive' },
-          { timestamp: Date.now(), sentiment: 'positive' }
-        ]
+  const addMessage = async (content: string, agentId?: string) => {
+    if (!isActive || !discussionId) {
+      console.warn('Cannot add message: discussion not active');
+      return;
+    }
+
+    try {
+      const message = await uaipAPI.discussions.sendMessage(discussionId, {
+        content,
+        messageType: 'message',
+        metadata: agentId ? { agentId } : {}
+      });
+
+      // Add to local messages
+      const newMessage: Message = {
+        id: message.id,
+        content: message.content,
+        sender: agentId || 'user',
+        timestamp: new Date(message.createdAt),
+        type: 'message'
       };
+      
+      setMessages(prev => [...prev, newMessage]);
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      setLastError(error instanceof Error ? error.message : 'Failed to send message');
     }
-    
-    if (flow === 'analyzeDiscussion') {
-      return {
-        triggers: ['question', 'decision_point'],
-        phase: 'active_discussion',
-        summary: 'Discussion is progressing well with good participation',
-        suggestions: ['Consider summarizing key points', 'Ask for consensus on main topic']
-      };
-    }
-    
-    // Default mock response
-    return { 
-      success: true, 
-      flow, 
-      params, 
-      timestamp: new Date().toISOString(),
-      data: `Mock result for discussion ${flow}`
-    };
   };
 
-  // Discussion Orchestration Flows - Using real UAIP APIs
-  const discussionOrchestration: DiscussionOrchestrationFlow = {
-    createDiscussion: (params) => executeDiscussionOrchestrationFlow('createDiscussion', params),
-    manageParticipants: (discussionId, participants) => executeDiscussionOrchestrationFlow('manageParticipants', { discussionId, participants }),
-    routeMessage: (discussionId, message) => executeDiscussionOrchestrationFlow('routeMessage', { discussionId, message }),
-    manageTurn: (discussionId) => executeDiscussionOrchestrationFlow('manageTurn', { discussionId }),
-    getDiscussionState: (discussionId) => executeDiscussionOrchestrationFlow('getDiscussionState', { discussionId }),
-    getMessageHistory: (discussionId, pagination) => executeDiscussionOrchestrationFlow('getMessageHistory', { discussionId, pagination }),
-    searchDiscussions: (query) => executeDiscussionOrchestrationFlow('searchDiscussions', { query }),
-    analyzeDiscussion: (discussionId) => executeDiscussionOrchestrationFlow('analyzeDiscussion', { discussionId }),
-    moderateDiscussion: (discussionId, action) => executeDiscussionOrchestrationFlow('moderateDiscussion', { discussionId, action }),
-    exportDiscussion: (discussionId, format) => executeDiscussionOrchestrationFlow('exportDiscussion', { discussionId, format }),
-    analyzeSentiment: (discussionId) => executeDiscussionOrchestrationFlow('analyzeSentiment', { discussionId }),
-    extractTopics: (discussionId) => executeDiscussionOrchestrationFlow('extractTopics', { discussionId }),
-    summarizeDiscussion: (discussionId) => executeDiscussionOrchestrationFlow('summarizeDiscussion', { discussionId }),
-    getParticipantInsights: (discussionId) => executeDiscussionOrchestrationFlow('getParticipantInsights', { discussionId }),
-    getDiscussionTemplates: () => executeDiscussionOrchestrationFlow('getDiscussionTemplates', {}),
-    detectConflicts: (discussionId) => executeDiscussionOrchestrationFlow('detectConflicts', { discussionId }),
-    scheduleDiscussion: (schedule) => executeDiscussionOrchestrationFlow('scheduleDiscussion', schedule),
-    measureQuality: (discussionId) => executeDiscussionOrchestrationFlow('measureQuality', { discussionId }),
-    archiveDiscussion: (discussionId) => executeDiscussionOrchestrationFlow('archiveDiscussion', { discussionId }),
-    transcribeDiscussion: (discussionId) => executeDiscussionOrchestrationFlow('transcribeDiscussion', { discussionId }),
-    branchDiscussion: (discussionId, branchPoint) => executeDiscussionOrchestrationFlow('branchDiscussion', { discussionId, branchPoint }),
-    trackEngagement: (discussionId) => executeDiscussionOrchestrationFlow('trackEngagement', { discussionId }),
-    getRecommendations: (userId) => executeDiscussionOrchestrationFlow('getRecommendations', { userId }),
-    optimizeTurnStrategy: (discussionId) => executeDiscussionOrchestrationFlow('optimizeTurnStrategy', { discussionId }),
-  };
-
-  // Legacy functions adapted for discussion orchestration
-  const analyzeConversation = async () => {
-    if (!discussionManager.discussionId) {
-      throw new Error('No active discussion to analyze');
-    }
-
-    return await discussionOrchestration.analyzeDiscussion(discussionManager.discussionId);
-  };
-
-  const generateArtifact = async (type: ArtifactType, parameters: Record<string, any> = {}) => {
-    if (!discussionManager.discussionId) {
-      throw new Error('No active discussion for artifact generation');
-    }
-
-    // This would call artifact service - for now return mock
-    return await mockDiscussionApiCall('generateArtifact', {
-      discussionId: discussionManager.discussionId,
-      messages: discussionManager.history,
-      type,
-      parameters
-    });
-  };
-
-  const getAvailableArtifactTypes = () => {
-    return ['code', 'test', 'documentation', 'prd'];
-  };
-
-  const contextValue: DiscussionContextValue = {
-    currentTurn: discussionManager.currentTurn,
-    isActive: discussionManager.isActive,
-    history: discussionManager.history,
-    currentRound: discussionManager.currentRound,
-    discussionId: discussionManager.discussionId,
-    discussion,
-    participants,
-    currentTurnInfo,
-    addAgent: discussionManager.addAgent,
-    removeAgent: discussionManager.removeAgent,
-    setModerator: discussionManager.setModerator,
-    start: discussionManager.start,
-    stop: discussionManager.stop,
-    addMessage: discussionManager.addMessage,
-    setInitialDocument: discussionManager.setInitialDocument,
-    pause: discussionManager.pause,
-    resume: discussionManager.resume,
-    reset: discussionManager.reset,
-    syncWithBackend: discussionManager.syncWithBackend,
-    lastError: discussionManager.state.lastError,
-    availableModels: [],
-    modelsLoading: false,
-    modelsError: null,
-    analyzeConversation,
-    generateArtifact,
-    getAvailableArtifactTypes,
-    createAgentFromPersona: async (persona: any, name: string, modelId: string) => {
-      if (!discussionManager.discussionId) {
-        throw new Error('No active discussion for agent creation');
-      }
-
-      // Add participant to discussion
-      const participant = await uaipAPI.discussions.addParticipant(
-        discussionManager.discussionId,
-        {
-          personaId: persona.id,
-          agentId: `agent-${Date.now()}`, // Generate agent ID
-          role: 'participant'
-        }
-      );
-
-      return { participant, agentId: participant.agentId };
-    },
-    
-    // Discussion Orchestration Flow Integration
-    discussionOrchestration,
-    
-    // WebSocket connection status
+  const value: DiscussionContextType = {
+    isActive,
     isWebSocketConnected,
-    websocketError,
+    participants,
+    messages,
+    currentTurn,
+    discussionId,
+    isLoading,
+    lastError,
+    start,
+    stop,
+    addMessage
   };
 
   return (
-    <DiscussionContext.Provider value={contextValue}>
+    <DiscussionContext.Provider value={value}>
       {children}
     </DiscussionContext.Provider>
   );

@@ -18,20 +18,18 @@ const getModels = async () => {
     const response = await uaipAPI.llm.getModels();
     console.log('[AgentSelector] Models response:', response);
     
-    if (!response.success) {
-      console.error('Failed to fetch models:', response.error?.message);
-      return [];
-    }
-    
-    const models = response.data || [];
+    // The response is already the models array from the backend
+    const models = Array.isArray(response) ? response : (response.data || []);
     console.log('[AgentSelector] Models loaded:', models);
+    
     return models.map(model => ({
       id: model.id,
       name: model.name,
       description: model.description,
       source: model.source,
       apiEndpoint: model.apiEndpoint,
-      apiType: model.apiType
+      apiType: model.apiType,
+      provider: model.provider
     }));
   } catch (error) {
     console.error('Failed to fetch models:', error);
@@ -99,7 +97,6 @@ const groupModelsByServer = (models: ModelOption[]) => {
 // Helper function to get server display name
 const getServerDisplayName = (serverKey: string, source?: string): string => {
   const [apiType, baseUrl] = serverKey.split(':');
-  
   if (!apiType) return 'Unknown Service';
   
   const serviceName = apiType === 'ollama' ? 'Ollama' : 'LLM Studio';
@@ -503,13 +500,31 @@ export const AgentSelector: React.FC = () => {
         return roleMapping[normalizedRole] || 'assistant';
       };
 
-      // Try the simplest approach: just provide personaId
+      // Get selected model info for API type detection
+      const selectedModel = availableModels?.find(m => m.id === selectedModelId);
+      
+      // Try the simplest approach: just provide personaId and modelId
       const apiAgentData = {
         name: agentName.trim(),
         role: mapPersonaRoleToBackendRole(persona.role || 'assistant'),
         personaId: persona.id, // Use persona ID if available, fallback to default
         description: persona.description || persona.background || `AI agent with ${persona.name} persona`,
         capabilities: persona.expertise && persona.expertise.length > 0 ? persona.expertise : ['general_assistance'],
+        
+        // Model configuration
+        modelId: selectedModelId,
+        apiType: selectedModel?.apiType || 'ollama',
+        
+        configuration: {
+          model: selectedModelId,
+          temperature: 0.7,
+          analysisDepth: 'intermediate' as const,
+          contextWindowSize: 4096,
+          decisionThreshold: 0.7,
+          learningEnabled: true,
+          collaborationMode: 'collaborative' as const
+        },
+        
         intelligenceConfig: {
           analysisDepth: 'intermediate' as const,
           contextWindowSize: 4096,
@@ -613,7 +628,7 @@ export const AgentSelector: React.FC = () => {
   const groupedModels = groupModelsByServer(availableModels);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 space-y-6">
       {/* Enhanced Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
@@ -621,7 +636,6 @@ export const AgentSelector: React.FC = () => {
             <Users className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white">AI Agents</h2>
             <p className="text-sm text-slate-600 dark:text-slate-400">Manage discussion participants</p>
           </div>
         </div>
@@ -636,7 +650,9 @@ export const AgentSelector: React.FC = () => {
       <div className="space-y-4">
         {agentCount > 0 ? (
           Object.values(agents).map((agent) => {
+
             const modelInfo = availableModels?.find(m => m && m.id === agent.modelId);
+            console.log(JSON.stringify(modelInfo));
             const serverName = modelInfo?.source ? getServerIdentifier(modelInfo.source) : 'Unknown';
             const ServiceIcon = modelInfo ? getServerIcon(modelInfo.apiType) : Cpu;
             
@@ -678,9 +694,9 @@ export const AgentSelector: React.FC = () => {
                           <span className="inline-flex items-center px-3 py-1 bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 text-blue-700 dark:text-blue-300 text-sm rounded-full font-semibold border border-blue-200 dark:border-blue-800">
                             {agent.role}
                           </span>
-                          {agent.persona && (
+                          {agent.personaId && (
                             <span className="inline-flex items-center px-2 py-1 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 text-purple-700 dark:text-purple-300 text-xs rounded-full font-medium border border-purple-200 dark:border-purple-800">
-                              {agent.persona.name}
+                              {agent.persona?.name}
                             </span>
                           )}
                         </div>

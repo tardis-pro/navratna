@@ -23,7 +23,6 @@
       "@uaip/config": ["../config"],
       "@uaip/shared-services": ["../services"],
       "@uaip/middleware": ["../middleware"],
-      "@uaip/llm-service": ["."]
     }
   },
   "include": ["src/**/*"],

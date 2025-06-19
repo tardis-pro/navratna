@@ -66,13 +66,13 @@ class DiscussionOrchestrationServer {
       crossOriginEmbedderPolicy: false
     }));
 
-    // CORS configuration
-    this.app.use(cors({
-      origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'],
-      credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-    }));
+    // CORS is handled by nginx API gateway - disable service-level CORS
+    // this.app.use(cors({
+    //   origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'],
+    //   credentials: true,
+    //   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    //   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+    // }));
 
     // Compression
     if (config.discussionOrchestration.performance.enableCompression) {

@@ -145,6 +145,9 @@ export class AgentTransformationService {
         learningEnabled: input.configuration?.learningEnabled ?? true,
         collaborationMode: input.configuration?.collaborationMode || 'collaborative'
       },
+      // Model configuration fields
+      modelId: input.modelId,
+      apiType: input.apiType,
       securityLevel: input.securityLevel || 'medium',
       isActive: input.isActive ?? true
     };

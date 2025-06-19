@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { 
-  EnhancedAgentIntelligenceService,
+  
   CapabilityDiscoveryService,
   SecurityValidationService,
 } from '@uaip/shared-services';
@@ -16,6 +16,7 @@ import {
 } from '@uaip/types';
 import { z } from 'zod';
 import { AgentTransformationService } from '@uaip/middleware';
+import { EnhancedAgentIntelligenceService } from '../services/enhanced-agent-intelligence.service.js';
 export class AgentController {
   private agentIntelligenceService: EnhancedAgentIntelligenceService;
   private capabilityDiscoveryService: CapabilityDiscoveryService;
@@ -376,6 +377,47 @@ export class AgentController {
 
     } catch (error) {
       this.handleError(error, 'learning from operation', { agentId, operationId }, next);
+    }
+  }
+
+  public async participateInDiscussion(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { agentId } = req.params;
+      const { discussionId, comment } = req.body;
+
+      logger.info('Triggering agent participation in discussion', { 
+        agentId,
+        discussionId,
+        hasComment: !!comment
+      });
+
+      const result = await this.agentIntelligenceService.triggerAgentParticipation({
+        agentId,
+        discussionId,
+        comment
+      });
+
+      logger.info('Agent participation triggered', { 
+        agentId,
+        discussionId,
+        success: result.success
+      });
+
+      res.status(200).json({
+        success: true,
+        data: result,
+        meta: {
+          timestamp: new Date(),
+          version: '1.0.0'
+        }
+      });
+
+    } catch (error) {
+      logger.error('Error triggering agent participation', { 
+        agentId: req.params.agentId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      next(error);
     }
   }
 
