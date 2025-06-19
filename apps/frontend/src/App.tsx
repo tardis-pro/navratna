@@ -14,19 +14,40 @@ import { SettingsContent } from './components/SettingsContent';
 import { BackendStatusIndicator } from './components/BackendStatusIndicator';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Button } from './components/ui/button';
-import { Moon, Sun, Bot, Users, FileText, Settings, Activity } from 'lucide-react';
+import {
+  Moon,
+  Sun,
+  Bot,
+  MessageSquare,
+  Activity,
+  Settings,
+  Menu,
+  X,
+  FileText,
+  Users
+} from 'lucide-react';
 import './App.css';
 
-function App() {
-  const [currentMode, setCurrentMode] = useState<'discussion' | 'uaip' | 'settings'>('discussion');
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+type Mode = 'discussion' | 'uaip' | 'settings';
 
-  // Initialize theme from localStorage or system preference
+interface ModeConfig {
+  key: Mode;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  description: string;
+}
+
+function App() {
+  const [currentMode, setCurrentMode] = useState<Mode>('discussion');
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // Initialize theme
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
     const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     const initialTheme = savedTheme || systemTheme;
-    
+
     setTheme(initialTheme);
     document.documentElement.classList.toggle('dark', initialTheme === 'dark');
   }, []);
@@ -38,172 +59,251 @@ function App() {
     document.documentElement.classList.toggle('dark', newTheme === 'dark');
   };
 
+  const modes: ModeConfig[] = [
+    {
+      key: 'discussion',
+      label: 'Discussion',
+      icon: MessageSquare,
+      description: 'AI Agent Conversations'
+    },
+    {
+      key: 'uaip',
+      label: 'Dashboard',
+      icon: Activity,
+      description: 'System Overview'
+    },
+    {
+      key: 'settings',
+      label: 'Settings',
+      icon: Settings,
+      description: 'Configuration'
+    }
+  ];
+
   return (
     <AuthProvider>
       <ProtectedRoute>
         <AgentProvider>
           <DocumentProvider>
             <DiscussionProvider topic="Council of Nycea">
-              <div className="h-screen w-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-800 flex flex-col overflow-hidden">
-                
+              <div className="h-screen w-full bg-slate-50 dark:bg-slate-950 flex flex-col overflow-hidden">
+
                 {/* Header */}
-                <header className="flex-shrink-0 h-16 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between px-8">
+                <header className="h-14 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 flex-shrink-0">
                   
-                  {/* Left: Logo + Mode Tabs */}
-                  <div className="flex items-center gap-8">
+                  {/* Left: Logo & Navigation */}
+                  <div className="flex items-center gap-4">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-                        <Bot className="w-5 h-5 text-white" />
+                        <Bot className="w-4 h-4 text-white" />
                       </div>
-                      <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                      <h1 className="text-lg font-semibold text-slate-900 dark:text-white">
                         Council of Nycea
                       </h1>
                     </div>
-                    
-                    {/* Mode Tabs */}
-                    <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
-                      <Button
-                        variant={currentMode === 'discussion' ? 'default' : 'ghost'}
-                        size="sm"
-                        onClick={() => setCurrentMode('discussion')}
-                        className="flex items-center gap-2 px-4 py-2 text-sm"
-                      >
-                        <Users className="w-4 h-4" />
-                        Discussion
-                      </Button>
-                      <Button
-                        variant={currentMode === 'uaip' ? 'default' : 'ghost'}
-                        size="sm"
-                        onClick={() => setCurrentMode('uaip')}
-                        className="flex items-center gap-2 px-4 py-2 text-sm"
-                      >
-                        <Activity className="w-4 h-4" />
-                        UAIP
-                      </Button>
-                      <Button
-                        variant={currentMode === 'settings' ? 'default' : 'ghost'}
-                        size="sm"
-                        onClick={() => setCurrentMode('settings')}
-                        className="flex items-center gap-2 px-4 py-2 text-sm"
-                      >
-                        <Settings className="w-4 h-4" />
-                        Settings
-                      </Button>
-                    </div>
+
+                    {/* Navigation */}
+                    <nav className="hidden md:flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
+                      {modes.map((mode) => {
+                        const Icon = mode.icon;
+                        const isActive = currentMode === mode.key;
+                        
+                        return (
+                          <Button
+                            key={mode.key}
+                            variant={isActive ? "default" : "ghost"}
+                            size="sm"
+                            onClick={() => setCurrentMode(mode.key)}
+                            className={`
+                              flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-all
+                              ${isActive 
+                                ? 'bg-white dark:bg-slate-700 shadow-sm' 
+                                : 'hover:bg-white/50 dark:hover:bg-slate-700/50'
+                              }
+                            `}
+                          >
+                            <Icon className="w-4 h-4" />
+                            {mode.label}
+                          </Button>
+                        );
+                      })}
+                    </nav>
                   </div>
 
-                  {/* Right: Status + User + Theme */}
-                  <div className="flex items-center gap-4">
+                  {/* Right: Controls */}
+                  <div className="flex items-center gap-2">
                     <BackendStatusIndicator />
+                    
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={toggleTheme}
-                      className="w-9 h-9 p-0 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      className="w-8 h-8 p-0"
                     >
                       {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
                     </Button>
+
                     <UserProfile />
+
+                    {/* Mobile menu toggle */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSidebarOpen(!sidebarOpen)}
+                      className="md:hidden w-8 h-8 p-0"
+                    >
+                      {sidebarOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+                    </Button>
                   </div>
                 </header>
 
                 {/* Main Content */}
                 <main className="flex-1 overflow-hidden">
-                  
                   {currentMode === 'discussion' ? (
-                    /* Clean 3-Column Layout */
-                    <div className="grid grid-cols-12 h-full gap-0">
-                      
-                      {/* Left Sidebar: Agents (3 columns) */}
-                      <div className="col-span-3 bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border-r border-slate-200/60 dark:border-slate-700/60">
-                        <div className="h-full flex flex-col">
-                          <div className="p-4 border-b border-slate-200/60 dark:border-slate-700/60">
-                            <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                              <Users className="w-5 h-5" />
-                              AI Agents
-                            </h2>
-                          </div>
-                          <div className="flex-1 overflow-hidden">
-                            <AgentSelector />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Center: Main Content (6 columns) */}
-                      <div className="col-span-6 flex flex-col">
-                        
-                        {/* Document Context (50% height) */}
-                        <div className="h-1/2 bg-white/40 dark:bg-slate-900/40 backdrop-blur-sm border-b border-slate-200/60 dark:border-slate-700/60">
-                          <div className="h-full flex flex-col">
-                            <div className="p-4 border-b border-slate-200/60 dark:border-slate-700/60">
-                              <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                                <FileText className="w-5 h-5" />
-                                Document Context
-                              </h2>
-                            </div>
-                            <div className="flex-1 overflow-hidden p-4">
-                              <DocumentViewer />
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Discussion Log (50% height) */}
-                        <div className="h-1/2 bg-white/20 dark:bg-slate-900/20 backdrop-blur-sm">
-                          <div className="h-full flex flex-col">
-                            <div className="p-4 border-b border-slate-200/60 dark:border-slate-700/60">
-                              <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                                <Activity className="w-5 h-5" />
-                                Discussion Log
-                              </h2>
-                            </div>
-                            <div className="flex-1 overflow-hidden p-4">
-                              <DiscussionLog />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Right Sidebar: Controls (3 columns) */}
-                      <div className="col-span-3 bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border-l border-slate-200/60 dark:border-slate-700/60">
-                        <div className="h-full flex flex-col">
-                          <div className="p-4 border-b border-slate-200/60 dark:border-slate-700/60">
-                            <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                              <Settings className="w-5 h-5" />
-                              Controls
-                            </h2>
-                          </div>
-                          <div className="flex-1 overflow-hidden p-4">
-                            <DiscussionControls />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    <DiscussionLayout sidebarOpen={sidebarOpen} />
                   ) : currentMode === 'uaip' ? (
-                    /* UAIP Dashboard */
-                    <div className="w-full h-full p-6">
-                      <ErrorBoundary>
-                        <UAIPDashboard />
-                      </ErrorBoundary>
+                    <div className="h-full p-4">
+                      <div className="h-full bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden">
+                        <ErrorBoundary>
+                          <UAIPDashboard />
+                        </ErrorBoundary>
+                      </div>
                     </div>
                   ) : (
-                    /* Settings */
-                    <div className="w-full h-full p-6">
+                    <div className="h-full p-4 overflow-auto">
                       <div className="max-w-4xl mx-auto">
-                        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md rounded-xl shadow-lg border border-slate-200/60 dark:border-slate-700/60 overflow-hidden">
-                          <div className="p-6">
-                            <SettingsContent />
+                        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-6">
+                          <div className="mb-6">
+                            <h2 className="text-xl font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                              <Settings className="w-5 h-5" />
+                              Settings
+                            </h2>
+                            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                              Configure your workspace
+                            </p>
                           </div>
+                          <SettingsContent />
                         </div>
                       </div>
                     </div>
                   )}
                 </main>
+
+                {/* Mobile Navigation */}
+                <div className="md:hidden fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50">
+                  <nav className="flex bg-white dark:bg-slate-900 rounded-full p-1 shadow-lg border border-slate-200 dark:border-slate-800">
+                    {modes.map((mode) => {
+                      const Icon = mode.icon;
+                      const isActive = currentMode === mode.key;
+
+                      return (
+                        <Button
+                          key={mode.key}
+                          variant={isActive ? "default" : "ghost"}
+                          size="sm"
+                          onClick={() => setCurrentMode(mode.key)}
+                          className={`
+                            w-12 h-12 p-0 rounded-full
+                            ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-400'}
+                          `}
+                        >
+                          <Icon className="w-5 h-5" />
+                        </Button>
+                      );
+                    })}
+                  </nav>
+                </div>
               </div>
             </DiscussionProvider>
           </DocumentProvider>
         </AgentProvider>
       </ProtectedRoute>
     </AuthProvider>
+  );
+}
+
+// Discussion Layout Component
+function DiscussionLayout({ sidebarOpen }: { sidebarOpen: boolean }) {
+  return (
+    <div className="h-full flex">
+      
+      {/* Sidebar */}
+      <div className={`
+        ${sidebarOpen ? 'w-80' : 'w-0'} 
+        transition-all duration-300 ease-in-out overflow-hidden
+        bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800
+      `}>
+        <div className="h-full flex flex-col">
+          {/* Controls Section */}
+          <div className="p-4 border-b border-slate-200 dark:border-slate-800">
+            <div className="flex items-center gap-2 mb-3">
+              <Users className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+              <h3 className="text-sm font-medium text-slate-900 dark:text-white">
+                Discussion Controls
+              </h3>
+            </div>
+            <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-3">
+              <DiscussionControls />
+            </div>
+          </div>
+
+          {/* Agents Section */}
+          <div className="flex-1 overflow-hidden">
+            <div className="p-4">
+              <h3 className="text-sm font-medium text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+                <Bot className="w-4 h-4" />
+                AI Agents
+              </h3>
+            </div>
+            <div className="flex-1 overflow-auto">
+              <AgentSelector />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col min-w-0">
+        
+        {/* Document Context */}
+        <div className="h-1/2 border-b border-slate-200 dark:border-slate-800">
+          <div className="h-full flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800">
+              <h2 className="text-sm font-medium text-slate-900 dark:text-white flex items-center gap-2">
+                <FileText className="w-4 h-4" />
+                Document Context
+              </h2>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span className="text-xs text-slate-500 dark:text-slate-400">Active</span>
+              </div>
+            </div>
+            <div className="flex-1 overflow-hidden bg-slate-50 dark:bg-slate-900">
+              <DocumentViewer />
+            </div>
+          </div>
+        </div>
+
+        {/* Discussion Log */}
+        <div className="h-1/2">
+          <div className="h-full flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800">
+              <h2 className="text-sm font-medium text-slate-900 dark:text-white flex items-center gap-2">
+                <MessageSquare className="w-4 h-4" />
+                Discussion Log
+              </h2>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                <span className="text-xs text-slate-500 dark:text-slate-400">Live</span>
+              </div>
+            </div>
+            <div className="flex-1 overflow-hidden bg-slate-50 dark:bg-slate-900">
+              <DiscussionLog />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
