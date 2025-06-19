@@ -33,17 +33,17 @@ Enable teams to achieve **10x productivity** by providing AI agents that can ind
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    User Interface Layer                        │
+│                    User Interface Layer                         │
 ├─────────────────────────────────────────────────────────────────┤
-│  Progressive Disclosure UI  │  Agent Cards  │  Approval Interface │
-│  🔄 IN DEVELOPMENT          │  ✅ COMPLETE  │  ✅ COMPLETE        │
+│  Progressive DisclosureUI │  Agent Cards │  Approval Interface  │
+│  🔄 IN DEVELOPMENT       │  ✅ COMPLETE │  ✅ COMPLETE        │
 └─────────────────────────────────────────────────────────────────┘
                                     │
 ┌─────────────────────────────────────────────────────────────────┐
 │                 Agent Intelligence Layer                        │
 ├─────────────────────────────────────────────────────────────────┤
 │  Decision Engine  │  Context Analyzer  │  Capability Mapper     │
-│  ✅ OPERATIONAL   │  ✅ OPERATIONAL    │  ✅ OPERATIONAL        │
+│  ✅ OPERATIONAL   │  ✅ OPERATIONAL    │  ✅ OPERATIONAL      │
 └─────────────────────────────────────────────────────────────────┘
                                     │
 ┌─────────────────────────────────────────────────────────────────┐
@@ -342,3 +342,54 @@ MIT License - see LICENSE file for details
 ---
 
 **The Unified Agent Intelligence Platform (UAIP)** - Transforming AI agents from conversational tools into autonomous intelligent actors that deliver concrete results through seamless tool orchestration and artifact generation.
+
+🙏 Acknowledgements
+The Council of Nycea - Unified Agent Intelligence Platform (UAIP) stands on the shoulders of giants. This platform is the culmination of insights, code, research, and inspiration from countless individuals, communities, and tools that embody the spirit of open collaboration.
+
+👨‍💻 Built Upon the Work of These Open Source Projects
+We gratefully acknowledge the contributions of the open-source community. UAIP integrates, extends, or was inspired by:
+
+LangChain – For pioneering agent orchestration and LLM tool use
+
+LangGraph – For node-based agent reasoning and workflow design
+
+Fastify – For our blazing-fast backend services
+
+Neo4j – Powering the knowledge graph backbone
+
+PostgreSQL – For reliable, relational data storage
+
+Qdrant – For high-performance vector similarity search
+
+Redis – Session and caching system enabling real-time interactions
+
+RabbitMQ – Asynchronous task queuing and orchestration
+
+Docker and Kubernetes – Our scalable deployment backbone
+
+pnpm – For efficient and lightning-fast package management
+
+TypeScript – Strong typing across the entire codebase
+
+Vite – Lightning-fast frontend bundling
+
+React – For our highly dynamic frontend
+
+OpenAI, Anthropic, Together.ai – LLM providers that shaped our intelligence layer
+
+🧠 Research That Inspired Us
+AutoGPT, BabyAGI, and OpenAgents – For early explorations into autonomous agents
+
+MemGPT and LlamaIndex – For memory management strategies in LLM-based workflows
+
+Anthropic's Constitutional AI and OpenAI's Toolformer – For aligning AI with human intent and expanding capabilities
+
+❤️ Special Thanks
+Contributors to each of the open-source projects we use
+
+The developer community on GitHub, Discord, Reddit, and X who share, debug, and uplift
+
+Technical writers and documentarians who make complex systems understandable
+
+Ethical AI researchers and critics who guide the responsible use of these technologies
+
