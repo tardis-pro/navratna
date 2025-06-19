@@ -346,36 +346,25 @@ MIT License - see LICENSE file for details
 🙏 Acknowledgements
 The Council of Nycea - Unified Agent Intelligence Platform (UAIP) stands on the shoulders of giants. This platform is the culmination of insights, code, research, and inspiration from countless individuals, communities, and tools that embody the spirit of open collaboration.
 
-👨‍💻 Built Upon the Work of These Open Source Projects
-We gratefully acknowledge the contributions of the open-source community. UAIP integrates, extends, or was inspired by:
+## 🙏 Built Upon the Work of These Projects
 
-LangChain – For pioneering agent orchestration and LLM tool use
+We gratefully acknowledge the following open-source tools and providers that form the backbone of the Unified Agent Intelligence Platform (UAIP):
 
-LangGraph – For node-based agent reasoning and workflow design
+- [LangChain](https://github.com/langchain-ai/langchain) – For pioneering agent orchestration and LLM tool use
+- [LangGraph](https://github.com/langchain-ai/langgraph) – For node-based agent reasoning and workflow design
+- [Fastify](https://www.fastify.io/) – For our blazing-fast backend services
+- [Neo4j](https://neo4j.com/) – Powering the knowledge graph backbone
+- [PostgreSQL](https://www.postgresql.org/) – For reliable, relational data storage
+- [Qdrant](https://qdrant.tech/) – For high-performance vector similarity search
+- [Redis](https://redis.io/) – Session and caching system enabling real-time interactions
+- [RabbitMQ](https://www.rabbitmq.com/) – Asynchronous task queuing and orchestration
+- [Docker](https://www.docker.com/) and [Kubernetes](https://kubernetes.io/) – Our scalable deployment backbone
+- [pnpm](https://pnpm.io/) – For efficient and lightning-fast package management
+- [TypeScript](https://www.typescriptlang.org/) – Strong typing across the entire codebase
+- [Vite](https://vitejs.dev/) – Lightning-fast frontend bundling
+- [React](https://react.dev/) – For our highly dynamic frontend
+- [OpenAI](https://openai.com/), [Anthropic](https://www.anthropic.com/), [Together.ai](https://www.together.ai/) – LLM providers that shaped our intelligence layer
 
-Fastify – For our blazing-fast backend services
-
-Neo4j – Powering the knowledge graph backbone
-
-PostgreSQL – For reliable, relational data storage
-
-Qdrant – For high-performance vector similarity search
-
-Redis – Session and caching system enabling real-time interactions
-
-RabbitMQ – Asynchronous task queuing and orchestration
-
-Docker and Kubernetes – Our scalable deployment backbone
-
-pnpm – For efficient and lightning-fast package management
-
-TypeScript – Strong typing across the entire codebase
-
-Vite – Lightning-fast frontend bundling
-
-React – For our highly dynamic frontend
-
-OpenAI, Anthropic, Together.ai – LLM providers that shaped our intelligence layer
 
 🧠 Research That Inspired Us
 AutoGPT, BabyAGI, and OpenAgents – For early explorations into autonomous agents
