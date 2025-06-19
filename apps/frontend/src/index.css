@@ -374,3 +374,283 @@
     @apply text-sm font-medium leading-none;
   }
 }
+
+/* Portal System Styles */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(59, 130, 246, 0.3) rgba(30, 41, 59, 0.1);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(30, 41, 59, 0.1);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.3);
+  border-radius: 3px;
+  transition: background 0.2s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.5);
+}
+
+/* Portal Glow Effects */
+.portal-glow-blue {
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3), 0 0 40px rgba(59, 130, 246, 0.1);
+}
+
+.portal-glow-purple {
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.3), 0 0 40px rgba(168, 85, 247, 0.1);
+}
+
+.portal-glow-green {
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.3), 0 0 40px rgba(34, 197, 94, 0.1);
+}
+
+.portal-glow-orange {
+  box-shadow: 0 0 20px rgba(249, 115, 22, 0.3), 0 0 40px rgba(249, 115, 22, 0.1);
+}
+
+/* Portal Animation Keyframes */
+@keyframes portal-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+}
+
+@keyframes portal-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(59, 130, 246, 0.4), 0 0 60px rgba(59, 130, 246, 0.1);
+  }
+}
+
+@keyframes portal-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Portal Status Indicators */
+.status-online {
+  background: linear-gradient(45deg, #10b981, #34d399);
+  animation: portal-pulse 2s infinite;
+}
+
+.status-degraded {
+  background: linear-gradient(45deg, #f59e0b, #fbbf24);
+  animation: portal-pulse 1.5s infinite;
+}
+
+.status-offline {
+  background: linear-gradient(45deg, #ef4444, #f87171);
+  animation: portal-pulse 1s infinite;
+}
+
+/* Portal Backdrop Effects */
+.portal-backdrop {
+  backdrop-filter: blur(20px) saturate(180%);
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Portal Header Gradients */
+.portal-header-agent {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(6, 182, 212, 0.1));
+  border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.portal-header-tool {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.1), rgba(236, 72, 153, 0.1));
+  border-bottom: 1px solid rgba(168, 85, 247, 0.2);
+}
+
+.portal-header-analysis {
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.1), rgba(239, 68, 68, 0.1));
+  border-bottom: 1px solid rgba(249, 115, 22, 0.2);
+}
+
+.portal-header-communication {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
+  border-bottom: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+/* Portal Button Hover Effects */
+.portal-button {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.portal-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transition: left 0.5s ease;
+}
+
+.portal-button:hover::before {
+  left: 100%;
+}
+
+/* Portal Resize Handle */
+.resize-handle {
+  position: absolute;
+  background: rgba(59, 130, 246, 0.3);
+  transition: all 0.2s ease;
+}
+
+.resize-handle:hover {
+  background: rgba(59, 130, 246, 0.6);
+  transform: scale(1.2);
+}
+
+/* Portal Focus Ring */
+.portal-focus {
+  outline: 2px solid rgba(59, 130, 246, 0.5);
+  outline-offset: 2px;
+}
+
+/* Portal Loading States */
+.portal-loading {
+  position: relative;
+  overflow: hidden;
+}
+
+.portal-loading::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #3b82f6, transparent);
+  animation: portal-shimmer 2s infinite;
+}
+
+/* Portal Minimized State */
+.portal-minimized {
+  transform: scale(0.1);
+  opacity: 0.7;
+  pointer-events: none;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Portal Grid Background */
+.portal-grid {
+  background-image: 
+    linear-gradient(rgba(59, 130, 246, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(59, 130, 246, 0.1) 1px, transparent 1px);
+  background-size: 50px 50px;
+  animation: portal-grid-move 20s linear infinite;
+}
+
+@keyframes portal-grid-move {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 50px 50px;
+  }
+}
+
+/* Portal Notification Badges */
+.portal-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  background: linear-gradient(45deg, #ef4444, #f87171);
+  border: 2px solid #0f172a;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: white;
+  animation: portal-pulse 2s infinite;
+}
+
+/* Portal Connection Status */
+.connection-indicator {
+  position: relative;
+  display: inline-block;
+}
+
+.connection-indicator::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  animation: portal-pulse 2s infinite;
+}
+
+/* Portal Drag Cursor */
+.portal-dragging {
+  cursor: grabbing !important;
+  user-select: none;
+  z-index: 9999 !important;
+}
+
+.portal-dragging * {
+  pointer-events: none;
+}
+
+/* Portal Accessibility */
+.portal-accessible:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Portal High Contrast Mode */
+@media (prefers-contrast: high) {
+  .portal-backdrop {
+    background: rgba(0, 0, 0, 0.9);
+    border: 2px solid #ffffff;
+  }
+  
+  .portal-button {
+    border: 2px solid currentColor;
+  }
+}
+
+/* Portal Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .portal-pulse,
+  .portal-glow,
+  .portal-shimmer,
+  .portal-grid-move {
+    animation: none;
+  }
+  
+  .portal-minimized {
+    transition: none;
+  }
+}

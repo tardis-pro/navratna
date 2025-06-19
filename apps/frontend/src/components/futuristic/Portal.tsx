@@ -9,9 +9,11 @@ export interface PortalProps {
   children: React.ReactNode;
   initialPosition?: { x: number; y: number };
   initialSize?: { width: number; height: number };
+  zIndex?: number;
   onClose?: () => void;
   onMaximize?: () => void;
   onMinimize?: () => void;
+  onFocus?: () => void;
   className?: string;
 }
 
@@ -70,9 +72,11 @@ export const Portal: React.FC<PortalProps> = ({
   children,
   initialPosition = { x: 100, y: 100 },
   initialSize = { width: 400, height: 300 },
+  zIndex = 1,
   onClose,
   onMaximize,
   onMinimize,
+  onFocus,
   className = ''
 }) => {
   const [state, setState] = useState<PortalState>({
@@ -82,7 +86,7 @@ export const Portal: React.FC<PortalProps> = ({
     isMinimized: false,
     isDragging: false,
     isActive: false,
-    zIndex: 1
+    zIndex: zIndex
   });
 
   const constraintsRef = useRef<HTMLDivElement>(null);
@@ -95,8 +99,14 @@ export const Portal: React.FC<PortalProps> = ({
 
   const styles = portalTypeStyles[type] || portalTypeStyles.agent; // Fallback to agent style
 
+  // Update zIndex when prop changes
+  useEffect(() => {
+    setState(prev => ({ ...prev, zIndex }));
+  }, [zIndex]);
+
   const handleDragStart = () => {
-    setState(prev => ({ ...prev, isDragging: true, isActive: true, zIndex: 1000 }));
+    setState(prev => ({ ...prev, isDragging: true, isActive: true }));
+    onFocus?.();
   };
 
   const handleDragEnd = () => {
@@ -108,7 +118,7 @@ export const Portal: React.FC<PortalProps> = ({
       ...prev,
       isMaximized: !prev.isMaximized,
       position: prev.isMaximized ? initialPosition : { x: 0, y: 0 },
-      size: prev.isMaximized ? initialSize : { width: window.innerWidth, height: window.innerHeight }
+      size: prev.isMaximized ? initialSize : { width: window.innerWidth - 100, height: window.innerHeight - 100 }
     }));
     onMaximize?.();
   };
@@ -118,12 +128,17 @@ export const Portal: React.FC<PortalProps> = ({
     onMinimize?.();
   };
 
-  const handleFocus = () => {
-    setState(prev => ({ ...prev, isActive: true, zIndex: 1000 }));
+  const handlePortalFocus = () => {
+    setState(prev => ({ ...prev, isActive: true }));
+    onFocus?.();
   };
 
   const handleBlur = () => {
-    setState(prev => ({ ...prev, isActive: false, zIndex: 1 }));
+    setState(prev => ({ ...prev, isActive: false }));
+  };
+
+  const handleDoubleClick = () => {
+    handleMaximize();
   };
 
   return (
@@ -135,7 +150,7 @@ export const Portal: React.FC<PortalProps> = ({
         dragElastic={0.1}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
-        onFocus={handleFocus}
+        onFocus={handlePortalFocus}
         onBlur={handleBlur}
         initial={{ 
           x: initialPosition.x, 
@@ -170,6 +185,7 @@ export const Portal: React.FC<PortalProps> = ({
           ${state.isMaximized ? 'fixed inset-0' : 'absolute'}
           ${className}
         `}
+        onClick={handlePortalFocus}
       >
         {/*  Pulse Effect */}
         <AnimatePresence>
@@ -198,151 +214,110 @@ export const Portal: React.FC<PortalProps> = ({
           `}
           style={{
             boxShadow: state.isActive 
-              ? `0 0 40px rgba(59, 130, 246, 0.3), 0 0 80px rgba(59, 130, 246, 0.1)`
-              : `0 8px 32px rgba(0, 0, 0, 0.3)`
+              ? `0 25px 50px -12px ${styles.glow.replace('shadow-', 'rgba(').replace('/20', ', 0.4)')}`
+              : '0 10px 25px -5px rgba(0, 0, 0, 0.25)'
           }}
         >
-          {/* Holographic Top Border */}
-          <div className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent ${
-            type === 'agent' ? 'via-blue-400' : 
-            type === 'tool' ? 'via-purple-400' : 
-            type === 'data' ? 'via-emerald-400' : 
-            type === 'analysis' ? 'via-orange-400' : 
-            'via-indigo-400'
-          } to-transparent`} />
-          
           {/* Portal Header */}
           <motion.div
             className={`
-              relative flex items-center justify-between
-              px-6 py-4
+              relative px-6 py-4 border-b ${styles.border}
               bg-gradient-to-r ${styles.gradient}
-              border-b ${styles.border}
-              backdrop-blur-sm
+              cursor-move select-none
+              flex items-center justify-between
             `}
-            drag
-            dragConstraints={constraintsRef}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
+            onDoubleClick={handleDoubleClick}
           >
-            {/* Title and Type Indicator */}
-            <div className="flex items-center gap-3">
-              <div className={`w-3 h-3 rounded-full bg-gradient-to-r ${styles.gradient} ${styles.glow} animate-pulse`} />
-              <div>
-                <h3 className="text-white font-semibold text-sm">{title}</h3>
-                <p className={`text-xs ${styles.accent} uppercase tracking-wider`}>{type}</p>
-              </div>
+            {/* Portal Title and Status */}
+            <div className="flex items-center space-x-3">
+              <motion.div
+                className={`w-3 h-3 rounded-full ${styles.accent.replace('text-', 'bg-')} opacity-80`}
+                animate={{ 
+                  scale: [1, 1.2, 1],
+                  opacity: [0.8, 1, 0.8]
+                }}
+                transition={{ 
+                  duration: 2, 
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+              />
+              <h3 className={`font-semibold text-lg ${styles.accent}`}>
+                {title}
+              </h3>
+              <span className="px-2 py-1 text-xs bg-slate-800/50 text-slate-400 rounded-full">
+                {type}
+              </span>
             </div>
 
-            {/* Control Buttons */}
-            <div className="flex items-center gap-2">
+            {/* Portal Controls */}
+            <div className="flex items-center space-x-2">
               <motion.button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleMinimize();
+                }}
+                className="w-8 h-8 rounded-lg bg-slate-700/50 hover:bg-yellow-500/20 text-slate-400 hover:text-yellow-400 transition-all duration-200 flex items-center justify-center"
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
-                onClick={handleMinimize}
-                className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-colors"
               >
-                <Minimize2 className="w-3 h-3" />
+                <Minimize2 className="w-4 h-4" />
               </motion.button>
               
               <motion.button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleMaximize();
+                }}
+                className="w-8 h-8 rounded-lg bg-slate-700/50 hover:bg-blue-500/20 text-slate-400 hover:text-blue-400 transition-all duration-200 flex items-center justify-center"
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
-                onClick={handleMaximize}
-                className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-colors"
               >
-                <Maximize2 className="w-3 h-3" />
+                <Maximize2 className="w-4 h-4" />
               </motion.button>
               
               <motion.button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClose?.();
+                }}
+                className="w-8 h-8 rounded-lg bg-slate-700/50 hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-all duration-200 flex items-center justify-center"
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
-                className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-colors"
               >
-                <Settings className="w-3 h-3" />
+                <X className="w-4 h-4" />
               </motion.button>
-              
-              {onClose && (
-                <motion.button
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  onClick={onClose}
-                  className="p-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 hover:text-red-300 transition-colors"
-                >
-                  <X className="w-3 h-3" />
-                </motion.button>
-              )}
             </div>
           </motion.div>
 
           {/* Portal Content */}
-          <AnimatePresence>
-            {!state.isMinimized && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className="relative flex-1 p-6 overflow-auto"
-                style={{ height: state.size.height - 80 }}
-              >
-                {children}
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Resize Handles */}
-          {!state.isMaximized && !state.isMinimized && (
-            <>
-              {/* Corner Resize Handles */}
-              <div className="absolute -bottom-1 -right-1 w-4 h-4 cursor-se-resize group">
-                <div className={`w-full h-full rounded-tl-lg bg-gradient-to-br ${styles.gradient} opacity-0 group-hover:opacity-70 transition-opacity`} />
-                <div className="absolute bottom-1 right-1 w-2 h-2 border-r border-b border-white/30" />
-              </div>
-              
-              <div className="absolute -top-1 -right-1 w-4 h-4 cursor-ne-resize group">
-                <div className={`w-full h-full rounded-bl-lg bg-gradient-to-br ${styles.gradient} opacity-0 group-hover:opacity-70 transition-opacity`} />
-                <div className="absolute top-1 right-1 w-2 h-2 border-r border-t border-white/30" />
-              </div>
-              
-              <div className="absolute -bottom-1 -left-1 w-4 h-4 cursor-sw-resize group">
-                <div className={`w-full h-full rounded-tr-lg bg-gradient-to-br ${styles.gradient} opacity-0 group-hover:opacity-70 transition-opacity`} />
-                <div className="absolute bottom-1 left-1 w-2 h-2 border-l border-b border-white/30" />
-              </div>
-              
-              <div className="absolute -top-1 -left-1 w-4 h-4 cursor-nw-resize group">
-                <div className={`w-full h-full rounded-br-lg bg-gradient-to-br ${styles.gradient} opacity-0 group-hover:opacity-70 transition-opacity`} />
-                <div className="absolute top-1 left-1 w-2 h-2 border-l border-t border-white/30" />
-              </div>
-              
-              {/* Edge Resize Handles */}
-              <div className="absolute -right-1 top-4 bottom-4 w-2 cursor-e-resize group">
-                <div className={`w-full h-full bg-gradient-to-r ${styles.gradient} opacity-0 group-hover:opacity-50 transition-opacity`} />
-              </div>
-              
-              <div className="absolute -left-1 top-4 bottom-4 w-2 cursor-w-resize group">
-                <div className={`w-full h-full bg-gradient-to-l ${styles.gradient} opacity-0 group-hover:opacity-50 transition-opacity`} />
-              </div>
-              
-              <div className="absolute -bottom-1 left-4 right-4 h-2 cursor-s-resize group">
-                <div className={`w-full h-full bg-gradient-to-b ${styles.gradient} opacity-0 group-hover:opacity-50 transition-opacity`} />
-              </div>
-              
-              <div className="absolute -top-1 left-4 right-4 h-2 cursor-n-resize group">
-                <div className={`w-full h-full bg-gradient-to-t ${styles.gradient} opacity-0 group-hover:opacity-50 transition-opacity`} />
-              </div>
-            </>
-          )}
-
-          {/*  Activity Indicator */}
-          <div className="absolute bottom-2 right-2">
-            <div className={`w-2 h-2 rounded-full animate-pulse ${
-              type === 'agent' ? 'bg-blue-400' : 
-              type === 'tool' ? 'bg-purple-400' : 
-              type === 'data' ? 'bg-emerald-400' : 
-              type === 'analysis' ? 'bg-orange-400' : 
-              'bg-indigo-400'
-            }`} />
+          <div className="flex-1 overflow-hidden">
+            <motion.div
+              className="w-full h-full overflow-auto custom-scrollbar"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+            >
+              {children}
+            </motion.div>
           </div>
+
+          {/* Resize Handle */}
+          {!state.isMaximized && (
+            <motion.div
+              className={`
+                absolute bottom-0 right-0 w-4 h-4
+                cursor-se-resize
+                ${styles.accent.replace('text-', 'bg-')}
+                opacity-50 hover:opacity-100
+                transition-opacity duration-200
+              `}
+              style={{
+                clipPath: 'polygon(100% 0%, 0% 100%, 100% 100%)'
+              }}
+              whileHover={{ scale: 1.2 }}
+            />
+          )}
         </motion.div>
       </motion.div>
     </div>

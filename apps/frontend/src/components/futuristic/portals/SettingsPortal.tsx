@@ -43,7 +43,7 @@ export const SettingsPortal: React.FC<SettingsPortalProps> = ({ className }) => 
     getRecommendedModels
   } = useAgents();
   
-  const [activeTab, setActiveTab] = useState<SettingsTab>('agents');
+  const [activeTab, setActiveTab] = useState<SettingsTab>('providers');
   const [initializationStatus, setInitializationStatus] = useState<{
     loading: boolean;
     error: string | null;
@@ -82,7 +82,7 @@ export const SettingsPortal: React.FC<SettingsPortalProps> = ({ className }) => 
         providersLoaded: providersResult.status === 'fulfilled',
         modelsLoaded: modelsResult.status === 'fulfilled',
         error: providersResult.status === 'rejected' || modelsResult.status === 'rejected' 
-          ? 'Failed to load some  model data' 
+          ? 'Failed to load some neural model data' 
           : null
       }));
     } catch (error) {
@@ -91,7 +91,7 @@ export const SettingsPortal: React.FC<SettingsPortalProps> = ({ className }) => 
         ...prev, 
         loading: false,
         initialized: true,
-        error: error instanceof Error ? error.message : 'Failed to load  model data'
+        error: error instanceof Error ? error.message : 'Failed to load neural model data'
       }));
     }
   }, [loadProviders, loadModels, initializationStatus.initialized, initializationStatus.loading]);
@@ -103,7 +103,7 @@ export const SettingsPortal: React.FC<SettingsPortalProps> = ({ className }) => 
   }, [initializeModelData, initializationStatus.initialized, initializationStatus.loading]);
 
   const handleRefreshAgents = useCallback(() => {
-    console.log('Refreshing  agents...');
+    console.log('Refreshing neural agents...');
   }, []);
 
   const handleRefreshProviders = useCallback(async () => {
@@ -115,11 +115,11 @@ export const SettingsPortal: React.FC<SettingsPortalProps> = ({ className }) => 
       }
       setInitializationStatus(prev => ({ ...prev, loading: false }));
     } catch (error) {
-      console.error('Failed to refresh  providers:', error);
+      console.error('Failed to refresh neural providers:', error);
       setInitializationStatus(prev => ({ 
         ...prev, 
         loading: false, 
-        error: error instanceof Error ? error.message : 'Failed to refresh  providers'
+        error: error instanceof Error ? error.message : 'Failed to refresh neural providers'
       }));
     }
   }, [refreshModelData]);
@@ -135,7 +135,7 @@ export const SettingsPortal: React.FC<SettingsPortalProps> = ({ className }) => 
   const tabs = [
     {
       id: 'agents' as const,
-      label: ' Agents',
+      label: 'Neural Agents',
       icon: Bot,
       count: agentCount,
       color: 'blue',
@@ -147,7 +147,7 @@ export const SettingsPortal: React.FC<SettingsPortalProps> = ({ className }) => 
       icon: Server,
       count: providerCount,
       color: 'purple',
-      description: 'Configure  model sources'
+      description: 'Configure neural model sources'
     },
     {
       id: 'general' as const,
@@ -161,7 +161,7 @@ export const SettingsPortal: React.FC<SettingsPortalProps> = ({ className }) => 
 
   return (
     <div className={`space-y-6 ${className}`}>
-      {/*  Settings Header */}
+      {/* Neural Settings Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -184,10 +184,10 @@ export const SettingsPortal: React.FC<SettingsPortalProps> = ({ className }) => 
             </motion.div>
             <div>
               <h1 className="text-2xl font-bold text-white mb-2">
-                 Configuration Matrix
+                Neural Configuration Matrix
               </h1>
               <p className="text-slate-400">
-                Configure AI consciousness entities,  model providers, and system parameters
+                Configure AI consciousness entities, neural model providers, and system parameters
               </p>
             </div>
           </div>
@@ -209,7 +209,7 @@ export const SettingsPortal: React.FC<SettingsPortalProps> = ({ className }) => 
                     <RefreshCw className="w-4 h-4 text-blue-400" />
                   </motion.div>
                   <span className="text-sm text-blue-300 font-medium">
-                     Sync...
+                    Neural Sync...
                   </span>
                 </motion.div>
               )}
@@ -242,7 +242,7 @@ export const SettingsPortal: React.FC<SettingsPortalProps> = ({ className }) => 
                     <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                   </motion.div>
                   <span className="text-sm text-emerald-300 font-medium">
-                     Ready
+                    Neural Ready
                   </span>
                 </motion.div>
               )}
@@ -266,7 +266,7 @@ export const SettingsPortal: React.FC<SettingsPortalProps> = ({ className }) => 
           </div>
         </div>
         
-        {/*  Stats Grid */}
+        {/* Neural Stats Grid */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -294,7 +294,7 @@ export const SettingsPortal: React.FC<SettingsPortalProps> = ({ className }) => 
         </motion.div>
       </motion.div>
 
-      {/*  Tab Navigation */}
+      {/* Neural Tab Navigation */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -346,7 +346,7 @@ export const SettingsPortal: React.FC<SettingsPortalProps> = ({ className }) => 
             <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
               <h3 className="text-sm font-semibold text-red-300 mb-1">
-                 Initialization Error
+                Neural Initialization Error
               </h3>
               <p className="text-sm text-red-400 mb-3">
                 {initializationStatus.error}
@@ -357,14 +357,14 @@ export const SettingsPortal: React.FC<SettingsPortalProps> = ({ className }) => 
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
-                Retry  Sync
+                Retry Neural Sync
               </motion.button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/*  Content Panels */}
+      {/* Neural Content Panels */}
       <motion.div
         className="min-h-[500px]"
         initial={{ opacity: 0 }}
@@ -379,38 +379,17 @@ export const SettingsPortal: React.FC<SettingsPortalProps> = ({ className }) => 
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
               transition={{ duration: 0.3 }}
-              className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/50"
+              className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl rounded-2xl border border-slate-700/50 overflow-hidden"
             >
-              <div className="flex items-center gap-3 mb-6">
-                <motion.div
-                  className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center"
-                  animate={{ rotate: [0, 5, -5, 0] }}
-                  transition={{ duration: 4, repeat: Infinity }}
-                >
-                  <Bot className="w-5 h-5 text-white" />
-                </motion.div>
-                <div>
-                  <h2 className="text-xl font-bold text-white"> Agent Configuration</h2>
-                  <p className="text-slate-400 text-sm">Manage AI consciousness entities and their parameters</p>
-                </div>
-              </div>
-              
-              {/* Placeholder for AgentSettings - would need to be converted to portal style */}
-              <div className="text-center py-12">
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                  className="w-16 h-16 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-xl flex items-center justify-center mx-auto mb-4 border-2 border-dashed border-blue-500/30"
-                >
-                  <Brain className="w-8 h-8 text-blue-400" />
-                </motion.div>
-                <h3 className="text-lg font-semibold text-white mb-2">
-                  Agent  Configuration
-                </h3>
-                <p className="text-slate-400">
-                  Advanced agent settings coming soon...
-                </p>
-              </div>
+              {/* Integrate the actual AgentSettings component */}
+              <AgentSettings 
+                agents={agents}
+                onUpdateAgent={updateAgentState}
+                onRefreshAgents={handleRefreshAgents}
+                modelState={modelState}
+                getRecommendedModels={getRecommendedModels}
+                getModelsForProvider={getModelsForProvider}
+              />
             </motion.div>
           )}
           
@@ -421,38 +400,21 @@ export const SettingsPortal: React.FC<SettingsPortalProps> = ({ className }) => 
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
               transition={{ duration: 0.3 }}
-              className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/50"
+              className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl rounded-2xl border border-slate-700/50 overflow-hidden"
             >
-              <div className="flex items-center gap-3 mb-6">
-                <motion.div
-                  className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center"
-                  animate={{ scale: [1, 1.05, 1] }}
-                  transition={{ duration: 3, repeat: Infinity }}
-                >
-                  <Server className="w-5 h-5 text-white" />
-                </motion.div>
-                <div>
-                  <h2 className="text-xl font-bold text-white"> Model Providers</h2>
-                  <p className="text-slate-400 text-sm">Configure and manage  model sources</p>
-                </div>
-              </div>
-              
-              {/* Placeholder for ModelProviderSettings - would need to be converted to portal style */}
-              <div className="text-center py-12">
-                <motion.div
-                  animate={{ y: [-5, 5, -5] }}
-                  transition={{ duration: 3, repeat: Infinity }}
-                  className="w-16 h-16 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl flex items-center justify-center mx-auto mb-4 border-2 border-dashed border-purple-500/30"
-                >
-                  <Network className="w-8 h-8 text-purple-400" />
-                </motion.div>
-                <h3 className="text-lg font-semibold text-white mb-2">
-                   Provider Configuration
-                </h3>
-                <p className="text-slate-400">
-                  Advanced provider settings coming soon...
-                </p>
-              </div>
+              {/* Integrate the actual ModelProviderSettings component */}
+              <ModelProviderSettings 
+                className="p-0" // Remove default padding since we're in a portal
+                providers={modelState?.providers || []}
+                models={modelState?.models || []}
+                loading={modelState?.loadingProviders || modelState?.loadingModels || initializationStatus.loading}
+                error={modelState?.providersError || modelState?.modelsError || initializationStatus.error}
+                onCreateProvider={createProvider}
+                onUpdateProvider={updateProvider}
+                onTestProvider={testProvider}
+                onDeleteProvider={deleteProvider}
+                onRefresh={handleRefreshProviders}
+              />
             </motion.div>
           )}
           
@@ -475,7 +437,7 @@ export const SettingsPortal: React.FC<SettingsPortalProps> = ({ className }) => 
                 </motion.div>
                 <div>
                   <h2 className="text-xl font-bold text-white">System Configuration</h2>
-                  <p className="text-slate-400 text-sm">Global  system parameters and preferences</p>
+                  <p className="text-slate-400 text-sm">Global neural system parameters and preferences</p>
                 </div>
               </div>
               
@@ -497,7 +459,7 @@ export const SettingsPortal: React.FC<SettingsPortalProps> = ({ className }) => 
                   Global System Configuration
                 </h3>
                 <p className="text-slate-400">
-                  System-wide  parameters coming soon...
+                  System-wide neural parameters coming soon...
                 </p>
                 
                 {/* Preview of future features */}
@@ -505,7 +467,7 @@ export const SettingsPortal: React.FC<SettingsPortalProps> = ({ className }) => 
                   {[
                     { icon: Shield, label: 'Security Matrix', color: 'red' },
                     { icon: Activity, label: 'Performance Tuning', color: 'yellow' },
-                    { icon: Zap, label: ' Acceleration', color: 'blue' },
+                    { icon: Zap, label: 'Neural Acceleration', color: 'blue' },
                     { icon: Network, label: 'Consciousness Sync', color: 'purple' }
                   ].map((feature, index) => (
                     <motion.div
