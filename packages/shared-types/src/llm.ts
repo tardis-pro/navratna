@@ -160,8 +160,8 @@ export const ContextAnalysisResponseSchema = z.object({
 
 export type ContextAnalysisResponse = z.infer<typeof ContextAnalysisResponseSchema>;
 
-// Artifact generation request
-export const ArtifactGenerationRequestSchema = z.object({
+// LLM-based artifact generation request
+export const LLMArtifactGenerationRequestSchema = z.object({
   type: z.enum(['code', 'document', 'configuration', 'test', 'schema']),
   prompt: z.string().min(1),
   language: z.string().optional(),
@@ -175,10 +175,10 @@ export const ArtifactGenerationRequestSchema = z.object({
   context: z.record(z.any()).optional()
 });
 
-export type ArtifactGenerationRequest = z.infer<typeof ArtifactGenerationRequestSchema>;
+export type LLMArtifactGenerationRequest = z.infer<typeof LLMArtifactGenerationRequestSchema>;
 
-// Artifact generation response
-export const ArtifactGenerationResponseSchema = z.object({
+// LLM-based artifact generation response
+export const LLMArtifactGenerationResponseSchema = z.object({
   artifact: z.object({
     type: z.string(),
     content: z.string(),
@@ -199,7 +199,7 @@ export const ArtifactGenerationResponseSchema = z.object({
   generatedAt: z.date()
 });
 
-export type ArtifactGenerationResponse = z.infer<typeof ArtifactGenerationResponseSchema>;
+export type LLMArtifactGenerationResponse = z.infer<typeof LLMArtifactGenerationResponseSchema>;
 
 // Provider statistics
 export const ProviderStatsSchema = z.object({

@@ -2,12 +2,12 @@ import { IArtifactService } from './interfaces/ArtifactTypes.js';
 import { 
   ArtifactGenerationRequest, 
   ArtifactGenerationResponse, 
-  ArtifactTemplate, 
+  ArtifactGenerationTemplate as ArtifactTemplate, 
   ValidationResult, 
-  GeneratedArtifact,
+  Artifact as GeneratedArtifact,
   ArtifactMetadata,
   ArtifactType
-} from './types/artifact.js';
+} from '@uaip/types';
 import { CodeGenerator } from './generators/CodeGenerator.js';
 import { TestGenerator } from './generators/TestGenerator.js';
 import { DocumentationGenerator } from './generators/DocumentationGenerator.js';

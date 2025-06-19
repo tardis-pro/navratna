@@ -9,7 +9,8 @@ export type ToolCategory =
 
 export type ToolExecutionStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'approval-required';
 
-export type SecurityLevel = 'safe' | 'moderate' | 'restricted' | 'dangerous';
+// SecurityLevel is imported from security.ts to avoid duplication
+import type { SecurityLevel } from './security.js';
 
 // Simple JSON Schema definition (subset of JSON Schema 7)
 export interface JSONSchema {

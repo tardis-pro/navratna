@@ -1,5 +1,5 @@
 import { IArtifactValidator } from '../interfaces/ArtifactTypes';
-import { ValidationResult, ValidationIssue, ArtifactType } from '../types/artifact';
+import { ValidationResult, ValidationError as ValidationIssue, ArtifactType } from '@uaip/types';
 import { logger } from '@uaip/utils';
 
 export class ArtifactValidator implements IArtifactValidator {

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { BaseEntitySchema, IDSchema } from './common.js';
+import { AuditEventType } from './audit.js';
 
 // Security types
 export enum SecurityLevel {
@@ -158,48 +159,7 @@ export const ApprovalDecisionSchema = z.object({
 
 export type ApprovalDecision = z.infer<typeof ApprovalDecisionSchema>;
 
-// Audit system
-export enum AuditEventType {
-  USER_LOGIN = 'user_login',
-  USER_LOGOUT = 'user_logout',
-  OPERATION_START = 'operation_start',
-  OPERATION_COMPLETE = 'operation_complete',
-  PERMISSION_GRANTED = 'permission_granted',
-  PERMISSION_DENIED = 'permission_denied',
-  APPROVAL_REQUESTED = 'approval_requested',
-  APPROVAL_GRANTED = 'approval_granted',
-  APPROVAL_DENIED = 'approval_denied',
-  SECURITY_VIOLATION = 'security_violation',
-  DATA_ACCESS = 'data_access',
-  CONFIGURATION_CHANGE = 'configuration_change',
-  // Authentication events
-  LOGIN_FAILED = 'login_failed',
-  LOGIN_SUCCESS = 'login_success',
-  LOGOUT = 'logout',
-  TOKEN_REFRESH = 'token_refresh',
-  PASSWORD_CHANGED = 'password_changed',
-  PASSWORD_CHANGE_FAILED = 'password_change_failed',
-  PASSWORD_RESET_REQUESTED = 'password_reset_requested',
-  PASSWORD_RESET_BY_ADMIN = 'password_reset_by_admin',
-  // User management events
-  USER_CREATED = 'user_created',
-  USER_UPDATED = 'user_updated',
-  USER_DELETED = 'user_deleted',
-  USER_UNLOCKED = 'user_unlocked',
-  BULK_USER_ACTION = 'bulk_user_action',
-  // Security policy events
-  POLICY_CREATED = 'policy_created',
-  POLICY_UPDATED = 'policy_updated',
-  POLICY_DELETED = 'policy_deleted',
-  RISK_ASSESSMENT = 'risk_assessment',
-  // Audit system events
-  AUDIT_EXPORT = 'audit_export',
-  AUDIT_CLEANUP = 'audit_cleanup',
-  COMPLIANCE_REPORT_GENERATED = 'compliance_report_generated',
-  // Access control events
-  UNAUTHORIZED_ACCESS = 'unauthorized_access',
-  FAILED_LOGIN = 'failed_login'
-}
+// AuditEventType is imported from audit.ts to avoid duplication
 
 export const AuditEventSchema = BaseEntitySchema.extend({
   id: IDSchema,

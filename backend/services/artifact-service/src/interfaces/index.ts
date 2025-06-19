@@ -9,8 +9,8 @@ import {
   ConversationSummary 
 } from '@uaip/types';
 
-// Import local ValidationResult that matches shared structure
-import { ValidationResult } from '../types/artifact';
+// Import ValidationResult from shared types
+import { ValidationResult } from '@uaip/types';
 
 export interface ArtifactGenerator {
   getSupportedType(): string;

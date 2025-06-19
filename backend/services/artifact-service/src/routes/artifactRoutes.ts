@@ -4,7 +4,7 @@ import {
   ArtifactGenerationRequest, 
   ArtifactType,
   ValidationResult 
-} from '../types/artifact';
+} from '@uaip/types';
 import { logger } from '@uaip/utils';
 
 export function artifactRoutes(artifactService: ArtifactService): express.Router {

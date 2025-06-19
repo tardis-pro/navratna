@@ -31,8 +31,8 @@ import { TestGenerator } from './generators/TestGenerator.js';
 import { PRDGenerator } from './generators/PRDGenerator.js';
 import { DocumentationGenerator } from './generators/DocumentationGenerator.js';
 
-// Local types
-import { ValidationResult as LocalValidationResult } from './types/artifact.js';
+// Local types - use shared types instead
+import { ValidationResult as LocalValidationResult } from '@uaip/types';
 
 // Define proper result types for this service
 export interface ArtifactResult {
