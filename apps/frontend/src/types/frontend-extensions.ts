@@ -131,12 +131,24 @@ export interface DiscussionEvent {
   timestamp: Date;
 }
 
-// Search response interfaces for frontend
+// Simplified persona type for frontend display
+export interface PersonaDisplay {
+  id: string;
+  name: string;
+  role: string;
+  description: string;
+  tags: string[];
+  expertise: string[];
+  status: string;
+  category: string;
+  background?: string;
+}
+
+// Simplified persona search response
 export interface PersonaSearchResponse {
-  personas: Persona[];
-  totalCount: number;
-  recommendations: PersonaRecommendation[];
-  searchTime: number;
+  personas: PersonaDisplay[];
+  total: number;
+  hasMore: boolean;
 }
 
 export interface DiscussionSearchResponse {

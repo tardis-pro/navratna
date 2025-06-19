@@ -40,6 +40,7 @@ interface AgentIntelligenceFlow {
   managePersona: (persona: any) => Promise<string>;
   searchPersonas: (criteria: any) => Promise<any>;
   analyzePersona: (personaId: string) => Promise<any>;
+  getPersonaCategories: () => Promise<string[]>;
   coordinateAgents: (tasks: any) => Promise<any>;
   switchContext: (newContext: any) => Promise<any>;
 }
@@ -599,14 +600,28 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
       case 'registerAgent':
         return await uaipAPI.agents.create(params);
       case 'analyzeContext':
-        // This would be a specialized endpoint
+        // This would be a specialized endpoint - using mock for now
         return await mockApiCall('agentIntelligence', flow, params);
       case 'searchPersonas':
-        return await uaipAPI.personas.list(params.criteria);
+        // Use the new simplified search endpoint
+        return await uaipAPI.personas.search(params.query, params.expertise);
       case 'managePersona':
-        return await uaipAPI.personas.create(params);
+        // Create persona using simplified data
+        return await uaipAPI.personas.create({
+          name: params.name,
+          role: params.role,
+          description: params.description,
+          expertise: params.expertise || [],
+          tags: params.tags || [],
+          background: params.background,
+          systemPrompt: params.systemPrompt,
+          conversationalStyle: params.conversationalStyle
+        });
       case 'analyzePersona':
+        // Get persona details for analysis
         return await uaipAPI.personas.get(params.personaId);
+      case 'getPersonaCategories':
+        return await uaipAPI.personas.getCategories();
       default:
         return await mockApiCall('agentIntelligence', flow, params);
     }
@@ -716,6 +731,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     managePersona: (persona) => executeFlow('agentIntelligence', 'managePersona', persona),
     searchPersonas: (criteria) => executeFlow('agentIntelligence', 'searchPersonas', criteria),
     analyzePersona: (personaId) => executeFlow('agentIntelligence', 'analyzePersona', { personaId }),
+    getPersonaCategories: () => executeFlow('agentIntelligence', 'getPersonaCategories'),
     coordinateAgents: (tasks) => executeFlow('agentIntelligence', 'coordinateAgents', tasks),
     switchContext: (newContext) => executeFlow('agentIntelligence', 'switchContext', newContext),
   };

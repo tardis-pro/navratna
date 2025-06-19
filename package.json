@@ -30,16 +30,16 @@
     "test:artifacts:code": "cd backend && tsx services/artifact-service/src/test/run-demo.ts -- --artifact-only"
   },
   "devDependencies": {
-    "@eslint/js": "^9.9.0",
-    "@typescript-eslint/eslint-plugin": "^6.15.0",
-    "@typescript-eslint/parser": "^6.15.0",
-    "concurrently": "^8.2.2",
-    "eslint": "^9.9.0",
-    "globals": "^15.9.0",
-    "rimraf": "^5.0.5",
-    "tsx": "^4.19.4",
-    "typescript": "^5.5.3",
-    "typescript-eslint": "^8.0.1"
+    "@eslint/js": "^9.29.0",
+    "@typescript-eslint/eslint-plugin": "^8.34.1",
+    "@typescript-eslint/parser": "^8.34.1",
+    "concurrently": "^9.1.2",
+    "eslint": "^9.29.0",
+    "globals": "^16.2.0",
+    "rimraf": "^6.0.1",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.34.1"
   },
   "engines": {
     "node": ">=18.0.0",

@@ -47,4 +47,7 @@ export class UserEntity extends BaseEntity {
 
   @Column({ type: 'timestamp', name: 'last_login_at', nullable: true })
   lastLoginAt?: Date;
+
+  @Column({ type: 'json', nullable: true })
+  permissions?: string[];
 } 

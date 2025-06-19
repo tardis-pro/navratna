@@ -469,7 +469,7 @@ export class DatabaseSeeder {
           auditLevel: 'comprehensive' as any
         } as AgentSecurityContext,
         isActive: true,
-        createdBy: users[1].id,
+        createdBy: users[0].id,
         lastActiveAt: new Date(),
         capabilities: ['data-analysis', 'visualization', 'statistical-modeling', 'reporting'],
         capabilityScores: {
@@ -527,7 +527,7 @@ export class DatabaseSeeder {
           auditLevel: 'standard' as any
         } as AgentSecurityContext,
         isActive: true,
-        createdBy: users[1].id,
+        createdBy: users[0].id,
         lastActiveAt: new Date(),
         capabilities: ['workflow-management', 'task-coordination', 'resource-allocation', 'monitoring'],
         capabilityScores: {
@@ -586,7 +586,7 @@ export class DatabaseSeeder {
           auditLevel: 'standard' as any
         } as AgentSecurityContext,
         isActive: true,
-        createdBy: users[3].id,
+        createdBy: users[0].id,
         lastActiveAt: new Date(),
         capabilities: ['code-analysis', 'code-generation', 'debugging', 'code-review', 'documentation'],
         capabilityScores: {

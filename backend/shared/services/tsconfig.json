@@ -22,6 +22,6 @@
   "references": [
     { "path": "../../../packages/shared-types" },
     { "path": "../config" },
-    { "path": "../../../packages/shared-utils" },
+    { "path": "../../../packages/shared-utils" }
   ]
 } 

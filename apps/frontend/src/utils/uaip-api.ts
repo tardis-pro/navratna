@@ -61,6 +61,7 @@ import {
 import type {
   MessageSearchOptions,
   DiscussionEvent,
+  PersonaDisplay,
   PersonaSearchResponse,
   DiscussionSearchResponse,
   DiscussionParticipantCreate,
@@ -399,69 +400,110 @@ export const uaipAPI = {
   
   personas: {
     async list(filters?: PersonaSearchFilters): Promise<PersonaSearchResponse> {
-      const client = getAPIClient();
-      const response = await client.personas.search(filters?.query, filters?.expertise?.[0]);
-      
-      // Transform the response to match our interface
-      return {
-        personas: response.data || [],
-        totalCount: response.data?.length || 0,
-        recommendations: [],
-        searchTime: 0
-      };
+      try {
+        const client = getAPIClient();
+        const params = new URLSearchParams();
+        
+        if (filters?.query) params.append('query', filters.query);
+        if (filters?.expertise) params.append('expertise', filters.expertise.join(','));
+        if (filters?.status) params.append('status', filters.status);
+        if (filters?.tags) params.append('tags', filters.tags.join(','));
+        
+        const response = await client.get(`/personas/display?${params.toString()}`);
+        return {
+          personas: response.data.data,
+          total: response.data.pagination?.total || 0,
+          hasMore: response.data.pagination?.hasMore || false
+        };
+      } catch (error) {
+        console.error('Failed to fetch personas:', error);
+        throw error;
+      }
     },
 
-    async get(id: string): Promise<Persona> {
-      const client = getAPIClient();
-      const response = await client.personas.get(id);
-      
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to fetch persona');
+    async get(id: string): Promise<PersonaDisplay> {
+      try {
+        const client = getAPIClient();
+        const response = await client.get(`/personas/${id}/display`);
+        return response.data.data;
+      } catch (error) {
+        console.error(`Failed to fetch persona ${id}:`, error);
+        throw error;
       }
-      
-      return response.data!;
+    },
+
+    async search(query?: string, expertise?: string): Promise<PersonaSearchResponse> {
+      try {
+        const client = getAPIClient();
+        const params = new URLSearchParams();
+        
+        if (query) params.append('query', query);
+        if (expertise) params.append('expertise', expertise);
+        
+        const response = await client.get(`/personas/search/simple?${params.toString()}`);
+        return {
+          personas: response.data.data,
+          total: response.data.data.length,
+          hasMore: false
+        };
+      } catch (error) {
+        console.error('Failed to search personas:', error);
+        throw error;
+      }
+    },
+
+    async getCategories(): Promise<string[]> {
+      try {
+        const client = getAPIClient();
+        const response = await client.get('/personas/categories');
+        return response.data.data;
+      } catch (error) {
+        console.error('Failed to fetch persona categories:', error);
+        throw error;
+      }
     },
 
     async create(persona: CreatePersonaRequest): Promise<Persona> {
-      const client = getAPIClient();
-      const response = await client.personas.create(persona);
-      
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to create persona');
+      try {
+        const client = getAPIClient();
+        const response = await client.post('/personas', persona);
+        return response.data.data;
+      } catch (error) {
+        console.error('Failed to create persona:', error);
+        throw error;
       }
-      
-      return response.data!;
     },
 
     async update(id: string, updates: UpdatePersonaRequest): Promise<Persona> {
-      const client = getAPIClient();
-      const response = await client.personas.update(id, updates);
-      
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to update persona');
+      try {
+        const client = getAPIClient();
+        const response = await client.put(`/personas/${id}`, updates);
+        return response.data.data;
+      } catch (error) {
+        console.error(`Failed to update persona ${id}:`, error);
+        throw error;
       }
-      
-      return response.data!;
     },
 
     async delete(id: string): Promise<void> {
-      const client = getAPIClient();
-      const response = await client.personas.delete(id);
-      
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to delete persona');
+      try {
+        const client = getAPIClient();
+        await client.delete(`/personas/${id}`);
+      } catch (error) {
+        console.error(`Failed to delete persona ${id}:`, error);
+        throw error;
       }
     },
 
     async getRecommendations(id: string): Promise<PersonaRecommendation[]> {
-      const client = getAPIClient();
-      const response = await client.personas.getRecommendations(id);
-      
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to fetch persona recommendations');
+      try {
+        const client = getAPIClient();
+        const response = await client.get(`/personas/recommendations?userId=${id}`);
+        return response.data.data;
+      } catch (error) {
+        console.error('Failed to fetch persona recommendations:', error);
+        throw error;
       }
-      
-      return response.data!;
     }
   },
 

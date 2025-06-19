@@ -25,3 +25,33 @@ export interface Persona {
   chattiness: number; // 0.1-1.0 scale - how likely to contribute
   empathyLevel: number; // 0.1-1.0 scale - how much they reflect on emotional/human impact
 }
+
+// Simplified persona type for frontend display
+// All complex transformations are now handled by the backend
+export interface PersonaDisplay {
+  id: string;
+  name: string;
+  role: string;
+  description: string;
+  tags: string[];
+  expertise: string[];
+  status: string;
+  category: string;
+  background?: string;
+}
+
+// Persona categories for UI filtering
+export const PERSONA_CATEGORIES = [
+  'Development',
+  'Policy', 
+  'Creative',
+  'Analysis',
+  'Business',
+  'Social',
+  'Technical',
+  'Management',
+  'Research',
+  'Design'
+] as const;
+
+export type PersonaCategory = typeof PERSONA_CATEGORIES[number];

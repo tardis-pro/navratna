@@ -20,6 +20,28 @@ export function createPersonaRoutes(personaController: PersonaController): Route
   // Apply authentication middleware to all routes
   router.use(authMiddleware);
 
+  // ===== SIMPLIFIED FRONTEND ROUTES =====
+  
+  // GET /api/v1/personas/display - Get personas for frontend display
+  router.get(
+    '/display',
+    personaController.getPersonasForDisplay.bind(personaController)
+  );
+
+  // GET /api/v1/personas/search/simple - Simple search for frontend
+  router.get(
+    '/search/simple',
+    personaController.searchPersonasSimple.bind(personaController)
+  );
+
+  // GET /api/v1/personas/categories - Get persona categories
+  router.get(
+    '/categories',
+    personaController.getPersonaCategories.bind(personaController)
+  );
+
+  // ===== EXISTING ROUTES =====
+
   // POST /api/v1/personas
   router.post(
     '/',
@@ -43,6 +65,13 @@ export function createPersonaRoutes(personaController: PersonaController): Route
   router.get(
     '/templates',
     personaController.getPersonaTemplates.bind(personaController)
+  );
+
+  // GET /api/v1/personas/:personaId/display - Get single persona for display
+  router.get(
+    '/:personaId/display',
+    validateUUID('personaId'),
+    personaController.getPersonaForDisplay.bind(personaController)
   );
 
   // GET /api/v1/personas/:personaId

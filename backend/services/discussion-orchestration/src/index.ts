@@ -7,12 +7,13 @@ import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 
 import { logger } from '@uaip/utils';
-import { DatabaseService, EventBusService, TypeOrmService } from '@uaip/shared-services';
+import { DatabaseService, EventBusService, TypeOrmService, DiscussionService, PersonaService } from '@uaip/shared-services';
 import { authMiddleware, errorHandler, defaultRequestLogger } from '@uaip/middleware';
 
 import { config } from './config/index.js';
 import { DiscussionOrchestrationService } from './services/discussionOrchestrationService.js';
 import { setupWebSocketHandlers } from './websocket/discussionSocket.js';
+import { DiscussionWebSocketHandler } from './websocket/discussionWebSocketHandler.js';
 
 class DiscussionOrchestrationServer {
   private app: express.Application;
@@ -22,6 +23,9 @@ class DiscussionOrchestrationServer {
   private databaseService: DatabaseService;
   private typeormService: TypeOrmService;
   private eventBusService: EventBusService;
+  private discussionService: DiscussionService;
+  private personaService: PersonaService;
+  private webSocketHandler?: DiscussionWebSocketHandler;
   private isShuttingDown: boolean = false;
 
   constructor() {
@@ -40,10 +44,26 @@ class DiscussionOrchestrationServer {
       },
       logger
     );
+    
+    // Initialize persona service
+    this.personaService = new PersonaService({
+      databaseService: this.databaseService,
+      eventBusService: this.eventBusService
+    });
+    
+    // Initialize discussion service
+    this.discussionService = new DiscussionService({
+      databaseService: this.databaseService,
+      eventBusService: this.eventBusService,
+      personaService: this.personaService,
+      enableRealTimeEvents: true,
+      enableAnalytics: true
+    });
+    
     this.orchestrationService = new DiscussionOrchestrationService(
-      this.databaseService as any, // DiscussionService would be injected here
+      this.discussionService,
       this.eventBusService,
-      undefined // webSocketHandler
+      undefined // webSocketHandler will be set later
     );
 
     this.setupMiddleware();
@@ -175,7 +195,11 @@ class DiscussionOrchestrationServer {
       transports: ['websocket', 'polling']
     });
 
-    // Set up WebSocket handlers
+    // Create WebSocket handler and connect it to orchestration service
+    this.webSocketHandler = new DiscussionWebSocketHandler(this.orchestrationService);
+    this.orchestrationService.setWebSocketHandler(this.webSocketHandler);
+
+    // Set up Socket.IO handlers
     setupWebSocketHandlers(this.io, this.orchestrationService);
 
     logger.info('WebSocket server configured', {
@@ -282,6 +306,12 @@ class DiscussionOrchestrationServer {
       if (this.io) {
         this.io.close();
         logger.info('WebSocket server closed');
+      }
+
+      // Cleanup WebSocket handler
+      if (this.webSocketHandler) {
+        this.webSocketHandler.cleanup();
+        logger.info('WebSocket handler cleaned up');
       }
 
       // Close HTTP server

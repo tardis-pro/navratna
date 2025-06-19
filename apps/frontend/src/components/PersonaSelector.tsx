@@ -1,11 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Persona } from '../types/persona';
-import { usePersona } from '../hooks/usePersona';
-import { 
-  crossBreedPersonas, 
-  suggestedHybrids,
-  HybridPersona 
-} from '../data/personas';
+import { PersonaDisplay } from '../types/frontend-extensions';
+import { useAgents } from '@/contexts/AgentContext';
 import { 
   Users, 
   Brain, 
@@ -27,7 +22,7 @@ import {
 } from 'lucide-react';
 
 interface PersonaSelectorProps {
-  onSelectPersona: (persona: Persona | HybridPersona) => Promise<void>;
+  onSelectPersona: (persona: PersonaDisplay) => Promise<void>;
   disabled?: boolean;
 }
 
@@ -40,6 +35,10 @@ const getCategoryIcon = (category: string) => {
     'Analysis': Settings,
     'Business': Briefcase,
     'Social': Heart,
+    'Technical': Settings,
+    'Management': Briefcase,
+    'Research': BookOpen,
+    'Design': Palette,
     'General': Users,
   };
   return iconMap[category] || Users;
@@ -49,107 +48,93 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
   onSelectPersona, 
   disabled = false 
 }) => {
-  const { 
-    availablePersonas, 
-    loading, 
-    error, 
-    categories, 
-    filteredPersonas, 
-    searchPersonas 
-  } = usePersona();
-
+  const { agentIntelligence } = useAgents();
+  
+  const [personas, setPersonas] = useState<PersonaDisplay[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>('');
   const [hoveredPersona, setHoveredPersona] = useState<string | null>(null);
-  const [showCrossBreeding, setShowCrossBreeding] = useState(false);
-  const [selectedParent1, setSelectedParent1] = useState<Persona | null>(null);
-  const [selectedParent2, setSelectedParent2] = useState<Persona | null>(null);
-  const [hybridName, setHybridName] = useState('');
-  const [dominantParent, setDominantParent] = useState<'parent1' | 'parent2'>('parent1');
-  const [isCreating, setIsCreating] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchExpertise, setSearchExpertise] = useState('');
 
-  // Set default active category when categories are loaded
+  // Load personas and categories on mount
   useEffect(() => {
-    if (categories.length > 0 && !activeCategory) {
-      setActiveCategory(categories[0]);
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Load categories and personas in parallel
+      const [categoriesResult, personasResult] = await Promise.all([
+        agentIntelligence.getPersonaCategories(),
+        agentIntelligence.searchPersonas({ query: '', expertise: '' })
+      ]);
+      
+      setCategories(categoriesResult);
+      setPersonas(personasResult.personas || []);
+      
+      // Set default active category
+      if (categoriesResult.length > 0 && !activeCategory) {
+        setActiveCategory(categoriesResult[0]);
+      }
+    } catch (err) {
+      console.error('Failed to load persona data:', err);
+      setError('Failed to load personas. Please try again.');
+    } finally {
+      setLoading(false);
     }
-  }, [categories, activeCategory]);
+  };
 
   const handleSearch = async () => {
     if (disabled || loading) return;
-    await searchPersonas(searchQuery.trim() || undefined, searchExpertise.trim() || undefined);
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const result = await agentIntelligence.searchPersonas({
+        query: searchQuery.trim() || undefined,
+        expertise: searchExpertise.trim() || undefined
+      });
+      setPersonas(result.personas || []);
+    } catch (err) {
+      console.error('Failed to search personas:', err);
+      setError('Search failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleRefresh = async () => {
     if (disabled || loading) return;
     setSearchQuery('');
     setSearchExpertise('');
-    await searchPersonas();
+    await loadData();
   };
 
-  const handleCrossBreed = async () => {
-    if (!selectedParent1 || !selectedParent2 || !hybridName.trim()) {
-      alert('Please select two personas and enter a name for the hybrid');
-      return;
-    }
+  const handlePersonaSelect = async (persona: PersonaDisplay) => {
+    if (disabled) return;
 
-    if (disabled || isCreating) return;
-
-    setIsCreating(true);
-    try {
-      const hybrid = crossBreedPersonas(selectedParent1, selectedParent2, hybridName, dominantParent);
-      await onSelectPersona(hybrid);
-      
-      // Reset state
-      setSelectedParent1(null);
-      setSelectedParent2(null);
-      setHybridName('');
-      setShowCrossBreeding(false);
-    } catch (error) {
-      console.error('Failed to create hybrid persona:', error);
-      alert('Failed to create hybrid persona. Please try again.');
-    } finally {
-      setIsCreating(false);
-    }
-  };
-
-  const handleSuggestedHybrid = async (suggestion: typeof suggestedHybrids[0]) => {
-    if (disabled || isCreating) return;
-
-    setIsCreating(true);
-    try {
-      const parent1 = availablePersonas.find(p => p.id === suggestion.parent1);
-      const parent2 = availablePersonas.find(p => p.id === suggestion.parent2);
-      
-      if (parent1 && parent2) {
-        const hybrid = crossBreedPersonas(parent1, parent2, suggestion.name, 'parent1');
-        await onSelectPersona(hybrid);
-      }
-    } catch (error) {
-      console.error('Failed to create suggested hybrid:', error);
-      alert('Failed to create hybrid persona. Please try again.');
-    } finally {
-      setIsCreating(false);
-    }
-  };
-
-  const handlePersonaSelect = async (persona: Persona) => {
-    if (disabled || isCreating) return;
-
-    setIsCreating(true);
     try {
       await onSelectPersona(persona);
     } catch (error) {
       console.error('Failed to select persona:', error);
       alert('Failed to create agent with this persona. Please try again.');
-    } finally {
-      setIsCreating(false);
     }
   };
 
+  // Filter personas by active category
+  const filteredPersonas = activeCategory 
+    ? personas.filter(p => p.category === activeCategory)
+    : personas;
+
   // Show loading state
-  if (loading && availablePersonas.length === 0) {
+  if (loading && personas.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 space-y-4">
         <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
@@ -159,7 +144,7 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
   }
 
   // Show error state with retry option
-  if (error && availablePersonas.length === 0) {
+  if (error && personas.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 space-y-4">
         <AlertCircle className="w-8 h-8 text-red-500" />
@@ -185,211 +170,6 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
     );
   }
 
-  if (showCrossBreeding) {
-    return (
-      <div className="space-y-6">
-        {/* Cross-breeding header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/25">
-              <Shuffle className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h3 className="font-bold text-xl text-slate-900 dark:text-white">Cross-Breed Personas</h3>
-              <p className="text-sm text-slate-600 dark:text-slate-400">Combine expertise to create unique hybrids</p>
-            </div>
-          </div>
-          <button
-            onClick={() => setShowCrossBreeding(false)}
-            disabled={disabled || isCreating}
-            className="px-4 py-2 text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Back to Personas
-          </button>
-        </div>
-
-        {/* Quick suggested hybrids */}
-        <div className="space-y-4">
-          <h4 className="font-semibold text-lg text-slate-900 dark:text-white flex items-center space-x-2">
-            <Zap className="w-5 h-5 text-orange-500" />
-            <span>Quick Hybrids</span>
-          </h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {suggestedHybrids.slice(0, 4).map((suggestion, index) => (
-              <button
-                key={index}
-                onClick={() => handleSuggestedHybrid(suggestion)}
-                disabled={disabled || isCreating}
-                className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border border-purple-200 dark:border-purple-800 rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all duration-200 text-left disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-              >
-                <div className="font-semibold text-purple-700 dark:text-purple-300 mb-1">{suggestion.name}</div>
-                <div className="text-sm text-purple-600 dark:text-purple-400">{suggestion.description}</div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Custom cross-breeding section */}
-        <div className="border-t border-slate-200 dark:border-slate-700 pt-6 space-y-6">
-          <h4 className="font-semibold text-lg text-slate-900 dark:text-white flex items-center space-x-2">
-            <Heart className="w-5 h-5 text-pink-500" />
-            <span>Custom Cross-Breeding</span>
-          </h4>
-
-          {/* Parent selection */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Parent 1 */}
-            <div className="space-y-3">
-              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
-                Parent 1 {dominantParent === 'parent1' && '(Dominant)'}
-              </label>
-              <select
-                value={selectedParent1?.id || ''}
-                onChange={(e) => {
-                  const persona = availablePersonas.find(p => p.id === e.target.value);
-                  setSelectedParent1(persona || null);
-                }}
-                disabled={disabled || isCreating}
-                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <option value="">Select first parent...</option>
-                {availablePersonas.map(persona => (
-                  <option key={persona.id} value={persona.id}>
-                    {persona.name} ({persona.role})
-                  </option>
-                ))}
-              </select>
-              {selectedParent1 && (
-                <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                  <div className="font-medium text-slate-900 dark:text-white">{selectedParent1.name}</div>
-                  <div className="text-sm text-slate-600 dark:text-slate-400 mb-2">{selectedParent1.background}</div>
-                  <div className="flex flex-wrap gap-1">
-                    {selectedParent1.expertise.slice(0, 3).map(skill => (
-                      <span key={skill} className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-xs">
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Parent 2 */}
-            <div className="space-y-3">
-              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
-                Parent 2 {dominantParent === 'parent2' && '(Dominant)'}
-              </label>
-              <select
-                value={selectedParent2?.id || ''}
-                onChange={(e) => {
-                  const persona = availablePersonas.find(p => p.id === e.target.value);
-                  setSelectedParent2(persona || null);
-                }}
-                disabled={disabled || isCreating}
-                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <option value="">Select second parent...</option>
-                {availablePersonas.map(persona => (
-                  <option key={persona.id} value={persona.id}>
-                    {persona.name} ({persona.role})
-                  </option>
-                ))}
-              </select>
-              {selectedParent2 && (
-                <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                  <div className="font-medium text-slate-900 dark:text-white">{selectedParent2.name}</div>
-                  <div className="text-sm text-slate-600 dark:text-slate-400 mb-2">{selectedParent2.background}</div>
-                  <div className="flex flex-wrap gap-1">
-                    {selectedParent2.expertise.slice(0, 3).map(skill => (
-                      <span key={skill} className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded text-xs">
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Dominance selector */}
-          <div className="space-y-3">
-            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
-              Dominant Parent (Primary traits)
-            </label>
-            <div className="flex space-x-4">
-              <label className="flex items-center space-x-2">
-                <input
-                  type="radio"
-                  name="dominantParent"
-                  value="parent1"
-                  checked={dominantParent === 'parent1'}
-                  onChange={(e) => setDominantParent(e.target.value as 'parent1' | 'parent2')}
-                  disabled={disabled || isCreating}
-                  className="text-purple-600 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                />
-                <span className="text-sm text-slate-700 dark:text-slate-300">
-                  Parent 1 {selectedParent1 && `(${selectedParent1.name})`}
-                </span>
-              </label>
-              <label className="flex items-center space-x-2">
-                <input
-                  type="radio"
-                  name="dominantParent"
-                  value="parent2"
-                  checked={dominantParent === 'parent2'}
-                  onChange={(e) => setDominantParent(e.target.value as 'parent1' | 'parent2')}
-                  disabled={disabled || isCreating}
-                  className="text-purple-600 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                />
-                <span className="text-sm text-slate-700 dark:text-slate-300">
-                  Parent 2 {selectedParent2 && `(${selectedParent2.name})`}
-                </span>
-              </label>
-            </div>
-          </div>
-
-          {/* Hybrid name input */}
-          <div className="space-y-3">
-            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
-              Hybrid Name
-            </label>
-            <input
-              type="text"
-              value={hybridName}
-              onChange={(e) => setHybridName(e.target.value)}
-              disabled={disabled || isCreating}
-              className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              placeholder="Enter a name for your hybrid persona"
-            />
-          </div>
-
-          {/* Create hybrid button */}
-          <button
-            onClick={handleCrossBreed}
-            disabled={!selectedParent1 || !selectedParent2 || !hybridName.trim() || disabled || isCreating}
-            className={`w-full px-6 py-3 rounded-xl font-semibold text-lg transition-all duration-300 flex items-center justify-center space-x-3 ${
-              (!selectedParent1 || !selectedParent2 || !hybridName.trim() || disabled || isCreating)
-                ? 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed'
-                : 'bg-gradient-to-r from-purple-600 via-pink-600 to-orange-600 hover:from-purple-700 hover:via-pink-700 hover:to-orange-700 text-white shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 hover:scale-[1.02]'
-            }`}
-          >
-            {isCreating ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span>Creating Hybrid...</span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-5 h-5" />
-                <span>Create Hybrid Persona</span>
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       {/* Enhanced Header with Search */}
@@ -402,7 +182,7 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
             <div>
               <h3 className="font-bold text-xl text-slate-900 dark:text-white">Choose Agent Persona</h3>
               <p className="text-sm text-slate-600 dark:text-slate-400">
-                Select from {availablePersonas.length} available personas
+                Select from {personas.length} available personas
               </p>
             </div>
           </div>
@@ -414,14 +194,6 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
               title="Refresh personas"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            </button>
-            <button
-              onClick={() => setShowCrossBreeding(true)}
-              disabled={availablePersonas.length < 2 || disabled || isCreating}
-              className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-lg font-medium text-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-            >
-              <Shuffle className="w-4 h-4" />
-              <span>Cross-Breed</span>
             </button>
           </div>
         </div>
@@ -486,12 +258,12 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
       <div className="flex space-x-2 overflow-x-auto pb-2">
         {categories.map((category) => {
           const IconComponent = getCategoryIcon(category);
-          const count = filteredPersonas[category]?.length || 0;
+          const count = filteredPersonas.filter(p => p.category === category).length;
           return (
             <button
               key={category}
               onClick={() => setActiveCategory(category)}
-              disabled={disabled || isCreating}
+              disabled={disabled || loading}
               className={`flex items-center space-x-2 px-4 py-3 text-sm font-semibold rounded-xl whitespace-nowrap transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
                 activeCategory === category
                   ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 scale-105'
@@ -508,16 +280,16 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
 
       {/* Enhanced Persona Grid */}
       <div className="grid grid-cols-1 gap-4">
-        {activeCategory && filteredPersonas[activeCategory] ? (
-          filteredPersonas[activeCategory].map((persona) => (
+        {activeCategory && filteredPersonas.length > 0 ? (
+          filteredPersonas.map((persona) => (
             <button
               key={persona.id}
               onClick={() => handlePersonaSelect(persona)}
-              onMouseEnter={() => !disabled && !isCreating && setHoveredPersona(persona.id)}
+              onMouseEnter={() => !disabled && !loading && setHoveredPersona(persona.id)}
               onMouseLeave={() => setHoveredPersona(null)}
-              disabled={disabled || isCreating}
+              disabled={disabled || loading}
               className={`group relative flex flex-col items-start p-6 border-2 rounded-2xl transition-all duration-300 text-left disabled:opacity-50 disabled:cursor-not-allowed ${
-                hoveredPersona === persona.id && !disabled && !isCreating
+                hoveredPersona === persona.id && !disabled && !loading
                   ? 'border-blue-500 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 shadow-xl shadow-blue-500/20 scale-[1.02]'
                   : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-lg'
               }`}
@@ -531,9 +303,9 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
                   <div className="font-bold text-lg text-slate-900 dark:text-white">{persona.name}</div>
                   <div className="text-sm text-slate-600 dark:text-slate-400 font-medium">{persona.role}</div>
                 </div>
-                <div className={`transition-opacity duration-200 ${hoveredPersona === persona.id && !disabled && !isCreating ? 'opacity-100' : 'opacity-0'}`}>
+                <div className={`transition-opacity duration-200 ${hoveredPersona === persona.id && !disabled && !loading ? 'opacity-100' : 'opacity-0'}`}>
                   <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
-                    {isCreating ? (
+                    {loading ? (
                       <Loader2 className="w-4 h-4 text-white animate-spin" />
                     ) : (
                       <Sparkles className="w-4 h-4 text-white" />
@@ -625,26 +397,22 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
         <div className="flex items-center justify-center space-x-6 text-sm text-slate-600 dark:text-slate-400">
           <div className="flex items-center space-x-2">
             <TrendingUp className="w-4 h-4" />
-            <span>{availablePersonas.length} Total Personas</span>
+            <span>{personas.length} Total Personas</span>
           </div>
           <div className="flex items-center space-x-2">
             <BookOpen className="w-4 h-4" />
             <span>{categories.length} Categories</span>
           </div>
-          <div className="flex items-center space-x-2">
-            <Shuffle className="w-4 h-4" />
-            <span>∞ Hybrid Combinations</span>
-          </div>
         </div>
       </div>
 
       {/* Loading overlay */}
-      {(disabled || isCreating) && (
+      {(disabled || loading) && (
         <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-xl flex items-center space-x-4">
             <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
             <span className="text-slate-700 dark:text-slate-300 font-medium">
-              {isCreating ? 'Creating agent...' : 'Please wait...'}
+              {loading ? 'Loading...' : 'Please wait...'}
             </span>
           </div>
         </div>
