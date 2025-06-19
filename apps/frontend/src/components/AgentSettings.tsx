@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  Settings, 
-  Bot, 
-  Server, 
-  Globe, 
-  Cpu, 
-  Save, 
-  RefreshCw, 
-  AlertCircle, 
+import {
+  Settings,
+  Bot,
+  Server,
+  Globe,
+  Cpu,
+  Save,
+  RefreshCw,
+  AlertCircle,
   CheckCircle2,
   Trash2,
   Plus,
@@ -15,23 +15,42 @@ import {
   X,
   Users
 } from 'lucide-react';
-import { AgentState } from '../types/agent';
+import { AgentState, ModelProvider } from '../types/agent';
 import { ModelOption } from '../types/models';
 import { Persona } from '../types/persona';
 // import { getModels } from '../services/llm';
 import { uaipAPI } from '../utils/uaip-api';
 import { PersonaSelector } from './PersonaSelector';
+import { LLMModel, LLMProviderType } from '@uaip/types';
 
 const getModels = async () => {
-  // const models = await uaipAPI.getModels();
-  const models = [];
-  return models;
+  try {
+    const response = await uaipAPI.llm.getModels();
+
+    if (!response) {
+      console.error('Failed to fetch models:', response);
+      return [];
+    }
+
+    const models = response;
+    return models.map(model => ({
+      id: model.id,
+      name: model.name,
+      description: model.description,
+      source: model.source,
+      apiEndpoint: model.apiEndpoint,
+      apiType: model.apiType
+    }));
+  } catch (error) {
+    console.error('Failed to fetch models:', error);
+    return [];
+  }
 };
 
 interface AgentModelConfig {
   agentId: string;
   modelId: string;
-  apiType: 'ollama' | 'llmstudio';
+  apiType: LLMProviderType;
   isActive: boolean;
   personaId?: string;
   lastUpdated: Date;
@@ -41,14 +60,28 @@ interface AgentSettingsProps {
   agents: Record<string, AgentState>;
   onUpdateAgent: (agentId: string, updates: Partial<AgentState>) => void;
   onRefreshAgents: () => void;
+  // New props for model provider integration
+  modelState?: {
+    providers: Array<ModelProvider>;
+    models: Array<LLMModel>;
+    loadingProviders: boolean;
+    loadingModels: boolean;
+    providersError: string | null;
+    modelsError: string | null;
+  };
+  getRecommendedModels?: (agentRole?: string) => Array<LLMModel>;
+  getModelsForProvider?: (providerId: string) => Array<LLMModel>;
 }
 
-export const AgentSettings: React.FC<AgentSettingsProps> = ({ 
-  agents, 
-  onUpdateAgent, 
-  onRefreshAgents 
+export const AgentSettings: React.FC<AgentSettingsProps> = ({
+  agents,
+  onUpdateAgent,
+  onRefreshAgents,
+  modelState,
+  getRecommendedModels,
+  getModelsForProvider
 }) => {
-  const [availableModels, setAvailableModels] = useState<ModelOption[]>([]);
+  const [availableModels, setAvailableModels] = useState<LLMModel[]>([]);
   const [modelsLoading, setModelsLoading] = useState(false);
   const [modelsError, setModelsError] = useState<string | null>(null);
   const [savingConfigs, setSavingConfigs] = useState<Set<string>>(new Set());
@@ -56,11 +89,19 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
   const [tempConfigs, setTempConfigs] = useState<Record<string, AgentModelConfig>>({});
   const [showPersonaSelector, setShowPersonaSelector] = useState<string | null>(null);
 
-  // Load available models
+  // Use model provider data from context if available, otherwise load from API
+  const effectiveModels = modelState?.models || availableModels;
+  const effectiveLoading = modelState?.loadingModels || modelsLoading;
+  const effectiveError = modelState?.modelsError || modelsError;
+
+  // Load available models (fallback for when modelState is not provided)
   const loadModels = useCallback(async () => {
+    if (modelState?.models && modelState.models.length > 0) return; // Use context data if available
+    if (modelsLoading) return; // Prevent multiple concurrent calls
+
     setModelsLoading(true);
     setModelsError(null);
-    
+
     try {
       const models = await getModels();
       setAvailableModels(models);
@@ -71,37 +112,92 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
     } finally {
       setModelsLoading(false);
     }
-  }, []);
+  }, [modelState?.models, modelsLoading]);
 
+  // Only load models once if not provided via modelState
   useEffect(() => {
-    loadModels();
-  }, [loadModels]);
+    if (!modelState?.models || modelState.models.length === 0) {
+      if (!modelsLoading && availableModels.length === 0) {
+        loadModels();
+      }
+    }
+  }, []); // Empty dependency array to run only once
 
   // Helper functions
   const getServerIcon = (apiType: string) => {
-    return apiType === 'ollama' ? Globe : Server;
+    return apiType === LLMProviderType.OLLAMA ? Globe : Server;
   };
 
   const getModelInfo = (modelId: string) => {
-    return availableModels.find(m => m.id === modelId);
+    return effectiveModels.find(m => m.id === modelId);
   };
 
-  const getServerName = (modelInfo: ModelOption | undefined) => {
+  const getProviderInfo = (providerId: string) => {
+    return modelState?.providers.find(p => p.id === providerId);
+  };
+
+  const getServerName = (modelInfo: any) => {
     if (!modelInfo?.source) return 'Unknown';
-    
+
     try {
       const url = new URL(modelInfo.source);
       const hostname = url.hostname;
       const port = url.port;
-      
+
       if (hostname === 'localhost' || hostname === '127.0.0.1') {
         return port ? `localhost:${port}` : 'localhost';
       }
-      
+
       return hostname;
     } catch {
       return modelInfo.source.split('/').pop() || 'Unknown';
     }
+  };
+
+  // Get models organized by provider
+  const getModelsByProvider = () => {
+    const modelsByProvider: Record<string, any[]> = {};
+
+    effectiveModels.forEach(model => {
+      const providerKey = model.provider || model.apiType || 'unknown';
+      if (!modelsByProvider[providerKey]) {
+        modelsByProvider[providerKey] = [];
+      }
+      modelsByProvider[providerKey].push(model);
+    });
+
+    return modelsByProvider;
+  };
+
+  // Get recommended models for an agent
+  const getAgentRecommendedModels = (agentRole?: string) => {
+    if (getRecommendedModels) {
+      return getRecommendedModels(agentRole);
+    }
+
+    // Fallback logic
+    return effectiveModels.filter(model => {
+      if (!model.isAvailable) return false;
+
+      if (agentRole) {
+        switch (agentRole) {
+          case 'assistant':
+            return model.name.toLowerCase().includes('gpt') ||
+              model.name.toLowerCase().includes('claude') ||
+              model.name.toLowerCase().includes('llama');
+          case 'analyzer':
+            return model.name.toLowerCase().includes('claude') ||
+              model.name.toLowerCase().includes('gpt-4');
+          case 'orchestrator':
+            return model.name.toLowerCase().includes('gpt-4') ||
+              model.name.toLowerCase().includes('claude');
+          default:
+            return true;
+        }
+      }
+
+      return true;
+    });
   };
 
   // Configuration management
@@ -115,7 +211,7 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
       [agentId]: {
         agentId,
         modelId: agent.modelId || '',
-        apiType: agent.apiType || 'ollama',
+        apiType: agent.apiType,
         isActive: agent.isActive ?? true,
         personaId: agent.personaId || '',
         lastUpdated: new Date()
@@ -171,18 +267,18 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
       // Update backend via API
       const backendUpdates = {
         isActive: config.isActive,
-        personaId: config.personaId,
-        configuration: {
-          modelId: config.modelId,
-          apiType: config.apiType
-        }
-        
+
+        modelId: config.modelId,
+        apiType: config.apiType,
+        personaId: config.personaId
+
+
       };
 
       const response = await uaipAPI.client.agents.update(agentId, backendUpdates);
-      
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to save agent configuration');
+
+      if (!response) {
+        throw new Error('Failed to save agent configuration');
       }
 
       // Clear temp config and editing state
@@ -221,28 +317,37 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
             <p className="text-sm text-slate-600 dark:text-slate-400">Configure model associations and agent parameters</p>
           </div>
         </div>
-        
+
         <div className="flex items-center space-x-3">
           <button
             onClick={loadModels}
-            disabled={modelsLoading}
+            disabled={effectiveLoading}
             className="flex items-center space-x-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg transition-colors disabled:opacity-50"
           >
-            <RefreshCw className={`w-4 h-4 ${modelsLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${effectiveLoading ? 'animate-spin' : ''}`} />
             <span>Refresh Models</span>
           </button>
-          
+
           <div className="flex items-center space-x-2 px-3 py-2 bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 rounded-full shadow-inner">
             <div className="w-2 h-2 bg-gradient-to-r from-green-500 to-blue-500 rounded-full"></div>
             <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-              {availableModels.length} Models
+              {effectiveModels.length} Models
             </span>
           </div>
+
+          {modelState?.providers && (
+            <div className="flex items-center space-x-2 px-3 py-2 bg-gradient-to-r from-purple-100 to-indigo-200 dark:from-purple-800 dark:to-indigo-700 rounded-full shadow-inner">
+              <div className="w-2 h-2 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full"></div>
+              <span className="text-sm font-semibold text-purple-700 dark:text-purple-300">
+                {modelState.providers.filter(p => p.isActive).length}/{modelState.providers.length} Providers
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Models Error */}
-      {modelsError && (
+      {effectiveError && (
         <div className="flex items-center space-x-3 p-4 bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 border border-red-200 dark:border-red-800 rounded-xl">
           <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
           <div className="flex-1">
@@ -250,7 +355,7 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
               Model Loading Error
             </span>
             <span className="text-xs text-red-600 dark:text-red-400 block">
-              {modelsError}
+              {effectiveError}
             </span>
           </div>
         </div>
@@ -271,32 +376,31 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
             const isEditing = editingAgent === agent.id;
             const config = tempConfigs[agent.id];
             const isSaving = savingConfigs.has(agent.id);
-            
+
             const currentModelId = isEditing ? config?.modelId : agent.modelId;
             const currentApiType = isEditing ? config?.apiType : agent.apiType;
             const currentIsActive = isEditing ? config?.isActive : agent.isActive;
-            
+
             const modelInfo = getModelInfo(currentModelId || '');
             const serverName = getServerName(modelInfo);
             const ServiceIcon = getServerIcon(currentApiType || 'ollama');
-            
+
             const hasValidModel = !!modelInfo;
             const hasPersona = !!(isEditing ? config?.personaId : agent.personaId);
             const isFullyConfigured = hasValidModel && hasPersona;
             const modelName = modelInfo?.name || currentModelId || 'No model selected';
 
             return (
-              <div 
+              <div
                 key={agent.id}
-                className={`group relative p-6 bg-gradient-to-r from-white via-white to-slate-50 dark:from-slate-800 dark:via-slate-800 dark:to-slate-700 border-2 rounded-2xl transition-all duration-300 ${
-                  isEditing 
-                    ? 'border-blue-500 shadow-xl shadow-blue-500/20' 
+                className={`group relative p-6 bg-gradient-to-r from-white via-white to-slate-50 dark:from-slate-800 dark:via-slate-800 dark:to-slate-700 border-2 rounded-2xl transition-all duration-300 ${isEditing
+                    ? 'border-blue-500 shadow-xl shadow-blue-500/20'
                     : isFullyConfigured
                       ? 'border-green-200 dark:border-green-800 hover:border-green-300 dark:hover:border-green-700'
                       : hasValidModel || hasPersona
                         ? 'border-orange-200 dark:border-orange-800 hover:border-orange-300 dark:hover:border-orange-700'
                         : 'border-red-200 dark:border-red-800 hover:border-red-300 dark:hover:border-red-700'
-                }`}
+                  }`}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-start space-x-4 flex-1">
@@ -305,9 +409,8 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
                       <div className="w-14 h-14 bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/25">
                         <Bot className="w-7 h-7 text-white" />
                       </div>
-                      <div className={`absolute -bottom-1 -right-1 w-5 h-5 border-2 border-white dark:border-slate-800 rounded-full ${
-                        currentIsActive ? 'bg-green-500' : 'bg-gray-400'
-                      }`}></div>
+                      <div className={`absolute -bottom-1 -right-1 w-5 h-5 border-2 border-white dark:border-slate-800 rounded-full ${currentIsActive ? 'bg-green-500' : 'bg-gray-400'
+                        }`}></div>
                     </div>
 
                     {/* Agent Info */}
@@ -317,21 +420,21 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
                         <span className="inline-flex items-center px-2 py-1 bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-full font-medium border border-blue-200 dark:border-blue-800">
                           {agent.role}
                         </span>
-                                                 {!hasValidModel && (
-                           <span className="inline-flex items-center px-2 py-1 bg-gradient-to-r from-red-100 to-pink-100 dark:from-red-900/30 dark:to-pink-900/30 text-red-700 dark:text-red-300 text-xs rounded-full font-medium border border-red-200 dark:border-red-800">
-                             No Model
-                           </span>
-                         )}
-                         {!agent.personaId && (
-                           <span className="inline-flex items-center px-2 py-1 bg-gradient-to-r from-orange-100 to-yellow-100 dark:from-orange-900/30 dark:to-yellow-900/30 text-orange-700 dark:text-orange-300 text-xs rounded-full font-medium border border-orange-200 dark:border-orange-800">
-                             No Persona
-                           </span>
-                         )}
-                         {agent.personaId && (
-                           <span className="inline-flex items-center px-2 py-1 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 text-purple-700 dark:text-purple-300 text-xs rounded-full font-medium border border-purple-200 dark:border-purple-800">
-                             Has Persona
-                           </span>
-                         )}
+                        {!hasValidModel && (
+                          <span className="inline-flex items-center px-2 py-1 bg-gradient-to-r from-red-100 to-pink-100 dark:from-red-900/30 dark:to-pink-900/30 text-red-700 dark:text-red-300 text-xs rounded-full font-medium border border-red-200 dark:border-red-800">
+                            No Model
+                          </span>
+                        )}
+                        {!agent.personaId && (
+                          <span className="inline-flex items-center px-2 py-1 bg-gradient-to-r from-orange-100 to-yellow-100 dark:from-orange-900/30 dark:to-yellow-900/30 text-orange-700 dark:text-orange-300 text-xs rounded-full font-medium border border-orange-200 dark:border-orange-800">
+                            No Persona
+                          </span>
+                        )}
+                        {agent.personaId && (
+                          <span className="inline-flex items-center px-2 py-1 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 text-purple-700 dark:text-purple-300 text-xs rounded-full font-medium border border-purple-200 dark:border-purple-800">
+                            Has Persona
+                          </span>
+                        )}
                       </div>
 
                       {/* Model Configuration */}
@@ -342,21 +445,88 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                               Language Model
                             </label>
+
+                            {/* Show recommended models for this agent role */}
+                            {agent.role && (
+                              <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                                <div className="flex items-center space-x-2 mb-2">
+                                  <Cpu className="w-4 h-4 text-blue-600" />
+                                  <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                                    Recommended for {agent.role}
+                                  </span>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  {getAgentRecommendedModels(agent.role).slice(0, 3).map((model) => (
+                                    <button
+                                      key={model.id}
+                                      type="button"
+                                      onClick={() => updateTempConfig(agent.id, {
+                                        modelId: model.id,
+                                        apiType: model.apiType
+                                      })}
+                                      className={`px-3 py-1 text-xs rounded-full border transition-colors ${config?.modelId === model.id
+                                          ? 'bg-blue-600 text-white border-blue-600'
+                                          : 'bg-white dark:bg-slate-800 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900/30'
+                                        }`}
+                                    >
+                                      {model.name}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
                             <select
                               value={config?.modelId || ''}
-                              onChange={(e) => updateTempConfig(agent.id, { 
+                              onChange={(e) => updateTempConfig(agent.id, {
                                 modelId: e.target.value,
-                                apiType: availableModels.find(m => m.id === e.target.value)?.apiType as 'ollama' | 'llmstudio' || 'ollama'
+                                apiType: effectiveModels.find(m => m.id === e.target.value)?.apiType
                               })}
                               className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             >
                               <option value="">Select a model...</option>
-                              {availableModels.map((model) => (
-                                <option key={model.id} value={model.id}>
-                                  {model.name || model.id} ({model.apiType})
-                                </option>
+
+                              {/* Group models by provider */}
+                              {Object.entries(getModelsByProvider()).map(([providerKey, models]) => (
+                                <optgroup key={providerKey} label={`${providerKey.toUpperCase()} Models`}>
+                                  {models.map((model) => (
+                                    <option key={model.id} value={model.id}>
+                                      {model.name || model.id} {!model.isAvailable && '(Unavailable)'}
+                                    </option>
+                                  ))}
+                                </optgroup>
                               ))}
                             </select>
+
+                            {/* Show provider info for selected model */}
+                            {config?.modelId && (
+                              <div className="mt-2 p-2 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                                <div className="text-xs text-slate-600 dark:text-slate-400">
+                                  {(() => {
+                                    const modelInfo = getModelInfo(config.modelId);
+                                    const provider = modelState?.providers.find(p =>
+                                      p.type === modelInfo?.apiType || p.name === modelInfo?.provider
+                                    );
+
+                                    if (provider) {
+                                      return (
+                                        <div className="flex items-center justify-between">
+                                          <span>Provider: {provider.name}</span>
+                                          <span className={`px-2 py-1 rounded-full text-xs ${provider.isActive && provider.status === 'active'
+                                              ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                                              : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                                            }`}>
+                                            {provider.isActive ? 'Active' : 'Inactive'}
+                                          </span>
+                                        </div>
+                                      );
+                                    }
+
+                                    return modelInfo ? `Source: ${getServerName(modelInfo)}` : 'Model information not available';
+                                  })()}
+                                </div>
+                              </div>
+                            )}
                           </div>
 
                           {/* Persona Selection */}
@@ -459,11 +629,10 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
                           {/* Agent Status */}
                           <div className="flex items-center space-x-2">
                             <span className="text-sm text-slate-600 dark:text-slate-400">Status:</span>
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                              currentIsActive 
-                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' 
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${currentIsActive
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
                                 : 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300'
-                            }`}>
+                              }`}>
                               {currentIsActive ? 'Active' : 'Inactive'}
                             </span>
                           </div>

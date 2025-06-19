@@ -97,6 +97,7 @@ router.get('/ready', async (req: Request, res: Response) => {
       error: { code: 'NOT_READY', message: 'Service not ready' },
       meta: { timestamp: new Date() }
     });
+      return;
   }
 });
 

@@ -1,7 +1,8 @@
 import { Repository } from 'typeorm';
 import { BaseRepository } from '../base/BaseRepository.js';
-import { LLMProvider, LLMProviderType, LLMProviderStatus } from '../../entities/llmProvider.entity.js';
+import { LLMProvider  } from '../../entities/llmProvider.entity.js';
 import { logger } from '@uaip/utils';
+import { LLMProviderType, LLMProviderStatus } from '@uaip/types';
 
 export class LLMProviderRepository extends BaseRepository<LLMProvider> {
   constructor(typeormService?: any) {
@@ -16,7 +17,7 @@ export class LLMProviderRepository extends BaseRepository<LLMProvider> {
       return await this.repository.find({
         where: { 
           isActive: true,
-          status: 'active'
+          status: LLMProviderStatus.ACTIVE
         },
         order: { 
           priority: 'ASC',

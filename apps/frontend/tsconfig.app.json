@@ -13,6 +13,7 @@
     "moduleDetection": "force",
     "noEmit": true,
     "jsx": "react-jsx",
+    "jsxImportSource": "react",
 
     /* Linting */
     "strict": false,
@@ -20,17 +21,20 @@
     "noUnusedParameters": false,
     "noImplicitAny": false,
     "noFallthroughCasesInSwitch": false,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
 
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@council/shared-types": ["../../packages/shared-types/src"],
-      "@council/shared-types/*": ["../../packages/shared-types/src/*"],
-      "@council/shared-utils": ["../../packages/shared-utils/src"],
-      "@council/shared-utils/*": ["../../packages/shared-utils/src/*"]
-    }
+      "@uaip/types": ["../../packages/shared-types/src"],
+      "@uaip/types/*": ["../../packages/shared-types/src/*"],
+      "@uaip/utils": ["../../packages/shared-utils/src"],
+      "@uaip/utils/*": ["../../packages/shared-utils/src/*"]
+    },
+    "typeRoots": ["./node_modules/@types", "../../node_modules/@types"]
   },
-  "include": ["src"],
+  "include": ["src", "../../node_modules/@types"],
   "references": [
     { "path": "../../packages/shared-types" },
     { "path": "../../packages/shared-utils" }

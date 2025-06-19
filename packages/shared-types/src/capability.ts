@@ -123,7 +123,9 @@ export const CapabilitySearchRequestSchema = z.object({
   securityLevel: z.enum(['low', 'medium', 'high', 'critical']).optional(),
   includeDeprecated: z.boolean().default(false),
   sortBy: z.enum(['relevance', 'name', 'usage_count', 'trust_score', 'created_at']).default('relevance'),
-  sortOrder: z.enum(['asc', 'desc']).default('desc')
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
+  limit: z.number().min(1).max(100).default(20),
+  offset: z.number().min(0).default(0)
 });
 
 export type CapabilitySearchRequest = z.infer<typeof CapabilitySearchRequestSchema>;

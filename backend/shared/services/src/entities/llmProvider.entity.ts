@@ -1,9 +1,9 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, BeforeInsert, BeforeUpdate } from 'typeorm';
 import { BaseEntity } from './base.entity.js';
 import * as crypto from 'crypto';
+import { LLMProviderStatus, LLMProviderType } from '@uaip/types';
 
-export type LLMProviderType = 'ollama' | 'openai' | 'llmstudio' | 'anthropic' | 'custom';
-export type LLMProviderStatus = 'active' | 'inactive' | 'error' | 'testing';
+
 
 @Entity('llm_providers')
 @Index(['name'], { unique: true })
@@ -18,8 +18,8 @@ export class LLMProvider extends BaseEntity {
 
   @Column({
     type: 'enum',
-    enum: ['ollama', 'openai', 'llmstudio', 'anthropic', 'custom'],
-    default: 'custom'
+    enum: LLMProviderType,
+    default: LLMProviderType.CUSTOM
   })
   type!: LLMProviderType;
 
@@ -50,8 +50,8 @@ export class LLMProvider extends BaseEntity {
 
   @Column({
     type: 'enum',
-    enum: ['active', 'inactive', 'error', 'testing'],
-    default: 'active'
+    enum: LLMProviderStatus,
+    default: LLMProviderStatus.ACTIVE
   })
   status!: LLMProviderStatus;
 
@@ -93,6 +93,23 @@ export class LLMProvider extends BaseEntity {
   // Encryption key for API keys - should be set from environment
   private static readonly ENCRYPTION_KEY = process.env.LLM_PROVIDER_ENCRYPTION_KEY || 'default-key-change-in-production';
 
+  // Get properly sized encryption key for AES-256 (32 bytes)
+  private getEncryptionKey(): Buffer {
+    const key = LLMProvider.ENCRYPTION_KEY;
+    
+    // For AES-256, we need exactly 32 bytes
+    if (key.length === 32) {
+      return Buffer.from(key, 'utf8');
+    } else if (key.length > 32) {
+      // Truncate if too long
+      return Buffer.from(key.substring(0, 32), 'utf8');
+    } else {
+      // Pad with zeros if too short (not ideal, but better than crashing)
+      const paddedKey = key.padEnd(32, '0');
+      return Buffer.from(paddedKey, 'utf8');
+    }
+  }
+
   // Method to set API key (encrypts before storing)
   setApiKey(apiKey: string): void {
     if (!apiKey) {
@@ -100,10 +117,14 @@ export class LLMProvider extends BaseEntity {
       return;
     }
 
-    const cipher = crypto.createCipher('aes-256-cbc', LLMProvider.ENCRYPTION_KEY);
+    // Generate a random IV for each encryption
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv('aes-256-cbc', this.getEncryptionKey(), iv);
     let encrypted = cipher.update(apiKey, 'utf8', 'hex');
     encrypted += cipher.final('hex');
-    this.apiKeyEncrypted = encrypted;
+    
+    // Store IV + encrypted data (IV is not secret)
+    this.apiKeyEncrypted = iv.toString('hex') + ':' + encrypted;
   }
 
   // Method to get API key (decrypts from storage)
@@ -113,8 +134,18 @@ export class LLMProvider extends BaseEntity {
     }
 
     try {
-      const decipher = crypto.createDecipher('aes-256-cbc', LLMProvider.ENCRYPTION_KEY);
-      let decrypted = decipher.update(this.apiKeyEncrypted, 'hex', 'utf8');
+      // Split IV and encrypted data
+      const parts = this.apiKeyEncrypted.split(':');
+      if (parts.length !== 2) {
+        console.error('Invalid encrypted API key format');
+        return undefined;
+      }
+
+      const iv = Buffer.from(parts[0], 'hex');
+      const encryptedData = parts[1];
+      
+      const decipher = crypto.createDecipheriv('aes-256-cbc', this.getEncryptionKey(), iv);
+      let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
       decrypted += decipher.final('utf8');
       return decrypted;
     } catch (error) {
@@ -169,9 +200,9 @@ export class LLMProvider extends BaseEntity {
     
     // Update status based on health check
     if (result.status === 'unhealthy') {
-      this.status = 'error';
-    } else if (this.status === 'error' && result.status === 'healthy') {
-      this.status = 'active';
+      this.status = LLMProviderStatus.INACTIVE;
+    } else if (this.status === LLMProviderStatus.INACTIVE && result.status === 'healthy') {
+      this.status = LLMProviderStatus.ACTIVE;
     }
   }
 

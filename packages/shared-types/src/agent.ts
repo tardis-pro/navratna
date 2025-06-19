@@ -60,7 +60,7 @@ export const AgentSchema = BaseEntitySchema.extend({
   }).optional(),
   // Model configuration fields (direct agent fields, not in configuration)
   modelId: z.string().optional(),
-  apiType: z.enum(['ollama', 'llmstudio']).optional(),
+  apiType: z.enum(['ollama', 'llmstudio', 'openai', 'anthropic', 'custom']).optional(),
   temperature: z.number().min(0).max(2).optional(),
   maxTokens: z.number().positive().optional(),
   systemPrompt: z.string().optional()
@@ -99,6 +99,9 @@ export const AgentCreateRequestSchema = z.object({
     learningEnabled: z.boolean().optional(),
     collaborationMode: z.enum(['independent', 'collaborative', 'supervised']).optional()
   }).optional(),
+  // Model configuration fields (direct agent fields)
+  modelId: z.string().optional(),
+  apiType: z.enum(['ollama', 'llmstudio', 'openai', 'anthropic', 'custom']).optional(),
   securityLevel: z.enum(['low', 'medium', 'high', 'critical']).optional().default('medium'),
   isActive: z.boolean().optional().default(true)
 }).refine(
@@ -132,7 +135,7 @@ export const AgentUpdateSchema = z.object({
   lastActiveAt: z.date().optional(),
   // Model configuration fields (direct agent fields, not in configuration)
   modelId: z.string().optional(),
-  apiType: z.enum(['ollama', 'llmstudio']).optional(),
+  apiType: z.enum(['ollama', 'llmstudio', 'openai', 'anthropic', 'custom']).optional(),
   temperature: z.number().min(0).max(2).optional(),
   maxTokens: z.number().positive().optional(),
   systemPrompt: z.string().optional()

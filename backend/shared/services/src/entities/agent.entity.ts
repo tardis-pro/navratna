@@ -133,8 +133,8 @@ export class Agent extends BaseEntity {
   @Column({ name: 'model_id', nullable: true })
   modelId?: string;
 
-  @Column({ name: 'api_type', type: 'enum', enum: ['ollama', 'llmstudio'], nullable: true })
-  apiType?: 'ollama' | 'llmstudio';
+  @Column({ name: 'api_type', type: 'enum', enum: ['ollama', 'llmstudio', 'openai', 'anthropic', 'custom'], nullable: true })
+  apiType?: 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom';
 
   @Column({ type: 'decimal', precision: 3, scale: 2, nullable: true })
   temperature?: number;

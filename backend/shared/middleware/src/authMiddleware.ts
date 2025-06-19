@@ -90,7 +90,8 @@ export const authMiddleware = async (
         path: req.path,
         method: req.method,
         hasAuthHeader: !!authHeader,
-        authHeaderPrefix: authHeader?.substring(0, 10) + '...'
+        authHeaderPrefix: authHeader?.substring(0, 10) + '...',
+        allHeaders: Object.keys(req.headers)
       });
       throw new ApiError(401, 'Authorization token required', 'MISSING_TOKEN');
     }

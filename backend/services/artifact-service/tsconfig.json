@@ -11,8 +11,8 @@
     "sourceMap": true
   },
   "references": [
-    { "path": "../../shared/types" },
-    { "path": "../../shared/utils" },
+    { "path": "../../../packages/shared-types" },
+    { "path": "../../../packages/shared-utils" },
     { "path": "../../shared/config" },
     { "path": "../../shared/services" }
   ],

@@ -426,7 +426,7 @@ export class AuditService {
     // Medium-risk event types
     const mediumRiskEvents = [
       AuditEventType.APPROVAL_REQUESTED,
-      AuditEventType.CONFIGURATION_CHANGE,
+      AuditEventType.CONFIGURATION_CHANGED,
       AuditEventType.DATA_ACCESS
     ];
 

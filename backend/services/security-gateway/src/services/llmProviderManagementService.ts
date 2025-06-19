@@ -1,10 +1,9 @@
 import { 
   LLMProviderRepository, 
   LLMProvider, 
-  LLMProviderType, 
-  LLMProviderStatus,
   DatabaseService 
 } from '@uaip/shared-services';
+import { LLMProviderType, LLMProviderStatus } from '@uaip/types';
 import { logger } from '@uaip/utils';
 
 export interface CreateLLMProviderRequest {

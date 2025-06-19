@@ -11,9 +11,30 @@ import { Users, Plus, Trash2, Bot, Cpu, AlertCircle, CheckCircle2, User, Server,
 // import { getModels } from '@/services/llm';
 
 const getModels = async () => {
-  // const models = await uaipAPI.getModels();
-  const models = [];
-  return models;
+  try {
+    console.log('[AgentSelector] Loading models...');
+    console.log('[AgentSelector] API client info:', uaipAPI.getEnvironmentInfo());
+    
+    const response = await uaipAPI.llm.getModels();
+    console.log('[AgentSelector] Models response:', response);
+    
+    // The response is already the models array from the backend
+    const models = Array.isArray(response) ? response : (response.data || []);
+    console.log('[AgentSelector] Models loaded:', models);
+    
+    return models.map(model => ({
+      id: model.id,
+      name: model.name,
+      description: model.description,
+      source: model.source,
+      apiEndpoint: model.apiEndpoint,
+      apiType: model.apiType,
+      provider: model.provider
+    }));
+  } catch (error) {
+    console.error('Failed to fetch models:', error);
+    return [];
+  }
 };
 
 // Helper function to create a short server identifier
@@ -76,7 +97,6 @@ const groupModelsByServer = (models: ModelOption[]) => {
 // Helper function to get server display name
 const getServerDisplayName = (serverKey: string, source?: string): string => {
   const [apiType, baseUrl] = serverKey.split(':');
-  
   if (!apiType) return 'Unknown Service';
   
   const serviceName = apiType === 'ollama' ? 'Ollama' : 'LLM Studio';
@@ -480,13 +500,31 @@ export const AgentSelector: React.FC = () => {
         return roleMapping[normalizedRole] || 'assistant';
       };
 
-      // Try the simplest approach: just provide personaId
+      // Get selected model info for API type detection
+      const selectedModel = availableModels?.find(m => m.id === selectedModelId);
+      
+      // Try the simplest approach: just provide personaId and modelId
       const apiAgentData = {
         name: agentName.trim(),
         role: mapPersonaRoleToBackendRole(persona.role || 'assistant'),
         personaId: persona.id, // Use persona ID if available, fallback to default
         description: persona.description || persona.background || `AI agent with ${persona.name} persona`,
         capabilities: persona.expertise && persona.expertise.length > 0 ? persona.expertise : ['general_assistance'],
+        
+        // Model configuration
+        modelId: selectedModelId,
+        apiType: selectedModel?.apiType || 'ollama',
+        
+        configuration: {
+          model: selectedModelId,
+          temperature: 0.7,
+          analysisDepth: 'intermediate' as const,
+          contextWindowSize: 4096,
+          decisionThreshold: 0.7,
+          learningEnabled: true,
+          collaborationMode: 'collaborative' as const
+        },
+        
         intelligenceConfig: {
           analysisDepth: 'intermediate' as const,
           contextWindowSize: 4096,
@@ -590,7 +628,7 @@ export const AgentSelector: React.FC = () => {
   const groupedModels = groupModelsByServer(availableModels);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 space-y-6">
       {/* Enhanced Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
@@ -598,7 +636,6 @@ export const AgentSelector: React.FC = () => {
             <Users className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white">AI Agents</h2>
             <p className="text-sm text-slate-600 dark:text-slate-400">Manage discussion participants</p>
           </div>
         </div>
@@ -613,7 +650,9 @@ export const AgentSelector: React.FC = () => {
       <div className="space-y-4">
         {agentCount > 0 ? (
           Object.values(agents).map((agent) => {
+
             const modelInfo = availableModels?.find(m => m && m.id === agent.modelId);
+            console.log(JSON.stringify(modelInfo));
             const serverName = modelInfo?.source ? getServerIdentifier(modelInfo.source) : 'Unknown';
             const ServiceIcon = modelInfo ? getServerIcon(modelInfo.apiType) : Cpu;
             
@@ -655,9 +694,9 @@ export const AgentSelector: React.FC = () => {
                           <span className="inline-flex items-center px-3 py-1 bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 text-blue-700 dark:text-blue-300 text-sm rounded-full font-semibold border border-blue-200 dark:border-blue-800">
                             {agent.role}
                           </span>
-                          {agent.persona && (
+                          {agent.personaId && (
                             <span className="inline-flex items-center px-2 py-1 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 text-purple-700 dark:text-purple-300 text-xs rounded-full font-medium border border-purple-200 dark:border-purple-800">
-                              {agent.persona.name}
+                              {agent.persona?.name}
                             </span>
                           )}
                         </div>
@@ -688,38 +727,72 @@ export const AgentSelector: React.FC = () => {
           })
         ) : (
           <div className="text-center py-16">
-            <div className="w-20 h-20 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-inner">
-              <User className="w-10 h-10 text-slate-400" />
+            <div className="relative w-24 h-24 bg-gradient-to-br from-blue-100 via-purple-50 to-indigo-100 dark:from-blue-900/20 dark:via-purple-900/10 dark:to-indigo-900/20 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg border-2 border-dashed border-blue-200 dark:border-blue-700/50 animate-pulse">
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-3xl animate-pulse"></div>
+              <div className="relative flex items-center justify-center">
+                <Bot className="w-8 h-8 text-blue-500 dark:text-blue-400 animate-bounce" style={{ animationDelay: '0s' }} />
+                <User className="w-6 h-6 text-purple-500 dark:text-purple-400 ml-1 animate-bounce" style={{ animationDelay: '0.2s' }} />
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-gradient-to-r from-emerald-400 to-green-500 rounded-full animate-ping"></div>
+              </div>
             </div>
-            <p className="text-slate-600 dark:text-slate-300 font-semibold text-lg">No agents added yet</p>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">Create your first AI agent to begin collaborative discussions</p>
+            <div className="space-y-3">
+              <h3 className="text-slate-700 dark:text-slate-200 font-bold text-xl">No agents added yet</h3>
+              <p className="text-slate-500 dark:text-slate-400 leading-relaxed max-w-sm mx-auto">
+                Create your first AI agent to begin collaborative discussions and unlock the power of multi-agent conversations
+              </p>
+              <div className="flex items-center justify-center gap-2 mt-4">
+                <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" style={{ animationDelay: '0.5s' }}></div>
+                <div className="w-2 h-2 bg-indigo-400 rounded-full animate-pulse" style={{ animationDelay: '1s' }}></div>
+              </div>
+            </div>
           </div>
         )}
       </div>
       
       {/* Enhanced add new agent button */}
       {agentCount < maxAgents && (
-        <div className="border-t border-slate-200 dark:border-slate-700 pt-8">
-          <div className="text-center space-y-4">
-            <h3 className="font-bold text-xl text-slate-900 dark:text-white">Add New Agent</h3>
-            <p className="text-slate-600 dark:text-slate-400 mb-6">Create an AI agent to join the discussion</p>
-            <button
-              onClick={handleOpenModal}
-              disabled={modelsLoading}
-              className="px-8 py-4 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 hover:from-blue-700 hover:via-purple-700 hover:to-indigo-700 text-white rounded-xl font-semibold text-lg transition-all duration-300 flex items-center space-x-3 mx-auto shadow-xl shadow-blue-500/30 hover:shadow-blue-500/50 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-            >
-              {modelsLoading ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  <span>Loading Models...</span>
-                </>
-              ) : (
-                <>
-                  <Plus className="w-5 h-5" />
-                  <span>Create Agent</span>
-                </>
-              )}
-            </button>
+        <div className="border-t border-slate-200/60 dark:border-slate-700/60 pt-8">
+          <div className="text-center space-y-6">
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-indigo-600/20 rounded-2xl blur-xl"></div>
+              <div className="relative bg-gradient-to-br from-white via-blue-50/30 to-purple-50/30 dark:from-slate-800 dark:via-blue-900/10 dark:to-purple-900/10 rounded-2xl p-6 border border-blue-200/50 dark:border-blue-700/30">
+                <div className="flex items-center justify-center mb-4">
+                  <div className="relative">
+                    <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg animate-pulse">
+                      <Plus className="w-8 h-8 text-white" />
+                    </div>
+                    <div className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-r from-emerald-400 to-green-500 rounded-full flex items-center justify-center animate-bounce">
+                      <Plus className="w-3 h-3 text-white" />
+                    </div>
+                  </div>
+                </div>
+                <h3 className="font-bold text-xl text-slate-900 dark:text-white mb-2">Add New Agent</h3>
+                <p className="text-slate-600 dark:text-slate-400 mb-6">Create an AI agent to join the discussion</p>
+                
+                <button
+                  onClick={handleOpenModal}
+                  disabled={modelsLoading}
+                  className="group relative px-8 py-4 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 hover:from-blue-700 hover:via-purple-700 hover:to-indigo-700 text-white rounded-xl font-semibold text-lg transition-all duration-300 flex items-center space-x-3 mx-auto shadow-xl shadow-blue-500/30 hover:shadow-blue-500/50 hover:scale-[1.05] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 overflow-hidden"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+                  {modelsLoading ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Loading Models...</span>
+                    </>
+                  ) : (
+                    <>
+                      <div className="relative">
+                        <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
+                      </div>
+                      <span>Create Agent</span>
+                      <div className="w-2 h-2 bg-white/60 rounded-full animate-pulse"></div>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

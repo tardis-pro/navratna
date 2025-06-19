@@ -469,7 +469,7 @@ export class DatabaseSeeder {
           auditLevel: 'comprehensive' as any
         } as AgentSecurityContext,
         isActive: true,
-        createdBy: users[1].id,
+        createdBy: users[0].id,
         lastActiveAt: new Date(),
         capabilities: ['data-analysis', 'visualization', 'statistical-modeling', 'reporting'],
         capabilityScores: {
@@ -527,7 +527,7 @@ export class DatabaseSeeder {
           auditLevel: 'standard' as any
         } as AgentSecurityContext,
         isActive: true,
-        createdBy: users[1].id,
+        createdBy: users[0].id,
         lastActiveAt: new Date(),
         capabilities: ['workflow-management', 'task-coordination', 'resource-allocation', 'monitoring'],
         capabilityScores: {
@@ -586,7 +586,7 @@ export class DatabaseSeeder {
           auditLevel: 'standard' as any
         } as AgentSecurityContext,
         isActive: true,
-        createdBy: users[3].id,
+        createdBy: users[0].id,
         lastActiveAt: new Date(),
         capabilities: ['code-analysis', 'code-generation', 'debugging', 'code-review', 'documentation'],
         capabilityScores: {
@@ -647,7 +647,7 @@ export class DatabaseSeeder {
         updatedAt: new Date(),
         executions: [],
         usageRecords: [],
-        category: 'data_analyzer' as any,
+        category: ToolCategory.ANALYSIS,
         requiresApproval: false,
         author: users[0].id,
         successfulExecutions: 1250,
@@ -686,7 +686,8 @@ export class DatabaseSeeder {
           {
             name: 'Data Analysis Example',
             description: 'Analyze sales data and generate insights',
-            parameters: { data_source: 'sales_data.csv', analysis_type: 'descriptive' }
+            input: { data_source: 'sales_data.csv', analysis_type: 'descriptive' },
+            expectedOutput: { insights: 'Generated insights from sales data', charts: ['revenue_chart.png'] }
           }
         ]
       },
@@ -694,7 +695,7 @@ export class DatabaseSeeder {
         name: 'code_generator',
         description: 'Intelligent code generation tool for multiple programming languages',
         version: '1.8.3',
-        category: 'code_generator' as any,
+        category: ToolCategory.ANALYSIS,
         maintenanceStatus: 'active' as any,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -738,7 +739,8 @@ export class DatabaseSeeder {
           {
             name: 'Code Generation Example',
             description: 'Generate code for a simple web application',
-            parameters: { language: 'typescript', requirements: 'Create a simple web application' }
+            input: { language: 'typescript', requirements: 'Create a simple web application' },
+            expectedOutput: { code: 'Generated TypeScript code', tests: 'Generated test cases', documentation: 'API documentation' }
           }
         ]
       },
@@ -746,7 +748,7 @@ export class DatabaseSeeder {
         name: 'workflow_orchestrator',
         description: 'Tool for managing and executing complex workflows',
         version: '3.2.1',
-          category: 'workflow_orchestrator' as any,
+        category: ToolCategory.CODE_EXECUTION,
         maintenanceStatus: 'active' as any,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -790,7 +792,8 @@ export class DatabaseSeeder {
           {
             name: 'Workflow Orchestration Example',
             description: 'Orchestrate a complex workflow',
-            parameters: { workflow_definition: 'workflow_definition.json' }
+            input: { workflow_definition: 'workflow_definition.json' },
+            expectedOutput: { execution_id: 'wf-12345', status: 'completed', results: 'Workflow execution results' }
           }
         ]
       },
@@ -2056,7 +2059,7 @@ export class DatabaseSeeder {
         }
       },
       {
-        eventType: AuditEventType.OPERATION_START,
+        eventType: AuditEventType.OPERATION_STARTED,
         userId: users[1].id,
         resourceId: operations[0].id.toString(),
         resourceType: 'operation',
@@ -2076,7 +2079,7 @@ export class DatabaseSeeder {
         }
       },
       {
-        eventType: AuditEventType.OPERATION_COMPLETE,
+        eventType: AuditEventType.OPERATION_COMPLETED,
         userId: users[1].id,
         resourceId: operations[0].id.toString(),
         resourceType: 'operation',
@@ -2096,7 +2099,7 @@ export class DatabaseSeeder {
         }
       },
       {
-        eventType: AuditEventType.PERMISSION_GRANTED,
+        eventType: AuditEventType.APPROVAL_GRANTED,
         userId: users[0].id,
         resourceId: operations[0].id.toString(),
         resourceType: 'operation',

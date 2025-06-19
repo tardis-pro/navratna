@@ -1,66 +1,88 @@
 // Tool System Type Definitions for Council of Nycea
 // This file defines the comprehensive type system for agent tooling capabilities
 
-export type ToolCategory = 
-  | 'api' | 'computation' | 'file-system' | 'database' 
-  | 'web-search' | 'code-execution' | 'communication' 
-  | 'knowledge-graph' | 'deployment' | 'monitoring'
-  | 'analysis' | 'generation';
-
-export type ToolExecutionStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'approval-required';
-
-export type SecurityLevel = 'low' | 'medium' | 'high' | 'critical';
-
-// JSON Schema interface for tool parameters and return types
-export interface JSONSchema {
-  type: string;
-  properties?: Record<string, any>;
-  required?: string[];
-  description?: string;
-  examples?: any[];
-  additionalProperties?: boolean;
+export enum ToolCategory {
+  API = 'api',
+  COMPUTATION = 'computation',
+  FILE_SYSTEM = 'file-system',
+  DATABASE = 'database',
+  WEB_SEARCH = 'web-search',
+  CODE_EXECUTION = 'code-execution',
+  COMMUNICATION = 'communication',
+  KNOWLEDGE_GRAPH = 'knowledge-graph',
+  DEPLOYMENT = 'deployment',
+  MONITORING = 'monitoring',
+  ANALYSIS = 'analysis',
+  GENERATION = 'generation'
 }
 
-// Tool example for documentation and testing
+export enum ToolExecutionStatus {
+  PENDING = 'pending',
+  RUNNING = 'running',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+  CANCELLED = 'cancelled',
+  APPROVAL_REQUIRED = 'approval-required'
+}
+
+// SecurityLevel is imported from security.ts to avoid duplication
+import type { SecurityLevel } from './security.js';
+
+// Simple JSON Schema definition (subset of JSON Schema 7)
+export interface JSONSchema {
+  type?: string | string[];
+  properties?: Record<string, JSONSchema>;
+  items?: JSONSchema;
+  required?: string[];
+  additionalProperties?: boolean;
+  pattern?: string;
+  minimum?: number;
+  maximum?: number;
+  minLength?: number;
+  maxLength?: number;
+  enum?: any[];
+  default?: any;
+  description?: string;
+}
+
 export interface ToolExample {
   name: string;
   description: string;
-  parameters: Record<string, any>;
-  expectedResult?: any;
+  input: Record<string, any>;
+  expectedOutput: any;
   notes?: string;
 }
 
-// Tool execution error details
 export interface ToolExecutionError {
-  code: string;
+  type: 'validation' | 'execution' | 'timeout' | 'permission' | 'quota' | 'dependency' | 'unknown';
   message: string;
-  details?: any;
-  stack?: string;
-  retryable: boolean;
+  details?: Record<string, any>;
+  recoverable: boolean;
+  suggestedAction?: string;
 }
 
-// Tool permission set for agents
 export interface ToolPermissionSet {
-  allowedTools: string[];
-  deniedTools: string[];
-  requiresApproval: string[];
-  budgetLimits: Record<string, number>;
+  allowedTools: string[]; // Tool IDs this agent can use
+  deniedTools: string[]; // Explicitly denied tools
+  maxCostPerHour?: number;
+  maxExecutionsPerHour?: number;
+  requireApprovalFor: SecurityLevel[]; // Security levels that require approval
+  canApproveTools: boolean; // Can this agent approve tool usage for others
 }
 
-// Tool preferences for agents
 export interface ToolPreferences {
-  preferredTools: string[];
-  toolSettings: Record<string, any>;
-  timeoutOverrides: Record<string, number>;
+  preferredTools: Record<ToolCategory, string[]>; // Preferred tool IDs per category
+  fallbackTools: Record<string, string[]>; // Fallback tools if primary fails
+  timeoutPreference: number; // Preferred timeout in milliseconds
+  costLimit?: number; // Maximum cost willing to spend per operation
 }
 
-// Tool budget tracking
 export interface ToolBudget {
-  dailyLimit: number;
-  monthlyLimit: number;
-  currentDailyUsage: number;
-  currentMonthlyUsage: number;
-  costPerExecution: Record<string, number>;
+  dailyLimit?: number;
+  hourlyLimit?: number;
+  currentDailySpent: number;
+  currentHourlySpent: number;
+  resetTime: Date;
 }
 
 // Tool usage record for analytics
@@ -79,7 +101,6 @@ export interface ToolUsageRecord {
   metadata?: Record<string, any>;
 }
 
-// Tool definition interface
 export interface ToolDefinition {
   id: string;
   name: string;
@@ -89,15 +110,19 @@ export interface ToolDefinition {
   returnType: JSONSchema;
   examples: ToolExample[];
   securityLevel: SecurityLevel;
-  costEstimate?: number;
-  executionTimeEstimate?: number;
+  costEstimate?: number; // Cost in arbitrary units (e.g., API calls, compute time)
+  executionTimeEstimate?: number; // Estimated execution time in milliseconds
   requiresApproval: boolean;
-  dependencies: string[];
+  dependencies: string[]; // IDs of other tools this depends on
   version: string;
   author: string;
   tags: string[];
   isEnabled: boolean;
-  rateLimits?: Record<string, number>;
+  rateLimits?: {
+    maxCallsPerMinute?: number;
+    maxCallsPerHour?: number;
+    maxConcurrentExecutions?: number;
+  };
 }
 
 // Tool execution interface
@@ -170,7 +195,7 @@ export interface ToolExecutionEngine {
   execute: (toolCall: ToolCall, agentId: string) => Promise<ToolExecution>;
   getExecution: (executionId: string) => Promise<ToolExecution | null>;
   cancelExecution: (executionId: string) => Promise<boolean>;
-  getActiveExecutions: (agentId?: number) => Promise<ToolExecution[]>;
+  getActiveExecutions: (agentId?: string) => Promise<ToolExecution[]>;
   retryExecution: (executionId: string) => Promise<ToolExecution>;
 }
 

@@ -4,7 +4,7 @@ import {
   ArtifactGenerationRequest, 
   ArtifactType,
   ValidationResult 
-} from '../types/artifact';
+} from '@uaip/types';
 import { logger } from '@uaip/utils';
 
 export function artifactRoutes(artifactService: ArtifactService): express.Router {
@@ -17,36 +17,39 @@ export function artifactRoutes(artifactService: ArtifactService): express.Router
       
       // Validate request
       if (!request.type || !request.context) {
-        return res.status(400).json({
+        res.status(400).json({
           success: false,
           error: {
             code: 'INVALID_REQUEST',
             message: 'Missing required fields: type and context'
           }
         });
+      return;
       }
 
       // Validate artifact type
       const validTypes: ArtifactType[] = ['code', 'test', 'documentation', 'prd'];
       if (!validTypes.includes(request.type)) {
-        return res.status(400).json({
+        res.status(400).json({
           success: false,
           error: {
             code: 'INVALID_TYPE',
             message: `Invalid artifact type. Supported types: ${validTypes.join(', ')}`
           }
         });
+      return;
       }
 
       // Validate context structure
       if (!request.context.agent || !request.context.persona || !request.context.discussion) {
-        return res.status(400).json({
+        res.status(400).json({
           success: false,
           error: {
             code: 'INVALID_CONTEXT',
             message: 'Context must include agent, persona, and discussion'
           }
         });
+      return;
       }
 
       logger.info('Artifact generation request received', {
@@ -72,6 +75,7 @@ export function artifactRoutes(artifactService: ArtifactService): express.Router
           message: 'Internal server error during artifact generation'
         }
       });
+      return;
     }
   });
 
@@ -110,6 +114,7 @@ export function artifactRoutes(artifactService: ArtifactService): express.Router
           message: 'Failed to retrieve templates'
         }
       });
+      return;
     }
   });
 
@@ -120,13 +125,14 @@ export function artifactRoutes(artifactService: ArtifactService): express.Router
       const template = await artifactService.getTemplate(id);
       
       if (!template) {
-        return res.status(404).json({
+        res.status(404).json({
           success: false,
           error: {
             code: 'TEMPLATE_NOT_FOUND',
             message: `Template with id '${id}' not found`
           }
         });
+      return;
       }
 
       res.json({
@@ -143,6 +149,7 @@ export function artifactRoutes(artifactService: ArtifactService): express.Router
           message: 'Failed to retrieve template'
         }
       });
+      return;
     }
   });
 
@@ -152,13 +159,14 @@ export function artifactRoutes(artifactService: ArtifactService): express.Router
       const { content, type, language } = req.body;
       
       if (!content || !type) {
-        return res.status(400).json({
+        res.status(400).json({
           success: false,
           error: {
             code: 'INVALID_REQUEST',
             message: 'Missing required fields: content and type'
           }
         });
+      return;
       }
 
       const validation = await artifactService.validateArtifact(content, type);
@@ -177,6 +185,7 @@ export function artifactRoutes(artifactService: ArtifactService): express.Router
           message: 'Failed to validate artifact'
         }
       });
+      return;
     }
   });
 
@@ -206,6 +215,7 @@ export function artifactRoutes(artifactService: ArtifactService): express.Router
           message: 'Service health check failed'
         }
       });
+      return;
     }
   });
 
@@ -231,6 +241,7 @@ export function artifactRoutes(artifactService: ArtifactService): express.Router
           message: 'Failed to retrieve supported types'
         }
       });
+      return;
     }
   });
 

@@ -1,5 +1,5 @@
 
-import cron from 'node-cron';
+import * as cron from 'node-cron';
 import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
 import { DatabaseService } from '@uaip/shared-services';
@@ -45,8 +45,8 @@ export interface ApprovalWorkflowStatus {
 
 export class ApprovalWorkflowService {
   private config: ApprovalWorkflowConfig;
-  private reminderJob: cron.ScheduledTask | null = null;
-  private expirationJob: cron.ScheduledTask | null = null;
+  private reminderJob: ReturnType<typeof cron.schedule> | null = null;
+  private expirationJob: ReturnType<typeof cron.schedule> | null = null;
 
   constructor(
     private databaseService: DatabaseService,
@@ -362,16 +362,12 @@ export class ApprovalWorkflowService {
     // Send reminders every hour
     this.reminderJob = cron.schedule('0 * * * *', async () => {
       await this.sendReminders();
-    }, { scheduled: false });
+    });
 
     // Check for expired workflows every 30 minutes
     this.expirationJob = cron.schedule('*/30 * * * *', async () => {
       await this.expireWorkflows();
-    }, { scheduled: false });
-
-    // Start the jobs
-    this.reminderJob.start();
-    this.expirationJob.start();
+    });
 
     logger.info('Approval workflow cron jobs started');
   }

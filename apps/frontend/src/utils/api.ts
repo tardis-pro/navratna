@@ -12,46 +12,126 @@
  */
 
 import { API_ROUTES, buildAPIURL } from '@/config/apiConfig';
+import { ModelProvider } from '@/types';
 
-// Define frontend types that match backend expectations
-export enum TurnStrategy {
-  ROUND_ROBIN = 'round_robin',
-  MODERATED = 'moderated',
-  FREE_FORM = 'free_form',
-  CONTEXT_AWARE = 'context_aware',
-  PRIORITY_BASED = 'priority_based',
-  EXPERTISE_DRIVEN = 'expertise_driven'
-}
-
-export interface TurnStrategyConfig {
-  strategy: TurnStrategy;
-  config: {
-    type: 'round_robin' | 'moderated' | 'context_aware' | 'priority_based' | 'free_form' | 'expertise_driven';
-    skipInactive?: boolean;
-    maxSkips?: number;
-    moderatorId?: string;
-    requireApproval?: boolean;
-    autoAdvance?: boolean;
-    relevanceThreshold?: number;
-    expertiseWeight?: number;
-    engagementWeight?: number;
-    priorities?: Array<{
-      participantId: string;
-      priority: number;
-    }>;
-    cooldownPeriod?: number;
-    topicKeywords?: string[];
-    expertiseThreshold?: number;
-  };
-}
-
-// Re-export types
-export type {
+// Import types from shared-types package
+import type {
+  Agent,
+  AgentRole,
+  AgentCreate,
+  AgentUpdate,
+  AgentIntelligenceConfig,
+  AgentSecurityContext,
+  ConversationContext,
+  ContextAnalysis,
+  AgentAnalysisResult,
+  ExecutionPlan,
+  Operation,
+  OperationStatus,
+  OperationType,
+  OperationPriority,
+  ExecuteOperationRequest,
+  OperationStatusResponse,
+  Capability,
+  CapabilityType,
+  CapabilityStatus,
+  CapabilitySearchRequest,
+  CapabilityRecommendation,
+  Persona,
   PersonaAnalytics,
   PersonaValidation,
-  AgentCapabilityMetrics
+  PersonaRecommendation,
+  PersonaTemplate,
+  TurnStrategy,
+  TurnStrategyConfig,
+  Discussion,
+  DiscussionParticipant,
+  DiscussionMessage,
+  DiscussionSettings,
+  DiscussionState,
+  DiscussionAnalytics,
+  DiscussionSummary,
+  CreateDiscussionRequest,
+  UpdateDiscussionRequest,
+  // Audit types
+  AuditLog,
+  AuditStats,
+  AuditSearchFilters,
+  AuditExportConfig,
+  ComplianceReport,
+  UserActivitySummary,
+  AuditCleanupResult,
+  // Security types
+  RiskAssessment,
+  SecurityPolicy,
+  SecurityStats,
+  ApprovalRequirement,
+  ProviderConfig,
+  ProviderTestResult,
+  // LLM types
+  LLMModel,
+  LLMGenerationRequest,
+  LLMGenerationResponse,
+  AgentLLMRequest,
+  ContextAnalysisRequest,
+  ContextAnalysisResponse,
+  ArtifactGenerationRequest,
+  ArtifactGenerationResponse,
+  ProviderStats,
+  LLMUsage,
+  // User types
+  User,
+  CreateUserRequest,
+  UpdateUserRequest,
+  LoginRequest,
+  LoginResponse,
+  ChangePasswordRequest,
+  ResetPasswordRequest,
+  UserStats,
+  BulkUserAction,
+  UserSearchFilters,
+  ApprovalWorkflow,
+  CreateApprovalWorkflowRequest,
+  ApprovalDecision,
+  ApprovalStats,
+  HealthStatus,
+  SystemMetrics
+} from '@uaip/types';
+
+// Re-export shared types for convenience
+export type {
+  Agent,
+  AgentRole,
+  AgentCreate,
+  AgentUpdate,
+  Operation,
+  OperationStatus,
+  OperationType,
+  OperationPriority,
+  ExecuteOperationRequest,
+  OperationStatusResponse,
+  Capability,
+  CapabilityType,
+  CapabilityStatus,
+  CapabilitySearchRequest,
+  CapabilityRecommendation,
+  Persona,
+  PersonaAnalytics,
+  PersonaValidation,
+  PersonaRecommendation,
+  PersonaTemplate,
+  TurnStrategy,
+  TurnStrategyConfig,
+  Discussion,
+  DiscussionParticipant,
+  DiscussionMessage,
+  DiscussionSettings,
+  DiscussionState,
+  DiscussionAnalytics,
+  DiscussionSummary,
+  CreateDiscussionRequest,
+  UpdateDiscussionRequest
 };
-import { PersonaAnalytics, PersonaValidation, AgentCapabilityMetrics } from '@/types/uaip-interfaces';
 
 // Base configuration
 export interface APIConfig {
@@ -60,13 +140,21 @@ export interface APIConfig {
   headers?: Record<string, string>;
 }
 
-export interface APIResponse<T = any> {
+export interface APIResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: {
     code: string;
     message: string;
-    details?: Record<string, any>;
+    details?: {
+      endpoint?: string;
+      statusCode?: number;
+      validationErrors?: Array<{
+        field: string;
+        message: string;
+      }>;
+      [key: string]: any;
+    };
   };
   meta: {
     timestamp: Date;
@@ -76,145 +164,37 @@ export interface APIResponse<T = any> {
 }
 
 // ============================================================================
-// AGENT INTELLIGENCE SERVICE TYPES
+// FRONTEND-SPECIFIC TYPES (extending shared types)
 // ============================================================================
 
-export interface Agent {
-  id: string;
-  name: string;
-  role: 'assistant' | 'analyzer' | 'orchestrator' | 'specialist';
-  persona: {
-    name: string;
-    description: string;
-    capabilities: string[];
-    constraints?: Record<string, any>;
-    preferences?: Record<string, any>;
-  };
-  intelligenceConfig: {
-    analysisDepth: 'basic' | 'intermediate' | 'advanced';
-    contextWindowSize: number;
-    decisionThreshold: number;
-    learningEnabled: boolean;
-    collaborationMode: 'independent' | 'collaborative' | 'supervised';
-  };
-  securityContext: {
-    securityLevel: 'low' | 'medium' | 'high' | 'critical';
-    allowedCapabilities: string[];
-    restrictedDomains?: string[];
-    approvalRequired: boolean;
-    auditLevel: 'minimal' | 'standard' | 'comprehensive';
-  };
-  isActive: boolean;
-  createdBy: string;
-  lastActiveAt?: Date;
-  createdAt: Date;
-  updatedAt: Date;
+// Frontend-specific request types that extend shared types
+export interface AgentAnalysisRequest extends ContextAnalysis {
+  // Additional frontend-specific properties if needed
 }
 
-export interface AgentCreate {
-  name: string;
-  role: 'assistant' | 'analyzer' | 'orchestrator' | 'specialist';
-  persona: Agent['persona'];
-  intelligenceConfig?: Partial<Agent['intelligenceConfig']>;
-  securityContext?: Partial<Agent['securityContext']>;
-  isActive?: boolean;
-  createdBy: string;
-}
-
-export interface AgentUpdate {
-  name?: string;
-  role?: Agent['role'];
-  persona?: Agent['persona'];
-  intelligenceConfig?: Partial<Agent['intelligenceConfig']>;
-  securityContext?: Partial<Agent['securityContext']>;
-  isActive?: boolean;
-  lastActiveAt?: Date;
-}
-
-export interface AgentAnalysisRequest {
-  conversationContext: {
-    id: string;
-    agentId: string;
-    userId: string;
-    messages: Array<{
-      id: string;
-      role: 'user' | 'assistant' | 'system';
-      content: string;
-      metadata?: Record<string, any>;
-      timestamp: Date;
-    }>;
-    metadata?: Record<string, any>;
-    startedAt: Date;
-    lastActivityAt: Date;
-  };
-  userRequest: string;
-  constraints?: Record<string, any>;
-}
-
-export interface AgentAnalysisResponse {
-  analysis: {
-    context: {
-      messageCount: number;
-      participants: string[];
-      topics: string[];
-      sentiment: string;
-      complexity: string;
-      urgency: string;
-    };
-    intent: {
-      primary: string;
-      secondary: string[];
-      confidence: number;
-      entities: any[];
-      complexity: string;
-    };
-    agentCapabilities: {
-      tools: string[];
-      artifacts: string[];
-      specializations: string[];
-      limitations: string[];
-    };
-    environmentFactors: {
-      timeOfDay: number;
-      userLoad: number;
-      systemLoad: string;
-      availableResources: string;
-    };
-  };
-  recommendedActions: Array<{
-    type: string;
-    confidence: number;
-    description: string;
-    estimatedDuration: number;
-  }>;
-  confidence: number;
-  explanation: string;
-  timestamp: Date;
+export interface AgentAnalysisResponse extends AgentAnalysisResult {
+  // Additional frontend-specific properties if needed
 }
 
 export interface AgentPlanRequest {
-  analysis: AgentAnalysisResponse['analysis'];
-  userPreferences?: Record<string, any>;
-  securityContext?: Record<string, any>;
+  analysis: AgentAnalysisResult['analysis'];
+  userPreferences?: {
+    preferredModels?: string[];
+    maxDuration?: number;
+    riskTolerance?: 'low' | 'medium' | 'high';
+    [key: string]: any;
+  };
+  securityContext?: {
+    userId: string;
+    sessionId: string;
+    permissions: string[];
+    securityLevel: 'low' | 'medium' | 'high' | 'critical';
+    [key: string]: any;
+  };
 }
 
 export interface AgentPlanResponse {
-  operationPlan: {
-    id: string;
-    type: string;
-    agentId: string;
-    steps: Array<{
-      id: string;
-      type: string;
-      description: string;
-      estimatedDuration: number;
-      parameters?: Record<string, any>;
-      dependencies?: string[];
-    }>;
-    dependencies: string[];
-    estimatedDuration: number;
-    metadata: Record<string, any>;
-  };
+  operationPlan: ExecutionPlan;
   estimatedDuration: number;
   riskAssessment: {
     level: 'low' | 'medium' | 'high' | 'critical';
@@ -231,119 +211,11 @@ export interface AgentPlanResponse {
   };
 }
 
-export interface HealthStatus {
-  status: 'healthy' | 'unhealthy' | 'degraded';
-  timestamp: Date;
-  uptime: number;
-  version: string;
-  environment: string;
-  memory: {
-    used: number;
-    total: number;
-    external: number;
-  };
-}
+// HealthStatus is now imported from @uaip/types
 
 // ============================================================================
-// CAPABILITY REGISTRY SERVICE TYPES
+// CAPABILITY REGISTRY SERVICE TYPES (using shared types)
 // ============================================================================
-
-export interface Capability {
-  id: string;
-  name: string;
-  description: string;
-  type: 'tool' | 'artifact' | 'hybrid';
-  status: 'active' | 'deprecated' | 'disabled' | 'experimental';
-  metadata: {
-    version: string;
-    author?: string;
-    license?: string;
-    documentation?: string;
-    examples?: Record<string, any>[];
-    tags: string[];
-    category: string;
-    subcategory?: string;
-    trustScore: number;
-    usageCount: number;
-    lastUsed?: Date;
-    performance?: {
-      averageLatency?: number;
-      successRate?: number;
-      errorRate?: number;
-    };
-  };
-  toolConfig?: {
-    endpoint: string;
-    method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
-    authentication: {
-      type: 'none' | 'api_key' | 'oauth' | 'jwt' | 'basic';
-      config?: Record<string, any>;
-    };
-    parameters: Array<{
-      name: string;
-      type: 'string' | 'number' | 'boolean' | 'array' | 'object';
-      required: boolean;
-      description?: string;
-      validation?: Record<string, any>;
-    }>;
-    responseSchema?: Record<string, any>;
-    timeout: number;
-    retryPolicy?: {
-      maxRetries: number;
-      backoffStrategy: 'fixed' | 'exponential';
-    };
-  };
-  artifactConfig?: {
-    templateEngine: 'handlebars' | 'mustache' | 'jinja2' | 'ejs';
-    template: string;
-    outputFormat: 'text' | 'json' | 'yaml' | 'xml' | 'html' | 'markdown' | 'code';
-    variables: Array<{
-      name: string;
-      type: 'string' | 'number' | 'boolean' | 'array' | 'object';
-      required: boolean;
-      description?: string;
-      defaultValue?: any;
-    }>;
-    validationRules?: Array<{
-      field: string;
-      rule: string;
-      message: string;
-    }>;
-    postProcessing?: Array<{
-      type: 'format' | 'validate' | 'transform';
-      config: Record<string, any>;
-    }>;
-  };
-  dependencies?: string[];
-  securityRequirements: {
-    minimumSecurityLevel: 'low' | 'medium' | 'high' | 'critical';
-    requiredPermissions: string[];
-    sensitiveData: boolean;
-    auditRequired: boolean;
-  };
-  resourceRequirements?: {
-    cpu?: number;
-    memory?: number;
-    storage?: number;
-    network: boolean;
-    estimatedDuration?: number;
-  };
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface CapabilitySearchRequest {
-  query?: string;
-  type?: 'tool' | 'artifact' | 'hybrid';
-  category?: string;
-  tags?: string[];
-  securityLevel?: 'low' | 'medium' | 'high' | 'critical';
-  includeDeprecated?: boolean;
-  sortBy?: 'relevance' | 'name' | 'usage_count' | 'trust_score' | 'created_at';
-  sortOrder?: 'asc' | 'desc';
-  limit?: number;
-  offset?: number;
-}
 
 export interface CapabilitySearchResponse {
   capabilities: Capability[];
@@ -352,123 +224,11 @@ export interface CapabilitySearchResponse {
   searchTime: number;
 }
 
-export interface CapabilityRecommendation {
-  capability: Capability;
-  relevanceScore: number;
-  reasoning: string;
-  alternatives?: string[];
-  usageExamples?: Record<string, any>[];
-}
-
 // ============================================================================
-// ORCHESTRATION PIPELINE SERVICE TYPES
+// ORCHESTRATION PIPELINE SERVICE TYPES (using shared types)
 // ============================================================================
 
-export interface Operation {
-  id: string;
-  type: 'tool_execution' | 'artifact_generation' | 'hybrid_workflow' | 'analysis';
-  agentId: string;
-  userId: string;
-  name: string;
-  description: string;
-  status: 'pending' | 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | 'suspended' | 'paused' | 'compensating';
-  context: {
-    executionContext: {
-      agentId: string;
-      userId: string;
-      conversationId?: string;
-      sessionId?: string;
-      environment: 'development' | 'staging' | 'production';
-      metadata?: Record<string, any>;
-      timeout: number;
-      resourceLimits: {
-        maxMemory: number;
-        maxCpu: number;
-        maxDuration: number;
-      };
-    };
-  };
-  executionPlan: {
-    id: string;
-    type: string;
-    agentId: string;
-    steps: Array<{
-      id: string;
-      type: string;
-      description: string;
-      estimatedDuration: number;
-      parameters?: Record<string, any>;
-      dependencies?: string[];
-    }>;
-    dependencies: string[];
-    estimatedDuration: number;
-    metadata: Record<string, any>;
-  };
-  metadata: {
-    priority: 'low' | 'medium' | 'high' | 'urgent';
-    tags: string[];
-    estimatedDuration: number;
-    resourceRequirements: {
-      cpu?: number;
-      memory?: number;
-      storage?: number;
-      network: boolean;
-      gpu: boolean;
-      estimatedDuration?: number;
-    };
-  };
-  estimatedDuration: number;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface OperationStatusResponse {
-  operation: Operation;
-  status: Operation['status'];
-  progress: {
-    currentStep?: string;
-    completedSteps: number;
-    totalSteps: number;
-    percentage: number;
-  };
-  metrics: {
-    startTime: Date;
-    endTime?: Date;
-    duration?: number;
-    resourceUsage: {
-      cpu: number;
-      memory: number;
-      storage: number;
-    };
-    stepMetrics: Array<{
-      stepId: string;
-      startTime: Date;
-      endTime?: Date;
-      duration?: number;
-      status: string;
-      retryCount: number;
-    }>;
-  };
-  errors: Array<{
-    stepId?: string;
-    errorType: string;
-    message: string;
-    timestamp: Date;
-    retryable: boolean;
-    context?: Record<string, any>;
-  }>;
-}
-
-export interface ExecuteOperationRequest {
-  operation: Omit<Operation, 'id' | 'status' | 'createdAt' | 'updatedAt'>;
-  options?: {
-    priority?: 'low' | 'normal' | 'high' | 'critical';
-    async?: boolean;
-    webhookUrl?: string;
-    tags?: string[];
-  };
-}
-
+// Frontend-specific operation request types
 export interface PauseOperationRequest {
   reason: string;
 }
@@ -489,6 +249,7 @@ export interface CancelOperationRequest {
 
 export class UAIPAPIClient {
   private config: APIConfig;
+  private authFailureCallbacks: Set<() => void> = new Set();
 
   constructor(config: APIConfig = {}) {
     this.config = {
@@ -536,8 +297,8 @@ export class UAIPAPIClient {
 
     // Build comprehensive headers including security and user context
     const headers: Record<string, string> = {
-      ...this.config.headers,
-      ...processedOptions.headers,
+      ...(this.config.headers || {}),
+      ...(processedOptions.headers as Record<string, string> || {}),
     };
 
     // Add authentication header
@@ -588,11 +349,16 @@ export class UAIPAPIClient {
             headers['Authorization'] = `Bearer ${newToken}`;
             config.headers = headers;
             response = await fetch(url, config);
+          } else {
+            // No new token received, clear auth and fail
+            this.handleAuthFailure();
+            throw new Error('Authentication failed: Unable to refresh token');
           }
         } catch (refreshError) {
           // Token refresh failed, redirect to login
+          console.error('Token refresh failed:', refreshError);
           this.handleAuthFailure();
-          throw new Error('Authentication failed');
+          throw new Error('Authentication failed: Token refresh error');
         }
       }
 
@@ -736,7 +502,19 @@ export class UAIPAPIClient {
       }
 
       const data = await response.json();
-      const newToken = data.tokens?.accessToken;
+      
+      // Handle both old and new response formats
+      let newToken: string | null = null;
+      if (data.success && data.data?.tokens?.accessToken) {
+        // New APIResponse format
+        newToken = data.data.tokens.accessToken;
+      } else if (data.tokens?.accessToken) {
+        // Old format (fallback)
+        newToken = data.tokens.accessToken;
+      } else if (data.accessToken) {
+        // Even older format (fallback)
+        newToken = data.accessToken;
+      }
 
       if (newToken) {
         this.storeToken(newToken);
@@ -756,10 +534,35 @@ export class UAIPAPIClient {
   private handleAuthFailure(): void {
     this.removeStoredToken();
     
-    // Redirect to login if in browser environment
+    // Notify all registered callbacks
+    this.authFailureCallbacks.forEach(callback => {
+      try {
+        callback();
+      } catch (error) {
+        console.error('Auth failure callback error:', error);
+      }
+    });
+    
+    // Redirect to login if in browser environment and not already on login page
     if (typeof window !== 'undefined' && window.location) {
-      window.location.href = '/login';
+      const currentPath = window.location.pathname;
+      if (currentPath !== '/login' && currentPath !== '/') {
+        console.log('Authentication failed, redirecting to login');
+        window.location.href = '/login';
+      }
     }
+  }
+
+  /**
+   * Register callback for authentication failures
+   */
+  public onAuthFailure(callback: () => void): () => void {
+    this.authFailureCallbacks.add(callback);
+    
+    // Return unsubscribe function
+    return () => {
+      this.authFailureCallbacks.delete(callback);
+    };
   }
 
   /**
@@ -844,6 +647,29 @@ export class UAIPAPIClient {
   }
 
   /**
+   * Check if user is authenticated (has valid token)
+   */
+  public isAuthenticated(): boolean {
+    const token = this.getStoredToken();
+    if (!token) return false;
+    
+    try {
+      // Basic JWT structure check without verification
+      const parts = token.split('.');
+      if (parts.length !== 3) return false;
+      
+      // Decode payload to check expiration
+      const payload = JSON.parse(atob(parts[1]));
+      const now = Math.floor(Date.now() / 1000);
+      
+      // Check if token is expired (with 30 second buffer)
+      return payload.exp && payload.exp > (now + 30);
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
    * Clear user context
    */
   private clearUserContext(): void {
@@ -853,6 +679,20 @@ export class UAIPAPIClient {
       sessionStorage.removeItem('userId');
       sessionStorage.removeItem('sessionId');
     }
+  }
+
+  /**
+   * Get authentication headers
+   */
+  private getAuthHeaders(): Record<string, string> {
+    const token = this.getStoredToken();
+    const headers: Record<string, string> = {};
+    
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    return headers;
   }
 
   // ============================================================================
@@ -944,14 +784,27 @@ export class UAIPAPIClient {
     },
 
     /**
+     * Agent participation in discussion
+     */
+    participate: async (agentId: string, participationData: {
+      discussionId: string;
+      comment?: string;
+    }): Promise<APIResponse<any>> => {
+      return this.request<any>(buildAPIURL(`${API_ROUTES.AGENTS}/${agentId}/participate`), {
+        method: 'POST',
+        body: JSON.stringify(participationData),
+      });
+    },
+
+    /**
      * Health check endpoints
      */
     health: {
       basic: async (): Promise<APIResponse<HealthStatus>> => {
         return this.request<HealthStatus>(buildAPIURL(API_ROUTES.HEALTH));
       },
-      detailed: async (): Promise<APIResponse<HealthStatus & { dependencies: Record<string, any> }>> => {
-        return this.request<HealthStatus & { dependencies: Record<string, any> }>(buildAPIURL(`${API_ROUTES.HEALTH}/detailed`));
+      detailed: async (): Promise<APIResponse<HealthStatus>> => {
+        return this.request<HealthStatus>(buildAPIURL(`${API_ROUTES.HEALTH}/detailed`));
       },
       ready: async (): Promise<APIResponse<{ ready: boolean }>> => {
         return this.request<{ ready: boolean }>(buildAPIURL(`${API_ROUTES.HEALTH}/ready`));
@@ -959,8 +812,8 @@ export class UAIPAPIClient {
       live: async (): Promise<APIResponse<{ alive: boolean }>> => {
         return this.request<{ alive: boolean }>(buildAPIURL(`${API_ROUTES.HEALTH}/live`));
       },
-      metrics: async (): Promise<APIResponse<Record<string, any>>> => {
-        return this.request<Record<string, any>>(buildAPIURL(`${API_ROUTES.HEALTH}/metrics`));
+      metrics: async (): Promise<APIResponse<SystemMetrics>> => {
+        return this.request<SystemMetrics>(buildAPIURL(`${API_ROUTES.HEALTH}/metrics`));
       },
     },
   };
@@ -976,7 +829,7 @@ export class UAIPAPIClient {
     /**
      * Create a new persona
      */
-    create: async (personaData: any): Promise<APIResponse<any>> => {
+    create: async (personaData: Partial<Persona>): Promise<APIResponse<Persona>> => {
       return this.request(buildAPIURL(API_ROUTES.PERSONAS), {
         method: 'POST',
         body: JSON.stringify(personaData),
@@ -986,7 +839,7 @@ export class UAIPAPIClient {
     /**
      * Search personas
      */
-    search: async (query?: string, expertise?: string): Promise<APIResponse<any[]>> => {
+    search: async (query?: string, expertise?: string): Promise<APIResponse<Persona[]>> => {
       const params = new URLSearchParams();
       if (query) params.append('query', query);
       if (expertise) params.append('expertise', expertise);
@@ -997,28 +850,28 @@ export class UAIPAPIClient {
     /**
      * Get persona recommendations
      */
-    getRecommendations: async (context: string): Promise<APIResponse<any[]>> => {
+    getRecommendations: async (context: string): Promise<APIResponse<PersonaRecommendation[]>> => {
       return this.request(buildAPIURL(`${API_ROUTES.PERSONAS}/recommendations?context=${encodeURIComponent(context)}`));
     },
 
     /**
      * Get persona templates
      */
-    getTemplates: async (): Promise<APIResponse<any[]>> => {
+    getTemplates: async (): Promise<APIResponse<PersonaTemplate[]>> => {
       return this.request(buildAPIURL(`${API_ROUTES.PERSONAS}/templates`));
     },
 
     /**
      * Get persona by ID
      */
-    get: async (personaId: string): Promise<APIResponse<any>> => {
+    get: async (personaId: string): Promise<APIResponse<Persona>> => {
       return this.request(buildAPIURL(`${API_ROUTES.PERSONAS}/${personaId}`));
     },
 
     /**
      * Update persona
      */
-    update: async (personaId: string, updates: any): Promise<APIResponse<any>> => {
+    update: async (personaId: string, updates: Partial<Persona>): Promise<APIResponse<Persona>> => {
       return this.request(buildAPIURL(`${API_ROUTES.PERSONAS}/${personaId}`), {
         method: 'PUT',
         body: JSON.stringify(updates),
@@ -1037,14 +890,14 @@ export class UAIPAPIClient {
     /**
      * Get persona analytics
      */
-    getAnalytics: async (personaId: string): Promise<APIResponse<any>> => {
+    getAnalytics: async (personaId: string): Promise<APIResponse<PersonaAnalytics>> => {
       return this.request(buildAPIURL(`${API_ROUTES.PERSONAS}/${personaId}/analytics`));
     },
 
     /**
      * Validate persona
      */
-    validatePersona: async (personaId: string, validationData: any): Promise<APIResponse<any>> => {
+    validatePersona: async (personaId: string, validationData: Record<string, unknown>): Promise<APIResponse<PersonaValidation>> => {
       return this.request(buildAPIURL(`${API_ROUTES.PERSONAS}/${personaId}/validate`), {
         method: 'POST',
         body: JSON.stringify(validationData),
@@ -1177,14 +1030,14 @@ export class UAIPAPIClient {
     /**
      * Get operation status
      */
-    getStatus: async (operationId: string): Promise<APIResponse<any>> => {
+    getStatus: async (operationId: string): Promise<APIResponse<OperationStatusResponse>> => {
       return this.request(`/api/v1/operations/${operationId}/status`);
     },
 
     /**
      * Pause operation
      */
-    pause: async (operationId: string, pauseRequest: PauseOperationRequest): Promise<APIResponse<any>> => {
+    pause: async (operationId: string, pauseRequest: PauseOperationRequest): Promise<APIResponse<OperationStatusResponse>> => {
       return this.request(`/api/v1/operations/${operationId}/pause`, {
         method: 'POST',
         body: JSON.stringify(pauseRequest),
@@ -1194,7 +1047,7 @@ export class UAIPAPIClient {
     /**
      * Resume operation
      */
-    resume: async (operationId: string, resumeRequest: ResumeOperationRequest): Promise<APIResponse<any>> => {
+    resume: async (operationId: string, resumeRequest: ResumeOperationRequest): Promise<APIResponse<OperationStatusResponse>> => {
       return this.request(`/api/v1/operations/${operationId}/resume`, {
         method: 'POST',
         body: JSON.stringify(resumeRequest),
@@ -1204,7 +1057,7 @@ export class UAIPAPIClient {
     /**
      * Cancel operation
      */
-    cancel: async (operationId: string, cancelRequest: CancelOperationRequest): Promise<APIResponse<any>> => {
+    cancel: async (operationId: string, cancelRequest: CancelOperationRequest): Promise<APIResponse<OperationStatusResponse>> => {
       return this.request(`/api/v1/operations/${operationId}/cancel`, {
         method: 'POST',
         body: JSON.stringify(cancelRequest),
@@ -1223,19 +1076,7 @@ export class UAIPAPIClient {
     /**
      * Create discussion
      */
-    create: async (discussionData: {
-      title: string;
-      description: string;
-      topic: string;
-      turnStrategy?: TurnStrategyConfig;
-      createdBy: string;
-      initialParticipants: Array<{ 
-        personaId: string;
-        agentId: string;
-        role: string; 
-      }>;
-      settings?: any;
-    }): Promise<APIResponse<any>> => {
+    create: async (discussionData: CreateDiscussionRequest): Promise<APIResponse<Discussion>> => {
       return this.request('/api/v1/discussions', {
         method: 'POST',
         body: JSON.stringify(discussionData),
@@ -1245,7 +1086,7 @@ export class UAIPAPIClient {
     /**
      * Search discussions
      */
-    search: async (query?: string, status?: string): Promise<APIResponse<any[]>> => {
+    search: async (query?: string, status?: string): Promise<APIResponse<Discussion[]>> => {
       const params = new URLSearchParams();
       if (query) params.append('query', query);
       if (status) params.append('status', status);
@@ -1255,14 +1096,14 @@ export class UAIPAPIClient {
     /**
      * Get discussion
      */
-    get: async (discussionId: string): Promise<APIResponse<any>> => {
+    get: async (discussionId: string): Promise<APIResponse<Discussion>> => {
       return this.request(`/api/v1/discussions/${discussionId}`);
     },
 
     /**
      * Update discussion
      */
-    update: async (discussionId: string, updates: any): Promise<APIResponse<any>> => {
+    update: async (discussionId: string, updates: UpdateDiscussionRequest): Promise<APIResponse<Discussion>> => {
       return this.request(`/api/v1/discussions/${discussionId}`, {
         method: 'PUT',
         body: JSON.stringify(updates),
@@ -1272,7 +1113,7 @@ export class UAIPAPIClient {
     /**
      * Start discussion
      */
-    start: async (discussionId: string): Promise<APIResponse<any>> => {
+    start: async (discussionId: string): Promise<APIResponse<Discussion>> => {
       return this.request(`/api/v1/discussions/${discussionId}/start`, {
         method: 'POST',
       });
@@ -1284,7 +1125,7 @@ export class UAIPAPIClient {
     end: async (discussionId: string, endData: {
       reason: string;
       summary: string;
-    }): Promise<APIResponse<any>> => {
+    }): Promise<APIResponse<DiscussionSummary>> => {
       return this.request(`/api/v1/discussions/${discussionId}/end`, {
         method: 'POST',
         body: JSON.stringify(endData),
@@ -1294,10 +1135,7 @@ export class UAIPAPIClient {
     /**
      * Add participant
      */
-    addParticipant: async (discussionId: string, participantData: {
-      personaId: string;
-      role: string;
-    }): Promise<APIResponse<any>> => {
+    addParticipant: async (discussionId: string, participantData: Omit<DiscussionParticipant, 'id' | 'createdAt' | 'updatedAt'>): Promise<APIResponse<DiscussionParticipant>> => {
       return this.request(`/api/v1/discussions/${discussionId}/participants`, {
         method: 'POST',
         body: JSON.stringify(participantData),
@@ -1316,11 +1154,7 @@ export class UAIPAPIClient {
     /**
      * Send message
      */
-    sendMessage: async (discussionId: string, participantId: string, messageData: {
-      content: string;
-      messageType: string;
-      metadata?: any;
-    }): Promise<APIResponse<any>> => {
+    sendMessage: async (discussionId: string, participantId: string, messageData: Omit<DiscussionMessage, 'id' | 'createdAt' | 'updatedAt'>): Promise<APIResponse<DiscussionMessage>> => {
       return this.request(`/api/v1/discussions/${discussionId}/participants/${participantId}/messages`, {
         method: 'POST',
         body: JSON.stringify(messageData),
@@ -1330,7 +1164,7 @@ export class UAIPAPIClient {
     /**
      * Get messages
      */
-    getMessages: async (discussionId: string, limit = 50, offset = 0): Promise<APIResponse<any[]>> => {
+    getMessages: async (discussionId: string, limit = 50, offset = 0): Promise<APIResponse<DiscussionMessage[]>> => {
       return this.request(`/api/v1/discussions/${discussionId}/messages?limit=${limit}&offset=${offset}`);
     },
 
@@ -1340,7 +1174,7 @@ export class UAIPAPIClient {
     advanceTurn: async (discussionId: string, turnData: {
       force: boolean;
       reason: string;
-    }): Promise<APIResponse<any>> => {
+    }): Promise<APIResponse<DiscussionState>> => {
       return this.request(`/api/v1/discussions/${discussionId}/advance-turn`, {
         method: 'POST',
         body: JSON.stringify(turnData),
@@ -1350,7 +1184,7 @@ export class UAIPAPIClient {
     /**
      * Get discussion analytics
      */
-    getAnalytics: async (discussionId: string): Promise<APIResponse<any>> => {
+    getAnalytics: async (discussionId: string): Promise<APIResponse<DiscussionAnalytics>> => {
       return this.request(`/api/v1/discussions/${discussionId}/analytics`);
     }
   };
@@ -1366,11 +1200,7 @@ export class UAIPAPIClient {
     /**
      * Login
      */
-    login: async (credentials: {
-      email: string;
-      password: string;
-      rememberMe?: boolean;
-    }): Promise<APIResponse<{ user: any; tokens: { accessToken: string; refreshToken: string } }>> => {
+    login: async (credentials: LoginRequest): Promise<APIResponse<LoginResponse>> => {
       return this.request('/api/v1/auth/login', {
         method: 'POST',
         body: JSON.stringify(credentials),
@@ -1399,17 +1229,14 @@ export class UAIPAPIClient {
     /**
      * Get current user
      */
-    me: async (): Promise<APIResponse<any>> => {
+    me: async (): Promise<APIResponse<User>> => {
       return this.request('/api/v1/auth/me');
     },
 
     /**
      * Change password
      */
-    changePassword: async (passwordData: {
-      currentPassword: string;
-      newPassword: string;
-    }): Promise<APIResponse<void>> => {
+    changePassword: async (passwordData: ChangePasswordRequest): Promise<APIResponse<void>> => {
       return this.request('/api/v1/auth/change-password', {
         method: 'POST',
         body: JSON.stringify(passwordData),
@@ -1445,7 +1272,7 @@ export class UAIPAPIClient {
         department: string;
         purpose: string;
       };
-    }): Promise<APIResponse<any>> => {
+    }): Promise<APIResponse<RiskAssessment>> => {
       return this.request('/api/v1/security/assess-risk', {
         method: 'POST',
         body: JSON.stringify(riskData),
@@ -1465,7 +1292,7 @@ export class UAIPAPIClient {
         userId: string;
         role: string;
       };
-    }): Promise<APIResponse<{ required: boolean; approvers?: string[] }>> => {
+    }): Promise<APIResponse<ApprovalRequirement>> => {
       return this.request('/api/v1/security/check-approval-required', {
         method: 'POST',
         body: JSON.stringify(operationData),
@@ -1475,7 +1302,7 @@ export class UAIPAPIClient {
     /**
      * Get policies
      */
-    getPolicies: async (category?: string): Promise<APIResponse<any[]>> => {
+    getPolicies: async (category?: string): Promise<APIResponse<SecurityPolicy[]>> => {
       const params = category ? `?category=${encodeURIComponent(category)}` : '';
       return this.request(`/api/v1/security/policies${params}`);
     },
@@ -1483,14 +1310,14 @@ export class UAIPAPIClient {
     /**
      * Get policy by ID
      */
-    getPolicy: async (policyId: string): Promise<APIResponse<any>> => {
+    getPolicy: async (policyId: string): Promise<APIResponse<SecurityPolicy>> => {
       return this.request(`/api/v1/security/policies/${policyId}`);
     },
 
     /**
      * Create policy
      */
-    createPolicy: async (policyData: any): Promise<APIResponse<any>> => {
+    createPolicy: async (policyData: Partial<SecurityPolicy>): Promise<APIResponse<SecurityPolicy>> => {
       return this.request('/api/v1/security/policies', {
         method: 'POST',
         body: JSON.stringify(policyData),
@@ -1500,7 +1327,7 @@ export class UAIPAPIClient {
     /**
      * Update policy
      */
-    updatePolicy: async (policyId: string, updates: any): Promise<APIResponse<any>> => {
+    updatePolicy: async (policyId: string, updates: Partial<SecurityPolicy>): Promise<APIResponse<SecurityPolicy>> => {
       return this.request(`/api/v1/security/policies/${policyId}`, {
         method: 'PUT',
         body: JSON.stringify(updates),
@@ -1519,7 +1346,7 @@ export class UAIPAPIClient {
     /**
      * Get security stats
      */
-    getStats: async (): Promise<APIResponse<any>> => {
+    getStats: async (): Promise<APIResponse<SecurityStats>> => {
       return this.request('/api/v1/security/stats');
     }
   };
@@ -1531,13 +1358,7 @@ export class UAIPAPIClient {
     /**
      * Create approval workflow
      */
-    createWorkflow: async (workflowData: {
-      operation: any;
-      requestor: any;
-      justification: string;
-      urgency: string;
-      expectedDuration: string;
-    }): Promise<APIResponse<any>> => {
+    createWorkflow: async (workflowData: CreateApprovalWorkflowRequest): Promise<APIResponse<ApprovalWorkflow>> => {
       return this.request('/api/v1/approvals/workflows', {
         method: 'POST',
         body: JSON.stringify(workflowData),
@@ -1547,11 +1368,7 @@ export class UAIPAPIClient {
     /**
      * Submit approval decision
      */
-    submitDecision: async (workflowId: string, decision: {
-      decision: 'approved' | 'rejected';
-      comments: string;
-      conditions?: string[];
-    }): Promise<APIResponse<any>> => {
+    submitDecision: async (workflowId: string, decision: ApprovalDecision): Promise<APIResponse<ApprovalWorkflow>> => {
       return this.request(`/api/v1/approvals/${workflowId}/decisions`, {
         method: 'POST',
         body: JSON.stringify(decision),
@@ -1561,14 +1378,14 @@ export class UAIPAPIClient {
     /**
      * Get approval workflow
      */
-    getWorkflow: async (workflowId: string): Promise<APIResponse<any>> => {
+    getWorkflow: async (workflowId: string): Promise<APIResponse<ApprovalWorkflow>> => {
       return this.request(`/api/v1/approvals/${workflowId}`);
     },
 
     /**
      * Get all workflows
      */
-    getWorkflows: async (status?: string, limit?: number): Promise<APIResponse<any[]>> => {
+    getWorkflows: async (status?: string, limit?: number): Promise<APIResponse<ApprovalWorkflow[]>> => {
       const params = new URLSearchParams();
       if (status) params.append('status', status);
       if (limit) params.append('limit', limit.toString());
@@ -1578,14 +1395,14 @@ export class UAIPAPIClient {
     /**
      * Get pending approvals
      */
-    getPendingApprovals: async (): Promise<APIResponse<any[]>> => {
+    getPendingApprovals: async (): Promise<APIResponse<ApprovalWorkflow[]>> => {
       return this.request('/api/v1/approvals/pending');
     },
 
     /**
      * Cancel workflow
      */
-    cancelWorkflow: async (workflowId: string, reason: string): Promise<APIResponse<any>> => {
+    cancelWorkflow: async (workflowId: string, reason: string): Promise<APIResponse<ApprovalWorkflow>> => {
       return this.request(`/api/v1/approvals/${workflowId}/cancel`, {
         method: 'POST',
         body: JSON.stringify({ reason }),
@@ -1595,7 +1412,7 @@ export class UAIPAPIClient {
     /**
      * Get approval stats
      */
-    getStats: async (): Promise<APIResponse<any>> => {
+    getStats: async (): Promise<APIResponse<ApprovalStats>> => {
       return this.request('/api/v1/approvals/stats');
     }
   };
@@ -1607,37 +1424,27 @@ export class UAIPAPIClient {
     /**
      * Get all users
      */
-    getAll: async (params?: {
-      page?: number;
-      limit?: number;
-      role?: string;
-    }): Promise<APIResponse<any[]>> => {
+    getAll: async (params?: UserSearchFilters): Promise<APIResponse<User[]>> => {
       const searchParams = new URLSearchParams();
       if (params?.page) searchParams.append('page', params.page.toString());
       if (params?.limit) searchParams.append('limit', params.limit.toString());
       if (params?.role) searchParams.append('role', params.role);
+      if (params?.department) searchParams.append('department', params.department);
+      if (params?.status) searchParams.append('status', params.status);
       return this.request(`/api/v1/users?${searchParams}`);
     },
 
     /**
      * Get user by ID
      */
-    get: async (userId: string): Promise<APIResponse<any>> => {
+    get: async (userId: string): Promise<APIResponse<User>> => {
       return this.request(`/api/v1/users/${userId}`);
     },
 
     /**
      * Create user
      */
-    create: async (userData: {
-      email: string;
-      password: string;
-      firstName: string;
-      lastName: string;
-      role: string;
-      department: string;
-      permissions: string[];
-    }): Promise<APIResponse<any>> => {
+    create: async (userData: CreateUserRequest): Promise<APIResponse<User>> => {
       return this.request('/api/v1/users', {
         method: 'POST',
         body: JSON.stringify(userData),
@@ -1647,7 +1454,7 @@ export class UAIPAPIClient {
     /**
      * Update user
      */
-    update: async (userId: string, updates: any): Promise<APIResponse<any>> => {
+    update: async (userId: string, updates: UpdateUserRequest): Promise<APIResponse<User>> => {
       return this.request(`/api/v1/users/${userId}`, {
         method: 'PUT',
         body: JSON.stringify(updates),
@@ -1666,10 +1473,7 @@ export class UAIPAPIClient {
     /**
      * Reset user password
      */
-    resetPassword: async (userId: string, passwordData: {
-      newPassword: string;
-      forcePasswordChange: boolean;
-    }): Promise<APIResponse<any>> => {
+    resetPassword: async (userId: string, passwordData: ResetPasswordRequest): Promise<APIResponse<void>> => {
       return this.request(`/api/v1/users/${userId}/reset-password`, {
         method: 'POST',
         body: JSON.stringify(passwordData),
@@ -1679,7 +1483,7 @@ export class UAIPAPIClient {
     /**
      * Unlock user
      */
-    unlock: async (userId: string, reason: string): Promise<APIResponse<any>> => {
+    unlock: async (userId: string, reason: string): Promise<APIResponse<void>> => {
       return this.request(`/api/v1/users/${userId}/unlock`, {
         method: 'POST',
         body: JSON.stringify({ reason }),
@@ -1689,11 +1493,7 @@ export class UAIPAPIClient {
     /**
      * Bulk user action
      */
-    bulkAction: async (actionData: {
-      action: string;
-      userIds: string[];
-      reason: string;
-    }): Promise<APIResponse<any>> => {
+    bulkAction: async (actionData: BulkUserAction): Promise<APIResponse<{ affectedUsers: number; results: Array<{ userId: string; success: boolean; error?: string }> }>> => {
       return this.request('/api/v1/users/bulk-action', {
         method: 'POST',
         body: JSON.stringify(actionData),
@@ -1703,7 +1503,7 @@ export class UAIPAPIClient {
     /**
      * Get user stats
      */
-    getStats: async (): Promise<APIResponse<any>> => {
+    getStats: async (): Promise<APIResponse<UserStats>> => {
       return this.request('/api/v1/users/stats');
     }
   };
@@ -1715,24 +1515,25 @@ export class UAIPAPIClient {
     /**
      * Get audit logs
      */
-    getLogs: async (params?: {
-      eventType?: string;
-      startDate?: string;
-      endDate?: string;
-      limit?: number;
-    }): Promise<APIResponse<any[]>> => {
+    getLogs: async (params?: AuditSearchFilters): Promise<APIResponse<AuditLog[]>> => {
       const searchParams = new URLSearchParams();
       if (params?.eventType) searchParams.append('eventType', params.eventType);
       if (params?.startDate) searchParams.append('startDate', params.startDate);
       if (params?.endDate) searchParams.append('endDate', params.endDate);
       if (params?.limit) searchParams.append('limit', params.limit.toString());
+      if (params?.offset) searchParams.append('offset', params.offset.toString());
+      if (params?.userId) searchParams.append('userId', params.userId);
+      if (params?.agentId) searchParams.append('agentId', params.agentId);
+      if (params?.resourceType) searchParams.append('resourceType', params.resourceType);
+      if (params?.outcome) searchParams.append('outcome', params.outcome);
+      if (params?.severity) searchParams.append('severity', params.severity);
       return this.request(`/api/v1/audit/logs?${searchParams}`);
     },
 
     /**
      * Get audit log by ID
      */
-    getLog: async (logId: string): Promise<APIResponse<any>> => {
+    getLog: async (logId: string): Promise<APIResponse<AuditLog>> => {
       return this.request(`/api/v1/audit/logs/${logId}`);
     },
 
@@ -1746,7 +1547,7 @@ export class UAIPAPIClient {
     /**
      * Get audit stats
      */
-    getStats: async (period?: string): Promise<APIResponse<any>> => {
+    getStats: async (period?: string): Promise<APIResponse<AuditStats>> => {
       const params = period ? `?period=${encodeURIComponent(period)}` : '';
       return this.request(`/api/v1/audit/stats${params}`);
     },
@@ -1754,11 +1555,7 @@ export class UAIPAPIClient {
     /**
      * Export audit logs
      */
-    exportLogs: async (exportData: {
-      format: string;
-      filters: any;
-      includeDetails: boolean;
-    }): Promise<APIResponse<any>> => {
+    exportLogs: async (exportData: AuditExportConfig): Promise<APIResponse<string | Blob>> => {
       return this.request('/api/v1/audit/export', {
         method: 'POST',
         body: JSON.stringify(exportData),
@@ -1769,12 +1566,12 @@ export class UAIPAPIClient {
      * Generate compliance report
      */
     generateComplianceReport: async (reportData: {
-      reportType: string;
+      reportType: 'sox' | 'gdpr' | 'hipaa' | 'pci' | 'custom';
       period: { startDate: string; endDate: string };
       includeMetrics: boolean;
       includeRecommendations: boolean;
-      format: string;
-    }): Promise<APIResponse<any>> => {
+      format: 'pdf' | 'html' | 'json';
+    }): Promise<APIResponse<ComplianceReport>> => {
       return this.request('/api/v1/audit/compliance-report', {
         method: 'POST',
         body: JSON.stringify(reportData),
@@ -1784,7 +1581,7 @@ export class UAIPAPIClient {
     /**
      * Get user activity
      */
-    getUserActivity: async (userId: string, startDate?: string, endDate?: string): Promise<APIResponse<any[]>> => {
+    getUserActivity: async (userId: string, startDate?: string, endDate?: string): Promise<APIResponse<UserActivitySummary[]>> => {
       const params = new URLSearchParams();
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
@@ -1798,10 +1595,151 @@ export class UAIPAPIClient {
       retentionDays: number;
       dryRun: boolean;
       eventTypes?: string[];
-    }): Promise<APIResponse<any>> => {
+    }): Promise<APIResponse<AuditCleanupResult>> => {
       return this.request('/api/v1/audit/cleanup', {
         method: 'DELETE',
         body: JSON.stringify(cleanupData),
+      });
+    },
+
+    async getAuditLogs(filters?: AuditSearchFilters): Promise<APIResponse<AuditLog[]>> {
+      return this.request(`${API_ROUTES.SECURITY}/audit/logs`, {
+        method: 'GET',
+        headers: {
+          ...this.getAuthHeaders(),
+        },
+      });
+    },
+
+    async exportAuditLogs(format: 'json' | 'csv' = 'json'): Promise<APIResponse<string | Blob>> {
+      return this.request(`${API_ROUTES.SECURITY}/audit/export?format=${format}`, {
+        method: 'GET',
+        headers: {
+          ...this.getAuthHeaders(),
+        },
+      });
+    }
+  };
+
+  llm = {
+    getModels: async (): Promise<APIResponse<LLMModel[]>> => {
+      return this.request(`${API_ROUTES.LLM}/models`, {
+        method: 'GET',
+      });
+    },
+
+    getModelsFromProvider: async (providerType: string): Promise<APIResponse<LLMModel[]>> => {
+      return this.request(`${API_ROUTES.LLM}/models/${providerType}`, {
+        method: 'GET',
+      });
+    },
+
+    getProviders: async (): Promise<APIResponse<ProviderConfig[]>> => {
+      return this.request(`${API_ROUTES.LLM}/providers`, {
+        method: 'GET',
+      });
+    },
+
+    getProviderStats: async (): Promise<APIResponse<ProviderStats[]>> => {
+      return this.request(`${API_ROUTES.LLM}/providers/stats`, {
+        method: 'GET',
+      });
+    },
+
+    generateResponse: async (request: LLMGenerationRequest): Promise<APIResponse<LLMGenerationResponse>> => {
+      return this.request(`${API_ROUTES.LLM}/generate`, {
+        method: 'POST',
+        body: JSON.stringify(request),
+      });
+    },
+
+    generateAgentResponse: async (request: AgentLLMRequest): Promise<APIResponse<LLMGenerationResponse>> => {
+      return this.request(`${API_ROUTES.LLM}/agent-response`, {
+        method: 'POST',
+        body: JSON.stringify(request),
+      });
+    },
+
+    generateArtifact: async (request: ArtifactGenerationRequest): Promise<APIResponse<ArtifactGenerationResponse>> => {
+      return this.request(`${API_ROUTES.LLM}/artifact`, {
+        method: 'POST',
+        body: JSON.stringify(request),
+      });
+    },
+
+    analyzeContext: async (request: ContextAnalysisRequest): Promise<APIResponse<ContextAnalysisResponse>> => {
+      return this.request(`${API_ROUTES.LLM}/analyze-context`, {
+        method: 'POST',
+        body: JSON.stringify(request),
+      });
+    }
+  };
+
+  // User-specific LLM methods (using user LLM routes)
+  userLLM = {
+    getProviders: async (): Promise<APIResponse<ProviderConfig[]>> => {
+      return this.request(`${API_ROUTES.USER_LLM}/providers`, {
+        method: 'GET',
+      });
+    },
+
+    createProvider: async (providerData: ModelProvider): Promise<APIResponse<ProviderConfig>> => {
+      return this.request(`${API_ROUTES.USER_LLM}/providers`, {
+        method: 'POST',
+        body: JSON.stringify(providerData),
+      });
+    },
+
+    updateProviderConfig: async (providerId: string, config: {
+      name?: string;
+      description?: string;
+      baseUrl?: string;
+      defaultModel?: string;
+      priority?: number;
+      configuration?: Record<string, unknown>;
+    }): Promise<APIResponse<void>> => {
+      return this.request(`${API_ROUTES.USER_LLM}/providers/${providerId}`, {
+        method: 'PUT',
+        body: JSON.stringify(config),
+      });
+    },
+
+    updateProviderApiKey: async (providerId: string, apiKey: string): Promise<APIResponse<void>> => {
+      return this.request(`${API_ROUTES.USER_LLM}/providers/${providerId}/api-key`, {
+        method: 'PUT',
+        body: JSON.stringify({ apiKey }),
+      });
+    },
+
+    testProvider: async (providerId: string): Promise<APIResponse<ProviderTestResult>> => {
+      return this.request(`${API_ROUTES.USER_LLM}/providers/${providerId}/test`, {
+        method: 'POST',
+      });
+    },
+
+    deleteProvider: async (providerId: string): Promise<APIResponse<void>> => {
+      return this.request(`${API_ROUTES.USER_LLM}/providers/${providerId}`, {
+        method: 'DELETE',
+      });
+    },
+
+    getModels: async (): Promise<APIResponse<LLMModel[]>> => {
+      return this.request(`${API_ROUTES.USER_LLM}/models`, {
+        method: 'GET',
+      });
+    },
+
+    generateResponse: async (request: LLMGenerationRequest): Promise<APIResponse<LLMGenerationResponse>> => {
+      return this.request(`${API_ROUTES.USER_LLM}/generate`, {
+        method: 'POST',
+        body: JSON.stringify(request),
+      });
+    },
+
+    generateAgentResponse: async (request: AgentLLMRequest): Promise<APIResponse<LLMGenerationResponse>> => {
+      return this.request(`${API_ROUTES.USER_LLM}/agent-response`, {
+        method: 'POST',
+        body: JSON.stringify(request),
       });
     }
   };

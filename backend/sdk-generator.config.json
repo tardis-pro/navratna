@@ -1,0 +1,53 @@
+{
+  "services": {
+    "agent-intelligence": {
+      "path": "./services/agent-intelligence",
+      "basePath": "/api/v1/agents",
+      "include": ["agents", "personas"],
+      "exclude": ["internal"]
+    },
+    "llm-service": {
+      "path": "./services/llm-service",
+      "basePath": "/api/v1/llm",
+      "include": ["generate", "providers"]
+    },
+    "security-gateway": {
+      "path": "./services/security-gateway",
+      "basePath": "/api/v1/admin",
+      "include": ["auth", "users", "audit", "llm-providers"],
+      "exclude": ["internal", "system"]
+    },
+    "capability-registry": {
+      "path": "./services/capability-registry",
+      "basePath": "/api/v1/capabilities",
+      "include": ["capabilities", "tools"]
+    },
+    "orchestration-pipeline": {
+      "path": "./services/orchestration-pipeline",
+      "basePath": "/api/v1/operations"
+    },
+    "discussion-orchestration": {
+      "path": "./services/discussion-orchestration",
+      "basePath": "/api/v1/discussions"
+    },
+    "artifact-service": {
+      "path": "./services/artifact-service",
+      "basePath": "/api/v1/artifacts"
+    }
+  },
+  "output": {
+    "directory": "../apps/frontend/src/generated",
+    "filename": "uaip-sdk",
+    "format": "typescript"
+  },
+  "templates": {},
+  "options": {
+    "includeTypes": true,
+    "includeValidation": true,
+    "includeAuth": true,
+    "useAxios": false,
+    "useFetch": true,
+    "generateDocs": true,
+    "minify": false
+  }
+} 

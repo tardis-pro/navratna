@@ -11,21 +11,21 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@uaip/types": "workspace:*",
     "@uaip/config": "workspace:*",
-    "@uaip/utils": "workspace:*",
     "@uaip/shared-services": "workspace:*",
-    "uuid": "^9.0.0",
-    "node-fetch": "^3.3.2"
+    "@uaip/types": "workspace:*",
+    "@uaip/utils": "workspace:*",
+    "node-fetch": "^3.3.2",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
-    "@types/uuid": "^9.0.0",
-    "@types/node": "^20.0.0",
-    "typescript": "^5.0.0"
+    "@types/node": "catalog:backend",
+    "@types/uuid": "^10.0.0",
+    "typescript": "catalog:"
   },
   "files": [
     "dist",
     "package.json",
     "README.md"
   ]
-} 
+}

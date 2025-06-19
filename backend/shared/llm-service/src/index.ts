@@ -2,6 +2,7 @@ import { LLMService } from './LLMService';
 
 // Main exports for the LLM service package
 export { LLMService, llmService } from './LLMService';
+export { UserLLMService } from './UserLLMService';
 
 // Interface exports
 export type {

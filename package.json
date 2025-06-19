@@ -15,10 +15,12 @@
     "dev:frontend": "cd apps/frontend && pnpm dev",
     "dev:backend": "cd backend && pnpm dev",
     "build": "pnpm build:shared && pnpm build:backend && pnpm build:frontend",
-    "build:shared": "pnpm -r --filter=\"packages/**\" build",
+    "build:shared": "pnpm -r --filter=\"./packages/*\" build",
     "build:backend": "cd backend && pnpm build-services",
     "build:frontend": "cd apps/frontend && pnpm build",
     "build:dev": "pnpm build:shared && pnpm build:backend && cd apps/frontend && pnpm build:dev",
+    "generate:sdk": "cd backend && pnpm build:sdk-generator && tsx scripts/generate-sdk.ts",
+    "generate:sdk:watch": "cd backend && pnpm build:sdk-generator && tsx scripts/generate-sdk.ts --watch",
     "lint": "pnpm -r lint",
     "lint:fix": "pnpm -r lint:fix",
     "clean": "pnpm -r clean",
@@ -28,20 +30,20 @@
     "test:artifacts:code": "cd backend && tsx services/artifact-service/src/test/run-demo.ts -- --artifact-only"
   },
   "devDependencies": {
-    "@eslint/js": "^9.9.0",
-    "@typescript-eslint/eslint-plugin": "^6.15.0",
-    "@typescript-eslint/parser": "^6.15.0",
-    "concurrently": "^8.2.2",
-    "eslint": "^9.9.0",
-    "globals": "^15.9.0",
-    "rimraf": "^5.0.5",
-    "tsx": "^4.19.4",
-    "typescript": "^5.5.3",
-    "typescript-eslint": "^8.0.1"
+    "@eslint/js": "^9.29.0",
+    "@typescript-eslint/eslint-plugin": "^8.34.1",
+    "@typescript-eslint/parser": "^8.34.1",
+    "concurrently": "^9.1.2",
+    "eslint": "^9.29.0",
+    "globals": "^16.2.0",
+    "rimraf": "^6.0.1",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.34.1"
   },
   "engines": {
     "node": ">=18.0.0",
     "pnpm": ">=8.0.0"
   },
-  "packageManager": "pnpm@8.15.0"
+  "packageManager": "pnpm@10.12.1+sha512.f0dda8580f0ee9481c5c79a1d927b9164f2c478e90992ad268bbb2465a736984391d6333d2c327913578b2804af33474ca554ba29c04a8b13060a717675ae3ac"
 }

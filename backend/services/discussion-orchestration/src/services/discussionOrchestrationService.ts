@@ -1,3 +1,4 @@
+import { EventEmitter } from 'events';
 import { 
   Discussion, 
   DiscussionParticipant, 
@@ -21,7 +22,7 @@ export interface DiscussionOrchestrationResult {
   events?: DiscussionEvent[];
 }
 
-export class DiscussionOrchestrationService {
+export class DiscussionOrchestrationService extends EventEmitter {
   private turnStrategyService: TurnStrategyService;
   private discussionService: DiscussionService;
   private eventBusService: EventBusService;
@@ -34,6 +35,7 @@ export class DiscussionOrchestrationService {
     eventBusService: EventBusService,
     webSocketHandler?: DiscussionWebSocketHandler
   ) {
+    super();
     this.discussionService = discussionService;
     this.eventBusService = eventBusService;
     this.webSocketHandler = webSocketHandler;
@@ -1047,13 +1049,7 @@ export class DiscussionOrchestrationService {
     }
   }
 
-  /**
-   * Make the service an event emitter for websocket integration
-   */
-  on(event: string, listener: (...args: any[]) => void): void {
-    // This would integrate with Node.js EventEmitter if needed
-    // For now, we'll handle events through the event bus
-  }
+
 
   private async getDiscussionInternal(discussionId: string, forceRefresh = false): Promise<Discussion | null> {
     // This is the old private method, now we use the public one
@@ -1103,7 +1099,10 @@ export class DiscussionOrchestrationService {
       // Emit to event bus
       await this.eventBusService.publish('discussion.events', event);
       
-      // Broadcast to WebSocket connections
+      // Emit to EventEmitter interface (for WebSocket handler)
+      this.emit('discussion_event', event);
+      
+      // Broadcast to WebSocket connections (fallback)
       if (this.webSocketHandler) {
         this.webSocketHandler.broadcastToDiscussion(event.discussionId, event);
       }

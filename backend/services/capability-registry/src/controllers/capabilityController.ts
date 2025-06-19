@@ -381,13 +381,15 @@ export class CapabilityController {
     // Extract security context from request headers/auth
     return {
       userId: req.headers['x-user-id'] as string || 'anonymous',
-      agentId: req.headers['x-agent-id'] as string,
       sessionId: req.headers['x-session-id'] as string || 'unknown',
+      role: req.headers['x-user-role'] as string || 'user',
       permissions: [], // Will be populated by security validation
       securityLevel: SecurityLevel.MEDIUM,
+      lastAuthentication: new Date(),
+      mfaVerified: false,
+      riskScore: 0,
       ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-      timestamp: new Date()
+      userAgent: req.headers['user-agent']
     };
   }
 } 

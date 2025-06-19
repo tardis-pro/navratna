@@ -1,10 +1,9 @@
-import { ITemplateManager } from '../interfaces/ArtifactTypes.js';
+import { ITemplateManager, TemplateFilters } from '../interfaces/ArtifactTypes.js';
 import { 
-  ArtifactTemplate, 
-  GenerationContext, 
-  TemplateFilters, 
+  ArtifactGenerationTemplate as ArtifactTemplate, 
+  ArtifactConversationContext as GenerationContext, 
   ArtifactType 
-} from '../types/artifact.js';
+} from '@uaip/types';
 import { logger } from '@uaip/utils';
 
 export class TemplateManager implements ITemplateManager {
@@ -17,89 +16,39 @@ export class TemplateManager implements ITemplateManager {
   selectTemplate(context: GenerationContext): ArtifactTemplate | null {
     const { agent, persona, technical } = context;
     
-    // Filter templates by type and technical constraints
-    const candidates = Array.from(this.templates.values()).filter(template => {
-      // Match language if specified
-      if (technical.language && template.language && 
+    // Try to find a template that matches the context
+    for (const template of this.templates.values()) {
+      // Check if template matches technical requirements
+      if (technical?.language && template.language &&
           template.language.toLowerCase() !== technical.language.toLowerCase()) {
-        return false;
+        continue;
       }
-      
-      // Match framework if specified
-      if (technical.framework && template.framework && 
-          template.framework.toLowerCase() !== technical.framework.toLowerCase()) {
-        return false;
-      }
-      
-      return true;
-    });
 
-    if (candidates.length === 0) {
-      logger.warn('No matching templates found for context', { 
-        language: technical.language, 
-        framework: technical.framework 
-      });
-      return null;
+      // Check framework compatibility
+      if (technical?.framework && template.framework &&
+          template.framework.toLowerCase() !== technical.framework.toLowerCase()) {
+        continue;
+      }
+
+      return template;
     }
 
-    // Select based on persona expertise and agent capabilities
-    const scored = candidates.map(template => {
-      let score = 0;
-      
-      // Score based on persona expertise
-      if (persona.expertise.some(exp => 
-        template.name.toLowerCase().includes(exp.toLowerCase()))) {
-        score += 10;
-      }
-      
-      // Score based on agent capabilities
-      if (agent.capabilities.some(cap => 
-        template.name.toLowerCase().includes(cap.toLowerCase()))) {
-        score += 5;
-      }
-      
-      // Prefer exact language/framework matches
-      if (technical.language && template.language === technical.language) {
-        score += 15;
-      }
-      if (technical.framework && template.framework === technical.framework) {
-        score += 15;
-      }
-      
-      return { template, score };
-    });
-
-    // Return highest scoring template
-    scored.sort((a, b) => b.score - a.score);
-    return scored[0].template;
+    // Return default template for the type if no specific match
+    return this.getDefaultTemplate(context);
   }
 
   applyTemplate(template: ArtifactTemplate, context: GenerationContext): string {
-    let content = template.template;
-    
-    // Extract requirements from discussion
-    const requirements = this.extractRequirements(context.discussion.messages);
-    const functionName = this.extractFunctionName(context.discussion.messages);
-    const className = this.extractClassName(context.discussion.messages);
-    
-    // Apply variable substitutions
-    const substitutions: { [key: string]: string } = {
-      '{{FUNCTION_NAME}}': functionName || 'generatedFunction',
-      '{{CLASS_NAME}}': className || 'GeneratedClass',
-      '{{LANGUAGE}}': context.technical.language || 'typescript',
-      '{{FRAMEWORK}}': context.technical.framework || 'express',
-      '{{AUTHOR}}': context.persona.role || 'Developer',
-      '{{REQUIREMENTS}}': requirements.join('\n// '),
-      '{{COMMUNICATION_STYLE}}': context.persona.communicationStyle || 'professional',
-      '{{TIMESTAMP}}': new Date().toISOString(),
-    };
+    let result = template.template;
 
-    // Apply substitutions
-    for (const [variable, value] of Object.entries(substitutions)) {
-      content = content.replace(new RegExp(variable, 'g'), value);
+    // Create replacement map
+    const replacements = this.createReplacementMap(context, template);
+
+    // Apply all replacements
+    for (const [placeholder, value] of Object.entries(replacements)) {
+      result = result.replace(new RegExp(placeholder, 'g'), value);
     }
 
-    return content;
+    return result;
   }
 
   listTemplates(filters?: TemplateFilters): ArtifactTemplate[] {
@@ -126,173 +75,282 @@ export class TemplateManager implements ITemplateManager {
     return this.templates.get(id) || null;
   }
 
-  private extractRequirements(messages: any[]): string[] {
+  private getDefaultTemplate(context: GenerationContext): ArtifactTemplate | null {
+    // Score templates based on context compatibility
+    const scoredTemplates = Array.from(this.templates.values()).map(template => {
+      let score = 0;
+      
+      // Prefer templates that match technical requirements
+      if (context.technical?.language && template.language === context.technical.language) {
+        score += 10;
+      }
+      if (context.technical?.framework && template.framework === context.technical.framework) {
+        score += 10;
+      }
+      
+      return { template, score };
+    });
+
+    // Sort by score and return the best match
+    scoredTemplates.sort((a, b) => b.score - a.score);
+    return scoredTemplates.length > 0 ? scoredTemplates[0].template : null;
+  }
+
+  private createReplacementMap(context: GenerationContext, template: ArtifactTemplate): Record<string, string> {
+    const requirements = this.extractRequirements(context.discussion?.messages || []);
+    const functionName = this.extractFunctionName(context.discussion?.messages || []);
+    const className = this.extractClassName(context.discussion?.messages || []);
+
+    return {
+      '{{REQUIREMENTS}}': requirements,
+      '{{FUNCTION_NAME}}': functionName,
+      '{{CLASS_NAME}}': className,
+      '{{LANGUAGE}}': context.technical?.language || 'typescript',
+      '{{FRAMEWORK}}': context.technical?.framework || 'express',
+      '{{AUTHOR}}': context.persona?.role || 'Developer',
+      '{{TIMESTAMP}}': new Date().toISOString(),
+      '{{COMMUNICATION_STYLE}}': context.persona?.communicationStyle || 'professional',
+      '{{CONVERSATION_ID}}': context.conversationId
+    };
+  }
+
+  private extractRequirements(messages: any[]): string {
     const requirements: string[] = [];
     
     for (const message of messages) {
-      const content = message.content.toLowerCase();
+      const content = message.content?.toLowerCase() || '';
       
-      // Look for requirement patterns
-      if (content.includes('should') || content.includes('must') || 
-          content.includes('need to') || content.includes('require')) {
-        // Extract the sentence containing the requirement
-        const sentences = message.content.split(/[.!?]+/);
-        for (const sentence of sentences) {
-          if (sentence.toLowerCase().includes('should') || 
-              sentence.toLowerCase().includes('must') ||
-              sentence.toLowerCase().includes('need to') ||
-              sentence.toLowerCase().includes('require')) {
-            requirements.push(sentence.trim());
-          }
-        }
+      // Look for requirement indicators
+      if (content.includes('need') || content.includes('require') || content.includes('must')) {
+        requirements.push(message.content);
       }
     }
     
-    return requirements.slice(0, 5); // Limit to top 5 requirements
+    return requirements.length > 0 ? requirements.join('\n- ') : 'No specific requirements found';
   }
 
-  private extractFunctionName(messages: any[]): string | null {
+  private extractFunctionName(messages: any[]): string {
     for (const message of messages) {
-      // Look for function name patterns
-      const functionMatch = message.content.match(/function\s+(\w+)|(\w+)\s*\(/);
+      const content = message.content || '';
+      const functionMatch = content.match(/function\s+(\w+)/i) || content.match(/(\w+)\s*\(/);
       if (functionMatch) {
-        return functionMatch[1] || functionMatch[2];
+        return functionMatch[1];
       }
     }
-    return null;
+    return 'processData';
   }
 
-  private extractClassName(messages: any[]): string | null {
+  private extractClassName(messages: any[]): string {
     for (const message of messages) {
-      // Look for class name patterns
-      const classMatch = message.content.match(/class\s+(\w+)|(\w+)\s+class/i);
+      const content = message.content || '';
+      const classMatch = content.match(/class\s+(\w+)/i);
       if (classMatch) {
-        return classMatch[1] || classMatch[2];
+        return classMatch[1];
       }
     }
-    return null;
+    return 'DataProcessor';
   }
 
   private initializeDefaultTemplates(): void {
-    // TypeScript Function Template
-    this.templates.set('ts-function', {
-      id: 'ts-function',
+    // TypeScript function template
+    this.templates.set('typescript-function', {
+      id: 'typescript-function',
       name: 'TypeScript Function',
-      type: 'code' as ArtifactType,
-      language: 'typescript',
-      template: `// {{REQUIREMENTS}}
-/**
- * Generated by {{AUTHOR}} on {{TIMESTAMP}}
- * Communication style: {{COMMUNICATION_STYLE}}
+      description: 'Basic TypeScript function template',
+      type: 'code',
+      template: `/**
+ * {{FUNCTION_NAME}} - Generated by {{AUTHOR}}
+ * 
+ * Requirements:
+ * {{REQUIREMENTS}}
+ * 
+ * @generated {{TIMESTAMP}}
  */
 export function {{FUNCTION_NAME}}(): void {
   // TODO: Implement function logic
-  throw new Error('Not implemented');
+  console.log('{{FUNCTION_NAME}} called');
 }`,
-      variables: ['FUNCTION_NAME', 'AUTHOR', 'REQUIREMENTS', 'COMMUNICATION_STYLE', 'TIMESTAMP']
+      variables: { 
+        FUNCTION_NAME: 'string',
+        AUTHOR: 'string',
+        REQUIREMENTS: 'string',
+        TIMESTAMP: 'string'
+      },
+      examples: [],
+      tags: ['typescript', 'function'],
+      version: '1.0.0',
+      author: 'system',
+      isEnabled: true,
+      language: 'typescript'
     });
 
-    // TypeScript Class Template
-    this.templates.set('ts-class', {
-      id: 'ts-class',
+    // TypeScript class template
+    this.templates.set('typescript-class', {
+      id: 'typescript-class',
       name: 'TypeScript Class',
-      type: 'code' as ArtifactType,
-      language: 'typescript',
-      template: `// {{REQUIREMENTS}}
-/**
- * Generated by {{AUTHOR}} on {{TIMESTAMP}}
- * Communication style: {{COMMUNICATION_STYLE}}
+      description: 'Basic TypeScript class template',
+      type: 'code',
+      template: `/**
+ * {{CLASS_NAME}} - Generated by {{AUTHOR}}
+ * 
+ * Requirements:
+ * {{REQUIREMENTS}}
+ * 
+ * @generated {{TIMESTAMP}}
  */
 export class {{CLASS_NAME}} {
   constructor() {
-    // TODO: Initialize class
+    // TODO: Initialize class properties
   }
-  
-  // TODO: Add methods
+
+  public process(): void {
+    // TODO: Implement class methods
+  }
 }`,
-      variables: ['CLASS_NAME', 'AUTHOR', 'REQUIREMENTS', 'COMMUNICATION_STYLE', 'TIMESTAMP']
+      variables: {
+        CLASS_NAME: 'string',
+        AUTHOR: 'string',
+        REQUIREMENTS: 'string',
+        TIMESTAMP: 'string'
+      },
+      examples: [],
+      tags: ['typescript', 'class'],
+      version: '1.0.0',
+      author: 'system',
+      isEnabled: true,
+      language: 'typescript'
     });
 
-    // Jest Test Template
+    // Test template
     this.templates.set('jest-test', {
       id: 'jest-test',
       name: 'Jest Test Suite',
-      type: 'test' as ArtifactType,
-      language: 'typescript',
-      framework: 'jest',
-      template: `// Test requirements: {{REQUIREMENTS}}
-/**
- * Generated by {{AUTHOR}} on {{TIMESTAMP}}
+      description: 'Basic Jest test template',
+      type: 'test',
+      template: `/**
+ * Test Suite for {{FUNCTION_NAME}} - Generated by {{AUTHOR}}
+ * 
+ * @generated {{TIMESTAMP}}
  */
 import { {{FUNCTION_NAME}} } from './{{FUNCTION_NAME}}';
 
 describe('{{FUNCTION_NAME}}', () => {
-  it('should work correctly', () => {
-    // TODO: Implement test
-    expect(true).toBe(true);
+  it('should execute without errors', () => {
+    expect(() => {{FUNCTION_NAME}}()).not.toThrow();
   });
-  
-  // TODO: Add more test cases
+
+  it('should return expected result', () => {
+    // TODO: Add specific test cases
+    const result = {{FUNCTION_NAME}}();
+    expect(result).toBeDefined();
+  });
 });`,
-      variables: ['FUNCTION_NAME', 'AUTHOR', 'REQUIREMENTS', 'TIMESTAMP']
+      variables: {
+        FUNCTION_NAME: 'string',
+        AUTHOR: 'string',
+        TIMESTAMP: 'string'
+      },
+      examples: [],
+      tags: ['jest', 'test', 'typescript'],
+      version: '1.0.0',
+      author: 'system',
+      isEnabled: true,
+      language: 'typescript'
     });
 
-    // Documentation Template
+    // Add missing required properties to existing templates
     this.templates.set('api-docs', {
       id: 'api-docs',
       name: 'API Documentation',
-      type: 'documentation' as ArtifactType,
-      template: `# {{FUNCTION_NAME}} API Documentation
+      description: 'Basic API documentation template',
+      type: 'documentation',
+      template: `# API Documentation
 
-Generated by {{AUTHOR}} on {{TIMESTAMP}}
+## {{FUNCTION_NAME}}
 
-## Overview
+Generated by: {{AUTHOR}}
+Generated at: {{TIMESTAMP}}
+
+### Requirements
 {{REQUIREMENTS}}
 
-## Usage
-
+### Usage
 \`\`\`{{LANGUAGE}}
-// TODO: Add usage examples
+// Example usage
+{{FUNCTION_NAME}}();
 \`\`\`
 
-## Parameters
-- TODO: Document parameters
+### Parameters
+- None
 
-## Returns
-- TODO: Document return values
+### Returns
+- void
 
-## Examples
-- TODO: Add examples`,
-      variables: ['FUNCTION_NAME', 'AUTHOR', 'REQUIREMENTS', 'LANGUAGE', 'TIMESTAMP']
+### Notes
+- TODO: Add additional documentation
+`,
+      variables: {
+        FUNCTION_NAME: 'string',
+        AUTHOR: 'string',
+        REQUIREMENTS: 'string',
+        LANGUAGE: 'string',
+        TIMESTAMP: 'string'
+      },
+      examples: [],
+      tags: ['documentation', 'api'],
+      version: '1.0.0',
+      author: 'system',
+      isEnabled: true
     });
 
-    // PRD Template
     this.templates.set('basic-prd', {
       id: 'basic-prd',
       name: 'Basic PRD',
-      type: 'prd' as ArtifactType,
+      description: 'Basic Product Requirements Document template',
+      type: 'prd',
       template: `# Product Requirements Document
 
-**Author**: {{AUTHOR}}  
-**Date**: {{TIMESTAMP}}  
-**Communication Style**: {{COMMUNICATION_STYLE}}
+**Author:** {{AUTHOR}}
+**Generated:** {{TIMESTAMP}}
+**Communication Style:** {{COMMUNICATION_STYLE}}
+
+## Overview
+This document outlines the requirements for the requested feature.
 
 ## Requirements
 {{REQUIREMENTS}}
 
-## Overview
-TODO: Add product overview
-
-## Features
-TODO: Define features
-
 ## Technical Specifications
-- **Language**: {{LANGUAGE}}
-- **Framework**: {{FRAMEWORK}}
+- **Language:** {{LANGUAGE}}
+- **Framework:** {{FRAMEWORK}}
 
-## Success Criteria
-TODO: Define success criteria`,
-      variables: ['AUTHOR', 'REQUIREMENTS', 'COMMUNICATION_STYLE', 'LANGUAGE', 'FRAMEWORK', 'TIMESTAMP']
+## Objectives
+- Implement the requested functionality
+- Ensure code quality and maintainability
+- Provide comprehensive documentation
+
+## Acceptance Criteria
+- [ ] Code implementation completed
+- [ ] Unit tests written and passing
+- [ ] Documentation updated
+- [ ] Code review completed
+
+## Notes
+TODO: Add specific implementation details
+`,
+      variables: {
+        AUTHOR: 'string',
+        REQUIREMENTS: 'string',
+        COMMUNICATION_STYLE: 'string',
+        LANGUAGE: 'string',
+        FRAMEWORK: 'string',
+        TIMESTAMP: 'string'
+      },
+      examples: [],
+      tags: ['prd', 'requirements'],
+      version: '1.0.0',
+      author: 'system',
+      isEnabled: true
     });
 
     logger.info(`Initialized ${this.templates.size} default templates`);

@@ -1,12 +1,18 @@
 import { 
   ArtifactGenerationRequest, 
   ArtifactGenerationResponse, 
-  ArtifactTemplate, 
+  ArtifactGenerationTemplate as ArtifactTemplate, 
   ValidationResult, 
   ArtifactType,
-  TemplateFilters,
-  GenerationContext
-} from '../types/artifact';
+  ArtifactConversationContext as GenerationContext
+} from '@uaip/types';
+
+// Local types that don't exist in shared types
+export interface TemplateFilters {
+  type?: ArtifactType;
+  language?: string;
+  framework?: string;
+}
 
 export interface IArtifactService {
   // Primary generation method

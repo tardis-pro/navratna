@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { format } from 'date-fns';
 import { cn } from '../lib/utils';
 
@@ -18,44 +18,16 @@ export interface Decision {
 
 interface DecisionLogProps {
   className?: string;
+  decisions?: Decision[];
+  onAddDecision?: (decision: Omit<Decision, 'id' | 'timestamp'>) => void;
 }
 
-export const DecisionLog: React.FC<DecisionLogProps> = ({ className }) => {
-  const [decisions, setDecisions] = useState<Decision[]>([]);
+export const DecisionLog: React.FC<DecisionLogProps> = ({ 
+  className, 
+  decisions = [],
+  onAddDecision 
+}) => {
   const [showAddForm, setShowAddForm] = useState(false);
-
-  // Mock decisions for demonstration
-  useEffect(() => {
-    const mockDecisions: Decision[] = [
-      {
-        id: '1',
-        title: 'API Architecture Pattern',
-        description: 'Choose between REST and GraphQL for the new service',
-        options: ['REST API', 'GraphQL', 'Hybrid Approach'],
-        chosenOption: 'REST API',
-        rationale: 'Team familiarity, simpler caching, better tooling support',
-        participants: ['Tech Lead', 'Software Engineer', 'DevOps Engineer'],
-        timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-        confidence: 8,
-        impact: 'high',
-        status: 'decided'
-      },
-      {
-        id: '2',
-        title: 'Testing Strategy',
-        description: 'Define testing approach for the sprint',
-        options: ['Unit tests only', 'Unit + Integration', 'Full E2E coverage'],
-        chosenOption: 'Unit + Integration',
-        rationale: 'Balance between coverage and development speed',
-        participants: ['QA Engineer', 'Software Engineer', 'Tech Lead'],
-        timestamp: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
-        confidence: 7,
-        impact: 'medium',
-        status: 'implemented'
-      }
-    ];
-    setDecisions(mockDecisions);
-  }, []);
 
   const getStatusColor = (status: Decision['status']) => {
     const colors = {
@@ -86,17 +58,21 @@ export const DecisionLog: React.FC<DecisionLogProps> = ({ className }) => {
     <div className={cn("space-y-4", className)}>
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Decision Log</h2>
-        <button
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 transition-colors"
-        >
-          + Add Decision
-        </button>
+        {onAddDecision && (
+          <button
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 transition-colors"
+          >
+            + Add Decision
+          </button>
+        )}
       </div>
 
       {decisions.length === 0 ? (
         <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-          No decisions recorded yet
+          <div className="mb-2">📋</div>
+          <p>No decisions recorded yet</p>
+          <p className="text-sm mt-1">Decisions will be automatically detected from conversation patterns</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -164,7 +140,7 @@ export const DecisionLog: React.FC<DecisionLogProps> = ({ className }) => {
         </div>
       )}
 
-      {showAddForm && (
+      {showAddForm && onAddDecision && (
         <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
           <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-3">Add New Decision</h3>
           <div className="text-sm text-gray-600 dark:text-gray-400">

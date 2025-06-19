@@ -81,6 +81,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Check for existing authentication on mount
   useEffect(() => {
     checkAuthStatus();
+    
+    // Listen for auth failures from the API client
+    const unsubscribe = uaipAPI.client.onAuthFailure(() => {
+      console.log('Auth failure detected, clearing state');
+      setState({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+        error: null
+      });
+    });
+    
+    return unsubscribe;
   }, []);
 
   // Generic flow execution handler
@@ -103,8 +116,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       } else if (service === 'systemOperations') {
         result = await executeSystemOperationsFlow(flow, params);
       } else {
-        // For other services, use mock implementation
-        result = await mockApiCall(service, flow, params);
+        // For other services, throw an error indicating they're not implemented
+        throw new Error(`Service '${service}' is not yet implemented. Available services: security, systemOperations`);
       }
       
       setFlowResults(prev => {
@@ -137,15 +150,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return await uaipAPI.client.auth.refreshToken();
       case 'validatePermissions':
         // This would be a specialized security endpoint
-        return await mockApiCall('security', flow, params);
+        throw new Error(`Security flow '${flow}' is not yet implemented`);
       case 'assessRisk':
         // This would be a risk assessment endpoint
-        return await mockApiCall('security', flow, params);
+        throw new Error(`Security flow '${flow}' is not yet implemented`);
       case 'auditLog':
         // This would be an audit log endpoint
-        return await mockApiCall('security', flow, params);
+        throw new Error(`Security flow '${flow}' is not yet implemented`);
       default:
-        return await mockApiCall('security', flow, params);
+        throw new Error(`Security flow '${flow}' is not yet implemented`);
     }
   };
 
@@ -156,48 +169,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return await uaipAPI.client.health();
       case 'getSystemMetrics':
         // This would be a system metrics endpoint
-        return await mockApiCall('systemOperations', flow, params);
+        throw new Error(`System operations flow '${flow}' is not yet implemented`);
       case 'getSystemConfig':
         // This would be a system config endpoint
-        return await mockApiCall('systemOperations', flow, params);
+        throw new Error(`System operations flow '${flow}' is not yet implemented`);
       default:
-        return await mockApiCall('systemOperations', flow, params);
+        throw new Error(`System operations flow '${flow}' is not yet implemented`);
     }
   };
 
-  // Mock API call function for flows not yet implemented
-  const mockApiCall = async (service: string, flow: string, params: any) => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, Math.random() * 1000 + 200));
-    
-    // Mock different responses based on service and flow
-    if (service === 'security' && flow === 'validatePermissions') {
-      return {
-        hasPermission: true,
-        permissions: ['read', 'write'],
-        resource: params.resource
-      };
-    }
-    
-    if (service === 'systemOperations' && flow === 'getSystemMetrics') {
-      return {
-        cpu: { usage: 45.2, cores: 8 },
-        memory: { used: 2.1, total: 8.0, unit: 'GB' },
-        disk: { used: 125.5, total: 500.0, unit: 'GB' },
-        network: { in: 1024, out: 512, unit: 'KB/s' }
-      };
-    }
-    
-    // Default mock response
-    return { 
-      success: true, 
-      service, 
-      flow, 
-      params, 
-      timestamp: new Date().toISOString(),
-      data: `Mock result for ${service}.${flow}`
-    };
-  };
+
 
   const getFlowStatus = (flowId: string): 'idle' | 'running' | 'completed' | 'error' => {
     if (activeFlows.includes(flowId)) return 'running';
@@ -246,13 +227,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setState(prev => ({ ...prev, isLoading: true, error: null }));
       
-      // Check if we have a stored token
+      // Check if we have a valid stored token
       const accessToken = typeof window !== 'undefined' ? 
         (localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken')) : null;
       const refreshToken = typeof window !== 'undefined' ? 
         (localStorage.getItem('refreshToken') || sessionStorage.getItem('refreshToken')) : null;
       
-      if (!accessToken) {
+      if (!accessToken || !uaipAPI.client.isAuthenticated()) {
         setState(prev => ({ ...prev, isLoading: false }));
         return;
       }
@@ -276,6 +257,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         });
       } else {
         // Token is invalid, clear it
+        console.warn('Auth check failed:', response.error?.message || 'Unknown error');
         uaipAPI.client.clearAuth();
         setState({
           user: null,
@@ -290,11 +272,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Clear invalid tokens
       uaipAPI.client.clearAuth();
       
+      // Don't set error state for failed auth checks - just silently log out
       setState({
         user: null,
         isAuthenticated: false,
         isLoading: false,
-        error: 'Authentication check failed'
+        error: null
       });
     }
   }, []);
@@ -394,9 +377,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           user: response.data,
           error: null
         }));
+      } else {
+        // If user refresh fails, it might mean the token is invalid
+        console.warn('User refresh failed, clearing auth');
+        uaipAPI.client.clearAuth();
+        setState({
+          user: null,
+          isAuthenticated: false,
+          isLoading: false,
+          error: null
+        });
       }
     } catch (error) {
       console.error('Failed to refresh user data:', error);
+      // Don't clear auth on network errors, only on auth failures
+      if (error instanceof Error && error.message.includes('Authentication failed')) {
+        uaipAPI.client.clearAuth();
+        setState({
+          user: null,
+          isAuthenticated: false,
+          isLoading: false,
+          error: null
+        });
+      }
     }
   }, [state.isAuthenticated]);
 

@@ -1,17 +1,36 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
     "composite": true,
-    "outDir": "dist",
-    "rootDir": "src",
-    "baseUrl": "./src"
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "baseUrl": ".",
+    "paths": {
+      "@uaip/types": ["../../../packages/shared-types/src"],
+      "@uaip/types/*": ["../../../packages/shared-types/src/*"],
+      "@uaip/utils": ["../../../packages/shared-utils/src"],
+      "@uaip/utils/*": ["../../../packages/shared-utils/src/*"],
+      "@uaip/config": ["../config"],
+      "@uaip/shared-services": ["../services"],
+      "@uaip/middleware": ["../middleware"],
+    }
   },
-  "references": [
-    { "path": "../../shared/types" },
-    { "path": "../../shared/utils" },
-    { "path": "../../shared/config" },
-    { "path": "../../shared/services" }
-  ],
   "include": ["src/**/*"],
-  "exclude": ["dist", "node_modules"]
+  "exclude": ["dist", "node_modules"],
+  "references": [
+    { "path": "../../../packages/shared-types" },
+    { "path": "../../../packages/shared-utils" },
+    { "path": "../config" },
+    { "path": "../services" }
+  ]
 } 

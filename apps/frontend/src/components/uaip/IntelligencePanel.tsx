@@ -1,19 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { EnhancedAgentState } from '../../types/uaip-interfaces';
+import { useUAIP } from '../../contexts/UAIPContext';
 import { 
   SparklesIcon, 
   ChartBarIcon, 
   ClockIcon,
-  ExclamationTriangleIcon,
+  LightBulbIcon,
   CheckCircleIcon,
   ArrowTrendingUpIcon,
-  CpuChipIcon,
-  LightBulbIcon
+  ArrowPathIcon,
+  ExclamationTriangleIcon,
+  EyeIcon
 } from '@heroicons/react/24/outline';
-
-interface IntelligencePanelProps {
-  agents: EnhancedAgentState[];
-}
 
 interface ContextAnalysis {
   conversationId: string;
@@ -33,93 +30,35 @@ interface DecisionMetrics {
   adaptationRate: number;
 }
 
-interface CognitiveInsight {
-  id: string;
-  type: 'pattern' | 'optimization' | 'risk' | 'opportunity';
-  title: string;
-  description: string;
-  confidence: number;
-  impact: 'low' | 'medium' | 'high';
-  timestamp: Date;
-}
-
-export const IntelligencePanel: React.FC<IntelligencePanelProps> = ({ agents }) => {
+export const IntelligencePanel: React.FC = () => {
+  const { agents, insights, systemMetrics, refreshData, isWebSocketConnected } = useUAIP();
   const [contextAnalyses, setContextAnalyses] = useState<ContextAnalysis[]>([]);
-  const [decisionMetrics, setDecisionMetrics] = useState<DecisionMetrics>({
-    totalDecisions: 0,
-    successRate: 0,
-    averageConfidence: 0,
-    processingTime: 0,
-    adaptationRate: 0
-  });
-  const [cognitiveInsights, setCognitiveInsights] = useState<CognitiveInsight[]>([]);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Simulate real-time intelligence data
-    const mockContextAnalyses: ContextAnalysis[] = [
-      {
-        conversationId: 'conv-1',
-        intent: 'Code optimization request',
-        confidence: 0.92,
-        complexity: 7.5,
-        entities: ['Python', 'performance', 'algorithm'],
-        sentiment: 'neutral',
-        timestamp: new Date(Date.now() - 300000)
-      },
-      {
-        conversationId: 'conv-2',
-        intent: 'Documentation generation',
-        confidence: 0.88,
-        complexity: 4.2,
-        entities: ['API', 'documentation', 'Swagger'],
-        sentiment: 'positive',
-        timestamp: new Date(Date.now() - 600000)
-      }
-    ];
+  // Calculate decision metrics from real agent data
+  const decisionMetrics: DecisionMetrics = React.useMemo(() => {
+    const agentData = agents.data;
+    const activeAgents = agentData.filter(agent => agent.status === 'active');
+    const totalOperations = agentData.reduce((sum, agent) => sum + agent.metrics.totalOperations, 0);
+    const avgSuccessRate = activeAgents.length > 0 
+      ? activeAgents.reduce((sum, agent) => sum + agent.metrics.successRate, 0) / activeAgents.length
+      : 0;
+    const avgResponseTime = activeAgents.length > 0
+      ? activeAgents.reduce((sum, agent) => sum + agent.metrics.averageResponseTime, 0) / activeAgents.length
+      : 0;
 
-    const mockDecisionMetrics: DecisionMetrics = {
-      totalDecisions: 156,
-      successRate: 0.94,
-      averageConfidence: 0.87,
-      processingTime: 245,
-      adaptationRate: 0.12
+    return {
+      totalDecisions: totalOperations,
+      successRate: avgSuccessRate,
+      averageConfidence: activeAgents.length > 0 
+        ? activeAgents.reduce((sum, agent) => sum + agent.intelligenceMetrics.decisionAccuracy, 0) / activeAgents.length
+        : 0,
+      processingTime: avgResponseTime,
+      adaptationRate: activeAgents.length > 0 
+        ? activeAgents.reduce((sum, agent) => sum + agent.intelligenceMetrics.adaptationRate, 0) / activeAgents.length
+        : 0
     };
-
-    const mockInsights: CognitiveInsight[] = [
-      {
-        id: 'insight-1',
-        type: 'pattern',
-        title: 'Recurring Code Review Pattern',
-        description: 'Agents consistently request additional context for security-related code reviews',
-        confidence: 0.89,
-        impact: 'medium',
-        timestamp: new Date()
-      },
-      {
-        id: 'insight-2',
-        type: 'optimization',
-        title: 'Decision Processing Optimization',
-        description: 'Context analysis can be optimized by caching entity recognition results',
-        confidence: 0.76,
-        impact: 'high',
-        timestamp: new Date()
-      },
-      {
-        id: 'insight-3',
-        type: 'opportunity',
-        title: 'Cross-Agent Learning Opportunity',
-        description: 'Knowledge sharing between Creative and Technical agents could improve outcomes',
-        confidence: 0.82,
-        impact: 'high',
-        timestamp: new Date()
-      }
-    ];
-
-    setContextAnalyses(mockContextAnalyses);
-    setDecisionMetrics(mockDecisionMetrics);
-    setCognitiveInsights(mockInsights);
-  }, []);
+  }, [agents.data]);
 
   const getConfidenceColor = (confidence: number) => {
     if (confidence >= 0.8) return 'text-green-600 bg-green-100';
@@ -135,8 +74,8 @@ export const IntelligencePanel: React.FC<IntelligencePanelProps> = ({ agents }) 
 
   const getImpactIcon = (impact: string) => {
     switch (impact) {
-      case 'high': return <ExclamationTriangleIcon className="w-4 h-4 text-red-500" />;
-      case 'medium': return <ExclamationTriangleIcon className="w-4 h-4 text-yellow-500" />;
+      case 'high': return <LightBulbIcon className="w-4 h-4 text-red-500" />;
+      case 'medium': return <LightBulbIcon className="w-4 h-4 text-yellow-500" />;
       default: return <CheckCircleIcon className="w-4 h-4 text-green-500" />;
     }
   };
@@ -144,14 +83,89 @@ export const IntelligencePanel: React.FC<IntelligencePanelProps> = ({ agents }) 
   const getInsightTypeIcon = (type: string) => {
     switch (type) {
       case 'pattern': return <ChartBarIcon className="w-5 h-5" />;
-      case 'optimization': return <CpuChipIcon className="w-5 h-5" />;
+      case 'optimization': return <ArrowTrendingUpIcon className="w-5 h-5" />;
       case 'opportunity': return <LightBulbIcon className="w-5 h-5" />;
       default: return <SparklesIcon className="w-5 h-5" />;
     }
   };
 
+  const getInsightTypeColor = (type: string) => {
+    switch (type) {
+      case 'pattern': return 'text-blue-500';
+      case 'optimization': return 'text-green-500';
+      case 'opportunity': return 'text-yellow-500';
+      case 'risk': return 'text-red-500';
+      default: return 'text-purple-500';
+    }
+  };
+
+  // Show error state
+  if (agents.error || insights.error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-center h-32">
+          <div className="text-center">
+            <ExclamationTriangleIcon className="w-8 h-8 text-red-400 mx-auto mb-2" />
+            <p className="text-red-500 dark:text-red-400">Failed to load intelligence data</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">
+              {agents.error?.message || insights.error?.message}
+            </p>
+            <button
+              onClick={refreshData}
+              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading state
+  if (agents.isLoading || insights.isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-center h-32">
+          <div className="text-center">
+            <ArrowPathIcon className="w-8 h-8 text-blue-400 mx-auto mb-2 animate-spin" />
+            <p className="text-gray-500 dark:text-gray-400">Loading intelligence data...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      {/* Header with Connection Status */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
+          <SparklesIcon className="w-6 h-6 mr-2 text-blue-500" />
+          Intelligence Panel
+        </h2>
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <div className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+            <span className="text-sm text-gray-500">
+              {isWebSocketConnected ? 'Live' : 'Offline'}
+            </span>
+          </div>
+          <button
+            onClick={refreshData}
+            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            title="Refresh intelligence data"
+          >
+            <ArrowPathIcon className="w-4 h-4" />
+          </button>
+          {agents.lastUpdated && (
+            <span className="text-xs text-gray-400">
+              Updated: {agents.lastUpdated.toLocaleTimeString()}
+            </span>
+          )}
+        </div>
+      </div>
+
       {/* Intelligence Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
@@ -188,7 +202,7 @@ export const IntelligencePanel: React.FC<IntelligencePanelProps> = ({ agents }) 
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-orange-600 dark:text-orange-400">Avg Processing</p>
-              <p className="text-2xl font-bold text-orange-900 dark:text-orange-100">{decisionMetrics.processingTime}ms</p>
+              <p className="text-2xl font-bold text-orange-900 dark:text-orange-100">{decisionMetrics.processingTime.toFixed(0)}ms</p>
             </div>
             <ClockIcon className="w-8 h-8 text-orange-500" />
           </div>
@@ -196,146 +210,197 @@ export const IntelligencePanel: React.FC<IntelligencePanelProps> = ({ agents }) 
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Context Analyses */}
-        <div className="bg-white/50 dark:bg-slate-800/50 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-            <ChartBarIcon className="w-5 h-5 mr-2 text-blue-500" />
-            Recent Context Analyses
-          </h3>
-          
-          <div className="space-y-4">
-            {contextAnalyses.map((analysis, index) => (
-              <div key={index} className="bg-white dark:bg-slate-700 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-gray-900 dark:text-white">{analysis.intent}</h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {analysis.timestamp.toLocaleTimeString()}
-                    </p>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className={`px-2 py-1 rounded-md text-xs font-medium ${getConfidenceColor(analysis.confidence)}`}>
-                      {(analysis.confidence * 100).toFixed(0)}% confidence
-                    </span>
-                    <span className={`px-2 py-1 rounded-md text-xs font-medium ${getComplexityColor(analysis.complexity)}`}>
-                      {analysis.complexity.toFixed(1)} complexity
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {analysis.entities.map((entity, entityIndex) => (
-                    <span 
-                      key={entityIndex}
-                      className="px-2 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-md text-xs"
-                    >
-                      {entity}
-                    </span>
-                  ))}
-                </div>
-                
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-400">
-                    Sentiment: <span className={`font-medium ${
-                      analysis.sentiment === 'positive' ? 'text-green-600' :
-                      analysis.sentiment === 'negative' ? 'text-red-600' : 'text-gray-600'
-                    }`}>
-                      {analysis.sentiment}
-                    </span>
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Cognitive Insights */}
+        {/* AI Insights */}
         <div className="bg-white/50 dark:bg-slate-800/50 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
             <LightBulbIcon className="w-5 h-5 mr-2 text-yellow-500" />
-            Cognitive Insights
+            AI Insights ({insights.data.length})
           </h3>
-          
-          <div className="space-y-4">
-            {cognitiveInsights.map((insight) => (
-              <div key={insight.id} className="bg-white dark:bg-slate-700 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
-                <div className="flex items-start justify-between mb-3">
+
+          {insights.data.length > 0 ? (
+            <div className="space-y-4">
+              {insights.data.slice(0, 5).map((insight) => (
+                <div key={insight.id} className="bg-white dark:bg-slate-700 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
                   <div className="flex items-start space-x-3">
-                    <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${
-                      insight.type === 'pattern' ? 'from-blue-500 to-purple-500' :
-                      insight.type === 'optimization' ? 'from-green-500 to-blue-500' :
-                      insight.type === 'opportunity' ? 'from-yellow-500 to-orange-500' :
-                      'from-gray-500 to-slate-500'
-                    } flex items-center justify-center`}>
+                    <div className={`${getInsightTypeColor(insight.type)}`}>
                       {getInsightTypeIcon(insight.type)}
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-semibold text-gray-900 dark:text-white">{insight.title}</h4>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{insight.description}</p>
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-semibold text-gray-900 dark:text-white">{insight.title}</h4>
+                        <div className="flex items-center space-x-2">
+                          {getImpactIcon(insight.impact)}
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${
+                            insight.impact === 'high' ? 'bg-red-100 text-red-700' :
+                            insight.impact === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-green-100 text-green-700'
+                          }`}>
+                            {insight.impact.toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <p className="text-gray-600 dark:text-gray-400 text-sm mb-3">{insight.description}</p>
+                      
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-blue-600 dark:text-blue-400">
+                          Confidence: {(insight.confidence * 100).toFixed(0)}%
+                        </span>
+                        <span className="text-gray-500">
+                          {insight.timestamp.toLocaleTimeString()}
+                        </span>
+                      </div>
+
+                      {insight.recommendations && insight.recommendations.length > 0 && (
+                        <div className="mt-3">
+                          <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Recommendations:</p>
+                          <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                            {insight.recommendations.slice(0, 2).map((rec, index) => (
+                              <li key={index} className="flex items-start">
+                                <span className="text-blue-500 mr-1">•</span>
+                                {rec}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <div className="flex items-center space-x-1">
-                    {getImpactIcon(insight.impact)}
-                    <span className="text-xs text-gray-500">{insight.impact}</span>
-                  </div>
                 </div>
-                
-                <div className="flex items-center justify-between">
-                  <span className={`px-2 py-1 rounded-md text-xs font-medium ${getConfidenceColor(insight.confidence)}`}>
-                    {(insight.confidence * 100).toFixed(0)}% confidence
-                  </span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    {insight.timestamp.toLocaleTimeString()}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Agent Intelligence Breakdown */}
-      <div className="bg-white/50 dark:bg-slate-800/50 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
-        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-          <CpuChipIcon className="w-5 h-5 mr-2 text-indigo-500" />
-          Agent Intelligence Metrics
-        </h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {agents.filter(agent => agent && agent.persona).map((agent) => (
-            <div key={agent.id} className="bg-white dark:bg-slate-700 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
-              <div className="flex items-center space-x-3 mb-3">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">
-                    {agent.persona?.name?.charAt(0) || agent.name?.charAt(0) || 'A'}
-                  </span>
-                </div>
-                <div>
-                  <h4 className="font-semibold text-gray-900 dark:text-white">
-                    {agent.persona?.name || agent.name || 'Unknown Agent'}
-                  </h4>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {agent.persona?.role || agent.role || 'Agent'}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Decision Quality</span>
-                  <span className="text-sm font-medium text-green-600">94%</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Learning Rate</span>
-                  <span className="text-sm font-medium text-blue-600">12%</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Adaptation Score</span>
-                  <span className="text-sm font-medium text-purple-600">8.7/10</span>
-                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-32">
+              <div className="text-center">
+                <LightBulbIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                <p className="text-gray-500 dark:text-gray-400">No insights available</p>
+                <p className="text-sm text-gray-400 dark:text-gray-500">Insights will appear as agents become active</p>
               </div>
             </div>
-          ))}
+          )}
+        </div>
+
+        {/* Agent Intelligence Metrics */}
+        <div className="bg-white/50 dark:bg-slate-800/50 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+            <ChartBarIcon className="w-5 h-5 mr-2 text-blue-500" />
+            Agent Intelligence Metrics
+          </h3>
+
+          {agents.data.length > 0 ? (
+            <div className="space-y-4">
+              {agents.data.slice(0, 4).map((agent) => (
+                <div 
+                  key={agent.id} 
+                  className={`bg-white dark:bg-slate-700 rounded-xl p-4 border cursor-pointer transition-all ${
+                    selectedAgent === agent.id 
+                      ? 'border-blue-500 ring-2 ring-blue-500/20' 
+                      : 'border-slate-200 dark:border-slate-600 hover:border-blue-300'
+                  }`}
+                  onClick={() => setSelectedAgent(selectedAgent === agent.id ? null : agent.id)}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-3 h-3 rounded-full ${
+                        agent.status === 'active' ? 'bg-green-500' :
+                        agent.status === 'busy' ? 'bg-yellow-500' :
+                        agent.status === 'idle' ? 'bg-blue-500' : 'bg-gray-500'
+                      }`} />
+                      <div>
+                        <h4 className="font-semibold text-gray-900 dark:text-white">{agent.name}</h4>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 capitalize">{agent.role}</p>
+                      </div>
+                    </div>
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${
+                      agent.status === 'active' ? 'bg-green-100 text-green-700' :
+                      agent.status === 'busy' ? 'bg-yellow-100 text-yellow-700' :
+                      agent.status === 'idle' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'
+                    }`}>
+                      {agent.status.toUpperCase()}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <span className="text-gray-500 dark:text-gray-400">Decision Accuracy</span>
+                      <div className="flex items-center mt-1">
+                        <div className="flex-1 bg-gray-200 dark:bg-gray-600 rounded-full h-2 mr-2">
+                          <div 
+                            className="bg-blue-500 h-2 rounded-full" 
+                            style={{ width: `${agent.intelligenceMetrics.decisionAccuracy * 100}%` }}
+                          />
+                        </div>
+                        <span className="text-gray-900 dark:text-white font-medium">
+                          {(agent.intelligenceMetrics.decisionAccuracy * 100).toFixed(0)}%
+                        </span>
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 dark:text-gray-400">Context Understanding</span>
+                      <div className="flex items-center mt-1">
+                        <div className="flex-1 bg-gray-200 dark:bg-gray-600 rounded-full h-2 mr-2">
+                          <div 
+                            className="bg-green-500 h-2 rounded-full" 
+                            style={{ width: `${agent.intelligenceMetrics.contextUnderstanding * 100}%` }}
+                          />
+                        </div>
+                        <span className="text-gray-900 dark:text-white font-medium">
+                          {(agent.intelligenceMetrics.contextUnderstanding * 100).toFixed(0)}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {selectedAgent === agent.id && (
+                    <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <span className="text-gray-500 dark:text-gray-400">Adaptation Rate</span>
+                          <div className="flex items-center mt-1">
+                            <div className="flex-1 bg-gray-200 dark:bg-gray-600 rounded-full h-2 mr-2">
+                              <div 
+                                className="bg-purple-500 h-2 rounded-full" 
+                                style={{ width: `${agent.intelligenceMetrics.adaptationRate * 100}%` }}
+                              />
+                            </div>
+                            <span className="text-gray-900 dark:text-white font-medium">
+                              {(agent.intelligenceMetrics.adaptationRate * 100).toFixed(0)}%
+                            </span>
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-gray-500 dark:text-gray-400">Learning Progress</span>
+                          <div className="flex items-center mt-1">
+                            <div className="flex-1 bg-gray-200 dark:bg-gray-600 rounded-full h-2 mr-2">
+                              <div 
+                                className="bg-orange-500 h-2 rounded-full" 
+                                style={{ width: `${agent.intelligenceMetrics.learningProgress * 100}%` }}
+                              />
+                            </div>
+                            <span className="text-gray-900 dark:text-white font-medium">
+                              {(agent.intelligenceMetrics.learningProgress * 100).toFixed(0)}%
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                        <p>Operations: {agent.metrics.totalOperations} | Success Rate: {(agent.metrics.successRate * 100).toFixed(1)}%</p>
+                        <p>Avg Response: {agent.metrics.averageResponseTime}ms | Capabilities: {agent.capabilities.length}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-32">
+              <div className="text-center">
+                <ChartBarIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                <p className="text-gray-500 dark:text-gray-400">No agents available</p>
+                <p className="text-sm text-gray-400 dark:text-gray-500">Agent metrics will appear when agents are active</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

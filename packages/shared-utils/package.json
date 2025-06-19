@@ -1,5 +1,5 @@
 {
-  "name": "@council/shared-utils",
+  "name": "@uaip/utils",
   "version": "1.0.0",
   "description": "Shared utilities for Council of Nycea frontend and backend",
   "main": "./dist/index.js",
@@ -13,15 +13,15 @@
     "lint:fix": "eslint src --ext .ts --fix"
   },
   "dependencies": {
-    "@council/shared-types": "workspace:*",
-    "winston": "^3.11.0",
-    "zod": "^3.22.4"
+    "@uaip/types": "workspace:*",
+    "winston": "catalog:backend",
+    "zod": "catalog:"
   },
   "devDependencies": {
-    "@types/node": "^20.10.5",
-    "typescript": "^5.3.3",
-    "rimraf": "^5.0.5",
-    "eslint": "^9.9.0"
+    "@types/node": "catalog:backend",
+    "eslint": "catalog:",
+    "rimraf": "catalog:",
+    "typescript": "catalog:"
   },
   "exports": {
     ".": {
@@ -30,4 +30,4 @@
       "types": "./dist/index.d.ts"
     }
   }
-} 
+}

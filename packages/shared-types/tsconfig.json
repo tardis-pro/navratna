@@ -13,7 +13,8 @@
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "strict": false
+    "strict": false,
+    "baseUrl": "."
   },
   "include": ["src/**/*"],
   "exclude": ["dist", "node_modules"]

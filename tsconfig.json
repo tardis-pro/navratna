@@ -9,10 +9,10 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@council/shared-types": ["./packages/shared-types/src"],
-      "@council/shared-types/*": ["./packages/shared-types/src/*"],
-      "@council/shared-utils": ["./packages/shared-utils/src"],
-      "@council/shared-utils/*": ["./packages/shared-utils/src/*"],
+      "@uaip/types": ["./packages/shared-types/src"],
+      "@uaip/types/*": ["./packages/shared-types/src/*"],
+      "@uaip/utils": ["./packages/shared-utils/src"],
+      "@uaip/utils/*": ["./packages/shared-utils/src/*"],
       "@/*": ["./src/*"]
     },
     "composite": true,

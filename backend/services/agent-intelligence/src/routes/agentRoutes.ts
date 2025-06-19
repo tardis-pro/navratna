@@ -88,4 +88,18 @@ router.post(
   agentController.learnFromOperation.bind(agentController)
 );
 
+// POST /api/v1/agents/:agentId/participate
+router.post(
+  '/:agentId/participate',
+  validateUUID('agentId'),
+  agentController.participateInDiscussion.bind(agentController)
+);
+
+// POST /api/v1/agents/:agentId/chat - Casual conversation with agent
+router.post(
+  '/:agentId/chat',
+  validateUUID('agentId'),
+  agentController.chatWithAgent.bind(agentController)
+);
+
 export { router as agentRoutes }; 

@@ -3,7 +3,7 @@
 // Part of @uaip/shared-services
 
 import { logger } from '@uaip/utils';
-import { ToolDefinition, ToolExecution, ToolUsageRecord, ToolCategory, ToolExecutionStatus } from '@uaip/types';
+import { ToolDefinition, ToolExecution, ToolUsageRecord, ToolCategory, ToolExecutionStatus, ToolExample } from '@uaip/types';
 import { DatabaseService } from '../databaseService.js';
 import { ToolDefinition as ToolDefinitionEntity } from '../entities/toolDefinition.entity.js';
 import { ToolExecution as ToolExecutionEntity } from '../entities/toolExecution.entity.js';
@@ -153,19 +153,19 @@ export class ToolDatabase {
       await this.databaseService.recordToolUsage({
         toolId: usage.toolId,
         agentId: usage.agentId,
-        usedAt: usage.timestamp,
+        usedAt: usage.startTime,
         success: usage.success,
-        executionTimeMs: usage.executionTime,
+        executionTimeMs: usage.duration,
         cost: usage.cost,
-        error: usage.errorType
+        error: usage.errorCode
       });
 
       // Update tool success metrics if execution was successful
-      if (usage.success && usage.executionTime) {
+      if (usage.success && usage.duration) {
         await this.databaseService.updateToolSuccessMetrics(
           usage.toolId,
           true,
-          usage.executionTime
+          usage.duration
         );
       }
 
@@ -217,7 +217,7 @@ export class ToolDatabase {
       name: entity.name,
       description: entity.description,
       version: entity.version,
-      category: entity.category as string,
+      category: entity.category as ToolCategory,
       parameters: entity.parameters as Record<string, any>,
       returnType: entity.returnType as Record<string, any>,
       securityLevel: entity.securityLevel as any,
@@ -229,7 +229,7 @@ export class ToolDatabase {
       tags: entity.tags,
       dependencies: entity.dependencies,
       rateLimits: entity.rateLimits as Record<string, any>,
-      examples: entity.examples as Array<Record<string, any>>
+      examples: entity.examples as ToolExample[]
     };
   }
 
@@ -260,16 +260,20 @@ export class ToolDatabase {
 
   private mapCategoryToEnum(category: string): ToolCategory {
     const categoryMap: Record<string, ToolCategory> = {
-      'general': ToolCategory.GENERAL,
-      'development': ToolCategory.DEVELOPMENT,
-      'analysis': ToolCategory.ANALYSIS,
+      'api': ToolCategory.API,
+      'computation': ToolCategory.COMPUTATION,
+      'file-system': ToolCategory.FILE_SYSTEM,
+      'database': ToolCategory.DATABASE,
+      'web-search': ToolCategory.WEB_SEARCH,
+      'code-execution': ToolCategory.CODE_EXECUTION,
       'communication': ToolCategory.COMMUNICATION,
-      'automation': ToolCategory.AUTOMATION,
-      'security': ToolCategory.SECURITY,
-      'data': ToolCategory.DATA,
-      'ai': ToolCategory.AI
+      'knowledge-graph': ToolCategory.KNOWLEDGE_GRAPH,
+      'deployment': ToolCategory.DEPLOYMENT,
+      'monitoring': ToolCategory.MONITORING,
+      'analysis': ToolCategory.ANALYSIS,
+      'generation': ToolCategory.GENERATION
     };
-    return categoryMap[category] || ToolCategory.GENERAL;
+    return categoryMap[category] || ToolCategory.API;
   }
 
   private mapStatusToEnum(status: string): ToolExecutionStatus {

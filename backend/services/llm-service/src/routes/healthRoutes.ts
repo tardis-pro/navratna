@@ -33,6 +33,7 @@ router.get('/detailed', async (req, res) => {
       timestamp: new Date().toISOString(),
       error: 'Health check failed'
     });
+      return;
   }
 });
 

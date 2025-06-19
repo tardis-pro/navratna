@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { 
-  EnhancedAgentIntelligenceService,
+  
   CapabilityDiscoveryService,
   SecurityValidationService,
 } from '@uaip/shared-services';
@@ -12,10 +12,12 @@ import {
   AgentPlanResponse,
   Agent,
   RiskLevel,
+  SecurityLevel,
   AgentCreateRequestSchema
 } from '@uaip/types';
 import { z } from 'zod';
 import { AgentTransformationService } from '@uaip/middleware';
+import { EnhancedAgentIntelligenceService } from '../services/enhanced-agent-intelligence.service.js';
 export class AgentController {
   private agentIntelligenceService: EnhancedAgentIntelligenceService;
   private capabilityDiscoveryService: CapabilityDiscoveryService;
@@ -111,7 +113,7 @@ export class AgentController {
         agent.securityContext
       );
 
-      const approvalRequired = this.isApprovalRequired(riskAssessment.overallRisk);
+      const approvalRequired = this.isApprovalRequired(riskAssessment.level);
 
       const response: AgentPlanResponse = {
         operationPlan: plan,
@@ -278,8 +280,70 @@ export class AgentController {
    */
   public async getAgents(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const agents = await this.agentIntelligenceService.getAgents();
-      this.sendSuccessResponse(res, agents);
+      // Get validated query parameters from middleware
+      const queryParams = (req as any).validatedQuery || {};
+      
+      // For now, pass the limit parameter to the service
+      const limit = queryParams.limit;
+      const agents = await this.agentIntelligenceService.getAgents(limit);
+      
+      // Apply client-side filtering for other parameters until we implement server-side filtering
+      let filteredAgents = agents;
+      
+      if (queryParams.role) {
+        filteredAgents = filteredAgents.filter(agent => agent.role === queryParams.role);
+      }
+      
+      if (queryParams.isActive !== undefined) {
+        filteredAgents = filteredAgents.filter(agent => agent.isActive === queryParams.isActive);
+      }
+      
+             if (queryParams.capabilities && queryParams.capabilities.length > 0) {
+         filteredAgents = filteredAgents.filter(agent => 
+           queryParams.capabilities.some((cap: string) => 
+             (agent as any).capabilities?.includes(cap)
+           )
+         );
+       }
+      
+      // Apply sorting
+      if (queryParams.sortBy) {
+        const sortField = queryParams.sortBy;
+        const sortOrder = queryParams.sortOrder || 'desc';
+        
+        filteredAgents.sort((a: any, b: any) => {
+          let aVal = a[sortField];
+          let bVal = b[sortField];
+          
+          // Handle date fields
+          if (sortField === 'createdAt' || sortField === 'lastActiveAt') {
+            aVal = new Date(aVal).getTime();
+            bVal = new Date(bVal).getTime();
+          }
+          
+          if (sortOrder === 'asc') {
+            return aVal > bVal ? 1 : -1;
+          } else {
+            return aVal < bVal ? 1 : -1;
+          }
+        });
+      }
+      
+      // Apply offset
+      if (queryParams.offset) {
+        filteredAgents = filteredAgents.slice(queryParams.offset);
+      }
+      
+      // Apply limit after filtering and offset
+      if (queryParams.limit && !limit) { // Only apply if we didn't already limit at DB level
+        filteredAgents = filteredAgents.slice(0, queryParams.limit);
+      }
+
+      this.sendSuccessResponse(res, {
+        agents: filteredAgents,
+        total: filteredAgents.length,
+        filters: queryParams
+      });
 
     } catch (error) {
       this.handleError(error, 'get agents', {}, next);
@@ -379,6 +443,168 @@ export class AgentController {
     }
   }
 
+  public async participateInDiscussion(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { agentId } = req.params;
+      const { discussionId, comment } = req.body;
+
+      logger.info('Triggering agent participation in discussion', { 
+        agentId,
+        discussionId,
+        hasComment: !!comment
+      });
+
+      const result = await this.agentIntelligenceService.triggerAgentParticipation({
+        agentId,
+        discussionId,
+        comment
+      });
+
+      logger.info('Agent participation triggered', { 
+        agentId,
+        discussionId,
+        success: result.success
+      });
+
+      res.status(200).json({
+        success: true,
+        data: result,
+        meta: {
+          timestamp: new Date(),
+          version: '1.0.0'
+        }
+      });
+
+    } catch (error) {
+      logger.error('Error triggering agent participation', { 
+        agentId: req.params.agentId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      next(error);
+    }
+  }
+
+  /**
+   * Casual chat with agent - leverages persona and memories for natural conversation
+   */
+  public async chatWithAgent(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const { agentId } = req.params;
+    const { message, conversationHistory, context } = req.body;
+
+    try {
+      logger.info('Starting casual chat with agent', { 
+        agentId, 
+        messageLength: message?.length,
+        hasHistory: !!conversationHistory?.length,
+        hasContext: !!context
+      });
+
+      // Validate agent exists and get with persona data
+      const agentWithPersona = await this.agentIntelligenceService.getAgentWithPersona(agentId);
+      if (!agentWithPersona) {
+        throw new ApiError(404, 'Agent not found', 'AGENT_NOT_FOUND');
+      }
+
+      // Validate required fields
+      if (!message || typeof message !== 'string') {
+        throw new ApiError(400, 'Message is required and must be a string', 'INVALID_MESSAGE');
+      }
+
+      // Build conversation messages from history
+      const messages = [];
+      
+      // Add conversation history if provided
+      if (conversationHistory && Array.isArray(conversationHistory)) {
+        conversationHistory.forEach((msg, index) => {
+          messages.push({
+            id: `history-${index}`,
+            content: msg.content || msg.message || String(msg),
+            sender: msg.sender || msg.from || (msg.role === 'assistant' ? agentWithPersona.name : 'user'),
+            timestamp: msg.timestamp || new Date().toISOString(),
+            type: msg.type || msg.role || 'user'
+          });
+        });
+      }
+
+      // Add current message
+      messages.push({
+        id: `current-${Date.now()}`,
+        content: message,
+        sender: 'user',
+        timestamp: new Date().toISOString(),
+        type: 'user'
+      });
+
+      // Get user ID from request for LLM service context
+      const userId = req.user?.id || agentWithPersona.createdBy;
+
+      // Generate response using the enhanced agent intelligence service
+      const result = await this.agentIntelligenceService.generateAgentResponse(
+        agentId,
+        messages,
+        {
+          conversationType: 'casual_chat',
+          agentPersona: agentWithPersona.personaData,
+          additionalContext: context,
+          enableMemoryRetrieval: true,
+          enableKnowledgeSearch: true
+        },
+        userId
+      );
+
+      // Build response with persona and memory information
+      const response = {
+        agentId,
+        agentName: agentWithPersona.name,
+        response: result.response,
+        confidence: result.confidence || 0.8,
+        model: result.model,
+        tokensUsed: result.tokensUsed,
+        // Memory and knowledge context
+        memoryEnhanced: result.memoryEnhanced,
+        knowledgeUsed: result.knowledgeUsed,
+        // Persona information
+        persona: agentWithPersona.personaData ? {
+          name: agentWithPersona.personaData.name,
+          role: agentWithPersona.personaData.role,
+          personality: agentWithPersona.personaData.traits,
+          expertise: agentWithPersona.personaData.expertise?.map((e: any) => e.name || e) || [],
+          communicationStyle: agentWithPersona.personaData.conversationalStyle
+        } : null,
+        // Conversation metadata
+        conversationContext: {
+          messageCount: messages.length,
+          hasHistory: conversationHistory?.length > 0,
+          contextProvided: !!context
+        },
+        timestamp: new Date(),
+        error: result.error
+      };
+
+      if (result.error) {
+        logger.warn('Chat response generated with errors', { 
+          agentId, 
+          error: result.error,
+          fallbackUsed: true
+        });
+      }
+
+      logger.info('Casual chat completed successfully', { 
+        agentId,
+        agentName: agentWithPersona.name,
+        responseLength: result.response?.length,
+        memoryEnhanced: result.memoryEnhanced,
+        knowledgeUsed: result.knowledgeUsed,
+        hasPersona: !!agentWithPersona.personaData
+      });
+
+      this.sendSuccessResponse(res, response);
+
+    } catch (error) {
+      this.handleError(error, 'casual chat', { agentId }, next);
+    }
+  }
+
   // ===== PRIVATE HELPER METHODS =====
 
   /**
@@ -430,8 +656,8 @@ export class AgentController {
   /**
    * Check if approval is required based on risk level
    */
-  private isApprovalRequired(riskLevel: RiskLevel): boolean {
-    return riskLevel === RiskLevel.HIGH || riskLevel === RiskLevel.CRITICAL;
+  private isApprovalRequired(securityLevel: SecurityLevel): boolean {
+    return securityLevel === SecurityLevel.HIGH || securityLevel === SecurityLevel.CRITICAL;
   }
 
   /**

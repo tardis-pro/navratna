@@ -337,15 +337,16 @@ export class ToolExecutor {
 
   private async recordUsage(execution: ToolExecution, success: boolean): Promise<void> {
     try {
-      const usage: ToolUsageRecord = {
+      const usage: Partial<ToolUsageRecord> = {
         toolId: execution.toolId,
         agentId: execution.agentId,
-        timestamp: execution.endTime || new Date(),
+        startTime: execution.startTime,
+        endTime: execution.endTime || new Date(),
         success,
-        executionTime: execution.executionTimeMs,
+        duration: execution.executionTimeMs,
         cost: execution.cost,
-        errorType: execution.error?.type,
-        parameters: execution.parameters,
+        errorCode: execution.error?.type,
+        executionId: execution.id,
         metadata: execution.metadata
       };
 
@@ -375,12 +376,13 @@ export class ToolExecutor {
     return baseCost * timeFactor;
   }
 
-  private categorizeError(error: Error): string {
+  private categorizeError(error: Error): 'validation' | 'execution' | 'timeout' | 'permission' | 'quota' | 'dependency' | 'unknown' {
     if (error.message.includes('timeout')) return 'timeout';
     if (error.message.includes('permission')) return 'permission';
     if (error.message.includes('validation')) return 'validation';
     if (error.message.includes('quota')) return 'quota';
     if (error.message.includes('dependency')) return 'dependency';
+    if (error.message.includes('execution')) return 'execution';
     return 'unknown';
   }
 

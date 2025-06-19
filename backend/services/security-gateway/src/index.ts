@@ -106,13 +106,13 @@ class SecurityGatewayServer {
       }
     }));
 
-    // CORS configuration
-    this.app.use(cors({
-      origin: config.cors.allowedOrigins,
-      credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-    }));
+    // CORS is handled by nginx API gateway - disable service-level CORS
+    // this.app.use(cors({
+    //   origin: config.cors.allowedOrigins,
+    //   credentials: true,
+    //   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    //   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+    // }));
 
     // Compression and parsing
     this.app.use(compression());
@@ -176,7 +176,7 @@ class SecurityGatewayServer {
     this.app.use('/api/v1/users', userRoutes);
 
     // 404 handler
-    this.app.use('*', (req, res) => {
+    this.app.use((req, res) => {
       res.status(404).json({
         error: 'Not Found',
         message: `Route ${req.method} ${req.originalUrl} not found`,

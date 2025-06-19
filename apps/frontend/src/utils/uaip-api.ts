@@ -11,62 +11,68 @@ export * from './api';
 import { UAIPAPIClient, createAPIClient, APIConfig } from './api';
 import { API_CONFIG, getEffectiveAPIBaseURL, getEnvironmentConfig, buildAPIURL, API_ROUTES } from '@/config/apiConfig';
 
-// Define frontend types that match backend expectations
-export enum TurnStrategy {
-  ROUND_ROBIN = 'round_robin',
-  MODERATED = 'moderated',
-  FREE_FORM = 'free_form',
-  CONTEXT_AWARE = 'context_aware',
-  PRIORITY_BASED = 'priority_based',
-  EXPERTISE_DRIVEN = 'expertise_driven'
-}
+// Import shared types - using regular imports for enums and type imports for interfaces
+import type {
+  // Persona types
+  Persona,
+  PersonaTrait,
+  ExpertiseDomain,
+  ConversationalStyle,
+  CreatePersonaRequest,
+  UpdatePersonaRequest,
+  PersonaSearchFilters,
+  PersonaRecommendation,
+  
+  // Discussion types
+  Discussion,
+  DiscussionParticipant,
+  DiscussionMessage,
+  DiscussionSettings,
+  DiscussionState,
+  TurnStrategy,
+  TurnStrategyConfig,
+  CreateDiscussionRequest,
+  UpdateDiscussionRequest,
+  DiscussionSearchFilters,
+  
+  // WebSocket types
+  WebSocketConfig,
+  WebSocketEvent,
+  TurnInfo,
+  DiscussionWebSocketEvent,
+  
+  // System types
+  HealthStatus,
+  SystemMetrics,
+  
+  // LLM types
+  LLMGenerationRequest,
+  LLMModel
+} from '@uaip/types';
 
-export interface TurnStrategyConfig {
-  strategy: TurnStrategy;
-  config: {
-    type: 'round_robin' | 'moderated' | 'context_aware' | 'priority_based' | 'free_form' | 'expertise_driven';
-    skipInactive?: boolean;
-    maxSkips?: number;
-    moderatorId?: string;
-    requireApproval?: boolean;
-    autoAdvance?: boolean;
-    relevanceThreshold?: number;
-    expertiseWeight?: number;
-    engagementWeight?: number;
-    priorities?: Array<{
-      participantId: string;
-      priority: number;
-    }>;
-    cooldownPeriod?: number;
-    topicKeywords?: string[];
-    expertiseThreshold?: number;
-  };
-}
+// Import enums separately (not as type imports)
+import { 
+  DiscussionStatus, 
+  MessageType,
+  LLMProviderType
+} from '@uaip/types';
 
-export interface DiscussionSettings {
-  maxParticipants?: number;
-  maxDuration?: number;
-  maxMessages?: number;
-  autoModeration?: boolean;
-  requireApproval?: boolean;
-  allowInvites?: boolean;
-  allowFileSharing?: boolean;
-  allowAnonymous?: boolean;
-  recordTranscript?: boolean;
-  enableAnalytics?: boolean;
-  turnTimeout?: number;
-  responseTimeout?: number;
-  moderationRules?: Array<{
-    rule: string;
-    action: 'warn' | 'mute' | 'remove' | 'flag';
-    severity: 'low' | 'medium' | 'high';
-  }>;
-}
+// Import frontend-specific types
+import type {
+  MessageSearchOptions,
+  DiscussionEvent,
+  PersonaDisplay,
+  PersonaSearchResponse,
+  DiscussionSearchResponse,
+  DiscussionParticipantCreate,
+  DiscussionMessageCreate,
+  ModelProvider,
+} from '@/types/frontend-extensions';
 
 // Environment configuration
 const envConfig = getEnvironmentConfig();
-const isDevelopment = import.meta.env.DEV;
-const isProduction = import.meta.env.PROD;
+const isDevelopment = typeof window !== 'undefined' && window.location?.hostname === 'localhost';
+const isProduction = !isDevelopment;
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -82,278 +88,27 @@ export function generateUUID(): string {
 }
 
 // ============================================================================
-// PERSONA AND DISCUSSION TYPES (Missing from main API client)
+// API CLIENT CONFIGURATION
 // ============================================================================
 
-export interface Persona {
-  id: string;
-  name: string;
-  role: string;
-  description: string;
-  traits: PersonaTrait[];
-  expertise: ExpertiseDomain[];
-  background: string;
-  systemPrompt: string;
-  conversationalStyle: ConversationalStyle;
-  createdAt: Date;
-  updatedAt: Date;
-  createdBy: string;
-  isPublic: boolean;
-  usageCount: number;
-  version: number;
-}
-
-export interface PersonaTrait {
-  name: string;
-  value: string | number | boolean;
-  weight: number;
-  category: 'personality' | 'behavior' | 'communication' | 'expertise';
-}
-
-export interface ExpertiseDomain {
-  domain: string;
-  level: 'beginner' | 'intermediate' | 'advanced' | 'expert';
-  keywords: string[];
-  experience?: string;
-}
-
-export interface ConversationalStyle {
-  tone: 'formal' | 'casual' | 'friendly' | 'professional' | 'technical';
-  verbosity: 'concise' | 'moderate' | 'detailed' | 'comprehensive';
-  responsePattern: 'direct' | 'analytical' | 'creative' | 'supportive';
-  preferredFormats: string[];
-}
-
-export interface PersonaCreate {
-  name: string;
-  role: string;
-  description: string;
-  traits: PersonaTrait[];
-  expertise: ExpertiseDomain[];
-  background: string;
-  systemPrompt: string;
-  conversationalStyle: ConversationalStyle;
-  isPublic?: boolean;
-  createdBy: string;
-}
-
-export interface PersonaUpdate {
-  name?: string;
-  role?: string;
-  description?: string;
-  traits?: PersonaTrait[];
-  expertise?: ExpertiseDomain[];
-  background?: string;
-  systemPrompt?: string;
-  conversationalStyle?: ConversationalStyle;
-  isPublic?: boolean;
-}
-
-export interface PersonaSearchRequest {
-  query?: string;
-  role?: string;
-  expertise?: string[];
-  traits?: string[];
-  publicOnly?: boolean;
-  createdBy?: string;
-  sortBy?: 'name' | 'usage_count' | 'created_at' | 'updated_at';
-  sortOrder?: 'asc' | 'desc';
-  limit?: number;
-  offset?: number;
-}
-
-export interface PersonaSearchResponse {
-  personas: Persona[];
-  totalCount: number;
-  recommendations: string[];
-  searchTime: number;
-}
-
-export interface PersonaRecommendation {
-  persona: Persona;
-  relevanceScore: number;
-  reasoning: string;
-  alternatives?: string[];
-  usageExamples?: Record<string, any>[];
-}
-
-export interface Discussion {
-  id: string;
-  title: string;
-  topic: string;
-  documentId?: string;
-  operationId?: string;
-  participants: DiscussionParticipant[];
-  state: DiscussionState;
-  settings: DiscussionSettings;
-  currentTurnAgentId?: string;
-  turnStrategy: TurnStrategy;
-  createdAt: Date;
-  updatedAt: Date;
-  createdBy: string;
-  status: DiscussionStatus;
-}
-
-export interface DiscussionParticipant {
-  id: string;
-  discussionId: string;
-  personaId: string;
-  agentId: string;
-  role: 'participant' | 'moderator';
-  joinedAt: Date;
-  lastActiveAt: Date;
-  messageCount: number;
-}
-
-export interface DiscussionState {
-  phase: 'setup' | 'active' | 'paused' | 'ended';
-  currentTurn: number;
-  totalTurns?: number;
-  timeRemaining?: number;
-  lastActivity: Date;
-}
-
-export type DiscussionStatus = 'draft' | 'active' | 'paused' | 'ended' | 'archived';
-
-export interface DiscussionCreate {
-  title: string;
-  description: string;
-  topic: string;
-  createdBy: string;
-  turnStrategy?: TurnStrategyConfig;
-  initialParticipants: Array<{ 
-    personaId: string;
-    agentId: string;
-    role: string; 
-  }>;
-  settings?: Partial<DiscussionSettings>;
-}
-
-export interface DiscussionUpdate {
-  title?: string;
-  topic?: string;
-  settings?: Partial<DiscussionSettings>;
-  turnStrategy?: TurnStrategy;
-  status?: DiscussionStatus;
-}
-
-export interface DiscussionMessage {
-  id: string;
-  discussionId: string;
-  participantId: string;
-  content: string;
-  messageType: 'message' | 'system' | 'action';
-  replyTo?: string;
-  createdAt: Date;
-  metadata: Record<string, any>;
-}
-
-export interface DiscussionMessageCreate {
-  content: string;
-  messageType?: 'message' | 'system' | 'action';
-  replyTo?: string;
-  metadata?: Record<string, any>;
-}
-
-export interface DiscussionParticipantCreate {
-  personaId: string;
-  agentId: string;
-  role?: 'participant' | 'moderator';
-}
-
-export interface DiscussionSearchRequest {
-  query?: string;
-  status?: DiscussionStatus[];
-  createdBy?: string;
-  participantId?: string;
-  turnStrategy?: TurnStrategy[];
-  dateFrom?: Date;
-  dateTo?: Date;
-  sortBy?: 'title' | 'created_at' | 'updated_at' | 'last_activity';
-  sortOrder?: 'asc' | 'desc';
-  limit?: number;
-  offset?: number;
-}
-
-export interface DiscussionSearchResponse {
-  discussions: Discussion[];
-  totalCount: number;
-  searchTime: number;
-}
-
-export interface MessageSearchOptions {
-  participantId?: string;
-  messageType?: string[];
-  dateFrom?: Date;
-  dateTo?: Date;
-  limit?: number;
-  offset?: number;
-}
-
-export interface TurnInfo {
-  currentParticipantId: string;
-  turnNumber: number;
-  timeRemaining: number;
-  nextParticipantId: string;
-  canAdvance: boolean;
-}
-
-// ============================================================================
-// WEBSOCKET INTEGRATION
-// ============================================================================
-
-export interface WebSocketConfig {
-  url: string;
-  autoConnect?: boolean;
-  reconnectAttempts?: number;
-  reconnectDelay?: number;
-}
-
-export interface DiscussionEvent {
-  type: 'turn_started' | 'turn_ended' | 'message_added' | 'participant_joined' | 'participant_left';
-  discussionId: string;
-  data: any;
-  timestamp: Date;
-}
-
-// API Configuration for production deployment
 function getAPIConfig(): APIConfig {
   return {
     baseURL: getEffectiveAPIBaseURL(),
-    timeout: envConfig.DEBUG_LOGGING ? 10000 : 30000,
+    timeout: 30000,
     headers: {
       'Content-Type': 'application/json',
-      'X-Client-Version': '1.0.0',
-      'X-Environment': isDevelopment ? 'development' : 'production'
     }
   };
 }
 
-// Enhanced API client with production-ready configuration
-let apiClient: UAIPAPIClient | null = null;
-
 export function getAPIClient(): UAIPAPIClient {
-  if (!apiClient) {
-    const config = getAPIConfig();
-    apiClient = createAPIClient(config);
-    
-    if (isDevelopment && envConfig.DEBUG_LOGGING) {
-      console.log('[UAIP API] Client initialized with config:', {
-        baseURL: config.baseURL,
-        timeout: config.timeout,
-        environment: isDevelopment ? 'development' : 'production',
-        routes: API_ROUTES
-      });
-    }
-  }
-  return apiClient;
+  return createAPIClient(getAPIConfig());
 }
 
 // ============================================================================
-// WEBSOCKET CLIENT FOR REAL-TIME UPDATES
+// WEBSOCKET CLIENT
 // ============================================================================
 
-// Socket.IO client types
 interface SocketIOClient {
   connected: boolean;
   emit: (event: string, data: any) => void;
@@ -375,10 +130,8 @@ class DiscussionWebSocketClient {
     this.maxReconnectAttempts = config.reconnectAttempts || 5;
     this.reconnectDelay = config.reconnectDelay || 1000;
     
-    if (config.autoConnect !== false) {
-      this.connect().catch(error => {
-        console.error('[Socket.IO] Failed to initialize connection:', error);
-      });
+    if (config.autoConnect) {
+      this.connect();
     }
   }
 
@@ -646,70 +399,111 @@ export const uaipAPI = {
   // ============================================================================
   
   personas: {
-    async list(filters?: PersonaSearchRequest): Promise<PersonaSearchResponse> {
-      const client = getAPIClient();
-      const response = await client.personas.search(filters?.query, filters?.expertise?.[0]);
-      
-      // Transform the response to match our interface
-      return {
-        personas: response.data || [],
-        totalCount: response.data?.length || 0,
-        recommendations: [],
-        searchTime: 0
-      };
+    async list(filters?: PersonaSearchFilters): Promise<PersonaSearchResponse> {
+      try {
+        const client = getAPIClient();
+        const params = new URLSearchParams();
+        
+        if (filters?.query) params.append('query', filters.query);
+        if (filters?.expertise) params.append('expertise', filters.expertise.join(','));
+        if (filters?.status) params.append('status', filters.status);
+        if (filters?.tags) params.append('tags', filters.tags.join(','));
+        
+        const response = await client.get(`/personas/display?${params.toString()}`);
+        return {
+          personas: response.data.data,
+          total: response.data.pagination?.total || 0,
+          hasMore: response.data.pagination?.hasMore || false
+        };
+      } catch (error) {
+        console.error('Failed to fetch personas:', error);
+        throw error;
+      }
     },
 
-    async get(id: string): Promise<Persona> {
-      const client = getAPIClient();
-      const response = await client.personas.get(id);
-      
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to fetch persona');
+    async get(id: string): Promise<PersonaDisplay> {
+      try {
+        const client = getAPIClient();
+        const response = await client.get(`/personas/${id}/display`);
+        return response.data.data;
+      } catch (error) {
+        console.error(`Failed to fetch persona ${id}:`, error);
+        throw error;
       }
-      
-      return response.data!;
     },
 
-    async create(persona: PersonaCreate): Promise<Persona> {
-      const client = getAPIClient();
-      const response = await client.personas.create(persona);
-      
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to create persona');
+    async search(query?: string, expertise?: string): Promise<PersonaSearchResponse> {
+      try {
+        const client = getAPIClient();
+        const params = new URLSearchParams();
+        
+        if (query) params.append('query', query);
+        if (expertise) params.append('expertise', expertise);
+        
+        const response = await client.get(`/personas/search/simple?${params.toString()}`);
+        return {
+          personas: response.data.data,
+          total: response.data.data.length,
+          hasMore: false
+        };
+      } catch (error) {
+        console.error('Failed to search personas:', error);
+        throw error;
       }
-      
-      return response.data!;
     },
 
-    async update(id: string, updates: PersonaUpdate): Promise<Persona> {
-      const client = getAPIClient();
-      const response = await client.personas.update(id, updates);
-      
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to update persona');
+    async getCategories(): Promise<string[]> {
+      try {
+        const client = getAPIClient();
+        const response = await client.get('/personas/categories');
+        return response.data.data;
+      } catch (error) {
+        console.error('Failed to fetch persona categories:', error);
+        throw error;
       }
-      
-      return response.data!;
+    },
+
+    async create(persona: CreatePersonaRequest): Promise<Persona> {
+      try {
+        const client = getAPIClient();
+        const response = await client.post('/personas', persona);
+        return response.data.data;
+      } catch (error) {
+        console.error('Failed to create persona:', error);
+        throw error;
+      }
+    },
+
+    async update(id: string, updates: UpdatePersonaRequest): Promise<Persona> {
+      try {
+        const client = getAPIClient();
+        const response = await client.put(`/personas/${id}`, updates);
+        return response.data.data;
+      } catch (error) {
+        console.error(`Failed to update persona ${id}:`, error);
+        throw error;
+      }
     },
 
     async delete(id: string): Promise<void> {
-      const client = getAPIClient();
-      const response = await client.personas.delete(id);
-      
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to delete persona');
+      try {
+        const client = getAPIClient();
+        await client.delete(`/personas/${id}`);
+      } catch (error) {
+        console.error(`Failed to delete persona ${id}:`, error);
+        throw error;
       }
     },
 
     async getRecommendations(id: string): Promise<PersonaRecommendation[]> {
-      const client = getAPIClient();
-      const response = await client.personas.getRecommendations(id);
-      
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to fetch persona recommendations');
+      try {
+        const client = getAPIClient();
+        const response = await client.get(`/personas/recommendations?userId=${id}`);
+        return response.data.data;
+      } catch (error) {
+        console.error('Failed to fetch persona recommendations:', error);
+        throw error;
       }
-      
-      return response.data!;
     }
   },
 
@@ -718,7 +512,7 @@ export const uaipAPI = {
   // ============================================================================
   
   discussions: {
-    async list(filters?: DiscussionSearchRequest): Promise<DiscussionSearchResponse> {
+    async list(filters?: DiscussionSearchFilters): Promise<DiscussionSearchResponse> {
       const client = getAPIClient();
       const response = await client.discussions.search(filters?.query, filters?.status?.[0]);
       
@@ -741,7 +535,7 @@ export const uaipAPI = {
       return response.data!;
     },
 
-    async create(discussion: DiscussionCreate): Promise<Discussion> {
+    async create(discussion: CreateDiscussionRequest): Promise<Discussion> {
       const client = getAPIClient();
       const response = await client.discussions.create({
         title: discussion.title,
@@ -760,7 +554,7 @@ export const uaipAPI = {
       return response.data!;
     },
 
-    async update(id: string, updates: DiscussionUpdate): Promise<Discussion> {
+    async update(id: string, updates: UpdateDiscussionRequest): Promise<Discussion> {
       const client = getAPIClient();
       const response = await client.discussions.update(id, updates);
       
@@ -782,7 +576,7 @@ export const uaipAPI = {
 
     async pause(id: string): Promise<void> {
       const client = getAPIClient();
-      const response = await client.discussions.update(id, { status: 'paused' });
+      const response = await client.discussions.update(id, { status: DiscussionStatus.PAUSED });
       
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to pause discussion');
@@ -791,7 +585,7 @@ export const uaipAPI = {
 
     async resume(id: string): Promise<void> {
       const client = getAPIClient();
-      const response = await client.discussions.update(id, { status: 'active' });
+      const response = await client.discussions.update(id, { status: DiscussionStatus.ACTIVE });
       
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to resume discussion');
@@ -813,7 +607,7 @@ export const uaipAPI = {
     async addParticipant(id: string, participant: DiscussionParticipantCreate): Promise<DiscussionParticipant> {
       const client = getAPIClient();
       const response = await client.discussions.addParticipant(id, {
-        personaId: participant.personaId,
+        agentId: participant.agentId,
         role: participant.role || 'participant'
       });
       
@@ -849,7 +643,7 @@ export const uaipAPI = {
       // Find the participant ID for this discussion - for now use a placeholder
       const response = await client.discussions.sendMessage(id, 'current-participant', {
         content: message.content,
-        messageType: message.messageType || 'message',
+        messageType: message.messageType || MessageType.MESSAGE,
         metadata: message.metadata
       });
       
@@ -879,8 +673,433 @@ export const uaipAPI = {
         turnNumber: 1,
         timeRemaining: 300,
         nextParticipantId: 'participant-2',
-        canAdvance: true
+        canAdvance: true,
+        startedAt: new Date(),
+        turnTimeout: 300
       };
+    }
+  },
+
+  // ============================================================================
+  // AGENT API METHODS
+  // ============================================================================
+  
+  agents: {
+    async list(): Promise<any[]> {
+      const client = getAPIClient();
+      const response = await client.agents.list();
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to fetch agents');
+      }
+      
+      return response.data!;
+    },
+
+    async get(id: string): Promise<any> {
+      const client = getAPIClient();
+      const response = await client.agents.get(id);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to fetch agent');
+      }
+      
+      return response.data!;
+    },
+
+    async create(agentData: any): Promise<any> {
+      const client = getAPIClient();
+      const response = await client.agents.create(agentData);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to create agent');
+      }
+      
+      return response.data!;
+    },
+
+    async update(id: string, updates: any): Promise<any> {
+      const client = getAPIClient();
+      const response = await client.agents.update(id, updates);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to update agent');
+      }
+      
+      return response.data!;
+    },
+
+    async delete(id: string): Promise<void> {
+      const client = getAPIClient();
+      const response = await client.agents.delete(id);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to delete agent');
+      }
+    },
+
+    async chat(agentId: string, request: {
+      message: string;
+      conversationHistory?: Array<{
+        content: string;
+        sender: string;
+        timestamp: string;
+      }>;
+      context?: any;
+    }): Promise<{
+      response: string;
+      agentName: string;
+      confidence: number;
+      model: string;
+      tokensUsed: number;
+      memoryEnhanced: boolean;
+      knowledgeUsed: number;
+      persona?: any;
+      conversationContext: any;
+      timestamp: string;
+    }> {
+      const client = getAPIClient();
+      const response = await client.request('POST', `/agents/${agentId}/chat`, request);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to send chat message');
+      }
+      
+      return response.data;
+    }
+  },
+
+  // ============================================================================
+  // TOOLS API METHODS
+  // ============================================================================
+  
+  tools: {
+    async list(criteria?: any): Promise<any[]> {
+      const client = getAPIClient();
+      const response = await client.capabilities.search(criteria || {});
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to fetch tools');
+      }
+      
+      return response.data?.capabilities || [];
+    },
+
+    async get(id: string): Promise<any> {
+      const client = getAPIClient();
+      const response = await client.capabilities.get(id);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to fetch tool');
+      }
+      
+      return response.data!;
+    },
+
+    async create(toolData: any): Promise<any> {
+      const client = getAPIClient();
+      const response = await client.capabilities.register(toolData);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to create tool');
+      }
+      
+      return response.data!;
+    },
+
+    async execute(toolId: string, params: any): Promise<any> {
+      // This would be a specialized execution endpoint
+      // For now, return a mock response structure
+      return {
+        success: true,
+        data: { result: 'Tool execution result' },
+        executionId: `exec_${Date.now()}`,
+        executionTime: Math.random() * 1000,
+        cost: Math.random() * 10
+      };
+    },
+
+    async getCategories(): Promise<string[]> {
+      const client = getAPIClient();
+      const response = await client.capabilities.getCategories();
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to fetch tool categories');
+      }
+      
+      return response.data!;
+    }
+  },
+
+  // ============================================================================
+  // LLM API METHODS (User-specific)
+  // ============================================================================
+  
+  llm: {
+    async getModels(): Promise<Array<LLMModel>> {
+      const client = getAPIClient();
+      const response = await client.userLLM.getModels();
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to fetch models');
+      }
+      
+      // Transform the response to match expected interface
+      return (response.data || []).map((model: any) => ({
+        id: model.id || 'unknown',
+        name: model.name || 'Unknown Model',
+        description: model.description,
+        source: model.source || 'unknown',
+        apiEndpoint: model.apiEndpoint || '',
+        apiType: model.apiType || 'custom',
+        provider: model.provider || 'unknown',
+        isAvailable: model.isAvailable || false
+      }));
+    },
+
+    async getProviders(): Promise<Array<{
+      id: string;
+      name: string;
+      description?: string;
+      type: string;
+      baseUrl: string;
+      defaultModel?: string;
+      status: string;
+      isActive: boolean;
+      priority: number;
+      totalTokensUsed: number;
+      totalRequests: number;
+      totalErrors: number;
+      lastUsedAt?: string;
+      healthCheckResult?: any;
+      hasApiKey: boolean;
+      createdAt: string;
+      updatedAt: string;
+    }>> {
+      const client = getAPIClient();
+      const response = await client.userLLM.getProviders();
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to fetch providers');
+      }
+      
+      // Transform the response to match expected interface
+      return (response.data || []).map((provider: any) => ({
+        id: provider.id || 'unknown',
+        name: provider.name || 'Unknown Provider',
+        description: provider.description,
+        type: provider.type || 'custom',
+        baseUrl: provider.baseUrl || '',
+        defaultModel: provider.defaultModel,
+        status: provider.status || 'inactive',
+        isActive: provider.isActive || false,
+        priority: provider.priority || 0,
+        totalTokensUsed: provider.totalTokensUsed || 0,
+        totalRequests: provider.totalRequests || 0,
+        totalErrors: provider.totalErrors || 0,
+        lastUsedAt: provider.lastUsedAt?.toISOString(),
+        healthCheckResult: provider.healthCheckResult,
+        hasApiKey: provider.hasApiKey || false,
+        createdAt: provider.createdAt || new Date().toISOString(),
+        updatedAt: provider.updatedAt || new Date().toISOString()
+      }));
+    },
+
+    async createProvider(providerData: ModelProvider): Promise<any> {
+      const client = getAPIClient();
+      const response = await client.userLLM.createProvider(providerData);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to create provider');
+      }
+      
+      return response.data!;
+    },
+
+    async updateProviderConfig(providerId: string, config: {
+      name?: string;
+      description?: string;
+      baseUrl?: string;
+      defaultModel?: string;
+      priority?: number;
+      configuration?: any;
+    }): Promise<void> {
+      const client = getAPIClient();
+      const response = await client.userLLM.updateProviderConfig(providerId, config);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to update provider configuration');
+      }
+    },
+
+    async updateProviderApiKey(providerId: string, apiKey: string): Promise<void> {
+      const client = getAPIClient();
+      const response = await client.userLLM.updateProviderApiKey(providerId, apiKey);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to update API key');
+      }
+    },
+
+    async testProvider(providerId: string): Promise<any> {
+      const client = getAPIClient();
+      const response = await client.userLLM.testProvider(providerId);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to test provider');
+      }
+      
+      return response.data!;
+    },
+
+    async deleteProvider(providerId: string): Promise<void> {
+      const client = getAPIClient();
+      const response = await client.userLLM.deleteProvider(providerId);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to delete provider');
+      }
+    },
+
+    async generateResponse(request: {
+      prompt: string;
+      systemPrompt?: string;
+      maxTokens?: number;
+      temperature?: number;
+      model?: string;
+      preferredType?: LLMProviderType;
+    }): Promise<any> {
+      const client = getAPIClient();
+      const response = await client.userLLM.generateResponse(request);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to generate response');
+      }
+      
+      return response.data!;
+    },
+
+    async generateAgentResponse(request: {
+      agent: any;
+      messages: any[];
+      context?: any;
+      tools?: any[];
+    }): Promise<any> {
+      const client = getAPIClient();
+      const response = await client.userLLM.generateAgentResponse(request);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to generate agent response');
+      }
+      
+      return response.data!;
+    },
+
+    // Legacy methods for backward compatibility
+    async getModelsFromProvider(providerType: string): Promise<Array<{
+      id: string;
+      name: string;
+      description?: string;
+      source: string;
+      apiEndpoint: string;
+    }>> {
+      // This method is not available in user LLM routes, so we'll return empty array
+      console.warn('getModelsFromProvider is not available in user LLM routes');
+      return [];
+    },
+
+    async getProviderStats(): Promise<Array<{
+      name: string;
+      type: string;
+      available: boolean;
+    }>> {
+      try {
+        // Convert user providers to provider stats format
+        const providers = await this.getProviders();
+        return providers.map(provider => ({
+          name: provider.name,
+          type: provider.type,
+          available: provider.isActive && provider.status === 'active'
+        }));
+      } catch (error) {
+        console.warn('Failed to get user provider stats, returning empty array:', error);
+        return [];
+      }
+    },
+
+    async generateArtifact(request: {
+      type: string;
+      prompt: string;
+      language?: string;
+      framework?: string;
+      requirements?: string[];
+    }): Promise<any> {
+      // Use general generate response for artifacts
+      return this.generateResponse({
+        prompt: `Generate a ${request.type} ${request.language ? `in ${request.language}` : ''} based on: ${request.prompt}`,
+        systemPrompt: `You are an expert ${request.type} generator. Generate clean, well-structured code.`,
+        maxTokens: 2000,
+        temperature: 0.3
+      });
+    },
+
+    async analyzeContext(request: {
+      conversationHistory: any[];
+      currentContext?: any;
+      userRequest?: string;
+      agentCapabilities?: string[];
+    }): Promise<any> {
+      // Use general generate response for context analysis
+      const prompt = `Analyze the following conversation context: ${JSON.stringify(request)}`;
+      return this.generateResponse({
+        prompt,
+        systemPrompt: 'You are an expert conversation analyst. Provide structured insights.',
+        maxTokens: 1000,
+        temperature: 0.2
+      });
+    }
+  },
+
+  // ============================================================================
+  // APPROVALS API METHODS
+  // ============================================================================
+  
+  approvals: {
+    async approve(executionId: string, approvalData: { approverId: string }): Promise<void> {
+      const client = getAPIClient();
+      const response = await client.approvals.submitDecision(executionId, {
+        decision: 'approve',
+        approverId: approvalData.approverId,
+        feedback: `Approved by ${approvalData.approverId}`
+      });
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to approve execution');
+      }
+    },
+
+    async reject(executionId: string, rejectionData: { approverId: string; reason: string }): Promise<void> {
+      const client = getAPIClient();
+      const response = await client.approvals.submitDecision(executionId, {
+        decision: 'reject',
+        approverId: rejectionData.approverId,
+        feedback: rejectionData.reason
+      });
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to reject execution');
+      }
+    },
+
+    async getPending(): Promise<any[]> {
+      const client = getAPIClient();
+      const response = await client.approvals.getPendingApprovals();
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to fetch pending approvals');
+      }
+      
+      return response.data!;
     }
   }
 };

@@ -11,7 +11,8 @@ import {
   PersonaStatus,
   PersonaVisibility,
   ExpertiseDomain,
-  PersonaTrait
+  PersonaTrait,
+  ConversationalStyle
 } from '@uaip/types';
 import { DatabaseService } from './databaseService.js';
 import { EventBusService } from './eventBusService.js';
@@ -741,5 +742,230 @@ export class PersonaService {
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt
     };
+  }
+
+  // ===== SIMPLIFIED FRONTEND API METHODS =====
+
+  /**
+   * Get personas with simplified data for frontend display
+   * Returns only: id, name, role, description, tags, expertise (as strings), status
+   */
+  async getPersonasForDisplay(filters?: PersonaSearchFilters): Promise<{
+    personas: Array<{
+      id: string;
+      name: string;
+      role: string;
+      description: string;
+      tags: string[];
+      expertise: string[];
+      status: PersonaStatus;
+      category: string; // Derived from role
+    }>;
+    total: number;
+    hasMore: boolean;
+  }> {
+    try {
+      const searchResult = await this.searchPersonas(filters || {});
+      
+      const displayPersonas = searchResult.personas.map(persona => ({
+        id: persona.id,
+        name: persona.name,
+        role: persona.role,
+        description: persona.description,
+        tags: persona.tags,
+        expertise: this.extractExpertiseNames(persona.expertise),
+        status: persona.status,
+        category: this.categorizePersonaRole(persona.role)
+      }));
+
+      return {
+        personas: displayPersonas,
+        total: searchResult.total,
+        hasMore: searchResult.hasMore
+      };
+    } catch (error) {
+      logger.error('Failed to get personas for display', { error: (error as Error).message });
+      throw error;
+    }
+  }
+
+  /**
+   * Get single persona with simplified data for frontend display
+   */
+  async getPersonaForDisplay(id: string): Promise<{
+    id: string;
+    name: string;
+    role: string;
+    description: string;
+    tags: string[];
+    expertise: string[];
+    status: PersonaStatus;
+    category: string;
+    background?: string;
+    conversationalStyle?: ConversationalStyle;
+  } | null> {
+    try {
+      const persona = await this.getPersona(id);
+      if (!persona) return null;
+
+      return {
+        id: persona.id,
+        name: persona.name,
+        role: persona.role,
+        description: persona.description,
+        tags: persona.tags,
+        expertise: this.extractExpertiseNames(persona.expertise),
+        status: persona.status,
+        category: this.categorizePersonaRole(persona.role),
+        background: persona.background,
+        conversationalStyle: persona.conversationalStyle
+      };
+    } catch (error) {
+      logger.error('Failed to get persona for display', { error: (error as Error).message, personaId: id });
+      throw error;
+    }
+  }
+
+  /**
+   * Search personas with text query - simplified for frontend
+   */
+  async searchPersonasSimple(query?: string, expertiseFilter?: string): Promise<{
+    personas: Array<{
+      id: string;
+      name: string;
+      role: string;
+      description: string;
+      tags: string[];
+      expertise: string[];
+      category: string;
+    }>;
+  }> {
+    try {
+      const filters: PersonaSearchFilters = {};
+      
+      if (query) {
+        filters.query = query;
+      }
+      
+      if (expertiseFilter) {
+        filters.expertise = [expertiseFilter];
+      }
+
+      const result = await this.getPersonasForDisplay(filters);
+      
+      return {
+        personas: result.personas.map(p => ({
+          id: p.id,
+          name: p.name,
+          role: p.role,
+          description: p.description,
+          tags: p.tags,
+          expertise: p.expertise,
+          category: p.category
+        }))
+      };
+    } catch (error) {
+      logger.error('Failed to search personas', { error: (error as Error).message, query, expertiseFilter });
+      throw error;
+    }
+  }
+
+  /**
+   * Get persona categories for frontend filtering
+   */
+  getPersonaCategories(): string[] {
+    return [
+      'Development',
+      'Policy', 
+      'Creative',
+      'Analysis',
+      'Business',
+      'Social',
+      'Technical',
+      'Management',
+      'Research',
+      'Design'
+    ];
+  }
+
+  /**
+   * Categorize persona role into display category
+   */
+  private categorizePersonaRole(role: string): string {
+    const roleToCategory: Record<string, string> = {
+      // Development roles
+      'Software Engineer': 'Development',
+      'Senior Software Engineer': 'Development', 
+      'Junior Developer': 'Development',
+      'Full Stack Developer': 'Development',
+      'Frontend Developer': 'Development',
+      'Backend Developer': 'Development',
+      'Mobile Developer': 'Development',
+      'DevOps Engineer': 'Technical',
+      'Site Reliability Engineer': 'Technical',
+      'Infrastructure Engineer': 'Technical',
+      'Cloud Engineer': 'Technical',
+      'Platform Engineer': 'Technical',
+      
+      // Management/Leadership
+      'Tech Lead': 'Management',
+      'Engineering Manager': 'Management',
+      'Team Lead': 'Management',
+      'Project Manager': 'Management',
+      'Scrum Master': 'Management',
+      'Product Manager': 'Business',
+      'Product Owner': 'Business',
+      
+      // Quality/Analysis
+      'QA Engineer': 'Analysis',
+      'Test Engineer': 'Analysis',
+      'Quality Analyst': 'Analysis',
+      'Automation Engineer': 'Analysis',
+      'Business Analyst': 'Analysis',
+      'Systems Analyst': 'Analysis',
+      'Data Analyst': 'Analysis',
+      'Data Scientist': 'Analysis',
+      
+      // Security
+      'Security Engineer': 'Technical',
+      'Security Analyst': 'Analysis',
+      'Cybersecurity Specialist': 'Technical',
+      
+      // Policy/Legal
+      'Policy Analyst': 'Policy',
+      'Legal Expert': 'Policy',
+      'Economist': 'Policy',
+      'Social Scientist': 'Policy',
+      'Environmental Expert': 'Policy',
+      
+      // Creative/Design
+      'UX Designer': 'Creative',
+      'UI Designer': 'Creative',
+      'Product Designer': 'Creative',
+      'Design Lead': 'Creative',
+      'Creative Director': 'Creative',
+      'Innovation Consultant': 'Creative',
+      
+      // Research/Academic
+      'Researcher': 'Research',
+      'Academic Researcher': 'Research',
+      'Educator': 'Research',
+      
+      // Social/Community
+      'Psychologist': 'Social',
+      'Community Organizer': 'Social',
+      'Philosopher': 'Social',
+      
+      // Generic roles
+      'Assistant': 'Business',
+      'Specialist': 'Technical',
+      'Analyzer': 'Analysis',
+      'Orchestrator': 'Management',
+      'General Assistant': 'Business',
+      'Expert': 'Technical',
+      'Consultant': 'Business'
+    };
+
+    return roleToCategory[role] || 'Business';
   }
 } 

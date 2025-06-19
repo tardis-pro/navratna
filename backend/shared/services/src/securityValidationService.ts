@@ -39,7 +39,6 @@ export class SecurityValidationService {
       logger.info('Validating operation security', { 
         userId: securityContext.userId,
         operation: operation,
-        agentId: securityContext.agentId
       });
 
       // Step 1: Validate user authentication and authorization
@@ -97,10 +96,10 @@ export class SecurityValidationService {
 
       return {
         allowed: true,
-        riskLevel: this.convertRiskLevelToSecurityLevel(riskAssessment.overallRisk || RiskLevel.MEDIUM),
+        riskLevel: riskAssessment.level || SecurityLevel.MEDIUM,
         approvalRequired,
         conditions,
-        reasoning: riskAssessment.factors?.map((f: RiskFactor) => f.description).join('; ') || 'No specific risk factors identified'
+        reasoning: riskAssessment.factors?.join('; ') || 'No specific risk factors identified'
       };
 
     } catch (error) {
@@ -158,9 +157,11 @@ export class SecurityValidationService {
       const recommendedMitigations = this.generateMitigations(riskFactors, plan);
 
       return {
-        overallRisk: overallRisk,
+        level: this.convertRiskLevelToSecurityLevel(overallRisk),
+        overallRisk,
         score: this.calculateRiskScore(riskFactors),
         factors: riskFactors,
+        recommendations: recommendedMitigations,
         mitigations: recommendedMitigations,
         assessedAt: new Date(),
         assessedBy: 'system'
@@ -339,9 +340,11 @@ export class SecurityValidationService {
     const overallRisk = this.calculateOverallRisk(riskFactors);
 
     return {
-      overallRisk: overallRisk,
+      level: this.convertRiskLevelToSecurityLevel(overallRisk),
+      overallRisk,
       score: this.calculateRiskScore(riskFactors),
       factors: riskFactors,
+      recommendations: [],
       mitigations: [],
       assessedAt: new Date(),
       assessedBy: 'system'
@@ -589,7 +592,7 @@ export class SecurityValidationService {
     operationData: any
   ): Promise<boolean> {
     // High risk operations always require approval
-    if (riskAssessment.overallRisk === RiskLevel.HIGH) {
+    if (riskAssessment.level === SecurityLevel.HIGH) {
       return true;
     }
 
@@ -606,7 +609,7 @@ export class SecurityValidationService {
     }
 
     // Medium risk operations require approval for non-admin users
-    if (riskAssessment.overallRisk === RiskLevel.MEDIUM) {
+    if (riskAssessment.level === SecurityLevel.MEDIUM) {
       return securityContext.securityLevel !== SecurityLevel.HIGH;
     }
 
@@ -626,12 +629,12 @@ export class SecurityValidationService {
   ): Promise<string[]> {
     const conditions = [];
 
-    if (riskAssessment.overallRisk === RiskLevel.HIGH) {
+    if (riskAssessment.level === SecurityLevel.HIGH) {
       conditions.push('Enhanced monitoring required');
       conditions.push('Automatic rollback on failure');
     }
 
-    if (riskAssessment.overallRisk === RiskLevel.MEDIUM) {
+    if (riskAssessment.level === SecurityLevel.MEDIUM) {
       conditions.push('Standard monitoring required');
     }
 

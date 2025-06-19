@@ -905,7 +905,7 @@ export class DiscussionService {
         timestamp: new Date()
       };
 
-      await this.eventBusService.publish('discussion.event', event);
+      await this.eventBusService.publish('discussion.events', event);
 
     } catch (error) {
       logger.error('Failed to emit discussion event', { 

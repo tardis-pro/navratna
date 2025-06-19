@@ -8,6 +8,7 @@
     "clean": "pnpm exec tsc -b tsconfig.build.json --clean && pnpm exec tsc -b tsconfig.build_shared.json --clean",
     "build-services": "pnpm exec tsc -b tsconfig.build.json --clean && pnpm exec tsc -b tsconfig.build.json",
     "build-shared": "pnpm exec tsc -b tsconfig.build_shared.json --clean && pnpm exec tsc -b tsconfig.build_shared.json",
+    "build:sdk-generator": "cd shared/sdk-generator && pnpm build",
     "build:watch": "concurrently \"pnpm build-shared\" \"pnpm build-services \" ",
     "dev": "concurrently  \"pnpm dev:agent\" \"pnpm dev:sec\" \"pnpm dev:cap\" \"pnpm dev:art-ser\" \"pnpm dev:llm-ser\" \"pnpm dev:orch-pipe\" \"pnpm dev:disc-orch\"",
     "dev:agent": "export SERVICE_NAME=agent-intelligence && cd services/agent-intelligence && pnpm run dev",
@@ -24,17 +25,17 @@
     "lint:fix": "pnpm -r exec eslint . --fix"
   },
   "devDependencies": {
-    "@eslint/js": "^9.28.0",
-    "@typescript-eslint/eslint-plugin": "^6.15.0",
-    "@typescript-eslint/parser": "^6.15.0",
-    "concurrently": "^8.2.2",
-    "esbuild": "^0.19.8",
-    "eslint": "^8.57.1",
+    "@eslint/js": "catalog:",
+    "@typescript-eslint/eslint-plugin": "catalog:",
+    "@typescript-eslint/parser": "catalog:",
+    "concurrently": "catalog:dev",
+    "esbuild": "catalog:dev",
+    "eslint": "catalog:",
     "glob": "^10.3.10",
-    "rimraf": "^5.0.5",
+    "rimraf": "catalog:",
     "tsc-alias": "^1.8.8",
-    "typescript": "^5.8.3",
-    "typescript-eslint": "^8.33.1"
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:"
   },
   "engines": {
     "node": ">=18.0.0",

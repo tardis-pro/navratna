@@ -16,8 +16,8 @@
     "strict": false,
     "baseUrl": ".",
     "paths": {
-      "@council/shared-types": ["../shared-types/src"],
-      "@council/shared-types/*": ["../shared-types/src/*"]
+      "@uaip/types": ["../shared-types/src"],
+      "@uaip/types/*": ["../shared-types/src/*"]
     }
   },
   "include": ["src/**/*"],

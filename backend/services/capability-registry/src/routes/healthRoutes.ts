@@ -11,6 +11,7 @@ router.get('/', (req, res) => {
     timestamp: new Date().toISOString(),
     version: process.env.VERSION || '1.0.0'
   });
+      return;
 });
 
 // Detailed health check
@@ -37,6 +38,7 @@ router.get('/detailed', async (req, res) => {
       timestamp: new Date().toISOString(),
       error: (error as Error).message
     });
+      return;
   }
 });
 
@@ -47,6 +49,7 @@ router.get('/ready', (req, res) => {
     service: 'capability-registry',
     timestamp: new Date().toISOString()
   });
+      return;
 });
 
 // Liveness check
@@ -56,6 +59,7 @@ router.get('/live', (req, res) => {
     service: 'capability-registry',
     timestamp: new Date().toISOString()
   });
+      return;
 });
 
 export { router as healthRoutes }; 

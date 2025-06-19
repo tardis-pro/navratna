@@ -55,6 +55,9 @@ export const API_ROUTES = {
   // Discussion Orchestration Service routes
   DISCUSSIONS: '/api/v1/discussions',
 
+  // LLM Service routes
+  LLM: '/api/v1/llm',
+  USER_LLM: '/api/v1/user/llm',
   // System metrics and monitoring
   SYSTEM: '/api/v1/system',
 

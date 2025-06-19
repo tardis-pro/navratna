@@ -93,6 +93,12 @@ export class AgentRepository extends BaseRepository<Agent> {
     intelligenceConfig: any;
     securityContext: any;
     configuration?: any;
+    // Model configuration fields
+    modelId?: string;
+    apiType?: string;
+    temperature?: number;
+    maxTokens?: number;
+    systemPrompt?: string;
     createdBy?: string;
     capabilities?: string[];
   }): Promise<Agent> {
@@ -116,6 +122,12 @@ export class AgentRepository extends BaseRepository<Agent> {
         intelligenceConfig: agentData.intelligenceConfig,
         securityContext: agentData.securityContext,
         configuration: agentData.configuration,
+        // Model configuration fields
+        modelId: agentData.modelId,
+        apiType: agentData.apiType as any,
+        temperature: agentData.temperature,
+        maxTokens: agentData.maxTokens,
+        systemPrompt: agentData.systemPrompt,
         capabilities: agentData.capabilities || [],
         isActive: true,
         createdBy: agentData.createdBy

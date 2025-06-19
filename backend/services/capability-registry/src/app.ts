@@ -34,10 +34,11 @@ export class CapabilityRegistryApp {
   private setupMiddleware(): void {
     // Security middleware
     this.app.use(helmet());
-    this.app.use(cors({
-      origin: process.env.CORS_ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
-      credentials: true
-    }));
+    // CORS is handled by nginx API gateway - disable service-level CORS
+    // this.app.use(cors({
+    //   origin: process.env.CORS_ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
+    //   credentials: true
+    // }));
 
     // Performance middleware
     this.app.use(compression());
@@ -78,7 +79,7 @@ export class CapabilityRegistryApp {
     this.app.use('/api/v1/tools', toolRoutes);
 
     // 404 handler
-    this.app.use('*', (req, res) => {
+    this.app.use((req, res) => {
       res.status(404).json({
         success: false,
         error: {

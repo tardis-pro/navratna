@@ -2,12 +2,12 @@ import { IArtifactService } from './interfaces/ArtifactTypes.js';
 import { 
   ArtifactGenerationRequest, 
   ArtifactGenerationResponse, 
-  ArtifactTemplate, 
+  ArtifactGenerationTemplate as ArtifactTemplate, 
   ValidationResult, 
-  GeneratedArtifact,
+  Artifact as GeneratedArtifact,
   ArtifactMetadata,
   ArtifactType
-} from './types/artifact.js';
+} from '@uaip/types';
 import { CodeGenerator } from './generators/CodeGenerator.js';
 import { TestGenerator } from './generators/TestGenerator.js';
 import { DocumentationGenerator } from './generators/DocumentationGenerator.js';
@@ -68,6 +68,9 @@ export class ArtifactService implements IArtifactService {
       
       // Create artifact metadata
       const metadata: ArtifactMetadata = {
+        title: `Generated ${request.type}`,
+        description: `Generated artifact of type ${request.type}`,
+        tags: [request.type],
         generatedBy: 'artifact-service',
         template: request.options?.template,
         language: request.options?.language,
@@ -145,19 +148,19 @@ export class ArtifactService implements IArtifactService {
       return {
         status: 'invalid',
         isValid: false,
-        issues: [{
-          code: 'VALIDATION_ERROR',
-          message: 'Internal validation error',
-          severity: 'error'
-        }],
-        score: 0,
         errors: [{
           code: 'VALIDATION_ERROR',
           message: 'Internal validation error',
           severity: 'error'
         }],
         warnings: [],
-        suggestions: []
+        suggestions: [],
+        score: 0,
+        issues: [{
+          code: 'VALIDATION_ERROR',
+          message: 'Internal validation error',
+          severity: 'error'
+        }]
       };
     }
   }

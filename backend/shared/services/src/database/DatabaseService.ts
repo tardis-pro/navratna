@@ -11,6 +11,8 @@ import { OperationRepository, OperationStateRepository, OperationCheckpointRepos
 import { AgentRepository } from './repositories/AgentRepository.js';
 import { SecurityPolicyRepository, ApprovalWorkflowRepository, ApprovalDecisionRepository } from './repositories/SecurityRepository.js';
 import { CapabilityRepository } from './repositories/CapabilityRepository.js';
+import { LLMProviderRepository } from './repositories/LLMProviderRepository.js';
+import { UserLLMProviderRepository } from './repositories/UserLLMProviderRepository.js';
 
 export class DatabaseService {
   private static instance: DatabaseService;
@@ -34,6 +36,8 @@ export class DatabaseService {
   public readonly approvalWorkflows: ApprovalWorkflowRepository;
   public readonly approvalDecisions: ApprovalDecisionRepository;
   public readonly capabilities: CapabilityRepository;
+  public readonly llmProviders: LLMProviderRepository;
+  public readonly userLLMProviders: UserLLMProviderRepository;
 
   constructor() {
     // Debug: Log the actual config values being used
@@ -64,6 +68,8 @@ export class DatabaseService {
     this.approvalWorkflows = new ApprovalWorkflowRepository();
     this.approvalDecisions = new ApprovalDecisionRepository();
     this.capabilities = new CapabilityRepository();
+    this.llmProviders = new LLMProviderRepository();
+    this.userLLMProviders = new UserLLMProviderRepository();
     
     // Initialize TypeORM connection
     this.initializeConnection();
@@ -75,6 +81,19 @@ export class DatabaseService {
       logger.info('DatabaseService initialized with TypeORM');
     } catch (error) {
       logger.error('Failed to initialize TypeORM connection', { error });
+      throw error;
+    }
+  }
+
+  // Public method to ensure database is initialized
+  public async initialize(): Promise<void> {
+    // The connection is initialized in the constructor, but this method
+    // can be called to ensure it's ready before use
+    try {
+      // Test the connection
+      await this.healthCheck();
+    } catch (error) {
+      logger.error('Database initialization check failed', { error });
       throw error;
     }
   }

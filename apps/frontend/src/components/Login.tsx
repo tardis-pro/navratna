@@ -5,7 +5,7 @@ import {
   EyeSlashIcon, 
   LockClosedIcon, 
   UserIcon,
-  ExclamationTriangleIcon,
+  LightBulbIcon,
   SparklesIcon
 } from '@heroicons/react/24/outline';
 
@@ -98,7 +98,7 @@ export const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center p-4">
+    <div className="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center p-4">
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
@@ -137,7 +137,7 @@ export const Login: React.FC = () => {
             {/* Global Error */}
             {error && (
               <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl p-4 flex items-start space-x-3">
-                <ExclamationTriangleIcon className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                <LightBulbIcon className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                 <div>
                   <h3 className="text-sm font-medium text-red-800 dark:text-red-200">Login Failed</h3>
                   <p className="text-sm text-red-700 dark:text-red-300 mt-1">{error}</p>

@@ -344,9 +344,16 @@ export class DiscussionWebSocketHandler {
    * Subscribe to discussion events from orchestration service
    */
   private subscribeToEvents(): void {
-    // This would integrate with the event bus service
-    // For now, we'll assume events are pushed to this handler
-    logger.info('Subscribed to discussion events');
+    // Subscribe to discussion events from the event bus
+    this.orchestrationService.on('discussion_event', (event: DiscussionEvent) => {
+      logger.debug('Received discussion event from orchestration service', {
+        eventType: event.type,
+        discussionId: event.discussionId
+      });
+      this.broadcastToDiscussion(event.discussionId, event);
+    });
+    
+    logger.info('Subscribed to discussion events from orchestration service');
   }
 
   /**
