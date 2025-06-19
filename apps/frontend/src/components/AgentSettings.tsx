@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Settings,
   Bot,
   Server,
   Globe,
@@ -16,30 +15,30 @@ import {
   Users
 } from 'lucide-react';
 import { AgentState, ModelProvider } from '../types/agent';
-import { ModelOption } from '../types/models';
 import { Persona } from '../types/persona';
-// import { getModels } from '../services/llm';
 import { uaipAPI } from '../utils/uaip-api';
 import { PersonaSelector } from './PersonaSelector';
 import { LLMModel, LLMProviderType } from '@uaip/types';
 
-const getModels = async () => {
+// Centralized model fetching utility
+const getModels = async (): Promise<LLMModel[]> => {
   try {
     const response = await uaipAPI.llm.getModels();
 
     if (!response) {
-      console.error('Failed to fetch models:', response);
+      console.warn('No models response received from API');
       return [];
     }
 
-    const models = response;
-    return models.map(model => ({
+    return response.map(model => ({
       id: model.id,
       name: model.name,
       description: model.description,
       source: model.source,
       apiEndpoint: model.apiEndpoint,
-      apiType: model.apiType
+      apiType: model.apiType,
+      isAvailable: model.isAvailable ?? true,
+      provider: model.provider || model.apiType
     }));
   } catch (error) {
     console.error('Failed to fetch models:', error);
@@ -96,8 +95,10 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
 
   // Load available models (fallback for when modelState is not provided)
   const loadModels = useCallback(async () => {
-    if (modelState?.models && modelState.models.length > 0) return; // Use context data if available
-    if (modelsLoading) return; // Prevent multiple concurrent calls
+    // Use context data if available
+    if (modelState?.models && modelState.models.length > 0) return;
+    // Prevent multiple concurrent calls
+    if (modelsLoading) return;
 
     setModelsLoading(true);
     setModelsError(null);
@@ -105,23 +106,23 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
     try {
       const models = await getModels();
       setAvailableModels(models);
+      console.log(`Loaded ${models.length} models successfully`);
     } catch (error) {
-      console.error('Failed to load models:', error);
-      setModelsError(error instanceof Error ? error.message : 'Failed to load models');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load models';
+      console.error('Model loading error:', errorMessage);
+      setModelsError(errorMessage);
       setAvailableModels([]);
     } finally {
       setModelsLoading(false);
     }
   }, [modelState?.models, modelsLoading]);
 
-  // Only load models once if not provided via modelState
+  // Initialize models on component mount
   useEffect(() => {
     if (!modelState?.models || modelState.models.length === 0) {
-      if (!modelsLoading && availableModels.length === 0) {
-        loadModels();
-      }
+      loadModels();
     }
-  }, []); // Empty dependency array to run only once
+  }, [modelState?.models]); // Remove loadModels from dependencies to prevent infinite loop
 
   // Helper functions
   const getServerIcon = (apiType: string) => {
@@ -154,20 +155,20 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
     }
   };
 
-  // Get models organized by provider
-  const getModelsByProvider = () => {
-    const modelsByProvider: Record<string, any[]> = {};
+  // Get models organized by provider - memoized for performance
+  const modelsByProvider = React.useMemo(() => {
+    const grouped: Record<string, LLMModel[]> = {};
 
     effectiveModels.forEach(model => {
       const providerKey = model.provider || model.apiType || 'unknown';
-      if (!modelsByProvider[providerKey]) {
-        modelsByProvider[providerKey] = [];
+      if (!grouped[providerKey]) {
+        grouped[providerKey] = [];
       }
-      modelsByProvider[providerKey].push(model);
+      grouped[providerKey].push(model);
     });
 
-    return modelsByProvider;
-  };
+    return grouped;
+  }, [effectiveModels]);
 
   // Get recommended models for an agent
   const getAgentRecommendedModels = (agentRole?: string) => {
@@ -305,30 +306,11 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
   const agentList = Object.values(agents);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 via-indigo-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/25">
-            <Settings className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Agent Settings</h2>
-            <p className="text-sm text-slate-600 dark:text-slate-400">Configure model associations and agent parameters</p>
-          </div>
-        </div>
-
-        <div className="flex items-center space-x-3">
-          <button
-            onClick={loadModels}
-            disabled={effectiveLoading}
-            className="flex items-center space-x-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${effectiveLoading ? 'animate-spin' : ''}`} />
-            <span>Refresh Models</span>
-          </button>
-
-          <div className="flex items-center space-x-2 px-3 py-2 bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 rounded-full shadow-inner">
+    <div className="space-y-6 p-6">
+      {/* Compact status bar - no duplicate header */}
+      <div className="flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/50 rounded-xl p-4">
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2 px-3 py-2 bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 rounded-full shadow-inner">
             <div className="w-2 h-2 bg-gradient-to-r from-green-500 to-blue-500 rounded-full"></div>
             <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
               {effectiveModels.length} Models
@@ -344,6 +326,18 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
             </div>
           )}
         </div>
+
+        <button
+          onClick={() => {
+            loadModels();
+            onRefreshAgents(); // Trigger portal refresh callback
+          }}
+          disabled={effectiveLoading}
+          className="flex items-center space-x-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg transition-colors disabled:opacity-50"
+        >
+          <RefreshCw className={`w-4 h-4 ${effectiveLoading ? 'animate-spin' : ''}`} />
+          <span>Refresh Models</span>
+        </button>
       </div>
 
       {/* Models Error */}
@@ -487,7 +481,7 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
                               <option value="">Select a model...</option>
 
                               {/* Group models by provider */}
-                              {Object.entries(getModelsByProvider()).map(([providerKey, models]) => (
+                              {Object.entries(modelsByProvider).map(([providerKey, models]) => (
                                 <optgroup key={providerKey} label={`${providerKey.toUpperCase()} Models`}>
                                   {models.map((model) => (
                                     <option key={model.id} value={model.id}>

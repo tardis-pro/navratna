@@ -474,7 +474,7 @@ export const AgentSelectorPortal: React.FC<AgentSelectorPortalProps> = ({ classN
           </motion.div>
           <div>
             <h3 className="text-xl font-bold text-white">Agent Matrix</h3>
-            <p className="text-sm text-slate-400">neural network participants</p>
+            <p className="text-sm text-slate-400"> network participants</p>
           </div>
         </div>
         
@@ -522,7 +522,7 @@ export const AgentSelectorPortal: React.FC<AgentSelectorPortalProps> = ({ classN
             <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0" />
             <div>
               <span className="text-amber-300 font-semibold block">
-                Neural Network at Capacity
+                 Network at Capacity
               </span>
               <span className="text-amber-400/80 text-sm">
                 Remove an agent to spawn a new entity (limit: {maxAgents})
@@ -541,7 +541,7 @@ export const AgentSelectorPortal: React.FC<AgentSelectorPortalProps> = ({ classN
             <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0" />
             <div>
               <span className="text-green-300 font-semibold block">
-                Neural Collective Ready
+                 Collective Ready
               </span>
               <span className="text-green-400/80 text-sm">
                 Multi-agent consciousness can now be activated
@@ -561,7 +561,7 @@ export const AgentSelectorPortal: React.FC<AgentSelectorPortalProps> = ({ classN
           <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
             <h3 className="text-sm font-semibold text-red-300 mb-1">
-              Neural Model Loading Error
+               Model Loading Error
             </h3>
             <p className="text-sm text-red-400 mb-3">
               {modelsError}

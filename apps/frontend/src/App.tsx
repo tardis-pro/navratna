@@ -28,6 +28,7 @@ import {
   Users
 } from 'lucide-react';
 import './App.css';
+import { PortalWorkspace } from './components/futuristic/PortalWorkspace';
 
 type Mode = 'discussion' | 'uaip' | 'settings' | 'futuristic';
 
@@ -97,7 +98,7 @@ function App() {
 
                 {/* Header */}
                 <header className="h-16 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-b border-slate-200/60 dark:border-slate-700/60 shadow-sm flex items-center justify-between px-6 flex-shrink-0">
-                  
+
                   {/* Left: Logo & Navigation */}
                   <div className="flex items-center gap-6">
                     <div className="flex items-center gap-4">
@@ -117,7 +118,7 @@ function App() {
                       {modes.map((mode) => {
                         const Icon = mode.icon;
                         const isActive = currentMode === mode.key;
-                        
+
                         return (
                           <Button
                             key={mode.key}
@@ -126,8 +127,8 @@ function App() {
                             onClick={() => setCurrentMode(mode.key)}
                             className={`
                               flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-all duration-200 rounded-lg
-                              ${isActive 
-                                ? 'bg-white dark:bg-slate-700 shadow-md shadow-slate-200/50 dark:shadow-slate-900/50 text-slate-900 dark:text-white' 
+                              ${isActive
+                                ? 'bg-white dark:bg-slate-700 shadow-md shadow-slate-200/50 dark:shadow-slate-900/50 text-slate-900 dark:text-white'
                                 : 'hover:bg-white/70 dark:hover:bg-slate-700/70 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                               }
                             `}
@@ -143,7 +144,7 @@ function App() {
                   {/* Right: Controls */}
                   <div className="flex items-center gap-3">
                     <BackendStatusIndicator />
-                    
+
                     <Button
                       variant="ghost"
                       size="sm"
@@ -182,7 +183,7 @@ function App() {
                   ) : currentMode === 'futuristic' ? (
                     <div className="h-full">
                       <ErrorBoundary>
-                        <FuturisticDemo />
+                        <PortalWorkspace />
                       </ErrorBoundary>
                     </div>
                   ) : (
@@ -226,8 +227,8 @@ function App() {
                           onClick={() => setCurrentMode(mode.key)}
                           className={`
                             w-14 h-14 p-0 rounded-xl transition-all duration-200
-                            ${isActive 
-                              ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25' 
+                            ${isActive
+                              ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25'
                               : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'
                             }
                           `}
@@ -251,7 +252,7 @@ function App() {
 function DiscussionLayout({ sidebarOpen }: { sidebarOpen: boolean }) {
   return (
     <div className="h-full flex overflow-hidden">
-      
+
       {/* Sidebar */}
       <div className={`
         ${sidebarOpen ? 'w-80 max-w-[40vw]' : 'w-0'} 
@@ -295,7 +296,7 @@ function DiscussionLayout({ sidebarOpen }: { sidebarOpen: boolean }) {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        
+
         {/* Document Context */}
         <div className="h-1/2 border-b border-slate-200/60 dark:border-slate-700/60 min-h-0">
           <div className="h-full flex flex-col">
