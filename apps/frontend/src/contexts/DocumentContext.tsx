@@ -1,5 +1,7 @@
-import React, { createContext, useContext, useReducer } from 'react';
+import React, { createContext, useContext, useReducer, useCallback } from 'react';
 import type { DocumentContext, DocumentContextValue, DocumentContextState } from '../types/document';
+import { useKnowledge } from './KnowledgeContext';
+import type { KnowledgeItem, KnowledgeIngestRequest } from '@uaip/types';
 
 const initialState: DocumentContextState = {
   documents: {},
@@ -98,12 +100,42 @@ const DocumentContext = createContext<DocumentContextValue | null>(null);
 
 export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(documentReducer, initialState);
+  const { uploadKnowledge } = useKnowledge();
+
+  const addDocument = useCallback(async (document: DocumentContext) => {
+    dispatch({ type: 'ADD_DOCUMENT', payload: document });
+    
+    // Also add to knowledge graph if it has substantial content
+    if (document.content && document.content.length > 50) {
+      try {
+        const knowledgeItem: KnowledgeIngestRequest = {
+          content: document.content,
+          type: document.type === 'policy' ? 'PROCEDURAL' : 
+                document.type === 'technical' ? 'FACTUAL' : 'CONCEPTUAL',
+          tags: [...document.tags, 'document', document.type],
+          source: {
+            type: 'USER_INPUT',
+            identifier: `document-${document.id}`,
+            metadata: {
+              documentTitle: document.title,
+              documentType: document.type,
+              author: document.metadata.author,
+              createdAt: document.metadata.createdAt.toISOString(),
+            },
+          },
+          confidence: 0.8,
+        };
+        
+        await uploadKnowledge([knowledgeItem]);
+      } catch (error) {
+        console.warn('Failed to add document to knowledge graph:', error);
+      }
+    }
+  }, [uploadKnowledge]);
 
   const value: DocumentContextValue = {
     ...state,
-    addDocument: (document: DocumentContext) => {
-      dispatch({ type: 'ADD_DOCUMENT', payload: document });
-    },
+    addDocument,
     removeDocument: (id: string) => {
       dispatch({ type: 'REMOVE_DOCUMENT', payload: id });
     },

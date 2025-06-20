@@ -48,7 +48,17 @@ import type {
   // LLM types
   LLMGenerationRequest,
   LLMModel,
-  PersonaTemplate
+  PersonaTemplate,
+  
+  // Knowledge Graph types
+  KnowledgeItem,
+  KnowledgeSearchRequest,
+  KnowledgeSearchResponse,
+  KnowledgeIngestRequest,
+  KnowledgeIngestResponse,
+  KnowledgeRelationship,
+  KnowledgeType,
+  SourceType
 } from '@uaip/types';
 
 // Import enums separately (not as type imports)
@@ -1043,6 +1053,84 @@ export const uaipAPI = {
       }
       
       return response.data!;
+    }
+  },
+
+  // Approval System
+  approval: {
+    async approve(executionId: string, approvalData: { approverId: string }): Promise<void> {
+      const client = getAPIClient();
+      await client.post(buildAPIURL(API_ROUTES.APPROVALS.APPROVE(executionId)), approvalData);
+    },
+
+    async reject(executionId: string, rejectionData: { approverId: string; reason: string }): Promise<void> {
+      const client = getAPIClient();
+      await client.post(buildAPIURL(API_ROUTES.APPROVALS.REJECT(executionId)), rejectionData);
+    },
+
+    async getPending(): Promise<any[]> {
+      const client = getAPIClient();
+      const response = await client.get(buildAPIURL(API_ROUTES.APPROVALS.LIST));
+      return response.data;
+    }
+  },
+
+  // Knowledge Graph System
+  knowledge: {
+    async uploadKnowledge(items: KnowledgeIngestRequest[]): Promise<KnowledgeIngestResponse> {
+      const client = getAPIClient();
+      const response = await client.post('/v1/knowledge', { items });
+      return response.data;
+    },
+
+    async searchKnowledge(query: KnowledgeSearchRequest): Promise<KnowledgeSearchResponse> {
+      const client = getAPIClient();
+      const response = await client.get('/v1/knowledge/search', { params: query });
+      return response.data;
+    },
+
+    async updateKnowledge(itemId: string, updates: Partial<KnowledgeItem>): Promise<KnowledgeItem> {
+      const client = getAPIClient();
+      const response = await client.patch(`/v1/knowledge/${itemId}`, updates);
+      return response.data;
+    },
+
+    async deleteKnowledge(itemId: string): Promise<void> {
+      const client = getAPIClient();
+      await client.delete(`/v1/knowledge/${itemId}`);
+    },
+
+    async getKnowledgeStats(): Promise<{
+      totalItems: number;
+      itemsByType: Record<KnowledgeType, number>;
+      itemsBySource: Record<SourceType, number>;
+      recentActivity: Array<{
+        date: string;
+        uploads: number;
+        searches: number;
+      }>;
+    }> {
+      const client = getAPIClient();
+      const response = await client.get('/v1/knowledge/stats');
+      return response.data;
+    },
+
+    async getRelatedKnowledge(itemId: string): Promise<KnowledgeItem[]> {
+      const client = getAPIClient();
+      const response = await client.get(`/v1/knowledge/${itemId}/related`);
+      return response.data;
+    },
+
+    async getKnowledgeByTag(tag: string): Promise<KnowledgeItem[]> {
+      const client = getAPIClient();
+      const response = await client.get(`/v1/knowledge/tags/${tag}`);
+      return response.data;
+    },
+
+    async getKnowledgeItem(itemId: string): Promise<KnowledgeItem> {
+      const client = getAPIClient();
+      const response = await client.get(`/v1/knowledge/${itemId}`);
+      return response.data;
     }
   }
 };

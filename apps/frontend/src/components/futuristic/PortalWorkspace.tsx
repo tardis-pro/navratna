@@ -15,13 +15,14 @@ import { EventStreamMonitor } from './portals/EventStreamMonitor';
 import { OperationsMonitor } from './portals/OperationsMonitor';
 import { IntelligencePanelPortal } from './portals/IntelligencePanelPortal';
 import { InsightsPanel } from './portals/InsightsPanel';
-import { Plus, Layout, Users, Brain, Settings, MessageSquare, MessageCircle, Activity, Zap, Terminal, Monitor, Menu, X, Bot, Server, Database, Wrench, Shield, Radio, BarChart3, Lightbulb, Eye } from 'lucide-react';
+import { KnowledgePortal } from './portals/KnowledgePortal';
+import { Plus, Layout, Users, Brain, Settings, MessageSquare, MessageCircle, Activity, Zap, Terminal, Monitor, Menu, X, Bot, Server, Database, Wrench, Shield, Radio, BarChart3, Lightbulb, Eye, BookOpen } from 'lucide-react';
 import { uaipAPI } from '@/utils/uaip-api';
 import { PuzzlePieceIcon } from '@heroicons/react/24/outline';
 
 interface PortalInstance {
   id: string;
-  type: 'discussion' | 'discussion-log' | 'agents' | 'intelligence' | 'settings' | 'chat' | 'spawner' | 'monitor' | 'agent-settings' | 'provider-settings' | 'system-config' | 'agent-manager' | 'tools' | 'security' | 'capabilities' | 'events' | 'operations' | 'intelligence-panel' | 'insights';
+  type: 'discussion' | 'discussion-log' | 'agents' | 'intelligence' | 'settings' | 'chat' | 'spawner' | 'monitor' | 'agent-settings' | 'provider-settings' | 'system-config' | 'agent-manager' | 'tools' | 'security' | 'capabilities' | 'events' | 'operations' | 'intelligence-panel' | 'insights' | 'knowledge';
   title: string;
   component: React.ComponentType<any>;
   position: { x: number; y: number };
@@ -247,6 +248,17 @@ const PORTAL_CONFIGS = {
     },
     type: 'analysis' as const,
     icon: Eye
+  },
+  knowledge: {
+    title: 'Knowledge Graph',
+    component: KnowledgePortal,
+    defaultSize: { 
+      desktop: { width: 900, height: 750 },
+      tablet: { width: 750, height: 700 },
+      mobile: { width: 500, height: 650 }
+    },
+    type: 'analysis' as const,
+    icon: BookOpen
   }
 };
 

@@ -3,6 +3,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { AgentProvider } from './contexts/AgentContext';
 import { DocumentProvider } from './contexts/DocumentContext';
 import { DiscussionProvider } from './contexts/DiscussionContext';
+import { KnowledgeProvider } from './contexts/KnowledgeContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { UserProfile } from './components/UserProfile';
 import { DocumentViewer } from './components/DocumentViewer';
@@ -93,7 +94,8 @@ function App() {
       <ProtectedRoute>
         <AgentProvider>
           <DocumentProvider>
-            <DiscussionProvider topic="Council of Nycea">
+            <KnowledgeProvider>
+              <DiscussionProvider topic="Council of Nycea">
               <div className="h-screen w-full bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 dark:from-slate-950 dark:via-slate-900 dark:to-slate-800 flex flex-col overflow-hidden">
 
                 {/* Header */}
@@ -241,6 +243,7 @@ function App() {
                 </div>
               </div>
             </DiscussionProvider>
+            </KnowledgeProvider>
           </DocumentProvider>
         </AgentProvider>
       </ProtectedRoute>
