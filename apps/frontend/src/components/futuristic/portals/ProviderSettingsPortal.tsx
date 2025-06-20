@@ -159,7 +159,7 @@ export const ProviderSettingsPortal: React.FC<ProviderSettingsPortalProps> = ({ 
               </h1>
               <p className={`text-purple-100 ${currentViewport.isMobile ? 'text-xs' : 'text-sm'}`}>
                 {currentViewport.isMobile 
-                  ? 'Configure  model sources'
+                  ? 'Configure model sources'
                   : 'Configure and manage your  model provider connections'
                 }
               </p>
