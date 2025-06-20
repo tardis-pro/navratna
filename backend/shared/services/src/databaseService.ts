@@ -271,6 +271,10 @@ export class DatabaseService {
     try {
       await this.typeormService.initialize();
       this.isInitialized = true;
+      if(process.env.SYNC_AND_RESET === 'true'){
+        await this.seedDatabase();
+        logger.info('Database seeding completed successfully');
+      }
       logger.info('DatabaseService initialized with TypeORM');
     } catch (error) {
       logger.error('Failed to initialize TypeORM connection', { error });

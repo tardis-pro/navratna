@@ -42,7 +42,28 @@ export type {
 
 // Knowledge Graph Services - NEW
 export * from './knowledge-graph/index.js';
+export { UserKnowledgeService } from './user-knowledge.service.js';
+export { ContextOrchestrationService } from './context-orchestration.service.js';
 
 // Agent Memory Services - NEW
 export * from './agent-memory/index.js'; 
 // export { EnhancedAgentIntelligenceService } from './enhanced-agent-intelligence.service.js';
+
+// Service Factory - Dependency Injection
+export { 
+  ServiceFactory,
+  getKnowledgeGraphService,
+  getUserKnowledgeService, 
+  getContextOrchestrationService,
+  getAgentMemoryService
+} from './ServiceFactory.js';
+
+// Service Initializer - Easy API Integration
+export {
+  ServiceInitializer,
+  initializeServices,
+  getUserKnowledgeService as getUserKnowledgeServiceForAPI,
+  getContextOrchestrationService as getContextOrchestrationServiceForAPI,
+  getAgentMemoryService as getAgentMemoryServiceForAPI,
+  servicesHealthCheck
+} from './ServiceInitializer.js';

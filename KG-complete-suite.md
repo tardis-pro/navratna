@@ -16,8 +16,8 @@
   `025-add-ownership-and-summary-columns.ts` and `026-backfill-agent-knowledge-items.ts`
 - [x] **Back-fill existing rows** ✅ COMPLETED  
   Migration script sets `agentId` on legacy agent-memory items; keeps others `NULL`.
-- [x] **Indexing** ✅ COMPLETED  
-  Added compound indexes `(userId, type)` and `(agentId, type)` in migration 027.
+- [ ] **Indexing**  
+  Add compound indexes `(userId, type)` and `(agentId, type)` in migration.
 - [ ] **Qdrant payload schema**  
   POST `/collections/knowledge/payload_index` for `userId` and `agentId`.
 
@@ -50,8 +50,8 @@
   GET    /v1/knowledge/:itemId/related -> get related knowledge
   ```
 - [x] **Middleware** ✅ COMPLETED – JWT `sub` → `req.user.id`; proper auth validation.
-- [x] **Service Dependency Injection** ✅ COMPLETED  
-  Implemented `ServiceFactory` and `ServiceInitializer` for proper DI.
+- [ ] **Service Dependency Injection** ⚠️ NEEDS WORK  
+  Currently returns 503 errors due to missing `KnowledgeGraphService` dependencies.
 
 ---
 
@@ -66,54 +66,56 @@
 
 ## 📋 Phase 5 – Frontend Integration Points
 
-- [ ] **Knowledge Management UI Components**
+- [x] **Knowledge Management UI Components** ✅ COMPLETED
   ```typescript
-  // React components needed:
-  - KnowledgeUploader      // Drag-drop files, text input
-  - KnowledgeSearch        // Search interface with filters
-  - KnowledgeItemCard      // Display individual knowledge items
-  - KnowledgeGraph         // Visual relationship explorer
-  - KnowledgeStats         // Dashboard metrics
+  // React components implemented:
+  ✅ KnowledgePortal       // Main knowledge management interface
+  ✅ KnowledgeSearch       // Search interface with filters
+  ✅ KnowledgeUploader     // Drag-drop files, text input (in KnowledgePortal)
+  ✅ KnowledgeItemCard     // Display individual knowledge items (in KnowledgePortal)
+  ⏳ KnowledgeGraph        // Visual relationship explorer (placeholder)
+  ✅ KnowledgeStats        // Dashboard metrics (in KnowledgePortal)
   ```
 
-- [ ] **Frontend API Integration**
+- [x] **Frontend API Integration** ✅ COMPLETED
   ```typescript
-  // API client methods:
-  class KnowledgeAPI {
-    async uploadKnowledge(items: KnowledgeIngestRequest[]): Promise<KnowledgeIngestResponse>
-    async searchKnowledge(query: KnowledgeSearchRequest): Promise<KnowledgeSearchResponse>
-    async updateKnowledge(itemId: string, updates: Partial<KnowledgeItem>): Promise<KnowledgeItem>
-    async deleteKnowledge(itemId: string): Promise<void>
-    async getKnowledgeStats(): Promise<KnowledgeStats>
-    async getRelatedKnowledge(itemId: string): Promise<KnowledgeItem[]>
-  }
+  // API client methods implemented in uaipAPI.knowledge:
+  ✅ uploadKnowledge(items: KnowledgeIngestRequest[]): Promise<KnowledgeIngestResponse>
+  ✅ searchKnowledge(query: KnowledgeSearchRequest): Promise<KnowledgeSearchResponse>
+  ✅ updateKnowledge(itemId: string, updates: Partial<KnowledgeItem>): Promise<KnowledgeItem>
+  ✅ deleteKnowledge(itemId: string): Promise<void>
+  ✅ getKnowledgeStats(): Promise<KnowledgeStats>
+  ✅ getRelatedKnowledge(itemId: string): Promise<KnowledgeItem[]>
+  ✅ getKnowledgeByTag(tag: string): Promise<KnowledgeItem[]>
+  ✅ getKnowledgeItem(itemId: string): Promise<KnowledgeItem>
   ```
 
-- [ ] **WebSocket Integration**
+- [ ] **WebSocket Integration** ⏳ FUTURE ENHANCEMENT
   ```typescript
-  // Real-time knowledge updates:
+  // Real-time knowledge updates (planned):
   - Knowledge ingestion progress
   - New knowledge notifications
   - Collaborative knowledge editing
   - Agent knowledge discovery events
   ```
 
-- [ ] **Frontend Routes & Navigation**
+- [x] **Frontend Routes & Navigation** ✅ COMPLETED
   ```text
-  /knowledge              -> Knowledge dashboard
-  /knowledge/search       -> Advanced search interface
-  /knowledge/upload       -> Bulk upload interface
-  /knowledge/graph        -> Visual knowledge graph
-  /knowledge/item/:id     -> Individual knowledge item view
+  ✅ Knowledge Portal accessible via Futuristic/Portals interface
+  ✅ Integrated search interface within portal
+  ✅ Integrated upload interface within portal
+  ✅ Individual knowledge item view within portal
+  ⏳ Visual knowledge graph (placeholder implemented)
   ```
 
-- [ ] **State Management**
+- [x] **State Management** ✅ COMPLETED
   ```typescript
-  // Redux/Zustand stores:
-  - knowledgeStore        // Current user's knowledge
-  - searchStore          // Search state and results
-  - uploadStore          // Upload progress and queue
-  - graphStore           // Knowledge graph visualization state
+  // React Context-based state management:
+  ✅ KnowledgeContext      // Current user's knowledge with full CRUD operations
+  ✅ Search state          // Search state and results management
+  ✅ Upload state          // Upload progress and queue management
+  ✅ Error handling        // Comprehensive error state management
+  ✅ Integration with DocumentContext for automatic knowledge extraction
   ```
 
 ---
@@ -130,47 +132,42 @@
 
 ## 🔧 Current Issues & Next Steps
 
-### ✅ RESOLVED Blockers:
-1. **Service Dependency Injection** - ✅ COMPLETED
-   - Created `ServiceFactory` with proper dependency injection
-   - All services properly initialized with correct dependencies
-   - Added `ServiceInitializer` for easy API integration
+### Immediate Blockers:
+1. **Service Dependency Injection** - `UserKnowledgeService` needs proper initialization with:
+   - `KnowledgeGraphService`
+   - `QdrantService` 
+   - `KnowledgeRepository`
+   - `EmbeddingService`
+   - `ContentClassifier`
+   - `RelationshipDetector`
 
-2. **Service Factory Pattern** - ✅ COMPLETED
-   - Implemented centralized service initialization
-   - Lazy loading with caching
-   - Health check capabilities
-   - Testing support with fresh instances
+2. **Missing Service Factory** - Need centralized service initialization pattern
 
 ### Next Priority Tasks:
-1. ✅ ~~Create service factory/container for dependency injection~~ COMPLETED
-2. ✅ ~~Implement missing indexes for performance~~ COMPLETED  
-3. Set up Qdrant payload schema for userId/agentId filtering
-4. Begin frontend component development
+1. ✅ ~~Begin frontend component development~~ **COMPLETED**
+2. Create service factory/container for dependency injection
+3. Implement missing indexes for performance
+4. Set up Qdrant payload schema
 5. Add comprehensive error handling and logging
-6. Integration testing with full stack
+6. Implement visual knowledge graph component
 
 ---
 
 ## ⏰ Execution Instructions
 
-1. ✅ ~~**Fix service dependencies**~~ – COMPLETED: ServiceFactory with proper DI
-2. ✅ ~~**Add database indexes**~~ – COMPLETED: Migration 027 with performance indexes
-3. **Setup Qdrant schema** – Configure payload indexing for scope filtering
-4. **Frontend scaffolding** – Create base components and API integration
-5. **Run tests continually**: `pnpm test --watch` in shared services
-6. **Integration testing** – Verify full stack with frontend → API → database
-7. **Performance testing** – Ensure knowledge search is fast with large datasets
+1. **Fix service dependencies** – Create proper DI container for knowledge services
+2. **Add database indexes** – Performance optimization for user/agent scoped queries  
+3. **Frontend scaffolding** – Create base components and API integration
+4. **Run tests continually**: `pnpm test --watch` in shared services
+5. **Integration testing** – Verify full stack with frontend → API → database
+6. **Performance testing** – Ensure knowledge search is fast with large datasets
 
 > **Progress Status:** 
 > - ✅ Database schema & migrations complete
 > - ✅ Core service interfaces complete  
 > - ✅ Security Gateway routes complete (TypeScript fixed)
-> - ✅ Service dependency injection COMPLETED (ServiceFactory + ServiceInitializer)
-> - ✅ Database performance indexes COMPLETED (Migration 027)
-> - ✅ TypeScript compilation errors RESOLVED (circular dependency handling)
-> - ⚠️ Qdrant payload schema setup needed
-> - ❌ Frontend integration not started
+> - ⚠️ Service dependency injection needs work
+> - ✅ Frontend integration complete (Portal system, API integration, state management)
 > - ❌ Comprehensive testing not complete
 
 > **Done Criteria:** All checkboxes ticked, test suite green, frontend can successfully upload/search/manage knowledge, full three-layered context retrieval working.

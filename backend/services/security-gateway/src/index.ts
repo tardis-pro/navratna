@@ -7,6 +7,7 @@ import { logger } from '@uaip/utils';
 import { errorHandler, rateLimiter, metricsMiddleware, metricsEndpoint } from '@uaip/middleware';
 import { DatabaseService } from '@uaip/shared-services';
 import { EventBusService } from '@uaip/shared-services';
+import { initializeServices } from '@uaip/shared-services';
 
 // Import routes
 import authRoutes from './routes/authRoutes.js';
@@ -14,6 +15,7 @@ import securityRoutes from './routes/securityRoutes.js';
 import approvalRoutes from './routes/approvalRoutes.js';
 import auditRoutes from './routes/auditRoutes.js';
 import userRoutes from './routes/userRoutes.js';
+import knowledgeRoutes from './routes/knowledgeRoutes.js';
 
 // Import services
 import { SecurityGatewayService } from './services/securityGatewayService.js';
@@ -66,6 +68,15 @@ class SecurityGatewayServer {
       this.approvalWorkflowService,
       this.auditService
     );
+
+    // Initialize knowledge services
+    try {
+      await initializeServices();
+      logger.info('Knowledge services initialized successfully');
+    } catch (error) {
+      logger.error('Failed to initialize knowledge services:', error);
+      // Don't fail the entire startup, but log the error
+    }
 
     // Start cron jobs after database is ready
     this.approvalWorkflowService.startCronJobs();
@@ -174,6 +185,7 @@ class SecurityGatewayServer {
     this.app.use('/api/v1/approvals', approvalRoutes);
     this.app.use('/api/v1/audit', auditRoutes);
     this.app.use('/api/v1/users', userRoutes);
+    this.app.use('/api/v1/knowledge', knowledgeRoutes);
 
     // 404 handler
     this.app.use((req, res) => {

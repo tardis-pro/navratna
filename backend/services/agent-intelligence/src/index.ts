@@ -128,10 +128,7 @@ class AgentIntelligenceService {
       await this.databaseService.initialize();
       
       logger.info('DatabaseService initialized successfully');
-      if(process.env.SYNC_AND_RESET === 'true'){
-        await this.databaseService.seedDatabase();
-        logger.info('Database seeding completed successfully');
-      }
+      
 
       // Test database connection using health check
       const healthCheck = await this.databaseService.healthCheck();
