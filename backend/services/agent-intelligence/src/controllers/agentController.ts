@@ -18,13 +18,38 @@ import {
 import { z } from 'zod';
 import { AgentTransformationService } from '@uaip/middleware';
 import { EnhancedAgentIntelligenceService } from '../services/enhanced-agent-intelligence.service.js';
+import { 
+  KnowledgeGraphService, 
+  AgentMemoryService, 
+  PersonaService, 
+  DiscussionService,
+  DatabaseService,
+  EventBusService
+} from '@uaip/shared-services';
+
 export class AgentController {
   private agentIntelligenceService: EnhancedAgentIntelligenceService;
   private capabilityDiscoveryService: CapabilityDiscoveryService;
   private securityValidationService: SecurityValidationService;
 
-  constructor() {
-    this.agentIntelligenceService = new EnhancedAgentIntelligenceService();
+  constructor(
+    knowledgeGraphService?: KnowledgeGraphService,
+    agentMemoryService?: AgentMemoryService,
+    personaService?: PersonaService,
+    discussionService?: DiscussionService,
+    databaseService?: DatabaseService,
+    eventBusService?: EventBusService
+  ) {
+    // Initialize EnhancedAgentIntelligenceService with proper dependencies
+    this.agentIntelligenceService = new EnhancedAgentIntelligenceService(
+      knowledgeGraphService,
+      agentMemoryService,
+      personaService,
+      discussionService,
+      databaseService,
+      eventBusService
+    );
+    
     this.capabilityDiscoveryService = new CapabilityDiscoveryService();
     this.securityValidationService = new SecurityValidationService();
   }

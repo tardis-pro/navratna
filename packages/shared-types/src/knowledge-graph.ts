@@ -115,8 +115,12 @@ export interface KnowledgeIngestResponse {
 
 // Context and Classification
 export interface ContextRequest {
+  userRequest?: string;
+  currentContext?: any;
   discussionHistory?: any[];
   userPreferences?: Record<string, any>;
+  conversationHistory?: any[];
+  agentCapabilities?: string[];
   relevantTags?: string[];
   timeRange?: DateRange;
   participantExpertise?: string[];

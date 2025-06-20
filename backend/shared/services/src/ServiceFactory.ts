@@ -1,7 +1,11 @@
 import { DatabaseService } from './databaseService.js';
 import { QdrantService } from './qdrant.service.js';
+import { config } from '@uaip/config';
 import { KnowledgeRepository } from './database/repositories/knowledge.repository.js';
 import { EmbeddingService } from './knowledge-graph/embedding.service.js';
+import { TEIEmbeddingService } from './knowledge-graph/tei-embedding.service.js';
+import { SmartEmbeddingService } from './knowledge-graph/smart-embedding.service.js';
+import { EnhancedRAGService } from './knowledge-graph/enhanced-rag.service.js';
 import { ContentClassifier } from './knowledge-graph/content-classifier.service.js';
 import { RelationshipDetector } from './knowledge-graph/relationship-detector.service.js';
 import { KnowledgeGraphService } from './knowledge-graph/knowledge-graph.service.js';
@@ -37,7 +41,12 @@ export class ServiceFactory {
       });
 
       await this.getOrCreate('qdrant', async () => {
-        const qdrantService = new QdrantService();
+        // Default to TEI dimensions, will be updated later if needed
+        const qdrantService = new QdrantService(
+          config.database.qdrant.url, 
+          config.database.qdrant.collectionName,
+          768 // Default TEI embedding dimensions (all-mpnet-base-v2)
+        );
         await qdrantService.ensureCollection();
         return qdrantService;
       });
@@ -59,7 +68,7 @@ export class ServiceFactory {
       const [qdrantService, repository, embedding, classifier, relationshipDetector] = await Promise.all([
         this.getQdrantService(),
         this.getKnowledgeRepository(),
-        this.getEmbeddingService(),
+        this.getSmartEmbeddingService(), // Use smart embedding service
         this.getContentClassifier(),
         this.getRelationshipDetector()
       ]);
@@ -158,6 +167,37 @@ export class ServiceFactory {
     });
   }
 
+  static async getTEIEmbeddingService(): Promise<TEIEmbeddingService> {
+    return this.getOrCreate('tei-embedding-service', () => {
+      return new TEIEmbeddingService();
+    });
+  }
+
+  static async getSmartEmbeddingService(): Promise<SmartEmbeddingService> {
+    return this.getOrCreate('smart-embedding-service', async () => {
+      const smartEmbedding = new SmartEmbeddingService();
+      
+      // Synchronize Qdrant dimensions with the active embedding service
+      try {
+        await this.synchronizeEmbeddingDimensions(smartEmbedding);
+      } catch (error) {
+        console.warn('Failed to synchronize embedding dimensions:', error.message);
+      }
+      
+      return smartEmbedding;
+    });
+  }
+
+  static async getEnhancedRAGService(): Promise<EnhancedRAGService> {
+    return this.getOrCreate('enhanced-rag-service', async () => {
+      const [teiEmbeddingService, qdrantService] = await Promise.all([
+        this.getTEIEmbeddingService(),
+        this.getQdrantService()
+      ]);
+      return new EnhancedRAGService(teiEmbeddingService, qdrantService);
+    });
+  }
+
   static async getContentClassifier(): Promise<ContentClassifier> {
     return this.getOrCreate('content-classifier', () => {
       return new ContentClassifier();
@@ -167,7 +207,7 @@ export class ServiceFactory {
   static async getRelationshipDetector(): Promise<RelationshipDetector> {
     return this.getOrCreate('relationship-detector', async () => {
       const [embeddingService, repository] = await Promise.all([
-        this.getEmbeddingService(),
+        this.getSmartEmbeddingService(), // Use smart embedding service
         this.getKnowledgeRepository()
       ]);
       return new RelationshipDetector(embeddingService, repository);
@@ -187,7 +227,7 @@ export class ServiceFactory {
       // Create a temporary KnowledgeGraphService for the memory manager
       // This breaks the circular dependency by creating separate instances
       const databaseService = await this.getDatabaseService();
-      const qdrantService = new QdrantService();
+      const qdrantService = new QdrantService(config.database.qdrant.url, config.database.qdrant.collectionName);
       await qdrantService.ensureCollection();
       
       const [knowledgeRepo, relationshipRepo] = await Promise.all([
@@ -217,7 +257,7 @@ export class ServiceFactory {
       // Create a temporary KnowledgeGraphService for the memory manager
       // This breaks the circular dependency by creating separate instances
       const databaseService = await this.getDatabaseService();
-      const qdrantService = new QdrantService();
+      const qdrantService = new QdrantService(config.database.qdrant.url, config.database.qdrant.collectionName);
       await qdrantService.ensureCollection();
       
       const [knowledgeRepo, relationshipRepo] = await Promise.all([
@@ -323,7 +363,7 @@ export class ServiceFactory {
   static async createFreshKnowledgeGraphService(): Promise<KnowledgeGraphService> {
     // Create fresh instances without caching
     const databaseService = await this.getDatabaseService();
-    const qdrantService = new QdrantService();
+    const qdrantService = new QdrantService(config.database.qdrant.url, config.database.qdrant.collectionName);
     await qdrantService.ensureCollection();
     
     const [knowledgeRepo, relationshipRepo] = await Promise.all([
@@ -332,7 +372,7 @@ export class ServiceFactory {
     ]);
     
     const repository = new KnowledgeRepository(knowledgeRepo, relationshipRepo);
-    const embedding = new EmbeddingService();
+    const embedding = new SmartEmbeddingService(); // Use smart embedding service
     const classifier = new ContentClassifier();
     const relationshipDetector = new RelationshipDetector(embedding, repository);
 
@@ -343,6 +383,25 @@ export class ServiceFactory {
       classifier,
       relationshipDetector
     );
+  }
+
+  /**
+   * Synchronize Qdrant embedding dimensions with the active embedding service
+   */
+  private static async synchronizeEmbeddingDimensions(smartEmbedding: SmartEmbeddingService): Promise<void> {
+    try {
+      const qdrantService = await this.getQdrantService();
+      const currentDimensions = qdrantService.getEmbeddingDimensions();
+      const activeDimensions = smartEmbedding.getEmbeddingDimensions();
+      
+      if (currentDimensions !== activeDimensions) {
+        console.log(`Synchronizing embedding dimensions: ${currentDimensions} → ${activeDimensions}`);
+        await qdrantService.updateEmbeddingDimensions(activeDimensions);
+      }
+    } catch (error) {
+      console.error('Failed to synchronize embedding dimensions:', error);
+      throw error;
+    }
   }
 }
 

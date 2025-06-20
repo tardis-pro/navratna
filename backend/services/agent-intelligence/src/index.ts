@@ -11,12 +11,14 @@ import {
   DatabaseService,
   EventBusService,
   PersonaService,
-  DiscussionService
+  DiscussionService,
+  ServiceFactory
 } from '@uaip/shared-services';
-import { agentRoutes } from './routes/agentRoutes.js';
+import { createAgentRoutes } from './routes/agentRoutes.js';
 import { createPersonaRoutes } from './routes/personaRoutes.js';
 import { createDiscussionRoutes } from './routes/discussionRoutes.js';
 import { healthRoutes } from './routes/healthRoutes.js';
+import { AgentController } from './controllers/agentController.js';
 import { PersonaController } from './controllers/personaController.js';
 import { DiscussionController } from './controllers/discussionController.js';
 
@@ -26,6 +28,7 @@ class AgentIntelligenceService {
   private eventBusService: EventBusService;
   private personaService: PersonaService;
   private discussionService: DiscussionService;
+  private agentController: AgentController;
   private personaController: PersonaController;
   private discussionController: DiscussionController;
 
@@ -56,6 +59,7 @@ class AgentIntelligenceService {
     });
 
     // Initialize controllers with service dependencies
+    // Note: AgentController will be initialized after ServiceFactory is ready
     this.personaController = new PersonaController(this.personaService);
     this.discussionController = new DiscussionController(this.discussionService);
 
@@ -97,11 +101,13 @@ class AgentIntelligenceService {
     // Health check routes
     this.app.use('/health', healthRoutes);
 
-    // API routes
-    this.app.use('/api/v1/agents', agentRoutes);
+    // API routes will be set up after controller initialization
+    // For now, set up non-agent routes
     this.app.use('/api/v1/personas', createPersonaRoutes(this.personaController));
     this.app.use('/api/v1/discussions', createDiscussionRoutes(this.discussionController));
+  }
 
+  private setup404Handler(): void {
     // 404 handler
     this.app.use((req, res) => {
       res.status(404).json({
@@ -118,17 +124,45 @@ class AgentIntelligenceService {
     });
   }
 
+  private setupAgentRoutes(): void {
+    // Set up agent routes after controller is initialized
+    this.app.use('/api/v1/agents', createAgentRoutes(this.agentController));
+    // Set up 404 handler after all routes are registered
+    this.setup404Handler();
+  }
+
   private setupErrorHandling(): void {
     this.app.use(errorHandler);
+  }
+
+  private async initializeAgentController(): Promise<void> {
+    try {
+      // Get services from ServiceFactory
+      const knowledgeGraphService = await ServiceFactory.getKnowledgeGraphService();
+      const agentMemoryService = await ServiceFactory.getAgentMemoryService();
+      
+      // Initialize AgentController with enhanced services
+      this.agentController = new AgentController(
+        knowledgeGraphService,
+        agentMemoryService,
+        this.personaService,
+        this.discussionService,
+        this.databaseService,
+        this.eventBusService
+      );
+      
+      logger.info('AgentController initialized with full service dependencies');
+    } catch (error) {
+      logger.error('Failed to initialize AgentController with enhanced services:', error);
+      throw error;
+    }
   }
 
   public async start(): Promise<void> {
     try {
       // Initialize database service first
       await this.databaseService.initialize();
-      
       logger.info('DatabaseService initialized successfully');
-      
 
       // Test database connection using health check
       const healthCheck = await this.databaseService.healthCheck();
@@ -137,6 +171,36 @@ class AgentIntelligenceService {
       } else {
         throw new Error('Database health check failed');
       }
+
+      // Initialize ServiceFactory for Knowledge Graph services
+      let enhancedServicesAvailable = false;
+      try {
+        await ServiceFactory.initialize();
+        logger.info('ServiceFactory initialized successfully');
+        
+        // Initialize AgentController with enhanced services
+        await this.initializeAgentController();
+        logger.info('AgentController initialized with enhanced services');
+        enhancedServicesAvailable = true;
+      } catch (error) {
+        logger.warn('ServiceFactory initialization failed, falling back to basic services:', error);
+      }
+
+      if (!enhancedServicesAvailable) {
+        // Initialize AgentController without enhanced services but with basic services
+        this.agentController = new AgentController(
+          undefined, // knowledgeGraphService
+          undefined, // agentMemoryService
+          this.personaService,
+          this.discussionService,
+          this.databaseService,
+          this.eventBusService
+        );
+        logger.info('AgentController initialized in fallback mode');
+      }
+        
+      // Set up agent routes
+      this.setupAgentRoutes();
 
       // Connect to event bus with retry logic
       try {

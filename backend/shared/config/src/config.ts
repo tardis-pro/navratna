@@ -39,6 +39,10 @@ export interface DatabaseConfig {
     maxConnectionPoolSize?: number;
     connectionTimeout?: number;
   };
+  qdrant: {
+    url: string;
+    collectionName: string;
+  };
 }
 
 export interface RedisConfig {
@@ -372,6 +376,19 @@ const defaultConfig: Config = {
       database: neo4jConfig.database,
       maxConnectionPoolSize: parseInt(process.env.NEO4J_MAX_CONNECTIONS || '50'),
       connectionTimeout: parseInt(process.env.NEO4J_CONNECTION_TIMEOUT || '5000')
+    },
+    qdrant: {
+      url: process.env.QDRANT_URL || (() => {
+        // Check multiple indicators for containerized environment
+        const isDocker = process.env.DOCKER_ENV === 'true' || 
+                        process.env.NODE_ENV === 'production' ||
+                        process.env.KUBERNETES_SERVICE_HOST ||
+                        process.env.HOSTNAME?.includes('docker') ||
+                        process.platform === 'linux' && process.env.container;
+        
+        return isDocker ? 'http://qdrant:6333' : 'http://localhost:6333';
+      })(),
+      collectionName: process.env.QDRANT_COLLECTION_NAME || 'knowledge_embeddings'
     }
   },
   redis: {

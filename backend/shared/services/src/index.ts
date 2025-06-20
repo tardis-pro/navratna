@@ -49,6 +49,9 @@ export { ContextOrchestrationService } from './context-orchestration.service.js'
 export * from './agent-memory/index.js'; 
 // export { EnhancedAgentIntelligenceService } from './enhanced-agent-intelligence.service.js';
 
+// Integration Services - MCP + Neo4j Sync
+export * from './integration/index.js';
+
 // Service Factory - Dependency Injection
 export { 
   ServiceFactory,
@@ -57,6 +60,11 @@ export {
   getContextOrchestrationService,
   getAgentMemoryService
 } from './ServiceFactory.js';
+
+// TEI Embedding Services - NEW
+export { TEIEmbeddingService, RerankResult, TEIHealthStatus } from './knowledge-graph/tei-embedding.service.js';
+export { SmartEmbeddingService, EmbeddingServiceConfig, SmartEmbeddingStatus } from './knowledge-graph/smart-embedding.service.js';
+export { EnhancedRAGService, SearchResult, EnhancedSearchResult, SearchOptions } from './knowledge-graph/enhanced-rag.service.js';
 
 // Service Initializer - Easy API Integration
 export {

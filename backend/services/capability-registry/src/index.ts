@@ -15,7 +15,6 @@ import { BaseToolExecutor } from './services/baseToolExecutor.js';
 import { ToolController } from './controllers/toolController.js';
 import { CapabilityController } from './controllers/capabilityController.js';
 import { createToolRoutes } from './routes/toolRoutes.js';
-import { createCapabilityRoutes } from './routes/capabilityRoutes.js';
 import { healthRoutes } from './routes/healthRoutes.js';
 import { logger } from '@uaip/utils';
 import { errorHandler, metricsMiddleware, metricsEndpoint, rateLimiter } from '@uaip/middleware';
@@ -57,13 +56,13 @@ class CapabilityRegistryService {
       },
     }));
 
-    // CORS configuration
-    this.app.use(cors({
-      origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
-      credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-    }));
+    // CORS is handled by nginx API gateway - disable service-level CORS
+    // this.app.use(cors({
+    //   origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
+    //   credentials: true,
+    //   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    //   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+    // }));
 
     // Compression and parsing
     this.app.use(compression());

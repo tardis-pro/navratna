@@ -157,132 +157,6 @@ router.post('/workflows',
 );
 
 /**
- * POST /api/v1/approvals/:workflowId/decisions
- * Submit an approval decision
- */
-router.post('/:workflowId/decisions',
-  authMiddleware,
-  validateRequest({ body: approvalDecisionSchema }),
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { workflowId } = req.params;
-      const { decision, conditions, feedback } = req.body;
-
-      logger.info('Processing approval decision', {
-        workflowId,
-        decision,
-        // @ts-ignore
-        approverId: req.user?.id
-      });
-
-      const approvalDecision: ApprovalDecision = {
-        workflowId,
-        // @ts-ignore
-        approverId: req.user!.id,
-        decision,
-        conditions,
-        feedback,
-        decidedAt: new Date()
-      };
-
-      const { approvalWorkflowService, auditService } = await getServices();
-
-      const status = await approvalWorkflowService.processApprovalDecision(approvalDecision);
-
-      // Audit log
-      await auditService.logEvent({
-        eventType: decision === 'approve' 
-          ? AuditEventType.APPROVAL_GRANTED 
-          : AuditEventType.APPROVAL_DENIED,
-        // @ts-ignore
-        userId: req.user?.id,
-        resourceType: 'approval_workflow',
-        resourceId: workflowId,
-        details: {
-          decision,
-          conditions,
-          feedback,
-          workflowStatus: status.isComplete ? 'completed' : 'pending',
-          canProceed: status.canProceed
-        },
-        ipAddress: req.ip,
-        userAgent: req.headers['user-agent'],
-        riskLevel: decision === 'reject' ? SecurityLevel.MEDIUM : SecurityLevel.LOW
-      });
-
-      res.json({
-        success: true,
-        data: {
-          decision: approvalDecision,
-          status,
-          message: status.isComplete 
-            ? (status.canProceed ? 'Operation approved and can proceed' : 'Operation rejected')
-            : 'Decision recorded, waiting for additional approvals'
-        },
-        message: 'Approval decision processed successfully'
-      });
-
-    } catch (error) {
-      logger.error('Failed to process approval decision', {
-        workflowId: req.params.workflowId,
-        decision: req.body.decision,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-      next(error);
-    }
-  }
-);
-
-/**
- * GET /api/v1/approvals/:workflowId
- * Get approval workflow details and status
- */
-router.get('/:workflowId',
-  authMiddleware,
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { workflowId } = req.params;
-
-      logger.debug('Getting approval workflow status', {
-        workflowId,
-        // @ts-ignore
-        userId: req.user?.id
-      });
-
-      const { approvalWorkflowService } = await getServices();
-      const status = await approvalWorkflowService.getWorkflowStatus(workflowId);
-
-      // Check if user is authorized to view this workflow
-      // @ts-ignore
-      const isAuthorized = status.workflow.requiredApprovers.includes(req.user!.id) ||
-                          // @ts-ignore
-                          status.workflow.metadata?.createdBy === req.user!.id ||
-                          // @ts-ignore
-                          req.user!.role === 'admin' ||
-                          // @ts-ignore
-                          req.user!.role === 'security-admin';
-
-      if (!isAuthorized) {
-        throw new ApiError(403, 'Not authorized to view this approval workflow', 'UNAUTHORIZED_ACCESS');
-      }
-
-      res.json({
-        success: true,
-        data: status,
-        message: 'Approval workflow status retrieved successfully'
-      });
-
-    } catch (error) {
-      logger.error('Failed to get approval workflow status', {
-        workflowId: req.params.workflowId,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-      next(error);
-    }
-  }
-);
-
-/**
  * GET /api/v1/approvals/workflows
  * Get approval workflows (for current user or all if admin)
  */
@@ -570,6 +444,144 @@ router.get('/stats',
 
     } catch (error) {
       logger.error('Failed to get approval statistics', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      next(error);
+    }
+  }
+);
+
+/**
+ * GET /api/v1/approvals/:workflowId
+ * Get approval workflow details and status
+ * IMPORTANT: This route must come AFTER specific routes like /workflows, /pending, /stats
+ * to avoid matching them as workflowId parameters
+ */
+router.get('/:workflowId',
+  authMiddleware,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { workflowId } = req.params;
+
+      // Validate workflowId format (should be UUID or similar)
+      if (!workflowId || workflowId.length < 10) {
+        throw new ApiError(400, 'Invalid workflow ID format', 'INVALID_WORKFLOW_ID');
+      }
+
+      logger.debug('Getting approval workflow status', {
+        workflowId,
+        // @ts-ignore
+        userId: req.user?.id
+      });
+
+      const { approvalWorkflowService } = await getServices();
+      const status = await approvalWorkflowService.getWorkflowStatus(workflowId);
+
+      // Check if user is authorized to view this workflow
+      // @ts-ignore
+      const isAuthorized = status.workflow.requiredApprovers.includes(req.user!.id) ||
+                          // @ts-ignore
+                          status.workflow.metadata?.createdBy === req.user!.id ||
+                          // @ts-ignore
+                          req.user!.role === 'admin' ||
+                          // @ts-ignore
+                          req.user!.role === 'security-admin';
+
+      if (!isAuthorized) {
+        throw new ApiError(403, 'Not authorized to view this approval workflow', 'UNAUTHORIZED_ACCESS');
+      }
+
+      res.json({
+        success: true,
+        data: status,
+        message: 'Approval workflow status retrieved successfully'
+      });
+
+    } catch (error) {
+      logger.error('Failed to get approval workflow status', {
+        workflowId: req.params.workflowId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST /api/v1/approvals/:workflowId/decisions
+ * Submit an approval decision
+ */
+router.post('/:workflowId/decisions',
+  authMiddleware,
+  validateRequest({ body: approvalDecisionSchema }),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { workflowId } = req.params;
+      const { decision, conditions, feedback } = req.body;
+
+      // Validate workflowId format
+      if (!workflowId || workflowId.length < 10) {
+        throw new ApiError(400, 'Invalid workflow ID format', 'INVALID_WORKFLOW_ID');
+      }
+
+      logger.info('Processing approval decision', {
+        workflowId,
+        decision,
+        // @ts-ignore
+        approverId: req.user?.id
+      });
+
+      const approvalDecision: ApprovalDecision = {
+        workflowId,
+        // @ts-ignore
+        approverId: req.user!.id,
+        decision,
+        conditions,
+        feedback,
+        decidedAt: new Date()
+      };
+
+      const { approvalWorkflowService, auditService } = await getServices();
+
+      const status = await approvalWorkflowService.processApprovalDecision(approvalDecision);
+
+      // Audit log
+      await auditService.logEvent({
+        eventType: decision === 'approve' 
+          ? AuditEventType.APPROVAL_GRANTED 
+          : AuditEventType.APPROVAL_DENIED,
+        // @ts-ignore
+        userId: req.user?.id,
+        resourceType: 'approval_workflow',
+        resourceId: workflowId,
+        details: {
+          decision,
+          conditions,
+          feedback,
+          workflowStatus: status.isComplete ? 'completed' : 'pending',
+          canProceed: status.canProceed
+        },
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+        riskLevel: decision === 'reject' ? SecurityLevel.MEDIUM : SecurityLevel.LOW
+      });
+
+      res.json({
+        success: true,
+        data: {
+          decision: approvalDecision,
+          status,
+          message: status.isComplete 
+            ? (status.canProceed ? 'Operation approved and can proceed' : 'Operation rejected')
+            : 'Decision recorded, waiting for additional approvals'
+        },
+        message: 'Approval decision processed successfully'
+      });
+
+    } catch (error) {
+      logger.error('Failed to process approval decision', {
+        workflowId: req.params.workflowId,
+        decision: req.body.decision,
         error: error instanceof Error ? error.message : 'Unknown error'
       });
       next(error);

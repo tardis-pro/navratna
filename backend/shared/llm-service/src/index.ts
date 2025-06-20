@@ -1,8 +1,8 @@
-import { LLMService } from './LLMService';
+import { LLMService } from './LLMService.js';
 
 // Main exports for the LLM service package
-export { LLMService, llmService } from './LLMService';
-export { UserLLMService } from './UserLLMService';
+export { LLMService, llmService } from './LLMService.js';
+export { UserLLMService } from './UserLLMService.js';
 
 // Interface exports
 export type {
@@ -20,12 +20,12 @@ export type {
   ToolResult,
   AvailableTool,
   LLMProviderConfig
-} from './interfaces';
+} from './interfaces.js';
 
 // Provider exports
-export { BaseProvider } from './providers/BaseProvider';
-export { OllamaProvider } from './providers/OllamaProvider';
-export { LLMStudioProvider } from './providers/LLMStudioProvider';
-export { OpenAIProvider } from './providers/OpenAIProvider';
+export { BaseProvider } from './providers/BaseProvider.js';
+export { OllamaProvider } from './providers/OllamaProvider.js';
+export { LLMStudioProvider } from './providers/LLMStudioProvider.js';
+export { OpenAIProvider } from './providers/OpenAIProvider.js';
 
 

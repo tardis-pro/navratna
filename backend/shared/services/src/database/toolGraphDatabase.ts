@@ -143,7 +143,7 @@ export class ToolGraphDatabase {
     }
   }
 
-  private async executeWithRetry<T>(
+  public async executeWithRetry<T>(
     operation: (session: Session) => Promise<T>,
     operationName: string = 'Neo4j operation'
   ): Promise<T> {
@@ -602,5 +602,378 @@ export class ToolGraphDatabase {
     } finally {
       await session.close();
     }
+  }
+
+  // ===== MCP INTEGRATION METHODS =====
+
+  /**
+   * Create or update MCP Server node in Neo4j
+   */
+  async createMcpServerNode(serverData: {
+    id: string;
+    name: string;
+    type: string;
+    status: string;
+    capabilities?: any;
+    tags?: string[];
+    metadata?: Record<string, any>;
+  }): Promise<void> {
+    if (this.shouldSkipOperation(`Create MCP server node ${serverData.id}`)) {
+      return;
+    }
+
+    await this.executeWithRetry(async (session) => {
+      await session.run(
+        `MERGE (s:MCPServer {id: $id})
+         SET s.name = $name,
+             s.type = $type,
+             s.status = $status,
+             s.capabilities = $capabilities,
+             s.tags = $tags,
+             s.metadata = $metadata,
+             s.updatedAt = datetime()
+         RETURN s`,
+        {
+          id: serverData.id,
+          name: serverData.name,
+          type: serverData.type,
+          status: serverData.status,
+          capabilities: serverData.capabilities || {},
+          tags: serverData.tags || [],
+          metadata: serverData.metadata || {}
+        }
+      );
+    }, `Create MCP server node ${serverData.id}`);
+  }
+
+  /**
+   * Update MCP Server node in Neo4j
+   */
+  async updateMcpServerNode(serverId: string, updates: Record<string, any>): Promise<void> {
+    if (this.shouldSkipOperation(`Update MCP server node ${serverId}`)) {
+      return;
+    }
+
+    await this.executeWithRetry(async (session) => {
+      const setClause = Object.keys(updates)
+        .map(key => `s.${key} = $${key}`)
+        .join(', ');
+
+      await session.run(
+        `MATCH (s:MCPServer {id: $serverId})
+         SET ${setClause}, s.updatedAt = datetime()
+         RETURN s`,
+        { serverId, ...updates }
+      );
+    }, `Update MCP server node ${serverId}`);
+  }
+
+  /**
+   * Delete MCP Server node from Neo4j
+   */
+  async deleteMcpServerNode(serverId: string): Promise<void> {
+    if (this.shouldSkipOperation(`Delete MCP server node ${serverId}`)) {
+      return;
+    }
+
+    await this.executeWithRetry(async (session) => {
+      await session.run(
+        `MATCH (s:MCPServer {id: $serverId})
+         DETACH DELETE s`,
+        { serverId }
+      );
+    }, `Delete MCP server node ${serverId}`);
+  }
+
+  /**
+   * Create MCP Tool Call node and relationships
+   */
+  async createMcpToolCallNode(toolCallData: {
+    id: string;
+    serverId: string;
+    toolName: string;
+    status: string;
+    duration?: number;
+    agentId?: string;
+    timestamp: Date;
+    metadata?: Record<string, any>;
+  }): Promise<void> {
+    if (this.shouldSkipOperation(`Create MCP tool call node ${toolCallData.id}`)) {
+      return;
+    }
+
+    await this.executeWithRetry(async (session) => {
+      await session.run(
+        `// Create the tool call node
+         CREATE (tc:MCPToolCall {
+           id: $id,
+           toolName: $toolName,
+           status: $status,
+           duration: $duration,
+           timestamp: datetime($timestamp),
+           metadata: $metadata
+         })
+         
+         // Link to MCP Server
+         WITH tc
+         MATCH (s:MCPServer {id: $serverId})
+         CREATE (tc)-[:EXECUTED_ON]->(s)
+         
+         // Link to Agent if provided
+         WITH tc
+         OPTIONAL MATCH (a:Agent {id: $agentId})
+         FOREACH (agent IN CASE WHEN a IS NOT NULL THEN [a] ELSE [] END |
+           CREATE (agent)-[:INITIATED]->(tc)
+         )
+         
+         // Link to Tool if it exists
+         WITH tc
+         OPTIONAL MATCH (t:Tool {name: $toolName})
+         FOREACH (tool IN CASE WHEN t IS NOT NULL THEN [t] ELSE [] END |
+           CREATE (tc)-[:CALLS]->(tool)
+         )
+         
+         RETURN tc`,
+        {
+          id: toolCallData.id,
+          serverId: toolCallData.serverId,
+          toolName: toolCallData.toolName,
+          status: toolCallData.status,
+          duration: toolCallData.duration || null,
+          agentId: toolCallData.agentId || null,
+          timestamp: toolCallData.timestamp.toISOString(),
+          metadata: toolCallData.metadata || {}
+        }
+      );
+    }, `Create MCP tool call node ${toolCallData.id}`);
+  }
+
+  /**
+   * Update MCP Tool Call status and metrics
+   */
+  async updateMcpToolCallNode(toolCallId: string, updates: Record<string, any>): Promise<void> {
+    if (this.shouldSkipOperation(`Update MCP tool call node ${toolCallId}`)) {
+      return;
+    }
+
+    await this.executeWithRetry(async (session) => {
+      const setClause = Object.keys(updates)
+        .map(key => `tc.${key} = $${key}`)
+        .join(', ');
+
+      await session.run(
+        `MATCH (tc:MCPToolCall {id: $toolCallId})
+         SET ${setClause}, tc.updatedAt = datetime()
+         RETURN tc`,
+        { toolCallId, ...updates }
+      );
+    }, `Update MCP tool call node ${toolCallId}`);
+  }
+
+  /**
+   * Get MCP Server dependencies and impact analysis
+   */
+  async getMcpServerImpactAnalysis(serverId: string): Promise<{
+    dependentTools: string[];
+    affectedAgents: string[];
+    recentToolCalls: number;
+    averageResponseTime: number;
+  }> {
+    if (this.shouldSkipOperation(`Get MCP server impact ${serverId}`)) {
+      return {
+        dependentTools: [],
+        affectedAgents: [],
+        recentToolCalls: 0,
+        averageResponseTime: 0
+      };
+    }
+
+    return await this.executeWithRetry(async (session) => {
+      const result = await session.run(
+        `MATCH (s:MCPServer {id: $serverId})
+         
+         // Get tools hosted by this server
+         OPTIONAL MATCH (s)<-[:HOSTED_BY]-(t:Tool)
+         WITH s, collect(DISTINCT t.id) as dependentTools
+         
+         // Get agents that use tools on this server
+         OPTIONAL MATCH (s)<-[:EXECUTED_ON]-(tc:MCPToolCall)<-[:INITIATED]-(a:Agent)
+         WITH s, dependentTools, collect(DISTINCT a.id) as affectedAgents
+         
+         // Get recent tool call metrics (last 24 hours)
+         OPTIONAL MATCH (s)<-[:EXECUTED_ON]-(tc:MCPToolCall)
+         WHERE tc.timestamp > datetime() - duration('P1D')
+         WITH s, dependentTools, affectedAgents,
+              count(tc) as recentToolCalls,
+              avg(tc.duration) as averageResponseTime
+         
+         RETURN dependentTools,
+                affectedAgents,
+                recentToolCalls,
+                averageResponseTime`,
+        { serverId }
+      );
+
+      const record = result.records[0];
+      if (!record) {
+        return {
+          dependentTools: [],
+          affectedAgents: [],
+          recentToolCalls: 0,
+          averageResponseTime: 0
+        };
+      }
+
+      return {
+        dependentTools: record.get('dependentTools') || [],
+        affectedAgents: record.get('affectedAgents') || [],
+        recentToolCalls: record.get('recentToolCalls')?.toNumber() || 0,
+        averageResponseTime: record.get('averageResponseTime') || 0
+      };
+    }, `Get MCP server impact ${serverId}`);
+  }
+
+  /**
+   * Get MCP Tool Call analytics
+   */
+  async getMcpToolCallAnalytics(serverId?: string, toolName?: string): Promise<{
+    totalCalls: number;
+    successRate: number;
+    averageDuration: number;
+    errorPatterns: Array<{ error: string; count: number }>;
+  }> {
+    if (this.shouldSkipOperation('Get MCP tool call analytics')) {
+      return {
+        totalCalls: 0,
+        successRate: 0,
+        averageDuration: 0,
+        errorPatterns: []
+      };
+    }
+
+    return await this.executeWithRetry(async (session) => {
+      let query = `MATCH (tc:MCPToolCall)`;
+      const params: Record<string, any> = {};
+
+      if (serverId) {
+        query += `-[:EXECUTED_ON]->(s:MCPServer {id: $serverId})`;
+        params.serverId = serverId;
+      }
+
+      if (toolName) {
+        query += ` WHERE tc.toolName = $toolName`;
+        params.toolName = toolName;
+      }
+
+      query += `
+        WITH tc
+        RETURN count(tc) as totalCalls,
+               avg(CASE WHEN tc.status = 'completed' THEN 1.0 ELSE 0.0 END) as successRate,
+               avg(tc.duration) as averageDuration,
+               collect(CASE WHEN tc.status = 'failed' THEN tc.metadata.error ELSE null END) as errors
+      `;
+
+      const result = await session.run(query, params);
+      const record = result.records[0];
+
+      if (!record) {
+        return {
+          totalCalls: 0,
+          successRate: 0,
+          averageDuration: 0,
+          errorPatterns: []
+        };
+      }
+
+      const errors = record.get('errors').filter((e: any) => e !== null);
+      const errorCounts = errors.reduce((acc: Record<string, number>, error: string) => {
+        acc[error] = (acc[error] || 0) + 1;
+        return acc;
+      }, {});
+
+      const errorPatterns = Object.entries(errorCounts)
+        .map(([error, count]) => ({ error, count: count as number }))
+        .sort((a, b) => b.count - a.count);
+
+      return {
+        totalCalls: record.get('totalCalls')?.toNumber() || 0,
+        successRate: record.get('successRate') || 0,
+        averageDuration: record.get('averageDuration') || 0,
+        errorPatterns
+      };
+    }, 'Get MCP tool call analytics');
+  }
+
+  /**
+   * Create relationship between Tool and MCP Server
+   */
+  async linkToolToMcpServer(toolId: string, serverId: string): Promise<void> {
+    if (this.shouldSkipOperation(`Link tool ${toolId} to MCP server ${serverId}`)) {
+      return;
+    }
+
+    await this.executeWithRetry(async (session) => {
+      await session.run(
+        `MATCH (t:Tool {id: $toolId}), (s:MCPServer {id: $serverId})
+         MERGE (t)-[:HOSTED_BY]->(s)
+         RETURN t, s`,
+        { toolId, serverId }
+      );
+    }, `Link tool ${toolId} to MCP server ${serverId}`);
+  }
+
+  // ===== AGENT INTEGRATION METHODS =====
+
+  /**
+   * Create or update Agent node in Neo4j
+   */
+  async createAgentNode(agentData: {
+    id: string;
+    name: string;
+    role?: string;
+    isActive?: boolean;
+    capabilities?: string[];
+  }): Promise<void> {
+    if (this.shouldSkipOperation(`Create agent node ${agentData.id}`)) {
+      return;
+    }
+
+    await this.executeWithRetry(async (session) => {
+      await session.run(
+        `MERGE (a:Agent {id: $id})
+         SET a.name = $name,
+             a.role = $role,
+             a.isActive = $isActive,
+             a.capabilities = $capabilities,
+             a.updatedAt = datetime()
+         RETURN a`,
+        {
+          id: agentData.id,
+          name: agentData.name,
+          role: agentData.role || 'assistant',
+          isActive: agentData.isActive !== false,
+          capabilities: agentData.capabilities || []
+        }
+      );
+    }, `Create agent node ${agentData.id}`);
+  }
+
+  /**
+   * Soft delete Agent node (mark as inactive)
+   */
+  async deactivateAgentNode(agentId: string): Promise<void> {
+    if (this.shouldSkipOperation(`Deactivate agent node ${agentId}`)) {
+      return;
+    }
+
+    await this.executeWithRetry(async (session) => {
+      await session.run(
+        `MATCH (a:Agent {id: $id})
+         SET a.isActive = false,
+             a.deletedAt = datetime()
+         RETURN a`,
+        { id: agentId }
+      );
+    }, `Deactivate agent ${agentId}`);
   }
 } 

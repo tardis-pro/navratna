@@ -65,7 +65,11 @@ export interface UICapability extends Capability {
 
 // Frontend-specific approval workflow interface
 export interface UIApprovalWorkflow extends SharedApprovalWorkflow {
-  // UI-specific extensions can be added here
+  // UI-specific extensions for frontend display
+  operationType?: string;
+  description?: string;
+  riskLevel?: 'low' | 'medium' | 'high' | 'critical';
+  requestedBy?: string;
 }
 
 // Agent capability metrics for UI display

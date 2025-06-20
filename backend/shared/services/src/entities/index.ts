@@ -57,6 +57,12 @@ export { LLMProvider } from './llmProvider.entity.js';
 export { KnowledgeItemEntity } from './knowledge-item.entity.js';
 export { KnowledgeRelationshipEntity } from './knowledge-relationship.entity.js';
 
+// User LLM Integration entities
+export { UserLLMProvider } from './userLLMProvider.entity.js';
+
+// Integration Event entities
+export { IntegrationEventEntity } from './integrationEvent.entity.js';
+
 // Entity arrays for TypeORM configuration - kept for backward compatibility
 export const getAllEntities = () => {
   // This function is deprecated - entities are now imported directly in typeorm.config.ts

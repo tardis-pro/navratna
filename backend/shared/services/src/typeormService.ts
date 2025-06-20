@@ -28,7 +28,20 @@ export class TypeOrmService {
   public async initialize(): Promise<void> {
     try {
       if (!this.dataSource) {
+        logger.info('Initializing TypeORM service...');
         const config = createTypeOrmConfig();
+        
+        // Log important configuration details
+        logger.info('TypeORM configuration:', {
+          type: config.type,
+          host: config.host,
+          port: config.port,
+          database: config.database,
+          cacheEnabled: !!config.cache,
+          entities: config.entities?.length || 0,
+          subscribers: config.subscribers?.length || 0
+        });
+
         this.dataSource = new DataSource(config);
         
         // Add timeout wrapper to prevent hanging in Docker
@@ -38,21 +51,60 @@ export class TypeOrmService {
         });
         
         await Promise.race([initPromise, timeoutPromise]);
+        
+        // Verify connection is working
+        if (this.dataSource.isInitialized) {
+          const testQuery = await this.dataSource.query('SELECT NOW()');
+          logger.info('TypeORM connection test successful:', testQuery[0]);
+        }
       }
       logger.info('TypeORM service initialized successfully');
     } catch (error) {
-      logger.error('Failed to initialize TypeORM service', { error });
+      // Enhanced error logging
+      logger.error('Failed to initialize TypeORM service', {
+        error: {
+          name: error.name,
+          message: error.message,
+          stack: error.stack,
+          code: error.code,
+          errno: error.errno
+        }
+      });
+
       // If initialization fails, try without cache
       if (error.message.includes('timeout') || error.message.includes('Redis')) {
         logger.warn('Retrying TypeORM initialization without cache...');
         try {
           const configWithoutCache = createTypeOrmConfig(undefined, true);
+          logger.info('Retrying with configuration:', {
+            type: configWithoutCache.type,
+            host: configWithoutCache.host,
+            port: configWithoutCache.port,
+            database: configWithoutCache.database,
+            cacheEnabled: false
+          });
+
           this.dataSource = new DataSource(configWithoutCache);
           await this.dataSource.initialize();
+          
+          // Verify connection is working
+          if (this.dataSource.isInitialized) {
+            const testQuery = await this.dataSource.query('SELECT NOW()');
+            logger.info('TypeORM retry connection test successful:', testQuery[0]);
+          }
+          
           logger.info('TypeORM service initialized successfully without cache');
           return;
         } catch (retryError) {
-          logger.error('Failed to initialize TypeORM service even without cache', { error: retryError });
+          logger.error('Failed to initialize TypeORM service even without cache', {
+            error: {
+              name: retryError.name,
+              message: retryError.message,
+              stack: retryError.stack,
+              code: retryError.code,
+              errno: retryError.errno
+            }
+          });
           throw retryError;
         }
       }
@@ -208,6 +260,10 @@ export class TypeOrmService {
 
   public get mcpToolCallRepository(): Repository<any> {
     return this.getRepository('MCPToolCall');
+  }
+
+  public get integrationEventRepository(): Repository<any> {
+    return this.getRepository('IntegrationEventEntity');
   }
 
   // Utility methods for common operations

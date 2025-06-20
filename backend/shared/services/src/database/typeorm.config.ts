@@ -32,6 +32,9 @@ import { KnowledgeItemEntity } from '../entities/knowledge-item.entity.js';
 import { KnowledgeRelationshipEntity } from '../entities/knowledge-relationship.entity.js';
 import { LLMProvider } from '../entities/llmProvider.entity.js';
 import { UserLLMProvider } from '../entities/userLLMProvider.entity.js';
+import { IntegrationEventEntity } from '../entities/integrationEvent.entity.js';
+import { MCPServerSubscriber } from '../subscribers/MCPServerSubscriber.js';
+import { MCPToolCallSubscriber } from '../subscribers/MCPToolCallSubscriber.js';
 
 /**
  * TypeORM Configuration for UAIP Backend
@@ -70,6 +73,7 @@ const allEntities = [
   KnowledgeRelationshipEntity,
   LLMProvider,
   UserLLMProvider,
+  IntegrationEventEntity,
 ];
 const syncandReset = process.env.SYNC_AND_RESET === 'true';
 export const createTypeOrmConfig = (entities?: any[], disableCache = false): DataSourceOptions => {
@@ -82,28 +86,54 @@ export const createTypeOrmConfig = (entities?: any[], disableCache = false): Dat
       // Test Redis connection availability before configuring cache
       const redisConfig = config.redis;
       if (redisConfig.host && redisConfig.port) {
+        console.log('🔄 Configuring Redis cache with:', {
+          host: redisConfig.host,
+          port: redisConfig.port,
+          db: redisConfig.db || 0,
+          maxRetriesPerRequest: redisConfig.maxRetriesPerRequest || 3,
+          retryDelayOnFailover: redisConfig.retryDelayOnFailover || 100,
+        });
+        
         cacheConfig = {
           type: 'redis',
           options: {
             host: redisConfig.host,
             port: redisConfig.port,
             password: redisConfig.password,
-            db: redisConfig.db + 1, // Use different DB for cache
-            retryDelayOnFailover: 100,
-            maxRetriesPerRequest: 3,
-            lazyConnect: true, // Don't fail if Redis is not available immediately
-            enableOfflineQueue: false, // Don't queue commands when Redis is offline
+            db: redisConfig.db || 0,
+            retryDelayOnFailover: redisConfig.retryDelayOnFailover || 100,
+            maxRetriesPerRequest: redisConfig.maxRetriesPerRequest || 3,
+            lazyConnect: true,
+            enableOfflineQueue: redisConfig.enableOfflineQueue ?? false,
+            reconnectOnError: function(err: Error) {
+              console.error('Redis reconnect error:', err.message);
+              const targetError = 'READONLY';
+              if (err.message.includes(targetError)) {
+                return true;
+              }
+              return false;
+            },
+            retryStrategy: function(times: number) {
+              const maxRetryDelay = 2000;
+              const delay = Math.min(times * 50, maxRetryDelay);
+              console.log(`Redis retry attempt ${times}, delay: ${delay}ms`);
+              return delay;
+            }
           },
-          duration: 30000, // 30 seconds
-          ignoreErrors: true, // Don't fail TypeORM initialization if Redis fails
+          duration: 30000,
+          ignoreErrors: true,
         };
         console.log('✅ Redis cache configured for TypeORM');
       } else {
-        console.warn('⚠️  Redis configuration incomplete, proceeding without cache');
+        console.warn('⚠️ Redis configuration incomplete, proceeding without cache. Required fields missing:', {
+          host: !redisConfig.host,
+          port: !redisConfig.port
+        });
         cacheConfig = false;
       }
     } catch (error) {
-      console.warn('⚠️  Redis cache configuration failed, proceeding without cache:', error.message);
+      console.error('❌ Redis cache configuration failed:', error);
+      console.warn('⚠️ Proceeding without cache due to error');
       cacheConfig = false;
     }
   }
@@ -119,6 +149,9 @@ export const createTypeOrmConfig = (entities?: any[], disableCache = false): Dat
 
     // Entity configuration - use explicit entity imports
     entities: entities || allEntities,
+
+    // Subscriber configuration
+    subscribers: [MCPServerSubscriber, MCPToolCallSubscriber],
 
     // Migration configuration
     migrations: ['dist/migrations/*.js'],

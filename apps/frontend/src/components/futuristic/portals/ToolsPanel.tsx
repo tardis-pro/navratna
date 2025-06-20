@@ -61,62 +61,68 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
     // Extract tools from agent capabilities and tool integrations
     const extractedTools: Tool[] = [];
     
-    // Add tools from agent capabilities
-    agents.data.forEach(agent => {
-      if (agent.capabilities && agent.capabilities.length > 0) {
-        agent.capabilities.forEach((capability, index) => {
-          extractedTools.push({
-            id: `${agent.id}-tool-${index}`,
-            name: capability.charAt(0).toUpperCase() + capability.slice(1).replace(/[-_]/g, ' '),
-            status: agent.status === 'active' ? 'active' : 'inactive',
-            description: `${capability} capability provided by ${agent.name}`,
-            lastUsed: agent.lastActivity ? new Date(agent.lastActivity) : undefined,
-            usageCount: agent.metrics?.totalOperations || 0,
-            agentId: agent.id,
-            agentName: agent.name,
-            category: 'Agent Capability',
-            version: '1.0.0'
+    try {
+      // Add tools from agent capabilities
+      agents.data.forEach(agent => {
+        if (agent.capabilities && agent.capabilities.length > 0) {
+          agent.capabilities.forEach((capability, index) => {
+            extractedTools.push({
+              id: `${agent.id}-tool-${index}`,
+              name: capability.charAt(0).toUpperCase() + capability.slice(1).replace(/[-_]/g, ' '),
+              status: agent.status === 'active' ? 'active' : 'inactive',
+              description: `${capability} capability provided by ${agent.name}`,
+              lastUsed: agent.lastActivity ? new Date(agent.lastActivity) : undefined,
+              usageCount: agent.metrics?.totalOperations || 0,
+              agentId: agent.id,
+              agentName: agent.name,
+              category: 'Agent Capability',
+              version: '1.0.0'
+            });
           });
-        });
-      }
-    });
-
-    // Add tools from tool integrations
-    toolIntegrations.data.forEach(integration => {
-      extractedTools.push({
-        id: integration.id,
-        name: integration.name,
-        status: integration.status === 'connected' ? 'active' : 
-                integration.status === 'error' ? 'error' : 'inactive',
-        description: `${integration.type.toUpperCase()} integration - ${integration.name}`,
-        lastUsed: integration.lastUsed,
-        usageCount: integration.usageCount,
-        agentId: 'system',
-        agentName: 'System Integration',
-        category: `${integration.type.toUpperCase()} Integration`,
-        version: integration.configuration?.version || '1.0.0'
+        }
       });
-    });
 
-    // Add tools from capabilities registry
-    capabilities.data.forEach(capability => {
-      if (!extractedTools.find(tool => tool.name === capability.name)) {
+      // Add tools from tool integrations
+      toolIntegrations.data.forEach(integration => {
         extractedTools.push({
-          id: capability.id,
-          name: capability.name,
-          status: capability.status === 'active' ? 'active' : 'inactive',
-          description: capability.description || `${capability.name} capability`,
-          lastUsed: capability.lastUsed ? new Date(capability.lastUsed) : undefined,
-          usageCount: capability.usageCount || 0,
-          agentId: capability.agentId || 'system',
-          agentName: capability.agentName || 'System',
-          category: capability.category || 'General',
-          version: capability.version || '1.0.0'
+          id: integration.id,
+          name: integration.name,
+          status: integration.status === 'connected' ? 'active' : 
+                  integration.status === 'error' ? 'error' : 'inactive',
+          description: `${integration.type.toUpperCase()} integration - ${integration.name}`,
+          lastUsed: integration.lastUsed,
+          usageCount: integration.usageCount,
+          agentId: 'system',
+          agentName: 'System Integration',
+          category: `${integration.type.toUpperCase()} Integration`,
+          version: integration.configuration?.version || '1.0.0'
         });
-      }
-    });
+      });
 
-    setTools(extractedTools);
+      // Add tools from capabilities registry with error handling
+      capabilities.data.forEach(capability => {
+        if (!extractedTools.find(tool => tool.name === capability.name)) {
+          extractedTools.push({
+            id: capability.id,
+            name: capability.name,
+            status: capability.status === 'active' ? 'active' : 'inactive',
+            description: capability.description || `${capability.name} capability`,
+            lastUsed: capability.lastUsed ? new Date(capability.lastUsed) : undefined,
+            usageCount: capability.usageCount || 0,
+            agentId: capability.agentId || 'system',
+            agentName: capability.agentName || 'System',
+            category: capability.category || 'General',
+            version: capability.version || '1.0.0'
+          });
+        }
+      });
+
+      setTools(extractedTools);
+    } catch (error) {
+      console.error('Error extracting tools:', error);
+      // Set empty tools array on error to prevent UI issues
+      setTools([]);
+    }
   }, [agents.data, toolIntegrations.data, capabilities.data]);
 
   // Filter tools based on search and category

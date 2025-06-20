@@ -45,6 +45,9 @@ export const API_ROUTES = {
 
   // Capability Registry Service routes
   CAPABILITIES: '/api/v1/capabilities',
+  
+  // Tools routes (from capability registry service)
+  TOOLS: '/api/v1/tools',
 
   // Persona Management Service routes
   PERSONAS: '/api/v1/personas',

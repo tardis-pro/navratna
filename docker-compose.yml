@@ -103,6 +103,94 @@ services:
       timeout: 10s
       retries: 3
 
+  # TEI (Text Embeddings Inference) Services
+  tei-embeddings:
+    image: ghcr.io/huggingface/text-embeddings-inference:1.7
+    container_name: uaip-tei-embeddings
+    command: --model-id BAAI/bge-large-en-v1.5 --port 80 --max-batch-tokens 16384 --max-concurrent-requests 512 --auto-truncate
+    ports:
+      - "8080:80"
+      - "9080:9000"  # Prometheus metrics
+    volumes:
+      - tei_embeddings_data:/data
+    environment:
+      - HUGGINGFACE_HUB_CACHE=/data
+      - JSON_OUTPUT=true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    networks:
+      - uaip-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    profiles:
+      - gpu
+
+  tei-reranker:
+    image: ghcr.io/huggingface/text-embeddings-inference:1.7
+    container_name: uaip-tei-reranker
+    command: --model-id BAAI/bge-reranker-base --port 80 --max-batch-tokens 8192 --max-concurrent-requests 256 --auto-truncate
+    ports:
+      - "8081:80"
+      - "9081:9000"  # Prometheus metrics
+    volumes:
+      - tei_reranker_data:/data
+    environment:
+      - HUGGINGFACE_HUB_CACHE=/data
+      - JSON_OUTPUT=true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    networks:
+      - uaip-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    profiles:
+      - gpu
+
+  # CPU-only TEI service for development/testing
+  tei-embeddings-cpu:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.7
+    container_name: uaip-tei-embeddings-cpu
+    command: --model-id sentence-transformers/all-mpnet-base-v2 --port 80 --max-batch-tokens 8192 --max-concurrent-requests 256 --auto-truncate
+    ports:
+      - "8082:80"
+      - "9082:9000"  # Prometheus metrics
+    volumes:
+      - tei_embeddings_cpu_data:/data
+    environment:
+      - HUGGINGFACE_HUB_CACHE=/data
+      - JSON_OUTPUT=true
+    restart: unless-stopped
+    networks:
+      - uaip-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    profiles:
+      - cpu-only
+
   # Message Queue
   rabbitmq:
     image: rabbitmq:4.1.0-management-alpine
@@ -142,6 +230,10 @@ services:
       - REDIS_URL=redis://:uaip_redis_password@redis:6379
       - QDRANT_URL=http://qdrant:6333
       - RABBITMQ_URL=amqp://uaip_user:uaip_password@rabbitmq:5672
+      # TEI Configuration
+      - TEI_EMBEDDING_URL=http://tei-embeddings:80
+      - TEI_RERANKER_URL=http://tei-reranker:80
+      - TEI_EMBEDDING_CPU_URL=http://tei-embeddings-cpu:80
     ports:
       - "3001:3001"
     volumes:
@@ -231,6 +323,10 @@ services:
       - REDIS_URL=redis://:uaip_redis_password@redis:6379
       - QDRANT_URL=http://qdrant:6333
       - RABBITMQ_URL=amqp://uaip_user:uaip_password@rabbitmq:5672
+      # TEI Configuration
+      - TEI_EMBEDDING_URL=http://tei-embeddings:80
+      - TEI_RERANKER_URL=http://tei-reranker:80
+      - TEI_EMBEDDING_CPU_URL=http://tei-embeddings-cpu:80
     ports:
       - "3003:3003"
     volumes:
@@ -316,6 +412,7 @@ services:
       - PORT=3004
       - POSTGRES_URL=postgresql://uaip_user:uaip_password@postgres:5432/uaip
       - REDIS_URL=redis://:uaip_redis_password@redis:6379
+      - QDRANT_URL=http://qdrant:6333
       - RABBITMQ_URL=amqp://uaip_user:uaip_password@rabbitmq:5672
       - JWT_SECRET=uaip_dev_jwt_secret_key_change_in_production
     ports:
@@ -329,6 +426,8 @@ services:
       - /app/backend/node_modules
     depends_on:
       postgres:
+        condition: service_healthy
+      qdrant:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -523,6 +622,10 @@ volumes:
   rabbitmq_data:
   prometheus_data:
   grafana_data:
+  # TEI Data Volumes
+  tei_embeddings_data:
+  tei_reranker_data:
+  tei_embeddings_cpu_data:
 
 networks:
   uaip-network:

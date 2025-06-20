@@ -53,6 +53,7 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
   const { approvals, systemMetrics, refreshData, isWebSocketConnected, approveExecution, rejectExecution } = useUAIP();
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
   const [selectedApproval, setSelectedApproval] = useState<string | null>(null);
+  const [actionsInProgress, setActionsInProgress] = useState<Set<string>>(new Set());
 
   // Determine viewport characteristics if not provided
   const defaultViewport: ViewportSize = {
@@ -131,16 +132,35 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
   }, []);
 
   const handleApproval = async (approvalId: string, decision: 'approve' | 'reject', reason?: string) => {
+    // Prevent rapid clicks by checking if action is already in progress
+    const actionKey = `${approvalId}-${decision}`;
+    
+    if (actionsInProgress.has(actionKey)) {
+      console.warn('Action already in progress, ignoring duplicate request');
+      return;
+    }
+    
     try {
+      setActionsInProgress(prev => new Set(prev).add(actionKey));
+      
       if (decision === 'approve') {
         await approveExecution(approvalId);
       } else {
         await rejectExecution(approvalId, reason || 'Rejected by security gateway');
       }
+      
       // Refresh data after approval action
       await refreshData();
     } catch (error) {
       console.error(`Failed to ${decision} approval ${approvalId}:`, error);
+      // Show user-friendly error message
+      alert(`Failed to ${decision} approval: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setActionsInProgress(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(actionKey);
+        return newSet;
+      });
     }
   };
 
