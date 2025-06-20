@@ -155,7 +155,7 @@ export const ProviderSettingsPortal: React.FC<ProviderSettingsPortalProps> = ({ 
             </motion.div>
             <div className={currentViewport.isMobile ? 'text-center' : ''}>
               <h1 className={`font-bold text-white mb-2 ${currentViewport.isMobile ? 'text-lg' : 'text-2xl'}`}>
-                {currentViewport.isMobile ? 'Model Providers' : ' Model Providers'}
+                {currentViewport.isMobile ? 'Model Providers' : 'Model Providers'}
               </h1>
               <p className={`text-purple-100 ${currentViewport.isMobile ? 'text-xs' : 'text-sm'}`}>
                 {currentViewport.isMobile 
