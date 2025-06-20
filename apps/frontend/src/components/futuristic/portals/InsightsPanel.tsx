@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useUAIP } from '../../contexts/UAIPContext';
+import { useUAIP } from '@/contexts/UAIPContext';
+import { motion } from 'framer-motion';
 import { 
   LightBulbIcon, 
   ArrowTrendingUpIcon, 
@@ -11,11 +12,36 @@ import {
   XMarkIcon
 } from '@heroicons/react/24/outline';
 
-export const InsightsPanel: React.FC = () => {
+// Shared viewport interface
+interface ViewportSize {
+  width: number;
+  height: number;
+  isMobile: boolean;
+  isTablet: boolean;
+  isDesktop: boolean;
+}
+
+interface InsightsPanelPortalProps {
+  className?: string;
+  viewport?: ViewportSize;
+}
+
+export const InsightsPanel: React.FC<InsightsPanelPortalProps> = ({ className, viewport }) => {
   const { insights, agents, operations, systemMetrics, refreshData, isWebSocketConnected } = useUAIP();
   const [selectedInsight, setSelectedInsight] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+
+  // Default viewport setup
+  const defaultViewport: ViewportSize = {
+    width: typeof window !== 'undefined' ? window.innerWidth : 1024,
+    height: typeof window !== 'undefined' ? window.innerHeight : 768,
+    isMobile: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
+    isTablet: typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
+    isDesktop: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
+  };
+
+  const currentViewport = viewport || defaultViewport;
 
   // Filter insights based on type and status
   const filteredInsights = insights.data.filter(insight => {
@@ -25,8 +51,8 @@ export const InsightsPanel: React.FC = () => {
   });
 
   // Extract unique types and statuses for filters
-  const insightTypes = ['all', ...Array.from(new Set(insights.data.map(insight => insight.type)))];
-  const insightStatuses = ['all', ...Array.from(new Set(insights.data.map(insight => insight.status)))];
+  const insightTypes: string[] = ['all', ...Array.from(new Set(insights.data.map(insight => insight.type))) as string[]];
+  const insightStatuses: string[] = ['all', ...Array.from(new Set(insights.data.map(insight => insight.status))) as string[]];
 
   const getImpactColor = (impact: string) => {
     switch (impact) {
@@ -171,7 +197,11 @@ export const InsightsPanel: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`space-y-6 ${className ?? ''} ${currentViewport.isMobile ? 'px-2' : ''}`}
+    >
       {/* Header with Connection Status */}
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
@@ -249,9 +279,9 @@ export const InsightsPanel: React.FC = () => {
             onChange={(e) => setFilterType(e.target.value)}
             className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
-            {insightTypes.map(type => (
-              <option key={type} value={type}>
-                {type.charAt(0).toUpperCase() + type.slice(1)}
+            {insightTypes.map((typeStr) => (
+              <option key={typeStr} value={typeStr}>
+                {typeStr.charAt(0).toUpperCase() + typeStr.slice(1)}
               </option>
             ))}
           </select>
@@ -263,9 +293,9 @@ export const InsightsPanel: React.FC = () => {
             onChange={(e) => setFilterStatus(e.target.value)}
             className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
-            {insightStatuses.map(status => (
-              <option key={status} value={status}>
-                {status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
+            {insightStatuses.map((statusStr) => (
+              <option key={statusStr} value={statusStr}>
+                {statusStr.charAt(0).toUpperCase() + statusStr.slice(1).replace('_', ' ')}
               </option>
             ))}
           </select>
@@ -422,6 +452,6 @@ export const InsightsPanel: React.FC = () => {
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }; 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useUAIP } from '../../contexts/UAIPContext';
+import { useUAIP } from '@/contexts/UAIPContext';
+import { motion } from 'framer-motion';
 import { OperationStatus, OperationPriority } from '@uaip/types';
 import { 
   CogIcon, 

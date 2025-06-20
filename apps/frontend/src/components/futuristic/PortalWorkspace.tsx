@@ -2,19 +2,26 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Portal } from './Portal';
 import { DiscussionControlsPortal } from './portals/DiscussionControlsPortal';
-import { AgentSelectorPortal } from './portals/AgentSelectorPortal';
-import { IntelligencePanelPortal } from './portals/IntelligencePanelPortal';
+import { DiscussionLogPortal } from './portals/DiscussionLogPortal';
 import { SettingsPortal } from './portals/SettingsPortal';
 import { ChatPortal } from './portals/ChatPortal';
-import { AgentSettingsPortal } from './portals/AgentSettingsPortal';
 import { ProviderSettingsPortal } from './portals/ProviderSettingsPortal';
 import { SystemConfigPortal } from './portals/SystemConfigPortal';
 import { AgentManagerPortal } from './portals/AgentManagerPortal';
-import { Plus, Layout, Users, Brain, Settings, MessageSquare, MessageCircle, Activity, Zap, Terminal, Monitor, Menu, X, Bot, Server, Database } from 'lucide-react';
+import { ToolsPanel } from './portals/ToolsPanel';
+import { SecurityGateway } from './portals/SecurityGateway';
+import { CapabilityRegistry } from './portals/CapabilityRegistry';
+import { EventStreamMonitor } from './portals/EventStreamMonitor';
+import { OperationsMonitor } from './portals/OperationsMonitor';
+import { IntelligencePanelPortal } from './portals/IntelligencePanelPortal';
+import { InsightsPanel } from './portals/InsightsPanel';
+import { Plus, Layout, Users, Brain, Settings, MessageSquare, MessageCircle, Activity, Zap, Terminal, Monitor, Menu, X, Bot, Server, Database, Wrench, Shield, Radio, BarChart3, Lightbulb, Eye } from 'lucide-react';
+import { uaipAPI } from '@/utils/uaip-api';
+import { PuzzlePieceIcon } from '@heroicons/react/24/outline';
 
 interface PortalInstance {
   id: string;
-  type: 'discussion' | 'agents' | 'intelligence' | 'settings' | 'chat' | 'spawner' | 'monitor' | 'agent-settings' | 'provider-settings' | 'system-config' | 'agent-manager';
+  type: 'discussion' | 'discussion-log' | 'agents' | 'intelligence' | 'settings' | 'chat' | 'spawner' | 'monitor' | 'agent-settings' | 'provider-settings' | 'system-config' | 'agent-manager' | 'tools' | 'security' | 'capabilities' | 'events' | 'operations' | 'intelligence-panel' | 'insights';
   title: string;
   component: React.ComponentType<any>;
   position: { x: number; y: number };
@@ -43,9 +50,20 @@ const PORTAL_CONFIGS = {
     type: 'communication' as const,
     icon: MessageSquare
   },
+  'discussion-log': {
+    title: 'Discussion Log',
+    component: DiscussionLogPortal,
+    defaultSize: { 
+      desktop: { width: 650, height: 700 },
+      tablet: { width: 580, height: 650 },
+      mobile: { width: 380, height: 600 }
+    },
+    type: 'communication' as const,
+    icon: Activity
+  },
   agents: {
-    title: 'Agent Manager',
-    component: AgentManagerPortal,
+    title: 'Agent Selector',
+    component: (props: any) => <AgentManagerPortal {...props} mode="spawner" defaultView="grid" />,
     defaultSize: { 
       desktop: { width: 800, height: 700 },
       tablet: { width: 700, height: 650 },
@@ -89,7 +107,7 @@ const PORTAL_CONFIGS = {
   },
   spawner: {
     title: 'Agent Spawner',
-    component: AgentManagerPortal, // Unified agent management
+    component: (props: any) => <AgentManagerPortal {...props} mode="spawner" defaultView="grid" />,
     defaultSize: { 
       desktop: { width: 800, height: 700 },
       tablet: { width: 700, height: 650 },
@@ -99,19 +117,19 @@ const PORTAL_CONFIGS = {
     icon: Zap
   },
   monitor: {
-    title: 'System Monitor',
-    component: IntelligencePanelPortal, // Reuse with monitor mode
+    title: 'Agent Monitor',
+    component: (props: any) => <AgentManagerPortal {...props} mode="monitor" defaultView="list" />,
     defaultSize: { 
-      desktop: { width: 500, height: 600 },
-      tablet: { width: 450, height: 550 },
-      mobile: { width: 380, height: 500 }
+      desktop: { width: 800, height: 700 },
+      tablet: { width: 700, height: 650 },
+      mobile: { width: 500, height: 600 }
     },
     type: 'analysis' as const,
     icon: Monitor
   },
   'agent-settings': {
     title: 'Agent Settings',
-    component: AgentManagerPortal,
+    component: (props: any) => <AgentManagerPortal {...props} mode="manager" defaultView="settings" />,
     defaultSize: { 
       desktop: { width: 800, height: 700 },
       tablet: { width: 700, height: 650 },
@@ -144,7 +162,7 @@ const PORTAL_CONFIGS = {
   },
   'agent-manager': {
     title: 'Agent Manager',
-    component: AgentManagerPortal,
+    component: (props: any) => <AgentManagerPortal {...props} mode="manager" defaultView="grid" />,
     defaultSize: { 
       desktop: { width: 800, height: 700 },
       tablet: { width: 700, height: 650 },
@@ -152,6 +170,83 @@ const PORTAL_CONFIGS = {
     },
     type: 'agent' as const,
     icon: Bot
+  },
+  tools: {
+    title: 'Tools Panel',
+    component: ToolsPanel,
+    defaultSize: { 
+      desktop: { width: 700, height: 650 },
+      tablet: { width: 600, height: 600 },
+      mobile: { width: 450, height: 550 }
+    },
+    type: 'tool' as const,
+    icon: Wrench
+  },
+  security: {
+    title: 'Security Gateway',
+    component: SecurityGateway,
+    defaultSize: { 
+      desktop: { width: 800, height: 700 },
+      tablet: { width: 700, height: 650 },
+      mobile: { width: 500, height: 600 }
+    },
+    type: 'tool' as const,
+    icon: Shield
+  },
+  capabilities: {
+    title: 'Capability Registry',
+    component: CapabilityRegistry,
+    defaultSize: { 
+      desktop: { width: 750, height: 680 },
+      tablet: { width: 650, height: 630 },
+      mobile: { width: 480, height: 580 }
+    },
+    type: 'analysis' as const,
+    icon: PuzzlePieceIcon
+  },
+  events: {
+    title: 'Event Stream Monitor',
+    component: EventStreamMonitor,
+    defaultSize: { 
+      desktop: { width: 600, height: 650 },
+      tablet: { width: 550, height: 600 },
+      mobile: { width: 400, height: 550 }
+    },
+    type: 'analysis' as const,
+    icon: Radio
+  },
+  operations: {
+    title: 'Operations Monitor',
+    component: OperationsMonitor,
+    defaultSize: { 
+      desktop: { width: 650, height: 700 },
+      tablet: { width: 580, height: 650 },
+      mobile: { width: 430, height: 600 }
+    },
+    type: 'analysis' as const,
+    icon: BarChart3
+  },
+  'intelligence-panel': {
+    title: 'Intelligence Panel',
+    component: IntelligencePanelPortal,
+    defaultSize: { 
+      desktop: { width: 500, height: 600 },
+      tablet: { width: 450, height: 550 },
+      mobile: { width: 380, height: 500 }
+    },
+    type: 'analysis' as const,
+    icon: Brain
+  },
+  insights: {
+    title: 'Insights Panel',
+    component: InsightsPanel,
+    defaultSize: { 
+      desktop: { width: 550, height: 620 },
+      tablet: { width: 480, height: 570 },
+      mobile: { width: 400, height: 520 }
+    },
+    type: 'analysis' as const,
+    icon: Eye
   }
 };
 
@@ -161,6 +256,11 @@ export const PortalWorkspace: React.FC = () => {
   const [activePortalId, setActivePortalId] = useState<string | null>(null);
   const [systemStatus, setSystemStatus] = useState<'online' | 'degraded' | 'offline'>('online');
   const [activeConnections, setActiveConnections] = useState(0);
+  const [systemMetrics, setSystemMetrics] = useState<{
+    apiResponseTime?: number;
+    lastHealthCheck?: Date;
+    environment?: string;
+  }>({});
   const [viewport, setViewport] = useState<ViewportSize>({
     width: typeof window !== 'undefined' ? window.innerWidth : 1024,
     height: typeof window !== 'undefined' ? window.innerHeight : 768,
@@ -169,6 +269,7 @@ export const PortalWorkspace: React.FC = () => {
     isDesktop: true
   });
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showThinkTokens, setShowThinkTokens] = useState(false);
 
   // Update viewport size on resize
   useEffect(() => {
@@ -317,13 +418,86 @@ export const PortalWorkspace: React.FC = () => {
     ));
   }, [viewport]);
 
-  // Simulate system status updates
+  const handleThinkTokensToggle = useCallback((visible: boolean) => {
+    setShowThinkTokens(visible);
+  }, []);
+
+  // Real system status updates from UAIP API
   useEffect(() => {
-    const interval = setInterval(() => {
-      const statuses: ('online' | 'degraded' | 'offline')[] = ['online', 'online', 'online', 'degraded'];
-      setSystemStatus(statuses[Math.floor(Math.random() * statuses.length)]);
-      setActiveConnections(Math.floor(Math.random() * 8) + 2);
-    }, 5000);
+    const updateSystemStatus = async () => {
+      const startTime = Date.now();
+      
+      try {
+        // Get environment and connection info from UAIP API
+        const envInfo = uaipAPI.getEnvironmentInfo();
+        
+        // Check WebSocket connection status
+        const isWebSocketConnected = envInfo.websocketConnected;
+        
+        // Try to get system health from the API client
+        let systemHealth: 'online' | 'degraded' | 'offline' = 'offline';
+        let connectionCount = 0;
+        let responseTime = 0;
+        
+        try {
+          // Use agents endpoint as a health check since it's a lightweight operation
+          const agentsResponse = await uaipAPI.agents.list();
+          responseTime = Date.now() - startTime;
+          
+          if (agentsResponse && Array.isArray(agentsResponse)) {
+            systemHealth = 'online';
+            // Estimate connections based on WebSocket status and successful API response
+            connectionCount = isWebSocketConnected ? 2 : 1; // API + WebSocket or just API
+          } else {
+            systemHealth = 'degraded';
+            connectionCount = isWebSocketConnected ? 1 : 0;
+          }
+        } catch (apiError) {
+          responseTime = Date.now() - startTime;
+          
+          // If API fails, check if it's a network issue or server issue
+          if (apiError instanceof Error) {
+            if (apiError.message.includes('fetch') || apiError.message.includes('network')) {
+              systemHealth = 'offline';
+              connectionCount = 0;
+            } else {
+              // Server responded but with an error - degraded service
+              systemHealth = 'degraded';
+              connectionCount = isWebSocketConnected ? 1 : 0;
+            }
+          } else {
+            systemHealth = 'offline';
+            connectionCount = 0;
+          }
+        }
+        
+        // Update state with real data
+        setSystemStatus(systemHealth);
+        setActiveConnections(connectionCount);
+        setSystemMetrics({
+          apiResponseTime: responseTime,
+          lastHealthCheck: new Date(),
+          environment: envInfo.isDevelopment ? 'development' : 'production'
+        });
+        
+      } catch (error) {
+        console.error('[PortalWorkspace] Failed to update system status:', error);
+        // Fallback to offline status on error
+        setSystemStatus('offline');
+        setActiveConnections(0);
+        setSystemMetrics({
+          apiResponseTime: Date.now() - startTime,
+          lastHealthCheck: new Date(),
+          environment: 'unknown'
+        });
+      }
+    };
+
+    // Initial status check
+    updateSystemStatus();
+    
+    // Set up periodic status updates every 10 seconds
+    const interval = setInterval(updateSystemStatus, 10000);
 
     return () => clearInterval(interval);
   }, []);
@@ -554,6 +728,8 @@ export const PortalWorkspace: React.FC = () => {
               <PortalComponent 
                 mode={portal.type === 'spawner' ? 'spawner' : portal.type === 'monitor' ? 'monitor' : undefined}
                 viewport={viewport}
+                showThinkTokens={portal.type === 'discussion-log' ? showThinkTokens : undefined}
+                onThinkTokensToggle={portal.type === 'discussion' || portal.type === 'discussion-log' ? handleThinkTokensToggle : undefined}
               />
             </Portal>
           );
@@ -576,6 +752,11 @@ export const PortalWorkspace: React.FC = () => {
             <span className={`text-slate-300 ${getStatusColor(systemStatus)}`}>
               System {systemStatus.toUpperCase()}
             </span>
+            {systemMetrics.apiResponseTime && (
+              <span className="text-slate-500 text-xs">
+                ({systemMetrics.apiResponseTime}ms)
+              </span>
+            )}
           </div>
           
           <div className="flex items-center gap-2">
@@ -591,6 +772,15 @@ export const PortalWorkspace: React.FC = () => {
               {portals.length} Portal{portals.length !== 1 ? 's' : ''}
             </span>
           </div>
+          
+          {systemMetrics.environment && !viewport.isMobile && (
+            <div className="flex items-center gap-2">
+              <Server className="w-4 h-4 text-cyan-400" />
+              <span className="text-slate-400 text-xs">
+                {systemMetrics.environment}
+              </span>
+            </div>
+          )}
           
           {portals.length > 0 && !viewport.isMobile && (
             <div className="text-slate-500 text-xs">

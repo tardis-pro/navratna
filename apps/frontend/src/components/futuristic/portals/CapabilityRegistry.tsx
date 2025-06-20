@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useUAIP } from '../../contexts/UAIPContext';
+import { useUAIP } from '@/contexts/UAIPContext';
+import { motion } from 'framer-motion';
 import { 
   PuzzlePieceIcon, 
   MagnifyingGlassIcon,
@@ -13,14 +14,39 @@ import {
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 
-export const CapabilityRegistry: React.FC = () => {
+// Shared viewport type
+interface ViewportSize {
+  width: number;
+  height: number;
+  isMobile: boolean;
+  isTablet: boolean;
+  isDesktop: boolean;
+}
+
+interface CapabilityRegistryPortalProps {
+  className?: string;
+  viewport?: ViewportSize;
+}
+
+export const CapabilityRegistry: React.FC<CapabilityRegistryPortalProps> = ({ className, viewport }) => {
   const { capabilities, refreshData, isWebSocketConnected } = useUAIP();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedCapability, setSelectedCapability] = useState<string | null>(null);
 
+  // Determine viewport if not provided
+  const defaultViewport: ViewportSize = {
+    width: typeof window !== 'undefined' ? window.innerWidth : 1024,
+    height: typeof window !== 'undefined' ? window.innerHeight : 768,
+    isMobile: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
+    isTablet: typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
+    isDesktop: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
+  };
+
+  const currentViewport = viewport || defaultViewport;
+
   // Extract categories from real capabilities data
-  const categories = ['all', ...Array.from(new Set(capabilities.data.map(cap => cap.category || 'Uncategorized')))];
+  const categories: string[] = ['all', ...Array.from(new Set(capabilities.data.map(cap => cap.category || 'Uncategorized'))) as string[]];
   
   const filteredCapabilities = capabilities.data.filter(cap => {
     const matchesSearch = cap.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -107,7 +133,11 @@ export const CapabilityRegistry: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`space-y-6 ${className ?? ''} ${currentViewport.isMobile ? 'px-2' : ''}`}
+    >
       {/* Header with Connection Status */}
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
@@ -153,9 +183,9 @@ export const CapabilityRegistry: React.FC = () => {
           onChange={(e) => setSelectedCategory(e.target.value)}
           className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         >
-          {categories.map(category => (
-            <option key={category} value={category}>
-              {category.charAt(0).toUpperCase() + category.slice(1)}
+          {categories.map((categoryStr) => (
+            <option key={categoryStr} value={categoryStr}>
+              {categoryStr.charAt(0).toUpperCase() + categoryStr.slice(1)}
             </option>
           ))}
         </select>
@@ -334,6 +364,6 @@ export const CapabilityRegistry: React.FC = () => {
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }; 

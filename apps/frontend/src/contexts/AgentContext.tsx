@@ -16,6 +16,7 @@ import {
   ToolExecutionStatus
 } from '@uaip/types';
 import uaipAPI from '@/utils/uaip-api';
+import { PERSONA_CATEGORIES } from '@/types/persona';
 
 // Agent Intelligence Flow - using backend API
 interface AgentIntelligenceFlow {
@@ -621,7 +622,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
         // Get persona details for analysis
         return await uaipAPI.personas.get(params.personaId);
       case 'getPersonaCategories':
-        return await uaipAPI.personas.getCategories();
+        return PERSONA_CATEGORIES;
       default:
         throw new Error(`Agent intelligence flow '${flow}' is not yet implemented`);
     }

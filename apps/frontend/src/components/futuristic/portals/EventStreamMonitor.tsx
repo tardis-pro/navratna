@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useUAIP } from '../../contexts/UAIPContext';
+import { useUAIP } from '@/contexts/UAIPContext';
+import { motion } from 'framer-motion';
 import { 
   BoltIcon, 
   InformationCircleIcon, 
@@ -11,6 +12,19 @@ import {
   ClockIcon
 } from '@heroicons/react/24/outline';
 
+interface ViewportSize {
+  width: number;
+  height: number;
+  isMobile: boolean;
+  isTablet: boolean;
+  isDesktop: boolean;
+}
+
+interface EventStreamMonitorPortalProps {
+  className?: string;
+  viewport?: ViewportSize;
+}
+
 interface Event {
   id: string;
   type: 'info' | 'warning' | 'error' | 'success';
@@ -20,11 +34,22 @@ interface Event {
   correlationId?: string;
 }
 
-export const EventStreamMonitor: React.FC = () => {
+export const EventStreamMonitor: React.FC<EventStreamMonitorPortalProps> = ({ className, viewport }) => {
   const { events, operations, agents, refreshData, isWebSocketConnected } = useUAIP();
   const [displayEvents, setDisplayEvents] = useState<Event[]>([]);
   const [filterType, setFilterType] = useState<string>('all');
   const [maxEvents, setMaxEvents] = useState<number>(50);
+
+  // Default viewport setup
+  const defaultViewport: ViewportSize = {
+    width: typeof window !== 'undefined' ? window.innerWidth : 1024,
+    height: typeof window !== 'undefined' ? window.innerHeight : 768,
+    isMobile: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
+    isTablet: typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
+    isDesktop: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
+  };
+
+  const currentViewport = viewport || defaultViewport;
 
   useEffect(() => {
     // Transform events from UAIPContext to display format
@@ -119,7 +144,11 @@ export const EventStreamMonitor: React.FC = () => {
   // Show error state
   if (events.error) {
     return (
-      <div className="space-y-6">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={`space-y-6 ${className ?? ''} ${currentViewport.isMobile ? 'px-2' : ''}`}
+      >
         <div className="flex items-center justify-center h-32">
           <div className="text-center">
             <ExclamationTriangleIcon className="w-8 h-8 text-red-400 mx-auto mb-2" />
@@ -133,28 +162,36 @@ export const EventStreamMonitor: React.FC = () => {
             </button>
           </div>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   // Show loading state
   if (events.isLoading) {
     return (
-      <div className="space-y-6">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={`space-y-6 ${className ?? ''} ${currentViewport.isMobile ? 'px-2' : ''}`}
+      >
         <div className="flex items-center justify-center h-32">
           <div className="text-center">
             <ArrowPathIcon className="w-8 h-8 text-blue-400 mx-auto mb-2 animate-spin" />
             <p className="text-gray-500 dark:text-gray-400">Loading events...</p>
           </div>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   // Show empty state
   if (displayEvents.length === 0) {
     return (
-      <div className="space-y-6">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={`space-y-6 ${className ?? ''} ${currentViewport.isMobile ? 'px-2' : ''}`}
+      >
         {/* Header with Connection Status */}
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
@@ -185,12 +222,16 @@ export const EventStreamMonitor: React.FC = () => {
             <p className="text-sm text-gray-400 dark:text-gray-500">Events will appear here as they occur</p>
           </div>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`space-y-6 ${className ?? ''} ${currentViewport.isMobile ? 'px-2' : ''}`}
+    >
       {/* Header with Connection Status */}
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
@@ -308,6 +349,6 @@ export const EventStreamMonitor: React.FC = () => {
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }; 

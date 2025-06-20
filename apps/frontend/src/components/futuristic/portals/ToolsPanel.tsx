@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useUAIP } from '../../contexts/UAIPContext';
+import { useUAIP } from '@/contexts/UAIPContext';
+import { motion } from 'framer-motion';
 import { 
   WrenchScrewdriverIcon, 
   CheckCircleIcon, 
@@ -7,9 +8,23 @@ import {
   ClockIcon,
   ArrowPathIcon,
   ExclamationTriangleIcon,
-  EyeIcon,
-  TagIcon
+  EyeIcon
 } from '@heroicons/react/24/outline';
+
+interface ViewportSize {
+  width: number;
+  height: number;
+  isMobile: boolean;
+  isTablet: boolean;
+  isDesktop: boolean;
+}
+
+interface ToolsPanelPortalProps {
+  /** Optional additional class names for root container */
+  className?: string;
+  /** Optional viewport override (useful when embedding in other layouts) */
+  viewport?: ViewportSize;
+}
 
 interface Tool {
   id: string;
@@ -24,7 +39,18 @@ interface Tool {
   version?: string;
 }
 
-export const ToolsPanel: React.FC = () => {
+export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewport }) => {
+  // Derive viewport information if not provided
+  const defaultViewport: ViewportSize = {
+    width: typeof window !== 'undefined' ? window.innerWidth : 1024,
+    height: typeof window !== 'undefined' ? window.innerHeight : 768,
+    isMobile: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
+    isTablet: typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
+    isDesktop: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
+  };
+
+  const currentViewport = viewport || defaultViewport;
+
   const { agents, toolIntegrations, capabilities, refreshData, isWebSocketConnected } = useUAIP();
   const [tools, setTools] = useState<Tool[]>([]);
   const [selectedTool, setSelectedTool] = useState<string | null>(null);
@@ -213,7 +239,11 @@ export const ToolsPanel: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`space-y-6 ${className ?? ''} ${currentViewport.isMobile ? 'px-2' : ''}`}
+    >
       {/* Header with Connection Status */}
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
@@ -417,6 +447,6 @@ export const ToolsPanel: React.FC = () => {
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }; 

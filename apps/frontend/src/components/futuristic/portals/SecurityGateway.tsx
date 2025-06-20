@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useUAIP } from '../../contexts/UAIPContext';
+import { useUAIP } from '@/contexts/UAIPContext';
+import { motion } from 'framer-motion';
 import { 
   ShieldCheckIcon, 
   LightBulbIcon,
@@ -34,10 +35,35 @@ interface AuditEntry {
   riskLevel: 'low' | 'medium' | 'high' | 'critical';
 }
 
-export const SecurityGateway: React.FC = () => {
+// Portal sizing interface shared across futuristic portals
+interface ViewportSize {
+  width: number;
+  height: number;
+  isMobile: boolean;
+  isTablet: boolean;
+  isDesktop: boolean;
+}
+
+interface SecurityGatewayPortalProps {
+  className?: string;
+  viewport?: ViewportSize;
+}
+
+export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ className, viewport }) => {
   const { approvals, systemMetrics, refreshData, isWebSocketConnected, approveExecution, rejectExecution } = useUAIP();
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
   const [selectedApproval, setSelectedApproval] = useState<string | null>(null);
+
+  // Determine viewport characteristics if not provided
+  const defaultViewport: ViewportSize = {
+    width: typeof window !== 'undefined' ? window.innerWidth : 1024,
+    height: typeof window !== 'undefined' ? window.innerHeight : 768,
+    isMobile: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
+    isTablet: typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
+    isDesktop: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
+  };
+
+  const currentViewport = viewport || defaultViewport;
 
   // Calculate metrics from real approval data
   const metrics: SecurityMetrics = React.useMemo(() => {
@@ -226,7 +252,11 @@ export const SecurityGateway: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`space-y-6 ${className ?? ''} ${currentViewport.isMobile ? 'px-2' : ''}`}
+    >
       {/* Header with Connection Status */}
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
@@ -462,6 +492,6 @@ export const SecurityGateway: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }; 

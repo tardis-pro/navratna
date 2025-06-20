@@ -5,6 +5,8 @@ export interface ModelOption {
   source?: string;
   apiEndpoint?: string;
   apiType?: 'llmstudio' | 'ollama';
+  provider?: string;
+  isAvailable?: boolean;
   maxTokens?: number;
   temperature?: number;
 } 

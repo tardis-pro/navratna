@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { PersonaDisplay } from '../types/frontend-extensions';
-import { useAgents } from '@/contexts/AgentContext';
+import { uaipAPI } from '@/utils/uaip-api';
 import { 
   Users, 
   Brain, 
@@ -20,6 +20,7 @@ import {
   Loader2,
   RefreshCw
 } from 'lucide-react';
+import { PERSONA_CATEGORIES } from '@/types/persona';
 
 interface PersonaSelectorProps {
   onSelectPersona: (persona: PersonaDisplay) => Promise<void>;
@@ -48,8 +49,6 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
   onSelectPersona, 
   disabled = false 
 }) => {
-  const { agentIntelligence } = useAgents();
-  
   const [personas, setPersonas] = useState<PersonaDisplay[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -69,22 +68,118 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
     setError(null);
     
     try {
-      // Load categories and personas in parallel
-      const [categoriesResult, personasResult] = await Promise.all([
-        agentIntelligence.getPersonaCategories(),
-        agentIntelligence.searchPersonas({ query: '', expertise: '' })
-      ]);
+      // Try to load personas using the API
+      const personasResult = await uaipAPI.personas.search();
       
-      setCategories(categoriesResult);
+      setCategories([
+        'Development',
+        'Policy', 
+        'Creative',
+        'Analysis',
+        'Business',
+        'Social',
+        'Technical',
+        'Management',
+        'Research',
+        'Design'
+      ]);
       setPersonas(personasResult.personas || []);
       
       // Set default active category
-      if (categoriesResult.length > 0 && !activeCategory) {
-        setActiveCategory(categoriesResult[0]);
+      if (!activeCategory) {
+        setActiveCategory('Development');
       }
     } catch (err) {
-      console.error('Failed to load persona data:', err);
-      setError('Failed to load personas. Please try again.');
+      console.warn('Failed to load persona data from API, using fallback data:', err);
+      
+      // Fallback to mock data when API is not available
+      const mockPersonas: PersonaDisplay[] = [
+        {
+          id: 'dev-engineer',
+          name: 'Software Engineer',
+          role: 'Developer',
+          description: 'Experienced full-stack developer with expertise in modern web technologies',
+          tags: ['coding', 'architecture', 'debugging'],
+          expertise: ['JavaScript', 'TypeScript', 'React', 'Node.js', 'Python', 'Database Design'],
+          status: 'active',
+          category: 'Development',
+          background: 'A seasoned software engineer with 8+ years of experience building scalable web applications. Specializes in full-stack development, system architecture, and code optimization.'
+        },
+        {
+          id: 'data-scientist',
+          name: 'Data Scientist',
+          role: 'Analyst',
+          description: 'Expert in data analysis, machine learning, and statistical modeling',
+          tags: ['analytics', 'ml', 'statistics'],
+          expertise: ['Python', 'R', 'Machine Learning', 'Statistics', 'Data Visualization', 'SQL'],
+          status: 'active',
+          category: 'Analysis',
+          background: 'PhD in Statistics with 6+ years of experience in data science and machine learning. Expert in predictive modeling, data mining, and business intelligence.'
+        },
+        {
+          id: 'product-manager',
+          name: 'Product Manager',
+          role: 'Manager',
+          description: 'Strategic product leader focused on user experience and business outcomes',
+          tags: ['strategy', 'user-research', 'roadmap'],
+          expertise: ['Product Strategy', 'User Research', 'Agile', 'Analytics', 'Market Analysis', 'Roadmapping'],
+          status: 'active',
+          category: 'Management',
+          background: 'Senior Product Manager with 7+ years of experience launching successful products. Expert in user-centered design, market research, and cross-functional team leadership.'
+        },
+        {
+          id: 'ux-designer',
+          name: 'UX Designer',
+          role: 'Designer',
+          description: 'User experience designer passionate about creating intuitive interfaces',
+          tags: ['design', 'user-research', 'prototyping'],
+          expertise: ['User Research', 'Wireframing', 'Prototyping', 'Figma', 'Design Systems', 'Usability Testing'],
+          status: 'active',
+          category: 'Creative',
+          background: 'Creative UX Designer with 5+ years of experience designing digital products. Specializes in user research, interaction design, and design system development.'
+        },
+        {
+          id: 'business-analyst',
+          name: 'Business Analyst',
+          role: 'Analyst',
+          description: 'Strategic analyst focused on business process optimization and requirements gathering',
+          tags: ['analysis', 'requirements', 'process'],
+          expertise: ['Business Analysis', 'Requirements Gathering', 'Process Mapping', 'SQL', 'Data Analysis', 'Stakeholder Management'],
+          status: 'active',
+          category: 'Business',
+          background: 'Experienced Business Analyst with 6+ years of experience optimizing business processes and gathering requirements for complex projects.'
+        },
+        {
+          id: 'devops-engineer',
+          name: 'DevOps Engineer',
+          role: 'Engineer',
+          description: 'Infrastructure and automation expert focused on CI/CD and cloud platforms',
+          tags: ['automation', 'cloud', 'infrastructure'],
+          expertise: ['Docker', 'Kubernetes', 'AWS', 'CI/CD', 'Infrastructure as Code', 'Monitoring'],
+          status: 'active',
+          category: 'Technical',
+          background: 'DevOps Engineer with 7+ years of experience building and maintaining scalable cloud infrastructure. Expert in automation, containerization, and deployment pipelines.'
+        }
+      ];
+      
+      setCategories([
+        'Development',
+        'Policy', 
+        'Creative',
+        'Analysis',
+        'Business',
+        'Social',
+        'Technical',
+        'Management',
+        'Research',
+        'Design'
+      ]);
+      setPersonas(mockPersonas);
+      
+      // Set default active category
+      if (!activeCategory) {
+        setActiveCategory('Development');
+      }
     } finally {
       setLoading(false);
     }
@@ -97,14 +192,32 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
     setError(null);
     
     try {
-      const result = await agentIntelligence.searchPersonas({
-        query: searchQuery.trim() || undefined,
-        expertise: searchExpertise.trim() || undefined
-      });
+      const result = await uaipAPI.personas.search(
+        searchQuery.trim() || undefined,
+        searchExpertise.trim() || undefined
+      );
       setPersonas(result.personas || []);
     } catch (err) {
-      console.error('Failed to search personas:', err);
-      setError('Search failed. Please try again.');
+      console.warn('Failed to search personas via API, filtering fallback data:', err);
+      
+      // Filter the current personas (which should be the fallback data)
+      const query = searchQuery.toLowerCase();
+      const expertise = searchExpertise.toLowerCase();
+      
+      const filtered = personas.filter(persona => {
+        const matchesQuery = !query || 
+          persona.name.toLowerCase().includes(query) ||
+          persona.role.toLowerCase().includes(query) ||
+          persona.description.toLowerCase().includes(query) ||
+          persona.background?.toLowerCase().includes(query);
+          
+        const matchesExpertise = !expertise ||
+          persona.expertise.some(skill => skill.toLowerCase().includes(expertise));
+          
+        return matchesQuery && matchesExpertise;
+      });
+      
+      setPersonas(filtered);
     } finally {
       setLoading(false);
     }
@@ -316,42 +429,9 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
 
               {/* Persona Description */}
               <div className="text-sm text-slate-700 dark:text-slate-300 mb-4 leading-relaxed">
-                {persona.background}
+                {persona.background || persona.description}
               </div>
               
-              {/* Traits Section */}
-              {persona.traits && persona.traits.length > 0 && (
-                <div className="mb-4 w-full">
-                  <div className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2 uppercase tracking-wide">
-                    Key Traits
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {persona.traits.slice(0, 4).map((trait, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center space-x-2 px-3 py-1 bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-full border border-blue-200 dark:border-blue-800"
-                      >
-                        <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
-                          {trait.name}
-                        </span>
-                        <div className="flex space-x-0.5">
-                          {[...Array(5)].map((_, i) => (
-                            <div
-                              key={i}
-                              className={`w-1.5 h-1.5 rounded-full ${
-                                i < Math.round(trait.strength / 2)
-                                  ? 'bg-blue-500'
-                                  : 'bg-blue-200 dark:bg-blue-800'
-                              }`}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {/* Expertise Section */}
               {persona.expertise && persona.expertise.length > 0 && (
                 <div className="w-full">
