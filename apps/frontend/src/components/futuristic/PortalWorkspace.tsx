@@ -22,7 +22,7 @@ import { PuzzlePieceIcon } from '@heroicons/react/24/outline';
 
 interface PortalInstance {
   id: string;
-  type: 'discussion' | 'discussion-log' | 'agents' | 'intelligence' | 'settings' | 'chat' | 'spawner' | 'monitor' | 'agent-settings' | 'provider-settings' | 'system-config' | 'agent-manager' | 'tools' | 'security' | 'capabilities' | 'events' | 'operations' | 'intelligence-panel' | 'insights' | 'knowledge';
+  type: 'agent-hub' | 'discussion-hub' | 'intelligence-hub' | 'system-hub' | 'chat' | 'knowledge' | 'monitoring-hub' | 'tools';
   title: string;
   component: React.ComponentType<any>;
   position: { x: number; y: number };
@@ -40,49 +40,65 @@ interface ViewportSize {
 }
 
 const PORTAL_CONFIGS = {
-  discussion: {
-    title: 'Discussion Controls',
-    component: DiscussionControlsPortal,
+  'agent-hub': {
+    title: 'Agent Hub',
+    component: (props: any) => <AgentManagerPortal {...props} mode="hub" defaultView="grid" />,
     defaultSize: { 
-      desktop: { width: 450, height: 600 },
-      tablet: { width: 400, height: 550 },
-      mobile: { width: 350, height: 500 }
+      desktop: { width: 900, height: 750 },
+      tablet: { width: 750, height: 700 },
+      mobile: { width: 500, height: 650 }
     },
-    type: 'communication' as const,
-    icon: MessageSquare
+    type: 'agent' as const,
+    icon: Bot,
+    description: 'Unified agent management, spawning, monitoring, and settings'
   },
-  'discussion-log': {
-    title: 'Discussion Log',
-    component: DiscussionLogPortal,
-    defaultSize: { 
-      desktop: { width: 650, height: 700 },
-      tablet: { width: 580, height: 650 },
-      mobile: { width: 380, height: 600 }
-    },
-    type: 'communication' as const,
-    icon: Activity
-  },
-  agents: {
-    title: 'Agent Selector',
-    component: (props: any) => <AgentManagerPortal {...props} mode="spawner" defaultView="grid" />,
+  'discussion-hub': {
+    title: 'Discussion Hub',
+    component: (props: any) => <DiscussionControlsPortal {...props} showLog={true} />,
     defaultSize: { 
       desktop: { width: 800, height: 700 },
       tablet: { width: 700, height: 650 },
-      mobile: { width: 500, height: 600 }
+      mobile: { width: 400, height: 600 }
     },
-    type: 'agent' as const,
-    icon: Users
+    type: 'communication' as const,
+    icon: MessageSquare,
+    description: 'Discussion controls and conversation log in one interface'
   },
-  intelligence: {
-    title: 'Intelligence Panel',
-    component: IntelligencePanelPortal,
+  'intelligence-hub': {
+    title: 'Intelligence Hub',
+    component: (props: any) => <IntelligencePanelPortal {...props} mode="insights" />,
     defaultSize: { 
-      desktop: { width: 450, height: 550 },
-      tablet: { width: 400, height: 500 },
-      mobile: { width: 350, height: 450 }
+      desktop: { width: 650, height: 650 },
+      tablet: { width: 580, height: 600 },
+      mobile: { width: 400, height: 550 }
     },
     type: 'analysis' as const,
-    icon: Brain
+    icon: Brain,
+    description: 'AI intelligence analysis and insights dashboard'
+  },
+  'system-hub': {
+    title: 'System Hub',
+    component: (props: any) => <SystemConfigPortal {...props} showProviders={true} showSecurity={true} />,
+    defaultSize: { 
+      desktop: { width: 850, height: 750 },
+      tablet: { width: 750, height: 700 },
+      mobile: { width: 500, height: 650 }
+    },
+    type: 'tool' as const,
+    icon: Settings,
+    description: 'System configuration, providers, and security settings'
+  },
+  'monitoring-hub': {
+    title: 'Monitoring Hub',
+    component: (props: any) => <OperationsMonitor {...props} showEvents={true} showCapabilities={true} />,
+    defaultSize: { 
+      desktop: { width: 800, height: 700 },
+      tablet: { width: 700, height: 650 },
+      mobile: { width: 450, height: 600 }
+    },
+    type: 'analysis' as const,
+    icon: Monitor,
+    description: 'Operations monitoring, events, and capability registry'
   },
   chat: {
     title: 'Agent Chat',
@@ -93,161 +109,8 @@ const PORTAL_CONFIGS = {
       mobile: { width: 380, height: 600 }
     },
     type: 'communication' as const,
-    icon: MessageCircle
-  },
-  settings: {
-    title: 'Settings',
-    component: SettingsPortal,
-    defaultSize: { 
-      desktop: { width: 600, height: 650 },
-      tablet: { width: 550, height: 600 },
-      mobile: { width: 400, height: 550 }
-    },
-    type: 'tool' as const,
-    icon: Settings
-  },
-  spawner: {
-    title: 'Agent Spawner',
-    component: (props: any) => <AgentManagerPortal {...props} mode="spawner" defaultView="grid" />,
-    defaultSize: { 
-      desktop: { width: 800, height: 700 },
-      tablet: { width: 700, height: 650 },
-      mobile: { width: 500, height: 600 }
-    },
-    type: 'agent' as const,
-    icon: Zap
-  },
-  monitor: {
-    title: 'Agent Monitor',
-    component: (props: any) => <AgentManagerPortal {...props} mode="monitor" defaultView="list" />,
-    defaultSize: { 
-      desktop: { width: 800, height: 700 },
-      tablet: { width: 700, height: 650 },
-      mobile: { width: 500, height: 600 }
-    },
-    type: 'analysis' as const,
-    icon: Monitor
-  },
-  'agent-settings': {
-    title: 'Agent Settings',
-    component: (props: any) => <AgentManagerPortal {...props} mode="manager" defaultView="settings" />,
-    defaultSize: { 
-      desktop: { width: 800, height: 700 },
-      tablet: { width: 700, height: 650 },
-      mobile: { width: 500, height: 600 }
-    },
-    type: 'tool' as const,
-    icon: Bot
-  },
-  'provider-settings': {
-    title: 'Provider Settings',
-    component: ProviderSettingsPortal,
-    defaultSize: { 
-      desktop: { width: 700, height: 750 },
-      tablet: { width: 600, height: 700 },
-      mobile: { width: 450, height: 650 }
-    },
-    type: 'tool' as const,
-    icon: Server
-  },
-  'system-config': {
-    title: 'System Config',
-    component: SystemConfigPortal,
-    defaultSize: { 
-      desktop: { width: 600, height: 700 },
-      tablet: { width: 550, height: 650 },
-      mobile: { width: 400, height: 600 }
-    },
-    type: 'tool' as const,
-    icon: Database
-  },
-  'agent-manager': {
-    title: 'Agent Manager',
-    component: (props: any) => <AgentManagerPortal {...props} mode="manager" defaultView="grid" />,
-    defaultSize: { 
-      desktop: { width: 800, height: 700 },
-      tablet: { width: 700, height: 650 },
-      mobile: { width: 500, height: 600 }
-    },
-    type: 'agent' as const,
-    icon: Bot
-  },
-  tools: {
-    title: 'Tools Panel',
-    component: ToolsPanel,
-    defaultSize: { 
-      desktop: { width: 700, height: 650 },
-      tablet: { width: 600, height: 600 },
-      mobile: { width: 450, height: 550 }
-    },
-    type: 'tool' as const,
-    icon: Wrench
-  },
-  security: {
-    title: 'Security Gateway',
-    component: SecurityGateway,
-    defaultSize: { 
-      desktop: { width: 800, height: 700 },
-      tablet: { width: 700, height: 650 },
-      mobile: { width: 500, height: 600 }
-    },
-    type: 'tool' as const,
-    icon: Shield
-  },
-  capabilities: {
-    title: 'Capability Registry',
-    component: CapabilityRegistry,
-    defaultSize: { 
-      desktop: { width: 750, height: 680 },
-      tablet: { width: 650, height: 630 },
-      mobile: { width: 480, height: 580 }
-    },
-    type: 'analysis' as const,
-    icon: PuzzlePieceIcon
-  },
-  events: {
-    title: 'Event Stream Monitor',
-    component: EventStreamMonitor,
-    defaultSize: { 
-      desktop: { width: 600, height: 650 },
-      tablet: { width: 550, height: 600 },
-      mobile: { width: 400, height: 550 }
-    },
-    type: 'analysis' as const,
-    icon: Radio
-  },
-  operations: {
-    title: 'Operations Monitor',
-    component: OperationsMonitor,
-    defaultSize: { 
-      desktop: { width: 650, height: 700 },
-      tablet: { width: 580, height: 650 },
-      mobile: { width: 430, height: 600 }
-    },
-    type: 'analysis' as const,
-    icon: BarChart3
-  },
-  'intelligence-panel': {
-    title: 'Intelligence Panel',
-    component: IntelligencePanelPortal,
-    defaultSize: { 
-      desktop: { width: 500, height: 600 },
-      tablet: { width: 450, height: 550 },
-      mobile: { width: 380, height: 500 }
-    },
-    type: 'analysis' as const,
-    icon: Brain
-  },
-  insights: {
-    title: 'Insights Panel',
-    component: InsightsPanel,
-    defaultSize: { 
-      desktop: { width: 550, height: 620 },
-      tablet: { width: 480, height: 570 },
-      mobile: { width: 400, height: 520 }
-    },
-    type: 'analysis' as const,
-    icon: Eye
+    icon: MessageCircle,
+    description: 'Direct chat interface with agents'
   },
   knowledge: {
     title: 'Knowledge Graph',
@@ -258,7 +121,54 @@ const PORTAL_CONFIGS = {
       mobile: { width: 500, height: 650 }
     },
     type: 'analysis' as const,
-    icon: BookOpen
+    icon: BookOpen,
+    description: 'Knowledge graph visualization and management'
+  },
+  tools: {
+    title: 'Tools Panel',
+    component: ToolsPanel,
+    defaultSize: { 
+      desktop: { width: 700, height: 650 },
+      tablet: { width: 600, height: 600 },
+      mobile: { width: 450, height: 550 }
+    },
+    type: 'tool' as const,
+    icon: Wrench,
+    description: 'Available tools and utilities'
+  }
+};
+
+// Portal type groups for better organization
+const PORTAL_GROUPS = {
+  core: {
+    title: 'Core Systems',
+    portals: ['agent-hub', 'discussion-hub', 'chat'],
+    colorClasses: {
+      text: 'text-blue-400',
+      bg: 'from-blue-500/20 to-blue-600/20',
+      border: 'border-blue-500/50',
+      accent: 'bg-blue-500'
+    }
+  },
+  intelligence: {
+    title: 'Intelligence & Analysis',
+    portals: ['intelligence-hub', 'knowledge', 'monitoring-hub'],
+    colorClasses: {
+      text: 'text-purple-400',
+      bg: 'from-purple-500/20 to-purple-600/20',
+      border: 'border-purple-500/50',
+      accent: 'bg-purple-500'
+    }
+  },
+  system: {
+    title: 'System & Tools',
+    portals: ['system-hub', 'tools'],
+    colorClasses: {
+      text: 'text-green-400',
+      bg: 'from-green-500/20 to-green-600/20',
+      border: 'border-green-500/50',
+      accent: 'bg-green-500'
+    }
   }
 };
 
@@ -555,54 +465,66 @@ export const PortalWorkspace: React.FC = () => {
           animate={{ x: 0, opacity: 1 }}
           className="fixed left-6 top-1/2 -translate-y-1/2 z-50"
         >
-          <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-4 space-y-3">
+          <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-4 space-y-4">
             <div className="text-white text-sm font-semibold mb-4 flex items-center gap-2">
-             
+              <Layout className="w-4 h-4" />
+              Portal Hub
               <div className={`w-2 h-2 rounded-full ${systemStatus === 'online' ? 'bg-green-400 animate-pulse' : systemStatus === 'degraded' ? 'bg-yellow-400' : 'bg-red-400'}`} />
             </div>
             
-            {Object.entries(PORTAL_CONFIGS).map(([key, config]) => {
-              const isActive = portals.some(p => p.type === key);
-              const Icon = config.icon;
-              
-              return (
-                <motion.button
-                  key={key}
-                  onClick={() => togglePortal(key as keyof typeof PORTAL_CONFIGS)}
-                  className={`
-                    w-12 h-12 rounded-xl border transition-all duration-300 flex items-center justify-center relative
-                    ${isActive 
-                      ? 'bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border-blue-500/50 text-blue-400' 
-                      : 'bg-slate-800/50 border-slate-700/50 text-slate-400 hover:text-white hover:border-slate-600/50'
-                    }
-                  `}
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.95 }}
-                  title={config.title}
-                >
-                  <Icon className="w-5 h-5" />
-                  {isActive && (
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full"
-                    />
-                  )}
-                </motion.button>
-              );
-            })}
+            {Object.entries(PORTAL_GROUPS).map(([groupKey, group]) => (
+              <div key={groupKey} className="space-y-2">
+                <div className={`text-xs font-medium ${group.colorClasses.text} uppercase tracking-wider px-2`}>
+                  {group.title}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {group.portals.map(portalKey => {
+                    const config = PORTAL_CONFIGS[portalKey as keyof typeof PORTAL_CONFIGS];
+                    const isActive = portals.some(p => p.type === portalKey);
+                    const Icon = config.icon;
+                    
+                    return (
+                      <motion.button
+                        key={portalKey}
+                        onClick={() => togglePortal(portalKey as keyof typeof PORTAL_CONFIGS)}
+                        className={`
+                          w-12 h-12 rounded-xl border transition-all duration-300 flex items-center justify-center relative
+                          ${isActive 
+                            ? `bg-gradient-to-br ${group.colorClasses.bg} ${group.colorClasses.border} ${group.colorClasses.text}` 
+                            : 'bg-slate-800/50 border-slate-700/50 text-slate-400 hover:text-white hover:border-slate-600/50'
+                          }
+                        `}
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.95 }}
+                        title={`${config.title}\n${config.description}`}
+                      >
+                        <Icon className="w-4 h-4" />
+                        {isActive && (
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            className={`absolute -top-1 -right-1 w-3 h-3 ${group.colorClasses.accent} rounded-full`}
+                          />
+                        )}
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
             
             <div className="border-t border-slate-700/50 pt-3">
               <motion.button
                 onClick={() => {
                   setPortals([]);
                 }}
-                className="w-12 h-12 rounded-xl bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500/30 transition-all duration-300 flex items-center justify-center"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-                title="Close All"
+                className="w-full h-10 rounded-xl bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500/30 transition-all duration-300 flex items-center justify-center gap-2"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                title="Close All Portals"
               >
-                <Plus className="w-5 h-5 rotate-45" />
+                <Plus className="w-4 h-4 rotate-45" />
+                <span className="text-xs font-medium">Close All</span>
               </motion.button>
             </div>
           </div>
@@ -620,43 +542,54 @@ export const PortalWorkspace: React.FC = () => {
           >
             <div className="text-white text-sm font-semibold mb-4 flex items-center gap-2">
               <Layout className="w-4 h-4" />
-              Portal Controls
+              Portal Hub
               <div className={`w-2 h-2 rounded-full ${systemStatus === 'online' ? 'bg-green-400 animate-pulse' : systemStatus === 'degraded' ? 'bg-yellow-400' : 'bg-red-400'}`} />
             </div>
             
-            <div className="grid grid-cols-2 gap-3">
-              {Object.entries(PORTAL_CONFIGS).map(([key, config]) => {
-                const isActive = portals.some(p => p.type === key);
-                const Icon = config.icon;
-                
-                return (
-                  <motion.button
-                    key={key}
-                    onClick={() => togglePortal(key as keyof typeof PORTAL_CONFIGS)}
-                    className={`
-                      flex items-center gap-3 p-3 rounded-xl border transition-all duration-300 relative
-                      ${isActive 
-                        ? 'bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border-blue-500/50 text-blue-400' 
-                        : 'bg-slate-800/50 border-slate-700/50 text-slate-400'
-                      }
-                    `}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <Icon className="w-5 h-5 flex-shrink-0" />
-                    <div className="text-left min-w-0">
-                      <div className="text-sm font-medium truncate">{config.title}</div>
-                    </div>
-                    {isActive && (
-                      <motion.div
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"
-                      />
-                    )}
-                  </motion.button>
-                );
-              })}
+            <div className="space-y-4">
+              {Object.entries(PORTAL_GROUPS).map(([groupKey, group]) => (
+                <div key={groupKey} className="space-y-2">
+                  <div className={`text-xs font-medium ${group.colorClasses.text} uppercase tracking-wider px-2`}>
+                    {group.title}
+                  </div>
+                  <div className="space-y-2">
+                    {group.portals.map(portalKey => {
+                      const config = PORTAL_CONFIGS[portalKey as keyof typeof PORTAL_CONFIGS];
+                      const isActive = portals.some(p => p.type === portalKey);
+                      const Icon = config.icon;
+                      
+                      return (
+                        <motion.button
+                          key={portalKey}
+                          onClick={() => togglePortal(portalKey as keyof typeof PORTAL_CONFIGS)}
+                          className={`
+                            flex items-center gap-3 p-3 rounded-xl border transition-all duration-300 relative w-full
+                            ${isActive 
+                              ? `bg-gradient-to-br ${group.colorClasses.bg} ${group.colorClasses.border} ${group.colorClasses.text}` 
+                              : 'bg-slate-800/50 border-slate-700/50 text-slate-400'
+                            }
+                          `}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                        >
+                          <Icon className="w-5 h-5 flex-shrink-0" />
+                          <div className="text-left min-w-0 flex-1">
+                            <div className="text-sm font-medium truncate">{config.title}</div>
+                            <div className="text-xs opacity-70 truncate">{config.description}</div>
+                          </div>
+                          {isActive && (
+                            <motion.div
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              className={`w-2 h-2 ${group.colorClasses.accent} rounded-full flex-shrink-0`}
+                            />
+                          )}
+                        </motion.button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
             
             {portals.length > 0 && (
@@ -738,10 +671,10 @@ export const PortalWorkspace: React.FC = () => {
               viewport={viewport}
             >
               <PortalComponent 
-                mode={portal.type === 'spawner' ? 'spawner' : portal.type === 'monitor' ? 'monitor' : undefined}
+                mode={portal.type === 'intelligence-hub' ? 'insights' : portal.type === 'monitoring-hub' ? 'monitor' : undefined}
                 viewport={viewport}
-                showThinkTokens={portal.type === 'discussion-log' ? showThinkTokens : undefined}
-                onThinkTokensToggle={portal.type === 'discussion' || portal.type === 'discussion-log' ? handleThinkTokensToggle : undefined}
+                showThinkTokens={portal.type === 'discussion-hub' ? showThinkTokens : undefined}
+                onThinkTokensToggle={portal.type === 'discussion-hub' ? handleThinkTokensToggle : undefined}
               />
             </Portal>
           );

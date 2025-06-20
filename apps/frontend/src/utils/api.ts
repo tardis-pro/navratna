@@ -79,6 +79,14 @@ import type {
   ArtifactGenerationResponse,
   ProviderStats,
   LLMUsage,
+  // Knowledge Graph types
+  KnowledgeItem,
+  KnowledgeSearchRequest,
+  KnowledgeSearchResponse,
+  KnowledgeIngestRequest,
+  KnowledgeIngestResponse,
+  KnowledgeType,
+  SourceType,
   // User types
   User,
   CreateUserRequest,
@@ -1740,6 +1748,110 @@ export class UAIPAPIClient {
       return this.request(`${API_ROUTES.USER_LLM}/agent-response`, {
         method: 'POST',
         body: JSON.stringify(request),
+      });
+    }
+  };
+
+  // Knowledge Graph API methods
+  knowledge = {
+    uploadKnowledge: async (items: KnowledgeIngestRequest[]): Promise<APIResponse<KnowledgeIngestResponse>> => {
+      return this.request(`${API_ROUTES.KNOWLEDGE}`, {
+        method: 'POST',
+        body: JSON.stringify({ items }),
+        headers: {
+          ...this.getAuthHeaders(),
+        },
+      });
+    },
+
+    searchKnowledge: async (query: KnowledgeSearchRequest): Promise<APIResponse<KnowledgeSearchResponse>> => {
+      const params = new URLSearchParams();
+      params.append('query', query.query);
+      if (query.filters?.tags) {
+        query.filters.tags.forEach(tag => params.append('tags', tag));
+      }
+      if (query.filters?.types) {
+        query.filters.types.forEach(type => params.append('types', type));
+      }
+      if (query.filters?.sourceTypes) {
+        query.filters.sourceTypes.forEach(sourceType => params.append('sourceTypes', sourceType));
+      }
+      if (query.options?.limit) {
+        params.append('limit', query.options.limit.toString());
+      }
+      if (query.options?.offset) {
+        params.append('offset', query.options.offset.toString());
+      }
+
+      return this.request(`${API_ROUTES.KNOWLEDGE}/search?${params.toString()}`, {
+        method: 'GET',
+        headers: {
+          ...this.getAuthHeaders(),
+        },
+      });
+    },
+
+    updateKnowledge: async (itemId: string, updates: Partial<KnowledgeItem>): Promise<APIResponse<KnowledgeItem>> => {
+      return this.request(`${API_ROUTES.KNOWLEDGE}/${itemId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(updates),
+        headers: {
+          ...this.getAuthHeaders(),
+        },
+      });
+    },
+
+    deleteKnowledge: async (itemId: string): Promise<APIResponse<void>> => {
+      return this.request(`${API_ROUTES.KNOWLEDGE}/${itemId}`, {
+        method: 'DELETE',
+        headers: {
+          ...this.getAuthHeaders(),
+        },
+      });
+    },
+
+    getKnowledgeStats: async (): Promise<APIResponse<{
+      totalItems: number;
+      itemsByType: Record<KnowledgeType, number>;
+      itemsBySource: Record<SourceType, number>;
+      recentActivity: Array<{
+        date: string;
+        uploads: number;
+        searches: number;
+      }>;
+    }>> => {
+      return this.request(`${API_ROUTES.KNOWLEDGE}/stats`, {
+        method: 'GET',
+        headers: {
+          ...this.getAuthHeaders(),
+        },
+      });
+    },
+
+    getRelatedKnowledge: async (itemId: string): Promise<APIResponse<KnowledgeItem[]>> => {
+      return this.request(`${API_ROUTES.KNOWLEDGE}/${itemId}/related`, {
+        method: 'GET',
+        headers: {
+          ...this.getAuthHeaders(),
+        },
+      });
+    },
+
+    getKnowledgeByTag: async (tag: string): Promise<APIResponse<KnowledgeItem[]>> => {
+      return this.request(`${API_ROUTES.KNOWLEDGE}/tags/${encodeURIComponent(tag)}`, {
+        method: 'GET',
+        headers: {
+          ...this.getAuthHeaders(),
+        },
+      });
+    },
+
+    getKnowledgeItem: async (itemId: string): Promise<APIResponse<KnowledgeItem>> => {
+      return this.request(`${API_ROUTES.KNOWLEDGE}/${itemId}`, {
+        method: 'GET',
+        headers: {
+          ...this.getAuthHeaders(),
+        },
       });
     }
   };

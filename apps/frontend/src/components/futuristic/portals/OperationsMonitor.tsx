@@ -101,7 +101,8 @@ export const OperationsMonitor: React.FC = () => {
 
   const getPriorityColor = (priority: OperationPriority | string) => {
     switch (priority) {
-      case OperationPriority.CRITICAL:
+      case OperationPriority.URGENT:
+      case 'urgent': 
       case 'critical': 
         return 'bg-red-500';
       case OperationPriority.HIGH:

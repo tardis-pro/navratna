@@ -13,29 +13,30 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useKnowledge } from '@/contexts/KnowledgeContext';
-import type { KnowledgeItem, KnowledgeType, SourceType, KnowledgeIngestRequest } from '@uaip/types';
+import type { KnowledgeItem, KnowledgeIngestRequest } from '@uaip/types';
+import { KnowledgeType, SourceType } from '@uaip/types';
 
 interface KnowledgePortalProps {
   className?: string;
 }
 
 const KNOWLEDGE_TYPES: { value: KnowledgeType; label: string; icon: React.ReactNode }[] = [
-  { value: 'FACTUAL', label: 'Factual', icon: <FileText className="w-4 h-4" /> },
-  { value: 'PROCEDURAL', label: 'Procedural', icon: <Brain className="w-4 h-4" /> },
-  { value: 'CONCEPTUAL', label: 'Conceptual', icon: <Database className="w-4 h-4" /> },
-  { value: 'EXPERIENTIAL', label: 'Experiential', icon: <TrendingUp className="w-4 h-4" /> },
-  { value: 'EPISODIC', label: 'Episodic', icon: <Link className="w-4 h-4" /> },
-  { value: 'SEMANTIC', label: 'Semantic', icon: <Tag className="w-4 h-4" /> },
+  { value: KnowledgeType.FACTUAL, label: 'Factual', icon: <FileText className="w-4 h-4" /> },
+  { value: KnowledgeType.PROCEDURAL, label: 'Procedural', icon: <Brain className="w-4 h-4" /> },
+  { value: KnowledgeType.CONCEPTUAL, label: 'Conceptual', icon: <Database className="w-4 h-4" /> },
+  { value: KnowledgeType.EXPERIENTIAL, label: 'Experiential', icon: <TrendingUp className="w-4 h-4" /> },
+  { value: KnowledgeType.EPISODIC, label: 'Episodic', icon: <Link className="w-4 h-4" /> },
+  { value: KnowledgeType.SEMANTIC, label: 'Semantic', icon: <Tag className="w-4 h-4" /> },
 ];
 
 const SOURCE_TYPES: { value: SourceType; label: string }[] = [
-  { value: 'USER_INPUT', label: 'User Input' },
-  { value: 'FILE_SYSTEM', label: 'File System' },
-  { value: 'GIT_REPOSITORY', label: 'Git Repository' },
-  { value: 'AGENT_INTERACTION', label: 'Agent Interaction' },
-  { value: 'DISCUSSION', label: 'Discussion' },
-  { value: 'OPERATION', label: 'Operation' },
-  { value: 'EXTERNAL_API', label: 'External API' },
+  { value: SourceType.USER_INPUT, label: 'User Input' },
+  { value: SourceType.FILE_SYSTEM, label: 'File System' },
+  { value: SourceType.GIT_REPOSITORY, label: 'Git Repository' },
+  { value: SourceType.AGENT_INTERACTION, label: 'Agent Interaction' },
+  { value: SourceType.DISCUSSION, label: 'Discussion' },
+  { value: SourceType.OPERATION, label: 'Operation' },
+  { value: SourceType.EXTERNAL_API, label: 'External API' },
 ];
 
 export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) => {
@@ -70,8 +71,8 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
   const [showItemDialog, setShowItemDialog] = useState(false);
   const [uploadContent, setUploadContent] = useState('');
   const [uploadTags, setUploadTags] = useState('');
-  const [uploadType, setUploadType] = useState<KnowledgeType>('FACTUAL');
-  const [uploadSource, setUploadSource] = useState<SourceType>('USER_INPUT');
+  const [uploadType, setUploadType] = useState<KnowledgeType>(KnowledgeType.FACTUAL);
+  const [uploadSource, setUploadSource] = useState<SourceType>(SourceType.USER_INPUT);
   const [relatedItems, setRelatedItems] = useState<KnowledgeItem[]>([]);
 
   // Load stats on mount

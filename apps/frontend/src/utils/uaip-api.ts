@@ -1056,48 +1056,50 @@ export const uaipAPI = {
     }
   },
 
-  // Approval System
-  approval: {
-    async approve(executionId: string, approvalData: { approverId: string }): Promise<void> {
-      const client = getAPIClient();
-      await client.post(buildAPIURL(API_ROUTES.APPROVALS.APPROVE(executionId)), approvalData);
-    },
 
-    async reject(executionId: string, rejectionData: { approverId: string; reason: string }): Promise<void> {
-      const client = getAPIClient();
-      await client.post(buildAPIURL(API_ROUTES.APPROVALS.REJECT(executionId)), rejectionData);
-    },
-
-    async getPending(): Promise<any[]> {
-      const client = getAPIClient();
-      const response = await client.get(buildAPIURL(API_ROUTES.APPROVALS.LIST));
-      return response.data;
-    }
-  },
 
   // Knowledge Graph System
   knowledge: {
     async uploadKnowledge(items: KnowledgeIngestRequest[]): Promise<KnowledgeIngestResponse> {
       const client = getAPIClient();
-      const response = await client.post('/v1/knowledge', { items });
-      return response.data;
+      const response = await client.knowledge.uploadKnowledge(items);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to upload knowledge');
+      }
+      
+      return response.data!;
     },
 
     async searchKnowledge(query: KnowledgeSearchRequest): Promise<KnowledgeSearchResponse> {
       const client = getAPIClient();
-      const response = await client.get('/v1/knowledge/search', { params: query });
-      return response.data;
+      const response = await client.knowledge.searchKnowledge(query);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to search knowledge');
+      }
+      
+      return response.data!;
     },
 
     async updateKnowledge(itemId: string, updates: Partial<KnowledgeItem>): Promise<KnowledgeItem> {
       const client = getAPIClient();
-      const response = await client.patch(`/v1/knowledge/${itemId}`, updates);
-      return response.data;
+      const response = await client.knowledge.updateKnowledge(itemId, updates);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to update knowledge');
+      }
+      
+      return response.data!;
     },
 
     async deleteKnowledge(itemId: string): Promise<void> {
       const client = getAPIClient();
-      await client.delete(`/v1/knowledge/${itemId}`);
+      const response = await client.knowledge.deleteKnowledge(itemId);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to delete knowledge');
+      }
     },
 
     async getKnowledgeStats(): Promise<{
@@ -1111,26 +1113,46 @@ export const uaipAPI = {
       }>;
     }> {
       const client = getAPIClient();
-      const response = await client.get('/v1/knowledge/stats');
-      return response.data;
+      const response = await client.knowledge.getKnowledgeStats();
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to get knowledge stats');
+      }
+      
+      return response.data!;
     },
 
     async getRelatedKnowledge(itemId: string): Promise<KnowledgeItem[]> {
       const client = getAPIClient();
-      const response = await client.get(`/v1/knowledge/${itemId}/related`);
-      return response.data;
+      const response = await client.knowledge.getRelatedKnowledge(itemId);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to get related knowledge');
+      }
+      
+      return response.data!;
     },
 
     async getKnowledgeByTag(tag: string): Promise<KnowledgeItem[]> {
       const client = getAPIClient();
-      const response = await client.get(`/v1/knowledge/tags/${tag}`);
-      return response.data;
+      const response = await client.knowledge.getKnowledgeByTag(tag);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to get knowledge by tag');
+      }
+      
+      return response.data!;
     },
 
     async getKnowledgeItem(itemId: string): Promise<KnowledgeItem> {
       const client = getAPIClient();
-      const response = await client.get(`/v1/knowledge/${itemId}`);
-      return response.data;
+      const response = await client.knowledge.getKnowledgeItem(itemId);
+      
+      if (!response.success) {
+        throw new Error(response.error?.message || 'Failed to get knowledge item');
+      }
+      
+      return response.data!;
     }
   }
 };

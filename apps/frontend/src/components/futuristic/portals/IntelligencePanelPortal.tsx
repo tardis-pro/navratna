@@ -208,14 +208,17 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
     }
   }, [messages, agentList, isActive, discussionId, participantCount]);
 
-  // Generate predictive insights
+  // Generate predictive insights (stable, deterministic predictions)
   const generatePredictions = useCallback(async () => {
+    const improvementPercent = Math.round(15 + (agentList.length * 5) + (messageCount * 0.5));
+    const insightCount = Math.round(2 + (participantCount * 0.5));
+    
     const predictions: PredictiveInsight[] = [
       {
         id: 'pred-1',
         type: 'performance',
-        prediction: `Agent performance will improve by ${Math.round(15 + Math.random() * 25)}% in next hour`,
-        confidence: 0.78 + Math.random() * 0.15,
+        prediction: `Agent performance will improve by ${improvementPercent}% in next hour`,
+        confidence: Math.min(0.78 + (agentList.length * 0.03), 0.95),
         timeframe: '1 hour',
         impact: 'medium',
         recommendation: 'Continue current conversation patterns for optimal learning',
@@ -224,7 +227,7 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
       {
         id: 'pred-2',
         type: 'behavior',
-        prediction: `${Math.round(2 + Math.random() * 3)} new insights likely to emerge from current discussion`,
+        prediction: `${insightCount} new insights likely to emerge from current discussion`,
         confidence: 0.82,
         timeframe: '15 minutes',
         impact: 'high',
@@ -247,47 +250,36 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
     }
 
     setPredictiveInsights(predictions);
-  }, [agentList]);
+  }, [agentList, messageCount, participantCount]);
 
-  // Calculate advanced intelligence metrics
+  // Calculate advanced intelligence metrics (stable, non-flickering)
   const calculateIntelligenceMetrics = useCallback(() => {
+    // Use deterministic calculations based on actual data, not random numbers
     const baseMetrics = {
       cognitiveLoad: Math.min((messageCount * 0.1) + (agentList.length * 0.2), 10),
       learningRate: Math.min((messageCount * 0.05) + (participantCount * 0.1), 10),
       adaptabilityScore: Math.min(agentList.length * 1.2 + (isActive ? 2 : 0), 10),
-      creativityIndex: Math.min((messageCount * 0.08) + Math.random() * 2, 10),
-      reasoningQuality: Math.min(7 + (agentList.length * 0.5) + Math.random() * 2, 10),
-      memoryEfficiency: Math.min(8 + Math.random() * 2, 10),
-      patternRecognition: Math.min(6 + (messageCount * 0.03) + Math.random() * 2, 10),
-      contextualUnderstanding: Math.min(7.5 + (participantCount * 0.3) + Math.random() * 1.5, 10)
+      creativityIndex: Math.min((messageCount * 0.08) + (agentList.length * 0.3), 10),
+      reasoningQuality: Math.min(7 + (agentList.length * 0.5) + (messageCount * 0.02), 10),
+      memoryEfficiency: Math.min(8 + (participantCount * 0.2), 10),
+      patternRecognition: Math.min(6 + (messageCount * 0.03) + (agentList.length * 0.4), 10),
+      contextualUnderstanding: Math.min(7.5 + (participantCount * 0.3) + (isActive ? 0.5 : 0), 10)
     };
 
     setIntelligenceMetrics(baseMetrics);
   }, [messageCount, agentList.length, participantCount, isActive]);
 
-  useEffect(() => {
-    // Generate context analyses from real messages
-    const realContextAnalyses: ContextAnalysis[] = messages?.slice(-3).map((message, index) => ({
-      conversationId: discussionId || `conv-${index}`,
-      intent: message.type === 'response' ? 'Agent Response' : 'User Input',
-      confidence: 0.8 + Math.random() * 0.2, // Simulate confidence based on message
-      complexity: Math.min(message.content.length / 50, 10), // Complexity based on message length
-      entities: message.content.split(' ').filter(word => word.length > 6).slice(0, 3), // Extract long words as entities
-      sentiment: message.content.includes('error') || message.content.includes('problem') ? 'negative' : 
-                message.content.includes('good') || message.content.includes('success') ? 'positive' : 'neutral',
-      timestamp: message.timestamp
-    })) || [];
+  // Memoize stable decision metrics to prevent flickering
+  const stableDecisionMetrics = useMemo(() => ({
+    totalDecisions: messageCount,
+    successRate: messageCount > 0 ? Math.min(0.85 + (agentList.length * 0.05), 1.0) : 0,
+    averageConfidence: Math.min(0.75 + (participantCount * 0.05) + (messageCount * 0.01), 1.0),
+    processingTime: 150 + (messageCount * 10) + (agentList.length * 20),
+    adaptationRate: participantCount > 0 ? Math.min(participantCount * 0.1 + (agentList.length * 0.05), 1.0) : 0
+  }), [messageCount, agentList.length, participantCount]);
 
-    // Calculate real decision metrics
-    const realDecisionMetrics: DecisionMetrics = {
-      totalDecisions: messageCount,
-      successRate: messageCount > 0 ? 0.85 + Math.random() * 0.15 : 0,
-      averageConfidence: 0.75 + Math.random() * 0.25,
-      processingTime: 150 + Math.random() * 200,
-      adaptationRate: participantCount > 0 ? participantCount * 0.1 : 0
-    };
-
-    // Generate insights based on real data
+  // Memoize stable insights to prevent constant regeneration
+  const stableInsights = useMemo(() => {
     const realInsights: CognitiveInsight[] = [];
     
     if (agentList.length > 1) {
@@ -297,7 +289,9 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
         title: 'Multi-Agent Collaboration Pattern',
         description: `${agentList.length} agents are actively collaborating in the discussion`,
         confidence: 0.9,
-        impact: 'high',
+        impact: 'high' as const,
+        priority: 1,
+        actionable: true,
         timestamp: new Date()
       });
     }
@@ -309,7 +303,9 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
         title: 'Discussion Flow Optimization',
         description: `${messageCount} messages exchanged - conversation depth indicates good engagement`,
         confidence: 0.8,
-        impact: 'medium',
+        impact: 'medium' as const,
+        priority: 2,
+        actionable: true,
         timestamp: new Date()
       });
     }
@@ -321,23 +317,29 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
         title: 'Active Intelligence Network',
         description: 'Real-time discussion is generating valuable cognitive insights',
         confidence: 0.95,
-        impact: 'high',
+        impact: 'high' as const,
+        priority: 1,
+        actionable: true,
         timestamp: new Date()
       });
     }
 
-    // setContextAnalyses(realContextAnalyses);
-    setDecisionMetrics(realDecisionMetrics);
-    setCognitiveInsights(realInsights);
+    return realInsights;
+  }, [agentList.length, messageCount, isActive]);
+
+  useEffect(() => {
+    // Update metrics with stable values
+    setDecisionMetrics(stableDecisionMetrics);
+    setCognitiveInsights(stableInsights);
     
     // Calculate intelligence metrics
     calculateIntelligenceMetrics();
     
-    // Generate predictions periodically
+    // Generate predictions only when in predictive mode
     if (analysisMode === 'predictive') {
       generatePredictions();
     }
-  }, [messages, agents, participants, isActive, discussionId, messageCount, participantCount, agentList.length, calculateIntelligenceMetrics, generatePredictions, analysisMode]);
+  }, [stableDecisionMetrics, stableInsights, analysisMode, calculateIntelligenceMetrics, generatePredictions]);
 
   // Auto-refresh and deep analysis
   useEffect(() => {

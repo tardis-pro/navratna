@@ -47,11 +47,20 @@ export interface UIOperation extends Operation {
   progress?: number;
   startTime?: Date;
   endTime?: Date;
+  name?: string;
+  description?: string;
+  actualDuration?: number;
 }
 
 // Frontend-specific capability interface (extends shared Capability with UI properties)
 export interface UICapability extends Capability {
   // UI-specific extensions can be added here
+  lastUsed?: Date;
+  usageCount?: number;
+  agentId?: string;
+  agentName?: string;
+  category?: string;
+  version?: string;
 }
 
 // Frontend-specific approval workflow interface
