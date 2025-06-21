@@ -1,5 +1,8 @@
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { config } from '@uaip/config';
+import { PostgresConnectionOptions } from 'typeorm/driver/postgres/PostgresConnectionOptions.js';
+import { createLogger } from '@uaip/utils';
+import IORedis from 'ioredis';
 
 // Import all entities directly
 import { Agent } from '../entities/agent.entity.js';
@@ -38,11 +41,18 @@ import { MCPToolCallSubscriber } from '../subscribers/MCPToolCallSubscriber.js';
 
 /**
  * TypeORM Configuration for UAIP Backend
- * Centralized database configuration for all services
+ * Clean, centralized database configuration
  */
 
-// All entities array
-const allEntities = [
+// Initialize logger for database operations
+const logger = createLogger({
+  serviceName: 'typeorm-config',
+  environment: process.env.NODE_ENV || 'development',
+  logLevel: process.env.LOG_LEVEL || 'info'
+});
+
+// All entities array for easy management
+export const allEntities = [
   Agent,
   Operation,
   Persona,
@@ -75,231 +85,313 @@ const allEntities = [
   UserLLMProvider,
   IntegrationEventEntity,
 ];
-const syncandReset = process.env.SYNC_AND_RESET === 'true';
-export const createTypeOrmConfig = (entities?: any[], disableCache = false): DataSourceOptions => {
-  const dbConfig = config.database.postgres;
 
-  // Prepare cache configuration conditionally with better error handling
-  let cacheConfig: any = false;
-  if (!disableCache && process.env.NODE_ENV !== 'migration') {
+// All subscribers array
+export const allSubscribers = [
+  MCPServerSubscriber,
+  MCPToolCallSubscriber,
+];
+
+/**
+ * Create base TypeORM configuration
+ */
+function createBaseConfig(): PostgresConnectionOptions {
+  // Parse POSTGRES_URL if provided, otherwise use individual env vars
+  let dbConfig;
+  if (process.env.POSTGRES_URL) {
     try {
-      // Test Redis connection availability before configuring cache
-      const redisConfig = config.redis;
-      if (redisConfig.host && redisConfig.port) {
-        console.log('🔄 Configuring Redis cache with:', {
-          host: redisConfig.host,
-          port: redisConfig.port,
-          db: redisConfig.db || 0,
-          maxRetriesPerRequest: redisConfig.maxRetriesPerRequest || 3,
-          retryDelayOnFailover: redisConfig.retryDelayOnFailover || 100,
-        });
-        
-        cacheConfig = {
-          type: 'redis',
-          options: {
-            host: redisConfig.host,
-            port: redisConfig.port,
-            password: redisConfig.password,
-            db: redisConfig.db || 0,
-            retryDelayOnFailover: redisConfig.retryDelayOnFailover || 100,
-            maxRetriesPerRequest: redisConfig.maxRetriesPerRequest || 3,
-            lazyConnect: true,
-            enableOfflineQueue: redisConfig.enableOfflineQueue ?? false,
-            reconnectOnError: function(err: Error) {
-              console.error('Redis reconnect error:', err.message);
-              const targetError = 'READONLY';
-              if (err.message.includes(targetError)) {
-                return true;
-              }
-              return false;
-            },
-            retryStrategy: function(times: number) {
-              const maxRetryDelay = 2000;
-              const delay = Math.min(times * 50, maxRetryDelay);
-              console.log(`Redis retry attempt ${times}, delay: ${delay}ms`);
-              return delay;
-            }
-          },
-          duration: 30000,
-          ignoreErrors: true,
-        };
-        console.log('✅ Redis cache configured for TypeORM');
-      } else {
-        console.warn('⚠️ Redis configuration incomplete, proceeding without cache. Required fields missing:', {
-          host: !redisConfig.host,
-          port: !redisConfig.port
-        });
-        cacheConfig = false;
-      }
+      const url = new URL(process.env.POSTGRES_URL);
+      dbConfig = {
+        host: url.hostname,
+        port: parseInt(url.port) || 5432,
+        username: url.username,
+        password: url.password,
+        database: url.pathname.slice(1) // Remove leading slash
+      };
     } catch (error) {
-      console.error('❌ Redis cache configuration failed:', error);
-      console.warn('⚠️ Proceeding without cache due to error');
-      cacheConfig = false;
+      logger.warn('Failed to parse POSTGRES_URL, falling back to individual env vars');
+      dbConfig = {
+        host: process.env.POSTGRES_HOST || 'localhost',
+        port: parseInt(process.env.POSTGRES_PORT || '5432'),
+        username: process.env.POSTGRES_USER || 'uaip_user',
+        password: process.env.POSTGRES_PASSWORD || 'uaip_password',
+        database: process.env.POSTGRES_DB || 'uaip'
+      };
     }
+  } else {
+    dbConfig = {
+      host: process.env.POSTGRES_HOST || 'localhost',
+      port: parseInt(process.env.POSTGRES_PORT || '5432'),
+      username: process.env.POSTGRES_USER || 'uaip_user',
+      password: process.env.POSTGRES_PASSWORD || 'uaip_password',
+      database: process.env.POSTGRES_DB || 'uaip'
+    };
   }
 
-  const baseConfig: DataSourceOptions = {
+  return {
     type: 'postgres',
-    host: dbConfig.host,
-    port: dbConfig.port,
-    username: dbConfig.user,
-    password: dbConfig.password,
-    database: dbConfig.database,
-    ssl: dbConfig.ssl ? { rejectUnauthorized: false } : false,
-
-    // Entity configuration - use explicit entity imports
-    entities: entities || allEntities,
-
-    // Subscriber configuration
-    subscribers: [MCPServerSubscriber, MCPToolCallSubscriber],
-
-    // Migration configuration
-    migrations: ['dist/migrations/*.js'],
-    migrationsTableName: 'typeorm_migrations',
-    migrationsRun: false, // Set to true for auto-migration in development
-
-    // Synchronization (NEVER use in production)
-    synchronize: syncandReset,
-
-    // Logging configuration
-    logging: config.logging.enableDetailedLogging ? ['query', 'error', 'warn'] : ['error'],
-    logger: 'advanced-console',
-
-    // Connection pool configuration
+    ...dbConfig,
+    synchronize: process.env.NODE_ENV === 'development' && process.env.TYPEORM_SYNC === 'true',
+    logging: process.env.NODE_ENV === 'development' || process.env.TYPEORM_LOGGING === 'true',
+    entities: allEntities,
+    subscribers: allSubscribers,
+    migrations: ['dist/migrations/**/*.{ts,js}'],
+    migrationsRun: process.env.TYPEORM_MIGRATIONS_RUN === 'true' || process.env.NODE_ENV !== 'development',
+    ssl: process.env.DB_SSL === 'true' || process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    maxQueryExecutionTime: parseInt(process.env.DB_TIMEOUT || '30000'),
     extra: {
-      max: dbConfig.maxConnections,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: config.timeouts.database,
-      statement_timeout: config.timeouts.database,
-      query_timeout: config.timeouts.database,
-    },
-
-    // Cache configuration (conditionally set)
-    cache: cacheConfig,
-
-    // Development features
-    dropSchema: syncandReset,
-
-    // Use default naming strategy for now
-    // namingStrategy: 'snake_case',
+      max: parseInt(process.env.DB_MAX_CONNECTIONS || '20'),
+      connectionTimeoutMillis: parseInt(process.env.DB_TIMEOUT || '30000'),
+    }
   };
-
-  return baseConfig;
-};
-
-// Create the main DataSource instance
-export const AppDataSource = new DataSource(createTypeOrmConfig());
+}
 
 /**
- * Initialize TypeORM connection with retry logic
+ * Create Redis cache configuration if available
  */
-export const initializeDatabase = async (maxRetries = 3): Promise<DataSource> => {
-  let lastError: Error;
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      if (!AppDataSource.isInitialized) {
-        console.log(`🔄 Attempting to initialize TypeORM DataSource (attempt ${attempt}/${maxRetries})`);
-        await AppDataSource.initialize();
-        console.log('✅ TypeORM DataSource initialized successfully');
-      }
-      return AppDataSource;
-    } catch (error) {
-      lastError = error as Error;
-      console.error(`❌ Error initializing TypeORM DataSource (attempt ${attempt}/${maxRetries}):`, error.message);
-
-      if (attempt < maxRetries) {
-        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000); // Exponential backoff, max 10s
-        console.log(`⏳ Retrying in ${delay}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
+async function createCacheConfig(): Promise<any | undefined> {
+  // Skip cache if explicitly disabled or in migration mode
+  if (process.env.TYPEORM_DISABLE_CACHE === 'true' || process.env.NODE_ENV === 'migration') {
+    return undefined;
   }
 
-  throw new Error(`Failed to initialize TypeORM after ${maxRetries} attempts. Last error: ${lastError.message}`);
-};
-
-/**
- * Close TypeORM connection
- */
-export const closeDatabase = async (): Promise<void> => {
   try {
-    if (AppDataSource.isInitialized) {
-      await AppDataSource.destroy();
-      console.log('✅ TypeORM DataSource closed successfully');
+    // Parse REDIS_URL if provided, otherwise use individual env vars
+    let redisConfig;
+    if (process.env.REDIS_URL) {
+      try {
+        const url = new URL(process.env.REDIS_URL);
+        redisConfig = {
+          host: url.hostname,
+          port: parseInt(url.port) || 6379,
+          password: url.password || undefined,
+          db: url.pathname ? parseInt(url.pathname.slice(1)) : 0,
+        };
+      } catch (error) {
+        logger.warn('Failed to parse REDIS_URL, falling back to individual env vars');
+        redisConfig = {
+          host: process.env.REDIS_HOST || 'redis',
+          port: parseInt(process.env.REDIS_PORT || '6379'),
+          password: process.env.REDIS_PASSWORD,
+          db: parseInt(process.env.REDIS_DB || '0'),
+        };
+      }
+    } else {
+      redisConfig = {
+        host: process.env.REDIS_HOST || 'redis',
+        port: parseInt(process.env.REDIS_PORT || '6379'),
+        password: process.env.REDIS_PASSWORD,
+        db: parseInt(process.env.REDIS_DB || '0'),
+      };
     }
+
+    const finalRedisConfig = {
+      ...redisConfig,
+      retryStrategy: (times: number) => Math.min(times * parseInt(process.env.REDIS_RETRY_DELAY || '50'), 2000),
+      maxRetriesPerRequest: parseInt(process.env.REDIS_MAX_RETRIES || '3'),
+      commandTimeout: 5000,
+      lazyConnect: true, // Don't connect immediately
+      enableOfflineQueue: process.env.REDIS_OFFLINE_QUEUE !== 'false',
+    };
+
+    logger.info('Configuring Redis cache', {
+      host: finalRedisConfig.host,
+      port: finalRedisConfig.port,
+      db: finalRedisConfig.db
+    });
+
+    const redis = new IORedis(finalRedisConfig);
+
+    // Test connection
+    await redis.ping();
+    logger.info('Redis cache connection successful');
+
+    return {
+      type: 'ioredis' as const,
+      options: redis,
+      duration: 60000, // 1 minute
+      ignoreErrors: true,
+      alwaysEnabled: true,
+    };
   } catch (error) {
-    console.error('❌ Error closing TypeORM DataSource:', error);
-    throw error;
+    logger.warn('Redis cache unavailable, continuing without cache', { error: error.message });
+    return undefined;
   }
-};
+}
 
 /**
- * Get TypeORM DataSource instance
+ * Create complete TypeORM configuration
  */
-export const getDataSource = (): DataSource => {
-  if (!AppDataSource.isInitialized) {
-    throw new Error('DataSource is not initialized. Call initializeDatabase() first.');
+export async function createTypeOrmConfig(disableCache = false): Promise<DataSourceOptions & PostgresConnectionOptions> {
+  const baseConfig = createBaseConfig();
+  
+  if (disableCache) {
+    return baseConfig;
   }
-  return AppDataSource;
-};
 
-/**
- * Health check for TypeORM connection
- */
-export const checkDatabaseHealth = async (): Promise<{
-  status: 'healthy' | 'unhealthy';
-  details: {
-    connected: boolean;
-    driver: string;
-    database: string;
-    responseTime?: number;
-    cacheEnabled?: boolean;
+  const cacheConfig = await createCacheConfig();
+  
+  return {
+    ...baseConfig,
+    ...(cacheConfig && { cache: cacheConfig }),
   };
-}> => {
-  const startTime = Date.now();
+}
 
-  try {
-    if (!AppDataSource.isInitialized) {
+/**
+ * TypeORM DataSource Manager
+ * Handles connection lifecycle and provides utilities
+ */
+export class TypeOrmDataSourceManager {
+  private static instance: TypeOrmDataSourceManager;
+  private dataSource: DataSource | null = null;
+  private initializationPromise: Promise<DataSource> | null = null;
+
+  private constructor() {}
+
+  static getInstance(): TypeOrmDataSourceManager {
+    if (!TypeOrmDataSourceManager.instance) {
+      TypeOrmDataSourceManager.instance = new TypeOrmDataSourceManager();
+    }
+    return TypeOrmDataSourceManager.instance;
+  }
+
+  /**
+   * Initialize DataSource with retry logic
+   */
+  async initialize(maxRetries = 3, disableCache = false): Promise<DataSource> {
+    if (this.initializationPromise) {
+      return this.initializationPromise;
+    }
+
+    this.initializationPromise = this.performInitialization(maxRetries, disableCache);
+    return this.initializationPromise;
+  }
+
+  private async performInitialization(maxRetries: number, disableCache: boolean): Promise<DataSource> {
+    let lastError: Error;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const config = await createTypeOrmConfig(disableCache);
+        
+        logger.info('Initializing TypeORM DataSource', {
+          attempt: `${attempt}/${maxRetries}`,
+          host: config.host,
+          port: config.port,
+          database: config.database,
+          cacheEnabled: !!config.cache
+        });
+
+        this.dataSource = new DataSource(config);
+        await this.dataSource.initialize();
+        
+        logger.info('TypeORM DataSource initialized successfully');
+        return this.dataSource;
+      } catch (error) {
+        lastError = error as Error;
+        logger.error(`TypeORM initialization failed (attempt ${attempt}/${maxRetries})`, {
+          error: error.message
+        });
+
+        if (attempt < maxRetries) {
+          const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
+          logger.info(`Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+
+    this.initializationPromise = null;
+    throw new Error(`Failed to initialize TypeORM after ${maxRetries} attempts. Last error: ${lastError.message}`);
+  }
+
+  /**
+   * Get initialized DataSource
+   */
+  getDataSource(): DataSource {
+    if (!this.dataSource?.isInitialized) {
+      throw new Error('DataSource is not initialized. Call initialize() first.');
+    }
+    return this.dataSource;
+  }
+
+  /**
+   * Close DataSource
+   */
+  async close(): Promise<void> {
+    if (this.dataSource?.isInitialized) {
+      await this.dataSource.destroy();
+      logger.info('TypeORM DataSource closed successfully');
+    }
+    this.dataSource = null;
+    this.initializationPromise = null;
+  }
+
+  /**
+   * Health check
+   */
+  async checkHealth(): Promise<{
+    status: 'healthy' | 'unhealthy';
+    details: {
+      connected: boolean;
+      driver: string;
+      database: string;
+      responseTime?: number;
+      cacheEnabled?: boolean;
+    };
+  }> {
+    const startTime = Date.now();
+
+    try {
+      if (!this.dataSource?.isInitialized) {
+        return {
+          status: 'unhealthy',
+          details: {
+            connected: false,
+            driver: 'postgres',
+            database: process.env.POSTGRES_DB || 'uaip',
+            cacheEnabled: false,
+          },
+        };
+      }
+
+      await this.dataSource.query('SELECT 1');
+      const responseTime = Date.now() - startTime;
+
+      return {
+        status: 'healthy',
+        details: {
+          connected: true,
+          driver: 'postgres',
+          database: process.env.POSTGRES_DB || 'uaip',
+          responseTime,
+          cacheEnabled: !!this.dataSource.options.cache,
+        },
+      };
+    } catch (error) {
       return {
         status: 'unhealthy',
         details: {
           connected: false,
           driver: 'postgres',
-          database: config.database.postgres.database,
+          database: process.env.POSTGRES_DB || 'uaip',
+          responseTime: Date.now() - startTime,
           cacheEnabled: false,
         },
       };
     }
-
-    // Simple query to test connection
-    await AppDataSource.query('SELECT 1');
-
-    const responseTime = Date.now() - startTime;
-
-    return {
-      status: 'healthy',
-      details: {
-        connected: true,
-        driver: 'postgres',
-        database: config.database.postgres.database,
-        responseTime,
-        cacheEnabled: !!AppDataSource.options.cache,
-      },
-    };
-  } catch (error) {
-    return {
-      status: 'unhealthy',
-      details: {
-        connected: false,
-        driver: 'postgres',
-        database: config.database.postgres.database,
-        responseTime: Date.now() - startTime,
-        cacheEnabled: false,
-      },
-    };
   }
-};
+}
 
-// Export default DataSource for external use
+// Export singleton manager instance
+export const dataSourceManager = TypeOrmDataSourceManager.getInstance();
+
+// Legacy exports for backward compatibility
+export const initializeDatabase = (maxRetries = 3) => dataSourceManager.initialize(maxRetries);
+export const closeDatabase = () => dataSourceManager.close();
+export const getDataSource = () => dataSourceManager.getDataSource();
+export const checkDatabaseHealth = () => dataSourceManager.checkHealth();
+
+// Create default DataSource for migrations and CLI
+export const AppDataSource = new DataSource(await createTypeOrmConfig());
 export default AppDataSource; 

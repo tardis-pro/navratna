@@ -1,5 +1,17 @@
 // Logging utilities
-export { logger, logError, logSecurityEvent, logAudit, logMetric, logRequest, logPerformance } from './loggers.js';
+export { 
+  createLogger, 
+  logger, 
+  logError, 
+  logSecurityEvent, 
+  logAudit, 
+  logMetric, 
+  logRequest, 
+  logPerformance,
+  createLoggerStream,
+  createLogContext,
+  logWithContext
+} from './loggers.js';
 
 // Error handling utilities
 export { 

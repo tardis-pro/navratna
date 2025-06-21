@@ -12,7 +12,7 @@ import {
   ResourceManagerService, 
   StepExecutorService, 
   CompensationService,
-  TypeOrmService
+  serviceFactory
 } from '@uaip/shared-services';
 import { OrchestrationEngine } from './orchestrationEngine.js';
 // import { orchestrationRoutes } from './routes/orchestrationRoutes.js';
@@ -26,7 +26,7 @@ class OrchestrationPipelineService {
   private resourceManagerService!: ResourceManagerService;
   private stepExecutorService!: StepExecutorService;
   private compensationService!: CompensationService;
-  private typeormService!: TypeOrmService;
+  private operationManagementService: any;
   private orchestrationEngine!: OrchestrationEngine; // Using definite assignment assertion
 
   constructor() {
@@ -42,8 +42,7 @@ class OrchestrationPipelineService {
     await this.databaseService.initialize();
     logger.info('DatabaseService initialized successfully');
     
-    this.typeormService = TypeOrmService.getInstance();
-    await this.typeormService.initialize();
+    this.operationManagementService = await serviceFactory.getOperationManagementService();
     
     this.eventBusService = new EventBusService({
       url: process.env.RABBITMQ_URL || 'amqp://localhost',
@@ -64,7 +63,7 @@ class OrchestrationPipelineService {
       this.resourceManagerService,
       this.stepExecutorService,
       this.compensationService,
-      this.typeormService
+      this.operationManagementService
     );
   }
 
@@ -259,12 +258,12 @@ class OrchestrationPipelineService {
       logger.info('Services initialized successfully');
 
       // Test TypeORM connection instead of deprecated query method
-      const healthCheck = await this.typeormService.healthCheck();
-      if (healthCheck.status === 'healthy') {
-        logger.info('TypeORM connection verified');
-      } else {
-        logger.warn('TypeORM connection unhealthy, but continuing startup');
-      }
+                      const isHealthy = await this.operationManagementService.isHealthy();
+        if (isHealthy) {
+          logger.info('Operation management service is healthy');
+              } else {
+          logger.warn('Operation management service unhealthy, but continuing startup');
+        }
 
       // Test database service health check instead of direct query
       try {
@@ -300,10 +299,7 @@ class OrchestrationPipelineService {
       // Note: gracefulShutdown is private in OrchestrationEngine, so we'll handle shutdown differently
       // The OrchestrationEngine has its own signal handlers for graceful shutdown
       
-      // Close TypeORM connection
-      if (this.typeormService) {
-        await this.typeormService.close();
-      }
+
       
       // Close connections if methods exist
       if (this.eventBusService && typeof this.eventBusService.close === 'function') {

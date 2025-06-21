@@ -1,14 +1,18 @@
-import { DataSource, Repository, EntityTarget, ObjectLiteral, SelectQueryBuilder } from 'typeorm';
-import { createTypeOrmConfig, checkDatabaseHealth } from './database/typeorm.config.js';
-import { logger } from '@uaip/utils';
+import { DataSource, Repository, QueryRunner, EntityTarget, ObjectLiteral, SelectQueryBuilder } from 'typeorm';
+import { dataSourceManager } from './database/typeorm.config.js';
+import { createLogger } from '@uaip/utils';
 
 /**
  * TypeORM Service
- * Provides centralized access to TypeORM repositories and database operations
+ * Simplified service that wraps the DataSourceManager for easy access
  */
 export class TypeOrmService {
   private static instance: TypeOrmService;
-  private dataSource: DataSource | null = null;
+  private logger = createLogger({
+    serviceName: 'typeorm-service',
+    environment: process.env.NODE_ENV || 'development',
+    logLevel: process.env.LOG_LEVEL || 'info'
+  });
 
   private constructor() {}
 
@@ -25,89 +29,12 @@ export class TypeOrmService {
   /**
    * Initialize the TypeORM connection
    */
-  public async initialize(): Promise<void> {
+  public async initialize(disableCache = false): Promise<void> {
     try {
-      if (!this.dataSource) {
-        logger.info('Initializing TypeORM service...');
-        const config = createTypeOrmConfig();
-        
-        // Log important configuration details
-        logger.info('TypeORM configuration:', {
-          type: config.type,
-          host: config.host,
-          port: config.port,
-          database: config.database,
-          cacheEnabled: !!config.cache,
-          entities: config.entities?.length || 0,
-          subscribers: config.subscribers?.length || 0
-        });
-
-        this.dataSource = new DataSource(config);
-        
-        // Add timeout wrapper to prevent hanging in Docker
-        const initPromise = this.dataSource.initialize();
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('TypeORM initialization timeout after 30 seconds')), 30000);
-        });
-        
-        await Promise.race([initPromise, timeoutPromise]);
-        
-        // Verify connection is working
-        if (this.dataSource.isInitialized) {
-          const testQuery = await this.dataSource.query('SELECT NOW()');
-          logger.info('TypeORM connection test successful:', testQuery[0]);
-        }
-      }
-      logger.info('TypeORM service initialized successfully');
+      await dataSourceManager.initialize(3, disableCache);
+      this.logger.info('TypeORM service initialized successfully');
     } catch (error) {
-      // Enhanced error logging
-      logger.error('Failed to initialize TypeORM service', {
-        error: {
-          name: error.name,
-          message: error.message,
-          stack: error.stack,
-          code: error.code,
-          errno: error.errno
-        }
-      });
-
-      // If initialization fails, try without cache
-      if (error.message.includes('timeout') || error.message.includes('Redis')) {
-        logger.warn('Retrying TypeORM initialization without cache...');
-        try {
-          const configWithoutCache = createTypeOrmConfig(undefined, true);
-          logger.info('Retrying with configuration:', {
-            type: configWithoutCache.type,
-            host: configWithoutCache.host,
-            port: configWithoutCache.port,
-            database: configWithoutCache.database,
-            cacheEnabled: false
-          });
-
-          this.dataSource = new DataSource(configWithoutCache);
-          await this.dataSource.initialize();
-          
-          // Verify connection is working
-          if (this.dataSource.isInitialized) {
-            const testQuery = await this.dataSource.query('SELECT NOW()');
-            logger.info('TypeORM retry connection test successful:', testQuery[0]);
-          }
-          
-          logger.info('TypeORM service initialized successfully without cache');
-          return;
-        } catch (retryError) {
-          logger.error('Failed to initialize TypeORM service even without cache', {
-            error: {
-              name: retryError.name,
-              message: retryError.message,
-              stack: retryError.stack,
-              code: retryError.code,
-              errno: retryError.errno
-            }
-          });
-          throw retryError;
-        }
-      }
+      this.logger.error('Failed to initialize TypeORM service', { error: error.message });
       throw error;
     }
   }
@@ -116,45 +43,40 @@ export class TypeOrmService {
    * Close the TypeORM connection
    */
   public async close(): Promise<void> {
-    try {
-      if (this.dataSource && this.dataSource.isInitialized) {
-        await this.dataSource.destroy();
-      }
-      this.dataSource = null;
-      logger.info('TypeORM service closed successfully');
-    } catch (error) {
-      logger.error('Failed to close TypeORM service', { error });
-      throw error;
-    }
+    await dataSourceManager.close();
   }
 
   /**
    * Get the DataSource instance
    */
   public getDataSource(): DataSource {
-    if (!this.dataSource) {
-      throw new Error('TypeORM service not initialized. Call initialize() first.');
-    }
-    return this.dataSource;
+    return dataSourceManager.getDataSource();
   }
 
   /**
    * Get repository for an entity
    */
   public getRepository<Entity extends ObjectLiteral>(
-    entityClass: EntityTarget<Entity>
+    entity: EntityTarget<Entity>
   ): Repository<Entity> {
-    return this.getDataSource().getRepository(entityClass);
+    return this.getDataSource().getRepository(entity);
+  }
+
+  /**
+   * Get query runner
+   */
+  public getQueryRunner(): QueryRunner {
+    return this.getDataSource().createQueryRunner();
   }
 
   /**
    * Create a query builder
    */
   public createQueryBuilder<Entity extends ObjectLiteral>(
-    entityClass: EntityTarget<Entity>,
+    entity: EntityTarget<Entity>,
     alias: string
   ): SelectQueryBuilder<Entity> {
-    return this.getDataSource().createQueryBuilder(entityClass, alias);
+    return this.getDataSource().getRepository(entity).createQueryBuilder(alias);
   }
 
   /**
@@ -164,7 +86,7 @@ export class TypeOrmService {
     try {
       return await this.getDataSource().query(sql, parameters);
     } catch (error) {
-      logger.error('Raw query execution failed', { sql, error });
+      this.logger.error('Raw query execution failed', { sql, error: error.message });
       throw error;
     }
   }
@@ -182,88 +104,7 @@ export class TypeOrmService {
    * Health check
    */
   public async healthCheck() {
-    return checkDatabaseHealth();
-  }
-
-  // Repository getters for all entities using string-based entity names
-  public get agentRepository(): Repository<any> {
-    return this.getRepository('Agent');
-  }
-
-  public get operationRepository(): Repository<any> {
-    return this.getRepository('Operation');
-  }
-
-  public get personaRepository(): Repository<any> {
-    return this.getRepository('Persona');
-  }
-
-  public get agentCapabilityMetricRepository(): Repository<any> {
-    return this.getRepository('AgentCapabilityMetric');
-  }
-
-  public get toolUsageRecordRepository(): Repository<any> {
-    return this.getRepository('ToolUsageRecord');
-  }
-
-  public get conversationContextRepository(): Repository<any> {
-    return this.getRepository('ConversationContext');
-  }
-
-  public get operationStateRepository(): Repository<any> {
-    return this.getRepository('OperationState');
-  }
-
-  public get operationCheckpointRepository(): Repository<any> {
-    return this.getRepository('OperationCheckpoint');
-  }
-
-  public get stepResultRepository(): Repository<any> {
-    return this.getRepository('StepResult');
-  }
-
-  public get approvalWorkflowRepository(): Repository<any> {
-    return this.getRepository('ApprovalWorkflow');
-  }
-
-  public get toolDefinitionRepository(): Repository<any> {
-    return this.getRepository('ToolDefinition');
-  }
-
-  public get toolExecutionRepository(): Repository<any> {
-    return this.getRepository('ToolExecution');
-  }
-
-  public get artifactRepository(): Repository<any> {
-    return this.getRepository('Artifact');
-  }
-
-  public get artifactReviewRepository(): Repository<any> {
-    return this.getRepository('ArtifactReview');
-  }
-
-  public get artifactDeploymentRepository(): Repository<any> {
-    return this.getRepository('ArtifactDeployment');
-  }
-
-  public get discussionParticipantRepository(): Repository<any> {
-    return this.getRepository('DiscussionParticipant');
-  }
-
-  public get personaAnalyticsRepository(): Repository<any> {
-    return this.getRepository('PersonaAnalytics');
-  }
-
-  public get mcpServerRepository(): Repository<any> {
-    return this.getRepository('MCPServer');
-  }
-
-  public get mcpToolCallRepository(): Repository<any> {
-    return this.getRepository('MCPToolCall');
-  }
-
-  public get integrationEventRepository(): Repository<any> {
-    return this.getRepository('IntegrationEventEntity');
+    return dataSourceManager.checkHealth();
   }
 
   // Utility methods for common operations
@@ -273,17 +114,15 @@ export class TypeOrmService {
    */
   public async findById<Entity extends ObjectLiteral>(
     entityClass: EntityTarget<Entity>,
-    id: string,
-    relations?: string[]
+    id: string | number
   ): Promise<Entity | null> {
     try {
       const repository = this.getRepository(entityClass);
       return await repository.findOne({
         where: { id } as any,
-        relations,
       });
     } catch (error) {
-      logger.error('Find by ID failed', { entityClass, id, error });
+      this.logger.error('Failed to find entity by ID', { entityClass, id, error: error.message });
       throw error;
     }
   }
@@ -300,7 +139,7 @@ export class TypeOrmService {
       const entity = repository.create(data as any);
       return await repository.save(entity as any);
     } catch (error) {
-      logger.error('Create entity failed', { entityClass, error });
+      this.logger.error('Failed to create entity', { entityClass, error: error.message });
       throw error;
     }
   }
@@ -310,7 +149,7 @@ export class TypeOrmService {
    */
   public async update<Entity extends ObjectLiteral>(
     entityClass: EntityTarget<Entity>,
-    id: string,
+    id: string | number,
     data: Partial<Entity>
   ): Promise<Entity | null> {
     try {
@@ -318,7 +157,7 @@ export class TypeOrmService {
       await repository.update(id, data as any);
       return await this.findById(entityClass, id);
     } catch (error) {
-      logger.error('Update entity failed', { entityClass, id, error });
+      this.logger.error('Failed to update entity', { entityClass, id, error: error.message });
       throw error;
     }
   }
@@ -328,14 +167,14 @@ export class TypeOrmService {
    */
   public async delete<Entity extends ObjectLiteral>(
     entityClass: EntityTarget<Entity>,
-    id: string
+    id: string | number
   ): Promise<boolean> {
     try {
       const repository = this.getRepository(entityClass);
       const result = await repository.delete(id);
-      return (result.affected) > 0;
+      return result.affected > 0;
     } catch (error) {
-      logger.error('Delete entity failed', { entityClass, id, error });
+      this.logger.error('Failed to delete entity', { entityClass, id, error: error.message });
       throw error;
     }
   }
@@ -345,13 +184,13 @@ export class TypeOrmService {
    */
   public async count<Entity extends ObjectLiteral>(
     entityClass: EntityTarget<Entity>,
-    conditions?: any
+    conditions: any = {}
   ): Promise<number> {
     try {
       const repository = this.getRepository(entityClass);
       return await repository.count({ where: conditions });
     } catch (error) {
-      logger.error('Count entities failed', { entityClass, error });
+      this.logger.error('Failed to count entities', { entityClass, error: error.message });
       throw error;
     }
   }
@@ -359,7 +198,7 @@ export class TypeOrmService {
   /**
    * Find entities with pagination
    */
-  public async findWithPagination<Entity extends ObjectLiteral>(
+  public async findAndPaginate<Entity extends ObjectLiteral>(
     entityClass: EntityTarget<Entity>,
     options: {
       page?: number;
@@ -368,7 +207,7 @@ export class TypeOrmService {
       order?: any;
       relations?: string[];
     } = {}
-  ): Promise<{ data: Entity[]; total: number; page: number; limit: number }> {
+  ): Promise<{ data: Entity[]; total: number; page: number; pageCount: number }> {
     try {
       const { page = 1, limit = 10, where, order, relations } = options;
       const repository = this.getRepository(entityClass);
@@ -381,11 +220,29 @@ export class TypeOrmService {
         take: limit,
       });
 
-      return { data, total, page, limit };
+      return {
+        data,
+        total,
+        page,
+        pageCount: Math.ceil(total / limit),
+      };
     } catch (error) {
-      logger.error('Find with pagination failed', { entityClass, error });
+      this.logger.error('Failed to find and paginate entities', { entityClass, error: error.message });
       throw error;
     }
+  }
+
+  // Backward compatibility - Repository getters for commonly used entities
+  public get agentCapabilityMetricRepository(): Repository<any> {
+    return this.getRepository('AgentCapabilityMetric');
+  }
+
+  public get toolUsageRecordRepository(): Repository<any> {
+    return this.getRepository('ToolUsageRecord');
+  }
+
+  public get integrationEventRepository(): Repository<any> {
+    return this.getRepository('IntegrationEventEntity');
   }
 }
 

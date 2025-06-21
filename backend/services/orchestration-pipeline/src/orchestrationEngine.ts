@@ -23,14 +23,14 @@ import {
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
-import { 
+import {
   DatabaseService,
   EventBusService,
   StateManagerService,
   ResourceManagerService,
   StepExecutorService,
   CompensationService,
-  TypeOrmService
+  OperationManagementService
 } from '@uaip/shared-services';
 
 export class OrchestrationEngine extends EventEmitter {
@@ -40,7 +40,7 @@ export class OrchestrationEngine extends EventEmitter {
   private resourceManagerService: ResourceManagerService;
   private stepExecutorService: StepExecutorService;
   private compensationService: CompensationService;
-  private typeormService: TypeOrmService;
+  private operationManagementService: OperationManagementService;
   private activeOperations = new Map<string, WorkflowInstance>();
   private operationTimeouts = new Map<string, NodeJS.Timeout>();
   private stepTimeouts = new Map<string, NodeJS.Timeout>();
@@ -53,7 +53,7 @@ export class OrchestrationEngine extends EventEmitter {
     resourceManagerService: ResourceManagerService,
     stepExecutorService: StepExecutorService,
     compensationService: CompensationService,
-    typeormService: TypeOrmService
+    operationManagementService: OperationManagementService
   ) {
     super();
     this.databaseService = databaseService;
@@ -62,7 +62,7 @@ export class OrchestrationEngine extends EventEmitter {
     this.resourceManagerService = resourceManagerService;
     this.stepExecutorService = stepExecutorService;
     this.compensationService = compensationService;
-    this.typeormService = typeormService;
+    this.operationManagementService = operationManagementService;
 
     // Set up event listeners
     this.setupEventListeners();
@@ -89,7 +89,7 @@ export class OrchestrationEngine extends EventEmitter {
       await this.validateOperation(operation);
 
       // Persist operation to database using TypeORM service
-      const savedOperation = await this.typeormService.create('Operation', operation);
+      const savedOperation = await this.operationManagementService.createOperation(operation);
       logger.info('Operation persisted to database', { operationId: savedOperation.id });
 
       // Create initial operation state
@@ -101,7 +101,7 @@ export class OrchestrationEngine extends EventEmitter {
           priority: operation.metadata?.priority 
         }
       };
-      await this.typeormService.create('OperationState', operationStateData);
+              await this.operationManagementService.createOperationState(operationStateData);
 
       // Check resource availability
       const defaultResourceLimits = {
@@ -128,7 +128,7 @@ export class OrchestrationEngine extends EventEmitter {
             endTime: new Date()
           }
         };
-        await this.typeormService.update('OperationState', savedOperation.id, failedStateData);
+        await this.operationManagementService.updateOperationState(savedOperation.id, failedStateData);
         throw new Error(`Insufficient resources: ${resourceCheck.reason}`);
       }
 
@@ -149,7 +149,7 @@ export class OrchestrationEngine extends EventEmitter {
           actualStartTime: new Date()
         }
       };
-      await this.typeormService.update('OperationState', savedOperation.id, runningStateData);
+              await this.operationManagementService.updateOperationState(savedOperation.id, runningStateData);
 
       // Create workflow instance
       const workflowInstance = await this.createWorkflowInstance(savedOperation);
@@ -381,7 +381,7 @@ export class OrchestrationEngine extends EventEmitter {
   ): Promise<string> {
     try {
       // Get operation from database
-      const operation = await this.typeormService.findById('Operation', operationId);
+      const operation = await this.operationManagementService.getOperation(operationId);
       
       if (!operation) {
         throw new Error(`Operation not found: ${operationId}`);
@@ -405,7 +405,7 @@ export class OrchestrationEngine extends EventEmitter {
       };
 
       // Save checkpoint to database
-      const savedCheckpoint = await this.typeormService.create('OperationCheckpoint', checkpointData);
+      const savedCheckpoint = await this.operationManagementService.createCheckpoint(checkpointData);
 
       // Also save to state manager for backward compatibility
       await this.stateManagerService.saveCheckpoint(operationId, {
@@ -515,7 +515,7 @@ export class OrchestrationEngine extends EventEmitter {
     };
 
     // Save to database using TypeORM service instead of DatabaseService
-    await this.typeormService.create('WorkflowInstance', workflowInstance);
+          await this.operationManagementService.createWorkflowInstance(workflowInstance);
     
     // Initialize state
     await this.stateManagerService.initializeOperationState(operation.id, workflowInstance.state || {
@@ -782,7 +782,7 @@ export class OrchestrationEngine extends EventEmitter {
 
     try {
       // Get operation from database
-      const operation = await this.typeormService.findById('Operation', workflowInstance.operationId);
+      const operation = await this.operationManagementService.getOperation(workflowInstance.operationId);
 
       if (!operation) {
         throw new Error(`Operation not found: ${workflowInstance.operationId}`);
@@ -803,7 +803,7 @@ export class OrchestrationEngine extends EventEmitter {
       };
 
       // Save step result to database
-      await this.typeormService.create('StepResult', stepResultData);
+              await this.operationManagementService.createStepResult(stepResultData);
 
       // Also save to legacy database service for backward compatibility
       await this.databaseService.saveStepResult(workflowInstance.operationId, result);

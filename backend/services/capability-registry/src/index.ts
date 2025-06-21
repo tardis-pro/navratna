@@ -8,7 +8,7 @@ import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
 import { config } from './config/config.js';
-import {  ToolGraphDatabase, TypeOrmService, DatabaseService, EventBusService } from '@uaip/shared-services';
+import {  ToolGraphDatabase, DatabaseService, EventBusService } from '@uaip/shared-services';
 import { ToolRegistry } from './services/toolRegistry.js';
 import { ToolExecutor } from './services/toolExecutor.js';
 import { BaseToolExecutor } from './services/baseToolExecutor.js';
@@ -23,7 +23,7 @@ class CapabilityRegistryService {
   private app: express.Application;
   private postgresql: DatabaseService;
   private neo4j: ToolGraphDatabase;
-  private typeormService: TypeOrmService;
+
   private databaseService: DatabaseService;
   private eventBusService: EventBusService;
   private toolRegistry: ToolRegistry;
@@ -34,7 +34,7 @@ class CapabilityRegistryService {
 
   constructor() {
     this.app = express();
-    this.typeormService = TypeOrmService.getInstance();
+
     this.databaseService = new DatabaseService();
     this.eventBusService = new EventBusService({
       url: process.env.RABBITMQ_URL || 'amqp://localhost',
@@ -96,7 +96,7 @@ class CapabilityRegistryService {
       logger.info('Initializing Capability Registry Service...');
 
       // Initialize TypeORM first
-      await this.typeormService.initialize();
+
       logger.info('TypeORM service initialized');
 
       // Initialize DatabaseService
@@ -157,15 +157,14 @@ class CapabilityRegistryService {
     this.baseExecutor = new BaseToolExecutor();
 
     // Initialize tool registry with TypeORM service
-    this.toolRegistry = new ToolRegistry(this.postgresql, this.neo4j, this.typeormService);
+          this.toolRegistry = new ToolRegistry(this.postgresql, this.neo4j);
 
-    // Initialize tool executor with TypeORM service
+    // Initialize tool executor
     this.toolExecutor = new ToolExecutor(
       this.postgresql,
       this.neo4j,
       this.toolRegistry,
-      this.baseExecutor,
-      this.typeormService
+      this.baseExecutor
     );
 
     // Initialize controllers
@@ -342,11 +341,7 @@ class CapabilityRegistryService {
         logger.info('EventBusService connection closed');
       }
 
-      // Close TypeORM connection
-      if (this.typeormService) {
-        await this.typeormService.close();
-        logger.info('TypeORM connection closed');
-      }
+
 
       logger.info('Capability Registry Service shut down successfully');
       process.exit(0);

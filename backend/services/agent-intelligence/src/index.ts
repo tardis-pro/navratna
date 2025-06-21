@@ -138,8 +138,9 @@ class AgentIntelligenceService {
   private async initializeAgentController(): Promise<void> {
     try {
       // Get services from ServiceFactory
-      const knowledgeGraphService = await ServiceFactory.getKnowledgeGraphService();
-      const agentMemoryService = await ServiceFactory.getAgentMemoryService();
+      const { serviceFactory } = await import('@uaip/shared-services');
+      const knowledgeGraphService = await serviceFactory.getKnowledgeGraphService();
+      const agentMemoryService = await serviceFactory.getAgentMemoryService();
       
       // Initialize AgentController with enhanced services
       this.agentController = new AgentController(
@@ -175,7 +176,8 @@ class AgentIntelligenceService {
       // Initialize ServiceFactory for Knowledge Graph services
       let enhancedServicesAvailable = false;
       try {
-        await ServiceFactory.initialize();
+        const { serviceFactory } = await import('@uaip/shared-services');
+        await serviceFactory.initialize();
         logger.info('ServiceFactory initialized successfully');
         
         // Initialize AgentController with enhanced services

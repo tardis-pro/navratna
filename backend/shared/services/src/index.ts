@@ -3,7 +3,7 @@ export { SecurityLevel } from '@uaip/types';
 
 // Database Services
 export { DatabaseService } from './databaseService.js';
-export { TypeOrmService, typeormService } from './typeormService.js';
+// Note: TypeOrmService is internal and not exported
 
 // All Database-related exports (TypeORM, services, types)
 export * from './database/index.js';
@@ -55,11 +55,16 @@ export * from './integration/index.js';
 // Service Factory - Dependency Injection
 export { 
   ServiceFactory,
+  serviceFactory,
   getKnowledgeGraphService,
   getUserKnowledgeService, 
   getContextOrchestrationService,
   getAgentMemoryService
 } from './ServiceFactory.js';
+
+// Domain Services
+export { ToolManagementService } from './tool-management.service.js';
+export { OperationManagementService } from './operation-management.service.js';
 
 // TEI Embedding Services - NEW
 export { TEIEmbeddingService, RerankResult, TEIHealthStatus } from './knowledge-graph/tei-embedding.service.js';

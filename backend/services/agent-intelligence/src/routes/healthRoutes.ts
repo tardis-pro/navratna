@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { ServiceStatus } from '@uaip/types';
 import { metricsEndpoint } from '@uaip/middleware';
-import { ServiceFactory } from '@uaip/shared-services';
 
 const router: Router = Router();
 
@@ -50,7 +49,8 @@ router.get('/detailed', async (req: Request, res: Response) => {
   // Check TEI embedding service status (simplified for now)
   try {
     // Temporarily simplified - just check if ServiceFactory can initialize
-    await ServiceFactory.initialize();
+    const { serviceFactory } = await import('@uaip/shared-services');
+    await serviceFactory.initialize();
     dependencies.embedding_service = ServiceStatus.HEALTHY;
     dependencies.tei_embedding = ServiceStatus.HEALTHY;
     dependencies.tei_reranker = ServiceStatus.HEALTHY;
@@ -128,7 +128,8 @@ router.get('/live', async (req: Request, res: Response) => {
 router.get('/embedding', async (req: Request, res: Response) => {
   try {
     // Simplified status check
-    await ServiceFactory.initialize();
+    const { serviceFactory } = await import('@uaip/shared-services');
+    await serviceFactory.initialize();
     
     res.json({
       success: true,

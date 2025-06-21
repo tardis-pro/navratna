@@ -1,4 +1,4 @@
-import { ServiceFactory } from './ServiceFactory.js';
+import { serviceFactory } from './ServiceFactory.js';
 import { UserKnowledgeService } from './user-knowledge.service.js';
 import { ContextOrchestrationService } from './context-orchestration.service.js';
 import { AgentMemoryService } from './agent-memory/agent-memory.service.js';
@@ -18,7 +18,7 @@ export class ServiceInitializer {
       return this.initPromise;
     }
 
-    this.initPromise = ServiceFactory.initialize();
+    this.initPromise = serviceFactory.initialize();
     return this.initPromise;
   }
 
@@ -27,7 +27,7 @@ export class ServiceInitializer {
    */
   static async getUserKnowledgeService(): Promise<UserKnowledgeService> {
     await this.ensureInitialized();
-    return ServiceFactory.getUserKnowledgeService();
+    return serviceFactory.getUserKnowledgeService();
   }
 
   /**
@@ -35,7 +35,7 @@ export class ServiceInitializer {
    */
   static async getContextOrchestrationService(): Promise<ContextOrchestrationService> {
     await this.ensureInitialized();
-    return ServiceFactory.getContextOrchestrationService();
+    return serviceFactory.getContextOrchestrationService();
   }
 
   /**
@@ -43,7 +43,7 @@ export class ServiceInitializer {
    */
   static async getAgentMemoryService(): Promise<AgentMemoryService> {
     await this.ensureInitialized();
-    return ServiceFactory.getAgentMemoryService();
+    return serviceFactory.getAgentMemoryService();
   }
 
   /**
@@ -56,7 +56,7 @@ export class ServiceInitializer {
   }> {
     try {
       await this.ensureInitialized();
-      const status = await ServiceFactory.getHealthStatus();
+      const status = await serviceFactory.getHealthStatus();
       
       const allHealthy = status.initialized && Object.values(status.services).every(healthy => healthy);
       
@@ -77,7 +77,7 @@ export class ServiceInitializer {
    * Reset services (useful for testing)
    */
   static reset(): void {
-    ServiceFactory.clearCache();
+    serviceFactory.clearServices();
     this.initPromise = null;
   }
 

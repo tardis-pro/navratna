@@ -6,7 +6,7 @@ import { Router } from 'express';
 import { ToolController } from '../controllers/toolController.js';
 import { ToolRegistry } from '../services/toolRegistry.js';
 import { ToolExecutor } from '../services/toolExecutor.js';
-import { DatabaseService, ToolGraphDatabase, TypeOrmService } from '@uaip/shared-services';
+import { DatabaseService, ToolGraphDatabase } from '@uaip/shared-services';
 import { authMiddleware, createRateLimiter, rateLimiter } from '@uaip/middleware';
 
 // Rate limiting configurations using shared middleware
@@ -42,7 +42,6 @@ const registrationRateLimit = createRateLimiter({
 
 // Initialize services and create default controller
 const databaseService = DatabaseService.getInstance();
-const typeormService = TypeOrmService.getInstance();
 
 // For now, create a mock ToolGraphDatabase and ToolExecutor
 // These should be properly configured in a real implementation
@@ -62,7 +61,7 @@ const mockToolGraphDatabase = {
   verifyConnectivity: async () => true
 } as any;
 
-const toolRegistry = new ToolRegistry(databaseService, mockToolGraphDatabase, typeormService);
+const toolRegistry = new ToolRegistry(databaseService, mockToolGraphDatabase);
 
 const mockBaseExecutor = {
   execute: async () => ({ success: true, result: null })
@@ -72,8 +71,7 @@ const mockToolExecutor = new ToolExecutor(
   databaseService,
   mockToolGraphDatabase,
   toolRegistry,
-  mockBaseExecutor,
-  typeormService
+  mockBaseExecutor
 );
 const defaultToolController = new ToolController(toolRegistry, mockToolExecutor);
 

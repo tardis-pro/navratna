@@ -3,7 +3,7 @@
 // Part of capability-registry microservice
 
 import { ToolDefinition, ToolUsageRecord, ToolCategory, SecurityLevel } from '@uaip/types';
-import { ToolDatabase, ToolGraphDatabase, ToolRelationship, ToolRecommendation, TypeOrmService, DatabaseService } from '@uaip/shared-services';
+import { ToolDatabase, ToolGraphDatabase, ToolRelationship, ToolRecommendation, DatabaseService, serviceFactory } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { z } from 'zod';
 
@@ -51,11 +51,19 @@ const ToolRelationshipSchema = z.object({
 });
 
 export class ToolRegistry {
+  private toolManagementService: any;
+
   constructor(
     private postgresql: DatabaseService,
-    private neo4j: ToolGraphDatabase,
-    private typeormService: TypeOrmService
+    private neo4j: ToolGraphDatabase
   ) {}
+
+  private async getToolManagementService() {
+    if (!this.toolManagementService) {
+      this.toolManagementService = await serviceFactory.getToolManagementService();
+    }
+    return this.toolManagementService;
+  }
 
   // Ensure database is initialized
   private async ensureInitialized(): Promise<void> {
@@ -84,7 +92,8 @@ export class ToolRegistry {
       await this.neo4j.createToolNode(transformedTool as ToolDefinition);
 
       // Create TypeORM ToolDefinition entity for enhanced tracking
-      await this.typeormService.create('ToolDefinition', {
+      const toolManagement = await this.getToolManagementService();
+      await toolManagement.createTool({
         id: validatedTool.id,
         name: validatedTool.name,
         description: validatedTool.description,
@@ -113,7 +122,8 @@ export class ToolRegistry {
       try {
         
         await this.neo4j.deleteToolNode(tool.id);
-        await this.typeormService.delete('ToolDefinition', tool.id);
+        const toolManagement = await this.getToolManagementService();
+        await toolManagement.deleteTool(tool.id);
       } catch (cleanupError) {
         logger.error(`Failed to cleanup after registration failure:`, cleanupError);
       }
@@ -138,7 +148,8 @@ export class ToolRegistry {
       await this.neo4j.updateToolNode(validatedId, transformedUpdates);
 
       // Update TypeORM entity
-      await this.typeormService.update('ToolDefinition', validatedId, {
+      const toolManagement = await this.getToolManagementService();
+      await toolManagement.updateTool(validatedId, {
         ...validatedUpdates,
         updatedAt: new Date()
       });
@@ -161,7 +172,8 @@ export class ToolRegistry {
       await this.neo4j.deleteToolNode(validatedId);
 
       // Remove TypeORM entity
-      await this.typeormService.delete('ToolDefinition', validatedId);
+      const toolManagement = await this.getToolManagementService();
+      await toolManagement.deleteTool(validatedId);
       
       logger.info(`Tool unregistered successfully: ${validatedId}`);
     } catch (error) {
@@ -389,10 +401,23 @@ export class ToolRegistry {
         metadata: metadata || {}
       };
 
-      await this.typeormService.create('ToolUsageRecord', usageRecord);
+      const toolManagement = await this.getToolManagementService();
+      await toolManagement.recordToolUsage({
+        toolId,
+        agentId,
+        executionTime,
+        success,
+        cost,
+        metadata
+      });
       
       // Update capability metrics
-      await this.updateCapabilityMetrics(agentId, toolId, success, executionTime);
+      await toolManagement.updateCapabilityMetrics({
+        agentId,
+        toolId,
+        success,
+        executionTime
+      });
       
       logger.debug(`Tool usage recorded: ${toolId} by ${agentId}`);
     } catch (error) {
@@ -408,44 +433,13 @@ export class ToolRegistry {
     executionTime: number
   ): Promise<void> {
     try {
-      // Get existing metric using repository
-      const repository = this.typeormService.agentCapabilityMetricRepository;
-      let metric = await repository.findOne({
-        where: { agentId, toolId }
+      const toolManagement = await this.getToolManagementService();
+      await toolManagement.updateCapabilityMetrics({
+        agentId,
+        toolId,
+        success,
+        executionTime
       });
-
-      if (metric) {
-        // Update existing metric
-        const totalExecutions = metric.totalExecutions + 1;
-        const successfulExecutions = metric.successfulExecutions + (success ? 1 : 0);
-        const totalExecutionTime = metric.totalExecutionTime + executionTime;
-
-        await this.typeormService.update('AgentCapabilityMetric', metric.id, {
-          totalExecutions,
-          successfulExecutions,
-          totalExecutionTime,
-          averageExecutionTime: totalExecutionTime / totalExecutions,
-          successRate: successfulExecutions / totalExecutions,
-          lastUsed: new Date(),
-          updatedAt: new Date()
-        });
-      } else {
-        // Create new metric
-        const newMetric: Partial<AgentCapabilityMetric> = {
-          agentId,
-          toolId,
-          totalExecutions: 1,
-          successfulExecutions: success ? 1 : 0,
-          totalExecutionTime: executionTime,
-          averageExecutionTime: executionTime,
-          successRate: success ? 1.0 : 0.0,
-          lastUsed: new Date(),
-          createdAt: new Date(),
-          updatedAt: new Date()
-        };
-
-        await this.typeormService.create('AgentCapabilityMetric', newMetric);
-      }
     } catch (error) {
       logger.error(`Failed to update capability metrics:`, error);
     }
@@ -454,10 +448,8 @@ export class ToolRegistry {
   // Enhanced Analytics with TypeORM
   async getAgentCapabilityMetrics(agentId: string): Promise<AgentCapabilityMetric[]> {
     try {
-      const repository = this.typeormService.agentCapabilityMetricRepository;
-      return await repository.find({
-        where: { agentId }
-      });
+      const toolManagement = await this.getToolManagementService();
+      return await toolManagement.getAgentCapabilityMetrics(agentId);
     } catch (error) {
       logger.error(`Failed to get capability metrics for agent ${agentId}:`, error);
       return [];
@@ -466,34 +458,8 @@ export class ToolRegistry {
 
   async getToolUsageStats(toolId: string, days = 30): Promise<any> {
     try {
-      const since = new Date();
-      since.setDate(since.getDate() - days);
-
-      const repository = this.typeormService.toolUsageRecordRepository;
-      const usageRecords = await repository.find({
-        where: { 
-          toolId,
-          timestamp: { $gte: since }
-        }
-      });
-
-      const totalUsage = usageRecords.length;
-      const successfulUsage = usageRecords.filter((r: any) => r.success).length;
-      const totalCost = usageRecords.reduce((sum: number, r: any) => sum + (r.cost), 0);
-      const avgExecutionTime = usageRecords.length > 0 
-        ? usageRecords.reduce((sum: number, r: any) => sum + r.executionTime, 0) / usageRecords.length 
-        : 0;
-
-      return {
-        toolId,
-        period: `${days} days`,
-        totalUsage,
-        successfulUsage,
-        successRate: totalUsage > 0 ? successfulUsage / totalUsage : 0,
-        totalCost,
-        averageExecutionTime: avgExecutionTime,
-        uniqueAgents: new Set(usageRecords.map((r: any) => r.agentId)).size
-      };
+      const toolManagement = await this.getToolManagementService();
+      return await toolManagement.getToolUsageStats(toolId, days);
     } catch (error) {
       logger.error(`Failed to get tool usage stats for ${toolId}:`, error);
       return null;
