@@ -135,8 +135,6 @@ function createBaseConfig(): PostgresConnectionOptions {
     logging: process.env.NODE_ENV === 'development' || process.env.TYPEORM_LOGGING === 'true',
     entities: allEntities,
     subscribers: allSubscribers,
-    migrations: ['dist/migrations/**/*.{ts,js}'],
-    migrationsRun: process.env.TYPEORM_MIGRATIONS_RUN === 'true' || process.env.NODE_ENV !== 'development',
     ssl: process.env.DB_SSL === 'true' || process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
     maxQueryExecutionTime: parseInt(process.env.DB_TIMEOUT || '30000'),
     extra: {
@@ -149,74 +147,258 @@ function createBaseConfig(): PostgresConnectionOptions {
 /**
  * Create Redis cache configuration if available
  */
+/**
+ * Redis Cache Manager for TypeORM
+ * Handles Redis connection lifecycle and provides proper cleanup
+ */
+class RedisCacheManager {
+  private static instance: RedisCacheManager;
+  private redis: IORedis | null = null;
+  private isConnected = false;
+
+  private constructor() {}
+
+  static getInstance(): RedisCacheManager {
+    if (!RedisCacheManager.instance) {
+      RedisCacheManager.instance = new RedisCacheManager();
+    }
+    return RedisCacheManager.instance;
+  }
+
+  async createConnection(): Promise<IORedis> {
+    if (this.redis && this.isConnected) {
+      return this.redis;
+    }
+
+    const redisConfig = config.redis;
+
+    const finalRedisConfig = {
+      host: redisConfig.host,
+      port: redisConfig.port,
+      password: redisConfig.password,
+      db: redisConfig.db,
+      retryStrategy: (times: number) => {
+        const delay = Math.min(times * redisConfig.retryDelayOnFailover, 2000);
+        logger.info(`Redis retry attempt ${times}, delay: ${delay}ms`);
+        return delay;
+      },
+      maxRetriesPerRequest: redisConfig.maxRetriesPerRequest,
+      commandTimeout: 5000,
+      connectTimeout: 10000,
+      lazyConnect: true,
+      enableOfflineQueue: redisConfig.enableOfflineQueue,
+      keepAlive: 30000,
+      family: 4, // Force IPv4
+    };
+
+    logger.info('Creating Redis cache connection', {
+      host: finalRedisConfig.host,
+      port: finalRedisConfig.port,
+      db: finalRedisConfig.db,
+      hasPassword: !!finalRedisConfig.password
+    });
+
+    this.redis = new IORedis(finalRedisConfig);
+
+    // Set up event handlers
+    this.redis.on('connect', () => {
+      logger.info('Redis cache connected');
+      this.isConnected = true;
+    });
+
+    this.redis.on('ready', () => {
+      logger.info('Redis cache ready');
+    });
+
+    this.redis.on('error', (error) => {
+      logger.error('Redis cache error', { error: error.message });
+      this.isConnected = false;
+    });
+
+    this.redis.on('close', () => {
+      logger.info('Redis cache connection closed');
+      this.isConnected = false;
+    });
+
+    this.redis.on('reconnecting', () => {
+      logger.info('Redis cache reconnecting...');
+    });
+
+    // Test connection with timeout
+    try {
+      await Promise.race([
+        this.redis.ping(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Redis ping timeout')), 5000)
+        )
+      ]);
+      
+      this.isConnected = true;
+      logger.info('Redis cache connection verified');
+      return this.redis;
+    } catch (error) {
+      logger.error('Redis cache connection failed', { error: error.message });
+      await this.closeConnection();
+      throw error;
+    }
+  }
+
+  async closeConnection(): Promise<void> {
+    if (this.redis) {
+      try {
+        await this.redis.quit();
+        logger.info('Redis cache connection closed gracefully');
+      } catch (error) {
+        logger.warn('Error closing Redis cache connection', { error: error.message });
+        this.redis.disconnect();
+      }
+      this.redis = null;
+      this.isConnected = false;
+    }
+  }
+
+  getConnection(): IORedis | null {
+    return this.redis;
+  }
+
+  isHealthy(): boolean {
+    return this.isConnected && this.redis !== null;
+  }
+}
+
+// Global cache manager instance
+const redisCacheManager = RedisCacheManager.getInstance();
+
+/**
+ * Check if a query key represents a system query that shouldn't be cached
+ */
+function isSystemQuery(key: string): boolean {
+  if (!key || typeof key !== 'string') return false;
+  
+  const lowerKey = key.toLowerCase();
+  
+  // System queries that cause hanging during initialization
+  const systemPatterns = [
+    'select version()',
+    'select * from current_schema()',
+    'current_schema',
+    'information_schema',
+    'pg_catalog',
+    'show ',
+    'create extension',
+    'select current_database()',
+    'select current_user',
+    'select session_user',
+    'select user',
+    'pg_type',
+    'pg_class',
+    'pg_namespace',
+    'pg_attribute',
+    'pg_constraint',
+    'pg_index',
+    'pg_proc',
+    'pg_description'
+  ];
+  
+  // Check if key contains any system patterns
+  for (const pattern of systemPatterns) {
+    if (lowerKey.includes(pattern)) {
+      return true;
+    }
+  }
+  
+  // Skip very long keys (likely complex system queries)
+  if (key.length > 2000) {
+    return true;
+  }
+  
+  // Skip queries that look like schema introspection
+  if (lowerKey.includes('table_schema') || 
+      lowerKey.includes('column_name') || 
+      lowerKey.includes('constraint_name') ||
+      lowerKey.includes('pg_stat_') ||
+      lowerKey.includes('pg_settings')) {
+    return true;
+  }
+  
+  return false;
+}
+
 async function createCacheConfig(): Promise<any | undefined> {
   // Skip cache if explicitly disabled or in migration mode
   if (process.env.TYPEORM_DISABLE_CACHE === 'true' || process.env.NODE_ENV === 'migration') {
+    logger.info('Redis cache disabled via environment variables');
     return undefined;
   }
 
-  try {
-    // Parse REDIS_URL if provided, otherwise use individual env vars
-    let redisConfig;
-    if (process.env.REDIS_URL) {
-      try {
-        const url = new URL(process.env.REDIS_URL);
-        redisConfig = {
-          host: url.hostname,
-          port: parseInt(url.port) || 6379,
-          password: url.password || undefined,
-          db: url.pathname ? parseInt(url.pathname.slice(1)) : 0,
-        };
-      } catch (error) {
-        logger.warn('Failed to parse REDIS_URL, falling back to individual env vars');
-        redisConfig = {
-          host: process.env.REDIS_HOST || 'redis',
-          port: parseInt(process.env.REDIS_PORT || '6379'),
-          password: process.env.REDIS_PASSWORD,
-          db: parseInt(process.env.REDIS_DB || '0'),
-        };
-      }
-    } else {
-      redisConfig = {
-        host: process.env.REDIS_HOST || 'redis',
-        port: parseInt(process.env.REDIS_PORT || '6379'),
-        password: process.env.REDIS_PASSWORD,
-        db: parseInt(process.env.REDIS_DB || '0'),
-      };
-    }
+  // Temporarily disable cache to prevent hanging during initialization
+  // TODO: Re-enable once we solve the system query caching issue
+  logger.info('Redis cache temporarily disabled to prevent initialization hanging');
+  return undefined;
 
-    const finalRedisConfig = {
-      ...redisConfig,
-      retryStrategy: (times: number) => Math.min(times * parseInt(process.env.REDIS_RETRY_DELAY || '50'), 2000),
-      maxRetriesPerRequest: parseInt(process.env.REDIS_MAX_RETRIES || '3'),
-      commandTimeout: 5000,
-      lazyConnect: true, // Don't connect immediately
-      enableOfflineQueue: process.env.REDIS_OFFLINE_QUEUE !== 'false',
+  /* 
+  try {
+    // Create Redis connection through cache manager
+    const redis = await redisCacheManager.createConnection();
+
+    // Create a smart Redis wrapper that filters problematic queries
+    const smartRedis = {
+      ...redis,
+      
+      // Override get to filter system queries
+      get: async function(key: string) {
+        logger.debug('Cache GET attempt', { key: key.substring(0, 100) });
+        if (isSystemQuery(key)) {
+          logger.debug('Skipping cache GET for system query', { key: key.substring(0, 100) });
+          return null; // Force cache miss for system queries
+        }
+        return redis.get.call(this, key);
+      },
+      
+      // Override set to filter system queries  
+      set: async function(key: string, value: any, ...args: any[]) {
+        logger.debug('Cache SET attempt', { key: key.substring(0, 100) });
+        if (isSystemQuery(key)) {
+          logger.debug('Skipping cache SET for system query', { key: key.substring(0, 100) });
+          return 'OK'; // Pretend it worked
+        }
+        return redis.set.call(this, key, value, ...args);
+      },
+      
+      // Override setex to filter system queries
+      setex: async function(key: string, seconds: number, value: any) {
+        logger.debug('Cache SETEX attempt', { key: key.substring(0, 100) });
+        if (isSystemQuery(key)) {
+          logger.debug('Skipping cache SETEX for system query', { key: key.substring(0, 100) });
+          return 'OK';
+        }
+        return redis.setex.call(this, key, seconds, value);
+      }
     };
 
-    logger.info('Configuring Redis cache', {
-      host: finalRedisConfig.host,
-      port: finalRedisConfig.port,
-      db: finalRedisConfig.db
+    const cacheConfig = {
+      type: 'redis' as const,
+      options: smartRedis,
+      duration: parseInt(process.env.TYPEORM_CACHE_DURATION || '60000'), // Default 1 minute
+      ignoreErrors: true, // Don't fail queries if cache fails
+      alwaysEnabled: false, // Only cache when explicitly requested via .cache()
+    };
+
+    logger.info('Redis cache configured for TypeORM with smart filtering', {
+      duration: cacheConfig.duration,
+      ignoreErrors: cacheConfig.ignoreErrors,
+      alwaysEnabled: cacheConfig.alwaysEnabled
     });
 
-    const redis = new IORedis(finalRedisConfig);
-
-    // Test connection
-    await redis.ping();
-    logger.info('Redis cache connection successful');
-
-    return {
-      type: 'ioredis' as const,
-      options: redis,
-      duration: 60000, // 1 minute
-      ignoreErrors: true,
-      alwaysEnabled: true,
-    };
+    return cacheConfig;
   } catch (error) {
-    logger.warn('Redis cache unavailable, continuing without cache', { error: error.message });
+    logger.warn('Redis cache unavailable, continuing without cache', { 
+      error: error.message,
+      stack: error.stack 
+    });
     return undefined;
   }
+  */
 }
 
 /**
@@ -323,6 +505,10 @@ export class TypeOrmDataSourceManager {
       await this.dataSource.destroy();
       logger.info('TypeORM DataSource closed successfully');
     }
+    
+    // Close Redis cache connection
+    await redisCacheManager.closeConnection();
+    
     this.dataSource = null;
     this.initializationPromise = null;
   }
@@ -338,6 +524,7 @@ export class TypeOrmDataSourceManager {
       database: string;
       responseTime?: number;
       cacheEnabled?: boolean;
+      cacheHealthy?: boolean;
     };
   }> {
     const startTime = Date.now();
@@ -351,12 +538,15 @@ export class TypeOrmDataSourceManager {
             driver: 'postgres',
             database: process.env.POSTGRES_DB || 'uaip',
             cacheEnabled: false,
+            cacheHealthy: false,
           },
         };
       }
 
       await this.dataSource.query('SELECT 1');
       const responseTime = Date.now() - startTime;
+      const cacheEnabled = !!this.dataSource.options.cache;
+      const cacheHealthy = cacheEnabled ? redisCacheManager.isHealthy() : false;
 
       return {
         status: 'healthy',
@@ -365,7 +555,8 @@ export class TypeOrmDataSourceManager {
           driver: 'postgres',
           database: process.env.POSTGRES_DB || 'uaip',
           responseTime,
-          cacheEnabled: !!this.dataSource.options.cache,
+          cacheEnabled,
+          cacheHealthy,
         },
       };
     } catch (error) {
@@ -392,6 +583,28 @@ export const closeDatabase = () => dataSourceManager.close();
 export const getDataSource = () => dataSourceManager.getDataSource();
 export const checkDatabaseHealth = () => dataSourceManager.checkHealth();
 
+// Cache utility exports
+export const getCacheManager = () => redisCacheManager;
+export const getCacheConnection = () => redisCacheManager.getConnection();
+export const isCacheHealthy = () => redisCacheManager.isHealthy();
+
 // Create default DataSource for migrations and CLI
-export const AppDataSource = new DataSource(await createTypeOrmConfig());
+// Note: This will be initialized lazily to avoid top-level await
+let _appDataSource: DataSource | null = null;
+
+export const getAppDataSource = async (): Promise<DataSource> => {
+  if (!_appDataSource) {
+    const config = await createTypeOrmConfig();
+    _appDataSource = new DataSource(config);
+  }
+  return _appDataSource;
+};
+
+// Legacy export for backward compatibility (will be initialized lazily)
+export const AppDataSource = new Proxy({} as DataSource, {
+  get(target, prop) {
+    throw new Error('AppDataSource must be initialized first. Use getAppDataSource() instead.');
+  }
+});
+
 export default AppDataSource; 

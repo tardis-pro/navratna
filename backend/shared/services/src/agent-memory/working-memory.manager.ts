@@ -8,7 +8,7 @@ import {
 export class WorkingMemoryManager {
   private redisUrl: string;
 
-  constructor(redisUrl: string = 'redis://localhost:6379') {
+  constructor(redisUrl: string = 'redis://:uaip_redis_password@redis:6379') {
     this.redisUrl = redisUrl;
   }
 

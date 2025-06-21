@@ -327,27 +327,52 @@ function parseNeo4jUrl(url?: string) {
 function parseRedisUrl(url?: string) {
   if (!url) {
     return {
-      host: process.env.REDIS_HOST || 'localhost',
+      host: process.env.REDIS_HOST || 'redis',
       port: parseInt(process.env.REDIS_PORT || '6379'),
-      password: process.env.REDIS_PASSWORD,
+      password: process.env.REDIS_PASSWORD || 'uaip_redis_password',
       db: parseInt(process.env.REDIS_DB || '0')
     };
   }
 
   try {
+    console.log('🔧 Parsing Redis URL:', url.replace(/:[^:@]+@/, ':***@'));
+    
+    // Handle Redis URL format: redis://:password@host:port or redis://user:password@host:port
     const parsed = new URL(url);
-    return {
+    
+    // Extract password - handle both :password@host and user:password@host formats
+    let password: string | undefined;
+    if (parsed.password) {
+      password = parsed.password;
+    } else if (parsed.username === '' && url.includes('://:')) {
+      // Handle redis://:password@host format
+      const match = url.match(/redis:\/\/:([^@]+)@/);
+      if (match) {
+        password = match[1];
+      }
+    }
+    
+    const result = {
       host: parsed.hostname,
       port: parseInt(parsed.port) || 6379,
-      password: parsed.password || undefined,
-      db: parsed.pathname ? parseInt(parsed.pathname.slice(1)) : 0
+      password: password,
+      db: parsed.pathname && parsed.pathname.length > 1 ? parseInt(parsed.pathname.slice(1)) : 0
     };
+    
+    console.log('🔧 Parsed Redis config:', {
+      host: result.host,
+      port: result.port,
+      hasPassword: !!result.password,
+      db: result.db
+    });
+    
+    return result;
   } catch (error) {
     console.error('Failed to parse REDIS_URL:', error);
     return {
-      host: 'localhost',
+      host: 'redis',
       port: 6379,
-      password: undefined,
+      password: 'uaip_redis_password',
       db: 0
     };
   }

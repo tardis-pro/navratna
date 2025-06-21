@@ -85,7 +85,13 @@ export class DatabaseService {
     });
 
     this.typeormService = TypeOrmService.getInstance();
-    
+    if(process.env.TYPEORM_SYNC === 'true') {
+      this.seedDatabase().then(() => {
+        logger.info('Database seeded successfully');
+      }).catch((error) => {
+        logger.error('Error seeding database', error);
+      });
+    }
     // Don't initialize repositories here - do it lazily when needed
     // Don't initialize connection in constructor - do it explicitly when needed
   }

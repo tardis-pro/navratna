@@ -20,6 +20,7 @@ import { MemoryConsolidator } from './agent-memory/memory-consolidator.service.j
 import { ToolManagementService } from './tool-management.service.js';
 import { OperationManagementService } from './operation-management.service.js';
 import { KnowledgeItemEntity, KnowledgeRelationshipEntity } from './entities/index.js';
+import { DatabaseSeeder } from './database/seedDatabase.js';
 
 /**
  * Service Factory - Clean Dependency Injection Container
@@ -58,7 +59,25 @@ export class ServiceFactory {
       // Initialize TypeORM first
       await typeormService.initialize();
       this.serviceInstances.set('typeorm', typeormService);
+      const dataSource = typeormService.getDataSource();
+      if(process.env.TYPEORM_SYNC === 'true') {
+        const seeder = new DatabaseSeeder(dataSource);
+        await seeder.seedAll();
+        this.logger.info('Database seeded successfully');
+      }
 
+      // Initialize standalone Redis cache service
+      try {
+        const { initializeRedisCache } = await import('./redis-cache.service.js');
+        const cacheInitialized = await initializeRedisCache();
+        if (cacheInitialized) {
+          this.logger.info('Standalone Redis cache service initialized successfully');
+        } else {
+          this.logger.info('Standalone Redis cache service not available, continuing without cache');
+        }
+      } catch (error) {
+        this.logger.warn('Failed to initialize standalone Redis cache service', { error: error.message });
+      }
       // Initialize Qdrant with default dimensions (will be updated by SmartEmbeddingService)
       const qdrantService = new QdrantService(
         config.database.qdrant.url,
@@ -212,7 +231,9 @@ export class ServiceFactory {
 
   async getWorkingMemoryManager(): Promise<WorkingMemoryManager> {
     return this.getOrCreateService('working-memory-manager', () => {
-      const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+      // Use centralized Redis configuration
+      const redisConfig = config.redis;
+      const redisUrl = process.env.REDIS_URL || `redis://${redisConfig.password ? `:${redisConfig.password}@` : ''}${redisConfig.host}:${redisConfig.port}`;
       return new WorkingMemoryManager(redisUrl);
     });
   }
@@ -297,11 +318,22 @@ export class ServiceFactory {
   // Utility Methods
 
   /**
-   * Get health status of all services
+   * Get health status of all services including database and cache
    */
   async getHealthStatus(): Promise<{
     initialized: boolean;
     services: Record<string, boolean>;
+    database?: {
+      status: 'healthy' | 'unhealthy';
+      details: {
+        connected: boolean;
+        driver: string;
+        database: string;
+        responseTime?: number;
+        cacheEnabled?: boolean;
+        cacheHealthy?: boolean;
+      };
+    };
   }> {
     const services: Record<string, boolean> = {};
 
@@ -317,9 +349,21 @@ export class ServiceFactory {
       }
     }
 
+    // Get database health including cache status
+    let databaseHealth;
+    try {
+      const typeOrmService = this.serviceInstances.get('typeorm');
+      if (typeOrmService && typeof typeOrmService.checkHealth === 'function') {
+        databaseHealth = await typeOrmService.checkHealth();
+      }
+    } catch (error) {
+      this.logger.warn('Failed to get database health', { error: error.message });
+    }
+
     return {
       initialized: this.initialized,
-      services
+      services,
+      ...(databaseHealth && { database: databaseHealth })
     };
   }
 
