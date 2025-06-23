@@ -22,7 +22,7 @@
     "express": "catalog:backend",
     "helmet": "^8.1.0",
     "morgan": "^1.10.0",
-    "node-cron": "^4.1.0",
+    "node-cron": "^4.1.1",
     "prom-client": "^15.1.3",
     "zod": "catalog:"
   },
