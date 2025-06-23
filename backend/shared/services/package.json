@@ -33,7 +33,7 @@
     "bcrypt": "^6.0.0",
     "ioredis": "^5.6.1",
     "neo4j-driver": "^5.28.1",
-    "pg": "^8.16.1",
+    "pg": "^8.16.2",
     "typeorm": "catalog:backend",
     "winston": "catalog:backend",
     "zod": "catalog:"
