@@ -413,6 +413,10 @@ services:
       - QDRANT_URL=http://qdrant:6333
       - RABBITMQ_URL=amqp://uaip_user:uaip_password@rabbitmq:5672
       - JWT_SECRET=uaip_dev_jwt_secret_key_change_in_production
+      # TEI Configuration
+      - TEI_EMBEDDING_URL=http://tei-embeddings:80
+      - TEI_RERANKER_URL=http://tei-reranker:80
+      - TEI_EMBEDDING_CPU_URL=http://tei-embeddings-cpu:80
     ports:
       - "3004:3004"
     volumes:
@@ -430,6 +434,8 @@ services:
       redis:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      tei-embeddings-cpu:
         condition: service_healthy
     networks:
       - uaip-network

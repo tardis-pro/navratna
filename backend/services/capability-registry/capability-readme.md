@@ -1,80 +1,179 @@
 # Capability Registry Service
 
-Enhanced tools system with hybrid PostgreSQL + Neo4j architecture for the UAIP backend monorepo.
+## Overview
 
-## 🚀 Features
+The Capability Registry Service manages tool and capability discovery, registration, execution, and monitoring in the UAIP platform. It provides a secure, scalable foundation for AI agents to discover and execute tools while maintaining comprehensive tracking, security controls, and intelligent recommendations.
 
-### Core Capabilities
-- **Tool Registration & Management** - Register, update, and manage tool definitions
-- **Tool Execution with Tracking** - Execute tools with comprehensive logging and monitoring
-- **Graph-based Relationships** - Model tool relationships using Neo4j for smart recommendations
-- **Usage Analytics** - Track tool usage patterns and generate insights
-- **Approval Workflows** - Security controls for sensitive tool executions
-- **Smart Recommendations** - AI-powered tool suggestions based on usage patterns
+## Features
 
-### Enhanced Features
-- **Hybrid Database Architecture** - PostgreSQL for structured data + Neo4j for relationships
-- **Real-time Usage Tracking** - Monitor tool performance and usage patterns
-- **Security Levels** - Granular security controls (safe, moderate, restricted, dangerous)
-- **Cost Tracking** - Monitor and limit tool execution costs
-- **Retry Mechanisms** - Automatic retry for recoverable failures
-- **Rate Limiting** - Protect against abuse with configurable rate limits
+- **Tool Registration & Management** - Comprehensive tool lifecycle management with versioning
+- **Sandboxed Execution Engine** - Secure, isolated tool execution with resource constraints
+- **Graph-based Discovery** - Neo4j-powered tool relationships and intelligent recommendations  
+- **Real-time Event Streaming** - Live execution updates and monitoring
+- **Security & Compliance** - Granular security levels with approval workflows
+- **Usage Analytics** - Advanced metrics, cost tracking, and performance insights
+- **Community Integration** - GitHub-based tool sharing and collaboration
+- **Workflow Orchestration** - Multi-tool workflow execution and coordination
 
-## 🏗️ Architecture
-
-```
-┌─────────────────┐    ┌─────────────────┐
-│   PostgreSQL    │    │     Neo4j       │
-│                 │    │                 │
-│ • Tool Defs     │    │ • Relationships │
-│ • Executions    │    │ • Usage Patterns│
-│ • Usage Logs    │    │ • Recommendations│
-└─────────────────┘    └─────────────────┘
-         │                       │
-         └───────────┬───────────┘
-                     │
-         ┌─────────────────┐
-         │ Tool Registry   │
-         │                 │
-         │ • Registration  │
-         │ • Discovery     │
-         │ • Execution     │
-         │ • Analytics     │
-         └─────────────────┘
-                     │
-         ┌─────────────────┐
-         │   REST API      │
-         │                 │
-         │ • CRUD Ops      │
-         │ • Execution     │
-         │ • Analytics     │
-         │ • Relationships │
-         └─────────────────┘
-```
-
-## 📦 Installation
+## Quick Start
 
 ```bash
 # Install dependencies
 npm install
 
-# Build the service
+# Build service
 npm run build
 
 # Run database migrations
 npm run db:migrate
 
-# Seed with sample tools (optional)
-npm run db:seed
+# Run in development mode
+npm run dev
+
+# Run in production
+npm start
+
+# Run tests
+npm test
 ```
 
-## 🔧 Configuration
+## API Endpoints
 
-Environment variables:
+### Tool Management
+- `GET /api/v1/tools` - List all tools with filtering and search
+- `POST /api/v1/tools` - Register new tool
+- `GET /api/v1/tools/:id` - Get tool details
+- `PUT /api/v1/tools/:id` - Update tool configuration
+- `DELETE /api/v1/tools/:id` - Delete tool
+
+### Tool Execution
+- `POST /api/v1/tools/:id/execute` - Execute tool with parameters
+- `GET /api/v1/executions/:id` - Get execution status and results
+- `GET /api/v1/executions` - List executions with filtering
+- `POST /api/v1/executions/:id/cancel` - Cancel running execution
+- `POST /api/v1/executions/:id/approve` - Approve pending execution
+
+### Discovery & Recommendations
+- `GET /api/v1/tools/search` - Search tools by name, description, or tags
+- `GET /api/v1/tools/recommendations` - Get personalized tool recommendations
+- `GET /api/v1/tools/:id/related` - Get related tools and relationships
+- `GET /api/v1/tools/categories` - List tool categories and statistics
+
+### Analytics & Monitoring
+- `GET /api/v1/analytics/usage` - Tool usage statistics
+- `GET /api/v1/analytics/performance` - Performance metrics
+- `GET /api/v1/analytics/costs` - Cost analysis and tracking
+- `GET /api/v1/health` - Service health and status
+
+For detailed API documentation, see [API_REFERENCE.md](./API_REFERENCE.md)
+
+## Integration
+
+### With Agent Intelligence Service
+
+The Capability Registry integrates with Agent Intelligence to:
+
+- **Tool Discovery**: Agents discover relevant tools based on context and capabilities
+- **Execution Coordination**: Coordinate tool usage with agent responses and memory
+- **Learning Integration**: Track tool effectiveness for agent learning
+
+```typescript
+// Example agent tool discovery
+const recommendedTools = await capabilityRegistry.getRecommendations({
+  agentId: 'agent-123',
+  context: 'code analysis',
+  capabilities: ['programming', 'debugging'],
+  securityLevel: 'moderate'
+});
+```
+
+### With Discussion Orchestration Service
+
+Integration with Discussion Orchestration enables:
+
+- **Discussion-Enhanced Tools**: Execute tools in the context of discussions
+- **Collaborative Execution**: Multiple participants can coordinate tool usage
+- **Real-time Results**: Stream tool results to discussion participants
+
+```typescript
+// Example discussion tool execution
+const execution = await capabilityRegistry.executeTool({
+  toolId: 'code-reviewer',
+  parameters: { repository: discussionContext.repository },
+  discussionId: 'disc-456',
+  requestedBy: 'participant-789'
+});
+```
+
+## 🏗️ Architecture
+
+### Core Components
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                  Capability Registry                         │
+├─────────────────────────────────────────────────────────────┤
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐           │
+│  │    Tool     │ │  Execution  │ │ Discovery   │           │
+│  │  Registry   │ │   Engine    │ │   Engine    │           │
+│  │             │ │             │ │             │           │
+│  │ - Storage   │ │ - Sandbox   │ │ - Search    │           │
+│  │ - Validation│ │ - Monitor   │ │ - Recommend │           │
+│  │ - Versioning│ │ - Security  │ │ - Relations │           │
+│  └─────────────┘ └─────────────┘ └─────────────┘           │
+├─────────────────────────────────────────────────────────────┤
+│                    Hybrid Database                          │
+│  ┌─────────────────────┐ ┌─────────────────────────────────┐ │
+│  │    PostgreSQL       │ │           Neo4j                 │ │
+│  │                     │ │                                 │ │
+│  │ - Tool definitions  │ │ - Tool relationships            │ │
+│  │ - Execution logs    │ │ - Usage patterns                │ │
+│  │ - Usage metrics     │ │ - Recommendations               │ │
+│  │ - Performance data  │ │ - Community connections         │ │
+│  └─────────────────────┘ └─────────────────────────────────┘ │
+├─────────────────────────────────────────────────────────────┤
+│                   Integration Layer                          │
+│  ┌─────────────────────┐ ┌─────────────────────────────────┐ │
+│  │ Agent Intelligence  │ │  Discussion Orchestration       │ │
+│  │                     │ │                                 │ │
+│  │ - Tool discovery    │ │ - Collaborative execution       │ │
+│  │ - Execution coord   │ │ - Real-time results             │ │
+│  │ - Learning tracking │ │ - Context-aware tools           │ │
+│  └─────────────────────┘ └─────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Sandboxed Execution Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   Execution Sandbox                         │
+├─────────────────────────────────────────────────────────────┤
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐           │
+│  │  Security   │ │  Resource   │ │ Monitoring  │           │
+│  │  Manager    │ │  Manager    │ │   System    │           │
+│  │             │ │             │ │             │           │
+│  │ - Isolation │ │ - CPU Limit │ │ - Real-time │           │
+│  │ - Validation│ │ - Memory    │ │ - Logging   │           │
+│  │ - Approval  │ │ - Network   │ │ - Metrics   │           │
+│  └─────────────┘ └─────────────┘ └─────────────┘           │
+├─────────────────────────────────────────────────────────────┤
+│                    Event Streaming                          │
+│  • Real-time execution updates                              │
+│  • WebSocket connections for live monitoring                │
+│  • Event-driven result processing                           │
+│  • Integration with frontend dashboards                     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Configuration
+
+### Environment Variables
 
 ```bash
 # Service Configuration
 PORT=3003
+NODE_ENV=development
 
 # PostgreSQL Configuration
 PG_HOST=localhost
@@ -93,15 +192,69 @@ NEO4J_DATABASE=neo4j
 # Security Configuration
 JWT_SECRET=your-secret-key
 ENABLE_APPROVAL_WORKFLOW=false
+DEFAULT_SECURITY_LEVEL=safe
 
-# Tool Configuration
+# Execution Configuration
 TOOL_EXECUTION_TIMEOUT=30000
 MAX_CONCURRENT_EXECUTIONS=10
 DEFAULT_COST_LIMIT=100.0
+SANDBOX_MEMORY_LIMIT=512MB
+SANDBOX_CPU_LIMIT=1.0
+
+# Integration Configuration
+AGENT_INTELLIGENCE_URL=http://localhost:3002
+DISCUSSION_ORCHESTRATION_URL=http://localhost:3001
+GITHUB_OAUTH_CLIENT_ID=your-github-client-id
+GITHUB_OAUTH_CLIENT_SECRET=your-github-client-secret
 
 # Rate Limiting
 RATE_LIMIT_WINDOW=60000
 RATE_LIMIT_MAX=100
+
+# Event Streaming
+ENABLE_WEBSOCKET=true
+WEBSOCKET_PORT=3003
+EVENT_STREAM_BUFFER_SIZE=1000
+```
+
+### Security Levels
+
+```typescript
+enum SecurityLevel {
+  SAFE = 'safe',           // No restrictions, automatic execution
+  MODERATE = 'moderate',   // Basic validation, logged execution
+  RESTRICTED = 'restricted', // Manual approval required
+  DANGEROUS = 'dangerous'   // Admin approval + comprehensive audit
+}
+```
+
+### Tool Configuration Example
+
+```typescript
+{
+  "id": "code-analyzer",
+  "name": "Code Quality Analyzer",
+  "description": "Analyzes code quality and provides improvement suggestions",
+  "version": "1.2.0",
+  "category": "development",
+  "securityLevel": "moderate",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "code": { "type": "string", "description": "Code to analyze" },
+      "language": { "type": "string", "enum": ["javascript", "typescript", "python"] },
+      "rules": { "type": "array", "items": { "type": "string" } }
+    },
+    "required": ["code", "language"]
+  },
+  "executionConfig": {
+    "timeout": 15000,
+    "memoryLimit": "256MB",
+    "cpuLimit": 0.5,
+    "networkAccess": false
+  },
+  "costEstimate": 0.05
+}
 ```
 
 ## 🚀 Usage
@@ -423,27 +576,124 @@ CMD ["node", "dist/index.js"]
 4. Seed tools: `npm run db:seed`
 5. Start service: `npm start`
 
-## 📈 Performance
+## Performance Metrics
 
-### Optimization Features
-- Connection pooling for both databases
-- Query optimization and indexing
-- Caching for frequently accessed tools
-- Async execution with timeout handling
-- Rate limiting and throttling
+### Response Time Targets
+- Tool discovery: < 50ms
+- Tool execution: < 5000ms (varies by tool)
+- Recommendations: < 200ms
+- Analytics queries: < 500ms
 
-### Scalability
-- Horizontal scaling support
-- Database connection management
-- Stateless service design
-- Event-driven architecture ready
+### Throughput Targets
+- Tool executions per second: 2000+
+- Concurrent executions: 1000+
+- Discovery requests per second: 5000+
 
-## 🤝 Contributing
+## Monitoring
 
-1. Follow the monorepo patterns
-2. Use shared services for database operations
-3. Implement proper error handling
-4. Add comprehensive tests
+### Health Checks
+
+```bash
+# Service health
+GET /health
+
+# Database connectivity
+GET /health/database
+
+# Neo4j connectivity
+GET /health/neo4j
+
+# Execution engine status
+GET /health/execution-engine
+```
+
+### Metrics
+
+The service exposes Prometheus metrics:
+
+- `capability_registry_tool_executions_total`
+- `capability_registry_execution_duration`
+- `capability_registry_active_executions`
+- `capability_registry_discovery_requests_total`
+- `capability_registry_recommendation_accuracy`
+- `capability_registry_sandbox_resource_usage`
+
+## Troubleshooting
+
+### Common Issues
+
+#### Tool Execution Failures
+```bash
+# Check execution logs
+GET /api/v1/executions/:id
+
+# Review execution environment
+GET /api/v1/tools/:id/execution-config
+
+# Test tool in safe mode
+POST /api/v1/tools/:id/test
+```
+
+#### Performance Issues
+```bash
+# Monitor active executions
+GET /api/v1/analytics/performance
+
+# Check resource usage
+GET /health/execution-engine
+
+# Review database performance
+GET /health/database
+```
+
+#### Discovery Problems
+```bash
+# Test search functionality
+GET /api/v1/tools/search?q=test
+
+# Check Neo4j connectivity
+GET /health/neo4j
+
+# Rebuild recommendation cache
+POST /api/v1/admin/rebuild-cache
+```
+
+## Event Runner Integration
+
+This service implements the Sandboxed Event Runner vision outlined in [eventrunner.md](../eventrunner.md):
+
+### Sandboxed Execution
+- **Resource Constraints**: Memory, CPU, and network limits per security level
+- **Security Isolation**: Containerized execution with permission controls
+- **Real-time Monitoring**: Live execution tracking and resource usage
+
+### Event Streaming
+- **WebSocket Support**: Real-time execution updates
+- **Event-Driven Architecture**: Asynchronous result processing
+- **Frontend Integration**: Dashboard-ready event streams
+
+### Workflow Orchestration
+- **Multi-Tool Workflows**: Sequential and parallel tool execution
+- **Conditional Logic**: Branch execution based on results
+- **Error Recovery**: Automatic retry and compensation strategies
+
+### Community Features
+- **GitHub Integration**: OAuth-based tool sharing
+- **Collaborative Development**: Community-driven tool creation
+- **Automated Testing**: Security and functionality validation
+
+## Contributing
+
+1. Follow the [Service Alignment Guide](../SERVICE_ALIGNMENT_GUIDE.md)
+2. Use monorepo workspace imports (`@uaip/*`)
+3. Implement proper sandbox security
+4. Add comprehensive tests for new tools
+5. Update documentation for API changes
+6. Follow the Event Runner patterns for new features
+
+## License
+
+MIT License - see [LICENSE](../../LICENSE) for details.
 5. Update documentation
 
 ## 📝 License
