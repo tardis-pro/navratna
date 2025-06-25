@@ -30,23 +30,30 @@ export class KnowledgeGraphService {
   async search(request: KnowledgeSearchRequest & { scope?: KnowledgeScope }): Promise<KnowledgeSearchResponse> {
     const startTime = Date.now();
     const { query, filters, options, scope } = request;
-    
+    let filteredResults: KnowledgeItem[] = [];
+    let vectorResults: any[] = [];
     try {
       // Generate query embedding
-      const queryEmbedding = await this.embeddings.generateEmbedding(query);
+      if(query) {
+        const queryEmbedding = await this.embeddings.generateEmbedding(query);
+        const vectorFilters = this.buildVectorFilters(filters, scope);
+
+        vectorResults = await this.vectorDb.search(queryEmbedding, {
+          limit: options?.limit || 20,
+          threshold: options?.similarityThreshold || 0.7,
+          filters: vectorFilters
+        });
+        filteredResults = await this.repository.applyFilters(vectorResults, filters, scope);
+      } else {
+        filteredResults = await this.repository.applyFilters([], filters, scope);
+      }
       
       // Build vector filters including scope
-      const vectorFilters = this.buildVectorFilters(filters, scope);
       
       // Perform vector similarity search
-      const vectorResults = await this.vectorDb.search(queryEmbedding, {
-        limit: options?.limit || 20,
-        threshold: options?.similarityThreshold || 0.7,
-        filters: vectorFilters
-      });
+     
       
       // Apply metadata filters and hydrate results with scope
-      const filteredResults = await this.repository.applyFilters(vectorResults, filters, scope);
       
       // Enhance with relationships if requested
       const enhancedResults = options?.includeRelationships 
@@ -59,7 +66,7 @@ export class KnowledgeGraphService {
         searchMetadata: {
           query,
           processingTime: Date.now() - startTime,
-          similarityScores: vectorResults.map(r => r.score),
+          similarityScores: vectorResults ? vectorResults.map(r => r.score) : [],
           filtersApplied: this.getAppliedFilters(filters)
         }
       };
@@ -80,10 +87,10 @@ export class KnowledgeGraphService {
       try {
         // Classify content
         const classification = await this.classifier.classify(item.content);
-        
+        console.log('classification', classification);
         // Generate embeddings
         const embeddings = await this.embeddings.generateEmbeddings(item.content);
-        
+        console.log('embeddings', embeddings);
         // Store knowledge item with scope
         const knowledgeItem = await this.repository.create({
           ...item,
@@ -93,10 +100,9 @@ export class KnowledgeGraphService {
           userId: item.scope?.userId,
           agentId: item.scope?.agentId
         });
-        
+        console.log('knowledgeItem', knowledgeItem);
         // Store embeddings in vector database with scope metadata
         await this.vectorDb.store(knowledgeItem.id, embeddings);
-        
         // Detect and create relationships
         const relationships = await this.relationshipDetector.detectRelationships(knowledgeItem);
         if (relationships.length > 0) {

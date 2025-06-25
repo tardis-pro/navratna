@@ -109,7 +109,7 @@ export class QdrantService {
       const workingUrl = await this.ensureConnection();
       
       const points = embeddings.map((embedding, index) => ({
-        id: `${knowledgeItemId}_${index}`,
+        id: index,
         vector: embedding,
         payload: {
           knowledge_item_id: knowledgeItemId,
@@ -117,7 +117,7 @@ export class QdrantService {
           created_at: new Date().toISOString()
         }
       }));
-
+      console.log('points', points);
       const response = await fetch(`${workingUrl}/collections/${this.collectionName}/points`, {
         method: 'PUT',
         headers: {
@@ -127,7 +127,7 @@ export class QdrantService {
           points: points
         })
       });
-
+      console.log('response', await response.json());
       if (!response.ok) {
         throw new Error(`Qdrant storage failed: ${response.statusText}`);
       }

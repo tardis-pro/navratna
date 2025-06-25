@@ -548,7 +548,7 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
                     <CardTitle className="text-white">By Source</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
-                    {Object.entries(stats.itemsBySource).map(([source, count]) => (
+                    {stats.itemsBySource && Object.entries(stats.itemsBySource).map(([source, count]) => (
                       <div key={source} className="flex justify-between items-center">
                         <span className="text-gray-300">{source}</span>
                         <Badge variant="secondary">{count}</Badge>
@@ -564,7 +564,7 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
-                      {stats.recentActivity.map((activity, index) => (
+                      {stats.recentActivity.data && stats.recentActivity.map((activity, index) => (
                         <div key={index} className="flex justify-between items-center p-3 rounded border border-blue-500/20">
                           <span className="text-gray-300">{activity.date}</span>
                           <div className="flex space-x-4">
