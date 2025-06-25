@@ -27,7 +27,7 @@
     "@typescript-eslint/eslint-plugin": "catalog:",
     "@typescript-eslint/parser": "catalog:",
     "eslint": "catalog:",
-    "jest": "^30.0.2",
+    "jest": "^30.0.3",
     "nodemon": "catalog:backend",
     "ts-node": "catalog:backend",
     "tsx": "^4.20.3",
