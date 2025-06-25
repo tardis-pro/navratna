@@ -176,7 +176,7 @@ export class UserLLMService {
   /**
    * Test a user's provider connectivity
    */
-  async testUserProvider(userId: string, providerId: string): Promise<{
+  async testUserProvider(userId: string): Promise<{
     isHealthy: boolean;
     error?: string;
     modelCount: number;
@@ -184,24 +184,24 @@ export class UserLLMService {
   }> {
     try {
       const repository = await this.getUserLLMProviderRepository();
-      const userProvider = await repository.findById(providerId);
-      if (!userProvider || userProvider.userId !== userId) {
+      const userProviders = await repository.findAllProvidersByUser(userId);
+      if (!userProviders || userProviders.length === 0) {
         throw new Error('Provider not found or access denied');
       }
 
       const startTime = Date.now();
-      const provider = await this.createProviderInstance(userProvider);
+      const provider = await this.createProviderInstance(userProviders[0]);
       
       try {
         const models = await provider.getAvailableModels();
         const responseTime = Date.now() - startTime;
-
-        // Update health check result
-        await repository.updateHealthCheck(providerId, {
+        userProviders.forEach(async (provider) => {
+          // Update health check result
+          await repository.updateHealthCheck(provider.id, {
           status: 'healthy',
-          latency: responseTime
+            latency: responseTime
+          });
         });
-
         return {
           isHealthy: true,
           modelCount: models.length,
@@ -212,7 +212,7 @@ export class UserLLMService {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
         // Update health check result
-        await repository.updateHealthCheck(providerId, {
+        await repository.updateHealthCheck(userProviders[0].id, {
           status: 'unhealthy',
           error: errorMessage,
           latency: responseTime
@@ -226,7 +226,7 @@ export class UserLLMService {
         };
       }
     } catch (error) {
-      logger.error('Error testing user LLM provider', { userId, providerId, error });
+      logger.error('Error testing user LLM provider', { userId, error });
       throw error;
     }
   }

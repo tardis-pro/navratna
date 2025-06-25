@@ -15,9 +15,7 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
     try {
       return await this.repository.find({
         where: { 
-          userId,
-          isActive: true,
-          status: 'active'
+          userId,  
         },
         order: { 
           priority: 'ASC',

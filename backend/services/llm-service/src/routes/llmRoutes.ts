@@ -213,6 +213,7 @@ router.get('/providers/stats', async (req: Request, res: Response) => {
 router.get('/providers', async (req: Request, res: Response) => {
   try {
     const providers = await llmService.getConfiguredProviders();
+    const healthResults = await llmService.checkProviderHealth();
 
     res.json({
       success: true,

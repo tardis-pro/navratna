@@ -123,6 +123,23 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
+  // Edit Provider Modal State
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingProvider, setEditingProvider] = useState<ModelProvider | null>(null);
+  const [editFormData, setEditFormData] = useState<CreateProviderForm>({
+    name: '',
+    description: '',
+    type: 'ollama',
+    baseUrl: '',
+    apiKey: '',
+    defaultModel: '',
+    priority: 100
+  });
+  const [editFormErrors, setEditFormErrors] = useState<Record<string, string>>({});
+  const [updatingProvider, setUpdatingProvider] = useState(false);
+  const [testResult, setTestResult] = useState<Record<string, string | null>>({});
+  const [testingProvider, setTestingProvider] = useState<string | null>(null);
+
   // Provider type configurations
   const providerTypes = [
     {
@@ -358,6 +375,123 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
   const handleCloseModal = () => {
     setShowAddModal(false);
     resetForm();
+  };
+
+  // Edit Modal Handlers
+  const openEditModal = (provider: ModelProvider) => {
+    setEditingProvider(provider);
+    setEditFormData({
+      name: provider.name,
+      description: provider.description || '',
+      type: provider.type,
+      baseUrl: provider.baseUrl,
+      apiKey: '', // Don't prefill API key for security
+      defaultModel: provider.defaultModel || '',
+      priority: provider.priority
+    });
+    setEditFormErrors({});
+    setShowEditModal(true);
+  };
+
+  const closeEditModal = () => {
+    setShowEditModal(false);
+    setEditingProvider(null);
+    setEditFormErrors({});
+  };
+
+  const handleEditFormChange = (field: keyof CreateProviderForm, value: string | number) => {
+    setEditFormData(prev => ({ ...prev, [field]: value }));
+    if (editFormErrors[field]) {
+      setEditFormErrors(prev => ({ ...prev, [field]: '' }));
+    }
+    if (field === 'type') {
+      const providerType = providerTypes.find(p => p.id === value);
+      if (providerType?.defaultUrl) {
+        setEditFormData(prev => ({ ...prev, baseUrl: providerType.defaultUrl }));
+      }
+    }
+  };
+
+  const validateEditForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    if (!editFormData.name.trim()) errors.name = 'Provider name is required';
+    if (!editFormData.type) errors.type = 'Provider type is required';
+    if (!editFormData.baseUrl.trim()) {
+      errors.baseUrl = 'Base URL is required';
+    } else {
+      try { new URL(editFormData.baseUrl); } catch { errors.baseUrl = 'Invalid URL format'; }
+    }
+    const selectedType = providerTypes.find(p => p.id === editFormData.type);
+    if (selectedType?.requiresApiKey && !editFormData.apiKey.trim()) {
+      errors.apiKey = 'API key is required for this provider type';
+    }
+    if (editFormData.priority < 0 || editFormData.priority > 1000) {
+      errors.priority = 'Priority must be between 0 and 1000';
+    }
+    setEditFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleUpdateProvider = async () => {
+    if (!editingProvider || !validateEditForm()) return;
+    setUpdatingProvider(true);
+    try {
+      const config: any = {
+        name: editFormData.name.trim(),
+        description: editFormData.description.trim() || undefined,
+        baseUrl: editFormData.baseUrl.trim(),
+        defaultModel: editFormData.defaultModel.trim() || undefined,
+        priority: editFormData.priority
+      };
+      if (editFormData.apiKey) config.apiKey = editFormData.apiKey.trim();
+      if (onUpdateProvider) {
+        await onUpdateProvider(editingProvider.id, config);
+      } else {
+        await uaipAPI.llm.updateProvider(editingProvider.id, config);
+        await loadProviders();
+      }
+      closeEditModal();
+    } catch (error) {
+      setEditFormErrors(prev => ({ ...prev, general: error instanceof Error ? error.message : 'Failed to update provider' }));
+    } finally {
+      setUpdatingProvider(false);
+    }
+  };
+
+  // Test Provider Handler
+  const handleTestProvider = async (providerId: string) => {
+    setTestingProvider(providerId);
+    setTestResult(prev => ({ ...prev, [providerId]: null }));
+    try {
+      let result;
+      if (onTestProvider) {
+        result = await onTestProvider(providerId);
+      } else {
+        result = await uaipAPI.llm.testProvider(providerId);
+      }
+      setTestResult(prev => ({ ...prev, [providerId]: 'success' }));
+    } catch (error) {
+      setTestResult(prev => ({ ...prev, [providerId]: error instanceof Error ? error.message : 'Test failed' }));
+    } finally {
+      setTestingProvider(null);
+    }
+  };
+
+  // Toggle Active/Inactive Handler
+  const handleToggleActive = async (provider: ModelProvider) => {
+    setUpdatingProvider(true);
+    try {
+      if (onUpdateProvider) {
+        await onUpdateProvider(provider.id, { isActive: !provider.isActive });
+      } else {
+        await uaipAPI.llm.updateProvider(provider.id, { isActive: !provider.isActive });
+        await loadProviders();
+      }
+    } catch (error) {
+      // Optionally show error feedback
+    } finally {
+      setUpdatingProvider(false);
+    }
   };
 
   // Helper functions
@@ -718,267 +852,365 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
                 </button>
               </div>
             </div>
-                      </div>
           </div>
-        )}
+        </div>
+      )}
+
+      {/* Edit Provider Modal */}
+      {showEditModal && editingProvider && (
+        <div className="bg-gradient-to-br from-blue-50/50 to-purple-50/50 dark:from-blue-900/20 dark:to-purple-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl overflow-hidden z-50 fixed inset-0 flex items-center justify-center backdrop-blur-sm">
+          <div className="w-full max-w-xl mx-auto bg-white dark:bg-slate-900 rounded-2xl shadow-2xl p-6 relative">
+            <button
+              onClick={closeEditModal}
+              className="absolute top-4 right-4 p-2 hover:bg-white/20 rounded-xl transition-colors duration-200 text-slate-600 dark:text-white flex-shrink-0"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Edit Provider</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold mb-2">Provider Name</label>
+                <input
+                  type="text"
+                  value={editFormData.name}
+                  onChange={e => handleEditFormChange('name', e.target.value)}
+                  className="w-full px-4 py-2 border rounded-xl"
+                />
+                {editFormErrors.name && <div className="text-red-500 text-xs mt-1">{editFormErrors.name}</div>}
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-2">Description</label>
+                <textarea
+                  value={editFormData.description}
+                  onChange={e => handleEditFormChange('description', e.target.value)}
+                  className="w-full px-4 py-2 border rounded-xl"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-2">Base URL</label>
+                <input
+                  type="url"
+                  value={editFormData.baseUrl}
+                  onChange={e => handleEditFormChange('baseUrl', e.target.value)}
+                  className="w-full px-4 py-2 border rounded-xl"
+                />
+                {editFormErrors.baseUrl && <div className="text-red-500 text-xs mt-1">{editFormErrors.baseUrl}</div>}
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-2">Default Model</label>
+                <input
+                  type="text"
+                  value={editFormData.defaultModel}
+                  onChange={e => handleEditFormChange('defaultModel', e.target.value)}
+                  className="w-full px-4 py-2 border rounded-xl"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-2">Priority</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="1000"
+                  value={editFormData.priority}
+                  onChange={e => handleEditFormChange('priority', parseInt(e.target.value) || 0)}
+                  className="w-full px-4 py-2 border rounded-xl"
+                />
+                {editFormErrors.priority && <div className="text-red-500 text-xs mt-1">{editFormErrors.priority}</div>}
+              </div>
+              {editFormErrors.general && <div className="text-red-500 text-xs mt-2">{editFormErrors.general}</div>}
+              <div className="flex justify-end gap-2 mt-4">
+                <button
+                  onClick={closeEditModal}
+                  className="px-4 py-2 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-white"
+                  disabled={updatingProvider}
+                >Cancel</button>
+                <button
+                  onClick={handleUpdateProvider}
+                  className="px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold"
+                  disabled={updatingProvider}
+                >{updatingProvider ? 'Saving...' : 'Save'}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Error State */}
       {propError && (
-    <div className="flex items-center space-x-3 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
-      <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-      <div>
-        <p className="text-sm font-medium text-red-800 dark:text-red-200">
-          Failed to load providers
-        </p>
-        <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-          {propError}
-                  </p>
+        <div className="flex items-center space-x-3 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
+          <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-red-800 dark:text-red-200">
+              Failed to load providers
+            </p>
+            <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+              {propError}
+            </p>
+          </div>
         </div>
-      </div>
       )}
 
       {/* Loading State */}
       {loading && (
-    <div className="flex items-center justify-center py-12">
-      <div className="flex items-center space-x-3">
-        <RefreshCw className="w-6 h-6 animate-spin text-blue-500" />
-        <span className="text-slate-600 dark:text-slate-400">Loading providers...</span>
-              </div>
-      </div>
+        <div className="flex items-center justify-center py-12">
+          <div className="flex items-center space-x-3">
+            <RefreshCw className="w-6 h-6 animate-spin text-blue-500" />
+            <span className="text-slate-600 dark:text-slate-400">Loading providers...</span>
+          </div>
+        </div>
       )}
 
       {/* Providers List */}
       {!loading && providers.length > 0 && (
-    <div className="space-y-4">
-      {providers.map((provider) => {
-        const Icon = getProviderIcon(provider.type);
-        const StatusIcon = getStatusIcon(provider.status);
-        const isExpanded = expandedProvider === provider.name;
-        const models = providerModels[provider.type] || [];
-        const isLoadingModels = loadingModels.has(provider.type);
+        <div className="space-y-4">
+          {providers.map((provider) => {
+            const Icon = getProviderIcon(provider.type);
+            const StatusIcon = getStatusIcon(provider.status);
+            const isExpanded = expandedProvider === provider.name;
+            const models = providerModels[provider.type] || [];
+            const isLoadingModels = loadingModels.has(provider.type);
 
-        return (
-          <div
-            key={provider.id}
-            className="bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group"
-          >
-            {/* Provider Header */}
-            <div
-              className="p-6 cursor-pointer hover:bg-gradient-to-r hover:from-slate-50 hover:to-blue-50 dark:hover:from-slate-800 dark:hover:to-slate-700 transition-all duration-300"
-              onClick={() => handleToggleProvider(provider.name)}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-5">
-                  <div className="relative">
-                    <div className="w-16 h-16 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-110">
-                      <Icon className="w-8 h-8 text-slate-600 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-300" />
-                    </div>
-                    {provider.isActive && (
-                      <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white dark:border-slate-900 flex items-center justify-center">
-                        <div className="w-2 h-2 bg-white rounded-full"></div>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-xl font-bold text-slate-900 dark:text-white group-hover:text-blue-700 dark:group-hover:text-blue-300 transition-colors duration-300">
-                      {provider.name}
-                    </h3>
-                    <div className="flex items-center space-x-4 mt-2">
-                      <div className="flex items-center space-x-2">
-                        <Globe className="w-4 h-4 text-slate-500" />
-                        <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                          {formatUrl(provider.baseUrl)}
-                        </span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Activity className="w-4 h-4 text-slate-500" />
-                        <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                          {provider.totalRequests} requests
-                        </span>
-                      </div>
-                      {provider.description && (
-                        <div className="flex items-center space-x-2">
-                          <div className="w-1 h-1 bg-slate-400 rounded-full"></div>
-                          <span className="text-sm text-slate-600 dark:text-slate-400 truncate max-w-xs">
-                            {provider.description}
-                          </span>
+            return (
+              <div
+                key={provider.id}
+                className="bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group"
+              >
+                {/* Provider Header */}
+                <div
+                  className="p-6 cursor-pointer hover:bg-gradient-to-r hover:from-slate-50 hover:to-blue-50 dark:hover:from-slate-800 dark:hover:to-slate-700 transition-all duration-300"
+                  onClick={() => handleToggleProvider(provider.name)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-5">
+                      <div className="relative">
+                        <div className="w-16 h-16 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-110">
+                          <Icon className="w-8 h-8 text-slate-600 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-300" />
                         </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-4">
-                  <div className="text-right">
-                    <div className={`inline-flex items-center space-x-2 px-4 py-2 rounded-full text-sm font-semibold shadow-sm ${getStatusColor(provider.status)}`}>
-                      <StatusIcon className="w-4 h-4" />
-                      <span className="capitalize">{provider.status}</span>
-                    </div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      Priority: {provider.priority}
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <ExternalLink className="w-5 h-5 text-slate-400 group-hover:text-blue-500 transition-colors duration-300" />
-                    <div className={`w-2 h-8 rounded-full transition-all duration-300 ${isExpanded ? 'bg-blue-500 rotate-180' : 'bg-slate-300 dark:bg-slate-600'}`}>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Expanded Content */}
-            {isExpanded && (
-              <div className="border-t-2 border-slate-200 dark:border-slate-700 bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-800 dark:to-slate-700">
-                <div className="p-8">
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-                    {/* Provider Details */}
-                    <div className="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-700">
-                      <h4 className="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center space-x-2">
-                        <Settings className="w-5 h-5 text-blue-600" />
-                        <span>Provider Details</span>
-                      </h4>
-                      <div className="space-y-4">
-                        {[
-                          { label: 'Type', value: provider.type, format: 'capitalize' },
-                          { label: 'Base URL', value: formatUrl(provider.baseUrl), format: 'url' },
-                          { label: 'Default Model', value: provider.defaultModel || 'None', format: 'text' },
-                          { label: 'Active', value: provider.isActive ? 'Yes' : 'No', format: 'boolean' },
-                          { label: 'Priority', value: provider.priority.toString(), format: 'number' },
-                          { label: 'Total Requests', value: provider.totalRequests.toString(), format: 'number' },
-                          { label: 'Total Errors', value: provider.totalErrors.toString(), format: 'error' },
-                          { label: 'Has API Key', value: provider.hasApiKey ? 'Yes' : 'No', format: 'security' }
-                        ].map((item, index) => (
-                          <div key={index} className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800 last:border-b-0">
+                        {provider.isActive && (
+                          <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white dark:border-slate-900 flex items-center justify-center">
+                            <div className="w-2 h-2 bg-white rounded-full"></div>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-xl font-bold text-slate-900 dark:text-white group-hover:text-blue-700 dark:group-hover:text-blue-300 transition-colors duration-300">
+                          {provider.name}
+                        </h3>
+                        <div className="flex items-center space-x-4 mt-2">
+                          <div className="flex items-center space-x-2">
+                            <Globe className="w-4 h-4 text-slate-500" />
                             <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                              {item.label}:
-                            </span>
-                            <span className={`text-sm font-semibold ${item.format === 'boolean'
-                                ? (item.value === 'Yes' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400')
-                                : item.format === 'error'
-                                  ? (parseInt(item.value) > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400')
-                                  : item.format === 'security'
-                                    ? (item.value === 'Yes' ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400')
-                                    : item.format === 'capitalize'
-                                      ? 'text-slate-900 dark:text-white capitalize'
-                                      : 'text-slate-900 dark:text-white'
-                              }`}>
-                              {item.value}
+                              {formatUrl(provider.baseUrl)}
                             </span>
                           </div>
-                        ))}
+                          <div className="flex items-center space-x-2">
+                            <Activity className="w-4 h-4 text-slate-500" />
+                            <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                              {provider.totalRequests} requests
+                            </span>
+                          </div>
+                          {provider.description && (
+                            <div className="flex items-center space-x-2">
+                              <div className="w-1 h-1 bg-slate-400 rounded-full"></div>
+                              <span className="text-sm text-slate-600 dark:text-slate-400 truncate max-w-xs">
+                                {provider.description}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-
-                    {/* Available Models */}
-                    <div className="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-700">
-                      <h4 className="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          <Cpu className="w-5 h-5 text-purple-600" />
-                          <span>Available Models</span>
-                        </div>
-                        <span className="text-sm font-normal bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-3 py-1 rounded-full">
-                          {models.length} models
+                    <div className="flex items-center space-x-4">
+                      {/* Test Button */}
+                      <button
+                        onClick={e => { e.stopPropagation(); handleTestProvider(provider.id); }}
+                        className="px-3 py-1 rounded-lg bg-emerald-500 text-white text-xs font-semibold hover:bg-emerald-600 transition-all duration-200 disabled:opacity-50"
+                        disabled={testingProvider === provider.id}
+                      >
+                        {testingProvider === provider.id ? 'Testing...' : 'Test'}
+                      </button>
+                      {testResult[provider.id] && (
+                        <span className={`ml-2 text-xs font-semibold ${testResult[provider.id] === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+                          {testResult[provider.id] === 'success' ? 'OK' : testResult[provider.id]}
                         </span>
-                      </h4>
-                      {isLoadingModels ? (
-                        <div className="flex items-center justify-center py-8">
-                          <div className="flex items-center space-x-3">
-                            <RefreshCw className="w-5 h-5 animate-spin text-blue-500" />
-                            <span className="text-slate-600 dark:text-slate-400">Loading models...</span>
+                      )}
+                      {/* Toggle Active/Inactive */}
+                      <button
+                        onClick={e => { e.stopPropagation(); handleToggleActive(provider); }}
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all duration-200 ${provider.isActive ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-slate-300 text-slate-700 hover:bg-slate-400'}`}
+                        disabled={updatingProvider}
+                      >
+                        {provider.isActive ? 'Active' : 'Inactive'}
+                      </button>
+                      {/* Edit Button */}
+                      <button
+                        onClick={e => { e.stopPropagation(); openEditModal(provider); }}
+                        className="px-3 py-1 rounded-lg bg-blue-500 text-white text-xs font-semibold hover:bg-blue-600 transition-all duration-200"
+                      >Edit</button>
+                      {/* Delete Button */}
+                      <button
+                        onClick={e => { e.stopPropagation(); if (onDeleteProvider) onDeleteProvider(provider.id); }}
+                        className="px-3 py-1 rounded-lg bg-red-500 text-white text-xs font-semibold hover:bg-red-600 transition-all duration-200"
+                      >Delete</button>
+                      <ExternalLink className="w-5 h-5 text-slate-400 group-hover:text-blue-500 transition-colors duration-300" />
+                      <div className={`w-2 h-8 rounded-full transition-all duration-300 ${isExpanded ? 'bg-blue-500 rotate-180' : 'bg-slate-300 dark:bg-slate-600'}`}></div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Expanded Content */}
+                {isExpanded && (
+                  <div className="border-t-2 border-slate-200 dark:border-slate-700 bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-800 dark:to-slate-700">
+                    <div className="p-8">
+                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                        {/* Provider Details */}
+                        <div className="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-700">
+                          <h4 className="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center space-x-2">
+                            <Settings className="w-5 h-5 text-blue-600" />
+                            <span>Provider Details</span>
+                          </h4>
+                          <div className="space-y-4">
+                            {[
+                              { label: 'Type', value: provider.type, format: 'capitalize' },
+                              { label: 'Base URL', value: formatUrl(provider.baseUrl), format: 'url' },
+                              { label: 'Default Model', value: provider.defaultModel || 'None', format: 'text' },
+                              { label: 'Active', value: provider.isActive ? 'Yes' : 'No', format: 'boolean' },
+                              { label: 'Priority', value: provider.priority.toString(), format: 'number' },
+                              { label: 'Total Requests', value: provider.totalRequests.toString(), format: 'number' },
+                              { label: 'Total Errors', value: provider.totalErrors.toString(), format: 'error' },
+                              { label: 'Has API Key', value: provider.hasApiKey ? 'Yes' : 'No', format: 'security' }
+                            ].map((item, index) => (
+                              <div key={index} className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800 last:border-b-0">
+                                <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                                  {item.label}:
+                                </span>
+                                <span className={`text-sm font-semibold ${item.format === 'boolean'
+                                    ? (item.value === 'Yes' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400')
+                                    : item.format === 'error'
+                                      ? (parseInt(item.value) > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400')
+                                      : item.format === 'security'
+                                        ? (item.value === 'Yes' ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400')
+                                        : item.format === 'capitalize'
+                                          ? 'text-slate-900 dark:text-white capitalize'
+                                          : 'text-slate-900 dark:text-white'
+                                }`}>
+                                  {item.value}
+                                </span>
+                              </div>
+                            ))}
                           </div>
                         </div>
-                      ) : models.length > 0 ? (
-                        <div className="space-y-3 max-h-48 overflow-y-auto pr-2">
-                          {models.map((model, index) => (
-                            <div
-                              key={model.id || index}
-                              className="flex items-center space-x-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200"
-                            >
-                              <div className="w-3 h-3 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex-shrink-0"></div>
-                              <div className="flex-1 min-w-0">
-                                <div className="text-sm font-semibold text-slate-900 dark:text-white truncate">
-                                  {model.name}
-                                </div>
-                                {model.description && (
-                                  <div className="text-xs text-slate-500 dark:text-slate-400 truncate mt-1">
-                                    {model.description}
-                                  </div>
-                                )}
-                              </div>
-                              <div className="text-xs text-slate-400 bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded">
-                                {model.provider || provider.type}
+
+                        {/* Available Models */}
+                        <div className="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-700">
+                          <h4 className="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <Cpu className="w-5 h-5 text-purple-600" />
+                              <span>Available Models</span>
+                            </div>
+                            <span className="text-sm font-normal bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-3 py-1 rounded-full">
+                              {models.length} models
+                            </span>
+                          </h4>
+                          {isLoadingModels ? (
+                            <div className="flex items-center justify-center py-8">
+                              <div className="flex items-center space-x-3">
+                                <RefreshCw className="w-5 h-5 animate-spin text-blue-500" />
+                                <span className="text-slate-600 dark:text-slate-400">Loading models...</span>
                               </div>
                             </div>
-                          ))}
+                          ) : models.length > 0 ? (
+                            <div className="space-y-3 max-h-48 overflow-y-auto pr-2">
+                              {models.map((model, index) => (
+                                <div
+                                  key={model.id || index}
+                                  className="flex items-center space-x-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200"
+                                >
+                                  <div className="w-3 h-3 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex-shrink-0"></div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                                      {model.name}
+                                    </div>
+                                    {model.description && (
+                                      <div className="text-xs text-slate-500 dark:text-slate-400 truncate mt-1">
+                                        {model.description}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="text-xs text-slate-400 bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded">
+                                    {model.provider || provider.type}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-8">
+                              <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-3">
+                                <Cpu className="w-6 h-6 text-slate-400" />
+                              </div>
+                              <p className="text-sm text-slate-500 dark:text-slate-400">
+                                No models available
+                              </p>
+                            </div>
+                          )}
                         </div>
-                      ) : (
-                        <div className="text-center py-8">
-                          <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-3">
-                            <Cpu className="w-6 h-6 text-slate-400" />
-                          </div>
-                          <p className="text-sm text-slate-500 dark:text-slate-400">
-                            No models available
-                          </p>
-                        </div>
-                      )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            )}
-          </div>
-        );
-              })}
-      </div>
-      )}
-
-      {/* Empty State */}
-      {!loading && providers.length === 0 && !error && (
-    <div className="text-center py-16">
-      <div className="relative mx-auto mb-8">
-        <div className="w-24 h-24 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 rounded-3xl flex items-center justify-center mx-auto shadow-xl">
-          <Server className="w-12 h-12 text-slate-400" />
-        </div>
-        <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-          <Plus className="w-4 h-4 text-white" />
-        </div>
-      </div>
-      <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">
-        No providers configured
-      </h3>
-      <p className="text-slate-600 dark:text-slate-400 mb-8 max-w-md mx-auto leading-relaxed">
-        Get started by adding your first AI model provider. Connect to services like OpenAI, Ollama, or custom endpoints to unlock powerful AI capabilities.
-      </p>
-      <div className="space-y-4">
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="group flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-xl transition-all duration-300 mx-auto shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
-        >
-          <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
-          <span>Add Your First Provider</span>
-        </button>
-        <div className="flex items-center justify-center space-x-8 pt-6">
-          {[
-            { icon: Globe, name: 'Ollama', color: 'from-green-500 to-emerald-600' },
-            { icon: Zap, name: 'OpenAI', color: 'from-blue-500 to-cyan-600' },
-            { icon: Server, name: 'LLM Studio', color: 'from-purple-500 to-pink-600' },
-            { icon: Cpu, name: 'Custom', color: 'from-orange-500 to-red-600' }
-          ].map((provider, index) => {
-            const Icon = provider.icon;
-            return (
-              <div key={index} className="text-center group cursor-pointer" onClick={() => setShowAddModal(true)}>
-                <div className={`w-12 h-12 bg-gradient-to-br ${provider.color} rounded-xl flex items-center justify-center mb-2 shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-110`}>
-                  <Icon className="w-6 h-6 text-white" />
-                </div>
-                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium group-hover:text-slate-700 dark:group-hover:text-slate-300 transition-colors duration-300">
-                  {provider.name}
-                </span>
+                )}
               </div>
             );
           })}
         </div>
-      </div>
-    </div>
+      )}
+
+      {/* Empty State */}
+      {!loading && providers.length === 0 && !error && (
+        <div className="text-center py-16">
+          <div className="relative mx-auto mb-8">
+            <div className="w-24 h-24 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 rounded-3xl flex items-center justify-center mx-auto shadow-xl">
+              <Server className="w-12 h-12 text-slate-400" />
+            </div>
+            <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+              <Plus className="w-4 h-4 text-white" />
+            </div>
+          </div>
+          <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">
+            No providers configured
+          </h3>
+          <p className="text-slate-600 dark:text-slate-400 mb-8 max-w-md mx-auto leading-relaxed">
+            Get started by adding your first AI model provider. Connect to services like OpenAI, Ollama, or custom endpoints to unlock powerful AI capabilities.
+          </p>
+          <div className="space-y-4">
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="group flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-xl transition-all duration-300 mx-auto shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
+            >
+              <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
+              <span>Add Your First Provider</span>
+            </button>
+            <div className="flex items-center justify-center space-x-8 pt-6">
+              {[
+                { icon: Globe, name: 'Ollama', color: 'from-green-500 to-emerald-600' },
+                { icon: Zap, name: 'OpenAI', color: 'from-blue-500 to-cyan-600' },
+                { icon: Server, name: 'LLM Studio', color: 'from-purple-500 to-pink-600' },
+                { icon: Cpu, name: 'Custom', color: 'from-orange-500 to-red-600' }
+              ].map((provider, index) => {
+                const Icon = provider.icon;
+                return (
+                  <div key={index} className="text-center group cursor-pointer" onClick={() => setShowAddModal(true)}>
+                    <div className={`w-12 h-12 bg-gradient-to-br ${provider.color} rounded-xl flex items-center justify-center mb-2 shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-110`}>
+                      <Icon className="w-6 h-6 text-white" />
+                    </div>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium group-hover:text-slate-700 dark:group-hover:text-slate-300 transition-colors duration-300">
+                      {provider.name}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

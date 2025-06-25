@@ -361,7 +361,8 @@ router.get('/models', async (req: Request, res: Response) => {
     }
     console.log('Getting available models for user', userId);
     const models = await getUserLLMService().getAvailableModels(userId);
-    
+    const healthResults = await getUserLLMService().testUserProvider(userId);
+    console.log('healthResults', healthResults);
     res.json({
       success: true,
       data: models

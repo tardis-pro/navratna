@@ -22,7 +22,7 @@ import { PuzzlePieceIcon } from '@heroicons/react/24/outline';
 
 interface PortalInstance {
   id: string;
-  type: 'agent-hub' | 'discussion-hub' | 'intelligence-hub' | 'system-hub' | 'chat' | 'knowledge' | 'monitoring-hub' | 'tools';
+  type: 'agent-hub' | 'discussion-hub' | 'intelligence-hub' | 'system-hub' | 'chat' | 'knowledge' | 'monitoring-hub' | 'tools' | 'provider';
   title: string;
   component: React.ComponentType<any>;
   position: { x: number; y: number };
@@ -112,6 +112,18 @@ const PORTAL_CONFIGS = {
     icon: MessageCircle,
     description: 'Direct chat interface with agents'
   },
+  provider: {
+    title: 'Providers',
+    component: ProviderSettingsPortal,
+    defaultSize: { 
+      desktop: { width: 900, height: 750 },
+      tablet: { width: 750, height: 700 },
+      mobile: { width: 500, height: 650 }
+    },
+    type: 'provider' as const,
+    icon: BookOpen,
+    description: 'Knowledge graph visualization and management'
+  },
   knowledge: {
     title: 'Knowledge Graph',
     component: KnowledgePortal,
@@ -122,7 +134,7 @@ const PORTAL_CONFIGS = {
     },
     type: 'analysis' as const,
     icon: BookOpen,
-    description: 'Knowledge graph visualization and management'
+    description: 'Provider management'
   },
   tools: {
     title: 'Tools Panel',
@@ -162,7 +174,7 @@ const PORTAL_GROUPS = {
   },
   system: {
     title: 'System & Tools',
-    portals: ['system-hub', 'tools'],
+    portals: ['system-hub', 'tools', 'provider'],
     colorClasses: {
       text: 'text-green-400',
       bg: 'from-green-500/20 to-green-600/20',
