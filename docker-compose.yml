@@ -133,7 +133,7 @@ services:
 
   tei-reranker:
     image: michaelf34/infinity:latest
-    container_name: uaip-mxbai-inference
+    container_name: tei-reranker
     runtime: nvidia
     command:
       - v2
@@ -143,6 +143,8 @@ services:
       - "8083"
     environment:
       - HF_HOME=/app/.cache
+    networks:
+      - uaip-network
     volumes:
       - tei_reranker_data:/app/.cache
     ports:
@@ -221,7 +223,7 @@ services:
       - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:-uaip_user}:${RABBITMQ_DEFAULT_PASS:-uaip_password}@rabbitmq:5672
       # TEI Configuration
       - TEI_EMBEDDING_URL=http://tei-embeddings:80
-      - TEI_RERANKER_URL=http://tei-reranker:80
+      - TEI_RERANKER_URL=http://tei-reranker:8083
       - TEI_EMBEDDING_CPU_URL=http://tei-embeddings-cpu:80
     ports:
       - "3001:3001"
@@ -314,7 +316,7 @@ services:
       - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:-uaip_user}:${RABBITMQ_DEFAULT_PASS:-uaip_password}@rabbitmq:5672
       # TEI Configuration
       - TEI_EMBEDDING_URL=http://tei-embeddings:80
-      - TEI_RERANKER_URL=http://tei-reranker:80
+      - TEI_RERANKER_URL=http://tei-reranker:8083
       - TEI_EMBEDDING_CPU_URL=http://tei-embeddings-cpu:80
     ports:
       - "3003:3003"
@@ -406,7 +408,7 @@ services:
       - JWT_SECRET=${JWT_SECRET:-uaip_dev_jwt_secret_key_change_in_production}
       # TEI Configuration
       - TEI_EMBEDDING_URL=http://tei-embeddings:80
-      - TEI_RERANKER_URL=http://tei-reranker:80
+      - TEI_RERANKER_URL=http://tei-reranker:8083
       - TEI_EMBEDDING_CPU_URL=http://tei-embeddings-cpu:80
     ports:
       - "3004:3004"

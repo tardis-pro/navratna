@@ -12,6 +12,7 @@ export interface TEIHealthStatus {
   model_dtype?: string;
   max_concurrent_requests?: number;
   max_batch_tokens?: number;
+  message?: string;
 }
 
 export class TEIEmbeddingService {
@@ -22,7 +23,7 @@ export class TEIEmbeddingService {
 
   constructor(
     embeddingBaseUrl: string = process.env.TEI_EMBEDDING_URL || 'http://localhost:8080',
-    rerankerBaseUrl: string = process.env.TEI_RERANKER_URL || 'http://localhost:8081',
+    rerankerBaseUrl: string = process.env.TEI_RERANKER_URL || 'http://localhost:8083',
     timeout: number = 30000,
     retryAttempts: number = 3
   ) {
@@ -37,33 +38,36 @@ export class TEIEmbeddingService {
    */
   async checkHealth(): Promise<{ embedding: TEIHealthStatus; reranker: TEIHealthStatus }> {
     const [embeddingHealth, rerankerHealth] = await Promise.allSettled([
-      this.fetchWithTimeout(`${this.embeddingBaseUrl}/embed`),
-      this.fetchWithTimeout(`${this.rerankerBaseUrl}/embed`)
+      this.fetchWithTimeout(`${this.embeddingBaseUrl}/health`),
+      this.fetchWithTimeout(`${this.rerankerBaseUrl}/health`)
     ]);
 
     // Helper to safely parse TEI health response
     const parseTEIHealth = async (result: PromiseFulfilledResult<Response> | PromiseRejectedResult): Promise<TEIHealthStatus> => {
       if (result.status !== 'fulfilled') {
-        return { status: 'error' };
+        console.error('TEI health check failed: request was not fulfilled', result);
+        return { status: 'error', message: 'Request not fulfilled' };
       }
       try {
-        const text = await result.value.text();
-        if (!text) return { status: 'error' };
-        const data = JSON.parse(text);
-        // Defensive: ensure at least status is present and valid
-        if (data && (data.status === 'ready' || data.status === 'loading' || data.status === 'error')) {
-          return data;
+        if(result.value.status === 200) {
+          return { status: 'ready', message: 'Ready' };
+        } else {
+          return { status: 'error', message: 'Error' };
         }
-        return { status: 'error' };
-      } catch {
-        return { status: 'error' };
+      } catch (err) {
+        console.error('TEI health check failed: error reading response', err);
+        return { status: 'error', message: 'Error reading response' };
       }
     };
 
-    return {
+    const health = {
       embedding: await parseTEIHealth(embeddingHealth),
       reranker: await parseTEIHealth(rerankerHealth)
     };
+
+  
+
+    return health;
   }
 
   /**

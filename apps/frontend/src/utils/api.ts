@@ -2070,7 +2070,7 @@ export class UAIPAPIClient {
     uploadKnowledge: async (items: KnowledgeIngestRequest[]): Promise<APIResponse<KnowledgeIngestResponse>> => {
       return this.request(`${API_ROUTES.KNOWLEDGE}`, {
         method: 'POST',
-        body: JSON.stringify({ items }),
+        body: JSON.stringify(items),
         headers: {
           ...this.getAuthHeaders(),
         },

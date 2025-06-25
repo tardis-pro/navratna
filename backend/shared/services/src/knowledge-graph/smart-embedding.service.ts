@@ -61,7 +61,7 @@ export class SmartEmbeddingService extends EmbeddingService {
       fallbackToOpenAI: true,
       teiUrls: {
         embedding: process.env.TEI_EMBEDDING_URL || 'http://localhost:8080',
-        reranker: process.env.TEI_RERANKER_URL || 'http://localhost:8081',
+        reranker: process.env.TEI_RERANKER_URL || 'http://localhost:8083',
         embeddingCPU: process.env.TEI_EMBEDDING_CPU_URL || 'http://localhost:8082'
       },
       openaiApiKey: process.env.OPENAI_API_KEY,
@@ -263,7 +263,7 @@ export class SmartEmbeddingService extends EmbeddingService {
       if (this.config.preferTEI) {
         this.healthStatus.teiStatus = await this.teiService.checkHealth();
       }
-
+      console.log(this.healthStatus)
       // Check OpenAI availability (we assume it's available if API key is provided)
       this.healthStatus.openaiAvailable = !!this.config.openaiApiKey;
 
