@@ -8,11 +8,13 @@ catalog:
   typescript: ^5.8.3
   zod: ^3.25.67
   eslint: ^9.29.0
+  ts-node: ^10.9.2
+
+  '@eslint/js': ^9.29.0
   rimraf: ^6.0.1
   '@typescript-eslint/eslint-plugin': ^8.34.1
   '@typescript-eslint/parser': ^8.34.1
   typescript-eslint: ^8.34.1
-  '@eslint/js': ^9.29.0
 
 catalogs:
   frontend:
@@ -74,6 +76,8 @@ catalogs:
     '@nestjs/typeorm': ^11.0.0
     '@types/node': ^22.13.14
     '@types/cors': ^2.8.18
+    typescript: ^5.8.3
+    zod: ^3.25.67
     dotenv: ^16.4.7
     cors: ^2.8.5
     nodemon: ^3.1.9

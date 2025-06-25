@@ -8,7 +8,9 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "clean": "rimraf dist"
+    "clean": "rimraf dist",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix"
   },
   "dependencies": {
     "@uaip/config": "workspace:*",
@@ -26,6 +28,11 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "catalog:backend",
     "rimraf": "catalog:",
+    "eslint": "catalog:",
+    "typescript-eslint": "catalog:",
+    "@eslint/js": "catalog:",
+    "@typescript-eslint/eslint-plugin": "catalog:",
+    "@typescript-eslint/parser": "catalog:",
     "typescript": "catalog:"
   },
   "exports": {

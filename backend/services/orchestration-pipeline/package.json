@@ -34,7 +34,6 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@types/bcryptjs": "^3.0.0",
     "@types/compression": "^1.8.1",
     "@types/cors": "catalog:backend",
     "@types/express": "catalog:backend",

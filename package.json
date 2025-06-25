@@ -21,7 +21,7 @@
     "build:dev": "pnpm build:shared && pnpm build:backend && cd apps/frontend && pnpm build:dev",
     "generate:sdk": "cd backend && pnpm build:sdk-generator && tsx scripts/generate-sdk.ts",
     "generate:sdk:watch": "cd backend && pnpm build:sdk-generator && tsx scripts/generate-sdk.ts --watch",
-    "lint": "pnpm -r lint",
+    "lint": "pnpm -r --no-bail lint",
     "lint:fix": "pnpm -r lint:fix",
     "clean": "pnpm -r clean",
     "test": "pnpm -r test",
@@ -31,15 +31,15 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.29.0",
-    "@typescript-eslint/eslint-plugin": "^8.34.1",
-    "@typescript-eslint/parser": "^8.34.1",
-    "concurrently": "^9.1.2",
+    "@typescript-eslint/eslint-plugin": "^8.35.0",
+    "@typescript-eslint/parser": "^8.35.0",
+    "concurrently": "^9.2.0",
     "eslint": "^9.29.0",
     "globals": "^16.2.0",
     "rimraf": "^6.0.1",
     "tsx": "^4.20.3",
     "typescript": "^5.8.3",
-    "typescript-eslint": "^8.34.1"
+    "typescript-eslint": "^8.35.0"
   },
   "engines": {
     "node": ">=18.0.0",

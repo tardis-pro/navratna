@@ -18,7 +18,7 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   {
     // TypeScript-specific configuration
-    files: ['**/*.ts'],
+    files: ['**/*.ts', '**/*.tsx'],
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: {
@@ -34,7 +34,6 @@ export default tseslint.config(
       '@typescript-eslint/no-inferrable-types': 'off',
       '@typescript-eslint/no-non-null-assertion': 'warn',
       'no-console': 'warn',
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       'prefer-const': 'error',
       'no-var': 'error',
     },

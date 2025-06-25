@@ -21,21 +21,21 @@
     "dev:all": "pnpm run dev",
     "dev:minimal": "concurrently \"pnpm dev:agent\" \"pnpm dev:cap\"",
     "dev:core": "concurrently \"pnpm dev:agent\" \"pnpm dev:cap\" \"pnpm dev:sec\"",
-    "lint": "pnpm -r exec eslint .",
-    "lint:fix": "pnpm -r exec eslint . --fix"
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix"
   },
   "devDependencies": {
-    "@eslint/js": "catalog:",
-    "@typescript-eslint/eslint-plugin": "catalog:",
-    "@typescript-eslint/parser": "catalog:",
+    "@eslint/js": "catalog:backend",
+    "@typescript-eslint/eslint-plugin": "catalog:backend",
+    "@typescript-eslint/parser": "catalog:backend",
     "concurrently": "catalog:dev",
     "esbuild": "catalog:dev",
-    "eslint": "catalog:",
+    "eslint": "catalog:backend",
     "glob": "^10.3.10",
     "rimraf": "catalog:",
     "tsc-alias": "^1.8.8",
-    "typescript": "catalog:",
-    "typescript-eslint": "catalog:"
+    "typescript": "catalog:backend",
+    "typescript-eslint": "catalog:backend"
   },
   "engines": {
     "node": ">=18.0.0",

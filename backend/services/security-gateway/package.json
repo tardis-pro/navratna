@@ -7,7 +7,9 @@
   "scripts": {
     "build": "tsc",
     "dev": "nodemon --exec tsx src/index.ts",
-    "clean": "rimraf dist"
+    "clean": "rimraf dist",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix"
   },
   "dependencies": {
     "@uaip/config": "workspace:*",
@@ -36,7 +38,6 @@
   "devDependencies": {
     "@types/amqplib": "^0.10.7",
     "@types/bcrypt": "^5.0.2",
-    "@types/bcryptjs": "^3.0.0",
     "@types/compression": "^1.8.1",
     "@types/cors": "catalog:backend",
     "@types/express": "catalog:backend",
