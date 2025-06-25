@@ -103,10 +103,10 @@ deploy_services() {
     # Deploy based on GPU availability
     if [[ "$GPU_AVAILABLE" == true ]]; then
         log_info "Deploying with GPU support..."
-        $COMPOSE_CMD -f "$COMPOSE_FILE" up -d tei-embeddings tei-reranker
+        $COMPOSE_CMD -f "$COMPOSE_FILE" --profile gpu up -d tei-embeddings tei-reranker
     else
         log_info "Deploying CPU-only services..."
-        COMPOSE_PROFILES=cpu-only $COMPOSE_CMD -f "$COMPOSE_FILE" up -d tei-embeddings-cpu
+        $COMPOSE_CMD -f "$COMPOSE_FILE" up -d tei-embeddings-cpu
     fi
     
     log_success "TEI services deployed"

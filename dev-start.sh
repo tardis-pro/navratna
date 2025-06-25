@@ -24,6 +24,8 @@ BACKEND_SERVICES="agent-intelligence orchestration-pipeline capability-registry 
 FRONTEND_SERVICES="frontend"
 MONITORING_SERVICES="prometheus grafana"
 GATEWAY_SERVICES="api-gateway"
+TEI_GPU_SERVICES="tei-embeddings tei-reranker"
+TEI_CPU_SERVICES="tei-embeddings-cpu"
 
 ALL_SERVICES="$INFRASTRUCTURE_SERVICES $BACKEND_SERVICES $FRONTEND_SERVICES $MONITORING_SERVICES $GATEWAY_SERVICES"
 
@@ -34,6 +36,8 @@ SERVICES="all"
 REBUILD_BACKEND=false
 FORCE_RECREATE=false
 FOLLOW_LOGS=""
+GPU_AVAILABLE=""
+CPU_ONLY=false
 
 # Utility functions
 log_info() {
@@ -57,6 +61,41 @@ log_header() {
     echo "=================================================="
 }
 
+# Check GPU availability
+check_gpu_availability() {
+    if [ "$CPU_ONLY" = true ]; then
+        GPU_AVAILABLE=false
+        log_info "CPU-only mode requested, skipping GPU detection"
+        return
+    fi
+    
+    log_info "Detecting GPU availability..."
+    
+    # Check if nvidia-docker runtime is available
+    if docker info 2>/dev/null | grep -q "nvidia"; then
+        log_info "  ✓ NVIDIA Docker runtime detected"
+        GPU_AVAILABLE=true
+    elif command -v nvidia-smi > /dev/null 2>&1; then
+        # Check if nvidia-smi works and shows GPUs
+        if nvidia-smi > /dev/null 2>&1; then
+            log_info "  ✓ NVIDIA GPU detected via nvidia-smi"
+            GPU_AVAILABLE=true
+        else
+            log_warning "  ⚠️ nvidia-smi found but no GPUs detected"
+            GPU_AVAILABLE=false
+        fi
+    else
+        log_info "  ℹ️ No NVIDIA GPU detected"
+        GPU_AVAILABLE=false
+    fi
+    
+    if [ "$GPU_AVAILABLE" = true ]; then
+        log_success "GPU services will be used (default)"
+    else
+        log_info "Falling back to CPU services"
+    fi
+}
+
 # Check prerequisites
 check_prerequisites() {
     log_info "Checking prerequisites..."
@@ -74,20 +113,112 @@ check_prerequisites() {
     log_success "Prerequisites check passed"
 }
 
+# Validate environment variables
+validate_environment() {
+    log_info "Validating environment configuration..."
+    
+    # Source the .env file if it exists
+    if [ -f "$ENV_FILE" ]; then
+        set -a  # Export all variables
+        source "$ENV_FILE"
+        set +a  # Stop exporting
+    fi
+    
+    # Check for placeholder API keys
+    if [ "${OPENAI_API_KEY:-}" = "your-openai-key-here" ]; then
+        log_warning "OPENAI_API_KEY is still set to placeholder value"
+    fi
+    
+    if [ "${ANTHROPIC_API_KEY:-}" = "your-anthropic-key-here" ]; then
+        log_warning "ANTHROPIC_API_KEY is still set to placeholder value"
+    fi
+    
+    # Validate critical environment variables
+    local required_vars=(
+        "POSTGRES_DB"
+        "POSTGRES_USER" 
+        "POSTGRES_PASSWORD"
+        "REDIS_PASSWORD"
+        "RABBITMQ_DEFAULT_USER"
+        "RABBITMQ_DEFAULT_PASS"
+        "JWT_SECRET"
+    )
+    
+    local missing_vars=()
+    for var in "${required_vars[@]}"; do
+        if [ -z "${!var:-}" ]; then
+            missing_vars+=("$var")
+        fi
+    done
+    
+    if [ ${#missing_vars[@]} -gt 0 ]; then
+        log_error "Missing required environment variables: ${missing_vars[*]}"
+        log_info "Please check your .env file or set these variables manually"
+        exit 1
+    fi
+    
+    log_success "Environment validation passed"
+}
+
 # Create .env file if it doesn't exist
 create_env_file() {
     if [ ! -f "$ENV_FILE" ]; then
         log_info "Creating .env file with default development values..."
         cat > "$ENV_FILE" << 'EOF'
-# Development Environment Variables
+# =============================================================================
+# Council of Nycea - Development Environment Variables
+# =============================================================================
+
+# Application Environment
 NODE_ENV=development
 
+# =============================================================================
+# Database Configuration
+# =============================================================================
+
+# PostgreSQL Configuration
+POSTGRES_DB=uaip
+POSTGRES_USER=uaip_user
+POSTGRES_PASSWORD=uaip_password
+POSTGRES_MULTIPLE_DATABASES=uaip,uaip_test
+
+# Neo4j Configuration
+NEO4J_AUTH=neo4j/uaip_dev_password
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=uaip_dev_password
+
+# Redis Configuration
+REDIS_PASSWORD=uaip_redis_password
+
+# RabbitMQ Configuration
+RABBITMQ_DEFAULT_USER=uaip_user
+RABBITMQ_DEFAULT_PASS=uaip_password
+
+# =============================================================================
+# Security Configuration
+# =============================================================================
+
+# JWT Secret for authentication
+JWT_SECRET=uaip_dev_jwt_secret_key_change_in_production
+
+# LLM Provider Encryption Key
+LLM_PROVIDER_ENCRYPTION_KEY=dev-encryption-key-change-in-production
+
+# =============================================================================
 # LLM Service Configuration
+# =============================================================================
+
+# API Keys (Replace with your actual keys)
 OPENAI_API_KEY=your-openai-key-here
 ANTHROPIC_API_KEY=your-anthropic-key-here
+
+# Local LLM Services
 OLLAMA_URL=http://localhost:11434
 LLM_STUDIO_URL=http://localhost:1234
-LLM_PROVIDER_ENCRYPTION_KEY=dev-encryption-key-change-in-production
+
+# =============================================================================
+# Frontend Configuration
+# =============================================================================
 
 # Development URLs
 VITE_API_URL=http://localhost:8081
@@ -95,8 +226,26 @@ VITE_API_URL=http://localhost:8081
 # Hot Reloading Configuration
 CHOKIDAR_USEPOLLING=true
 WATCHPACK_POLLING=true
+
+# =============================================================================
+# Optional Overrides
+# =============================================================================
+
+# Uncomment and modify these if you need different values:
+# POSTGRES_HOST=localhost
+# POSTGRES_PORT=5432
+# NEO4J_HOST=localhost
+# NEO4J_BOLT_PORT=7687
+# NEO4J_HTTP_PORT=7474
+# REDIS_HOST=localhost
+# REDIS_PORT=6379
+# RABBITMQ_HOST=localhost
+# RABBITMQ_PORT=5672
+# QDRANT_HOST=localhost
+# QDRANT_PORT=6333
 EOF
-        log_success "Created .env file. Please update with your API keys if needed."
+        log_success "Created .env file with comprehensive environment variables."
+        log_warning "Please update the API keys with your actual values before starting services."
     fi
 }
 
@@ -120,12 +269,24 @@ show_service_status() {
     echo "🎨 Artifact Service: http://localhost:3006"
     echo "🤖 LLM Service: http://localhost:3007"
     echo ""
+    echo -e "${CYAN}🤖 AI Services:${NC}"
+    echo "==============="
+    if [ "$GPU_AVAILABLE" = true ]; then
+        echo "🔤 TEI Embeddings (GPU): http://localhost:8080"
+        echo "🔄 TEI Reranker (GPU): http://localhost:8083"
+        echo "🔤 TEI Embeddings (CPU): http://localhost:8082 [fallback]"
+    else
+        echo "🔤 TEI Embeddings (CPU): http://localhost:8082"
+        echo "🔄 TEI Reranker (GPU): http://localhost:8083 [GPU not available]"
+        echo "🔤 TEI Embeddings (GPU): http://localhost:8080 [GPU not available]"
+    fi
+    echo ""
     echo -e "${CYAN}📊 Monitoring & Admin:${NC}"
     echo "======================"
     echo "📈 Grafana: http://localhost:3000 (admin/admin)"
     echo "📊 Prometheus: http://localhost:9090"
-    echo "🐰 RabbitMQ Management: http://localhost:15672 (uaip_user/uaip_password)"
-    echo "🕸️ Neo4j Browser: http://localhost:7474 (neo4j/uaip_dev_password)"
+    echo "🐰 RabbitMQ Management: http://localhost:15672 (${RABBITMQ_DEFAULT_USER:-uaip_user}/${RABBITMQ_DEFAULT_PASS:-uaip_password})"
+    echo "🕸️ Neo4j Browser: http://localhost:7474 (${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-uaip_dev_password})"
     echo ""
 }
 
@@ -173,12 +334,21 @@ wait_for_services() {
 # Get services based on filter
 get_services() {
     local filter="$1"
+    local tei_services=""
+    
+    # Determine which TEI services to use based on GPU availability
+    if [ "$GPU_AVAILABLE" = true ]; then
+        tei_services="$TEI_GPU_SERVICES"
+    else
+        tei_services="$TEI_CPU_SERVICES"
+    fi
+    
     case "$filter" in
         "all")
-            echo "$ALL_SERVICES"
+            echo "$ALL_SERVICES $tei_services"
             ;;
         "infrastructure"|"infra")
-            echo "$INFRASTRUCTURE_SERVICES"
+            echo "$INFRASTRUCTURE_SERVICES $tei_services"
             ;;
         "backend")
             echo "$BACKEND_SERVICES"
@@ -192,14 +362,29 @@ get_services() {
         "gateway")
             echo "$GATEWAY_SERVICES"
             ;;
+        "tei")
+            echo "$tei_services"
+            ;;
+        "gpu")
+            if [ "$GPU_AVAILABLE" = true ]; then
+                echo "$TEI_GPU_SERVICES"
+            else
+                log_warning "GPU not available, using CPU TEI services instead"
+                echo "$TEI_CPU_SERVICES"
+            fi
+            ;;
+        "cpu")
+            echo "$TEI_CPU_SERVICES"
+            ;;
         *)
             # Check if it's a specific service name
-            if [[ "$ALL_SERVICES" == *"$filter"* ]]; then
+            local all_possible_services="$ALL_SERVICES $TEI_GPU_SERVICES $TEI_CPU_SERVICES"
+            if [[ "$all_possible_services" == *"$filter"* ]]; then
                 echo "$filter"
             else
                 log_error "Unknown service filter: $filter"
-                log_info "Available filters: all, infrastructure, backend, frontend, monitoring, gateway"
-                log_info "Or specific service names: $ALL_SERVICES"
+                log_info "Available filters: all, infrastructure, backend, frontend, monitoring, gateway, tei, gpu, cpu"
+                log_info "Or specific service names: $all_possible_services"
                 exit 1
             fi
             ;;
@@ -215,6 +400,27 @@ start_services() {
     log_header "Starting Services: $services"
     
     local compose_args=""
+    local profile_args=""
+    
+    # Check if GPU services are included and GPU is available
+    if [[ "$services" == *"tei-embeddings"* ]] && [[ "$services" != *"tei-embeddings-cpu"* ]]; then
+        if [ "$GPU_AVAILABLE" = true ]; then
+            profile_args="--profile gpu"
+            log_info "Using GPU TEI services (GPU detected)"
+        else
+            log_warning "GPU services requested but GPU not available - please check your setup"
+        fi
+    elif [[ "$services" == *"tei-reranker"* ]]; then
+        if [ "$GPU_AVAILABLE" = true ]; then
+            profile_args="--profile gpu"
+            log_info "Using GPU TEI services (GPU detected)"
+        else
+            log_warning "GPU services requested but GPU not available - please check your setup"
+        fi
+    elif [[ "$services" == *"tei-embeddings-cpu"* ]]; then
+        log_info "Using CPU TEI services"
+    fi
+    
     if [ "$rebuild" = true ]; then
         compose_args="--build"
         log_info "Rebuilding Docker images..."
@@ -227,7 +433,7 @@ start_services() {
     
     if [ "$mode" = "daemon" ]; then
         log_info "Starting services in daemon mode..."
-        docker-compose up -d $compose_args $services
+        docker-compose $profile_args up -d $compose_args $services
         
         wait_for_services "$services"
         show_service_status
@@ -243,7 +449,7 @@ start_services() {
         # Trap Ctrl+C to gracefully shutdown
         trap 'echo ""; log_info "🛑 Shutting down services..."; docker-compose down; exit 0' INT
         
-        docker-compose up $compose_args $services
+        docker-compose $profile_args up $compose_args $services
     fi
 }
 
@@ -343,20 +549,29 @@ show_help() {
     echo ""
     echo "OPTIONS:"
     echo "  --services <list>       Services to operate on (default: all)"
-    echo "                          Options: all, infrastructure, backend, frontend, monitoring, gateway"
+    echo "                          Options: all, infrastructure, backend, frontend, monitoring, gateway, tei, gpu, cpu"
     echo "                          Or specific service names"
     echo "  --daemon, -d            Run in daemon mode (background)"
     echo "  --rebuild, -r           Rebuild Docker images"
     echo "  --force-recreate        Force recreate containers"
     echo "  --follow, -f            Follow logs (for logs action)"
+    echo "  --cpu-only, -c          Force CPU-only mode (disable GPU detection)"
+    echo ""
+    echo "TEI SERVICES:"
+    echo "  By default, GPU TEI services are used if GPU is detected, otherwise CPU fallback is used."
+    echo "  Use --cpu-only to explicitly force CPU services even if GPU is available."
     echo ""
     echo "EXAMPLES:"
-    echo "  $0                                    # Start all services interactively"
+    echo "  $0                                    # Start all services (GPU if available, CPU fallback)"
     echo "  $0 --daemon                          # Start all services in background"
-    echo "  $0 --services backend --daemon       # Start only backend services in background"
+    echo "  $0 --daemon --cpu-only               # Start all services with CPU-only TEI"
+    echo "  $0 --services tei --daemon           # Start only TEI services (auto-detect GPU/CPU)"
+    echo "  $0 --services gpu --daemon           # Start only GPU TEI services (if available)"
+    echo "  $0 --services cpu --daemon           # Start only CPU TEI services"
+    echo "  $0 --services backend --daemon       # Start only backend services"
     echo "  $0 restart --services frontend       # Restart only frontend"
     echo "  $0 rebuild-backend                   # Rebuild only backend services"
-    echo "  $0 logs agent-intelligence --follow  # Follow logs for specific service"
+    echo "  $0 logs tei-embeddings --follow      # Follow logs for TEI embeddings service"
     echo "  $0 stop --services monitoring        # Stop only monitoring services"
     echo ""
 }
@@ -388,6 +603,10 @@ while [[ $# -gt 0 ]]; do
             FOLLOW_LOGS=true
             shift
             ;;
+        --cpu-only|-c)
+            CPU_ONLY=true
+            shift
+            ;;
         --help|-h)
             show_help
             exit 0
@@ -411,7 +630,9 @@ main() {
     log_header "Council of Nycea Development Environment"
     
     check_prerequisites
+    check_gpu_availability
     create_env_file
+    validate_environment
     
     # Get actual services to operate on
     local target_services

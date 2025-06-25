@@ -1,4 +1,4 @@
-version: '3.8'
+# version: '3.8'  # Removed obsolete version field
 
 services:
   # Database Services
@@ -6,10 +6,10 @@ services:
     image: postgres:16-alpine
     container_name: uaip-postgres-dev
     environment:
-      POSTGRES_DB: uaip
-      POSTGRES_USER: uaip_user
-      POSTGRES_PASSWORD: uaip_dev_password
-      POSTGRES_MULTIPLE_DATABASES: uaip,uaip_test
+      POSTGRES_DB: ${POSTGRES_DB:-uaip}
+      POSTGRES_USER: ${POSTGRES_USER:-uaip_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-uaip_password}
+      POSTGRES_MULTIPLE_DATABASES: ${POSTGRES_MULTIPLE_DATABASES:-uaip,uaip_test}
     ports:
       - "5432:5432"
     volumes:
@@ -24,10 +24,10 @@ services:
       retries: 5
 
   neo4j:
-    image: neo4j:5.15-community
+    image: neo4j:2025.04.0-community-bullseye
     container_name: uaip-neo4j-dev
     environment:
-      NEO4J_AUTH: neo4j/uaip_dev_password
+      NEO4J_AUTH: ${NEO4J_AUTH:-neo4j/uaip_dev_password}
       NEO4J_PLUGINS: '["apoc", "graph-data-science"]'
       NEO4J_apoc_export_file_enabled: true
       NEO4J_apoc_import_file_enabled: true
@@ -53,7 +53,7 @@ services:
       retries: 5
 
   redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
     container_name: uaip-redis-dev
     ports:
       - "6379:6379"
@@ -61,8 +61,11 @@ services:
       - redis_data:/data
     networks:
       - uaip-network
+    command: redis-server --protected-mode yes --bind 0.0.0.0 --requirepass uaip_redis_password
+    environment:
+      - REDIS_PASSWORD=uaip_redis_password
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "uaip_redis_password", "ping"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -92,8 +95,8 @@ services:
     image: rabbitmq:3.12-management-alpine
     container_name: uaip-rabbitmq-dev
     environment:
-      RABBITMQ_DEFAULT_USER: uaip_user
-      RABBITMQ_DEFAULT_PASS: uaip_dev_password
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-uaip_user}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-uaip_password}
     ports:
       - "5672:5672"   # AMQP
       - "15672:15672" # Management UI
@@ -114,12 +117,12 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring:/etc/prometheus/config
       - prometheus_data:/prometheus
     networks:
       - uaip-network
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--config.file=/etc/prometheus/config/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--web.console.libraries=/etc/prometheus/console_libraries'
       - '--web.console.templates=/etc/prometheus/consoles'

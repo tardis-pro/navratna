@@ -18,10 +18,10 @@ services:
     image: postgres:17.5-bullseye
     container_name: uaip-postgres
     environment:
-      POSTGRES_DB: uaip
-      POSTGRES_USER: uaip_user
-      POSTGRES_PASSWORD: uaip_password
-      POSTGRES_MULTIPLE_DATABASES: uaip,uaip_test
+      POSTGRES_DB: ${POSTGRES_DB:-uaip}
+      POSTGRES_USER: ${POSTGRES_USER:-uaip_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-uaip_password}
+      POSTGRES_MULTIPLE_DATABASES: ${POSTGRES_MULTIPLE_DATABASES:-uaip,uaip_test}
     ports:
       - "5432:5432"
     volumes:
@@ -39,7 +39,7 @@ services:
     image: neo4j:2025.04.0-community-bullseye
     container_name: uaip-neo4j
     environment:
-      NEO4J_AUTH: neo4j/uaip_dev_password
+      NEO4J_AUTH: ${NEO4J_AUTH:-neo4j/uaip_dev_password}
       NEO4J_PLUGINS: '["apoc", "graph-data-science"]'
       NEO4J_apoc_export_file_enabled: true
       NEO4J_apoc_import_file_enabled: true
@@ -74,11 +74,11 @@ services:
       - redis_data:/data
     networks:
       - uaip-network
-    command: redis-server --protected-mode yes --bind 0.0.0.0 --requirepass uaip_redis_password
+    command: redis-server --protected-mode yes --bind 0.0.0.0 --requirepass ${REDIS_PASSWORD:-uaip_redis_password}
     environment:
-      - REDIS_PASSWORD=uaip_redis_password
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-uaip_redis_password}
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "uaip_redis_password", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-uaip_redis_password}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -107,6 +107,7 @@ services:
   tei-embeddings:
     image: ghcr.io/huggingface/text-embeddings-inference:1.7
     container_name: uaip-tei-embeddings
+    runtime: nvidia
     command: --model-id BAAI/bge-large-en-v1.5 --port 80 --max-batch-tokens 16384 --max-concurrent-requests 512 --auto-truncate
     ports:
       - "8080:80"
@@ -116,13 +117,7 @@ services:
     environment:
       - HUGGINGFACE_HUB_CACHE=/data
       - JSON_OUTPUT=true
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+      - NVIDIA_VISIBLE_DEVICES=all
     restart: unless-stopped
     networks:
       - uaip-network
@@ -138,22 +133,17 @@ services:
   tei-reranker:
     image: ghcr.io/huggingface/text-embeddings-inference:1.7
     container_name: uaip-tei-reranker
+    runtime: nvidia
     command: --model-id BAAI/bge-reranker-base --port 80 --max-batch-tokens 8192 --max-concurrent-requests 256 --auto-truncate
     ports:
-      - "8081:80"
-      - "9081:9000"  # Prometheus metrics
+      - "8083:80"
+      - "9083:9000"  # Prometheus metrics
     volumes:
       - tei_reranker_data:/data
     environment:
       - HUGGINGFACE_HUB_CACHE=/data
       - JSON_OUTPUT=true
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+      - NVIDIA_VISIBLE_DEVICES=all
     restart: unless-stopped
     networks:
       - uaip-network
@@ -194,8 +184,8 @@ services:
     image: rabbitmq:4.1.0-management-alpine
     container_name: uaip-rabbitmq
     environment:
-      RABBITMQ_DEFAULT_USER: uaip_user
-      RABBITMQ_DEFAULT_PASS: uaip_password
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-uaip_user}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-uaip_password}
     ports:
       - "5672:5672"   # AMQP
       - "15672:15672" # Management UI
@@ -221,13 +211,13 @@ services:
       - SERVICE_PORT=3001
       - NODE_ENV=development
       - PORT=3001
-      - POSTGRES_URL=postgresql://uaip_user:uaip_password@postgres:5432/uaip
+      - POSTGRES_URL=postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}
       - NEO4J_URL=bolt://neo4j:7687
-      - NEO4J_USER=neo4j
-      - NEO4J_PASSWORD=uaip_dev_password
-      - REDIS_URL=redis://:uaip_redis_password@redis:6379
+      - NEO4J_USER=${NEO4J_USER:-neo4j}
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-uaip_dev_password}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-uaip_redis_password}@redis:6379
       - QDRANT_URL=http://qdrant:6333
-      - RABBITMQ_URL=amqp://uaip_user:uaip_password@rabbitmq:5672
+      - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:-uaip_user}:${RABBITMQ_DEFAULT_PASS:-uaip_password}@rabbitmq:5672
       # TEI Configuration
       - TEI_EMBEDDING_URL=http://tei-embeddings:80
       - TEI_RERANKER_URL=http://tei-reranker:80
@@ -271,12 +261,12 @@ services:
       - SERVICE_PORT=3002
       - NODE_ENV=development
       - PORT=3002
-      - POSTGRES_URL=postgresql://uaip_user:uaip_password@postgres:5432/uaip
+      - POSTGRES_URL=postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}
       - NEO4J_URL=bolt://neo4j:7687
-      - NEO4J_USER=neo4j
-      - NEO4J_PASSWORD=uaip_dev_password
-      - REDIS_URL=redis://:uaip_redis_password@redis:6379
-      - RABBITMQ_URL=amqp://uaip_user:uaip_password@rabbitmq:5672
+      - NEO4J_USER=${NEO4J_USER:-neo4j}
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-uaip_dev_password}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-uaip_redis_password}@redis:6379
+      - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:-uaip_user}:${RABBITMQ_DEFAULT_PASS:-uaip_password}@rabbitmq:5672
     ports:
       - "3002:3002"
     volumes:
@@ -314,13 +304,13 @@ services:
       - SERVICE_PORT=3003
       - NODE_ENV=development
       - PORT=3003
-      - POSTGRES_URL=postgresql://uaip_user:uaip_password@postgres:5432/uaip
+      - POSTGRES_URL=postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}
       - NEO4J_URL=bolt://neo4j:7687
-      - NEO4J_USER=neo4j
-      - NEO4J_PASSWORD=uaip_dev_password
-      - REDIS_URL=redis://:uaip_redis_password@redis:6379
+      - NEO4J_USER=${NEO4J_USER:-neo4j}
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-uaip_dev_password}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-uaip_redis_password}@redis:6379
       - QDRANT_URL=http://qdrant:6333
-      - RABBITMQ_URL=amqp://uaip_user:uaip_password@rabbitmq:5672
+      - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:-uaip_user}:${RABBITMQ_DEFAULT_PASS:-uaip_password}@rabbitmq:5672
       # TEI Configuration
       - TEI_EMBEDDING_URL=http://tei-embeddings:80
       - TEI_RERANKER_URL=http://tei-reranker:80
@@ -365,12 +355,12 @@ services:
       - NODE_ENV=development
       - PORT=3005
       - WEBSOCKET_ENABLED=true
-      - POSTGRES_URL=postgresql://uaip_user:uaip_password@postgres:5432/uaip
+      - POSTGRES_URL=postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}
       - NEO4J_URL=bolt://neo4j:7687
-      - NEO4J_USER=neo4j
-      - NEO4J_PASSWORD=uaip_dev_password
-      - REDIS_URL=redis://:uaip_redis_password@redis:6379
-      - RABBITMQ_URL=amqp://uaip_user:uaip_password@rabbitmq:5672
+      - NEO4J_USER=${NEO4J_USER:-neo4j}
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-uaip_dev_password}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-uaip_redis_password}@redis:6379
+      - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:-uaip_user}:${RABBITMQ_DEFAULT_PASS:-uaip_password}@rabbitmq:5672
     ports:
       - "3005:3005"
     volumes:
@@ -408,11 +398,11 @@ services:
       - SERVICE_PORT=3004
       - NODE_ENV=development
       - PORT=3004
-      - POSTGRES_URL=postgresql://uaip_user:uaip_password@postgres:5432/uaip
-      - REDIS_URL=redis://:uaip_redis_password@redis:6379
+      - POSTGRES_URL=postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-uaip_redis_password}@redis:6379
       - QDRANT_URL=http://qdrant:6333
-      - RABBITMQ_URL=amqp://uaip_user:uaip_password@rabbitmq:5672
-      - JWT_SECRET=uaip_dev_jwt_secret_key_change_in_production
+      - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:-uaip_user}:${RABBITMQ_DEFAULT_PASS:-uaip_password}@rabbitmq:5672
+      - JWT_SECRET=${JWT_SECRET:-uaip_dev_jwt_secret_key_change_in_production}
       # TEI Configuration
       - TEI_EMBEDDING_URL=http://tei-embeddings:80
       - TEI_RERANKER_URL=http://tei-reranker:80
@@ -456,9 +446,9 @@ services:
       - SERVICE_PORT=3006
       - NODE_ENV=development
       - PORT=3006
-      - POSTGRES_URL=postgresql://uaip_user:uaip_password@postgres:5432/uaip
-      - REDIS_URL=redis://:uaip_redis_password@redis:6379
-      - RABBITMQ_URL=amqp://uaip_user:uaip_password@rabbitmq:5672
+      - POSTGRES_URL=postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-uaip_redis_password}@redis:6379
+      - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:-uaip_user}:${RABBITMQ_DEFAULT_PASS:-uaip_password}@rabbitmq:5672
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
     ports:
@@ -496,9 +486,9 @@ services:
       - SERVICE_PORT=3007
       - NODE_ENV=development
       - PORT=3007
-      - POSTGRES_URL=postgresql://uaip_user:uaip_password@postgres:5432/uaip
-      - REDIS_URL=redis://:uaip_redis_password@redis:6379
-      - RABBITMQ_URL=amqp://uaip_user:uaip_password@rabbitmq:5672
+      - POSTGRES_URL=postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-uaip_redis_password}@redis:6379
+      - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:-uaip_user}:${RABBITMQ_DEFAULT_PASS:-uaip_password}@rabbitmq:5672
       - OLLAMA_URL=${OLLAMA_URL:-http://localhost:11434}
       - LLM_STUDIO_URL=${LLM_STUDIO_URL:-http://localhost:1234}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
@@ -589,12 +579,12 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring:/etc/prometheus/config
       - prometheus_data:/prometheus
     networks:
       - uaip-network
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--config.file=/etc/prometheus/config/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--web.console.libraries=/etc/prometheus/console_libraries'
       - '--web.console.templates=/etc/prometheus/consoles'
