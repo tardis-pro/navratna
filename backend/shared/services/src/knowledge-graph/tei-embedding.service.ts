@@ -37,17 +37,32 @@ export class TEIEmbeddingService {
    */
   async checkHealth(): Promise<{ embedding: TEIHealthStatus; reranker: TEIHealthStatus }> {
     const [embeddingHealth, rerankerHealth] = await Promise.allSettled([
-      this.fetchWithTimeout(`${this.embeddingBaseUrl}/healthz`),
-      this.fetchWithTimeout(`${this.rerankerBaseUrl}/healthz`)
+      this.fetchWithTimeout(`${this.embeddingBaseUrl}/embed`),
+      this.fetchWithTimeout(`${this.rerankerBaseUrl}/embed`)
     ]);
 
+    // Helper to safely parse TEI health response
+    const parseTEIHealth = async (result: PromiseFulfilledResult<Response> | PromiseRejectedResult): Promise<TEIHealthStatus> => {
+      if (result.status !== 'fulfilled') {
+        return { status: 'error' };
+      }
+      try {
+        const text = await result.value.text();
+        if (!text) return { status: 'error' };
+        const data = JSON.parse(text);
+        // Defensive: ensure at least status is present and valid
+        if (data && (data.status === 'ready' || data.status === 'loading' || data.status === 'error')) {
+          return data;
+        }
+        return { status: 'error' };
+      } catch {
+        return { status: 'error' };
+      }
+    };
+
     return {
-      embedding: embeddingHealth.status === 'fulfilled' 
-        ? await embeddingHealth.value.json()
-        : { status: 'error' },
-      reranker: rerankerHealth.status === 'fulfilled'
-        ? await rerankerHealth.value.json()
-        : { status: 'error' }
+      embedding: await parseTEIHealth(embeddingHealth),
+      reranker: await parseTEIHealth(rerankerHealth)
     };
   }
 
