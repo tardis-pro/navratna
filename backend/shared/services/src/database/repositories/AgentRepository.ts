@@ -104,7 +104,7 @@ export class AgentRepository extends BaseRepository<Agent> {
   }): Promise<Agent> {
     try {
       // Handle backwards compatibility: if old persona field is provided, use it as legacyPersona
-      let finalPersonaId = agentData.personaId;
+      const finalPersonaId = agentData.personaId;
       let finalLegacyPersona = agentData.legacyPersona;
       
       if (agentData.persona && !agentData.legacyPersona) {

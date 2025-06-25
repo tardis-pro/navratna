@@ -561,8 +561,8 @@ export function generateEnhancedResponse(
   context: ConversationContext,
   contextualTriggers: Record<string, ContextualTrigger>
 ): string {
-  let response = content;
-  let parts: string[] = [];
+  const response = content;
+  const parts: string[] = [];
   
   // Add transition/starter if requested
   if (responseEnhancement.useTransition || responseEnhancement.type !== 'primary') {

@@ -262,7 +262,7 @@ export class ToolRegistry {
 
   async getRecommendations(agentId: string, context?: string, limit = 5): Promise<ToolRecommendation[]> {
     try {
-      let recommendations: ToolRecommendation[] = [];
+      const recommendations: ToolRecommendation[] = [];
       
       // Get usage-based recommendations
       const usageRecommendations = await this.neo4j.getRecommendations(agentId, context, limit);

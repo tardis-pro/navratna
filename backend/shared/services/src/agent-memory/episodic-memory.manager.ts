@@ -210,7 +210,7 @@ Significance: Importance=${episode.significance.importance}, Novelty=${episode.s
     const lines = content.split('\n');
     
     let episodeType = 'learning';
-    let context = {
+    const context = {
       when: new Date(item.createdAt),
       where: 'unknown',
       who: [] as string[],

@@ -134,7 +134,7 @@ export class ToolManagementService {
       const { AgentCapabilityMetric } = await import('./entities/index.js');
       const repository = typeormService.getRepository(AgentCapabilityMetric);
       
-      let metric = await repository.findOne({
+      const metric = await repository.findOne({
         where: { agentId: data.agentId, toolId: data.toolId } as any
       });
 
