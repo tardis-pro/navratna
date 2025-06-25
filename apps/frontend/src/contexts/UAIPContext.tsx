@@ -241,11 +241,12 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
         lastUpdated: new Date()
       });
     } catch (error) {
+      console.error('Failed to load capabilities:', error);
       setCapabilities(prev => ({
         ...prev,
         isLoading: false,
         error: {
-          id: `cap-error-${Date.now()}`,
+          id: `capability-error-${Date.now()}`,
           type: 'api_error',
           message: error instanceof Error ? error.message : 'Failed to load capabilities',
           timestamp: new Date(),
@@ -253,7 +254,7 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
         }
       }));
     }
-  }, [capabilityRegistry, user]);
+  }, [user]);
   
   // Load approvals from API
   const loadApprovals = useCallback(async () => {
@@ -282,6 +283,7 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
         }
       }));
     } catch (error) {
+      console.error('Failed to load approvals:', error);
       setApprovals(prev => ({
         ...prev,
         isLoading: false,
@@ -403,16 +405,33 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
   
   // Periodic data refresh
   useEffect(() => {
+    // Don't refresh if there are ongoing errors to prevent spam
+    const hasErrors = capabilities.error || approvals.error;
+    if (hasErrors) {
+      console.warn('Skipping periodic refresh due to existing errors');
+      return;
+    }
+    
+    // Increase refresh interval if not connected to WebSocket to reduce load
+    const refreshInterval = isWebSocketConnected 
+      ? uiState.preferences.refreshInterval 
+      : Math.max(uiState.preferences.refreshInterval * 2, 30000); // Min 30s when offline
+    
     const interval = setInterval(() => {
-      if (user) {
-        loadCapabilities();
-        loadApprovals();
-        generateInsights();
+      if (user && !hasErrors) {
+        // Only refresh if not currently loading to prevent overlapping requests
+        if (!capabilities.isLoading && !approvals.isLoading) {
+          loadCapabilities();
+          loadApprovals();
+          generateInsights();
+        }
       }
-    }, uiState.preferences.refreshInterval);
+    }, refreshInterval);
     
     return () => clearInterval(interval);
-  }, [user, uiState.preferences.refreshInterval, loadCapabilities, loadApprovals, generateInsights]);
+  }, [user, uiState.preferences.refreshInterval, isWebSocketConnected, capabilities.error, capabilities.isLoading, approvals.error, approvals.isLoading, loadCapabilities, loadApprovals, generateInsights]);
+  
+  // Error recovery removed - no automatic retries to prevent infinite loops
   
   // Initial data load
   useEffect(() => {
@@ -440,14 +459,50 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
   
   const approveExecution = useCallback(async (executionId: string) => {
     if (!user) throw new Error('User not authenticated');
-    await uaipAPI.approvals.approve(executionId, { approverId: user.id });
-    await loadApprovals(); // Refresh approvals
+    
+    try {
+      await uaipAPI.approvals.approve(executionId, { approverId: user.id });
+      // Only refresh if approval was successful
+      await loadApprovals();
+    } catch (error) {
+      console.error('Failed to approve execution:', error);
+      // Add error to UI state for user feedback
+      setApprovals(prev => ({
+        ...prev,
+        error: {
+          id: `approval-action-error-${Date.now()}`,
+          type: 'api_error',
+          message: `Failed to approve execution: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          timestamp: new Date(),
+          resolved: false
+        }
+      }));
+      throw error; // Re-throw for component handling
+    }
   }, [user, loadApprovals]);
   
   const rejectExecution = useCallback(async (executionId: string, reason: string) => {
     if (!user) throw new Error('User not authenticated');
-    await uaipAPI.approvals.reject(executionId, { approverId: user.id, reason });
-    await loadApprovals(); // Refresh approvals
+    
+    try {
+      await uaipAPI.approvals.reject(executionId, { approverId: user.id, reason });
+      // Only refresh if rejection was successful
+      await loadApprovals();
+    } catch (error) {
+      console.error('Failed to reject execution:', error);
+      // Add error to UI state for user feedback
+      setApprovals(prev => ({
+        ...prev,
+        error: {
+          id: `approval-action-error-${Date.now()}`,
+          type: 'api_error',
+          message: `Failed to reject execution: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          timestamp: new Date(),
+          resolved: false
+        }
+      }));
+      throw error; // Re-throw for component handling
+    }
   }, [user, loadApprovals]);
   
   const setUIState = useCallback((newState: Partial<UIState>) => {

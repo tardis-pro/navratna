@@ -8,7 +8,7 @@ import { logger } from '@uaip/utils';
 import { errorHandler, rateLimiter, metricsMiddleware } from '@uaip/middleware';
 import { DatabaseService, EventBusService } from '@uaip/shared-services';
 import { config } from './config/index.js';
-import { capabilityRoutes } from './routes/capabilityRoutes.js';
+// import { capabilityRoutes } from './routes/capabilityRoutes.js'; // Removed - using tool routes instead
 import { toolRoutes } from './routes/toolRoutes.js';
 import { healthRoutes } from './routes/healthRoutes.js';
 
@@ -67,8 +67,8 @@ export class CapabilityRegistryApp {
     // Health check routes
     this.app.use('/health', healthRoutes);
     
-    // API routes
-    this.app.use('/api/v1/capabilities', capabilityRoutes);
+    // API routes - capability routes removed, using tool routes instead
+    // this.app.use('/api/v1/capabilities', capabilityRoutes);
     
     // Mount tool routes with explicit debugging
     this.app.use('/api/v1/tools', (req, res, next) => {

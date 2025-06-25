@@ -2,7 +2,14 @@
 // Extends @uaip/config for shared configuration patterns
 
 import { config as baseConfig, Config } from '@uaip/config';
-import { logger } from '@uaip/utils';
+import { createLogger } from '@uaip/utils';
+
+// Initialize logger for this service
+const logger = createLogger({
+  serviceName: 'capability-registry-config',
+  environment: process.env.NODE_ENV || 'development',
+  logLevel: process.env.LOG_LEVEL || 'info'
+});
 
 // Service-specific configuration extensions
 export interface CapabilityRegistrySpecificConfig {

@@ -11,11 +11,11 @@ import {
   DocumentContext,
   ToolCall,
   ToolResult
-} from './interfaces';
-import { BaseProvider } from './providers/BaseProvider';
-import { OllamaProvider } from './providers/OllamaProvider';
-import { LLMStudioProvider } from './providers/LLMStudioProvider';
-import { OpenAIProvider } from './providers/OpenAIProvider';
+} from './interfaces.js';
+import { BaseProvider } from './providers/BaseProvider.js';
+import { OllamaProvider } from './providers/OllamaProvider.js';
+import { LLMStudioProvider } from './providers/LLMStudioProvider.js';
+import { OpenAIProvider } from './providers/OpenAIProvider.js';
 import { LLMProviderRepository, LLMProvider } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';

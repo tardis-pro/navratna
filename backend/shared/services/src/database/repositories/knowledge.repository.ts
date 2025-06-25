@@ -5,7 +5,8 @@ import {
   KnowledgeFilters,
   KnowledgeRelationship,
   KnowledgeType,
-  SourceType
+  SourceType,
+  KnowledgeScope
 } from '@uaip/types';
 import { KnowledgeItemEntity } from '../../entities/knowledge-item.entity.js';
 import { KnowledgeRelationshipEntity } from '../../entities/knowledge-relationship.entity.js';
@@ -16,7 +17,7 @@ export class KnowledgeRepository {
     private readonly relationshipRepo: Repository<KnowledgeRelationshipEntity>
   ) {}
 
-  async create(request: KnowledgeIngestRequest): Promise<KnowledgeItem> {
+  async create(request: KnowledgeIngestRequest & { userId?: string; agentId?: string; summary?: string }): Promise<KnowledgeItem> {
     const entity = this.knowledgeRepo.create({
       content: request.content,
       type: request.type || KnowledgeType.FACTUAL,
@@ -28,7 +29,11 @@ export class KnowledgeRepository {
       metadata: request.source.metadata || {},
       createdBy: request.createdBy,
       organizationId: request.organizationId,
-      accessLevel: request.accessLevel || 'public'
+      accessLevel: request.accessLevel || 'public',
+      // Three-layered knowledge architecture
+      userId: request.userId,
+      agentId: request.agentId,
+      summary: request.summary
     });
 
     const saved = await this.knowledgeRepo.save(entity);
@@ -77,13 +82,18 @@ export class KnowledgeRepository {
     return entities.map(entity => this.entityToModel(entity));
   }
 
-  async applyFilters(vectorResults: any[], filters?: KnowledgeFilters): Promise<KnowledgeItem[]> {
+  async applyFilters(vectorResults: any[], filters?: KnowledgeFilters, scope?: KnowledgeScope): Promise<KnowledgeItem[]> {
     if (!vectorResults.length) return [];
 
     const knowledgeItemIds = vectorResults.map(r => r.payload?.knowledge_item_id).filter(Boolean);
     
     let query = this.knowledgeRepo.createQueryBuilder('ki')
       .where('ki.id IN (:...ids)', { ids: knowledgeItemIds });
+
+    // Apply scope filtering
+    if (scope) {
+      query = this.applyScopeFilter(query, scope);
+    }
 
     if (filters) {
       if (filters.tags?.length) {
@@ -130,9 +140,14 @@ export class KnowledgeRepository {
     await this.relationshipRepo.save(entities);
   }
 
-  async getRelationships(itemId: string, relationshipTypes?: string[]): Promise<KnowledgeRelationship[]> {
+  async getRelationships(itemId: string, relationshipTypes?: string[], scope?: KnowledgeScope): Promise<KnowledgeRelationship[]> {
     let query = this.relationshipRepo.createQueryBuilder('kr')
       .where('kr.sourceItemId = :itemId', { itemId: itemId });
+
+    // Apply scope filtering
+    if (scope) {
+      query = this.applyRelationshipScopeFilter(query, scope);
+    }
 
     if (relationshipTypes?.length) {
       query = query.andWhere('kr.relationshipType IN (:...types)', { types: relationshipTypes });
@@ -217,6 +232,45 @@ export class KnowledgeRepository {
     return entities.map(entity => this.entityToModel(entity));
   }
 
+  // Scoped search methods
+  async findByScope(scope: KnowledgeScope, filters?: KnowledgeFilters, limit: number = 20): Promise<KnowledgeItem[]> {
+    let query = this.knowledgeRepo.createQueryBuilder('ki');
+    
+    query = this.applyScopeFilter(query, scope);
+
+    if (filters) {
+      if (filters.tags?.length) {
+        query = query.andWhere('ki.tags && :tags', { tags: filters.tags });
+      }
+
+      if (filters.types?.length) {
+        query = query.andWhere('ki.type IN (:...types)', { types: filters.types });
+      }
+
+      if (filters.confidence) {
+        query = query.andWhere('ki.confidence >= :confidence', { confidence: filters.confidence });
+      }
+
+      if (filters.sourceTypes?.length) {
+        query = query.andWhere('ki.sourceType IN (:...sourceTypes)', { sourceTypes: filters.sourceTypes });
+      }
+
+      if (filters.timeRange) {
+        query = query.andWhere('ki.createdAt BETWEEN :start AND :end', {
+          start: filters.timeRange.start,
+          end: filters.timeRange.end
+        });
+      }
+    }
+
+    const entities = await query
+      .orderBy('ki.createdAt', 'DESC')
+      .limit(limit)
+      .getMany();
+
+    return entities.map(entity => this.entityToModel(entity));
+  }
+
   private entityToModel(entity: KnowledgeItemEntity): KnowledgeItem {
     return {
       id: entity.id,
@@ -232,7 +286,10 @@ export class KnowledgeRepository {
       updatedAt: entity.updatedAt,
       createdBy: entity.createdBy,
       organizationId: entity.organizationId,
-      accessLevel: entity.accessLevel
+      accessLevel: entity.accessLevel,
+      userId: entity.userId,
+      agentId: entity.agentId,
+      summary: entity.summary
     };
   }
 
@@ -243,7 +300,49 @@ export class KnowledgeRepository {
       targetItemId: entity.targetItemId,
       relationshipType: entity.relationshipType,
       confidence: entity.confidence,
-      createdAt: entity.createdAt
+      createdAt: entity.createdAt,
+      userId: entity.userId,
+      agentId: entity.agentId,
+      summary: entity.summary
     };
+  }
+
+  // Private helper methods for scope filtering
+  private applyScopeFilter(query: any, scope: KnowledgeScope): any {
+    if (scope.agentId && scope.userId) {
+      // Both agent and user specified - return items for both
+      query = query.andWhere('(ki.agentId = :agentId OR ki.userId = :userId OR (ki.agentId IS NULL AND ki.userId IS NULL))', {
+        agentId: scope.agentId,
+        userId: scope.userId
+      });
+    } else if (scope.agentId) {
+      // Agent-specific knowledge + general knowledge
+      query = query.andWhere('(ki.agentId = :agentId OR ki.agentId IS NULL)', { agentId: scope.agentId });
+    } else if (scope.userId) {
+      // User-specific knowledge + general knowledge
+      query = query.andWhere('(ki.userId = :userId OR ki.userId IS NULL)', { userId: scope.userId });
+    }
+    // If no scope provided, return all (general knowledge)
+    
+    return query;
+  }
+
+  private applyRelationshipScopeFilter(query: any, scope: KnowledgeScope): any {
+    if (scope.agentId && scope.userId) {
+      // Both agent and user specified - return relationships for both
+      query = query.andWhere('(kr.agentId = :agentId OR kr.userId = :userId OR (kr.agentId IS NULL AND kr.userId IS NULL))', {
+        agentId: scope.agentId,
+        userId: scope.userId
+      });
+    } else if (scope.agentId) {
+      // Agent-specific relationships + general relationships
+      query = query.andWhere('(kr.agentId = :agentId OR kr.agentId IS NULL)', { agentId: scope.agentId });
+    } else if (scope.userId) {
+      // User-specific relationships + general relationships
+      query = query.andWhere('(kr.userId = :userId OR kr.userId IS NULL)', { userId: scope.userId });
+    }
+    // If no scope provided, return all (general relationships)
+    
+    return query;
   }
 } 

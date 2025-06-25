@@ -3,7 +3,7 @@
 // Part of capability-registry microservice
 
 import { ToolExecution, ToolUsageRecord, ToolExecutionStatus } from '@uaip/types';
-import {  ToolGraphDatabase, UsagePattern, TypeOrmService, DatabaseService } from '@uaip/shared-services';
+import {  ToolGraphDatabase, UsagePattern, DatabaseService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { ToolRegistry } from './toolRegistry.js';
 import { BaseToolExecutor } from './baseToolExecutor.js';
@@ -31,8 +31,7 @@ export class ToolExecutor {
     private postgresql: DatabaseService,
     private neo4j: ToolGraphDatabase,
     private toolRegistry: ToolRegistry,
-    private baseExecutor: BaseToolExecutor,
-    private typeormService: TypeOrmService
+    private baseExecutor: BaseToolExecutor
   ) {}
 
   async executeTool(

@@ -3,7 +3,7 @@ export { SecurityLevel } from '@uaip/types';
 
 // Database Services
 export { DatabaseService } from './databaseService.js';
-export { TypeOrmService, typeormService } from './typeormService.js';
+// Note: TypeOrmService is internal and not exported
 
 // All Database-related exports (TypeORM, services, types)
 export * from './database/index.js';
@@ -42,7 +42,41 @@ export type {
 
 // Knowledge Graph Services - NEW
 export * from './knowledge-graph/index.js';
+export { UserKnowledgeService } from './user-knowledge.service.js';
+export { ContextOrchestrationService } from './context-orchestration.service.js';
 
 // Agent Memory Services - NEW
 export * from './agent-memory/index.js'; 
 // export { EnhancedAgentIntelligenceService } from './enhanced-agent-intelligence.service.js';
+
+// Integration Services - MCP + Neo4j Sync
+export * from './integration/index.js';
+
+// Service Factory - Dependency Injection
+export { 
+  ServiceFactory,
+  serviceFactory,
+  getKnowledgeGraphService,
+  getUserKnowledgeService, 
+  getContextOrchestrationService,
+  getAgentMemoryService
+} from './ServiceFactory.js';
+
+// Domain Services
+export { ToolManagementService } from './tool-management.service.js';
+export { OperationManagementService } from './operation-management.service.js';
+
+// TEI Embedding Services - NEW
+export { TEIEmbeddingService, RerankResult, TEIHealthStatus } from './knowledge-graph/tei-embedding.service.js';
+export { SmartEmbeddingService, EmbeddingServiceConfig, SmartEmbeddingStatus } from './knowledge-graph/smart-embedding.service.js';
+export { EnhancedRAGService, SearchResult, EnhancedSearchResult, SearchOptions } from './knowledge-graph/enhanced-rag.service.js';
+
+// Service Initializer - Easy API Integration
+export {
+  ServiceInitializer,
+  initializeServices,
+  getUserKnowledgeService as getUserKnowledgeServiceForAPI,
+  getContextOrchestrationService as getContextOrchestrationServiceForAPI,
+  getAgentMemoryService as getAgentMemoryServiceForAPI,
+  servicesHealthCheck
+} from './ServiceInitializer.js';

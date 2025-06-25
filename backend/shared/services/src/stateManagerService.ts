@@ -43,7 +43,21 @@ export class StateManagerService {
 
   constructor(databaseService: DatabaseService) {
     this.databaseService = databaseService;
-    this.redis = new Redis(config.getRedisConfig());
+    
+    // Create Redis connection with proper IORedis configuration
+    const redisConfig = config.getRedisConfig();
+    this.redis = new Redis({
+      host: redisConfig.host,
+      port: redisConfig.port,
+      password: redisConfig.password,
+      db: redisConfig.db,
+      maxRetriesPerRequest: redisConfig.maxRetriesPerRequest,
+      retryStrategy: (times: number) => Math.min(times * redisConfig.retryDelayOnFailover, 2000),
+      enableOfflineQueue: redisConfig.enableOfflineQueue,
+      lazyConnect: true,
+      commandTimeout: 5000,
+    });
+    
     this.compressionEnabled = config.getStateConfig().compressionEnabled;
     this.maxCheckpointSize = config.getStateConfig().maxCheckpointSize;
 

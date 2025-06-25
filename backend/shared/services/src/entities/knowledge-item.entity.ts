@@ -8,6 +8,8 @@ import { BaseEntity } from './base.entity.js';
 @Index(['type'])
 @Index(['confidence'])
 @Index(['createdAt'])
+@Index(['userId', 'type'])
+@Index(['agentId', 'type'])
 export class KnowledgeItemEntity extends BaseEntity {
 
 
@@ -51,4 +53,14 @@ export class KnowledgeItemEntity extends BaseEntity {
 
   @Column({ length: 50, default: 'public' })
   accessLevel: string;
+
+  // Three-layered knowledge architecture
+  @Column('varchar', { length: 36, nullable: true })
+  userId?: string;
+
+  @Column('varchar', { length: 36, nullable: true })
+  agentId?: string;
+
+  @Column('text', { nullable: true })
+  summary?: string;
 } 

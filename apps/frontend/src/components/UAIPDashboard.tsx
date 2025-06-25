@@ -8,14 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 // Context
 import { useAgents } from '../contexts/AgentContext';
 
-// UAIP Component Imports
-import { IntelligencePanel } from './uaip/IntelligencePanel';
-import { OperationsMonitor } from './uaip/OperationsMonitor';
-import { SecurityGateway } from './uaip/SecurityGateway';
-import { CapabilityRegistry } from './uaip/CapabilityRegistry';
-import { InsightsPanel } from './uaip/InsightsPanel';
-import { ToolsPanel } from './uaip/ToolsPanel';
-import { EventStreamMonitor } from './uaip/EventStreamMonitor';
 
 // Icons
 import {
@@ -93,33 +85,7 @@ export const UAIPDashboard: React.FC<UAIPDashboardProps> = ({ agents: propAgents
     return () => clearInterval(interval);
   }, []);
 
-  const renderActivePanel = () => {
-    switch (activePanel) {
-      case 'intelligence':
-        return <IntelligencePanel agents={agents} />;
-      case 'operations':
-        return <OperationsMonitor operations={operations || []} />;
-      case 'security':
-        return <SecurityGateway 
-          pendingApprovals={approvals || []} 
-          securityContext={{
-            userId: 'current-user',
-            permissions: ['read', 'write', 'approve'],
-            securityLevel: 'standard'
-          }} 
-        />;
-      case 'capabilities':
-        return <CapabilityRegistry capabilities={capabilities || []} />;
-      case 'insights':
-        return <InsightsPanel agents={agents} />;
-      case 'tools':
-        return <ToolsPanel agents={agents} />;
-      case 'events':
-        return <EventStreamMonitor />;
-      default:
-        return <IntelligencePanel agents={agents} />;
-    }
-  };
+  
 
   const getPanelIcon = (panel: PanelType) => {
     const iconClass = "w-4 h-4";
@@ -247,20 +213,7 @@ export const UAIPDashboard: React.FC<UAIPDashboardProps> = ({ agents: propAgents
             
             <Separator />
             
-            <div className="p-6 h-[450px] overflow-y-auto">
-              {isLoading ? (
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                    <p className="text-gray-500">Loading system data...</p>
-                  </div>
-                </div>
-              ) : (
-                <TabsContent value={activePanel} className="mt-0 h-full">
-                  {renderActivePanel()}
-                </TabsContent>
-              )}
-            </div>
+          
           </Tabs>
         </CardContent>
       </Card>

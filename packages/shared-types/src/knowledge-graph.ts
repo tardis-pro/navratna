@@ -10,6 +10,13 @@ export enum KnowledgeType {
   SEMANTIC = 'SEMANTIC'
 }
 
+// Knowledge Scope for three-layered architecture
+export interface KnowledgeScope {
+  userId?: string;    // User-specific knowledge
+  agentId?: string;   // Agent-specific knowledge  
+  // When both are null, it's general knowledge
+}
+
 export enum SourceType {
   GIT_REPOSITORY = 'GIT_REPOSITORY',
   FILE_SYSTEM = 'FILE_SYSTEM',
@@ -45,6 +52,10 @@ export interface KnowledgeItem {
   createdBy?: string;
   organizationId?: string;
   accessLevel: string;
+  // Three-layered knowledge architecture
+  userId?: string;    // User-specific knowledge layer
+  agentId?: string;   // Agent-specific knowledge layer
+  summary?: string;   // Optional summary for large content
 }
 
 // Knowledge Search Interfaces
@@ -104,8 +115,12 @@ export interface KnowledgeIngestResponse {
 
 // Context and Classification
 export interface ContextRequest {
+  userRequest?: string;
+  currentContext?: any;
   discussionHistory?: any[];
   userPreferences?: Record<string, any>;
+  conversationHistory?: any[];
+  agentCapabilities?: string[];
   relevantTags?: string[];
   timeRange?: DateRange;
   participantExpertise?: string[];
@@ -127,6 +142,10 @@ export interface KnowledgeRelationship {
   relationshipType: string;
   confidence: number;
   createdAt: Date;
+  // Three-layered knowledge architecture
+  userId?: string;    // User-specific relationship layer
+  agentId?: string;   // Agent-specific relationship layer
+  summary?: string;   // Optional summary for complex relationships
 }
 
 // Knowledge Sources

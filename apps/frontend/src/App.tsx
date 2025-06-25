@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { AuthProvider } from './contexts/AuthContext';
 import { AgentProvider } from './contexts/AgentContext';
+import { UAIPProvider } from './contexts/UAIPContext';
 import { DocumentProvider } from './contexts/DocumentContext';
 import { DiscussionProvider } from './contexts/DiscussionContext';
+import { KnowledgeProvider } from './contexts/KnowledgeContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { UserProfile } from './components/UserProfile';
 import { DocumentViewer } from './components/DocumentViewer';
@@ -28,6 +30,7 @@ import {
   Users
 } from 'lucide-react';
 import './App.css';
+import { PortalWorkspace } from './components/futuristic/PortalWorkspace';
 
 type Mode = 'discussion' | 'uaip' | 'settings' | 'futuristic';
 
@@ -91,33 +94,135 @@ function App() {
     <AuthProvider>
       <ProtectedRoute>
         <AgentProvider>
-          <DocumentProvider>
-            <DiscussionProvider topic="Council of Nycea">
-              <div className="h-screen w-full bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 dark:from-slate-950 dark:via-slate-900 dark:to-slate-800 flex flex-col overflow-hidden">
+          <UAIPProvider>
+            <KnowledgeProvider>
+              <DocumentProvider>
+                <DiscussionProvider topic="Council of Nycea">
+                <div className="h-screen w-full bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 dark:from-slate-950 dark:via-slate-900 dark:to-slate-800 flex flex-col overflow-hidden">
 
-                {/* Header */}
-                <header className="h-16 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-b border-slate-200/60 dark:border-slate-700/60 shadow-sm flex items-center justify-between px-6 flex-shrink-0">
-                  
-                  {/* Left: Logo & Navigation */}
-                  <div className="flex items-center gap-6">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/25">
-                        <Bot className="w-5 h-5 text-white" />
+                  {/* Header */}
+                  <header className="h-16 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-b border-slate-200/60 dark:border-slate-700/60 shadow-sm flex items-center justify-between px-6 flex-shrink-0">
+
+                    {/* Left: Logo & Navigation */}
+                    <div className="flex items-center gap-6">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/25">
+                          <Bot className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <h1 className="text-xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
+                            Council of Nycea
+                          </h1>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 -mt-0.5">AI Discussion Platform</p>
+                        </div>
                       </div>
-                      <div>
-                        <h1 className="text-xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
-                          Council of Nycea
-                        </h1>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 -mt-0.5">AI Discussion Platform</p>
-                      </div>
+
+                      {/* Navigation */}
+                      <nav className="hidden md:flex items-center bg-slate-100/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-xl p-1.5 shadow-inner">
+                        {modes.map((mode) => {
+                          const Icon = mode.icon;
+                          const isActive = currentMode === mode.key;
+
+                          return (
+                            <Button
+                              key={mode.key}
+                              variant={isActive ? "default" : "ghost"}
+                              size="sm"
+                              onClick={() => setCurrentMode(mode.key)}
+                              className={`
+                                flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-all duration-200 rounded-lg
+                                ${isActive
+                                  ? 'bg-white dark:bg-slate-700 shadow-md shadow-slate-200/50 dark:shadow-slate-900/50 text-slate-900 dark:text-white'
+                                  : 'hover:bg-white/70 dark:hover:bg-slate-700/70 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                                }
+                              `}
+                            >
+                              <Icon className="w-4 h-4" />
+                              {mode.label}
+                            </Button>
+                          );
+                        })}
+                      </nav>
                     </div>
 
-                    {/* Navigation */}
-                    <nav className="hidden md:flex items-center bg-slate-100/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-xl p-1.5 shadow-inner">
+                    {/* Right: Controls */}
+                    <div className="flex items-center gap-3">
+                      <BackendStatusIndicator />
+
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={toggleTheme}
+                        className="w-10 h-10 p-0 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                      >
+                        {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+                      </Button>
+
+                      <UserProfile />
+
+                      {/* Mobile menu toggle */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSidebarOpen(!sidebarOpen)}
+                        className="md:hidden w-10 h-10 p-0 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                      >
+                        {sidebarOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+                      </Button>
+                    </div>
+                  </header>
+
+                  {/* Main Content */}
+                  <main className="flex-1 overflow-hidden">
+                    {currentMode === 'discussion' ? (
+                      <DiscussionLayout sidebarOpen={sidebarOpen} />
+                    ) : currentMode === 'uaip' ? (
+                      <div className="h-full p-6">
+                        <div className="h-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-xl overflow-hidden">
+                          <ErrorBoundary>
+                            <UAIPDashboard />
+                          </ErrorBoundary>
+                        </div>
+                      </div>
+                    ) : currentMode === 'futuristic' ? (
+                      <div className="h-full">
+                        <ErrorBoundary>
+                          <PortalWorkspace />
+                        </ErrorBoundary>
+                      </div>
+                    ) : (
+                      <div className="h-full p-6 overflow-auto">
+                        <div className="max-w-5xl mx-auto">
+                          <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-xl p-8">
+                            <div className="mb-8">
+                              <div className="flex items-center gap-4 mb-3">
+                                <div className="w-12 h-12 bg-gradient-to-br from-slate-600 to-slate-700 rounded-xl flex items-center justify-center shadow-lg">
+                                  <Settings className="w-6 h-6 text-white" />
+                                </div>
+                                <div>
+                                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+                                    Settings
+                                  </h2>
+                                  <p className="text-slate-600 dark:text-slate-400">
+                                    Configure your workspace and preferences
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                            <SettingsContent />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </main>
+
+                  {/* Mobile Navigation */}
+                  <div className="md:hidden fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
+                    <nav className="flex bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl p-2 shadow-2xl border border-slate-200/60 dark:border-slate-700/60">
                       {modes.map((mode) => {
                         const Icon = mode.icon;
                         const isActive = currentMode === mode.key;
-                        
+
                         return (
                           <Button
                             key={mode.key}
@@ -125,122 +230,24 @@ function App() {
                             size="sm"
                             onClick={() => setCurrentMode(mode.key)}
                             className={`
-                              flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-all duration-200 rounded-lg
-                              ${isActive 
-                                ? 'bg-white dark:bg-slate-700 shadow-md shadow-slate-200/50 dark:shadow-slate-900/50 text-slate-900 dark:text-white' 
-                                : 'hover:bg-white/70 dark:hover:bg-slate-700/70 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                              w-14 h-14 p-0 rounded-xl transition-all duration-200
+                              ${isActive
+                                ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25'
+                                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'
                               }
                             `}
                           >
-                            <Icon className="w-4 h-4" />
-                            {mode.label}
+                            <Icon className="w-5 h-5" />
                           </Button>
                         );
                       })}
                     </nav>
                   </div>
-
-                  {/* Right: Controls */}
-                  <div className="flex items-center gap-3">
-                    <BackendStatusIndicator />
-                    
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={toggleTheme}
-                      className="w-10 h-10 p-0 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                    >
-                      {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
-                    </Button>
-
-                    <UserProfile />
-
-                    {/* Mobile menu toggle */}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setSidebarOpen(!sidebarOpen)}
-                      className="md:hidden w-10 h-10 p-0 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                    >
-                      {sidebarOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
-                    </Button>
-                  </div>
-                </header>
-
-                {/* Main Content */}
-                <main className="flex-1 overflow-hidden">
-                  {currentMode === 'discussion' ? (
-                    <DiscussionLayout sidebarOpen={sidebarOpen} />
-                  ) : currentMode === 'uaip' ? (
-                    <div className="h-full p-6">
-                      <div className="h-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-xl overflow-hidden">
-                        <ErrorBoundary>
-                          <UAIPDashboard />
-                        </ErrorBoundary>
-                      </div>
-                    </div>
-                  ) : currentMode === 'futuristic' ? (
-                    <div className="h-full">
-                      <ErrorBoundary>
-                        <FuturisticDemo />
-                      </ErrorBoundary>
-                    </div>
-                  ) : (
-                    <div className="h-full p-6 overflow-auto">
-                      <div className="max-w-5xl mx-auto">
-                        <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-xl p-8">
-                          <div className="mb-8">
-                            <div className="flex items-center gap-4 mb-3">
-                              <div className="w-12 h-12 bg-gradient-to-br from-slate-600 to-slate-700 rounded-xl flex items-center justify-center shadow-lg">
-                                <Settings className="w-6 h-6 text-white" />
-                              </div>
-                              <div>
-                                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
-                                  Settings
-                                </h2>
-                                <p className="text-slate-600 dark:text-slate-400">
-                                  Configure your workspace and preferences
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                          <SettingsContent />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </main>
-
-                {/* Mobile Navigation */}
-                <div className="md:hidden fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
-                  <nav className="flex bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl p-2 shadow-2xl border border-slate-200/60 dark:border-slate-700/60">
-                    {modes.map((mode) => {
-                      const Icon = mode.icon;
-                      const isActive = currentMode === mode.key;
-
-                      return (
-                        <Button
-                          key={mode.key}
-                          variant={isActive ? "default" : "ghost"}
-                          size="sm"
-                          onClick={() => setCurrentMode(mode.key)}
-                          className={`
-                            w-14 h-14 p-0 rounded-xl transition-all duration-200
-                            ${isActive 
-                              ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25' 
-                              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'
-                            }
-                          `}
-                        >
-                          <Icon className="w-5 h-5" />
-                        </Button>
-                      );
-                    })}
-                  </nav>
                 </div>
-              </div>
-            </DiscussionProvider>
-          </DocumentProvider>
+              </DiscussionProvider>
+              </DocumentProvider>
+            </KnowledgeProvider>
+          </UAIPProvider>
         </AgentProvider>
       </ProtectedRoute>
     </AuthProvider>
@@ -251,7 +258,7 @@ function App() {
 function DiscussionLayout({ sidebarOpen }: { sidebarOpen: boolean }) {
   return (
     <div className="h-full flex overflow-hidden">
-      
+
       {/* Sidebar */}
       <div className={`
         ${sidebarOpen ? 'w-80 max-w-[40vw]' : 'w-0'} 
@@ -295,7 +302,7 @@ function DiscussionLayout({ sidebarOpen }: { sidebarOpen: boolean }) {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        
+
         {/* Document Context */}
         <div className="h-1/2 border-b border-slate-200/60 dark:border-slate-700/60 min-h-0">
           <div className="h-full flex flex-col">

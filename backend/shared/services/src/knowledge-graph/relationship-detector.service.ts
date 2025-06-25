@@ -1,10 +1,14 @@
 import { KnowledgeItem, KnowledgeRelationship } from '@uaip/types';
 import { EmbeddingService } from './embedding.service';
+import { SmartEmbeddingService } from './smart-embedding.service';
 import { KnowledgeRepository } from '../database/repositories/knowledge.repository';
+
+// Type for any service that can generate embeddings and calculate similarity
+type EmbeddingProvider = EmbeddingService | SmartEmbeddingService;
 
 export class RelationshipDetector {
   constructor(
-    private readonly embeddingService: EmbeddingService,
+    private readonly embeddingService: EmbeddingProvider,
     private readonly knowledgeRepository: KnowledgeRepository
   ) {}
 

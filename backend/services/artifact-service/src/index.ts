@@ -45,7 +45,7 @@ app.get('/health', (req, res) => {
   });
 });
 
-// API routes
+// API routes - re-enabled with minimal routes for testing
 app.use('/api/v1/artifacts', artifactRoutes(artifactService));
 
 // Error handling
@@ -58,7 +58,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 });
 
 // 404 handler
-app.use('*', (req, res) => {
+app.use((req, res) => {
   res.status(404).json({
     error: 'Not found',
     message: `Route ${req.originalUrl} not found`

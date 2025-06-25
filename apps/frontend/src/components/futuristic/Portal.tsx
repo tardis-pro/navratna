@@ -2,6 +2,14 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, useMotionValue, useTransform, AnimatePresence } from 'framer-motion';
 import { X, Maximize2, Minimize2, Move, Settings } from 'lucide-react';
 
+interface ViewportSize {
+  width: number;
+  height: number;
+  isMobile: boolean;
+  isTablet: boolean;
+  isDesktop: boolean;
+}
+
 export interface PortalProps {
   id: string;
   type: string; // More flexible to allow any portal type
@@ -15,6 +23,7 @@ export interface PortalProps {
   onMinimize?: () => void;
   onFocus?: () => void;
   className?: string;
+  viewport?: ViewportSize;
 }
 
 export interface PortalState {
@@ -23,6 +32,7 @@ export interface PortalState {
   isMaximized: boolean;
   isMinimized: boolean;
   isDragging: boolean;
+  isResizing: boolean;
   isActive: boolean;
   zIndex: number;
 }
@@ -77,14 +87,27 @@ export const Portal: React.FC<PortalProps> = ({
   onMaximize,
   onMinimize,
   onFocus,
-  className = ''
+  className = '',
+  viewport
 }) => {
+  // Default viewport if not provided
+  const defaultViewport: ViewportSize = {
+    width: typeof window !== 'undefined' ? window.innerWidth : 1024,
+    height: typeof window !== 'undefined' ? window.innerHeight : 768,
+    isMobile: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
+    isTablet: typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
+    isDesktop: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
+  };
+
+  const currentViewport = viewport || defaultViewport;
+
   const [state, setState] = useState<PortalState>({
     position: initialPosition,
     size: initialSize,
     isMaximized: false,
     isMinimized: false,
     isDragging: false,
+    isResizing: false,
     isActive: false,
     zIndex: zIndex
   });
@@ -104,6 +127,23 @@ export const Portal: React.FC<PortalProps> = ({
     setState(prev => ({ ...prev, zIndex }));
   }, [zIndex]);
 
+  // Update position and size based on viewport changes
+  useEffect(() => {
+    if (currentViewport.isMobile && !state.isMaximized) {
+      // On mobile, ensure portal stays within bounds
+      const maxX = Math.max(10, currentViewport.width - state.size.width - 10);
+      const maxY = Math.max(10, currentViewport.height - state.size.height - 100);
+      
+      setState(prev => ({
+        ...prev,
+        position: {
+          x: Math.min(prev.position.x, maxX),
+          y: Math.min(prev.position.y, maxY)
+        }
+      }));
+    }
+  }, [currentViewport, state.size, state.isMaximized]);
+
   const handleDragStart = () => {
     setState(prev => ({ ...prev, isDragging: true, isActive: true }));
     onFocus?.();
@@ -113,12 +153,45 @@ export const Portal: React.FC<PortalProps> = ({
     setState(prev => ({ ...prev, isDragging: false }));
   };
 
+  const handleResizeStart = () => {
+    setState(prev => ({ ...prev, isResizing: true, isActive: true }));
+    onFocus?.();
+  };
+
+  const handleResizeEnd = () => {
+    setState(prev => ({ ...prev, isResizing: false }));
+  };
+
+  const handleResize = (event: any, info: any) => {
+    if (!state.isResizing) return;
+
+    const minWidth = currentViewport.isMobile ? 300 : 350;
+    const minHeight = currentViewport.isMobile ? 200 : 250;
+    const maxWidth = currentViewport.width - state.position.x - 20;
+    const maxHeight = currentViewport.height - state.position.y - 20;
+
+    const newWidth = Math.max(minWidth, Math.min(maxWidth, state.size.width + info.delta.x));
+    const newHeight = Math.max(minHeight, Math.min(maxHeight, state.size.height + info.delta.y));
+
+    setState(prev => ({
+      ...prev,
+      size: {
+        width: newWidth,
+        height: newHeight
+      }
+    }));
+  };
+
   const handleMaximize = () => {
+    const padding = currentViewport.isMobile ? 10 : 50;
     setState(prev => ({
       ...prev,
       isMaximized: !prev.isMaximized,
-      position: prev.isMaximized ? initialPosition : { x: 0, y: 0 },
-      size: prev.isMaximized ? initialSize : { width: window.innerWidth - 100, height: window.innerHeight - 100 }
+      position: prev.isMaximized ? initialPosition : { x: padding, y: padding },
+      size: prev.isMaximized ? initialSize : { 
+        width: currentViewport.width - (padding * 2), 
+        height: currentViewport.height - (currentViewport.isMobile ? 120 : 150)
+      }
     }));
     onMaximize?.();
   };
@@ -128,9 +201,12 @@ export const Portal: React.FC<PortalProps> = ({
     onMinimize?.();
   };
 
-  const handlePortalFocus = () => {
-    setState(prev => ({ ...prev, isActive: true }));
-    onFocus?.();
+  const handlePortalFocus = (e: React.MouseEvent) => {
+    // Only handle focus if clicking on the portal itself, not child elements
+    if (e.target === e.currentTarget || (e.target as Element).closest('.portal-header')) {
+      setState(prev => ({ ...prev, isActive: true }));
+      onFocus?.();
+    }
   };
 
   const handleBlur = () => {
@@ -141,10 +217,13 @@ export const Portal: React.FC<PortalProps> = ({
     handleMaximize();
   };
 
+  // Disable drag on mobile to prevent conflicts with scrolling
+  const isDragEnabled = !currentViewport.isMobile;
+
   return (
     <div ref={constraintsRef} className="fixed inset-0 pointer-events-none">
       <motion.div
-        drag
+        drag={isDragEnabled && !state.isResizing}
         dragMomentum={false}
         dragConstraints={constraintsRef}
         dragElastic={0.1}
@@ -167,10 +246,10 @@ export const Portal: React.FC<PortalProps> = ({
           opacity: state.isMinimized ? 0.5 : 1
         }}
         whileHover={{ 
-          scale: state.isMinimized ? 0.1 : 1.02,
+          scale: state.isMinimized ? 0.1 : (currentViewport.isMobile ? 1 : 1.02),
           transition: { duration: 0.2 }
         }}
-        whileTap={{ scale: 0.98 }}
+        whileTap={{ scale: currentViewport.isMobile ? 1 : 0.98 }}
         transition={{
           type: "spring",
           stiffness: 300,
@@ -178,7 +257,8 @@ export const Portal: React.FC<PortalProps> = ({
         }}
         style={{ 
           zIndex: state.zIndex,
-          filter: state.isActive ? 'drop-shadow(0 0 20px rgba(59, 130, 246, 0.5))' : 'none'
+          filter: state.isActive ? 'drop-shadow(0 0 20px rgba(59, 130, 246, 0.5))' : 'none',
+          pointerEvents: 'auto'
         }}
         className={`
           pointer-events-auto
@@ -200,123 +280,166 @@ export const Portal: React.FC<PortalProps> = ({
           )}
         </AnimatePresence>
 
-        {/* Main Portal Frame */}
+        {/* Portal Container */}
         <motion.div
           className={`
-            relative w-full h-full
-            bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95
-            backdrop-blur-xl
-            border ${styles.border}
-            rounded-2xl
+            relative w-full h-full flex flex-col
+            bg-gradient-to-br from-slate-900/95 to-slate-800/95 backdrop-blur-xl
+            rounded-2xl border ${styles.border}
             shadow-2xl ${styles.glow}
             overflow-hidden
-            transition-all duration-300
+            ${state.isDragging ? 'cursor-grabbing' : state.isResizing ? 'cursor-nw-resize' : 'cursor-auto'}
           `}
-          style={{
-            boxShadow: state.isActive 
-              ? `0 25px 50px -12px ${styles.glow.replace('shadow-', 'rgba(').replace('/20', ', 0.4)')}`
-              : '0 10px 25px -5px rgba(0, 0, 0, 0.25)'
-          }}
+          onDoubleClick={handleDoubleClick}
         >
           {/* Portal Header */}
           <motion.div
             className={`
-              relative px-6 py-4 border-b ${styles.border}
+              portal-header
+              flex items-center justify-between flex-shrink-0
+              px-4 md:px-6 py-3 md:py-4
               bg-gradient-to-r ${styles.gradient}
-              cursor-move select-none
-              flex items-center justify-between
+              border-b ${styles.border}
+              ${isDragEnabled && !state.isResizing ? 'cursor-grab active:cursor-grabbing' : 'cursor-auto'}
             `}
-            onDoubleClick={handleDoubleClick}
+            drag={isDragEnabled && !state.isResizing}
+            dragMomentum={false}
+            dragConstraints={constraintsRef}
+            dragElastic={0}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
           >
-            {/* Portal Title and Status */}
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center gap-3">
               <motion.div
-                className={`w-3 h-3 rounded-full ${styles.accent.replace('text-', 'bg-')} opacity-80`}
+                className={`w-3 h-3 rounded-full bg-gradient-to-r ${styles.gradient} ${styles.border} border`}
                 animate={{ 
-                  scale: [1, 1.2, 1],
-                  opacity: [0.8, 1, 0.8]
+                  scale: state.isActive ? [1, 1.2, 1] : 1,
+                  opacity: state.isActive ? [0.7, 1, 0.7] : 0.7
                 }}
-                transition={{ 
-                  duration: 2, 
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }}
+                transition={{ duration: 2, repeat: state.isActive ? Infinity : 0 }}
               />
-              <h3 className={`font-semibold text-lg ${styles.accent}`}>
+              <h3 className={`font-semibold ${styles.accent} ${currentViewport.isMobile ? 'text-sm' : 'text-base'}`}>
                 {title}
+                {process.env.NODE_ENV === 'development' && (
+                  <span className="ml-2 text-xs text-slate-500 bg-slate-800 px-1 rounded">
+                    z:{state.zIndex}
+                  </span>
+                )}
               </h3>
-              <span className="px-2 py-1 text-xs bg-slate-800/50 text-slate-400 rounded-full">
-                {type}
-              </span>
+              {(state.isDragging || state.isResizing) && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  className="flex items-center gap-1 text-xs text-slate-400"
+                >
+                  <Move className="w-3 h-3" />
+                  <span className="hidden sm:inline">
+                    {state.isDragging ? 'Dragging' : 'Resizing'}
+                  </span>
+                </motion.div>
+              )}
             </div>
 
-            {/* Portal Controls */}
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-2">
+              {/* Minimize Button */}
               <motion.button
                 onClick={(e) => {
                   e.stopPropagation();
                   handleMinimize();
                 }}
-                className="w-8 h-8 rounded-lg bg-slate-700/50 hover:bg-yellow-500/20 text-slate-400 hover:text-yellow-400 transition-all duration-200 flex items-center justify-center"
+                className={`
+                  w-6 h-6 md:w-8 md:h-8 rounded-lg
+                  bg-slate-700/50 hover:bg-slate-600/50
+                  border border-slate-600/50 hover:border-slate-500/50
+                  flex items-center justify-center
+                  transition-all duration-200
+                  ${styles.accent}
+                  z-10 relative
+                `}
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
+                title="Minimize"
               >
-                <Minimize2 className="w-4 h-4" />
+                <Minimize2 className="w-3 h-3 md:w-4 md:h-4" />
               </motion.button>
-              
+
+              {/* Maximize Button */}
               <motion.button
                 onClick={(e) => {
                   e.stopPropagation();
                   handleMaximize();
                 }}
-                className="w-8 h-8 rounded-lg bg-slate-700/50 hover:bg-blue-500/20 text-slate-400 hover:text-blue-400 transition-all duration-200 flex items-center justify-center"
+                className={`
+                  w-6 h-6 md:w-8 md:h-8 rounded-lg
+                  bg-slate-700/50 hover:bg-slate-600/50
+                  border border-slate-600/50 hover:border-slate-500/50
+                  flex items-center justify-center
+                  transition-all duration-200
+                  ${styles.accent}
+                  z-10 relative
+                `}
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
+                title={state.isMaximized ? "Restore" : "Maximize"}
               >
-                <Maximize2 className="w-4 h-4" />
+                <Maximize2 className="w-3 h-3 md:w-4 md:h-4" />
               </motion.button>
-              
+
+              {/* Close Button */}
               <motion.button
                 onClick={(e) => {
                   e.stopPropagation();
                   onClose?.();
                 }}
-                className="w-8 h-8 rounded-lg bg-slate-700/50 hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-all duration-200 flex items-center justify-center"
+                className="
+                  w-6 h-6 md:w-8 md:h-8 rounded-lg
+                  bg-red-500/20 hover:bg-red-500/30
+                  border border-red-500/30 hover:border-red-500/50
+                  flex items-center justify-center
+                  transition-all duration-200
+                  text-red-400 hover:text-red-300
+                  z-10 relative
+                "
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
+                title="Close"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3 h-3 md:w-4 md:h-4" />
               </motion.button>
             </div>
           </motion.div>
 
           {/* Portal Content */}
-          <div className="flex-1 overflow-hidden">
-            <motion.div
-              className="w-full h-full overflow-auto custom-scrollbar"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
+          <div className={`
+            relative flex-1 overflow-hidden
+            ${currentViewport.isMobile ? 'pb-4' : 'pb-6'}
+          `}>
+            <div 
+              className="h-full overflow-auto p-4 md:p-6"
+              onClick={(e) => e.stopPropagation()}
             >
               {children}
-            </motion.div>
+            </div>
           </div>
 
-          {/* Resize Handle */}
-          {!state.isMaximized && (
+          {/* Resize Handle (Desktop only) */}
+          {!currentViewport.isMobile && !state.isMaximized && (
             <motion.div
-              className={`
-                absolute bottom-0 right-0 w-4 h-4
-                cursor-se-resize
-                ${styles.accent.replace('text-', 'bg-')}
-                opacity-50 hover:opacity-100
-                transition-opacity duration-200
-              `}
-              style={{
-                clipPath: 'polygon(100% 0%, 0% 100%, 100% 100%)'
-              }}
+              drag
+              dragMomentum={false}
+              dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+              dragElastic={0}
+              onDragStart={handleResizeStart}
+              onDragEnd={handleResizeEnd}
+              onDrag={handleResize}
+              className="absolute bottom-0 right-0 w-6 h-6 cursor-nw-resize z-10"
               whileHover={{ scale: 1.2 }}
-            />
+            >
+              <div className={`w-full h-full bg-gradient-to-br ${styles.gradient} rounded-tl-lg opacity-50 hover:opacity-80 transition-opacity flex items-end justify-end p-1`}>
+                <div className="w-2 h-2 bg-white/30 rounded-sm" />
+              </div>
+            </motion.div>
           )}
         </motion.div>
       </motion.div>

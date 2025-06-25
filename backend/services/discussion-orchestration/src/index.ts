@@ -7,7 +7,7 @@ import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 
 import { logger } from '@uaip/utils';
-import { DatabaseService, EventBusService, TypeOrmService, DiscussionService, PersonaService } from '@uaip/shared-services';
+import { DatabaseService, EventBusService, DiscussionService, PersonaService } from '@uaip/shared-services';
 import { authMiddleware, errorHandler, defaultRequestLogger } from '@uaip/middleware';
 
 import { config } from './config/index.js';
@@ -21,7 +21,7 @@ class DiscussionOrchestrationServer {
   private io!: SocketIOServer;
   private orchestrationService: DiscussionOrchestrationService;
   private databaseService: DatabaseService;
-  private typeormService: TypeOrmService;
+
   private eventBusService: EventBusService;
   private discussionService: DiscussionService;
   private personaService: PersonaService;
@@ -34,7 +34,7 @@ class DiscussionOrchestrationServer {
     
     // Initialize services
     this.databaseService = new DatabaseService();
-    this.typeormService = TypeOrmService.getInstance();
+
     this.eventBusService = new EventBusService(
       {
         url: process.env.RABBITMQ_URL || 'amqp://localhost:5672',
@@ -265,7 +265,7 @@ class DiscussionOrchestrationServer {
       logger.info('DatabaseService initialized successfully');
 
       // Initialize TypeORM first
-      await this.typeormService.initialize();
+
       logger.info('TypeORM service initialized successfully');
 
       // Initialize event bus
@@ -337,11 +337,7 @@ class DiscussionOrchestrationServer {
         logger.info('Event bus disconnected');
       }
 
-      // Close TypeORM connection
-      if (this.typeormService) {
-        await this.typeormService.close();
-        logger.info('TypeORM connection closed');
-      }
+
 
       logger.info('Discussion Orchestration Service shut down successfully');
       process.exit(0);

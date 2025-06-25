@@ -4,19 +4,25 @@ import {
   Episode,
   EpisodicQuery,
   SemanticMemory,
-  ConsolidationResult
+  ConsolidationResult,
+  KnowledgeItem,
+  KnowledgeIngestRequest,
+  SourceType,
+  KnowledgeType
 } from '@uaip/types';
 import { WorkingMemoryManager } from './working-memory.manager.js';
 import { EpisodicMemoryManager } from './episodic-memory.manager.js';
 import { SemanticMemoryManager } from './semantic-memory.manager.js';
 import { MemoryConsolidator } from './memory-consolidator.service.js';
+import { KnowledgeGraphService } from '../knowledge-graph/knowledge-graph.service.js';
 
 export class AgentMemoryService {
   constructor(
     private readonly workingMemoryManager: WorkingMemoryManager,
     private readonly episodicMemoryManager: EpisodicMemoryManager,
     private readonly semanticMemoryManager: SemanticMemoryManager,
-    private readonly memoryConsolidator: MemoryConsolidator
+    private readonly memoryConsolidator: MemoryConsolidator,
+    private readonly knowledgeGraphService: KnowledgeGraphService
   ) {}
 
   // Working Memory Operations
@@ -209,5 +215,148 @@ export class AgentMemoryService {
       keyConcepts: keyConcepts.slice(0, 20), // Top 20 concepts
       exportTimestamp: new Date()
     };
+  }
+
+  // Knowledge Graph Integration
+  /**
+   * Store agent knowledge using the knowledge graph service
+   */
+  async storeAgentKnowledge(agentId: string, knowledge: {
+    content: string;
+    type?: KnowledgeType;
+    tags?: string[];
+    sourceIdentifier: string;
+    metadata?: Record<string, any>;
+    confidence?: number;
+  }): Promise<KnowledgeItem> {
+    const knowledgeRequest: KnowledgeIngestRequest = {
+      content: knowledge.content,
+      type: knowledge.type || KnowledgeType.EXPERIENTIAL,
+      tags: knowledge.tags || [],
+      source: {
+        type: SourceType.AGENT_INTERACTION,
+        identifier: knowledge.sourceIdentifier,
+        metadata: knowledge.metadata || {}
+      },
+      confidence: knowledge.confidence || 0.8
+    };
+
+    const result = await this.knowledgeGraphService.ingest([{
+      ...knowledgeRequest,
+      scope: { agentId }
+    }]);
+
+    return result.items[0];
+  }
+
+  /**
+   * Search agent's knowledge using the knowledge graph
+   */
+  async searchAgentKnowledge(agentId: string, query: string, options: {
+    limit?: number;
+    types?: KnowledgeType[];
+    tags?: string[];
+    includeRelationships?: boolean;
+  } = {}): Promise<KnowledgeItem[]> {
+    const result = await this.knowledgeGraphService.search({
+      query,
+      filters: {
+        types: options.types,
+        tags: options.tags
+      },
+      options: {
+        limit: options.limit || 10,
+        includeRelationships: options.includeRelationships || false
+      },
+      timestamp: Date.now(),
+      scope: { agentId }
+    });
+
+    return result.items;
+  }
+
+  /**
+   * Get contextual knowledge for agent operations
+   */
+  async getContextualKnowledge(agentId: string, context: {
+    currentOperation?: string;
+    discussionHistory?: any[];
+    relevantTags?: string[];
+  }): Promise<KnowledgeItem[]> {
+    return this.knowledgeGraphService.getContextualKnowledge({
+      discussionHistory: context.discussionHistory,
+      relevantTags: context.relevantTags,
+      scope: { agentId }
+    });
+  }
+
+  /**
+   * Store episode as knowledge in the knowledge graph
+   */
+  async storeEpisodeAsKnowledge(agentId: string, episode: Episode): Promise<KnowledgeItem> {
+    const content = this.episodeToKnowledgeContent(episode);
+    
+    return this.storeAgentKnowledge(agentId, {
+      content,
+      type: KnowledgeType.EPISODIC,
+      tags: [episode.type, 'episode', ...episode.context.who],
+      sourceIdentifier: episode.episodeId,
+      metadata: {
+        episodeType: episode.type,
+        significance: episode.significance,
+        context: episode.context
+      },
+      confidence: episode.significance.importance
+    });
+  }
+
+  /**
+   * Store semantic concept as knowledge
+   */
+  async storeConceptAsKnowledge(agentId: string, concept: SemanticMemory): Promise<KnowledgeItem> {
+    const content = this.conceptToKnowledgeContent(concept);
+    
+    return this.storeAgentKnowledge(agentId, {
+      content,
+      type: KnowledgeType.SEMANTIC,
+      tags: [concept.concept, 'concept', ...concept.usage.contexts],
+      sourceIdentifier: `concept-${concept.concept}`,
+      metadata: {
+        concept: concept.concept,
+        properties: concept.knowledge.properties,
+        relationships: concept.knowledge.relationships,
+        usage: concept.usage
+      },
+      confidence: concept.confidence
+    });
+  }
+
+  private episodeToKnowledgeContent(episode: Episode): string {
+    return `Episode: ${episode.context.what}
+When: ${episode.context.when}
+Where: ${episode.context.where}
+Who: ${episode.context.who.join(', ')}
+Why: ${episode.context.why}
+How: ${episode.context.how}
+
+Actions taken: ${episode.experience.actions.map(a => a.description).join('; ')}
+Outcomes: ${episode.experience.outcomes.map(o => o.description).join('; ')}
+Learnings: ${episode.experience.learnings.join('; ')}
+
+Significance: Importance=${episode.significance.importance}, Novelty=${episode.significance.novelty}, Success=${episode.significance.success}`;
+  }
+
+  private conceptToKnowledgeContent(concept: SemanticMemory): string {
+    return `Concept: ${concept.concept}
+Definition: ${concept.knowledge.definition}
+
+Properties: ${Object.entries(concept.knowledge.properties).map(([k, v]) => `${k}: ${v}`).join('; ')}
+
+Relationships: ${concept.knowledge.relationships.map(r => `${r.relationshipType} ${r.relatedConcept} (strength: ${r.strength})`).join('; ')}
+
+Examples: ${concept.knowledge.examples.join('; ')}
+Counter-examples: ${concept.knowledge.counterExamples.join('; ')}
+
+Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.usage.successRate}, Contexts: ${concept.usage.contexts.join(', ')}`;
   }
 } 

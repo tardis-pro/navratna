@@ -45,6 +45,9 @@ export const API_ROUTES = {
 
   // Capability Registry Service routes
   CAPABILITIES: '/api/v1/capabilities',
+  
+  // Tools routes (from capability registry service)
+  TOOLS: '/api/v1/tools',
 
   // Persona Management Service routes
   PERSONAS: '/api/v1/personas',
@@ -52,12 +55,19 @@ export const API_ROUTES = {
   // Security Gateway Service routes
   SECURITY: '/api/v1/security',
 
+  // Approval Workflow Service routes
+  APPROVALS: '/api/v1/approvals',
+
   // Discussion Orchestration Service routes
   DISCUSSIONS: '/api/v1/discussions',
 
   // LLM Service routes
   LLM: '/api/v1/llm',
   USER_LLM: '/api/v1/user/llm',
+  
+  // Knowledge Graph Service routes
+  KNOWLEDGE: '/api/v1/knowledge',
+  
   // System metrics and monitoring
   SYSTEM: '/api/v1/system',
 

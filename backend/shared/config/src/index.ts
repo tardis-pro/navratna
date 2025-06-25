@@ -1,5 +1,5 @@
 // Configuration exports
-export { config } from './config';
+export { config } from './config.js';
 export type { 
   Config,
   DatabaseConfig,
@@ -17,4 +17,4 @@ export type {
   EmailConfig,
   FrontendConfig,
   NotificationsConfig
-} from './config'; 
+} from './config.js'; 

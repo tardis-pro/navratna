@@ -6,7 +6,8 @@ import {
   KnowledgeItem,
   KnowledgeClassification,
   ContextRequest,
-  KnowledgeFilters
+  KnowledgeFilters,
+  KnowledgeScope
 } from '@uaip/types';
 import { QdrantService } from '../qdrant.service.js';
 import { KnowledgeRepository } from '../database/repositories/knowledge.repository.js';
@@ -26,27 +27,30 @@ export class KnowledgeGraphService {
   /**
    * Primary search interface - used by all UAIP services
    */
-  async search(request: KnowledgeSearchRequest): Promise<KnowledgeSearchResponse> {
+  async search(request: KnowledgeSearchRequest & { scope?: KnowledgeScope }): Promise<KnowledgeSearchResponse> {
     const startTime = Date.now();
-    const { query, filters, options } = request;
+    const { query, filters, options, scope } = request;
     
     try {
       // Generate query embedding
       const queryEmbedding = await this.embeddings.generateEmbedding(query);
       
+      // Build vector filters including scope
+      const vectorFilters = this.buildVectorFilters(filters, scope);
+      
       // Perform vector similarity search
       const vectorResults = await this.vectorDb.search(queryEmbedding, {
         limit: options?.limit || 20,
         threshold: options?.similarityThreshold || 0.7,
-        filters: this.buildVectorFilters(filters)
+        filters: vectorFilters
       });
       
-      // Apply metadata filters and hydrate results
-      const filteredResults = await this.repository.applyFilters(vectorResults, filters);
+      // Apply metadata filters and hydrate results with scope
+      const filteredResults = await this.repository.applyFilters(vectorResults, filters, scope);
       
       // Enhance with relationships if requested
       const enhancedResults = options?.includeRelationships 
-        ? await this.enhanceWithRelationships(filteredResults)
+        ? await this.enhanceWithRelationships(filteredResults, scope)
         : filteredResults;
       
       return {
@@ -68,7 +72,7 @@ export class KnowledgeGraphService {
   /**
    * Ingestion interface - used by data connectors and services
    */
-  async ingest(items: KnowledgeIngestRequest[]): Promise<KnowledgeIngestResponse> {
+  async ingest(items: (KnowledgeIngestRequest & { scope?: KnowledgeScope })[]): Promise<KnowledgeIngestResponse> {
     const results: KnowledgeItem[] = [];
     const errors: string[] = [];
     
@@ -80,21 +84,29 @@ export class KnowledgeGraphService {
         // Generate embeddings
         const embeddings = await this.embeddings.generateEmbeddings(item.content);
         
-        // Store knowledge item
+        // Store knowledge item with scope
         const knowledgeItem = await this.repository.create({
           ...item,
           tags: [...(item.tags || []), ...classification.tags],
           confidence: item.confidence || classification.confidence,
-          type: item.type || classification.type
+          type: item.type || classification.type,
+          userId: item.scope?.userId,
+          agentId: item.scope?.agentId
         });
         
-        // Store embeddings in vector database
+        // Store embeddings in vector database with scope metadata
         await this.vectorDb.store(knowledgeItem.id, embeddings);
         
         // Detect and create relationships
         const relationships = await this.relationshipDetector.detectRelationships(knowledgeItem);
         if (relationships.length > 0) {
-          await this.repository.createRelationships(relationships);
+          // Add scope to relationships
+          const scopedRelationships = relationships.map(rel => ({
+            ...rel,
+            userId: item.scope?.userId,
+            agentId: item.scope?.agentId
+          }));
+          await this.repository.createRelationships(scopedRelationships);
         }
         
         results.push(knowledgeItem);
@@ -114,7 +126,7 @@ export class KnowledgeGraphService {
   /**
    * Context-aware retrieval - used by Agent Intelligence
    */
-  async getContextualKnowledge(context: ContextRequest): Promise<KnowledgeItem[]> {
+  async getContextualKnowledge(context: ContextRequest & { scope?: KnowledgeScope }): Promise<KnowledgeItem[]> {
     try {
       // Generate context embedding from discussion history and preferences
       const contextEmbedding = await this.embeddings.generateContextEmbedding(context);
@@ -124,11 +136,12 @@ export class KnowledgeGraphService {
         threshold: 0.6,
         filters: {
           tags: context.relevantTags,
-          timeRange: context.timeRange
+          timeRange: context.timeRange,
+          scope: context.scope
         }
       });
       
-      return this.repository.hydrate(results);
+      return this.repository.applyFilters(results, undefined, context.scope);
     } catch (error) {
       console.error('Contextual knowledge retrieval error:', error);
       return [];
@@ -145,9 +158,9 @@ export class KnowledgeGraphService {
   /**
    * Relationship discovery - used by services for knowledge graph navigation
    */
-  async findRelated(itemId: string, relationshipTypes?: string[]): Promise<KnowledgeItem[]> {
+  async findRelated(itemId: string, relationshipTypes?: string[], scope?: KnowledgeScope): Promise<KnowledgeItem[]> {
     try {
-      const relationships = await this.repository.getRelationships(itemId, relationshipTypes);
+      const relationships = await this.repository.getRelationships(itemId, relationshipTypes, scope);
       const relatedIds = relationships.map(r => r.targetItemId);
       return this.repository.getItems(relatedIds.map(id => id));
     } catch (error) {
@@ -192,22 +205,23 @@ export class KnowledgeGraphService {
   }
 
   // Private helper methods
-  private buildVectorFilters(filters?: KnowledgeFilters): any {
+  private buildVectorFilters(filters?: KnowledgeFilters, scope?: KnowledgeScope): any {
     if (!filters) return {};
     
     return {
       tags: filters.tags,
       types: filters.types,
       confidence: filters.confidence,
-      sourceTypes: filters.sourceTypes
+      sourceTypes: filters.sourceTypes,
+      scope: scope
     };
   }
 
-  private async enhanceWithRelationships(items: KnowledgeItem[]): Promise<KnowledgeItem[]> {
+  private async enhanceWithRelationships(items: KnowledgeItem[], scope?: KnowledgeScope): Promise<KnowledgeItem[]> {
     const enhanced = [];
     
     for (const item of items) {
-              const relationships = await this.repository.getRelationships(item.id);
+      const relationships = await this.repository.getRelationships(item.id, undefined, scope);
       enhanced.push({
         ...item,
         relationships: relationships

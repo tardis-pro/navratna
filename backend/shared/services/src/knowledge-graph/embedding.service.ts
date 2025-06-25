@@ -1,8 +1,8 @@
 import { ContextRequest } from '@uaip/types';
 
 export class EmbeddingService {
-  private openaiApiKey: string;
-  private embeddingModel: string;
+  protected openaiApiKey: string;
+  protected embeddingModel: string;
 
   constructor(openaiApiKey?: string, embeddingModel: string = 'text-embedding-ada-002') {
     this.openaiApiKey = openaiApiKey || process.env.OPENAI_API_KEY || '';
@@ -91,7 +91,10 @@ export class EmbeddingService {
     }
   }
 
-  private splitIntoChunks(content: string, maxChunkSize: number = 8000): string[] {
+  /**
+   * Split content into chunks suitable for embedding
+   */
+  protected splitIntoChunks(content: string, maxChunkSize: number = 500): string[] {
     if (content.length <= maxChunkSize) {
       return [content];
     }
@@ -101,13 +104,16 @@ export class EmbeddingService {
     let currentChunk = '';
 
     for (const sentence of sentences) {
-      if ((currentChunk + sentence).length > maxChunkSize) {
+      const trimmedSentence = sentence.trim();
+      if (!trimmedSentence) continue;
+
+      if ((currentChunk + trimmedSentence).length > maxChunkSize) {
         if (currentChunk) {
           chunks.push(currentChunk.trim());
-          currentChunk = sentence;
+          currentChunk = trimmedSentence;
         } else {
           // Single sentence is too long, split by words
-          const words = sentence.split(' ');
+          const words = trimmedSentence.split(' ');
           let wordChunk = '';
           for (const word of words) {
             if ((wordChunk + ' ' + word).length > maxChunkSize) {
@@ -127,7 +133,7 @@ export class EmbeddingService {
           }
         }
       } else {
-        currentChunk += (currentChunk ? '. ' : '') + sentence;
+        currentChunk += (currentChunk ? ' ' : '') + trimmedSentence;
       }
     }
 
@@ -135,33 +141,39 @@ export class EmbeddingService {
       chunks.push(currentChunk.trim());
     }
 
-    return chunks.filter(chunk => chunk.length > 0);
+    return chunks;
   }
 
-  private buildContextText(context: ContextRequest): string {
+  /**
+   * Build a text representation of the context
+   */
+  protected buildContextText(context: ContextRequest): string {
     const parts: string[] = [];
 
-    if (context.discussionHistory?.length) {
-      const recentMessages = context.discussionHistory.slice(-5);
-      parts.push(`Recent discussion: ${recentMessages.map(m => m.content || m.message || '').join(' ')}`);
+    // Add user request
+    if (context.userRequest) {
+      parts.push(`User Request: ${context.userRequest}`);
     }
 
-    if (context.relevantTags?.length) {
-      parts.push(`Topics: ${context.relevantTags.join(', ')}`);
+    // Add current context if available
+    if (context.currentContext) {
+      parts.push(`Current Context: ${JSON.stringify(context.currentContext)}`);
     }
 
-    if (context.participantExpertise?.length) {
-      parts.push(`Expertise areas: ${context.participantExpertise.join(', ')}`);
+    // Add conversation history
+    if (context.conversationHistory && context.conversationHistory.length > 0) {
+      parts.push('Conversation History:');
+      context.conversationHistory.forEach(msg => {
+        parts.push(`${msg.role}: ${msg.content}`);
+      });
     }
 
-    if (context.userPreferences) {
-      const prefs = Object.entries(context.userPreferences)
-        .map(([key, value]) => `${key}: ${value}`)
-        .join(', ');
-      parts.push(`Preferences: ${prefs}`);
+    // Add agent capabilities if available
+    if (context.agentCapabilities && context.agentCapabilities.length > 0) {
+      parts.push(`Agent Capabilities: ${context.agentCapabilities.join(', ')}`);
     }
 
-    return parts.join('. ') || 'General context';
+    return parts.join('\n');
   }
 
   async calculateSimilarity(embedding1: number[], embedding2: number[]): Promise<number> {

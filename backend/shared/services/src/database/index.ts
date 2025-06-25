@@ -1,6 +1,7 @@
 // TypeORM Configuration and DataSource
 export {
   AppDataSource,
+  getAppDataSource,
   createTypeOrmConfig,
   initializeDatabase,
   closeDatabase,

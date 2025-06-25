@@ -19,6 +19,13 @@ export class AgentIntelligenceService {
       url: process.env.RABBITMQ_URL || 'amqp://localhost',
       serviceName: 'agent-intelligence'
     }, console as any);
+    if(process.env.TYPEORM_SYNC === 'true') {
+      this.databaseService.seedDatabase().then(() => {
+        logger.info('Database seeded successfully');
+      }).catch((error) => {
+        logger.error('Error seeding database', error);
+      });
+    }
   }
 
   public async initialize(): Promise<void> {
@@ -27,7 +34,7 @@ export class AgentIntelligenceService {
     try {
       await this.databaseService.initialize();
       logger.info('DatabaseService initialized successfully');
-
+      
       const maxRetries = 3;
       let retryCount = 0;
       

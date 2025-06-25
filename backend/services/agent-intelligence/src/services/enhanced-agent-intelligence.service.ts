@@ -4,7 +4,8 @@ import {
   PersonaService,
   DiscussionService,
   DatabaseService,
-  EventBusService
+  EventBusService,
+  ContextOrchestrationService
 } from '@uaip/shared-services';
 import {
   KnowledgeSearchRequest,
@@ -47,6 +48,7 @@ export class EnhancedAgentIntelligenceService {
   private agentMemory?: AgentMemoryService;
   private personaService?: PersonaService;
   private discussionService?: DiscussionService;
+  private contextOrchestration?: ContextOrchestrationService;
   private llmService: LLMService;
   private userLLMService: UserLLMService;
   private initializationPromise?: Promise<void>;
@@ -76,6 +78,11 @@ export class EnhancedAgentIntelligenceService {
     this.agentMemory = agentMemory;
     this.personaService = personaService;
     this.discussionService = discussionService;
+    
+    // Initialize ContextOrchestrationService if KnowledgeGraphService is available
+    if (this.knowledgeGraph) {
+      this.contextOrchestration = new ContextOrchestrationService(this.knowledgeGraph);
+    }
     
     // Note: PersonaService and DiscussionService will be initialized lazily if needed
     // This prevents circular dependencies during construction
@@ -149,6 +156,17 @@ export class EnhancedAgentIntelligenceService {
           logger.info('DiscussionService initialized successfully');
         } catch (error) {
           logger.warn('Failed to initialize DiscussionService, will continue without it:', error);
+        }
+      }
+      
+      // Initialize KnowledgeGraphService and ContextOrchestrationService if not provided
+      if (!this.knowledgeGraph) {
+        try {
+          // Don't initialize KnowledgeGraphService here as it requires complex dependencies
+          // It should be injected from outside or initialized elsewhere
+          logger.warn('KnowledgeGraphService not provided, some features will be limited');
+        } catch (error) {
+          logger.warn('Failed to initialize KnowledgeGraphService and ContextOrchestrationService, will continue without them:', error);
         }
       }
       
@@ -877,7 +895,7 @@ Personality Traits: ${JSON.stringify(persona.traits)}`,
 
       // Search for relevant knowledge
       const relevantKnowledge = this.knowledgeGraph ? 
-        await this.searchRelevantKnowledge(agentId, input.message, input.context) : [];
+        await this.searchRelevantKnowledge(agentId, input.message, { ...input.context, userId: input.userId, discussionId: input.discussionId }) : [];
       
       // Get agent's working memory
       const workingMemory = this.agentMemory ? 
@@ -2206,6 +2224,31 @@ Based on Analysis: ${analysis.intent?.primary}`,
   // Private helper methods
 
   private async searchRelevantKnowledge(agentId: string, query: string, context?: any): Promise<KnowledgeItem[]> {
+    // Use ContextOrchestrationService if available for three-layered retrieval
+    if (this.contextOrchestration) {
+      try {
+        const userId = context?.userId;
+        const orchestratedContext = await this.contextOrchestration.getOrchestatedContext(
+          query,
+          agentId,
+          userId,
+          {
+            includeRelationships: false,
+            similarityThreshold: 0.6,
+            config: {
+              maxTokens: 2000,
+              maxItemsPerLayer: 5
+            }
+          }
+        );
+        
+        return orchestratedContext.items;
+      } catch (error) {
+        logger.warn('ContextOrchestrationService failed, falling back to direct knowledge search', { error });
+      }
+    }
+
+    // Fallback to direct knowledge graph search
     if (!this.knowledgeGraph) {
       return [];
     }
