@@ -190,6 +190,42 @@ export class ToolRegistry {
     return tool ? this.transformEntityToInterface(tool) : null;
   }
 
+  async lookup(toolName: string): Promise<ToolDefinition | null> {
+    await this.ensureInitialized();
+    const validatedName = z.string().parse(toolName);
+    
+    try {
+      // First try exact name match
+      const tools = await this.getTools();
+      let tool = tools.find(t => t.name === validatedName && t.isEnabled);
+      
+      if (!tool) {
+        // Try case-insensitive match
+        tool = tools.find(t => t.name.toLowerCase() === validatedName.toLowerCase() && t.isEnabled);
+      }
+      
+      if (!tool) {
+        // Try partial match in name or tags
+        tool = tools.find(t => 
+          (t.name.toLowerCase().includes(validatedName.toLowerCase()) || 
+           t.tags.some(tag => tag.toLowerCase().includes(validatedName.toLowerCase()))) &&
+          t.isEnabled
+        );
+      }
+      
+      if (tool) {
+        logger.debug(`Tool found: ${toolName} -> ${tool.name} (${tool.id})`);
+        return tool;
+      }
+      
+      logger.warn(`Tool not found: ${toolName}`);
+      return null;
+    } catch (error) {
+      logger.error(`Error looking up tool ${toolName}:`, error);
+      throw new Error(`Failed to lookup tool: ${toolName}`);
+    }
+  }
+
   async getTools(category?: string, enabled?: boolean): Promise<ToolDefinition[]> {
     await this.ensureInitialized();
     const filters: any = {};

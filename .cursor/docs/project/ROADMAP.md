@@ -2,7 +2,29 @@
 
 ## Current Status (v2.0.0)
 
-The UAIP has completed its core backend implementation and is actively developing frontend integration. This roadmap outlines the planned development path forward.
+The UAIP has completed its core backend implementation and is actively developing frontend integration. The core **Agent Flow Stabilisation** work (v2.0.1) finished on 2025-06-28, delivering a robust state machine, capability resolver, collaboration runner, and full observability.  
+This roadmap outlines the planned development path forward.
+
+## Q2 2025 (EXTRA): Core Agent Stabilisation (v2.0.1)
+
+### Backend Foundations
+*Implemented 2025-06-28*
+- [x] Agent state-machine wrapper with event emission  
+- [x] Capability resolver & validation  
+- [x] Memory commit hook & capacity management  
+- [x] Collaboration pattern runner (sequential / parallel / hierarchical)  
+- [x] Agent event bus & performance metrics  
+
+### Observability & Metrics
+- [x] Real-time logging of state transitions  
+- [x] Decision & tool execution timing  
+
+### Outcomes
+- Stable end-to-end agent loop  
+- Foundation for real-time UI updates  
+- Performance metrics feeding analytics pipeline  
+
+---
 
 ## Q3 2025: Enhanced User Experience
 
@@ -21,7 +43,7 @@ The UAIP has completed its core backend implementation and is actively developin
 - [ ] Improve resource utilization
 
 ### Analytics Integration (v2.1.2)
-- [ ] Add performance metrics
+- [x] Add performance metrics ✅ (delivered by Agent Event Bus & Decision timing)
 - [ ] Implement user analytics
 - [ ] Create monitoring dashboards
 - [ ] Add custom report generation

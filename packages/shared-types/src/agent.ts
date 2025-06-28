@@ -291,4 +291,97 @@ export const LearningResultSchema = z.object({
   improvedCapabilities: z.array(z.string())
 });
 
-export type LearningResult = z.infer<typeof LearningResultSchema>; 
+export type LearningResult = z.infer<typeof LearningResultSchema>;
+
+// Agent State Machine Types
+export enum AgentOperationalState {
+  IDLE = 'idle',
+  THINKING = 'thinking', 
+  EXECUTING = 'executing',
+  WAITING = 'waiting',
+  ERROR = 'error'
+}
+
+export const AgentStateTransitionSchema = z.object({
+  from: z.nativeEnum(AgentOperationalState),
+  to: z.nativeEnum(AgentOperationalState),
+  trigger: z.string(),
+  timestamp: z.date(),
+  metadata: z.record(z.any()).optional()
+});
+
+export type AgentStateTransition = z.infer<typeof AgentStateTransitionSchema>;
+
+export const AgentExecutionContextSchema = z.object({
+  operationalState: z.nativeEnum(AgentOperationalState),
+  currentAction: z.string().optional(),
+  capabilities: z.array(z.string()),
+  lastTransition: AgentStateTransitionSchema.optional(),
+  errorDetails: z.string().optional(),
+  stateMetadata: z.record(z.any()).optional()
+});
+
+export type AgentExecutionContext = z.infer<typeof AgentExecutionContextSchema>;
+
+// Collaboration Types
+export enum CollaborationPatternType {
+  SEQUENTIAL = 'sequential',
+  PARALLEL = 'parallel',
+  HIERARCHICAL = 'hierarchical',
+  CONSENSUS = 'consensus'
+}
+
+export enum WorkflowStepStatus {
+  PENDING = 'pending',
+  IN_PROGRESS = 'in_progress', 
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+  SKIPPED = 'skipped'
+}
+
+export const WorkflowStepSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string(),
+  assignedAgentId: z.string(),
+  status: z.nativeEnum(WorkflowStepStatus),
+  dependsOn: z.array(z.string()).optional(),
+  input: z.record(z.any()).optional(),
+  output: z.record(z.any()).optional(),
+  startTime: z.date().optional(),
+  endTime: z.date().optional(),
+  duration: z.number().optional(),
+  errorDetails: z.string().optional(),
+  metadata: z.record(z.any()).optional()
+});
+
+export type WorkflowStep = z.infer<typeof WorkflowStepSchema>;
+
+export const CollaborationPatternSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string(),
+  type: z.nativeEnum(CollaborationPatternType),
+  steps: z.array(WorkflowStepSchema),
+  participantAgents: z.array(z.string()),
+  maxConcurrency: z.number().positive().optional(),
+  timeoutSeconds: z.number().positive().optional(),
+  successCriteria: z.string().optional(),
+  metadata: z.record(z.any()).optional()
+});
+
+export type CollaborationPattern = z.infer<typeof CollaborationPatternSchema>;
+
+export const AgentMessageSchema = z.object({
+  id: z.string(),
+  fromAgentId: z.string(),
+  toAgentId: z.string().optional(), // null for broadcast
+  workflowId: z.string(),
+  stepId: z.string().optional(),
+  messageType: z.enum(['task_assignment', 'step_completion', 'data_transfer', 'status_update', 'error_report']),
+  content: z.record(z.any()),
+  timestamp: z.date(),
+  priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium')
+});
+
+export type AgentMessage = z.infer<typeof AgentMessageSchema>; 
