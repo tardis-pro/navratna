@@ -1,6 +1,6 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { logger, ApiError } from '@uaip/utils';
-import { DiscussionOrchestrationService } from '@/services/discussionOrchestrationService';
+import { DiscussionOrchestrationService } from '../services/discussionOrchestrationService.js';
 import { 
   DiscussionEvent, 
   DiscussionEventType,

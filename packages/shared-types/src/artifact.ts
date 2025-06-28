@@ -3,9 +3,10 @@
 
 export type ArtifactType = 
   | 'code' | 'test' | 'documentation' | 'prd' | 'config' 
-  | 'deployment' | 'script' | 'template' | 'report' | 'analysis';
+  | 'deployment' | 'script' | 'template' | 'report' | 'analysis'
+  | 'code-diff' | 'workflow';
 
-export type ValidationStatus = 'valid' | 'invalid' | 'warning';
+export type ValidationStatus = 'pending' | 'valid' | 'invalid' | 'warning';
 
 export interface ValidationError {
   code: string;
@@ -100,7 +101,15 @@ export interface GenerationTrigger {
   detectedAt: string;
 }
 
-export interface ConversationPhase {
+// Conversation phase information with details
+export interface ConversationPhaseInfo {
+  current: ConversationPhase;
+  confidence: number;
+  suggestedActions: string[];
+}
+
+// For backward compatibility - this is what ConversationAnalyzer expects
+export interface ConversationPhaseDetails {
   current: string;
   confidence: number;
   suggestedActions: string[];
@@ -250,4 +259,15 @@ export interface Participant {
   role: string;
   type: 'human' | 'agent';
   metadata?: Record<string, any>;
+}
+
+// Additional types for conversation-driven artifact generation
+export type ConversationPhase = 'discussion' | 'clarification' | 'decision' | 'implementation' | 'review';
+
+// Agent and Persona types for artifact services
+export interface AgentPreferences {
+  codeStyle?: string;
+  testingFramework?: string;
+  documentationFormat?: string;
+  complexity?: 'simple' | 'moderate' | 'complex';
 } 

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BaseEntitySchema, IDSchema } from './common.js';
+import { IDSchema } from './common.js';
 
 // LLM provider types
 

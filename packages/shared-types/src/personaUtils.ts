@@ -1,4 +1,4 @@
-import { Persona, PersonaTrait, PersonaTone, PersonaStyle } from './persona.js';
+import { Persona, PersonaTrait } from './persona.js';
 import { 
   HybridPersona, 
   ConversationContext, 
@@ -6,7 +6,6 @@ import {
   HybridSuggestion,
   ConversationType,
   ContextualTrigger,
-  PersonaCategory,
   ConversationState,
   ResponseType,
   FillerType,
@@ -385,10 +384,10 @@ export function shouldPersonaContribute(
 export function getResponseStarter(
   persona: Persona,
   responseType: ResponseType,
-  context: ConversationContext
+  _context: ConversationContext
 ): string {
   const tone = persona.conversationalStyle?.tone || 'analytical';
-  const formality = persona.conversationalStyle?.formality || 'neutral';
+  // const formality = persona.conversationalStyle?.formality || 'neutral';
   
   const starters: Record<string, Record<ResponseType, string[]>> = {
     'casual': {

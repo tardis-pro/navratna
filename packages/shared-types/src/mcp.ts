@@ -14,6 +14,9 @@ export enum MCPServerType {
   CUSTOM = 'custom'
 }
 
+// Execution types for MCP servers
+export type MCPServerExecutionType = 'npx' | 'uvx' | 'node' | 'python';
+
 export enum MCPServerStatus {
   STOPPED = 'stopped',
   STARTING = 'starting', 
@@ -24,9 +27,11 @@ export enum MCPServerStatus {
 }
 
 export interface MCPServerConfig {
+  id: string;
   name: string;
   description: string;
   type: MCPServerType;
+  executionType?: MCPServerExecutionType; // For npx, uvx, node, python execution
   command: string;
   args: string[];
   env?: Record<string, string>;

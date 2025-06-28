@@ -1,17 +1,9 @@
-export interface DebateMessageData {
-  id: string;
-  role: 'llama1' | 'llama2' | 'judge';
-  content: string;
-  timestamp: Date;
-  modelId: string;
-  apiType: string;
-}
+// Re-export debate types from shared types
+// All debate and model types are now centralized in @uaip/types
 
-export interface ModelOption {
-  id: string;
-  name: string;
-  provider: string;
-  maxTokens: number;
-  temperature: number;
-  apiType: string;
-} 
+export {
+  type DebateMessageData,
+  type ModelOption,
+  DebateMessageDataSchema,
+  ModelOptionSchema
+} from '@uaip/types/models';

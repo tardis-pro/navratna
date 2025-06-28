@@ -6,7 +6,7 @@ import {
   ParticipantRole 
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
-import { TurnStrategyInterface } from '@/strategies/RoundRobinStrategy';
+import { TurnStrategyInterface } from './RoundRobinStrategy.js';
 
 export class ModeratedStrategy implements TurnStrategyInterface {
   private readonly strategyType = TurnStrategy.MODERATED;

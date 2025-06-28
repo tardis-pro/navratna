@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BaseEntitySchema, IDSchema } from './common.js';
+import { BaseEntitySchema, IDSchema, HealthCheckSchema } from './common.js';
 
 // System health status
 export enum HealthStatusLevel {
@@ -8,9 +8,6 @@ export enum HealthStatusLevel {
   UNHEALTHY = 'unhealthy',
   CRITICAL = 'critical'
 }
-
-// HealthCheck is already defined in common.ts - import it
-import { HealthCheck, HealthCheckSchema } from './common.js';
 
 export const HealthStatusSchema = z.object({
   status: z.nativeEnum(HealthStatusLevel),

@@ -1,134 +1,23 @@
-// Local artifact types for the service
-// These extend or complement the shared types
+// Re-export artifact types from shared types
+// All artifact types are now centralized in @uaip/types
 
-export type ArtifactType = 'code' | 'test' | 'documentation' | 'prd';
+export {
+  type ArtifactType,
+  type ValidationStatus,
+  type ValidationError,
+  type ValidationWarning,
+  type ValidationResult,
+  type ArtifactMetadata,
+  type Artifact,
+  type AgentPreferences
+} from '@uaip/types';
 
-export interface AgentPreferences {
-  codeStyle?: string;
-  testingFramework?: string;
-  documentationFormat?: string;
-  complexity?: 'simple' | 'moderate' | 'complex';
-}
+// Import types that are also used but defined elsewhere
+export {
+  type Agent,
+  type Persona,
+  type Message
+} from '@uaip/types';
 
-export interface Agent {
-  id: string;
-  capabilities: string[];
-  preferences: AgentPreferences;
-}
-
-export interface Persona {
-  id: string;
-  role: string;
-  expertise: string[];
-  communicationStyle: string;
-}
-
-export interface Message {
-  id: string;
-  content: string;
-  timestamp: string;
-  author: string;
-  role: string;
-}
-
-export interface Participant {
-  id: string;
-  name: string;
-  role: string;
-}
-
-export type DiscussionPhase = 'requirements' | 'design' | 'implementation' | 'testing' | 'review';
-
-export interface Discussion {
-  id: string;
-  messages: Message[];
-  participants: Participant[];
-  phase: DiscussionPhase;
-}
-
-export interface TechnicalContext {
-  language?: string;
-  framework?: string;
-  platform?: string;
-  constraints?: string[];
-}
-
-export interface GenerationContext {
-  agent: Agent;
-  persona: Persona;
-  discussion: Discussion;
-  technical: TechnicalContext;
-  conversationId?: string;
-}
-
-export interface ArtifactGenerationRequest {
-  type: ArtifactType;
-  context: GenerationContext;
-  options?: {
-    template?: string;
-    style?: string;
-    complexity?: 'simple' | 'moderate' | 'complex';
-    language?: string;
-    framework?: string;
-  };
-}
-
-export interface ValidationIssue {
-  code: string;
-  message: string;
-  severity: 'error' | 'warning' | 'info';
-  line?: number;
-  column?: number;
-}
-
-export interface ValidationResult {
-  status: 'valid' | 'invalid' | 'warning';
-  isValid: boolean;
-  issues: ValidationIssue[];
-  score: number;
-  errors: ValidationIssue[];
-  warnings: ValidationIssue[];
-  suggestions: string[];
-}
-
-export interface ArtifactMetadata {
-  generatedBy: string;
-  template?: string;
-  language?: string;
-  framework?: string;
-  createdAt: Date;
-}
-
-export interface GeneratedArtifact {
-  id: string;
-  type: ArtifactType;
-  content: string;
-  metadata: ArtifactMetadata;
-  validation: ValidationResult;
-}
-
-export interface ArtifactGenerationResponse {
-  success: boolean;
-  artifact?: GeneratedArtifact;
-  error?: {
-    code: string;
-    message: string;
-    details?: any;
-  };
-}
-
-export interface ArtifactTemplate {
-  id: string;
-  name: string;
-  type: ArtifactType;
-  language?: string;
-  framework?: string;
-  template: string;
-  variables: string[];
-}
-
-export interface TemplateFilters {
-  type?: ArtifactType;
-  language?: string;
-  framework?: string;
-}
+// Keep only service-specific extensions here if any
+// All core artifact types should be imported from @uaip/types

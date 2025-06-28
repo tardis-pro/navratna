@@ -18,13 +18,13 @@ export const APIResponseSchema = z.object({
   })
 });
 
-export type APIResponse<T = any> = {
+export type APIResponse<T = unknown> = {
   success: boolean;
   data?: T;
   error?: {
     code: string;
     message: string;
-    details?: Record<string, any>;
+    details?: Record<string, unknown>;
   };
   meta: {
     timestamp: Date;

@@ -7,8 +7,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
-import { config } from './config/config.js';
-import {  ToolGraphDatabase, DatabaseService, EventBusService } from '@uaip/shared-services';
+import { config } from '@uaip/config';
+import { ToolGraphDatabase, DatabaseService, EventBusService } from '@uaip/shared-services';
 import { ToolRegistry } from './services/toolRegistry.js';
 import { ToolExecutor } from './services/toolExecutor.js';
 import { BaseToolExecutor } from './services/baseToolExecutor.js';
@@ -157,7 +157,7 @@ class CapabilityRegistryService {
     this.baseExecutor = new BaseToolExecutor();
 
     // Initialize tool registry with TypeORM service
-          this.toolRegistry = new ToolRegistry(this.postgresql, this.neo4j);
+    this.toolRegistry = new ToolRegistry(this.postgresql, this.neo4j);
 
     // Initialize tool executor
     this.toolExecutor = new ToolExecutor(
@@ -184,7 +184,7 @@ class CapabilityRegistryService {
     this.app.get('/health', (req, res) => {
       const neo4jConnectionStatus = this.neo4j?.getConnectionStatus();
       const neo4jStatus = neo4jConnectionStatus?.isConnected ? 'connected' : 'disconnected';
-      
+
       res.json({
         status: 'healthy',
         service: 'capability-registry',
@@ -228,11 +228,11 @@ class CapabilityRegistryService {
     // API routes
     const toolRoutes = createToolRoutes(this.toolController);
     this.app.use('/api/v1/tools', toolRoutes);
-    
+
     // Capability routes
     // const capabilityRoutes = createCapabilityRoutes(this.capabilityController);
     // this.app.use('/api/v1/capabilities', capabilityRoutes);
-    
+
     // Health routes
     this.app.use('/api/v1/health', healthRoutes);
 
@@ -293,9 +293,9 @@ class CapabilityRegistryService {
         logger.info(`🚀 Capability Registry Service running on port ${config.port}`);
         logger.info(`📊 PostgreSQL: ${config.database.postgres.host}:${config.database.postgres.port}`);
         logger.info(`🔗 Neo4j: ${config.database.neo4j.uri}`);
-        logger.info(`🛡️  Security Level: ${config.tools.enableApprovalWorkflow ? 'High (Approval Required)' : 'Standard'}`);
-        logger.info(`⚡ Max Concurrent Executions: ${config.tools.maxConcurrentExecutions}`);
-        logger.info(`💰 Default Cost Limit: $${config.tools.defaultCostLimit}`);
+        logger.info(`🛡️  Security Level: Standard`);
+        logger.info(`⚡ Max Concurrent Executions: ${config.execution.maxConcurrentOperations}`);
+        logger.info(`💰 Default Cost Limit: Not configured`);
       });
 
       // Handle server errors

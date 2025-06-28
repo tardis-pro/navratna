@@ -1,4 +1,4 @@
-import { Persona, PersonaTrait } from './persona';
+import { Persona } from './persona';
 
 // Extended persona interface for hybrid personas
 export interface HybridPersona extends Persona {

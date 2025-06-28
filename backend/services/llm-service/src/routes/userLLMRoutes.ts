@@ -235,8 +235,7 @@ router.post('/providers/:providerId/test', async (req: Request, res: Response) =
       return;
     }
 
-    const { providerId } = req.params;
-    const result = await getUserLLMService().testUserProvider(userId, providerId);
+    const result = await getUserLLMService().testUserProvider(userId);
 
     res.json({
       success: true,

@@ -6,38 +6,13 @@ import {
   PersonaStatus, 
   PersonaVisibility,
   PersonaValidation,
-  PersonaUsageStats
+  PersonaUsageStats,
+  PersonaTone,
+  PersonaStyle,
+  PersonaEnergyLevel
 } from '@uaip/types';
 
 // Related entities will be referenced by string to avoid circular dependencies
-
-// Additional enums for enhanced persona features
-export enum PersonaTone {
-  CONCISE = 'concise',
-  VERBOSE = 'verbose',
-  ANALYTICAL = 'analytical',
-  CASUAL = 'casual',
-  EMPATHETIC = 'empathetic',
-  HUMOROUS = 'humorous',
-  CAUTIOUS = 'cautious',
-  OPTIMISTIC = 'optimistic'
-}
-
-export enum PersonaStyle {
-  STRUCTURED = 'structured',
-  FREEFORM = 'freeform',
-  INQUISITIVE = 'inquisitive',
-  DECISIVE = 'decisive',
-  COLLABORATIVE = 'collaborative',
-  AUTHORITATIVE = 'authoritative'
-}
-
-export enum PersonaEnergyLevel {
-  LOW = 'low',
-  MODERATE = 'moderate',
-  HIGH = 'high',
-  DYNAMIC = 'dynamic'
-}
 
 /**
  * Enhanced Persona Entity with comprehensive persona features and hybrid support

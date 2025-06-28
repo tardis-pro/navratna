@@ -27,3 +27,5 @@ export * from './user.js';
 export * from './system.js';
 // WebSocket and real-time types - NEW
 export * from './websocket.js';
+// Model and provider types - NEW
+export * from './models.js';

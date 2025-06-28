@@ -5,7 +5,7 @@ import {
   ArtifactConversationContext, 
   ConversationMessage,
   GenerationTrigger,
-  ConversationPhase,
+  ConversationPhaseDetails as ConversationPhase,
   Requirement,
   ConversationSummary,
   Decision,

@@ -29,7 +29,7 @@ export interface GenerationMetrics {
 
 export interface TemplateListResponse {
   success: boolean;
-  templates: import('../types/artifact').ArtifactTemplate[];
+  templates: import('@uaip/types').ArtifactGenerationTemplate[];
   total: number;
 }
 

@@ -7,7 +7,7 @@ import {
   DiscussionMessage 
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
-import { TurnStrategyInterface } from '@/strategies/RoundRobinStrategy';
+import { TurnStrategyInterface } from './RoundRobinStrategy.js';
 
 interface ContextAnalysis {
   topicRelevance: Map<string, number>; // participant ID -> relevance score
