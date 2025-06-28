@@ -299,6 +299,88 @@ Pub/Sub Channels:
 - Event broadcasting
 ```
 
+## 🧠 Knowledge Graph: Agents & Orchestration
+
+The UAIP platform leverages a Neo4j-powered knowledge graph to model relationships between agents, orchestration services, tools, operations, and discussions. This enables advanced reasoning, recommendations, and workflow automation.
+
+### Key Entities
+
+- **Agent Intelligence Service**: Handles agent reasoning, persona management, decision making, learning records, and execution plans. Integrates with Neo4j for context and relationship awareness.
+- **Orchestration Pipeline Service**: Coordinates workflows and operations, manages state, and supports hybrid workflows (tool execution + artifact generation).
+- **Discussion Orchestration Service**: Manages real-time collaborative discussions, agent conversations, and analytics.
+- **UAIP Platform**: Contains all core microservices and orchestrates their collaboration.
+- **LLM Intelligence Service**: Central intelligence hub, learning from all service interactions and integrating with agent/orchestration services.
+
+### Example Relationships
+
+- UAIP contains Agent Intelligence, Orchestration Pipeline, and Discussion Orchestration services
+- Agent Intelligence integrates with Neo4j Knowledge Graph, LLM Intelligence, and Knowledge Service
+- Orchestration Pipeline communicates via RabbitMQ, stores state in PostgreSQL, and integrates with LLM Intelligence
+- Discussion Orchestration is powered by the Persona System and stores discussions in PostgreSQL
+- LLM Intelligence integrates with all major services for learning and optimization
+
+### Example Graph Patterns (Cypher)
+```cypher
+(Agent)-[:USES]->(Tool)
+(Agent)-[:PARTICIPATES_IN]->(Discussion)
+(Tool)-[:REQUIRES]->(Capability)
+(Operation)-[:DEPENDS_ON]->(Operation)
+(Service)-[:INTEGRATES_WITH]->(Service)
+```
+
+For more, see the [Service Integration Guide](SERVICE_INTEGRATION.md) and [API Reference](API_REFERENCE.md).
+
+### Detailed Entities in the Knowledge Graph
+
+| Name                           | Type           | Key Observations                                                                                  |
+|--------------------------------|----------------|--------------------------------------------------------------------------------------------------|
+| Agent Intelligence Service     | Microservice   | Context analysis, persona management, decision making, real-time, integrates with Neo4j, etc.    |
+| Orchestration Pipeline Service | Microservice   | Workflow coordination, async ops, state mgmt, error handling, hybrid workflows                   |
+| Discussion Orchestration Service| Microservice  | Real-time discussions, WebSocket, persona integration, analytics                                 |
+| UAIP (Unified Agent Intelligence Platform) | Platform | Multi-agent collab, orchestration, security, graph integration, high performance                 |
+| LLM Intelligence Service       | AIService      | Central hub, multi-model, integrates with agents, orchestration, learning, security              |
+| AUTONOMOUS ULTRA INSTINCT (AUI)| AIPlatform     | Self-improving, multi-agent, causal tracing, habit tracking                                      |
+| Council of Nycea               | Organization   | Develops UAIP, monorepo, security, high availability                                             |
+| TypeORM Entities               | DataModel      | Agent, Discussion, Operation, Persona, relationships, migrations                                 |
+| Neo4j Knowledge Graph          | Database       | Graph DB, entity relationships, recommendations, context awareness                               |
+| Knowledge Service              | KnowledgeService| Knowledge items, connectors, semantic search, PDF processing, real-time updates                  |
+| RabbitMQ Message Queue         | Infrastructure | Event-driven comms, workflow orchestration, persistence                                          |
+| Capability Registry System     | CapabilitySystem| Tool mgmt, versioning, sandbox, graph relationships, analytics                                   |
+
+### Relationships in the Knowledge Graph
+
+| Source                        | Relation Type         | Target                        |
+|-------------------------------|----------------------|-------------------------------|
+| UAIP                          | CONTAINS             | Agent Intelligence Service    |
+| UAIP                          | CONTAINS             | Orchestration Pipeline Service|
+| UAIP                          | CONTAINS             | Discussion Orchestration Service|
+| UAIP                          | CONTAINS             | Security Gateway Service      |
+| UAIP                          | CONTAINS             | Capability Registry Service   |
+| UAIP                          | CONTAINS             | Artifact Service              |
+| UAIP                          | MONITORED_BY         | Monitoring and Observability  |
+| UAIP                          | USES                 | RabbitMQ Message Queue        |
+| UAIP                          | USES                 | Redis Cache                   |
+| UAIP                          | USES                 | Neo4j Knowledge Graph         |
+| UAIP                          | USES                 | PostgreSQL Database           |
+| UAIP                          | USES                 | API Gateway                   |
+| Council of Nycea              | DEVELOPS             | UAIP                          |
+| Agent Intelligence Service    | INTEGRATES_WITH      | Neo4j Knowledge Graph         |
+| Agent Intelligence Service    | INTEGRATES_WITH      | LLM Intelligence Service      |
+| Agent Intelligence Service    | INTEGRATES_WITH      | Knowledge Service             |
+| Agent Intelligence Service    | STORES_DATA_IN       | PostgreSQL Database           |
+| Orchestration Pipeline Service| COMMUNICATES_VIA     | RabbitMQ Message Queue        |
+| Orchestration Pipeline Service| STORES_STATE_IN      | PostgreSQL Database           |
+| Orchestration Pipeline Service| INTEGRATES_WITH      | LLM Intelligence Service      |
+| LLM Intelligence Service      | INTEGRATES_WITH      | Agent Intelligence Service    |
+| LLM Intelligence Service      | INTEGRATES_WITH      | Orchestration Pipeline Service|
+| LLM Intelligence Service      | INTEGRATES_WITH      | Discussion Orchestration Service|
+| LLM Intelligence Service      | INTEGRATES_WITH      | Artifact Service              |
+| LLM Intelligence Service      | INTEGRATES_WITH      | Security Gateway Service      |
+| Discussion Orchestration Service| POWERED_BY         | Persona System                |
+| Discussion Orchestration Service| STORES_DISCUSSIONS_IN| PostgreSQL Database         |
+| Discussion Orchestration Service| INTEGRATES_WITH    | LLM Intelligence Service      |
+| Capability Registry System    | STORES_RELATIONSHIPS_IN| Neo4j Knowledge Graph       |
+
 ## 🔄 Event-Driven Architecture
 
 ### RabbitMQ Message Patterns

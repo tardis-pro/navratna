@@ -118,28 +118,42 @@ This roadmap outlines the planned development path forward.
 - [ ] Add third-party connectors
 - [ ] Create integration templates
 
-## Long-term Vision
+## Knowledge Graph Integration (NEW SECTION)
 
-### Advanced Features
-- Natural language processing
-- Computer vision integration
-- Voice interface
-- AR/VR support
-- Blockchain integration
+## A-ui (AUTONOMOUS ULTRA INSTINCT) Assimilation
 
-### Platform Growth
-- Developer marketplace
-- Plugin ecosystem
-- Community features
-- Custom solutions
-- Enterprise partnerships
+The A-ui (AUTONOMOUS ULTRA INSTINCT) initiative is now fully assimilated into the platform's roadmap and technical DNA. Rather than existing as a discrete project or feature, A-ui permeates every layer of the platform, shaping priorities, technical direction, and user experience. Its architecture, design principles, and feature set are inseparable from the ongoing evolution of the system.
 
-### Innovation Areas
-- Edge computing
-- Quantum computing readiness
-- IoT integration
-- 5G optimization
-- AI ethics framework
+### Assimilated Characteristics
+- **Phased Foundation:**
+  - *Phase 1: Foundation & Core UI* — Theme system, layout components, navigation, state management, API integration, and backend connectivity are now baseline expectations for all UI/UX work.
+  - *Phase 2: Feature Expansion* — Interactive quiz, content management, accessibility, and UI refactoring are not add-ons but core to the platform's growth.
+  - *Phase 3: Feature Completion* — UI polish, accessibility, and user experience are continuous, cross-cutting concerns.
+
+- **Core Features (Assimilated):**
+  - Customizable theme system and modular layout are now default for all new UI modules.
+  - State management and unified API integration are platform standards.
+  - Real-time WebSocket integration and role-based UI (RBAC) are foundational, not optional.
+  - Operation dashboards, progressive disclosure, and onboarding are expected in all user-facing features.
+
+- **AI & Knowledge Capabilities:**
+  - Code assistant, knowledge base, command history, and context management are assimilated as core platform intelligence.
+  - Semantic search, knowledge UI, and Qdrant vector database are part of the knowledge graph's living infrastructure.
+
+- **Accessibility & Compliance:**
+  - WCAG 2.1 AA compliance is a non-negotiable, tracked at every phase and work item.
+  - Accessibility risks and resource requirements are proactively managed and visible in the roadmap.
+
+- **Design & Usability:**
+  - UI/UX mockups, extensibility, and onboarding are not isolated tasks but ongoing, assimilated practices.
+
+- **Work Items & Epics:**
+  - All relevant tasks, epics, and dependencies are now modeled as part of the assimilated A-ui structure in the knowledge graph, influencing sprint planning and milestone definitions.
+
+### Roadmap Impact
+- All future frontend and knowledge graph work is now guided by the assimilated A-ui principles.
+- Technical priorities, success metrics, and risk management strategies reflect A-ui's influence.
+- The platform's evolution is inseparable from the ongoing assimilation of A-ui's architecture and philosophy.
 
 ## Technical Priorities
 

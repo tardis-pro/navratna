@@ -31,44 +31,27 @@ The **Unified Agent Intelligence Platform (UAIP)** is a production-ready backend
 - **Redis** (Port 6379) - Caching and session management
 - **RabbitMQ** (Port 5672) - Event-driven communication
 
-## 📚 Documentation Navigation
+## 📚 Documentation
 
-### 🚀 Getting Started
-- **[Quick Start Guide](QUICK_START.md)** - Get up and running in 15 minutes
-- **[Development Setup](DEVELOPMENT_SETUP.md)** - Complete development environment setup
-- **[Environment Configuration](ENVIRONMENT_CONFIG.md)** - Configuration and deployment options
+- **[Quick Start](docs/QUICK_START.md)** – Setup in minutes
+- **[Development Setup](docs/DEVELOPMENT_SETUP.md)** – Local environment & tools
+- **[Environment Config](docs/ENVIRONMENT_CONFIG.md)** – Env vars & deployment
+- **[System Architecture](docs/ARCHITECTURE.md)** – Design & service overview
+- **[Service Integration](docs/SERVICE_INTEGRATION.md)** – Inter-service patterns
+- **[API Reference](docs/API_REFERENCE.md)** – Endpoints & usage
+- **[Testing Guide](docs/TESTING_GUIDE.md)** – Strategies & examples
+- **[Project Status](docs/PROJECT_STATUS.md)** – Roadmap & priorities
+- **[Technical Debt](docs/TECH_DEBT.md)** – Known issues
+- **[Persona System](docs/PERSONA_SYSTEM.md)** – Agent personas
+- **[Capability Registry](docs/CAPABILITY_REGISTRY.md)** – Tool execution
+- **[Knowledge Graph](docs/KNOWLEDGE_GRAPH.md)** – Neo4j integration
 
-### 🏛️ Architecture & Design
-- **[System Architecture](ARCHITECTURE.md)** - Complete system design and technical architecture
-- **[Service Integration](SERVICE_INTEGRATION.md)** - Inter-service communication patterns
-- **[Database Design](DATABASE_DESIGN.md)** - PostgreSQL and Neo4j schema design
-- **[Security Architecture](SECURITY_ARCHITECTURE.md)** - Authentication, authorization, and audit systems
+---
 
-### 🔧 Development
-- **[API Reference](API_REFERENCE.md)** - Complete API documentation for all services
-- **[Development Guide](DEVELOPMENT_GUIDE.md)** - Coding standards, testing, and best practices
-- **[Frontend Integration](FRONTEND_INTEGRATION.md)** - Frontend development and integration guide
-- **[Testing Guide](TESTING_GUIDE.md)** - Testing strategies, frameworks, and examples
+**Start with the [Quick Start](docs/QUICK_START.md)**, then see [System Architecture](docs/ARCHITECTURE.md) for design details.
 
-### 🚀 Deployment & Operations
-- **[Deployment Guide](DEPLOYMENT_GUIDE.md)** - Docker, monitoring, and production deployment
-- **[Operations Manual](OPERATIONS_MANUAL.md)** - Monitoring, troubleshooting, and maintenance
-- **[Performance Guide](PERFORMANCE_GUIDE.md)** - Performance optimization and scaling
-
-### 📋 Project Management
-- **[Project Status](PROJECT_STATUS.md)** - Current status, roadmap, and priorities
-- **[Migration Guide](MIGRATION_GUIDE.md)** - Migration paths and implementation summaries
-- **[Feature Backlog](FEATURE_BACKLOG.md)** - Planned features and enhancement requests
-- **[Technical Debt](TECH_DEBT.md)** - Known issues, pitfalls, and improvement areas
-
-### 🧹 Documentation Management
-- **[Content Migration Verification](CONTENT_MIGRATION_VERIFICATION.md)** - Migration tracking and verification
-- **[Cleanup Plan](CLEANUP_PLAN.md)** - Safe removal of old documentation files
-
-### 📖 Specialized Guides
-- **[Persona System](PERSONA_SYSTEM.md)** - Agent personas and conversation enhancement
-- **[Capability Registry](CAPABILITY_REGISTRY.md)** - Tool management and execution system
-- **[Knowledge Graph](KNOWLEDGE_GRAPH.md)** - Neo4j integration and graph operations
+### 🧠 Knowledge Graph & Service Relationships
+- **[Knowledge Graph: Agents & Orchestration](docs/ARCHITECTURE.md#🧠-knowledge-graph-agents--orchestration)** – How agents, orchestration, and services are modeled and related
 
 ## 🎯 Current Status
 
@@ -134,4 +117,14 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ---
 
-**Next Steps**: Start with the [Quick Start Guide](QUICK_START.md) to get the system running, then explore the [System Architecture](ARCHITECTURE.md) to understand the design. 
+**Next Steps**: Start with the [Quick Start Guide](QUICK_START.md) to get the system running, then explore the [System Architecture](ARCHITECTURE.md) to understand the design.
+
+## 🧠 Knowledge Graph: Agents & Orchestration
+
+The UAIP platform uses a Neo4j-powered knowledge graph to model relationships between agents, orchestration services, tools, operations, and discussions. This enables advanced reasoning, recommendations, and workflow automation.
+
+- **Key Entities**: Agent Intelligence, Orchestration Pipeline, Discussion Orchestration, UAIP Platform, LLM Intelligence
+- **Relationships**: Service integration, workflow coordination, persona management, tool usage, and more
+- **Example Patterns**: (Agent)-[:USES]->(Tool), (Agent)-[:PARTICIPATES_IN]->(Discussion), (Service)-[:INTEGRATES_WITH]->(Service)
+
+See [Architecture](docs/ARCHITECTURE.md#🧠-knowledge-graph-agents--orchestration), [Service Integration](docs/SERVICE_INTEGRATION.md), and [API Reference](docs/API_REFERENCE.md) for details. 
