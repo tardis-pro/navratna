@@ -202,12 +202,17 @@ services:
       timeout: 30s
       retries: 3
 
-  # Core Backend Services - Development with Hot Reloading
-  agent-intelligence:
+  # Shared base service - build once, use everywhere
+  backend-base:
     build:
       context: .
-      dockerfile: Dockerfile.dev
-      target: development
+      dockerfile: Dockerfile.base
+    image: uaip-backend-base:latest
+    command: ["echo", "Base image built successfully"]
+
+  # Core Backend Services - Development with Hot Reloading
+  agent-intelligence:
+    image: uaip-backend-base:latest
     container_name: uaip-agent-intelligence
     environment:
       - SERVICE_NAME=agent-intelligence
@@ -235,6 +240,8 @@ services:
       - /app/node_modules
       - /app/backend/node_modules
     depends_on:
+      backend-base:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       neo4j:
@@ -254,10 +261,7 @@ services:
       retries: 3
 
   orchestration-pipeline:
-    build:
-      context: .
-      dockerfile: Dockerfile.dev
-      target: development
+    image: uaip-backend-base:latest
     container_name: uaip-orchestration
     environment:
       - SERVICE_NAME=orchestration-pipeline
@@ -280,6 +284,8 @@ services:
       - /app/node_modules
       - /app/backend/node_modules
     depends_on:
+      backend-base:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       neo4j:
@@ -297,10 +303,7 @@ services:
       retries: 3
 
   capability-registry:
-    build:
-      context: .
-      dockerfile: Dockerfile.dev
-      target: development
+    image: uaip-backend-base:latest
     container_name: uaip-capability-registry
     environment:
       - SERVICE_NAME=capability-registry
@@ -328,6 +331,8 @@ services:
       - /app/node_modules
       - /app/backend/node_modules
     depends_on:
+      backend-base:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       neo4j:
@@ -347,10 +352,7 @@ services:
       retries: 3
 
   discussion-orchestration:
-    build:
-      context: .
-      dockerfile: Dockerfile.dev
-      target: development
+    image: uaip-backend-base:latest
     container_name: uaip-discussion-orchestration
     environment:
       - SERVICE_NAME=discussion-orchestration
@@ -374,6 +376,8 @@ services:
       - /app/node_modules
       - /app/backend/node_modules
     depends_on:
+      backend-base:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       neo4j:
@@ -391,10 +395,7 @@ services:
       retries: 3
 
   security-gateway:
-    build:
-      context: .
-      dockerfile: Dockerfile.dev
-      target: development
+    image: uaip-backend-base:latest
     container_name: uaip-security-gateway
     environment:
       - SERVICE_NAME=security-gateway
@@ -420,6 +421,8 @@ services:
       - /app/node_modules
       - /app/backend/node_modules
     depends_on:
+      backend-base:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       qdrant:
@@ -439,10 +442,7 @@ services:
       retries: 3
 
   artifact-service:
-    build:
-      context: .
-      dockerfile: Dockerfile.dev
-      target: development
+    image: uaip-backend-base:latest
     container_name: uaip-artifact-service
     environment:
       - SERVICE_NAME=artifact-service
@@ -464,6 +464,8 @@ services:
       - /app/node_modules
       - /app/backend/node_modules
     depends_on:
+      backend-base:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
@@ -479,10 +481,7 @@ services:
       retries: 3
 
   llm-service:
-    build:
-      context: .
-      dockerfile: Dockerfile.dev
-      target: development
+    image: uaip-backend-base:latest
     container_name: uaip-llm-service
     environment:
       - SERVICE_NAME=llm-service
@@ -507,6 +506,8 @@ services:
       - /app/node_modules
       - /app/backend/node_modules
     depends_on:
+      backend-base:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:

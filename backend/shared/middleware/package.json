@@ -19,13 +19,13 @@
     "express": "catalog:backend",
     "express-rate-limit": "catalog:backend",
     "express-validator": "catalog:backend",
-    "jsonwebtoken": "^9.0.2",
-    "prom-client": "^15.1.3",
+    "jsonwebtoken": "catalog:backend",
+    "prom-client": "catalog:backend",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@types/express": "catalog:backend",
-    "@types/jsonwebtoken": "^9.0.10",
+    "@types/jsonwebtoken": "catalog:backend",
     "@types/node": "catalog:backend",
     "rimraf": "catalog:",
     "eslint": "catalog:",

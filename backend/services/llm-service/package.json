@@ -18,18 +18,18 @@
     "@uaip/shared-services": "workspace:*",
     "@uaip/types": "workspace:*",
     "@uaip/utils": "workspace:*",
-    "compression": "^1.8.0",
+    "compression": "catalog:backend",
     "cors": "catalog:backend",
     "express": "catalog:backend",
-    "helmet": "^8.1.0"
+    "helmet": "catalog:backend"
   },
   "devDependencies": {
-    "@types/compression": "^1.8.1",
+    "@types/compression": "catalog:backend",
     "@types/cors": "catalog:backend",
     "@types/express": "catalog:backend",
     "@types/node": "catalog:backend",
     "nodemon": "catalog:backend",
-    "tsx": "^4.20.3",
+    "tsx": "catalog:backend",
     "typescript": "catalog:"
   },
   "keywords": [

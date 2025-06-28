@@ -16,21 +16,21 @@
     "@uaip/utils": "workspace:*",
     "cors": "catalog:backend",
     "express": "catalog:backend",
-    "helmet": "^8.1.0",
+    "helmet": "catalog:backend",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@types/cors": "catalog:backend",
     "@types/express": "catalog:backend",
-    "@types/jest": "^30.0.0",
+    "@types/jest": "catalog:backend",
     "@types/node": "catalog:backend",
     "@typescript-eslint/eslint-plugin": "catalog:",
     "@typescript-eslint/parser": "catalog:",
     "eslint": "catalog:",
-    "jest": "^30.0.2",
+    "jest": "catalog:backend",
     "nodemon": "catalog:backend",
     "ts-node": "catalog:backend",
-    "tsx": "^4.20.3",
+    "tsx": "catalog:backend",
     "typescript": "catalog:"
   },
   "keywords": [

@@ -33,7 +33,7 @@
     "eslint": "catalog:backend",
     "glob": "^10.3.10",
     "rimraf": "catalog:",
-    "tsc-alias": "^1.8.8",
+    "tsc-alias": "catalog:backend",
     "typescript": "catalog:backend",
     "typescript-eslint": "catalog:backend"
   },

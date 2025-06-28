@@ -18,18 +18,18 @@
     "@uaip/shared-services": "workspace:*",
     "@uaip/types": "workspace:*",
     "@uaip/utils": "workspace:*",
-    "compression": "^1.8.0",
+    "compression": "catalog:backend",
     "cors": "catalog:backend",
     "dotenv": "catalog:backend",
     "express": "catalog:backend",
-    "helmet": "^8.1.0",
+    "helmet": "catalog:backend",
     "morgan": "^1.10.0",
     "node-cron": "^4.1.0",
-    "prom-client": "^15.1.3",
+    "prom-client": "catalog:backend",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@types/compression": "^1.8.1",
+    "@types/compression": "catalog:backend",
     "@types/cors": "catalog:backend",
     "@types/express": "catalog:backend",
     "@types/morgan": "^1.9.10",
@@ -37,8 +37,8 @@
     "@types/node-cron": "^3.0.11",
     "concurrently": "catalog:dev",
     "nodemon": "catalog:backend",
-    "tsc-alias": "^1.8.16",
-    "tsx": "^4.20.3",
+    "tsc-alias": "catalog:backend",
+    "tsx": "catalog:backend",
     "typescript": "catalog:",
     "vitest": "catalog:dev"
   }
