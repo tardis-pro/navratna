@@ -1,9 +1,15 @@
 import React from 'react';
-import { BaseWidget, WidgetProps } from '@uaip/utils/base-widget';
-import { MarketplaceHub } from '@/components/marketplace/MarketplaceHub';
-import { WidgetCategory, WidgetPermissionLevel } from '@uaip/types/widget';
 
-const MarketplaceHubWidget: React.FC<WidgetProps> = (props) => {
+import { BaseWidgetProps } from '@components/ui/base-widget';
+import { MarketplaceHub } from '@/components/marketplace/MarketplaceHub';
+import { WidgetCategory, WidgetPermission } from '@uaip/types/widget';
+
+// Extend React.FC to allow static widgetMeta property
+interface WidgetComponent extends React.FC<WidgetProps> {
+  widgetMeta?: any;
+}
+
+const MarketplaceHubWidget: WidgetComponent = (props) => {
   // Optionally use widget context, props, etc.
   return <MarketplaceHub {...props} />;
 };
@@ -14,7 +20,7 @@ MarketplaceHubWidget.widgetMeta = {
   description: 'Explore agents, battles, leaderboards, and social feed.',
   icon: 'Store', // Optionally use a Lucide icon component reference
   category: WidgetCategory.CORE,
-  permissions: [WidgetPermissionLevel.VIEW, WidgetPermissionLevel.INTERACT],
+  permissions: [WidgetPermission.VIEW, WidgetPermission.INTERACT],
   rbac: {
     roles: ['user', 'admin', 'marketplace-viewer'],
     minSecurityLevel: 1,

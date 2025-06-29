@@ -16,13 +16,14 @@ import { OperationsMonitor } from './portals/OperationsMonitor';
 import { IntelligencePanelPortal } from './portals/IntelligencePanelPortal';
 import { InsightsPanel } from './portals/InsightsPanel';
 import { KnowledgePortal } from './portals/KnowledgePortal';
-import { Plus, Layout, Users, Brain, Settings, MessageSquare, MessageCircle, Activity, Zap, Terminal, Monitor, Menu, X, Bot, Server, Database, Wrench, Shield, Radio, BarChart3, Lightbulb, Eye, BookOpen } from 'lucide-react';
+import { Plus, Layout, Users, Brain, Settings, MessageSquare, MessageCircle, Activity, Zap, Terminal, Monitor, Menu, X, Bot, Server, Database, Wrench, Shield, Radio, BarChart3, Lightbulb, Eye, BookOpen, MapPin, Sun, Cloud, CloudRain, CloudSnow, CloudSun, Thermometer, Search, Store } from 'lucide-react';
 import { uaipAPI } from '@/utils/uaip-api';
 import { PuzzlePieceIcon } from '@heroicons/react/24/outline';
+import MarketplaceHubWidget from '@/widgets/MarketplaceHubWidget';
 
 interface PortalInstance {
   id: string;
-  type: 'agent-hub' | 'discussion-hub' | 'intelligence-hub' | 'system-hub' | 'chat' | 'knowledge' | 'monitoring-hub' | 'tools' | 'provider';
+  type: 'agent-hub' | 'discussion-hub' | 'intelligence-hub' | 'system-hub' | 'chat' | 'knowledge' | 'monitoring-hub' | 'tools' | 'provider' | 'marketplace-hub';
   title: string;
   component: React.ComponentType<any>;
   position: { x: number; y: number };
@@ -147,14 +148,26 @@ const PORTAL_CONFIGS = {
     type: 'tool' as const,
     icon: Wrench,
     description: 'Available tools and utilities'
-  }
+  },
+  'marketplace-hub': {
+    title: 'Marketplace Hub',
+    component: (props: any) => <MarketplaceHubWidget {...props} />,
+    defaultSize: {
+      desktop: { width: 900, height: 750 },
+      tablet: { width: 750, height: 700 },
+      mobile: { width: 500, height: 650 }
+    },
+    type: 'core' as const,
+    icon: Store,
+    description: 'Explore agents, battles, leaderboards, and social feed.'
+  },
 };
 
 // Portal type groups for better organization
 const PORTAL_GROUPS = {
   core: {
     title: 'Core Systems',
-    portals: ['agent-hub', 'discussion-hub', 'chat'],
+    portals: ['agent-hub', 'discussion-hub', 'chat', 'marketplace-hub'],
     colorClasses: {
       text: 'text-blue-400',
       bg: 'from-blue-500/20 to-blue-600/20',
@@ -189,6 +202,132 @@ const HOTKEYS = {
   core: ['Alt+1', 'Alt+2', 'Alt+3'],
   intelligence: ['Alt+4', 'Alt+5', 'Alt+6'],
   system: ['Alt+7', 'Alt+8', 'Alt+9'],
+};
+
+// --- Global Action Search Bar ---
+const GLOBAL_ACTIONS = [
+  { label: 'Manage Agents', action: () => window.dispatchEvent(new CustomEvent('launchPortal', { detail: { portalType: 'agent-hub' } })) },
+  { label: 'Start a Discussion', action: () => window.dispatchEvent(new CustomEvent('launchPortal', { detail: { portalType: 'discussion-hub' } })) },
+  { label: 'Analyze Intelligence', action: () => window.dispatchEvent(new CustomEvent('launchPortal', { detail: { portalType: 'intelligence-hub' } })) },
+  { label: 'Configure System', action: () => window.dispatchEvent(new CustomEvent('launchPortal', { detail: { portalType: 'system-hub' } })) },
+  { label: 'Monitor Operations', action: () => window.dispatchEvent(new CustomEvent('launchPortal', { detail: { portalType: 'monitoring-hub' } })) },
+  { label: 'Chat with Agents', action: () => window.dispatchEvent(new CustomEvent('launchPortal', { detail: { portalType: 'chat' } })) },
+  { label: 'Explore Knowledge', action: () => window.dispatchEvent(new CustomEvent('launchPortal', { detail: { portalType: 'knowledge' } })) },
+  { label: 'Use Tools', action: () => window.dispatchEvent(new CustomEvent('launchPortal', { detail: { portalType: 'tools' } })) },
+  { label: 'Configure Providers', action: () => window.dispatchEvent(new CustomEvent('launchPortal', { detail: { portalType: 'provider' } })) },
+  { label: 'Browse Marketplace', action: () => window.dispatchEvent(new CustomEvent('launchPortal', { detail: { portalType: 'marketplace-hub' } })) },
+  { label: 'Close Everything', action: () => window.dispatchEvent(new CustomEvent('closeAllPortals')) },
+  { label: 'Get Help & Shortcuts', action: () => window.dispatchEvent(new CustomEvent('showHelp')) },
+];
+
+const GlobalActionSearchBar: React.FC = () => {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [highlight, setHighlight] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const filtered = GLOBAL_ACTIONS.filter(a => a.label.toLowerCase().includes(query.toLowerCase()));
+
+  // Keyboard shortcut
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setOpen(true);
+        return;
+      }
+      if (open) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          setHighlight(h => Math.min(h + 1, filtered.length - 1));
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          setHighlight(h => Math.max(h - 1, 0));
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          if (filtered[highlight]) {
+            filtered[highlight].action();
+            setOpen(false);
+          }
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          setOpen(false);
+        }
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [open, filtered, highlight]);
+
+  useEffect(() => {
+    if (open && inputRef.current) {
+      setTimeout(() => inputRef.current?.focus(), 100);
+    } else {
+      setQuery('');
+      setHighlight(0);
+    }
+  }, [open]);
+
+  return (
+    <>
+      <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-lg flex justify-center pointer-events-none">
+        <button
+          className="w-full flex items-center gap-2 px-5 py-3 rounded-2xl bg-slate-900/70 border border-slate-700/60 shadow-xl backdrop-blur-xl text-slate-300 hover:bg-slate-800/80 transition-all duration-200 pointer-events-auto"
+          style={{ boxShadow: '0 4px 32px 0 rgba(80,80,180,0.10)' }}
+          onClick={() => setOpen(true)}
+          tabIndex={0}
+        >
+          <Search className="w-5 h-5 text-blue-400" />
+          <span className="flex-1 text-left text-sm opacity-80">Search actions...</span>
+          <span className="ml-2 text-xs bg-slate-800/80 px-2 py-1 rounded font-mono text-slate-400 border border-slate-700/60">⌘K</span>
+        </button>
+      </div>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-0 left-0 w-full h-full z-[1000] flex items-start justify-center bg-black/30 backdrop-blur-sm"
+            onClick={() => setOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="mt-32 w-full max-w-lg bg-slate-900/95 border border-slate-700/70 rounded-2xl shadow-2xl p-6 pointer-events-auto"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-2 mb-4">
+                <Search className="w-5 h-5 text-blue-400" />
+                <input
+                  ref={inputRef}
+                  className="flex-1 bg-transparent outline-none text-slate-200 text-lg placeholder:text-slate-500"
+                  placeholder="Type an action..."
+                  value={query}
+                  onChange={e => { setQuery(e.target.value); setHighlight(0); }}
+                />
+              </div>
+              <div className="divide-y divide-slate-700/60">
+                {filtered.length === 0 && (
+                  <div className="py-4 text-slate-500 text-center">No actions found</div>
+                )}
+                {filtered.map((a, i) => (
+                  <button
+                    key={a.label}
+                    className={`w-full text-left px-3 py-3 rounded-lg flex items-center gap-2 transition-all duration-150 ${i === highlight ? 'bg-blue-600/20 text-blue-200' : 'hover:bg-slate-800/80 text-slate-300'}`}
+                    onClick={() => { a.action(); setOpen(false); }}
+                    onMouseEnter={() => setHighlight(i)}
+                  >
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
 };
 
 // --- HotkeyManOverlay ---
@@ -416,6 +555,9 @@ export const PortalWorkspace: React.FC = () => {
   const [showTopRight, setShowTopRight] = useState(false);
   const [showBottomLeft, setShowBottomLeft] = useState(false);
   const [showBottomRight, setShowBottomRight] = useState(false);
+  const [clock, setClock] = useState<string>("");
+  const [location, setLocation] = useState<{ city?: string; country?: string; lat?: number; lon?: number }>({});
+  const [weather, setWeather] = useState<{ temp?: number; icon?: string; desc?: string } | null>(null);
 
   // Update viewport size on resize
   useEffect(() => {
@@ -529,10 +671,23 @@ export const PortalWorkspace: React.FC = () => {
       }
     };
 
+    const handleCloseAllPortals = () => {
+      setPortals([]);
+    };
+
+    const handleShowHelp = () => {
+      // TODO: Implement help overlay
+      alert('Help overlay coming soon! Use hot corners or Ctrl+K to access portals.');
+    };
+
     window.addEventListener('launchPortal', handleLaunchPortal as EventListener);
+    window.addEventListener('closeAllPortals', handleCloseAllPortals as EventListener);
+    window.addEventListener('showHelp', handleShowHelp as EventListener);
     
     return () => {
       window.removeEventListener('launchPortal', handleLaunchPortal as EventListener);
+      window.removeEventListener('closeAllPortals', handleCloseAllPortals as EventListener);
+      window.removeEventListener('showHelp', handleShowHelp as EventListener);
     };
   }, [createPortal]);
 
@@ -690,6 +845,60 @@ export const PortalWorkspace: React.FC = () => {
     return () => window.removeEventListener('keydown', handler);
   }, [togglePortal]);
 
+  // --- Live Clock ---
+  useEffect(() => {
+    const updateClock = () => {
+      const now = new Date();
+      setClock(now.toLocaleString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    };
+    updateClock();
+    const interval = setInterval(updateClock, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // --- Geolocation and Weather ---
+  useEffect(() => {
+    if (!('geolocation' in navigator)) return;
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+      setLocation(loc => ({ ...loc, lat, lon }));
+      // Reverse geocode to get city/country
+      try {
+        const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
+        const geoData = await geoRes.json();
+        setLocation(loc => ({ ...loc, city: geoData.address.city || geoData.address.town || geoData.address.village || geoData.address.hamlet, country: geoData.address.country }));
+      } catch {}
+      // Weather (OpenWeatherMap, metric, icon)
+      try {
+        const apiKey = 'demo'; // Replace with your OpenWeatherMap API key
+        const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
+        const weatherData = await weatherRes.json();
+        if (weatherData.current_weather) {
+          setWeather({
+            temp: weatherData.current_weather.temperature,
+            icon: weatherData.current_weather.weathercode,
+            desc: weatherData.current_weather.weathercode // OpenMeteo uses codes, you can map to icons
+          });
+        }
+      } catch {}
+    }, (err) => {
+      // fallback: no location
+    });
+  }, []);
+
+  // Weather icon mapping (OpenMeteo codes)
+  const getWeatherIcon = (code?: string | number) => {
+    if (!code) return <Cloud className="w-4 h-4 text-slate-400" />;
+    // Simple mapping for demo
+    if ([0].includes(Number(code))) return <Sun className="w-4 h-4 text-yellow-400" />;
+    if ([1,2,3].includes(Number(code))) return <CloudSun className="w-4 h-4 text-yellow-300" />;
+    if ([45,48].includes(Number(code))) return <Cloud className="w-4 h-4 text-slate-400" />;
+    if ([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(Number(code))) return <CloudRain className="w-4 h-4 text-blue-400" />;
+    if ([71,73,75,77,85,86].includes(Number(code))) return <CloudSnow className="w-4 h-4 text-cyan-200" />;
+    return <Cloud className="w-4 h-4 text-slate-400" />;
+  };
+
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 overflow-hidden">
       {/*  Background Pattern */}
@@ -701,6 +910,9 @@ export const PortalWorkspace: React.FC = () => {
                            radial-gradient(circle at 25% 75%, #f59e0b 0%, transparent 50%)`
         }} />
       </div>
+
+      {/* Global Action Search Bar */}
+      <GlobalActionSearchBar />
 
       {/* Hot Corners */}
       <HotCornerMenu
@@ -906,53 +1118,56 @@ export const PortalWorkspace: React.FC = () => {
       <motion.div
         initial={{ y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className={`fixed z-30 bg-slate-900/80 backdrop-blur-xl border border-slate-700/50 rounded-xl px-4 py-2 ${
+        className={`fixed z-30 ${
           viewport.isMobile 
             ? 'bottom-4 left-4 right-4' 
-            : 'bottom-6 right-6'
+            : 'bottom-6 left-1/2 -translate-x-1/2 w-full max-w-2xl'
         }`}
       >
-        <div className={`flex items-center gap-4 text-sm ${viewport.isMobile ? 'flex-wrap justify-center' : ''}`}>
+        <div className="flex items-center justify-between gap-6 px-6 py-3 rounded-2xl shadow-xl bg-slate-900/70 backdrop-blur-xl border border-slate-800/60">
+          {/* Status */}
           <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${systemStatus === 'online' ? 'bg-green-400 animate-pulse' : systemStatus === 'degraded' ? 'bg-yellow-400' : 'bg-red-400'}`} />
-            <span className={`text-slate-300 ${getStatusColor(systemStatus)}`}>
-              System {systemStatus.toUpperCase()}
+            <span className={`relative flex h-3 w-3`}>
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${
+                systemStatus === 'online' ? 'bg-green-400' : systemStatus === 'degraded' ? 'bg-yellow-400' : 'bg-red-400'
+              } opacity-75`}></span>
+              <span className={`relative inline-flex rounded-full h-3 w-3 ${
+                systemStatus === 'online' ? 'bg-green-400' : systemStatus === 'degraded' ? 'bg-yellow-400' : 'bg-red-400'
+              }`}></span>
             </span>
+            <span className="font-medium text-slate-200">System</span>
+            <span className={`font-semibold ${
+              systemStatus === 'online' ? 'text-green-400' : systemStatus === 'degraded' ? 'text-yellow-400' : 'text-red-400'
+            }`}>{systemStatus.toUpperCase()}</span>
             {systemMetrics.apiResponseTime && (
-              <span className="text-slate-500 text-xs">
-                ({systemMetrics.apiResponseTime}ms)
+              <span className="ml-2 text-xs text-slate-400">({systemMetrics.apiResponseTime}ms)</span>
+            )}
+          </div>
+
+          {/* Portals & Activity */}
+          <div className="flex items-center gap-4">
+            <Activity className="w-4 h-4 text-blue-400" />
+            <span className="text-slate-200">{activeConnections} Active</span>
+            <Terminal className="w-4 h-4 text-purple-400" />
+            <span className="text-slate-200">{portals.length} Portal{portals.length !== 1 ? 's' : ''}</span>
+          </div>
+
+          {/* Time & Weather */}
+          <div className="flex items-center gap-3">
+            <span className="text-slate-400 font-mono text-xs">{clock.split(',')[1]?.trim()}</span>
+            {weather && (
+              <span className="flex items-center gap-1">
+                {getWeatherIcon(weather.icon)}
+                <span className="text-slate-200">{weather.temp}°C</span>
+              </span>
+            )}
+            {location.city && (
+              <span className="flex items-center gap-1 text-slate-400 text-xs">
+                <MapPin className="w-4 h-4" />
+                {location.city}
               </span>
             )}
           </div>
-          
-          <div className="flex items-center gap-2">
-            <Activity className="w-4 h-4 text-blue-400" />
-            <span className="text-slate-300">
-              {activeConnections} Active
-            </span>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <Terminal className="w-4 h-4 text-purple-400" />
-            <span className="text-slate-300">
-              {portals.length} Portal{portals.length !== 1 ? 's' : ''}
-            </span>
-          </div>
-          
-          {systemMetrics.environment && !viewport.isMobile && (
-            <div className="flex items-center gap-2">
-              <Server className="w-4 h-4 text-cyan-400" />
-              <span className="text-slate-400 text-xs">
-                {systemMetrics.environment}
-              </span>
-            </div>
-          )}
-          
-          {portals.length > 0 && !viewport.isMobile && (
-            <div className="text-slate-500 text-xs">
-              Drag headers • Resize corners • Double-click to maximize
-            </div>
-          )}
         </div>
       </motion.div>
     </div>

@@ -124,7 +124,8 @@ export const BaseWidgetSchema = z.object({
   config: WidgetConfigSchema.default({}),
   metadata: WidgetMetadataSchema.default({}),
   rbac: WidgetRBACSchema.default({}),
-  ...TimestampSchema.shape
+  createdAt: TimestampSchema,
+  updatedAt: TimestampSchema
 });
 
 // Widget instance (runtime instance of a widget)

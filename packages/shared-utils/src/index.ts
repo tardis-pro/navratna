@@ -36,14 +36,5 @@ export {
   WidgetRegistryOptions
 } from './widget-registry.js';
 
-export {
-  BaseWidgetComponent,
-  withWidgetContext,
-  useWidget,
-  WidgetContext,
-  BaseWidgetProps,
-  WidgetLifecycle,
-  FunctionalWidgetProps
-} from './base-widget.js';
 
 // Agent transformation utilities

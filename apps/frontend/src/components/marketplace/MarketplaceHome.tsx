@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Star, 
   Download, 
-  Trending, 
+  TrendingUp, 
   Search, 
   Filter,
   Heart,
@@ -283,7 +283,7 @@ export const MarketplaceHome: React.FC<MarketplaceHomeProps> = ({ onItemClick })
       {/* Trending Section */}
       <section>
         <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-          <Trending className="w-6 h-6 text-red-500" />
+          <TrendingUp className="w-6 h-6 text-red-500" />
           Trending Now
           <Badge variant="destructive">Hot this week</Badge>
         </h2>

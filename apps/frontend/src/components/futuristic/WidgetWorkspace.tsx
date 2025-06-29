@@ -11,11 +11,10 @@ import {
   WidgetRegistryQuery
 } from '@uaip/types';
 import { 
-  WidgetRegistry, 
-  UserContext,
+ 
   WidgetContext,
   BaseWidgetProps
-} from '@uaip/utils';
+} from '@/components/ui/base-widget';
 import { AuthContext } from '@/contexts/AuthContext';
 import { uaipAPI } from '@/utils/uaip-api';
 import { Plus, Layout, Activity, Terminal, Menu, X, Sparkles, Settings, Shield, AlertTriangle } from 'lucide-react';
