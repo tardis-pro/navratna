@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Portal } from './Portal';
 import { DiscussionControlsPortal } from './portals/DiscussionControlsPortal';
@@ -184,6 +184,214 @@ const PORTAL_GROUPS = {
   }
 };
 
+// --- Hotkey Map ---
+const HOTKEYS = {
+  core: ['Alt+1', 'Alt+2', 'Alt+3'],
+  intelligence: ['Alt+4', 'Alt+5', 'Alt+6'],
+  system: ['Alt+7', 'Alt+8', 'Alt+9'],
+};
+
+// --- HotkeyManOverlay ---
+const HotkeyManOverlay: React.FC<{ open: boolean, onClose: () => void }> = ({ open, onClose }) => {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-8 min-w-[340px] max-w-[90vw] max-h-[80vh] overflow-y-auto relative" onClick={e => e.stopPropagation()}>
+        <button className="absolute top-3 right-3 text-slate-400 hover:text-white" onClick={onClose} aria-label="Close hotkey overlay">✕</button>
+        <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Zap className="w-5 h-5 text-yellow-400" /> Hotkey Reference</h2>
+        <div className="space-y-4">
+          <div>
+            <div className="font-semibold text-blue-400 mb-1">Core Systems</div>
+            <ul className="text-slate-300 text-sm space-y-1">
+              {PORTAL_GROUPS.core.portals.map((key, i) => (
+                <li key={key}><span className="font-mono bg-slate-800 px-2 py-0.5 rounded mr-2">{HOTKEYS.core[i]}</span> {PORTAL_CONFIGS[key].title}</li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <div className="font-semibold text-purple-400 mb-1">Intelligence & Analysis</div>
+            <ul className="text-slate-300 text-sm space-y-1">
+              {PORTAL_GROUPS.intelligence.portals.map((key, i) => (
+                <li key={key}><span className="font-mono bg-slate-800 px-2 py-0.5 rounded mr-2">{HOTKEYS.intelligence[i]}</span> {PORTAL_CONFIGS[key].title}</li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <div className="font-semibold text-green-400 mb-1">System & Tools</div>
+            <ul className="text-slate-300 text-sm space-y-1">
+              {PORTAL_GROUPS.system.portals.map((key, i) => (
+                <li key={key}><span className="font-mono bg-slate-800 px-2 py-0.5 rounded mr-2">{HOTKEYS.system[i]}</span> {PORTAL_CONFIGS[key].title}</li>
+              ))}
+            </ul>
+          </div>
+          <div className="mt-4 text-xs text-slate-400">Press <span className="font-mono bg-slate-800 px-2 py-0.5 rounded">Esc</span> or click outside to close.</div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- HotCornerMenu Component ---
+const HotCornerMenu: React.FC<{
+  corner: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right',
+  groupKey?: keyof typeof PORTAL_GROUPS,
+  portals: PortalInstance[],
+  togglePortal: (type: keyof typeof PORTAL_CONFIGS) => void,
+  closeAll?: () => void,
+  systemStatus?: string,
+  systemMetrics?: any,
+  show?: boolean,
+  setShow: (show: boolean) => void
+}> = ({ corner, groupKey, portals, togglePortal, closeAll, systemStatus, systemMetrics, show, setShow }) => {
+  // Positioning logic
+  const positions = {
+    'top-left': 'top-4 left-4',
+    'top-right': 'top-4 right-4',
+    'bottom-left': 'bottom-4 left-4',
+    'bottom-right': 'bottom-4 right-4',
+  };
+  const group = groupKey ? PORTAL_GROUPS[groupKey] : undefined;
+  // Direction logic
+  const isTop = corner.startsWith('top');
+  const menuPosition = isTop ? 'mt-14' : 'mb-14';
+  const menuArrow = (
+    <div className={`absolute ${isTop ? '-top-2' : '-bottom-2'} ${corner.includes('left') ? 'left-6' : 'right-6'} w-0 h-0`} style={{zIndex: 1001}}>
+      <div className={`mx-auto ${isTop ? '' : ''}`} style={{
+        borderLeft: '8px solid transparent',
+        borderRight: '8px solid transparent',
+        borderBottom: isTop ? '8px solid #1e293b' : undefined,
+        borderTop: !isTop ? '8px solid #1e293b' : undefined,
+        width: 0,
+        height: 0
+      }} />
+    </div>
+  );
+
+  // --- Hover/Focus intent logic ---
+  const [hovered, setHovered] = React.useState(false);
+  React.useEffect(() => {
+    if (hovered) setShow(true);
+    else setTimeout(() => { if (!hovered) setShow(false); }, 120);
+  }, [hovered]);
+
+  // --- Hotkey display logic ---
+  const hotkeys = groupKey ? HOTKEYS[groupKey] : [];
+
+  // --- Dynamic popover positioning ---
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({});
+  useEffect(() => {
+    if (show && popoverRef.current) {
+      const pop = popoverRef.current;
+      const rect = pop.getBoundingClientRect();
+      let top = rect.top, left = rect.left;
+      let style: React.CSSProperties = {};
+      // Clamp vertically
+      if (rect.bottom > window.innerHeight) {
+        style.bottom = 16; // 4 * 4px
+        style.top = 'auto';
+      } else if (rect.top < 0) {
+        style.top = 16;
+        style.bottom = 'auto';
+      }
+      // Clamp horizontally
+      if (rect.right > window.innerWidth) {
+        style.right = 16;
+        style.left = 'auto';
+      } else if (rect.left < 0) {
+        style.left = 16;
+        style.right = 'auto';
+      }
+      setPopoverStyle(style);
+    }
+  }, [show]);
+
+  return (
+    <div
+      className={`fixed z-50 ${positions[corner]}`}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setHovered(true)}
+      onBlur={() => setHovered(false)}
+      tabIndex={0}
+    >
+      <button
+        className={`w-12 h-12 rounded-full bg-slate-900/70 border border-slate-700/50 flex items-center justify-center text-white shadow-lg hover:bg-slate-800/90 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 ${show ? 'scale-110' : 'scale-100'}`}
+        aria-label={group ? group.title : 'Quick Actions'}
+        onMouseEnter={() => setHovered(true)}
+        onFocus={() => setHovered(true)}
+        onClick={() => setShow(!show)}
+      >
+        {corner === 'top-left' && <Layout className="w-6 h-6" />}
+        {corner === 'top-right' && <Brain className="w-6 h-6" />}
+        {corner === 'bottom-left' && <Settings className="w-6 h-6" />}
+        {corner === 'bottom-right' && <Zap className="w-6 h-6" />}
+      </button>
+      <AnimatePresence>
+        {show && (
+          <motion.div
+            ref={popoverRef}
+            initial={{ opacity: 0, scale: 0.8, y: isTop ? 20 : -20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: isTop ? 20 : -20 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+            className={`absolute ${menuPosition} ${corner.includes('left') ? 'left-0' : 'right-0'} min-w-[220px] bg-slate-900/95 border border-slate-700/70 rounded-2xl shadow-2xl p-4 space-y-2 backdrop-blur-xl`}
+            style={{ zIndex: 1000, ...popoverStyle }}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            onFocus={() => setHovered(true)}
+            onBlur={() => setHovered(false)}
+            tabIndex={0}
+          >
+            {menuArrow}
+            {group && (
+              <div className={`text-xs font-semibold mb-2 ${group.colorClasses.text}`}>{group.title}</div>
+            )}
+            {group && group.portals.map((portalKey, idx) => {
+              const config = PORTAL_CONFIGS[portalKey as keyof typeof PORTAL_CONFIGS];
+              const isActive = portals.some(p => p.type === portalKey);
+              const Icon = config.icon;
+              const hotkey = hotkeys[idx];
+              return (
+                <button
+                  key={portalKey}
+                  onClick={() => { togglePortal(portalKey as keyof typeof PORTAL_CONFIGS); setShow(false); }}
+                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-all duration-200 ${isActive ? `${group.colorClasses.bg} ${group.colorClasses.text}` : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/70 hover:text-white'}`}
+                  tabIndex={0}
+                >
+                  <Icon className="w-4 h-4 flex-shrink-0" />
+                  <span className="truncate text-sm">{config.title}</span>
+                  {hotkey && <span className="ml-auto text-xs text-slate-400 font-mono">{hotkey}</span>}
+                  {isActive && <span className={`ml-1 w-2 h-2 rounded-full ${group.colorClasses.accent}`} />}
+                </button>
+              );
+            })}
+            {/* Quick Actions for bottom-right */}
+            {corner === 'bottom-right' && (
+              <>
+                <div className="text-xs font-semibold mb-2 text-yellow-400">Quick Actions</div>
+                <button
+                  onClick={() => { closeAll && closeAll(); setShow(false); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/20 text-red-300 hover:bg-red-500/40 hover:text-white text-sm"
+                >
+                  <Plus className="w-4 h-4 rotate-45" /> Close All Portals
+                </button>
+                <div className="flex items-center gap-2 mt-2 text-xs text-slate-400">
+                  <span className={`w-2 h-2 rounded-full ${systemStatus === 'online' ? 'bg-green-400 animate-pulse' : systemStatus === 'degraded' ? 'bg-yellow-400' : 'bg-red-400'}`} />
+                  <span>System {systemStatus?.toUpperCase()}</span>
+                  {systemMetrics?.apiResponseTime && (
+                    <span className="ml-2 text-slate-500">({systemMetrics.apiResponseTime}ms)</span>
+                  )}
+                </div>
+              </>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
 export const PortalWorkspace: React.FC = () => {
   const [portals, setPortals] = useState<PortalInstance[]>([]);
   const [nextId, setNextId] = useState(1);
@@ -204,6 +412,10 @@ export const PortalWorkspace: React.FC = () => {
   });
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showThinkTokens, setShowThinkTokens] = useState(false);
+  const [showTopLeft, setShowTopLeft] = useState(false);
+  const [showTopRight, setShowTopRight] = useState(false);
+  const [showBottomLeft, setShowBottomLeft] = useState(false);
+  const [showBottomRight, setShowBottomRight] = useState(false);
 
   // Update viewport size on resize
   useEffect(() => {
@@ -444,6 +656,40 @@ export const PortalWorkspace: React.FC = () => {
     }
   };
 
+  // --- Hotkey handler ---
+  React.useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      // Helper to match hotkey string
+      const matchHotkey = (hotkey: string) => {
+        const [mod, key] = hotkey.split('+');
+        return e.altKey === (mod === 'Alt') && e.key === key.replace(/\d/, d => d);
+      };
+      // Core
+      HOTKEYS.core.forEach((hotkey, idx) => {
+        if (matchHotkey(hotkey)) {
+          const portalKey = PORTAL_GROUPS.core.portals[idx];
+          if (portalKey) togglePortal(portalKey as keyof typeof PORTAL_CONFIGS);
+        }
+      });
+      // Intelligence
+      HOTKEYS.intelligence.forEach((hotkey, idx) => {
+        if (matchHotkey(hotkey)) {
+          const portalKey = PORTAL_GROUPS.intelligence.portals[idx];
+          if (portalKey) togglePortal(portalKey as keyof typeof PORTAL_CONFIGS);
+        }
+      });
+      // System
+      HOTKEYS.system.forEach((hotkey, idx) => {
+        if (matchHotkey(hotkey)) {
+          const portalKey = PORTAL_GROUPS.system.portals[idx];
+          if (portalKey) togglePortal(portalKey as keyof typeof PORTAL_CONFIGS);
+        }
+      });
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [togglePortal]);
+
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 overflow-hidden">
       {/*  Background Pattern */}
@@ -455,6 +701,42 @@ export const PortalWorkspace: React.FC = () => {
                            radial-gradient(circle at 25% 75%, #f59e0b 0%, transparent 50%)`
         }} />
       </div>
+
+      {/* Hot Corners */}
+      <HotCornerMenu
+        corner="top-left"
+        groupKey="core"
+        portals={portals}
+        togglePortal={togglePortal}
+        show={showTopLeft}
+        setShow={setShowTopLeft}
+      />
+      <HotCornerMenu
+        corner="top-right"
+        groupKey="intelligence"
+        portals={portals}
+        togglePortal={togglePortal}
+        show={showTopRight}
+        setShow={setShowTopRight}
+      />
+      <HotCornerMenu
+        corner="bottom-left"
+        groupKey="system"
+        portals={portals}
+        togglePortal={togglePortal}
+        show={showBottomLeft}
+        setShow={setShowBottomLeft}
+      />
+      <HotCornerMenu
+        corner="bottom-right"
+        portals={portals}
+        togglePortal={togglePortal}
+        closeAll={() => setPortals([])}
+        systemStatus={systemStatus}
+        systemMetrics={systemMetrics}
+        show={showBottomRight}
+        setShow={setShowBottomRight}
+      />
 
       {/* Mobile Menu Button */}
       {viewport.isMobile && (
@@ -468,79 +750,6 @@ export const PortalWorkspace: React.FC = () => {
         >
           {showMobileMenu ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </motion.button>
-      )}
-
-      {/* Desktop Portal Launcher */}
-      {!viewport.isMobile && (
-        <motion.div
-          initial={{ x: -100, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          className="fixed left-6 top-1/2 -translate-y-1/2 z-50"
-        >
-          <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-4 space-y-4">
-            <div className="text-white text-sm font-semibold mb-4 flex items-center gap-2">
-              <Layout className="w-4 h-4" />
-              Portal Hub
-              <div className={`w-2 h-2 rounded-full ${systemStatus === 'online' ? 'bg-green-400 animate-pulse' : systemStatus === 'degraded' ? 'bg-yellow-400' : 'bg-red-400'}`} />
-            </div>
-            
-            {Object.entries(PORTAL_GROUPS).map(([groupKey, group]) => (
-              <div key={groupKey} className="space-y-2">
-                <div className={`text-xs font-medium ${group.colorClasses.text} uppercase tracking-wider px-2`}>
-                  {group.title}
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {group.portals.map(portalKey => {
-                    const config = PORTAL_CONFIGS[portalKey as keyof typeof PORTAL_CONFIGS];
-                    const isActive = portals.some(p => p.type === portalKey);
-                    const Icon = config.icon;
-                    
-                    return (
-                      <motion.button
-                        key={portalKey}
-                        onClick={() => togglePortal(portalKey as keyof typeof PORTAL_CONFIGS)}
-                        className={`
-                          w-12 h-12 rounded-xl border transition-all duration-300 flex items-center justify-center relative
-                          ${isActive 
-                            ? `bg-gradient-to-br ${group.colorClasses.bg} ${group.colorClasses.border} ${group.colorClasses.text}` 
-                            : 'bg-slate-800/50 border-slate-700/50 text-slate-400 hover:text-white hover:border-slate-600/50'
-                          }
-                        `}
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.95 }}
-                        title={`${config.title}\n${config.description}`}
-                      >
-                        <Icon className="w-4 h-4" />
-                        {isActive && (
-                          <motion.div
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            className={`absolute -top-1 -right-1 w-3 h-3 ${group.colorClasses.accent} rounded-full`}
-                          />
-                        )}
-                      </motion.button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-            
-            <div className="border-t border-slate-700/50 pt-3">
-              <motion.button
-                onClick={() => {
-                  setPortals([]);
-                }}
-                className="w-full h-10 rounded-xl bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500/30 transition-all duration-300 flex items-center justify-center gap-2"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                title="Close All Portals"
-              >
-                <Plus className="w-4 h-4 rotate-45" />
-                <span className="text-xs font-medium">Close All</span>
-              </motion.button>
-            </div>
-          </div>
-        </motion.div>
       )}
 
       {/* Mobile Portal Menu */}

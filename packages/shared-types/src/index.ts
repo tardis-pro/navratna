@@ -35,3 +35,5 @@ export * from './marketplace.js';
 export * from './battle.js';
 // Social features types - NEW
 export * from './social.js';
+// Widget system types - NEW
+export * from './widget.js';

@@ -18,6 +18,9 @@ export { SecurityValidationService } from './securityValidationService.js';
 // Communication Services
 export { EventBusService } from './eventBusService.js';
 
+// Widget Services - NEW
+export { WidgetService, WidgetServiceOptions } from './widgetService.js';
+
 // State Management Services
 export { StateManagerService } from './stateManagerService.js';
 
