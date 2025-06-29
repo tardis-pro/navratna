@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist",     
+    "composite": true,
+    "rootDir": "src",
+    "baseUrl": ".",    
+    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
+  },
+  "include": ["src/**/*"],
+  "references": [
+    { "path": "../../../packages/shared-types" },
+    { "path": "../../../packages/shared-utils" },
+    { "path": "../../shared/config" },
+    { "path": "../../shared/services" },
+    { "path": "../../shared/llm-service" },
+    { "path": "../../shared/middleware" }
+  ]
+}

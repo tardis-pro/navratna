@@ -29,3 +29,9 @@ export * from './system.js';
 export * from './websocket.js';
 // Model and provider types - NEW
 export * from './models.js';
+// Marketplace types - NEW
+export * from './marketplace.js';
+// Battle Arena types - NEW
+export * from './battle.js';
+// Social features types - NEW
+export * from './social.js';
