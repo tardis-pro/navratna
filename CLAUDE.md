@@ -46,6 +46,10 @@ npm run build:frontend
 # Run all tests across packages
 npm test
 
+# Test specific packages
+cd backend/shared/middleware && npm test  # Middleware tests (132 tests)
+cd backend/shared/services && npm test   # Services tests
+
 # Test artifact generation system
 npm run test:artifacts
 
@@ -53,6 +57,16 @@ npm run test:artifacts
 npm run test:artifacts:prd
 npm run test:artifacts:code
 ```
+
+**Test Coverage Status:**
+- ✅ **Middleware Package**: Complete test suite with 8 test suites and 132 passing tests
+  - Authentication & authorization middleware
+  - Error handling and transformation
+  - Request validation with Zod schemas  
+  - Rate limiting functionality
+  - Request/response logging
+  - Prometheus metrics collection
+  - Agent validation and transformation logic
 
 ### Linting
 ```bash
@@ -145,6 +159,7 @@ import { logger } from '../../../shared/utils/src/logger';
 - **Database**: TypeORM with PostgreSQL, Neo4j for graph data
 - **Real-time**: WebSocket for agent discussions and live updates
 - **Validation**: Zod schemas for runtime validation
+- **Testing**: Jest with TypeScript support, comprehensive mocking system
 - **Package Manager**: pnpm with workspace support
 
 ## Development Workflow
@@ -180,3 +195,21 @@ For focused development, use minimal services: `cd backend && npm run dev:minima
 - **Memory issues**: System requires minimum 8GB RAM (16GB recommended)
 - **Build failures**: Always build shared packages first with `npm run build:shared`
 - **Import errors**: Check monorepo import patterns, verify path mappings in tsconfig.json
+- **Test failures**: Middleware tests expect proper mock setup; check Jest configuration and workspace imports
+
+## Recent Development Progress
+
+### ✅ Middleware Testing Infrastructure (Completed)
+- **Complete test suite** for `backend/shared/middleware` package
+- **8 test suites** covering all middleware components:
+  - `authMiddleware.test.ts` - JWT authentication, role-based access control
+  - `errorHandler.test.ts` - Error handling, ApiError processing, Zod validation errors
+  - `rateLimiter.test.ts` - Rate limiting with Redis backend
+  - `validateRequest.test.ts` - Request validation with Zod schemas
+  - `requestLogger.test.ts` - Request/response logging, context preservation
+  - `metrics.test.ts` - Prometheus metrics collection and endpoints
+  - `agentValidationMiddleware.test.ts` - Agent validation, persona transformation
+  - `agentTransformationService.test.ts` - Persona-to-agent format transformation
+- **132 passing tests** with comprehensive mocking system
+- **Jest configuration** optimized for TypeScript ES modules and workspace imports
+- **Mock infrastructure** for `@uaip/utils`, `@uaip/config`, `@uaip/types` packages

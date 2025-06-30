@@ -44,11 +44,11 @@ export const errorHandler = (
     errorCode = error.code || 'APPLICATION_ERROR';
     message = error.message;
     details = error.details;
-  } else if (error instanceof ApiError) {
-    statusCode = error.statusCode;
-    errorCode = error.code;
+  } else if (error instanceof ApiError || (error as any).name === 'ApiError') {
+    statusCode = (error as any).statusCode;
+    errorCode = (error as any).code;
     message = error.message;
-    details = error.details;
+    details = (error as any).details;
   } else if (error instanceof ZodError) {
     statusCode = 400;
     errorCode = 'VALIDATION_ERROR';
