@@ -20,7 +20,7 @@
       "@uaip/types/*": ["../shared-types/src/*"]
     }
   },
-  "include": ["src/**/*", "../../apps/frontend/src/components/ui/base-widget.tsx"],
+  "include": ["src/**/*"],
   "exclude": ["dist", "node_modules"],
   "references": [
     { "path": "../shared-types" }

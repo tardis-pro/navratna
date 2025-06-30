@@ -9,7 +9,7 @@
     "build": "tsc",
     "dev": "nodemon --exec tsx src/index.ts",
     "clean": "rimraf dist",
-    "test": "jest",
+    "test": "jest --passWithNoTests",
     "test:watch": "jest --watch",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix"

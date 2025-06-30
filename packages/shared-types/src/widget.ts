@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { IDSchema, TimestampSchema } from './common.js';
-import { SecurityLevel } from './security.js';
+import { IDSchema, TimestampSchema } from './common';
+import { SecurityLevel } from './security';
 
 // Widget Permission Levels
 export enum WidgetPermission {

@@ -18,7 +18,7 @@
     "tsBuildInfoFile": "./tsconfig.tsbuildinfo"
   },
   "include": ["src/**/*"],
-  "exclude": ["dist", "node_modules", "src/migrations/**/*"],
+  "exclude": ["dist", "node_modules", "src/migrations/**/*", "src/__tests__/**/*", "**/*.test.ts", "**/*.spec.ts"],
   "references": [
     { "path": "../../../packages/shared-types" },
     { "path": "../config" },

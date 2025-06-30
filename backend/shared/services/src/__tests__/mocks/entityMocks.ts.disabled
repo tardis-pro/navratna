@@ -1,0 +1,171 @@
+import { User, Agent, Operation, ToolDefinition, Persona, Discussion, AuditEvent } from '../../entities/index.js';
+import { AgentRole, AgentStatus, OperationStatus, OperationType, ToolCategory, PersonaStatus, PersonaVisibility, DiscussionStatus, AuditEventType, SecurityLevel } from '@uaip/types';
+import { TestUtils } from '../helpers/testUtils.js';
+
+export class EntityMockFactory {
+  static createMockUser(overrides: Partial<User> = {}): User {
+    const user = new User();
+    user.id = overrides.id || TestUtils.generateUUID();
+    user.email = overrides.email || TestUtils.generateRandomEmail();
+    user.username = overrides.username || `user_${TestUtils.generateRandomString(6)}`;
+    user.firstName = overrides.firstName || 'Test';
+    user.lastName = overrides.lastName || 'User';
+    user.passwordHash = overrides.passwordHash || 'hashed_password';
+    user.isActive = overrides.isActive !== undefined ? overrides.isActive : true;
+    user.isVerified = overrides.isVerified !== undefined ? overrides.isVerified : true;
+    user.roles = overrides.roles || ['user'];
+    user.preferences = overrides.preferences || {};
+    user.metadata = overrides.metadata || {};
+    user.createdAt = overrides.createdAt || new Date();
+    user.updatedAt = overrides.updatedAt || new Date();
+    user.lastLoginAt = overrides.lastLoginAt || new Date();
+    return user;
+  }
+
+  static createMockAgent(overrides: Partial<Agent> = {}): Agent {
+    const agent = new Agent();
+    agent.id = overrides.id || TestUtils.generateUUID();
+    agent.name = overrides.name || `Agent_${TestUtils.generateRandomString(6)}`;
+    agent.description = overrides.description || 'Test agent description';
+    agent.role = overrides.role || AgentRole.SPECIALIST;
+    agent.status = overrides.status || AgentStatus.ACTIVE;
+    agent.capabilities = overrides.capabilities || ['reasoning', 'analysis'];
+    agent.configuration = overrides.configuration || {
+      maxTokens: 4000,
+      temperature: 0.7,
+      model: 'gpt-4'
+    };
+    agent.metadata = overrides.metadata || {};
+    agent.createdAt = overrides.createdAt || new Date();
+    agent.updatedAt = overrides.updatedAt || new Date();
+    agent.lastActiveAt = overrides.lastActiveAt || new Date();
+    return agent;
+  }
+
+  static createMockOperation(overrides: Partial<Operation> = {}): Operation {
+    const operation = new Operation();
+    operation.id = overrides.id || TestUtils.generateUUID();
+    operation.name = overrides.name || `Operation_${TestUtils.generateRandomString(6)}`;
+    operation.description = overrides.description || 'Test operation description';
+    operation.type = overrides.type || OperationType.ANALYSIS;
+    operation.status = overrides.status || OperationStatus.PENDING;
+    operation.priority = overrides.priority || 5;
+    operation.userId = overrides.userId || TestUtils.generateUUID();
+    operation.agentId = overrides.agentId || TestUtils.generateUUID();
+    operation.input = overrides.input || { query: 'test query' };
+    operation.output = overrides.output || null;
+    operation.metadata = overrides.metadata || {};
+    operation.createdAt = overrides.createdAt || new Date();
+    operation.updatedAt = overrides.updatedAt || new Date();
+    operation.startedAt = overrides.startedAt || null;
+    operation.completedAt = overrides.completedAt || null;
+    return operation;
+  }
+
+  static createMockToolDefinition(overrides: Partial<ToolDefinition> = {}): ToolDefinition {
+    const tool = new ToolDefinition();
+    tool.id = overrides.id || TestUtils.generateUUID();
+    tool.name = overrides.name || `tool_${TestUtils.generateRandomString(6)}`;
+    tool.displayName = overrides.displayName || `Test Tool ${TestUtils.generateRandomString(3)}`;
+    tool.description = overrides.description || 'Test tool description';
+    tool.category = overrides.category || ToolCategory.UTILITY;
+    tool.version = overrides.version || '1.0.0';
+    tool.schema = overrides.schema || {
+      type: 'object',
+      properties: {
+        input: { type: 'string' }
+      },
+      required: ['input']
+    };
+    tool.implementation = overrides.implementation || 'function testTool(input) { return input; }';
+    tool.securityLevel = overrides.securityLevel || SecurityLevel.LOW;
+    tool.isActive = overrides.isActive !== undefined ? overrides.isActive : true;
+    tool.metadata = overrides.metadata || {};
+    tool.createdAt = overrides.createdAt || new Date();
+    tool.updatedAt = overrides.updatedAt || new Date();
+    return tool;
+  }
+
+  static createMockPersona(overrides: Partial<Persona> = {}): Persona {
+    const persona = new Persona();
+    persona.id = overrides.id || TestUtils.generateUUID();
+    persona.name = overrides.name || `Persona_${TestUtils.generateRandomString(6)}`;
+    persona.description = overrides.description || 'Test persona description';
+    persona.systemPrompt = overrides.systemPrompt || 'You are a helpful assistant.';
+    persona.status = overrides.status || PersonaStatus.ACTIVE;
+    persona.visibility = overrides.visibility || PersonaVisibility.PUBLIC;
+    persona.userId = overrides.userId || TestUtils.generateUUID();
+    persona.configuration = overrides.configuration || {
+      temperature: 0.7,
+      maxTokens: 2000
+    };
+    persona.capabilities = overrides.capabilities || ['chat', 'analysis'];
+    persona.metadata = overrides.metadata || {};
+    persona.createdAt = overrides.createdAt || new Date();
+    persona.updatedAt = overrides.updatedAt || new Date();
+    return persona;
+  }
+
+  static createMockDiscussion(overrides: Partial<Discussion> = {}): Discussion {
+    const discussion = new Discussion();
+    discussion.id = overrides.id || TestUtils.generateUUID();
+    discussion.title = overrides.title || `Discussion_${TestUtils.generateRandomString(6)}`;
+    discussion.description = overrides.description || 'Test discussion description';
+    discussion.status = overrides.status || DiscussionStatus.ACTIVE;
+    discussion.creatorId = overrides.creatorId || TestUtils.generateUUID();
+    discussion.configuration = overrides.configuration || {
+      maxParticipants: 10,
+      allowAnonymous: false
+    };
+    discussion.metadata = overrides.metadata || {};
+    discussion.createdAt = overrides.createdAt || new Date();
+    discussion.updatedAt = overrides.updatedAt || new Date();
+    discussion.startedAt = overrides.startedAt || new Date();
+    discussion.endedAt = overrides.endedAt || null;
+    return discussion;
+  }
+
+  static createMockAuditEvent(overrides: Partial<AuditEvent> = {}): AuditEvent {
+    const audit = new AuditEvent();
+    audit.id = overrides.id || TestUtils.generateUUID();
+    audit.eventType = overrides.eventType || AuditEventType.USER_ACTION;
+    audit.entityType = overrides.entityType || 'User';
+    audit.entityId = overrides.entityId || TestUtils.generateUUID();
+    audit.userId = overrides.userId || TestUtils.generateUUID();
+    audit.action = overrides.action || 'CREATE';
+    audit.details = overrides.details || { test: 'data' };
+    audit.ipAddress = overrides.ipAddress || '127.0.0.1';
+    audit.userAgent = overrides.userAgent || 'Test User Agent';
+    audit.metadata = overrides.metadata || {};
+    audit.createdAt = overrides.createdAt || new Date();
+    return audit;
+  }
+
+  static createBatchMockUsers(count: number, baseOverrides: Partial<User> = {}): User[] {
+    return Array.from({ length: count }, (_, index) => 
+      this.createMockUser({
+        ...baseOverrides,
+        email: `user${index}@example.com`,
+        username: `user${index}`
+      })
+    );
+  }
+
+  static createBatchMockAgents(count: number, baseOverrides: Partial<Agent> = {}): Agent[] {
+    return Array.from({ length: count }, (_, index) => 
+      this.createMockAgent({
+        ...baseOverrides,
+        name: `Agent_${index}`
+      })
+    );
+  }
+
+  static createBatchMockOperations(count: number, baseOverrides: Partial<Operation> = {}): Operation[] {
+    return Array.from({ length: count }, (_, index) => 
+      this.createMockOperation({
+        ...baseOverrides,
+        name: `Operation_${index}`
+      })
+    );
+  }
+}

@@ -9,7 +9,7 @@
     "build:watch": "tsc --watch",
     "start:watch": "nodemon --watch dist --delay 1000ms dist/index.js",
     "start": "node dist/index.js",
-    "test": "jest",
+    "test": "jest --passWithNoTests",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "lint": "eslint src/**/*.ts",

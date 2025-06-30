@@ -1,0 +1,92 @@
+module.exports = {
+  SecurityLevel: {
+    LOW: 'LOW',
+    MEDIUM: 'MEDIUM',
+    HIGH: 'HIGH',
+    CRITICAL: 'CRITICAL'
+  },
+  AgentRole: {
+    SPECIALIST: 'SPECIALIST',
+    ORCHESTRATOR: 'ORCHESTRATOR',
+    COORDINATOR: 'COORDINATOR'
+  },
+  AgentStatus: {
+    ACTIVE: 'ACTIVE',
+    INACTIVE: 'INACTIVE',
+    MAINTENANCE: 'MAINTENANCE'
+  },
+  OperationType: {
+    ANALYSIS: 'ANALYSIS',
+    SYNTHESIS: 'SYNTHESIS',
+    VALIDATION: 'VALIDATION',
+    TRANSFORMATION: 'TRANSFORMATION'
+  },
+  OperationStatus: {
+    PENDING: 'PENDING',
+    RUNNING: 'RUNNING',
+    COMPLETED: 'COMPLETED',
+    FAILED: 'FAILED',
+    CANCELLED: 'CANCELLED'
+  },
+  ToolCategory: {
+    UTILITY: 'UTILITY',
+    ANALYSIS: 'ANALYSIS',
+    SYSTEM: 'SYSTEM',
+    COMMUNICATION: 'COMMUNICATION'
+  },
+  PersonaStatus: {
+    ACTIVE: 'ACTIVE',
+    INACTIVE: 'INACTIVE',
+    DRAFT: 'DRAFT'
+  },
+  PersonaVisibility: {
+    PUBLIC: 'PUBLIC',
+    PRIVATE: 'PRIVATE',
+    ORGANIZATION: 'ORGANIZATION'
+  },
+  DiscussionStatus: {
+    ACTIVE: 'ACTIVE',
+    SCHEDULED: 'SCHEDULED',
+    COMPLETED: 'COMPLETED',
+    CANCELLED: 'CANCELLED'
+  },
+  DiscussionVisibility: {
+    PUBLIC: 'PUBLIC',
+    PRIVATE: 'PRIVATE',
+    ORGANIZATION: 'ORGANIZATION'
+  },
+  AuditEventType: {
+    USER_ACTION: 'USER_ACTION',
+    SYSTEM_EVENT: 'SYSTEM_EVENT',
+    SECURITY_EVENT: 'SECURITY_EVENT'
+  },
+  KnowledgeType: {
+    TECHNICAL_DOCUMENTATION: 'TECHNICAL_DOCUMENTATION',
+    FAQ: 'FAQ',
+    TUTORIAL: 'TUTORIAL',
+    REFERENCE: 'REFERENCE'
+  },
+  SourceType: {
+    DOCUMENTATION: 'DOCUMENTATION',
+    USER_GENERATED: 'USER_GENERATED',
+    EXTERNAL: 'EXTERNAL',
+    SYSTEM: 'SYSTEM'
+  },
+  LLMProviderType: {
+    OPENAI: 'OPENAI',
+    ANTHROPIC: 'ANTHROPIC',
+    CUSTOM: 'CUSTOM',
+    OLLAMA: 'OLLAMA'
+  },
+  LLMProviderStatus: {
+    ACTIVE: 'ACTIVE',
+    INACTIVE: 'INACTIVE',
+    DEPRECATED: 'DEPRECATED'
+  },
+  WidgetPermission: {
+    VIEW: 'VIEW',
+    EDIT: 'EDIT',
+    DELETE: 'DELETE',
+    MANAGE: 'MANAGE'
+  }
+};

@@ -5,8 +5,8 @@ import {
   SecurityLevel
 } from '@uaip/types';
 import { CapabilityResolver } from './capability-resolver';
-import { AgentStateMachine } from '../agent-state/agent-state-machine';
-import { AgentEventBus } from '../observability/agent-event-bus';
+import { AgentStateMachine } from '../../agent-state/agent-state-machine';
+import { AgentEventBus } from '../../observability/agent-event-bus';
 import { logger } from '@uaip/utils';
 
 export interface DecisionResult {

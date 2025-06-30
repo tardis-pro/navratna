@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { BaseWidgetProps } from '@components/ui/base-widget';
+import { BaseWidgetProps } from '@/components/ui/base-widget';
 import { MarketplaceHub } from '@/components/marketplace/MarketplaceHub';
 import { WidgetCategory, WidgetPermission } from '@uaip/types/widget';
 

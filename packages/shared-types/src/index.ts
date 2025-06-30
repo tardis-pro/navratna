@@ -1,39 +1,39 @@
-export * from './common.js';
-export * from './agent.js';
-export * from './operation.js';
-export * from './capability.js';
-export * from './security.js';
-export * from './api.js';
-export * from './database.js';
-export * from './events.js';
+export * from './common';
+export * from './agent';
+export * from './operation';
+export * from './capability';
+export * from './security';
+export * from './api';
+export * from './database';
+export * from './events';
 // New exports for persona and discussion management
-export * from './persona.js';
-export * from './discussion.js'; 
-export * from './artifact.js';
+export * from './persona';
+export * from './discussion'; 
+export * from './artifact';
 // Tool types - NEW
-export * from './tool.js';
+export * from './tool';
 // MCP types - NEW
-export * from './mcp.js';
+export * from './mcp';
 // Knowledge Graph types - NEW
-export * from './knowledge-graph.js';
-export * from './personaDefaults.js';
-export * from './personaUtils.js';
+export * from './knowledge-graph';
+export * from './personaDefaults';
+export * from './personaUtils';
 // Audit and LLM types - NEW
-export * from './audit.js';
-export * from './llm.js';
+export * from './audit';
+export * from './llm';
 // User management types - NEW
-export * from './user.js';
+export * from './user';
 // System health and metrics types - NEW
-export * from './system.js';
+export * from './system';
 // WebSocket and real-time types - NEW
-export * from './websocket.js';
+export * from './websocket';
 // Model and provider types - NEW
-export * from './models.js';
+export * from './models';
 // Marketplace types - NEW
-export * from './marketplace.js';
+export * from './marketplace';
 // Battle Arena types - NEW
-export * from './battle.js';
+export * from './battle';
 // Social features types - NEW
-export * from './social.js';
+export * from './social';
 // Widget system types - NEW
-export * from './widget.js';
+export * from './widget';
