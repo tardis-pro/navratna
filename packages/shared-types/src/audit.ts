@@ -42,7 +42,28 @@ export enum AuditEventType {
   AUDIT_EXPORT = 'audit_export',
   COMPLIANCE_REPORT_GENERATED = 'compliance_report_generated',
   AUDIT_CLEANUP = 'audit_cleanup',
-  RISK_ASSESSMENT = 'risk_assessment'
+  RISK_ASSESSMENT = 'risk_assessment',
+
+  // OAuth Events
+  OAUTH_AUTHORIZE_INITIATED = 'oauth_authorize_initiated',
+  OAUTH_AUTHORIZE_FAILED = 'oauth_authorize_failed',
+  OAUTH_CALLBACK_SUCCESS = 'oauth_callback_success',
+  OAUTH_CALLBACK_FAILED = 'oauth_callback_failed',
+  OAUTH_CALLBACK_ERROR = 'oauth_callback_error',
+  OAUTH_CONNECTION_CREATED = 'oauth_connection_created',
+
+  // Agent Events
+  AGENT_AUTH_SUCCESS = 'agent_auth_success',
+  AGENT_AUTH_FAILED = 'agent_auth_failed',
+  AGENT_OPERATION = 'agent_operation',
+  AGENT_OPERATION_SUCCESS = 'agent_operation_success',
+  AGENT_OPERATION_FAILED = 'agent_operation_failed',
+
+  // Security Events
+  SECURITY_CONFIG_CHANGE = 'security_config_change',
+  MFA_SUCCESS = 'mfa_success',
+  MFA_FAILED = 'mfa_failed',
+  SYSTEM_ERROR = 'system_error'
 }
 
 // Audit log entry

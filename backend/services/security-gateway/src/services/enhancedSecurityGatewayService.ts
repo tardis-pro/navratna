@@ -106,7 +106,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
         riskLevel: riskAssessment.level,
         reasoning: this.generateReasoning(request, riskAssessment, approvalRequirement),
         requiredApprovers: approvalRequirement.approvers,
-        validUntil: new Date(Date.now() + this.getValidityDuration(riskAssessment.level)),
+        validUntil: new Date(Date.now() + this.getValidityDuration(riskAssessment.overallRisk)),
         mfaRequired: mfaRequirement.required,
         mfaMethods: mfaRequirement.methods,
         agentRestrictions
@@ -312,7 +312,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
       score: averageScore,
       factors,
       recommendations: this.generateRecommendations(factors),
-      mitigations: this.generateMitigations(factors),
+      mitigations: this.generateEnhancedMitigations(factors),
       assessedAt: new Date(),
       validUntil: new Date(Date.now() + 60 * 60 * 1000) // 1 hour
     };
@@ -647,53 +647,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
     return false;
   }
 
-  private getRequiredCapabilityForOperation(operationType: string): AgentCapability | undefined {
-    const operationCapabilityMap: Record<string, AgentCapability> = {
-      'git_clone': AgentCapability.CODE_REPOSITORY,
-      'git_push': AgentCapability.CODE_REPOSITORY,
-      'git_pull': AgentCapability.CODE_REPOSITORY,
-      'repo_create': AgentCapability.CODE_REPOSITORY,
-      'email_read': AgentCapability.EMAIL_ACCESS,
-      'email_send': AgentCapability.EMAIL_ACCESS,
-      'email_search': AgentCapability.EMAIL_ACCESS,
-      'file_read': AgentCapability.FILE_MANAGEMENT,
-      'file_write': AgentCapability.FILE_MANAGEMENT,
-      'file_delete': AgentCapability.FILE_MANAGEMENT,
-      'note_create': AgentCapability.NOTE_TAKING,
-      'note_update': AgentCapability.NOTE_TAKING,
-      'audio_process': AgentCapability.NOTE_TAKING,
-      'video_process': AgentCapability.NOTE_TAKING
-    };
 
-    return operationCapabilityMap[operationType];
-  }
-
-  private generateRecommendations(factors: RiskFactor[]): string[] {
-    const recommendations: string[] = [];
-
-    factors.forEach(factor => {
-      if (factor.level >= RiskLevel.HIGH) {
-        recommendations.push(`Address high-risk factor: ${factor.description}`);
-      }
-      if (factor.mitigations) {
-        recommendations.push(...factor.mitigations);
-      }
-    });
-
-    return [...new Set(recommendations)]; // Remove duplicates
-  }
-
-  private generateMitigations(factors: RiskFactor[]): string[] {
-    const mitigations: string[] = [];
-
-    factors.forEach(factor => {
-      if (factor.mitigations) {
-        mitigations.push(...factor.mitigations);
-      }
-    });
-
-    return [...new Set(mitigations)]; // Remove duplicates
-  }
 
   private generateReasoning(
     request: EnhancedSecurityValidationRequest,
@@ -986,4 +940,184 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
 
     return new Date(Date.now() + validityMinutes * 60 * 1000);
   }
-} 
+
+  /**
+   * Get validity duration based on risk level
+   */
+  private getValidityDuration(riskLevel: RiskLevel): number {
+    switch (riskLevel) {
+      case RiskLevel.CRITICAL: return 15 * 60 * 1000; // 15 minutes
+      case RiskLevel.HIGH: return 30 * 60 * 1000; // 30 minutes
+      case RiskLevel.MEDIUM: return 60 * 60 * 1000; // 1 hour
+      case RiskLevel.LOW: return 4 * 60 * 60 * 1000; // 4 hours
+      default: return 60 * 60 * 1000; // 1 hour default
+    }
+  }
+
+  /**
+   * Assess operation risk
+   */
+  private assessOperationRisk(operation: any): RiskFactor {
+    const operationType = operation.type || 'unknown';
+    let score = 1; // Base score
+    let level = RiskLevel.LOW;
+    let mitigations: string[] = [];
+
+    // Assess based on operation type
+    switch (operationType) {
+      case 'data_access':
+        score = 3;
+        level = RiskLevel.MEDIUM;
+        mitigations = ['Audit data access', 'Verify permissions'];
+        break;
+      case 'system_modification':
+        score = 4;
+        level = RiskLevel.HIGH;
+        mitigations = ['Require approval', 'Create backup', 'Audit changes'];
+        break;
+      case 'external_api':
+        score = 2;
+        level = RiskLevel.LOW;
+        mitigations = ['Rate limiting', 'Monitor API usage'];
+        break;
+      default:
+        score = 1;
+        level = RiskLevel.LOW;
+        mitigations = ['Standard monitoring'];
+    }
+
+    return {
+      type: 'operation_risk',
+      level,
+      description: `Operation type: ${operationType}`,
+      score,
+      mitigations
+    };
+  }
+
+  /**
+   * Convert score to risk level
+   */
+  private scoreToRiskLevel(score: number): RiskLevel {
+    if (score >= 4) return RiskLevel.CRITICAL;
+    if (score >= 3) return RiskLevel.HIGH;
+    if (score >= 2) return RiskLevel.MEDIUM;
+    return RiskLevel.LOW;
+  }
+
+  /**
+   * Convert risk level to security level
+   */
+  private riskToSecurityLevel(riskLevel: RiskLevel): SecurityLevel {
+    switch (riskLevel) {
+      case RiskLevel.CRITICAL: return SecurityLevel.CRITICAL;
+      case RiskLevel.HIGH: return SecurityLevel.HIGH;
+      case RiskLevel.MEDIUM: return SecurityLevel.MEDIUM;
+      case RiskLevel.LOW: return SecurityLevel.LOW;
+      default: return SecurityLevel.MEDIUM;
+    }
+  }
+
+  /**
+   * Assess time-based risk
+   */
+  protected assessTimeBasedRisk(): RiskFactor {
+    const now = new Date();
+    const hour = now.getHours();
+
+    // Higher risk during off-hours (10 PM - 6 AM)
+    const isOffHours = hour >= 22 || hour <= 6;
+
+    return {
+      type: 'time_based',
+      description: isOffHours ? 'Off-hours operation' : 'Business hours operation',
+      score: isOffHours ? 1 : 0,
+      level: isOffHours ? RiskLevel.MEDIUM : RiskLevel.LOW,
+      mitigations: isOffHours ? ['Schedule during business hours', 'Require additional approval'] : []
+    };
+  }
+
+  /**
+   * Generate recommendations based on risk factors
+   */
+  protected generateRecommendations(factors: RiskFactor[]): string[] {
+    const recommendations: string[] = [];
+
+    factors.forEach(factor => {
+      switch (factor.type) {
+        case 'user_type':
+          if (factor.score > 0) {
+            recommendations.push('Consider additional verification for agent operations');
+          }
+          break;
+        case 'authentication_method':
+          if (factor.score > 1) {
+            recommendations.push('Upgrade to stronger authentication method');
+          }
+          break;
+        case 'oauth_provider':
+          if (factor.score > 0) {
+            recommendations.push('Verify OAuth provider permissions and scope');
+          }
+          break;
+        case 'agent_capability':
+          if (factor.score > 2) {
+            recommendations.push('Review agent capabilities and reduce if possible');
+          }
+          break;
+        case 'device_trust':
+          if (factor.score > 0) {
+            recommendations.push('Verify device trust status');
+          }
+          break;
+        case 'time_based':
+          if (factor.score > 0) {
+            recommendations.push('Consider delaying non-critical operations to business hours');
+          }
+          break;
+      }
+    });
+
+    return recommendations;
+  }
+
+  /**
+   * Generate enhanced mitigations
+   */
+  protected generateEnhancedMitigations(factors: RiskFactor[]): string[] {
+    const mitigations: string[] = [];
+
+    const highRiskFactors = factors.filter(f => f.score >= 2);
+
+    if (highRiskFactors.length > 0) {
+      mitigations.push('Require additional approval');
+      mitigations.push('Enable enhanced monitoring');
+    }
+
+    const criticalFactors = factors.filter(f => f.score >= 3);
+    if (criticalFactors.length > 0) {
+      mitigations.push('Require MFA verification');
+      mitigations.push('Limit operation scope');
+    }
+
+    return mitigations;
+  }
+
+  /**
+   * Get required capability for operation type
+   */
+  protected getRequiredCapabilityForOperation(operationType: string): AgentCapability | null {
+    const operationCapabilityMap: Record<string, AgentCapability> = {
+      'git_clone': AgentCapability.CODE_REPOSITORY,
+      'git_push': AgentCapability.CODE_REPOSITORY,
+      'file_read': AgentCapability.FILE_MANAGEMENT,
+      'file_write': AgentCapability.FILE_MANAGEMENT,
+      'email_send': AgentCapability.EMAIL_ACCESS,
+      'email_read': AgentCapability.EMAIL_ACCESS,
+      'note_create': AgentCapability.NOTE_TAKING,
+      'note_update': AgentCapability.NOTE_TAKING
+    };
+
+    return operationCapabilityMap[operationType] || null;
+  }
+}

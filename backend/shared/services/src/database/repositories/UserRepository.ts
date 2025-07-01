@@ -342,7 +342,7 @@ export class UserRepository extends BaseRepository<UserEntity> {
   }> {
     try {
       const manager = this.getEntityManager();
-      
+
       // Get role-based permissions
       const rolePermissionsQuery = `
         SELECT r.name as role_name, p.type as permission_type, p.operations
@@ -397,7 +397,7 @@ export class UserRepository extends BaseRepository<UserEntity> {
   } | null> {
     try {
       const manager = this.getEntityManager();
-      
+
       // Get user data with recent activity count
       const query = `
         SELECT 
@@ -411,7 +411,7 @@ export class UserRepository extends BaseRepository<UserEntity> {
       `;
 
       const result = await manager.query(query, [userId]);
-      
+
       if (result.length === 0) {
         return null;
       }
@@ -436,7 +436,7 @@ export class UserRepository extends BaseRepository<UserEntity> {
   public async getUserHighestRole(userId: string): Promise<string | null> {
     try {
       const manager = this.getEntityManager();
-      
+
       const query = `
         SELECT r.name 
         FROM users u
@@ -454,7 +454,7 @@ export class UserRepository extends BaseRepository<UserEntity> {
       `;
 
       const result = await manager.query(query, [userId]);
-      
+
       return result.length > 0 ? result[0].name : null;
     } catch (error) {
       logger.error('Error getting user highest role', { userId, error: (error as Error).message });
@@ -567,4 +567,61 @@ export class PasswordResetTokenRepository extends BaseRepository<PasswordResetTo
     });
     return result.affected;
   }
-} 
+
+  /**
+   * Get user by OAuth provider
+   */
+  public async getUserByOAuthProvider(providerId: string, providerUserId: string): Promise<UserEntity | null> {
+    try {
+      // Query through agent OAuth connections table to find the user
+      const manager = this.getEntityManager();
+
+      const query = `
+        SELECT u.*
+        FROM users u
+        INNER JOIN agent_oauth_connections aoc ON u.id = aoc.agent_id
+        WHERE aoc.provider_id = $1
+        AND aoc.metadata->>'providerUserId' = $2
+        AND aoc.is_active = true
+      `;
+
+      const result = await manager.query(query, [providerId, providerUserId]);
+
+      if (result.length === 0) {
+        return null;
+      }
+
+      // Convert the raw result to UserEntity
+      const userData = result[0];
+
+      // Create a proper UserEntity object
+      const user: UserEntity = {
+        id: userData.id,
+        email: userData.email,
+        firstName: userData.first_name,
+        lastName: userData.last_name,
+        department: userData.department,
+        role: userData.role,
+        passwordHash: userData.password_hash,
+        securityClearance: userData.security_clearance,
+        isActive: userData.is_active,
+        failedLoginAttempts: userData.failed_login_attempts,
+        lockedUntil: userData.locked_until,
+        passwordChangedAt: userData.password_changed_at,
+        lastLoginAt: userData.last_login_at,
+        permissions: userData.permissions,
+        createdAt: userData.created_at,
+        updatedAt: userData.updated_at
+      };
+
+      return user;
+    } catch (error) {
+      logger.error('Error getting user by OAuth provider', {
+        providerId,
+        providerUserId,
+        error: (error as Error).message
+      });
+      return null;
+    }
+  }
+}

@@ -36,6 +36,11 @@ import { KnowledgeRelationshipEntity } from '../entities/knowledge-relationship.
 import { LLMProvider } from '../entities/llmProvider.entity.js';
 import { UserLLMProvider } from '../entities/userLLMProvider.entity.js';
 import { IntegrationEventEntity } from '../entities/integrationEvent.entity.js';
+import { OAuthProviderEntity } from '../entities/oauthProvider.entity.js';
+import { OAuthStateEntity } from '../entities/oauthState.entity.js';
+import { AgentOAuthConnectionEntity } from '../entities/agentOAuthConnection.entity.js';
+import { MFAChallengeEntity } from '../entities/mfaChallenge.entity.js';
+import { SessionEntity } from '../entities/session.entity.js';
 import { MCPServerSubscriber } from '../subscribers/MCPServerSubscriber.js';
 import { MCPToolCallSubscriber } from '../subscribers/MCPToolCallSubscriber.js';
 
@@ -84,6 +89,11 @@ export const allEntities = [
   LLMProvider,
   UserLLMProvider,
   IntegrationEventEntity,
+  OAuthProviderEntity,
+  OAuthStateEntity,
+  AgentOAuthConnectionEntity,
+  MFAChallengeEntity,
+  SessionEntity,
 ];
 
 // All subscribers array
@@ -156,7 +166,7 @@ class RedisCacheManager {
   private redis: IORedis | null = null;
   private isConnected = false;
 
-  private constructor() {}
+  private constructor() { }
 
   static getInstance(): RedisCacheManager {
     if (!RedisCacheManager.instance) {
@@ -228,11 +238,11 @@ class RedisCacheManager {
     try {
       await Promise.race([
         this.redis.ping(),
-        new Promise((_, reject) => 
+        new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Redis ping timeout')), 5000)
         )
       ]);
-      
+
       this.isConnected = true;
       logger.info('Redis cache connection verified');
       return this.redis;
@@ -274,9 +284,9 @@ const redisCacheManager = RedisCacheManager.getInstance();
  */
 function isSystemQuery(key: string): boolean {
   if (!key || typeof key !== 'string') return false;
-  
+
   const lowerKey = key.toLowerCase();
-  
+
   // System queries that cause hanging during initialization
   const systemPatterns = [
     'select version()',
@@ -299,28 +309,28 @@ function isSystemQuery(key: string): boolean {
     'pg_proc',
     'pg_description'
   ];
-  
+
   // Check if key contains any system patterns
   for (const pattern of systemPatterns) {
     if (lowerKey.includes(pattern)) {
       return true;
     }
   }
-  
+
   // Skip very long keys (likely complex system queries)
   if (key.length > 2000) {
     return true;
   }
-  
+
   // Skip queries that look like schema introspection
-  if (lowerKey.includes('table_schema') || 
-      lowerKey.includes('column_name') || 
-      lowerKey.includes('constraint_name') ||
-      lowerKey.includes('pg_stat_') ||
-      lowerKey.includes('pg_settings')) {
+  if (lowerKey.includes('table_schema') ||
+    lowerKey.includes('column_name') ||
+    lowerKey.includes('constraint_name') ||
+    lowerKey.includes('pg_stat_') ||
+    lowerKey.includes('pg_settings')) {
     return true;
   }
-  
+
   return false;
 }
 
@@ -406,13 +416,13 @@ async function createCacheConfig(): Promise<any | undefined> {
  */
 export async function createTypeOrmConfig(disableCache = false): Promise<DataSourceOptions & PostgresConnectionOptions> {
   const baseConfig = createBaseConfig();
-  
+
   if (disableCache) {
     return baseConfig;
   }
 
   const cacheConfig = await createCacheConfig();
-  
+
   return {
     ...baseConfig,
     ...(cacheConfig && { cache: cacheConfig }),
@@ -428,7 +438,7 @@ export class TypeOrmDataSourceManager {
   private dataSource: DataSource | null = null;
   private initializationPromise: Promise<DataSource> | null = null;
 
-  private constructor() {}
+  private constructor() { }
 
   static getInstance(): TypeOrmDataSourceManager {
     if (!TypeOrmDataSourceManager.instance) {
@@ -455,7 +465,7 @@ export class TypeOrmDataSourceManager {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         const config = await createTypeOrmConfig(disableCache);
-        
+
         logger.info('Initializing TypeORM DataSource', {
           attempt: `${attempt}/${maxRetries}`,
           host: config.host,
@@ -466,7 +476,7 @@ export class TypeOrmDataSourceManager {
 
         this.dataSource = new DataSource(config);
         await this.dataSource.initialize();
-        
+
         logger.info('TypeORM DataSource initialized successfully');
         return this.dataSource;
       } catch (error) {
@@ -505,10 +515,10 @@ export class TypeOrmDataSourceManager {
       await this.dataSource.destroy();
       logger.info('TypeORM DataSource closed successfully');
     }
-    
+
     // Close Redis cache connection
     await redisCacheManager.closeConnection();
-    
+
     this.dataSource = null;
     this.initializationPromise = null;
   }

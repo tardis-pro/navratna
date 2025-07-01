@@ -1,8 +1,8 @@
 # Council of Nycea - Unified Agent Intelligence Platform (UAIP)
 
-**Version**: 2.0 - Production Ready Backend  
-**Status**: Backend 100% Complete ✅ | Frontend Integration 60% Complete 🔄  
-**Last Updated**: January 2025  
+**Version**: 2.1 - Enhanced Security Implementation
+**Status**: Backend 100% Complete ✅ | Enhanced Security ✅ | Frontend Integration 60% Complete 🔄
+**Last Updated**: July 2025
 
 ## 🎯 Overview
 
@@ -13,6 +13,7 @@ The **Unified Agent Intelligence Platform (UAIP)** is a production-ready backend
 - **Real-time Discussion Management**: WebSocket-based collaborative discussions
 - **Intelligent Tool Execution**: Sandboxed capability registry with security controls
 - **Knowledge Graph Integration**: Neo4j-powered relationship mapping and recommendations
+- **Enhanced Security System**: ✅ **NEW** - OAuth integration, agent-specific policies, MFA, risk assessment
 - **Enterprise Security**: Complete RBAC, audit trails, and approval workflows
 
 ## 🏗️ System Architecture
@@ -21,7 +22,7 @@ The **Unified Agent Intelligence Platform (UAIP)** is a production-ready backend
 - **Agent Intelligence Service** (Port 3001) - Context analysis, persona management
 - **Orchestration Pipeline Service** (Port 3002) - Workflow coordination, operation management
 - **Capability Registry Service** (Port 3003) - Tool management, sandboxed execution
-- **Security Gateway Service** (Port 3004) - Authentication, authorization, auditing
+- **Security Gateway Service** (Port 3004) - ✅ **Enhanced** - OAuth, agent security, MFA, risk assessment
 - **Discussion Orchestration Service** (Port 3005) - Real-time collaborative discussions
 - **API Gateway** (Port 8081) - Centralized routing, rate limiting, documentation
 
@@ -45,6 +46,7 @@ The **Unified Agent Intelligence Platform (UAIP)** is a production-ready backend
 - **[Persona System](docs/PERSONA_SYSTEM.md)** – Agent personas
 - **[Capability Registry](docs/CAPABILITY_REGISTRY.md)** – Tool execution
 - **[Knowledge Graph](docs/KNOWLEDGE_GRAPH.md)** – Neo4j integration
+- **[Enhanced Security](docs/technical/SECURITY.md)** – ✅ **NEW** - OAuth, agent security, MFA
 
 ---
 

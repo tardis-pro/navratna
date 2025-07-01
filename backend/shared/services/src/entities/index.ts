@@ -32,6 +32,17 @@ export { AuditEvent } from './auditEvent.entity.js';
 // Security System entities
 export { SecurityPolicy } from './securityPolicy.entity.js';
 
+// OAuth System entities
+export { OAuthProviderEntity } from './oauthProvider.entity.js';
+export { OAuthStateEntity } from './oauthState.entity.js';
+export { AgentOAuthConnectionEntity } from './agentOAuthConnection.entity.js';
+
+// MFA System entities
+export { MFAChallengeEntity } from './mfaChallenge.entity.js';
+
+// Session System entities
+export { SessionEntity } from './session.entity.js';
+
 // Tool System entities
 export { ToolDefinition } from './toolDefinition.entity.js';
 export { ToolExecution } from './toolExecution.entity.js';

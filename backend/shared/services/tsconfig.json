@@ -9,19 +9,37 @@
     "sourceMap": true,
     "target": "ES2020",
     "module": "ESNext",
-    "moduleResolution": "bundler",
+    "moduleResolution": "node",
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "strict": false,
     "baseUrl": ".",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "useDefineForClassFields": false,
     "tsBuildInfoFile": "./tsconfig.tsbuildinfo"
   },
-  "include": ["src/**/*"],
-  "exclude": ["dist", "node_modules", "src/migrations/**/*", "src/__tests__/**/*", "**/*.test.ts", "**/*.spec.ts"],
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "dist",
+    "node_modules",
+    "src/migrations/**/*",
+    "src/__tests__/**/*",
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ],
   "references": [
-    { "path": "../../../packages/shared-types" },
-    { "path": "../config" },
-    { "path": "../../../packages/shared-utils" }
+    {
+      "path": "../../../packages/shared-types"
+    },
+    {
+      "path": "../config"
+    },
+    {
+      "path": "../../../packages/shared-utils"
+    }
   ]
-} 
+}

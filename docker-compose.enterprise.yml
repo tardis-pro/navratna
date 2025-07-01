@@ -1,0 +1,765 @@
+# =============================================================================
+# Council of Nycea - Enterprise Database Compartmentalization
+# Phase 0: SOC 2, HIPAA, PCI DSS, ISO 27001, FedRAMP Compliance
+# =============================================================================
+#
+# SECURITY LEVELS:
+# Level 5 - Top Secret (Security Database)
+# Level 4 - Restricted (Management Network)  
+# Level 3 - Confidential (Application Network)
+# Level 2 - Internal (Analytics/Operations Network)
+# Level 1 - Public (DMZ Network)
+#
+# =============================================================================
+
+services:
+  # =============================================================================
+  # LEVEL 4 RESTRICTED - SECURITY DATABASE TIER
+  # =============================================================================
+  
+  # Security PostgreSQL - Level 4 Restricted (Port 5433)
+  postgres-security:
+    image: postgres:17.5-bullseye
+    container_name: uaip-postgres-security
+    environment:
+      POSTGRES_DB: uaip_security
+      POSTGRES_USER: uaip_security_user
+      POSTGRES_PASSWORD: ${POSTGRES_SECURITY_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
+      # Enterprise Security Features
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+      POSTGRES_ENCRYPTION: "on"
+      POSTGRES_SSL_MODE: require
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_security_data:/var/lib/postgresql/data
+      - ./database/postgresql/security-init:/docker-entrypoint-initdb.d
+      - ./database/postgresql/ssl-certs/security:/etc/ssl/certs/postgres:ro
+    networks:
+      - uaip-security-network
+    command: >
+      postgres
+      -c ssl=on
+      -c ssl_cert_file=/etc/ssl/certs/postgres/server.crt
+      -c ssl_key_file=/etc/ssl/certs/postgres/server.key
+      -c ssl_ca_file=/etc/ssl/certs/postgres/ca.crt
+      -c log_statement=all
+      -c log_min_duration_statement=0
+      -c log_connections=on
+      -c log_disconnections=on
+      -c log_checkpoints=on
+      -c log_lock_waits=on
+      -c row_security=on
+      -c shared_preload_libraries='pg_stat_statements'
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U uaip_security_user -d uaip_security"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    
+  # Security Qdrant - Level 4 Restricted (Port 6333)
+  qdrant-security:
+    image: qdrant/qdrant:v1.14.1
+    container_name: uaip-qdrant-security
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_security_data:/qdrant/storage
+      - ./database/qdrant/ssl-certs/security:/qdrant/ssl:ro
+    environment:
+      QDRANT__SERVICE__HTTP_PORT: 6333
+      QDRANT__SERVICE__GRPC_PORT: 6334
+      QDRANT__SERVICE__ENABLE_TLS: true
+      QDRANT__SERVICE__TLS_CERT: /qdrant/ssl/server.crt
+      QDRANT__SERVICE__TLS_KEY: /qdrant/ssl/server.key
+      QDRANT__SERVICE__TLS_CA_CERT: /qdrant/ssl/ca.crt
+      QDRANT__STORAGE__PERFORMANCE__MAX_MEMORY_USAGE_PERCENT: 50
+    networks:
+      - uaip-security-network
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 5s bash -c '</dev/tcp/localhost/6333'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Security Neo4j - Level 4 Restricted (Port 7687)  
+  neo4j-security:
+    image: neo4j:2025.04.0-enterprise-bullseye
+    container_name: uaip-neo4j-security
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_SECURITY_PASSWORD}
+      NEO4J_PLUGINS: '["apoc", "graph-data-science"]'
+      NEO4J_ACCEPT_LICENSE_AGREEMENT: "yes"
+      # Enterprise Security Configuration
+      NEO4J_dbms_ssl_policy_bolt_enabled: true
+      NEO4J_dbms_ssl_policy_bolt_base__directory: /ssl/bolt
+      NEO4J_dbms_ssl_policy_bolt_private__key: /ssl/bolt/private.key
+      NEO4J_dbms_ssl_policy_bolt_public__certificate: /ssl/bolt/public.crt
+      NEO4J_dbms_ssl_policy_bolt_trusted__dir: /ssl/bolt/trusted
+      NEO4J_dbms_ssl_policy_bolt_client__auth: REQUIRE
+      NEO4J_dbms_connector_bolt_tls__level: REQUIRED
+      # Security and Audit Settings
+      NEO4J_dbms_security_auth__enabled: true
+      NEO4J_dbms_security_log__successful__authentication: true
+      NEO4J_dbms_logs_security_level: INFO
+      NEO4J_dbms_memory_heap_initial__size: 512m
+      NEO4J_dbms_memory_heap_max__size: 1G
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j_security_data:/data
+      - neo4j_security_logs:/logs
+      - ./database/neo4j/ssl-certs/security:/ssl:ro
+      - ./database/neo4j/security-init:/docker-entrypoint-initdb.d
+    networks:
+      - uaip-security-network
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "${NEO4J_SECURITY_PASSWORD}", "RETURN 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+  # =============================================================================
+  # LEVEL 3 CONFIDENTIAL - APPLICATION DATABASE TIER
+  # =============================================================================
+  
+  # Application PostgreSQL - Level 3 Confidential (Port 5432)
+  postgres-application:
+    image: postgres:17.5-bullseye
+    container_name: uaip-postgres-application
+    environment:
+      POSTGRES_DB: uaip_application
+      POSTGRES_USER: uaip_app_user
+      POSTGRES_PASSWORD: ${POSTGRES_APPLICATION_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+      POSTGRES_SSL_MODE: require
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_application_data:/var/lib/postgresql/data
+      - ./database/postgresql/application-init:/docker-entrypoint-initdb.d
+      - ./database/postgresql/ssl-certs/application:/etc/ssl/certs/postgres:ro
+    networks:
+      - uaip-application-network
+    command: >
+      postgres
+      -c ssl=on
+      -c ssl_cert_file=/etc/ssl/certs/postgres/server.crt
+      -c ssl_key_file=/etc/ssl/certs/postgres/server.key
+      -c log_statement=mod
+      -c log_min_duration_statement=1000
+      -c shared_preload_libraries='pg_stat_statements'
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U uaip_app_user -d uaip_application"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+  # Knowledge Qdrant - Level 3 Confidential (Port 6335)
+  qdrant-knowledge:
+    image: qdrant/qdrant:v1.14.1
+    container_name: uaip-qdrant-knowledge
+    ports:
+      - "6335:6333"
+      - "6336:6334"
+    volumes:
+      - qdrant_knowledge_data:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__HTTP_PORT: 6333
+      QDRANT__SERVICE__GRPC_PORT: 6334
+      QDRANT__SERVICE__ENABLE_TLS: true
+      QDRANT__STORAGE__PERFORMANCE__MAX_MEMORY_USAGE_PERCENT: 60
+    networks:
+      - uaip-application-network
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 5s bash -c '</dev/tcp/localhost/6333'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Agent Qdrant - Level 3 Confidential (Port 6337)
+  qdrant-agent:
+    image: qdrant/qdrant:v1.14.1
+    container_name: uaip-qdrant-agent
+    ports:
+      - "6337:6333"
+      - "6338:6334"
+    volumes:
+      - qdrant_agent_data:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__HTTP_PORT: 6333
+      QDRANT__SERVICE__GRPC_PORT: 6334
+      QDRANT__SERVICE__ENABLE_TLS: true
+      QDRANT__STORAGE__PERFORMANCE__MAX_MEMORY_USAGE_PERCENT: 60
+    networks:
+      - uaip-application-network
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 5s bash -c '</dev/tcp/localhost/6333'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Knowledge Neo4j - Level 3 Confidential (Port 7688)
+  neo4j-knowledge:
+    image: neo4j:2025.04.0-enterprise-bullseye
+    container_name: uaip-neo4j-knowledge
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_KNOWLEDGE_PASSWORD}
+      NEO4J_PLUGINS: '["apoc", "graph-data-science"]'
+      NEO4J_ACCEPT_LICENSE_AGREEMENT: "yes"
+      NEO4J_dbms_connector_bolt_tls__level: OPTIONAL
+      NEO4J_dbms_memory_heap_initial__size: 512m
+      NEO4J_dbms_memory_heap_max__size: 1G
+    ports:
+      - "7475:7474"
+      - "7688:7687"
+    volumes:
+      - neo4j_knowledge_data:/data
+      - neo4j_knowledge_logs:/logs
+      - ./database/neo4j/knowledge-init:/docker-entrypoint-initdb.d
+    networks:
+      - uaip-application-network
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "${NEO4J_KNOWLEDGE_PASSWORD}", "RETURN 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+  # Agent Neo4j - Level 3 Confidential (Port 7689)
+  neo4j-agent:
+    image: neo4j:2025.04.0-enterprise-bullseye
+    container_name: uaip-neo4j-agent
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_AGENT_PASSWORD}
+      NEO4J_PLUGINS: '["apoc", "graph-data-science"]'
+      NEO4J_ACCEPT_LICENSE_AGREEMENT: "yes"
+      NEO4J_dbms_connector_bolt_tls__level: OPTIONAL
+      NEO4J_dbms_memory_heap_initial__size: 512m
+      NEO4J_dbms_memory_heap_max__size: 1G
+    ports:
+      - "7476:7474"
+      - "7689:7687"
+    volumes:
+      - neo4j_agent_data:/data
+      - neo4j_agent_logs:/logs
+      - ./database/neo4j/agent-init:/docker-entrypoint-initdb.d
+    networks:
+      - uaip-application-network
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "${NEO4J_AGENT_PASSWORD}", "RETURN 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+  # =============================================================================
+  # LEVEL 2 INTERNAL - ANALYTICS/OPERATIONS DATABASE TIER
+  # =============================================================================
+  
+  # Analytics PostgreSQL - Level 2 Internal (Port 5434)
+  postgres-analytics:
+    image: postgres:17.5-bullseye
+    container_name: uaip-postgres-analytics
+    environment:
+      POSTGRES_DB: uaip_analytics
+      POSTGRES_USER: uaip_analytics_user
+      POSTGRES_PASSWORD: ${POSTGRES_ANALYTICS_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--auth-host=md5"
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_analytics_data:/var/lib/postgresql/data
+      - ./database/postgresql/analytics-init:/docker-entrypoint-initdb.d
+    networks:
+      - uaip-analytics-network
+    command: >
+      postgres
+      -c log_statement=none
+      -c log_min_duration_statement=5000
+      -c shared_preload_libraries='pg_stat_statements'
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U uaip_analytics_user -d uaip_analytics"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+  # Operations PostgreSQL - Level 2 Internal (Port 5435)
+  postgres-operations:
+    image: postgres:17.5-bullseye
+    container_name: uaip-postgres-operations
+    environment:
+      POSTGRES_DB: uaip_operations
+      POSTGRES_USER: uaip_ops_user
+      POSTGRES_PASSWORD: ${POSTGRES_OPERATIONS_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--auth-host=md5"
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_operations_data:/var/lib/postgresql/data
+      - ./database/postgresql/operations-init:/docker-entrypoint-initdb.d
+    networks:
+      - uaip-analytics-network
+    command: >
+      postgres
+      -c log_statement=ddl
+      -c log_min_duration_statement=2000
+      -c shared_preload_libraries='pg_stat_statements'
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U uaip_ops_user -d uaip_operations"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+  # Analytics Qdrant - Level 2 Internal (Port 6339)
+  qdrant-analytics:
+    image: qdrant/qdrant:v1.14.1
+    container_name: uaip-qdrant-analytics
+    ports:
+      - "6339:6333"
+      - "6340:6334"
+    volumes:
+      - qdrant_analytics_data:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__HTTP_PORT: 6333
+      QDRANT__SERVICE__GRPC_PORT: 6334
+      QDRANT__STORAGE__PERFORMANCE__MAX_MEMORY_USAGE_PERCENT: 70
+    networks:
+      - uaip-analytics-network
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 5s bash -c '</dev/tcp/localhost/6333'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Operations Neo4j - Level 2 Internal (Port 7690)
+  neo4j-operations:
+    image: neo4j:2025.04.0-community-bullseye
+    container_name: uaip-neo4j-operations
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_OPERATIONS_PASSWORD}
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_dbms_memory_heap_initial__size: 256m
+      NEO4J_dbms_memory_heap_max__size: 512m
+    ports:
+      - "7477:7474"
+      - "7690:7687"
+    volumes:
+      - neo4j_operations_data:/data
+      - neo4j_operations_logs:/logs
+      - ./database/neo4j/operations-init:/docker-entrypoint-initdb.d
+    networks:
+      - uaip-analytics-network
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "${NEO4J_OPERATIONS_PASSWORD}", "RETURN 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+  # =============================================================================
+  # SHARED INFRASTRUCTURE SERVICES
+  # =============================================================================
+  
+  # Redis - Shared across networks with network isolation
+  redis-security:
+    image: redis:8-alpine
+    container_name: uaip-redis-security
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_security_data:/data
+    networks:
+      - uaip-security-network
+    command: >
+      redis-server
+      --protected-mode yes
+      --bind 0.0.0.0
+      --requirepass ${REDIS_SECURITY_PASSWORD}
+      --appendonly yes
+      --appendfsync everysec
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+    environment:
+      - REDIS_PASSWORD=${REDIS_SECURITY_PASSWORD}
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_SECURITY_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  redis-application:
+    image: redis:8-alpine
+    container_name: uaip-redis-application
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_application_data:/data
+    networks:
+      - uaip-application-network
+    command: >
+      redis-server
+      --protected-mode yes
+      --bind 0.0.0.0
+      --requirepass ${REDIS_APPLICATION_PASSWORD}
+      --appendonly yes
+      --appendfsync everysec
+    environment:
+      - REDIS_PASSWORD=${REDIS_APPLICATION_PASSWORD}
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_APPLICATION_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  # RabbitMQ - Management network with enhanced security
+  rabbitmq-enterprise:
+    image: rabbitmq:4.1.0-management-alpine
+    container_name: uaip-rabbitmq-enterprise
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_ADMIN_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_ADMIN_PASSWORD}
+      RABBITMQ_SSL_CERTFILE: /etc/rabbitmq/ssl/server.crt
+      RABBITMQ_SSL_KEYFILE: /etc/rabbitmq/ssl/server.key
+      RABBITMQ_SSL_CACERTFILE: /etc/rabbitmq/ssl/ca.crt
+      RABBITMQ_CONFIG_FILE: /etc/rabbitmq/rabbitmq-enterprise
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+      - "5671:5671"  # SSL AMQP
+    volumes:
+      - rabbitmq_enterprise_data:/var/lib/rabbitmq
+      - ./infrastructure/rabbitmq/ssl-certs:/etc/rabbitmq/ssl:ro
+      - ./infrastructure/rabbitmq/enterprise-config:/etc/rabbitmq:ro
+    networks:
+      - uaip-management-network
+      - uaip-application-network
+      - uaip-analytics-network
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 30s
+      retries: 3
+    restart: unless-stopped
+
+  # =============================================================================
+  # APPLICATION SERVICES WITH NETWORK SEGMENTATION
+  # =============================================================================
+  
+  # Security Gateway - Level 4 Restricted Access
+  security-gateway-enterprise:
+    image: uaip-backend-base:latest
+    container_name: uaip-security-gateway-enterprise
+    environment:
+      - SERVICE_NAME=security-gateway
+      - SERVICE_PORT=3004
+      - NODE_ENV=production
+      - PORT=3004
+      # Security Database Connections
+      - POSTGRES_SECURITY_URL=postgresql://uaip_security_user:${POSTGRES_SECURITY_PASSWORD}@postgres-security:5432/uaip_security?sslmode=require
+      - REDIS_SECURITY_URL=redis://:${REDIS_SECURITY_PASSWORD}@redis-security:6379
+      - QDRANT_SECURITY_URL=http://qdrant-security:6333
+      - NEO4J_SECURITY_URL=bolt://neo4j:${NEO4J_SECURITY_PASSWORD}@neo4j-security:7687
+      - RABBITMQ_URL=amqps://${RABBITMQ_ADMIN_USER}:${RABBITMQ_ADMIN_PASSWORD}@rabbitmq-enterprise:5671
+      - JWT_SECRET=${JWT_SECRET_ENTERPRISE}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY_ENTERPRISE}
+      # Zero Trust Configuration
+      - ZERO_TRUST_MODE=enabled
+      - SERVICE_ACCESS_MATRIX=security-tier
+    ports:
+      - "3004:3004"
+    volumes:
+      - ./packages:/app/packages
+      - ./backend/shared:/app/backend/shared
+      - ./backend/services/security-gateway:/app/backend/services/security-gateway
+      - ./certificates/services/security-gateway:/app/ssl:ro
+    depends_on:
+      - postgres-security
+      - redis-security
+      - qdrant-security
+      - neo4j-security
+      - rabbitmq-enterprise
+    networks:
+      - uaip-security-network
+      - uaip-management-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "https://localhost:3004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Agent Intelligence - Level 3 Confidential Access
+  agent-intelligence-enterprise:
+    image: uaip-backend-base:latest
+    container_name: uaip-agent-intelligence-enterprise
+    environment:
+      - SERVICE_NAME=agent-intelligence
+      - SERVICE_PORT=3001
+      - NODE_ENV=production
+      - PORT=3001
+      # Application Database Connections
+      - POSTGRES_APPLICATION_URL=postgresql://uaip_app_user:${POSTGRES_APPLICATION_PASSWORD}@postgres-application:5432/uaip_application?sslmode=require
+      - REDIS_APPLICATION_URL=redis://:${REDIS_APPLICATION_PASSWORD}@redis-application:6379
+      - QDRANT_KNOWLEDGE_URL=http://qdrant-knowledge:6333
+      - QDRANT_AGENT_URL=http://qdrant-agent:6333
+      - NEO4J_KNOWLEDGE_URL=bolt://neo4j:${NEO4J_KNOWLEDGE_PASSWORD}@neo4j-knowledge:7687
+      - NEO4J_AGENT_URL=bolt://neo4j:${NEO4J_AGENT_PASSWORD}@neo4j-agent:7687
+      - RABBITMQ_URL=amqps://${RABBITMQ_ADMIN_USER}:${RABBITMQ_ADMIN_PASSWORD}@rabbitmq-enterprise:5671
+      # Zero Trust Configuration
+      - ZERO_TRUST_MODE=enabled
+      - SERVICE_ACCESS_MATRIX=application-tier
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./packages:/app/packages
+      - ./backend/shared:/app/backend/shared
+      - ./backend/services/agent-intelligence:/app/backend/services/agent-intelligence
+    depends_on:
+      - postgres-application
+      - redis-application
+      - qdrant-knowledge
+      - qdrant-agent
+      - neo4j-knowledge
+      - neo4j-agent
+      - rabbitmq-enterprise
+    networks:
+      - uaip-application-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Orchestration Pipeline - Level 2/3 Hybrid Access
+  orchestration-pipeline-enterprise:
+    image: uaip-backend-base:latest
+    container_name: uaip-orchestration-enterprise
+    environment:
+      - SERVICE_NAME=orchestration-pipeline
+      - SERVICE_PORT=3002
+      - NODE_ENV=production
+      - PORT=3002
+      # Application and Operations Database Connections
+      - POSTGRES_APPLICATION_URL=postgresql://uaip_app_user:${POSTGRES_APPLICATION_PASSWORD}@postgres-application:5432/uaip_application?sslmode=require
+      - POSTGRES_OPERATIONS_URL=postgresql://uaip_ops_user:${POSTGRES_OPERATIONS_PASSWORD}@postgres-operations:5432/uaip_operations
+      - NEO4J_OPERATIONS_URL=bolt://neo4j:${NEO4J_OPERATIONS_PASSWORD}@neo4j-operations:7687
+      - REDIS_APPLICATION_URL=redis://:${REDIS_APPLICATION_PASSWORD}@redis-application:6379
+      - RABBITMQ_URL=amqps://${RABBITMQ_ADMIN_USER}:${RABBITMQ_ADMIN_PASSWORD}@rabbitmq-enterprise:5671
+      # Zero Trust Configuration
+      - ZERO_TRUST_MODE=enabled
+      - SERVICE_ACCESS_MATRIX=operations-tier
+    ports:
+      - "3002:3002"
+    volumes:
+      - ./packages:/app/packages
+      - ./backend/shared:/app/backend/shared
+      - ./backend/services/orchestration-pipeline:/app/backend/services/orchestration-pipeline
+    depends_on:
+      - postgres-application
+      - postgres-operations
+      - neo4j-operations
+      - redis-application
+      - rabbitmq-enterprise
+    networks:
+      - uaip-application-network
+      - uaip-analytics-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  # Security Tier - Level 4 Restricted
+  postgres_security_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/uaip/security/postgres
+  qdrant_security_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/uaip/security/qdrant
+  neo4j_security_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/uaip/security/neo4j
+  neo4j_security_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/log/uaip/security/neo4j
+  redis_security_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/uaip/security/redis
+
+  # Application Tier - Level 3 Confidential
+  postgres_application_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/uaip/application/postgres
+  qdrant_knowledge_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/uaip/application/qdrant-knowledge
+  qdrant_agent_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/uaip/application/qdrant-agent
+  neo4j_knowledge_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/uaip/application/neo4j-knowledge
+  neo4j_knowledge_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/log/uaip/application/neo4j-knowledge
+  neo4j_agent_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/uaip/application/neo4j-agent
+  neo4j_agent_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/log/uaip/application/neo4j-agent
+  redis_application_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/uaip/application/redis
+
+  # Analytics Tier - Level 2 Internal
+  postgres_analytics_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/uaip/analytics/postgres
+  postgres_operations_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/uaip/operations/postgres
+  qdrant_analytics_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/uaip/analytics/qdrant
+  neo4j_operations_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/uaip/operations/neo4j
+  neo4j_operations_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/log/uaip/operations/neo4j
+
+  # Management Tier
+  rabbitmq_enterprise_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/uaip/management/rabbitmq
+
+networks:
+  # Level 5 - Top Secret Isolation (Future expansion)
+  
+  # Level 4 - Restricted Security Network
+  uaip-security-network:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.20.1.0/24
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "false"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+
+  # Level 4 - Management Network (Admin access only)
+  uaip-management-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.2.0/24
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+
+  # Level 3 - Application Network (Business services)
+  uaip-application-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.3.0/24
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+
+  # Level 2 - Analytics Network (Read-only services)
+  uaip-analytics-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.4.0/24
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+
+  # Level 1 - DMZ Network (Public-facing services)
+  uaip-dmz-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.5.0/24
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"

@@ -1,13 +1,31 @@
 # Technical Debt and Known Issues
 
-**Version**: 2.1  
-**Last Updated**: January 2025  
-**Status**: MAJOR PROGRESS - Critical Issues Resolved ✅  
-**Review Cycle**: Monthly  
+**Version**: 2.2
+**Last Updated**: July 2025
+**Status**: ENHANCED SECURITY IMPLEMENTED ✅ - New Compilation Issues Identified 🔧
+**Review Cycle**: Monthly
 
 ## 🔍 Overview
 
 This document tracks technical debt, known issues, and system limitations across the UAIP platform. It serves as a central registry for areas requiring attention, improvement, or refactoring.
+
+## 🆕 NEW TECHNICAL DEBT (July 2025)
+
+### 1. Enhanced Security Compilation Issues - IN PROGRESS 🔧
+**Impact**: Medium - Prevents production deployment of enhanced security
+**Status**: IDENTIFIED - Implementation Complete, Compilation Fixes Needed
+**Priority**: High
+**Location**: backend/services/security-gateway, backend/shared/services
+
+**Issues Identified**:
+- [ ] **Missing Database Methods** - OAuth and MFA related methods need implementation
+- [ ] **Missing Audit Event Types** - Security-specific audit events need addition
+- [ ] **OAuth Provider Service Methods** - Several methods referenced but not implemented
+- [ ] **Base64URL Import Issue** - Deprecated types package causing warnings
+- [ ] **SecurityGatewayService Inheritance** - Method visibility conflicts
+
+**Estimated Effort**: 2-3 days
+**Next Action**: Follow implementation plan in docs/NEXT_STEPS.md
 
 ## ✅ RESOLVED CRITICAL ISSUES
 

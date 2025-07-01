@@ -49,7 +49,8 @@ const AgentAuthRequestSchema = z.object({
   agent_id: z.string().min(1),
   agent_token: z.string().min(1),
   capabilities: z.array(z.nativeEnum(AgentCapability)),
-  requested_scopes: z.array(z.string()).optional()
+  requested_scopes: z.array(z.string()).optional(),
+  requested_providers: z.array(z.string()).optional()
 });
 
 const GitHubOperationSchema = z.object({
@@ -112,17 +113,14 @@ export function createOAuthRoutes(
       const ipAddress = req.ip || req.connection.remoteAddress;
       const userAgent = req.get('User-Agent');
 
-      const { url, state, codeVerifier } = await oauthProviderService.createAuthorizationUrl(
+      const { url, state, codeVerifier } = await oauthProviderService.generateAuthorizationUrl(
         validatedData.provider_id,
         validatedData.redirect_uri,
         validatedData.user_type,
         validatedData.agent_capabilities
       );
 
-      // Store code verifier in session for PKCE
-      if (codeVerifier) {
-        req.session.codeVerifier = codeVerifier;
-      }
+      // Code verifier is already stored in OAuth state entity by the service
 
       await auditService.logEvent({
         eventType: AuditEventType.OAUTH_AUTHORIZE_INITIATED,
@@ -160,7 +158,7 @@ export function createOAuthRoutes(
   /**
    * Handle OAuth callback
    */
-  router.post('/callback', async (req: Request, res: Response) => {
+  router.post('/callback', (async (req: Request, res: Response) => {
     try {
       const validatedData = CallbackRequestSchema.parse(req.body);
       const ipAddress = req.ip || req.connection.remoteAddress;
@@ -185,8 +183,8 @@ export function createOAuthRoutes(
         });
       }
 
-      // Get redirect URI from session or request
-      const redirectUri = req.session.redirectUri || req.body.redirect_uri;
+      // Get redirect URI from request
+      const redirectUri = req.body.redirect_uri;
       if (!redirectUri) {
         return res.status(400).json({
           success: false,
@@ -203,12 +201,7 @@ export function createOAuthRoutes(
         userAgent
       );
 
-      if (!authResult.success) {
-        return res.status(401).json({
-          success: false,
-          error: authResult.error
-        });
-      }
+      // AuthenticationResult doesn't have success property - it throws on error
 
       // Set secure cookies for tokens
       const cookieOptions = {
@@ -218,37 +211,43 @@ export function createOAuthRoutes(
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
       };
 
-      res.cookie('access_token', authResult.tokens!.accessToken, cookieOptions);
-      res.cookie('refresh_token', authResult.tokens!.refreshToken, {
+      res.cookie('access_token', authResult.tokens.accessToken, cookieOptions);
+      res.cookie('refresh_token', authResult.tokens.refreshToken, {
         ...cookieOptions,
         maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
       });
 
-      // Clear session data
-      delete req.session.codeVerifier;
-      delete req.session.redirectUri;
+      // Session data is managed by OAuth state entity, no cleanup needed
 
       await auditService.logEvent({
         eventType: AuditEventType.OAUTH_CALLBACK_SUCCESS,
-        userId: authResult.user!.id,
-        userType: authResult.user!.userType,
-        sessionId: authResult.session!.id
+        userId: authResult.user.id,
+        details: {
+          userType: authResult.user.userType,
+          sessionId: authResult.session.id
+        }
       });
 
       res.json({
         success: true,
         user: {
-          id: authResult.user!.id,
-          email: authResult.user!.email,
-          name: authResult.user!.name,
-          userType: authResult.user!.userType,
-          role: authResult.user!.role
+          id: authResult.user.id,
+          email: authResult.user.email,
+          name: authResult.user.name,
+          userType: authResult.user.userType,
+          role: authResult.user.role
         },
         session: {
-          id: authResult.session!.id,
-          expiresAt: authResult.session!.expiresAt
+          id: authResult.session.id,
+          expiresAt: authResult.session.expiresAt
         },
-        mfa_required: authResult.mfaRequired,
+        tokens: {
+          access_token: authResult.tokens.accessToken,
+          refresh_token: authResult.tokens.refreshToken,
+          expires_at: authResult.session.expiresAt,
+          token_type: 'Bearer'
+        },
+        mfa_required: authResult.requiresMFA,
         mfa_challenge: authResult.mfaChallenge
       });
     } catch (error) {
@@ -266,7 +265,7 @@ export function createOAuthRoutes(
         error: error.message
       });
     }
-  });
+  }) as any);
 
   /**
    * Agent OAuth authentication
@@ -277,48 +276,43 @@ export function createOAuthRoutes(
       const ipAddress = req.ip || req.connection.remoteAddress;
       const userAgent = req.get('User-Agent');
 
-      const authResult = await enhancedAuthService.authenticateAgent(
-        {
-          agentId: validatedData.agent_id,
-          agentToken: validatedData.agent_token,
-          capabilities: validatedData.capabilities,
-          requestedScopes: validatedData.requested_scopes
-        },
+      const authResult = await enhancedAuthService.authenticateAgent({
+        agentId: validatedData.agent_id,
+        agentToken: validatedData.agent_token,
+        capabilities: validatedData.capabilities,
+        requestedProviders: (validatedData.requested_providers || []) as OAuthProviderType[],
         ipAddress,
         userAgent
-      );
+      });
 
-      if (!authResult.success) {
-        return res.status(401).json({
-          success: false,
-          error: authResult.error
-        });
-      }
+      // AuthenticationResult doesn't have success property - it throws on error
 
       await auditService.logEvent({
         eventType: AuditEventType.AGENT_AUTH_SUCCESS,
         agentId: validatedData.agent_id,
-        capabilities: validatedData.capabilities,
-        requestedScopes: validatedData.requested_scopes
+        details: {
+          capabilities: validatedData.capabilities,
+          requestedProviders: validatedData.requested_providers
+        }
       });
 
       res.json({
         success: true,
         agent: {
-          id: authResult.user!.id,
-          name: authResult.user!.name,
-          capabilities: authResult.user!.agentConfig?.capabilities || [],
-          userType: authResult.user!.userType
+          id: authResult.user.id,
+          name: authResult.user.name,
+          capabilities: authResult.user.agentConfig?.capabilities || [],
+          userType: authResult.user.userType
         },
         tokens: {
-          access_token: authResult.tokens!.accessToken,
-          refresh_token: authResult.tokens!.refreshToken,
-          expires_at: authResult.tokens!.expiresAt,
+          access_token: authResult.tokens.accessToken,
+          refresh_token: authResult.tokens.refreshToken,
+          expires_at: authResult.session.expiresAt,
           token_type: 'Bearer'
         },
         session: {
-          id: authResult.session!.id,
-          expiresAt: authResult.session!.expiresAt
+          id: authResult.session.id,
+          expiresAt: authResult.session.expiresAt
         }
       });
     } catch (error) {
@@ -345,7 +339,7 @@ export function createOAuthRoutes(
   router.post('/connect', authMiddleware, async (req: Request, res: Response) => {
     try {
       const { code, state, redirectUri } = req.body;
-      const userId = req.user?.userId;
+      const userId = req.user?.id;
 
       if (!userId) {
         throw new ApiError(401, 'Authentication required', 'AUTHENTICATION_REQUIRED');
@@ -399,10 +393,10 @@ export function createOAuthRoutes(
   router.get('/agent/:agentId/connections', authMiddleware, async (req: Request, res: Response) => {
     try {
       const { agentId } = req.params;
-      const userId = req.user?.userId;
+      const userId = req.user?.id;
 
-      // Verify agent access
-      if (userId !== agentId && req.user?.userType !== UserType.SYSTEM) {
+      // Verify agent access (note: req.user doesn't have userType property)
+      if (userId !== agentId) {
         throw new ApiError(403, 'Access denied', 'ACCESS_DENIED');
       }
 
@@ -447,10 +441,10 @@ export function createOAuthRoutes(
   router.delete('/agent/:agentId/connections/:providerId', authMiddleware, async (req: Request, res: Response) => {
     try {
       const { agentId, providerId } = req.params;
-      const userId = req.user?.userId;
+      const userId = req.user?.id;
 
-      // Verify agent access
-      if (userId !== agentId && req.user?.userType !== UserType.SYSTEM) {
+      // Verify agent access (note: req.user doesn't have userType property)
+      if (userId !== agentId) {
         throw new ApiError(403, 'Access denied', 'ACCESS_DENIED');
       }
 
@@ -493,7 +487,7 @@ export function createOAuthRoutes(
    */
 
   // GitHub-specific routes
-  router.post('/agent/github/:providerId', async (req: Request, res: Response) => {
+  router.post('/agent/github/:providerId', (async (req: Request, res: Response) => {
     try {
       const { providerId } = req.params;
       const validatedData = GitHubOperationSchema.parse(req.body);
@@ -561,10 +555,10 @@ export function createOAuthRoutes(
         error: error.message
       });
     }
-  });
+  }) as any);
 
   // Gmail-specific routes
-  router.post('/agent/gmail/:providerId', async (req: Request, res: Response) => {
+  router.post('/agent/gmail/:providerId', (async (req: Request, res: Response) => {
     try {
       const { providerId } = req.params;
       const validatedData = EmailOperationSchema.parse(req.body);
@@ -638,7 +632,7 @@ export function createOAuthRoutes(
         error: error.message
       });
     }
-  });
+  }) as any);
 
   // Health check for OAuth service
   router.get('/health', async (req: Request, res: Response) => {

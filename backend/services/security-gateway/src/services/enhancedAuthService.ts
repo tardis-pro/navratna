@@ -47,7 +47,7 @@ export class EnhancedAuthService {
     private databaseService: DatabaseService,
     private oauthProviderService: OAuthProviderService,
     private auditService: AuditService
-  ) {}
+  ) { }
 
   /**
    * Authenticate user with OAuth provider
@@ -532,7 +532,7 @@ export class EnhancedAuthService {
     userInfo: any
   ): Promise<void> {
     const existingProvider = user.oauthProviders.find(p => p.providerId === provider.id);
-    
+
     if (existingProvider) {
       existingProvider.lastUsedAt = new Date();
       existingProvider.email = userInfo.email;
@@ -639,7 +639,7 @@ export class EnhancedAuthService {
     try {
       const decoded = jwt.verify(token, config.jwt.secret) as any;
       const agent = await this.databaseService.getUserById(decoded.userId);
-      
+
       if (!agent || agent.userType !== UserType.AGENT) {
         return null;
       }
@@ -681,25 +681,25 @@ export class EnhancedAuthService {
     const algorithm = 'aes-256-gcm';
     const key = crypto.scryptSync(config.security?.encryptionKey || 'default-key', 'salt', 32);
     const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipher(algorithm, key);
-    
+    const cipher = crypto.createCipheriv(algorithm, key, iv);
+
     let encrypted = cipher.update(challenge, 'utf8', 'hex');
     encrypted += cipher.final('hex');
-    
+
     return `${iv.toString('hex')}:${encrypted}`;
   }
 
   private async decryptChallenge(encryptedChallenge: string): Promise<string> {
     const algorithm = 'aes-256-gcm';
     const key = crypto.scryptSync(config.security?.encryptionKey || 'default-key', 'salt', 32);
-    
+
     const [ivHex, encrypted] = encryptedChallenge.split(':');
     const iv = Buffer.from(ivHex, 'hex');
-    const decipher = crypto.createDecipher(algorithm, key);
-    
+    const decipher = crypto.createDecipheriv(algorithm, key, iv);
+
     let decrypted = decipher.update(encrypted, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
-    
+
     return decrypted;
   }
 

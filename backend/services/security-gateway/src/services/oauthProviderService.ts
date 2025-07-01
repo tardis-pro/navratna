@@ -20,7 +20,7 @@ import {
 import { AuditService } from './auditService.js';
 import { config } from '@uaip/config';
 import { randomBytes, createHash } from 'crypto';
-import { encode as base64UrlEncode } from 'base64url';
+import base64url from 'base64url';
 
 interface OAuthTokenResponse {
   access_token: string;
@@ -163,8 +163,8 @@ export class OAuthProviderService {
         }
       });
 
-      logger.info('OAuth provider created', { 
-        providerId: savedProvider.id, 
+      logger.info('OAuth provider created', {
+        providerId: savedProvider.id,
         type: savedProvider.type,
         agentAccess: savedProvider.agentConfig?.allowAgentAccess || false
       });
@@ -262,10 +262,10 @@ export class OAuthProviderService {
 
       return { url: authUrl, state, codeVerifier };
     } catch (error) {
-      logger.error('Failed to generate authorization URL', { 
-        providerId, 
+      logger.error('Failed to generate authorization URL', {
+        providerId,
         userType,
-        error: error instanceof Error ? error.message : 'Unknown error' 
+        error: error instanceof Error ? error.message : 'Unknown error'
       });
       throw error;
     }
@@ -278,9 +278,9 @@ export class OAuthProviderService {
     code: string,
     state: string,
     redirectUri: string
-  ): Promise<{ 
-    tokens: OAuthTokenResponse; 
-    userInfo: OAuthUserInfo; 
+  ): Promise<{
+    tokens: OAuthTokenResponse;
+    userInfo: OAuthUserInfo;
     provider: OAuthProviderConfig;
     oauthState: OAuthState;
   }> {
@@ -340,8 +340,8 @@ export class OAuthProviderService {
 
       return { tokens, userInfo, provider, oauthState };
     } catch (error) {
-      logger.error('OAuth callback failed', { 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      logger.error('OAuth callback failed', {
+        error: error instanceof Error ? error.message : 'Unknown error'
       });
       throw error;
     }
@@ -365,7 +365,7 @@ export class OAuthProviderService {
 
       // Encrypt sensitive tokens
       const encryptedAccessToken = await this.encryptSecret(tokens.access_token);
-      const encryptedRefreshToken = tokens.refresh_token ? 
+      const encryptedRefreshToken = tokens.refresh_token ?
         await this.encryptSecret(tokens.refresh_token) : undefined;
 
       const connection: AgentOAuthConnection = {
@@ -376,7 +376,7 @@ export class OAuthProviderService {
         capabilities,
         accessToken: encryptedAccessToken,
         refreshToken: encryptedRefreshToken,
-        tokenExpiresAt: tokens.expires_in ? 
+        tokenExpiresAt: tokens.expires_in ?
           new Date(Date.now() + tokens.expires_in * 1000) : undefined,
         scope: provider.scope,
         permissions,
@@ -475,8 +475,8 @@ export class OAuthProviderService {
       }
 
       // Check restrictions
-      if (connection.restrictions?.allowedOperations && 
-          !connection.restrictions.allowedOperations.includes(operation)) {
+      if (connection.restrictions?.allowedOperations &&
+        !connection.restrictions.allowedOperations.includes(operation)) {
         return { allowed: false, reason: 'Operation not in allowed list' };
       }
 
@@ -490,7 +490,7 @@ export class OAuthProviderService {
       if (rateLimit && connection.usageStats) {
         const now = new Date();
         const windowStart = new Date(now.getTime() - rateLimit.windowMs);
-        
+
         // Reset daily counter if needed
         if (connection.usageStats.lastResetDate < new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
           connection.usageStats.dailyRequests = 0;
@@ -499,8 +499,8 @@ export class OAuthProviderService {
         }
 
         if (connection.usageStats.dailyRequests >= (provider.agentConfig?.monitoring?.maxDailyRequests || 1000)) {
-          return { 
-            allowed: false, 
+          return {
+            allowed: false,
             reason: 'Daily rate limit exceeded',
             rateLimit: {
               remaining: 0,
@@ -576,9 +576,9 @@ export class OAuthProviderService {
       const updatedConnection = {
         ...connection,
         accessToken: await this.encryptSecret(tokens.access_token),
-        refreshToken: tokens.refresh_token ? 
+        refreshToken: tokens.refresh_token ?
           await this.encryptSecret(tokens.refresh_token) : connection.refreshToken,
-        tokenExpiresAt: tokens.expires_in ? 
+        tokenExpiresAt: tokens.expires_in ?
           new Date(Date.now() + tokens.expires_in * 1000) : undefined,
         updatedAt: new Date()
       };
@@ -680,10 +680,10 @@ export class OAuthProviderService {
     try {
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      
+
       let dailyRequests = connection.usageStats?.dailyRequests || 0;
       let lastResetDate = connection.usageStats?.lastResetDate || new Date();
-      
+
       // Reset daily counter if new day
       if (lastResetDate < today) {
         dailyRequests = 0;
@@ -711,40 +711,40 @@ export class OAuthProviderService {
   }
 
   private generateSecureState(): string {
-    return base64UrlEncode(randomBytes(32));
+    return base64url.encode(randomBytes(32));
   }
 
   private generateCodeVerifier(): string {
-    return base64UrlEncode(randomBytes(32));
+    return base64url.encode(randomBytes(32));
   }
 
   private generateCodeChallenge(verifier: string): string {
-    return base64UrlEncode(createHash('sha256').update(verifier).digest());
+    return base64url.encode(createHash('sha256').update(verifier).digest());
   }
 
   private async encryptSecret(secret: string): Promise<string> {
     const algorithm = 'aes-256-gcm';
     const key = crypto.scryptSync(config.security?.encryptionKey || 'default-key', 'salt', 32);
     const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipher(algorithm, key);
-    
+    const cipher = crypto.createCipheriv(algorithm, key, iv);
+
     let encrypted = cipher.update(secret, 'utf8', 'hex');
     encrypted += cipher.final('hex');
-    
+
     return `${iv.toString('hex')}:${encrypted}`;
   }
 
   private async decryptSecret(encryptedSecret: string): Promise<string> {
     const algorithm = 'aes-256-gcm';
     const key = crypto.scryptSync(config.security?.encryptionKey || 'default-key', 'salt', 32);
-    
+
     const [ivHex, encrypted] = encryptedSecret.split(':');
     const iv = Buffer.from(ivHex, 'hex');
-    const decipher = crypto.createDecipher(algorithm, key);
-    
+    const decipher = crypto.createDecipheriv(algorithm, key, iv);
+
     let decrypted = decipher.update(encrypted, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
-    
+
     return decrypted;
   }
 
@@ -787,4 +787,61 @@ export class OAuthProviderService {
       updatedAt: new Date()
     });
   }
-} 
+
+  /**
+   * Get available providers for a user type
+   */
+  public async getAvailableProviders(userType: UserType = UserType.HUMAN): Promise<OAuthProviderConfig[]> {
+    const allProviders = Array.from(this.providers.values());
+    return allProviders.filter(provider =>
+      provider.isEnabled &&
+      provider.securityConfig?.allowedUserTypes?.includes(userType)
+    );
+  }
+
+  /**
+   * Get agent connections
+   */
+  public async getAgentConnections(agentId: string): Promise<any[]> {
+    return await this.databaseService.getAgentOAuthConnection(agentId, '');
+  }
+
+  /**
+   * Revoke agent connection
+   */
+  public async revokeAgentConnection(agentId: string, providerId: string): Promise<boolean> {
+    try {
+      const connection = await this.databaseService.getAgentOAuthConnection(agentId, providerId);
+      if (connection) {
+        await this.databaseService.updateAgentOAuthConnection({
+          ...connection,
+          isActive: false,
+          updatedAt: new Date()
+        });
+        return true;
+      }
+      return false;
+    } catch (error) {
+      logger.error('Failed to revoke agent connection', { agentId, providerId, error });
+      return false;
+    }
+  }
+
+  /**
+   * Get GitHub repositories for an agent
+   */
+  public async getGitHubRepos(agentId: string, providerId: string): Promise<any[]> {
+    // This would implement GitHub API calls using the agent's OAuth token
+    // For now, return empty array as placeholder
+    return [];
+  }
+
+  /**
+   * Get Gmail messages for an agent
+   */
+  public async getGmailMessages(agentId: string, providerId: string, options: any): Promise<any[]> {
+    // This would implement Gmail API calls using the agent's OAuth token
+    // For now, return empty array as placeholder
+    return [];
+  }
+}

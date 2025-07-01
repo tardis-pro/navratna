@@ -53,9 +53,9 @@ export class SecurityGatewayService {
   private riskConfig: RiskAssessmentConfig;
 
   constructor(
-    private databaseService: DatabaseService,
-    private approvalWorkflowService: ApprovalWorkflowService,
-    private auditService: AuditService
+    protected databaseService: DatabaseService,
+    protected approvalWorkflowService: ApprovalWorkflowService,
+    protected auditService: AuditService
   ) {
     this.riskConfig = this.getDefaultRiskConfig();
     this.loadSecurityPolicies();
@@ -82,7 +82,7 @@ export class SecurityGatewayService {
       const approvalRequired = this.determineApprovalRequirement(request, riskAssessment, policyResult);
 
       // Get required approvers if approval is needed
-      const requiredApprovers = approvalRequired 
+      const requiredApprovers = approvalRequired
         ? await this.getRequiredApprovers(request, riskAssessment)
         : [];
 
@@ -303,7 +303,7 @@ export class SecurityGatewayService {
   /**
    * Apply security policies
    */
-  private async applySecurityPolicies(
+  protected async applySecurityPolicies(
     request: SecurityValidationRequest,
     riskAssessment: RiskAssessment
   ): Promise<{ allowed: boolean; conditions: string[]; appliedPolicies: string[] }> {
@@ -351,7 +351,7 @@ export class SecurityGatewayService {
   /**
    * Determine if approval is required
    */
-  private determineApprovalRequirement(
+  protected determineApprovalRequirement(
     request: SecurityValidationRequest,
     riskAssessment: RiskAssessment,
     policyResult: { allowed: boolean; conditions: string[]; appliedPolicies: string[] }
@@ -391,7 +391,7 @@ export class SecurityGatewayService {
   /**
    * Get required approvers for an operation
    */
-  private async getRequiredApprovers(
+  protected async getRequiredApprovers(
     request: SecurityValidationRequest,
     riskAssessment: RiskAssessment
   ): Promise<string[]> {
@@ -471,11 +471,11 @@ export class SecurityGatewayService {
     };
   }
 
-  private assessTimeBasedRisk(): RiskFactor {
+  protected assessTimeBasedRisk(): RiskFactor {
     const now = new Date();
     const hour = now.getHours();
     const day = now.getDay();
-    
+
     let multiplier = 1.0;
     let description = 'Normal business hours';
 
@@ -640,7 +640,7 @@ export class SecurityGatewayService {
     return Array.from(mitigations);
   }
 
-  private buildReasoningText(
+  protected buildReasoningText(
     request: SecurityValidationRequest,
     riskAssessment: RiskAssessment,
     policyResult: any,
@@ -649,7 +649,7 @@ export class SecurityGatewayService {
     const parts: string[] = [];
 
     parts.push(`Risk assessment: ${riskAssessment.overallRisk} (score: ${riskAssessment.score.toFixed(2)})`);
-    
+
     if (riskAssessment.factors.length > 0) {
       const topFactors = riskAssessment.factors
         .sort((a, b) => b.score - a.score)
@@ -712,14 +712,14 @@ export class SecurityGatewayService {
     riskAssessment: RiskAssessment
   ): boolean {
     // Check operation type
-    if (policy.conditions.operationType && 
-        policy.conditions.operationType !== request.operation.type) {
+    if (policy.conditions.operationType &&
+      policy.conditions.operationType !== request.operation.type) {
       return false;
     }
 
     // Check resource type
-    if (policy.conditions.resourceType && 
-        policy.conditions.resourceType !== request.operation.resource) {
+    if (policy.conditions.resourceType &&
+      policy.conditions.resourceType !== request.operation.resource) {
       return false;
     }
 

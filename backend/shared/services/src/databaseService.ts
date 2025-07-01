@@ -46,6 +46,11 @@ import { PersonaAnalytics } from './entities/personaAnalytics.entity.js';
 import { UserEntity } from './entities/user.entity.js';
 import { RefreshTokenEntity } from './entities/refreshToken.entity.js';
 import { PasswordResetTokenEntity } from './entities/passwordResetToken.entity.js';
+import { OAuthProviderEntity } from './entities/oauthProvider.entity.js';
+import { OAuthStateEntity } from './entities/oauthState.entity.js';
+import { AgentOAuthConnectionEntity } from './entities/agentOAuthConnection.entity.js';
+import { MFAChallengeEntity } from './entities/mfaChallenge.entity.js';
+import { SessionEntity } from './entities/session.entity.js';
 import { DatabaseSeeder } from './database/seedDatabase.js';
 
 export class DatabaseService {
@@ -1792,4 +1797,200 @@ export class DatabaseService {
   }> {
     return await this.toolRepository.getToolPerformanceAnalytics(toolId);
   }
-} 
+
+  // ===== OAUTH PROVIDER METHODS =====
+
+  /**
+   * Get user by OAuth provider
+   */
+  public async getUserByOAuthProvider(providerId: string, providerUserId: string): Promise<UserEntity | null> {
+    await this.ensureInitialized();
+    try {
+      // Query through agent OAuth connections table to find the user
+      const manager = this.typeormService.getDataSource().manager;
+
+      const query = `
+        SELECT u.* FROM users u
+        INNER JOIN agent_oauth_connections aoc ON u.id = aoc.user_id
+        WHERE aoc.provider_id = $1 AND aoc.provider_user_id = $2
+        AND aoc.is_active = true
+      `;
+
+      const result = await manager.query(query, [providerId, providerUserId]);
+
+      if (result && result.length > 0) {
+        // Convert the raw result to a UserEntity
+        const userData = result[0];
+        const user = manager.create(UserEntity, userData);
+        return user;
+      }
+
+      return null;
+    } catch (error) {
+      logger.error('Error getting user by OAuth provider', {
+        providerId,
+        providerUserId,
+        error: (error as Error).message
+      });
+      return null;
+    }
+  }
+
+  // ===== OAUTH PROVIDER METHODS =====
+
+  /**
+   * Get all OAuth providers
+   */
+  public async getOAuthProviders(): Promise<OAuthProviderEntity[]> {
+    await this.ensureInitialized();
+    const repository = await this.getRepository(OAuthProviderEntity);
+    return repository.find({ where: { isEnabled: true } });
+  }
+
+  /**
+   * Create OAuth provider
+   */
+  public async createOAuthProvider(config: Partial<OAuthProviderEntity>): Promise<OAuthProviderEntity> {
+    await this.ensureInitialized();
+    const repository = await this.getRepository(OAuthProviderEntity);
+    const provider = repository.create(config);
+    return repository.save(provider);
+  }
+
+  /**
+   * Save OAuth state
+   */
+  public async saveOAuthState(state: Partial<OAuthStateEntity>): Promise<OAuthStateEntity> {
+    await this.ensureInitialized();
+    const repository = await this.getRepository(OAuthStateEntity);
+    const oauthState = repository.create(state);
+    return repository.save(oauthState);
+  }
+
+  /**
+   * Get OAuth state
+   */
+  public async getOAuthState(state: string): Promise<OAuthStateEntity | null> {
+    await this.ensureInitialized();
+    const repository = await this.getRepository(OAuthStateEntity);
+    return repository.findOne({ where: { state } });
+  }
+
+  /**
+   * Delete OAuth state
+   */
+  public async deleteOAuthState(state: string): Promise<boolean> {
+    await this.ensureInitialized();
+    const repository = await this.getRepository(OAuthStateEntity);
+    const result = await repository.delete({ state });
+    return (result.affected || 0) > 0;
+  }
+
+  // ===== MFA CHALLENGE METHODS =====
+
+  /**
+   * Get MFA challenge
+   */
+  public async getMFAChallenge(challengeId: string): Promise<MFAChallengeEntity | null> {
+    await this.ensureInitialized();
+    const repository = await this.getRepository(MFAChallengeEntity);
+    return repository.findOne({ where: { id: challengeId } });
+  }
+
+  /**
+   * Update MFA challenge
+   */
+  public async updateMFAChallenge(challenge: Partial<MFAChallengeEntity> & { id: string }): Promise<MFAChallengeEntity | null> {
+    await this.ensureInitialized();
+    const repository = await this.getRepository(MFAChallengeEntity);
+    await repository.update(challenge.id, {
+      ...challenge,
+      updatedAt: new Date()
+    });
+    return repository.findOne({ where: { id: challenge.id } });
+  }
+
+  /**
+   * Create MFA challenge
+   */
+  public async createMFAChallenge(challenge: Partial<MFAChallengeEntity>): Promise<MFAChallengeEntity> {
+    await this.ensureInitialized();
+    const repository = await this.getRepository(MFAChallengeEntity);
+    const mfaChallenge = repository.create(challenge);
+    return repository.save(mfaChallenge);
+  }
+
+  // ===== SESSION METHODS =====
+
+  /**
+   * Get session
+   */
+  public async getSession(sessionId: string): Promise<SessionEntity | null> {
+    await this.ensureInitialized();
+    const repository = await this.getRepository(SessionEntity);
+    return repository.findOne({ where: { id: sessionId } });
+  }
+
+  /**
+   * Update session
+   */
+  public async updateSession(session: Partial<SessionEntity> & { id: string }): Promise<SessionEntity | null> {
+    await this.ensureInitialized();
+    const repository = await this.getRepository(SessionEntity);
+    await repository.update(session.id, {
+      ...session,
+      updatedAt: new Date()
+    });
+    return repository.findOne({ where: { id: session.id } });
+  }
+
+  /**
+   * Create session
+   */
+  public async createSession(session: Partial<SessionEntity>): Promise<SessionEntity> {
+    await this.ensureInitialized();
+    const repository = await this.getRepository(SessionEntity);
+    const sessionEntity = repository.create(session);
+    return repository.save(sessionEntity);
+  }
+
+  // ===== AGENT OAUTH CONNECTION METHODS =====
+
+  /**
+   * Create agent OAuth connection
+   */
+  public async createAgentOAuthConnection(connection: Partial<AgentOAuthConnectionEntity>): Promise<AgentOAuthConnectionEntity> {
+    await this.ensureInitialized();
+    const repository = await this.getRepository(AgentOAuthConnectionEntity);
+    const agentConnection = repository.create(connection);
+    return repository.save(agentConnection);
+  }
+
+  /**
+   * Get agent OAuth connection
+   */
+  public async getAgentOAuthConnection(agentId: string, providerId: string): Promise<AgentOAuthConnectionEntity | null> {
+    await this.ensureInitialized();
+    const repository = await this.getRepository(AgentOAuthConnectionEntity);
+    return repository.findOne({
+      where: {
+        agentId,
+        providerId
+      }
+    });
+  }
+
+  /**
+   * Update agent OAuth connection
+   */
+  public async updateAgentOAuthConnection(connection: Partial<AgentOAuthConnectionEntity> & { id: string }): Promise<AgentOAuthConnectionEntity | null> {
+    await this.ensureInitialized();
+    const repository = await this.getRepository(AgentOAuthConnectionEntity);
+    await repository.update(connection.id, {
+      ...connection,
+      updatedAt: new Date()
+    });
+    return repository.findOne({ where: { id: connection.id } });
+  }
+
+}

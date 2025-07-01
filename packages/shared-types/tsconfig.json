@@ -9,14 +9,18 @@
     "sourceMap": true,
     "target": "ES2020",
     "module": "ESNext",
-    "moduleResolution": "bundler",
+    "moduleResolution": "node",
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "strict": false,
     "baseUrl": "."
   },
-  "include": ["src/**/*"],
-  "exclude": ["dist", "node_modules"]
-} 
-  
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "dist",
+    "node_modules"
+  ]
+}
