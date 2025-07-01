@@ -1,6 +1,7 @@
 export * from './common';
 export * from './agent';
 export * from './operation';
+export { CheckpointType } from './operation';
 export * from './capability';
 export * from './security';
 export * from './api';

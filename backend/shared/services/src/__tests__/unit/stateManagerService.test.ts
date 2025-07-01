@@ -1,6 +1,7 @@
 import { StateManagerService, StateUpdateOptions } from '../../stateManagerService.js';
 import { DatabaseService } from '../../databaseService.js';
-import { OperationState, Checkpoint, CheckpointType } from '@uaip/types';
+import { OperationState, Checkpoint } from '@uaip/types';
+import { CheckpointType } from '@uaip/types';
 
 // Mock Redis client
 const mockRedis = {
@@ -247,7 +248,7 @@ describe('StateManagerService', () => {
     const mockCheckpoint: Checkpoint = {
       id: 'checkpoint-123',
       stepId: 'step-1',
-      type: CheckpointType.STATE_SNAPSHOT,
+      type: 'state_snapshot' as any,
       data: {
         timestamp: new Date(),
         version: '1.0',
@@ -543,7 +544,7 @@ describe('StateManagerService', () => {
       const baseCheckpoint: Checkpoint = {
         id: 'checkpoint-base',
         stepId: 'step-base',
-        type: CheckpointType.STATE_SNAPSHOT,
+        type: 'state_snapshot' as any,
         data: {
           timestamp: new Date(),
           version: '1.0',

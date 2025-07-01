@@ -2,11 +2,22 @@ export default {
   preset: 'ts-jest/presets/default-esm',
   testEnvironment: 'node',
   extensionsToTreatAsEsm: ['.ts'],
-  moduleNameMapping: {
+  moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
-    '^@tests/(.*)$': '<rootDir>/src/__tests__/$1'
+    '^@tests/(.*)$': '<rootDir>/src/__tests__/$1',
+    '^@uaip/types$': '<rootDir>/../../../packages/shared-types/src',
+    '^@uaip/utils$': '<rootDir>/../../../packages/shared-utils/src',
+    '^@uaip/shared-services$': '<rootDir>/../../shared/services/src',
+    '^@uaip/middleware$': '<rootDir>/../../shared/middleware/src',
+    '^@uaip/config$': '<rootDir>/../../shared/config/src'
   },
-  setupFilesAfterEnv: ['<rootDir>/src/__tests__/setup.ts'],
+  transformIgnorePatterns: [
+    'node_modules/(?!(@uaip)/)'
+  ],
+  setupFilesAfterEnv: [
+    '<rootDir>/src/__tests__/setup.ts',
+    '<rootDir>/src/__tests__/types/jest.d.ts'
+  ],
   testMatch: [
     '<rootDir>/src/__tests__/**/*.test.ts',
     '<rootDir>/src/__tests__/**/*.spec.ts'

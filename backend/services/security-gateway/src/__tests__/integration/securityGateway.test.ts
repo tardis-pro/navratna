@@ -39,9 +39,9 @@ describe('Security Gateway Integration', () => {
     mockApprovalWorkflowService = createMockApprovalWorkflowService();
 
     securityGatewayService = new SecurityGatewayService(
-      mockDatabaseService,
-      mockApprovalWorkflowService,
-      mockAuditService
+      mockDatabaseService as any,
+      mockApprovalWorkflowService as any,
+      mockAuditService as any
     );
   });
 
@@ -73,7 +73,7 @@ describe('Security Gateway Integration', () => {
         },
         securityContext: {
           userId: 'user-123',
-          userRole: 'user',
+          role: 'user',
           ipAddress: '192.168.1.100',
           userAgent: 'Mozilla/5.0',
           sessionId: 'session-123'
@@ -108,7 +108,7 @@ describe('Security Gateway Integration', () => {
         },
         securityContext: {
           userId: 'admin-123',
-          userRole: 'admin',
+          role: 'admin',
           ipAddress: '10.0.0.50',
           userAgent: 'Admin-Tool/1.0',
           sessionId: 'admin-session-456'
@@ -120,7 +120,7 @@ describe('Security Gateway Integration', () => {
 
       expect(validationResult.allowed).toBe(false);
       expect(validationResult.approvalRequired).toBe(true);
-      expect(validationResult.riskLevel).toBeOneOf([SecurityLevel.HIGH, SecurityLevel.CRITICAL]);
+      expect([SecurityLevel.HIGH, SecurityLevel.CRITICAL]).toContain(validationResult.riskLevel);
       expect(validationResult.requiredApprovers.length).toBeGreaterThan(0);
 
       // Step 2: Create approval workflow
@@ -156,7 +156,7 @@ describe('Security Gateway Integration', () => {
         },
         securityContext: {
           userId: 'operator-123',
-          userRole: 'operator',
+          role: 'operator',
           ipAddress: '172.16.1.25',
           userAgent: 'DataTool/2.1',
           sessionId: 'op-session-789'
@@ -179,7 +179,7 @@ describe('Security Gateway Integration', () => {
     it('should handle time-sensitive operations correctly', async () => {
       // Mock weekend time (Saturday evening)
       const weekendDate = new Date();
-      weekendDate.setDay(6); // Saturday
+      weekendDate.setDate(weekendDate.getDate() + (6 - weekendDate.getDay())); // Move to Saturday
       weekendDate.setHours(20, 0, 0, 0); // 8 PM
       jest.spyOn(global, 'Date').mockImplementation(() => weekendDate as any);
 
@@ -191,7 +191,7 @@ describe('Security Gateway Integration', () => {
         },
         securityContext: {
           userId: 'analyst-123',
-          userRole: 'analyst',
+          role: 'analyst',
           ipAddress: '203.0.113.10',
           userAgent: 'AnalyticsTool/1.5',
           sessionId: 'analyst-session-321'
@@ -201,7 +201,7 @@ describe('Security Gateway Integration', () => {
       const validationResult = await securityGatewayService.validateSecurity(request);
 
       // Weekend + evening should increase risk
-      expect(validationResult.riskLevel).toBeOneOf([SecurityLevel.MEDIUM, SecurityLevel.HIGH]);
+      expect([SecurityLevel.MEDIUM, SecurityLevel.HIGH]).toContain(validationResult.riskLevel);
     });
 
     it('should handle user with security history correctly', async () => {
@@ -231,7 +231,7 @@ describe('Security Gateway Integration', () => {
         },
         securityContext: {
           userId: 'risky-user-123',
-          userRole: 'user',
+          role: 'user',
           ipAddress: '198.51.100.42',
           userAgent: 'StandardApp/1.0',
           sessionId: 'risky-session-654'
@@ -261,7 +261,7 @@ describe('Security Gateway Integration', () => {
         },
         securityContext: {
           userId: 'user-123',
-          userRole: 'user',
+          role: 'user',
           ipAddress: '192.168.1.100',
           userAgent: 'TestApp/1.0',
           sessionId: 'test-session-999'
@@ -292,7 +292,7 @@ describe('Security Gateway Integration', () => {
         },
         securityContext: {
           userId: 'test-user-456',
-          userRole: 'user',
+          role: 'user',
           ipAddress: '203.0.113.100',
           userAgent: 'CustomTool/3.0',
           sessionId: 'comprehensive-session-123'
@@ -318,7 +318,7 @@ describe('Security Gateway Integration', () => {
       expect(riskAssessment.mitigations).toContain('Rate limiting');
 
       // Overall risk should be high given all factors
-      expect(riskAssessment.overallRisk).toBeOneOf([RiskLevel.HIGH, RiskLevel.CRITICAL]);
+      expect([RiskLevel.HIGH, RiskLevel.CRITICAL]).toContain(riskAssessment.overallRisk);
     });
   });
 
@@ -332,7 +332,7 @@ describe('Security Gateway Integration', () => {
         },
         securityContext: {
           userId: `concurrent-user-${i}`,
-          userRole: 'user',
+          role: 'user',
           ipAddress: `192.168.1.${100 + i}`,
           userAgent: 'ConcurrentApp/1.0',
           sessionId: `concurrent-session-${i}`
@@ -363,7 +363,7 @@ describe('Security Gateway Integration', () => {
         },
         securityContext: {
           userId: 'consistent-user',
-          userRole: 'user',
+          role: 'user',
           ipAddress: '192.168.1.50',
           userAgent: 'ConsistentApp/1.0',
           sessionId: 'consistent-session'

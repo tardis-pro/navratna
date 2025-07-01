@@ -39,9 +39,9 @@ describe('SecurityGatewayService', () => {
     mockApprovalWorkflowService = createMockApprovalWorkflowService();
 
     securityGatewayService = new SecurityGatewayService(
-      mockDatabaseService,
-      mockApprovalWorkflowService,
-      mockAuditService
+      mockDatabaseService as any,
+      mockApprovalWorkflowService as any,
+      mockAuditService as any
     );
   });
 
@@ -58,7 +58,7 @@ describe('SecurityGatewayService', () => {
     },
     securityContext: {
       userId: 'user-123',
-      userRole: 'user',
+      role: 'user',
       ipAddress: '127.0.0.1',
       userAgent: 'test-agent',
       sessionId: 'session-123'
@@ -128,7 +128,7 @@ describe('SecurityGatewayService', () => {
       const result = await securityGatewayService.validateSecurity(request);
 
       // Risk should be elevated due to off-hours access
-      expect(result.riskLevel).toBeOneOf([SecurityLevel.MEDIUM, SecurityLevel.HIGH]);
+      expect([SecurityLevel.MEDIUM, SecurityLevel.HIGH]).toContain(result.riskLevel);
     });
 
     it('should assess context-based risk factors', async () => {
@@ -147,7 +147,7 @@ describe('SecurityGatewayService', () => {
       const result = await securityGatewayService.validateSecurity(request);
 
       // High context risk should result in elevated security level
-      expect(result.riskLevel).toBeOneOf([SecurityLevel.HIGH, SecurityLevel.CRITICAL]);
+      expect([SecurityLevel.HIGH, SecurityLevel.CRITICAL]).toContain(result.riskLevel);
       expect(result.approvalRequired).toBe(true);
     });
 
@@ -172,7 +172,7 @@ describe('SecurityGatewayService', () => {
       const result = await securityGatewayService.validateSecurity(request);
 
       // Historical risk should elevate the overall risk
-      expect(result.riskLevel).toBeOneOf([SecurityLevel.MEDIUM, SecurityLevel.HIGH]);
+      expect([SecurityLevel.MEDIUM, SecurityLevel.HIGH]).toContain(result.riskLevel);
       expect(mockAuditService.queryEvents).toHaveBeenCalledWith(
         expect.objectContaining({
           userId: 'user-123',
@@ -232,7 +232,7 @@ describe('SecurityGatewayService', () => {
       const highRiskAssessment = await securityGatewayService.assessRisk(highRiskRequest);
 
       expect(lowRiskAssessment.overallRisk).toBe(RiskLevel.LOW);
-      expect(highRiskAssessment.overallRisk).toBeOneOf([RiskLevel.HIGH, RiskLevel.CRITICAL]);
+      expect([RiskLevel.HIGH, RiskLevel.CRITICAL]).toContain(highRiskAssessment.overallRisk);
 
       // Check that factors are populated
       expect(lowRiskAssessment.factors.length).toBeGreaterThan(0);
@@ -358,7 +358,7 @@ describe('SecurityGatewayService', () => {
         })
       );
 
-      const callArgs = mockApprovalWorkflowService.createApprovalWorkflow.mock.calls[0][0];
+      const callArgs = mockApprovalWorkflowService.createApprovalWorkflow.mock.calls[0][0] as any;
       // Critical operations should have shorter expiration times
       if (riskAssessment.overallRisk === RiskLevel.CRITICAL) {
         expect(callArgs.expirationHours).toBeLessThanOrEqual(4);
@@ -366,7 +366,7 @@ describe('SecurityGatewayService', () => {
     });
 
     it('should handle workflow creation errors', async () => {
-      mockApprovalWorkflowService.createApprovalWorkflow.mockRejectedValue(
+      (mockApprovalWorkflowService.createApprovalWorkflow as any).mockRejectedValue(
         new Error('Workflow service unavailable')
       );
 

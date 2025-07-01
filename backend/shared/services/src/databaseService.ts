@@ -85,7 +85,7 @@ export class DatabaseService {
     });
 
     this.typeormService = TypeOrmService.getInstance();
-    if(process.env.TYPEORM_SYNC === 'true') {
+    if (process.env.TYPEORM_SYNC === 'true') {
       this.seedDatabase().then(() => {
         logger.info('Database seeded successfully');
       }).catch((error) => {
@@ -277,7 +277,7 @@ export class DatabaseService {
     try {
       await this.typeormService.initialize();
       this.isInitialized = true;
-      if(process.env.SYNC_AND_RESET === 'true'){
+      if (process.env.SYNC_AND_RESET === 'true') {
         await this.seedDatabase();
         logger.info('Database seeding completed successfully');
       }
@@ -302,7 +302,7 @@ export class DatabaseService {
     }
     return this._llmProviderRepository;
   }
-  
+
   public static getInstance(): DatabaseService {
     if (!DatabaseService.instance) {
       DatabaseService.instance = new DatabaseService();
@@ -373,16 +373,16 @@ export class DatabaseService {
     };
   }> {
     const startTime = Date.now();
-    
+
     try {
       // Ensure TypeORM is initialized before health check
       await this.ensureInitialized();
-      
+
       // Use TypeORM to test connection
       const manager = await this.getEntityManager();
       await manager.query('SELECT 1 as health_check');
       const responseTime = Date.now() - startTime;
-      
+
       return {
         status: 'healthy',
         details: {
@@ -396,7 +396,7 @@ export class DatabaseService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Database health check failed', { error: errorMessage });
-      
+
       return {
         status: 'unhealthy',
         details: {
@@ -438,10 +438,10 @@ export class DatabaseService {
     }
 
     const startTime = Date.now();
-    
+
     try {
       const repository = await this.getRepository(entity);
-      
+
       if (options?.onConflict === 'ignore') {
         // Use upsert with ignore
         await repository
@@ -458,9 +458,9 @@ export class DatabaseService {
           .insert()
           .into(entity)
           .values(records);
-          
+
         const updateColumns = options.updateColumns;
-        
+
         await queryBuilder
           .orUpdate(updateColumns, options.conflictColumns)
           .execute();
@@ -468,7 +468,7 @@ export class DatabaseService {
         // Simple insert
         await repository.save(records as any[]);
       }
-      
+
       const duration = Date.now() - startTime;
       logger.info('Bulk insert completed', {
         entity: entity.toString(),
@@ -497,7 +497,7 @@ export class DatabaseService {
     }
 
     this.isClosing = true;
-    
+
     try {
       await this.typeormService.close();
       logger.info('Database connection closed');
@@ -526,7 +526,7 @@ export class DatabaseService {
 
       while (hasMoreRows) {
         const queryBuilder = repository.createQueryBuilder();
-        
+
         // Add WHERE conditions
         if (conditions) {
           Object.keys(conditions).forEach((key, index) => {
@@ -542,7 +542,7 @@ export class DatabaseService {
           .limit(batchSize)
           .offset(offset)
           .getMany();
-        
+
         if (results.length === 0) {
           hasMoreRows = false;
         } else {
@@ -561,7 +561,7 @@ export class DatabaseService {
     const dataSource = this.typeormService.getDataSource();
     const seeder = new DatabaseSeeder(dataSource);
     await seeder.seedAll();
-    
+
     console.log('🎉 Database seeding completed successfully! Yo');
   }
 
@@ -616,7 +616,7 @@ export class DatabaseService {
     return await this.stepResultRepository.saveStepResult(operationId, result);
   }
 
-    public async updateOperationResult(operationId: string, result: any): Promise<void> {
+  public async updateOperationResult(operationId: string, result: any): Promise<void> {
     return await this.operationRepository.updateOperationResult(operationId, result);
   }
 
@@ -627,7 +627,7 @@ export class DatabaseService {
 
       // TypeORM handles table creation through migrations and synchronization
       const dataSource = this.typeormService.getDataSource();
-      
+
       if (!dataSource.isInitialized) {
         throw new Error('DataSource not initialized');
       }
@@ -659,7 +659,7 @@ export class DatabaseService {
   ): Promise<T | null> {
     try {
       const repository = await this.getRepository(entity);
-      return await repository.findOne({ 
+      return await repository.findOne({
         where: { id } as any,
         relations: relations
       });
@@ -807,7 +807,7 @@ export class DatabaseService {
     return await this.transaction(async (manager) => {
       const repository = manager.getRepository(entity);
       const results: T[] = [];
-      
+
       for (const update of updates) {
         await repository.update(update.id, { ...update.data, updatedAt: new Date() } as any);
         const result = await repository.findOne({ where: { id: update.id } as any });
@@ -843,7 +843,7 @@ export class DatabaseService {
   }
 
   // ===== APPROVAL WORKFLOW METHODS =====
-  
+
   /**
    * Create a new approval workflow
    */
@@ -1386,18 +1386,18 @@ export class DatabaseService {
    * @deprecated Use getRepository() and TypeORM methods instead
    */
   public async query<T = any>(
-    text: string, 
+    text: string,
     params?: any[]
   ): Promise<{ rows: T[]; rowCount: number | null; fields?: any[] }> {
     logger.warn('DEPRECATED: query() method used. Please migrate to TypeORM repository methods.');
-    
+
     try {
       // Ensure initialization before executing query
       await this.ensureInitialized();
-      
+
       const manager = await this.getEntityManager();
       const result = await manager.query(text, params);
-      
+
       return {
         rows: Array.isArray(result) ? result : [result],
         rowCount: Array.isArray(result) ? result.length : 1,
@@ -1671,7 +1671,7 @@ export class DatabaseService {
     category?: string;
     enabled?: boolean;
     securityLevel?: string;
-    limit?: number; 
+    limit?: number;
     offset?: number;
   } = {}): Promise<ToolDefinition[]> {
     return await this.toolRepository.getTools(filters);
@@ -1729,6 +1729,50 @@ export class DatabaseService {
 
   private async incrementToolUsageCount(toolId: string): Promise<void> {
     return await this.toolRepository.incrementToolUsageCount(toolId);
+  }
+
+  // ===== AGENT USAGE TRACKING METHODS =====
+
+  /**
+   * Get agent hourly usage count
+   */
+  public async getAgentHourlyUsage(agentId: string): Promise<number> {
+    try {
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+      const result = await this.auditRepository.countRecentAuditEvents(
+        AuditEventType.OPERATION_COMPLETED,
+        agentId,
+        60 // 60 minutes
+      );
+      return result;
+    } catch (error) {
+      logger.error('Failed to get agent hourly usage', {
+        agentId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      return 0;
+    }
+  }
+
+  /**
+   * Get agent daily usage count
+   */
+  public async getAgentDailyUsage(agentId: string): Promise<number> {
+    try {
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const result = await this.auditRepository.countRecentAuditEvents(
+        AuditEventType.OPERATION_COMPLETED,
+        agentId,
+        24 * 60 // 24 hours in minutes
+      );
+      return result;
+    } catch (error) {
+      logger.error('Failed to get agent daily usage', {
+        agentId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      return 0;
+    }
   }
 
   public async updateToolSuccessMetrics(toolId: string, wasSuccessful: boolean, executionTime?: number): Promise<void> {

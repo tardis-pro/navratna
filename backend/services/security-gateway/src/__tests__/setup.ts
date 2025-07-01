@@ -1,16 +1,34 @@
-import { jest, beforeEach, afterEach } from '@jest/globals';
-import { logger } from '@uaip/utils';
+import { jest, beforeEach, afterEach, expect } from '@jest/globals';
+
+// Mock logger directly to avoid module resolution issues
+const mockLogger = {
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  debug: jest.fn()
+};
+
+expect.extend({
+  toBeOneOf(received: any, expected: any[]) {
+    const pass = expected.includes(received);
+    if (pass) {
+      return {
+        message: () => `expected ${received} not to be one of ${expected.join(', ')}`,
+        pass: true
+      };
+    } else {
+      return {
+        message: () => `expected ${received} to be one of ${expected.join(', ')}`,
+        pass: false
+      };
+    }
+  }
+});
 
 // Global test setup
 beforeEach(() => {
   // Clear all mocks before each test
   jest.clearAllMocks();
-  
-  // Mock logger to prevent noise in test output
-  jest.spyOn(logger, 'info').mockImplementation(() => {});
-  jest.spyOn(logger, 'warn').mockImplementation(() => {});
-  jest.spyOn(logger, 'error').mockImplementation(() => {});
-  jest.spyOn(logger, 'debug').mockImplementation(() => {});
 });
 
 afterEach(() => {
@@ -57,7 +75,7 @@ process.env.REDIS_URL = 'redis://localhost:6379';
 Object.defineProperty(global, 'crypto', {
   value: {
     randomUUID: jest.fn(() => 'test-uuid-123'),
-    getRandomValues: jest.fn((arr) => {
+    getRandomValues: jest.fn((arr: Uint8Array) => {
       for (let i = 0; i < arr.length; i++) {
         arr[i] = Math.floor(Math.random() * 256);
       }
@@ -70,3 +88,6 @@ Object.defineProperty(global, 'crypto', {
 const mockDate = new Date('2023-01-01T00:00:00Z');
 jest.spyOn(global, 'Date').mockImplementation(() => mockDate as any);
 Date.now = jest.fn(() => mockDate.getTime());
+
+// Export mock logger for use in tests
+export { mockLogger };

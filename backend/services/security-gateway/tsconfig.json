@@ -1,20 +1,48 @@
 {
   "extends": "../../tsconfig.json",
-    "compilerOptions": {
-      "outDir": "dist",          // relative to package root
-      "rootDir": "src",
-      "baseUrl": ".",            // enables clean import paths within the package
-      "paths": {
-        "@/services/*": ["src/services/*"],
-        "@/routes/*": ["src/routes/*"],
-      }
+  "compilerOptions": {
+    "outDir": "dist", // relative to package root
+    "rootDir": "src",
+    "baseUrl": ".", // enables clean import paths within the package
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "paths": {
+      "@/services/*": [
+        "src/services/*"
+      ],
+      "@/routes/*": [
+        "src/routes/*"
+      ],
+    }
+  },
+  "references": [
+    {
+      "path": "../../../packages/shared-types"
     },
-    "references": [
-      { "path": "../../../packages/shared-types" },
-      { "path": "../../../packages/shared-utils" },
-      { "path": "../../shared/config" },
-      { "path": "../../shared/services" },
-      { "path": "../../shared/middleware" }
-    ],
-    "include": ["src/**/*"]
-  } 
+    {
+      "path": "../../../packages/shared-utils"
+    },
+    {
+      "path": "../../shared/config"
+    },
+    {
+      "path": "../../shared/services"
+    },
+    {
+      "path": "../../shared/middleware"
+    }
+  ],
+  "include": [
+    "src/**/*",
+    "src/__tests__/types/**/*"
+  ]
+}

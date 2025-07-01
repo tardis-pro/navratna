@@ -18,7 +18,7 @@ jest.mock('@uaip/shared-services', () => ({
   DatabaseService: jest.fn().mockImplementation(() => createMockDatabaseService())
 }));
 
-jest.mock('../../services/auditService.js', () => ({
+jest.mock('../../services/auditService', () => ({
   AuditService: jest.fn().mockImplementation(() => createMockAuditService())
 }));
 

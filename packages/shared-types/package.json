@@ -25,6 +25,16 @@
       "import": "./dist/index.js",
       "require": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./operation": {
+      "import": "./dist/operation.js",
+      "require": "./dist/operation.js",
+      "types": "./dist/operation.d.ts"
+    },
+    "./*": {
+      "import": "./dist/*.js",
+      "require": "./dist/*.js",
+      "types": "./dist/*.d.ts"
     }
   }
 }
