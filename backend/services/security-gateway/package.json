@@ -9,7 +9,11 @@
     "dev": "nodemon --exec tsx src/index.ts",
     "clean": "rimraf dist",
     "lint": "eslint src --ext .ts",
-    "lint:fix": "eslint src --ext .ts --fix"
+    "lint:fix": "eslint src --ext .ts --fix",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:ci": "jest --ci --coverage --watchAll=false"
   },
   "dependencies": {
     "@uaip/config": "workspace:*",
@@ -47,12 +51,15 @@
     "@types/node-cron": "^3.0.11",
     "@types/nodemailer": "^6.4.17",
     "@types/pg": "catalog:backend",
+    "@types/supertest": "^6.0.2",
     "@typescript-eslint/eslint-plugin": "catalog:",
     "@typescript-eslint/parser": "catalog:",
     "concurrently": "catalog:dev",
     "eslint": "catalog:",
     "jest": "catalog:backend",
     "nodemon": "catalog:backend",
+    "supertest": "^7.0.0",
+    "ts-jest": "^29.1.2",
     "ts-node-dev": "^2.0.0",
     "tsc-alias": "catalog:backend",
     "tsx": "catalog:backend",

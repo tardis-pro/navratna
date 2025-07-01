@@ -9,7 +9,11 @@
     "dev": "nodemon --exec tsx src/index.ts",
     "clean": "rimraf dist",
     "lint": "eslint src --ext .ts",
-    "lint:fix": "eslint src --ext .ts --fix"
+    "lint:fix": "eslint src --ext .ts --fix",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:coverage": "vitest --coverage",
+    "test:ui": "vitest --ui"
   },
   "dependencies": {
     "@uaip/config": "workspace:*",
