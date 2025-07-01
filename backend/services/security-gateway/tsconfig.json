@@ -43,11 +43,7 @@
     }
   ],
   "include": [
-    "src/**/*"
-  ],
-  "exclude": [
-    "src/__tests__/**/*",
-    "**/*.test.ts",
-    "**/*.spec.ts"
+    "src/**/*",
+    "src/__tests__/types/**/*"
   ]
 }

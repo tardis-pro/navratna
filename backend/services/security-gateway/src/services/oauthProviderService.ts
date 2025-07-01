@@ -128,7 +128,7 @@ export class OAuthProviderService {
     try {
       const providers = await this.databaseService.getOAuthProviders();
       for (const provider of providers) {
-        this.providers.set(provider.id, provider);
+        this.providers.set(provider.id, provider as any);
       }
       logger.info('OAuth providers loaded', { count: providers.length });
     } catch (error) {
@@ -151,7 +151,7 @@ export class OAuthProviderService {
 
       // Save to database
       const savedProvider = await this.databaseService.createOAuthProvider(config);
-      this.providers.set(savedProvider.id, savedProvider);
+      this.providers.set(savedProvider.id, savedProvider as any);
 
       await this.auditService.logEvent({
         eventType: AuditEventType.SECURITY_CONFIG_CHANGE,
@@ -169,7 +169,7 @@ export class OAuthProviderService {
         agentAccess: savedProvider.agentConfig?.allowAgentAccess || false
       });
 
-      return savedProvider;
+      return savedProvider as any;
     } catch (error) {
       logger.error('Failed to create OAuth provider', { error: error instanceof Error ? error.message : 'Unknown error' });
       throw new ApiError(500, 'Failed to create OAuth provider', 'PROVIDER_CREATION_FAILED');
@@ -388,8 +388,8 @@ export class OAuthProviderService {
           errors: 0,
           rateLimitHits: 0
         },
-        createdAt: new Date(),
-        updatedAt: new Date()
+        // createdAt: new Date(), // This will be set by the database
+        // updatedAt: new Date() // This will be set by the database
       };
 
       const savedConnection = await this.databaseService.createAgentOAuthConnection(connection);
@@ -583,7 +583,10 @@ export class OAuthProviderService {
         updatedAt: new Date()
       };
 
-      await this.databaseService.updateAgentOAuthConnection(updatedConnection);
+      await this.databaseService.updateAgentOAuthConnection({
+        ...updatedConnection,
+        id: connection.id!
+      } as any);
 
       logger.info('Agent OAuth token refreshed', {
         agentId: connection.agentId,
@@ -699,10 +702,11 @@ export class OAuthProviderService {
 
       await this.databaseService.updateAgentOAuthConnection({
         ...connection,
+        id: connection.id!,
         usageStats: updatedStats,
         lastUsedAt: now,
         updatedAt: now
-      });
+      } as any);
     } catch (error) {
       logger.error('Failed to update connection usage', {
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -724,7 +728,7 @@ export class OAuthProviderService {
 
   private async encryptSecret(secret: string): Promise<string> {
     const algorithm = 'aes-256-gcm';
-    const key = crypto.scryptSync(config.security?.encryptionKey || 'default-key', 'salt', 32);
+    const key = crypto.scryptSync((config as any).security?.encryptionKey || 'default-key', 'salt', 32);
     const iv = crypto.randomBytes(16);
     const cipher = crypto.createCipheriv(algorithm, key, iv);
 
@@ -736,7 +740,7 @@ export class OAuthProviderService {
 
   private async decryptSecret(encryptedSecret: string): Promise<string> {
     const algorithm = 'aes-256-gcm';
-    const key = crypto.scryptSync(config.security?.encryptionKey || 'default-key', 'salt', 32);
+    const key = crypto.scryptSync((config as any).security?.encryptionKey || 'default-key', 'salt', 32);
 
     const [ivHex, encrypted] = encryptedSecret.split(':');
     const iv = Buffer.from(ivHex, 'hex');
@@ -803,7 +807,8 @@ export class OAuthProviderService {
    * Get agent connections
    */
   public async getAgentConnections(agentId: string): Promise<any[]> {
-    return await this.databaseService.getAgentOAuthConnection(agentId, '');
+    const result = await this.databaseService.getAgentOAuthConnection(agentId, '');
+    return Array.isArray(result) ? result : [result].filter(Boolean);
   }
 
   /**

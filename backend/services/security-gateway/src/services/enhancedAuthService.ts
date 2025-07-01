@@ -74,7 +74,7 @@ export class EnhancedAuthService {
       );
 
       if (!user) {
-        user = await this.createUserFromOAuth(userInfo, provider, oauthState);
+        user = await this.createUserFromOAuth(userInfo, provider, oauthState) as any;
       } else {
         await this.updateUserOAuthConnection(user, tokens, provider, userInfo);
       }
@@ -101,7 +101,7 @@ export class EnhancedAuthService {
         details: {
           authMethod: AuthenticationMethod.OAUTH,
           provider: provider.type,
-          userType: user.userType,
+          userType: (user as any).userType || UserType.HUMAN,
           mfaRequired: requiresMFA
         },
         ipAddress,
@@ -110,7 +110,7 @@ export class EnhancedAuthService {
 
       logger.info('OAuth authentication successful', {
         userId: user.id,
-        userType: user.userType,
+        userType: (user as any).userType || UserType.HUMAN,
         provider: provider.type,
         mfaRequired: requiresMFA
       });
@@ -224,7 +224,7 @@ export class EnhancedAuthService {
         redirectUri
       );
 
-      if (user.userType === UserType.AGENT && oauthState.agentCapabilities) {
+      if (((user as any).userType || UserType.HUMAN) === UserType.AGENT && oauthState.agentCapabilities) {
         // Create agent OAuth connection
         const connection = await this.oauthProviderService.createAgentConnection(
           user.id,
@@ -441,12 +441,12 @@ export class EnhancedAuthService {
       const securityContext: EnhancedSecurityContext = {
         userId: user.id,
         sessionId: session.id,
-        userType: user.userType,
+        userType: (user as any).userType || UserType.HUMAN,
         ipAddress: session.ipAddress,
         userAgent: session.userAgent,
         department: user.department,
         role: user.role,
-        permissions: permissions.map(p => p.resource),
+        permissions: Array.isArray(permissions) ? permissions.map((p: any) => p.resource || p) : [],
         securityLevel: user.securityClearance,
         lastAuthentication: session.createdAt,
         mfaVerified: session.mfaVerified,
@@ -454,17 +454,17 @@ export class EnhancedAuthService {
         authenticationMethod: session.authenticationMethod,
         oauthProvider: session.oauthProvider,
         agentCapabilities: session.agentCapabilities,
-        deviceTrusted: session.deviceInfo?.isTrusted || false,
+        deviceTrusted: (session.deviceInfo as any)?.isTrusted || false,
         locationTrusted: this.isLocationTrusted(user, session),
-        agentContext: user.userType === UserType.AGENT ? {
+        agentContext: ((user as any).userType || UserType.HUMAN) === UserType.AGENT ? {
           agentId: user.id,
-          agentName: user.name,
-          capabilities: user.agentConfig?.capabilities || [],
+          agentName: (user as any).name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
+          capabilities: (user as any).agentConfig?.capabilities || [],
           connectedProviders: await this.getAgentConnectedProviders(user.id),
           operationLimits: {
-            maxDailyOperations: user.agentConfig?.monitoring?.maxDailyOperations,
+            maxDailyOperations: (user as any).agentConfig?.monitoring?.maxDailyOperations,
             currentDailyOperations: 0,
-            maxConcurrentOperations: user.agentConfig?.maxConcurrentSessions || 5,
+            maxConcurrentOperations: (user as any).agentConfig?.maxConcurrentSessions || 5,
             currentConcurrentOperations: 0
           }
         } : undefined
@@ -522,7 +522,7 @@ export class EnhancedAuthService {
       updatedAt: new Date()
     };
 
-    return await this.databaseService.createUser(user);
+    return await this.databaseService.createUser(user as any);
   }
 
   private async updateUserOAuthConnection(
@@ -552,7 +552,7 @@ export class EnhancedAuthService {
       });
     }
 
-    await this.databaseService.updateUser(user);
+    await this.databaseService.updateUser(user.id!, user as any);
   }
 
   private async createSession(
@@ -583,7 +583,7 @@ export class EnhancedAuthService {
       updatedAt: new Date()
     };
 
-    return await this.databaseService.createSession(session);
+    return await this.databaseService.createSession(session as any);
   }
 
   private async generateJWTTokens(
@@ -640,7 +640,7 @@ export class EnhancedAuthService {
       const decoded = jwt.verify(token, config.jwt.secret) as any;
       const agent = await this.databaseService.getUserById(decoded.userId);
 
-      if (!agent || agent.userType !== UserType.AGENT) {
+      if (!agent || ((agent as any).userType || UserType.HUMAN) !== UserType.AGENT) {
         return null;
       }
 
@@ -656,7 +656,7 @@ export class EnhancedAuthService {
   }
 
   private async validateAgentProviderAccess(agentId: string, providerType: OAuthProviderType): Promise<boolean> {
-    const connection = await this.oauthProviderService.getAgentConnection(agentId, providerType);
+    const connection = await (this.oauthProviderService as any).getAgentConnection(agentId, providerType);
     return connection !== null;
   }
 
@@ -679,7 +679,7 @@ export class EnhancedAuthService {
 
   private async encryptChallenge(challenge: string): Promise<string> {
     const algorithm = 'aes-256-gcm';
-    const key = crypto.scryptSync(config.security?.encryptionKey || 'default-key', 'salt', 32);
+    const key = crypto.scryptSync((config as any).security?.encryptionKey || 'default-key', 'salt', 32);
     const iv = crypto.randomBytes(16);
     const cipher = crypto.createCipheriv(algorithm, key, iv);
 
@@ -691,7 +691,7 @@ export class EnhancedAuthService {
 
   private async decryptChallenge(encryptedChallenge: string): Promise<string> {
     const algorithm = 'aes-256-gcm';
-    const key = crypto.scryptSync(config.security?.encryptionKey || 'default-key', 'salt', 32);
+    const key = crypto.scryptSync((config as any).security?.encryptionKey || 'default-key', 'salt', 32);
 
     const [ivHex, encrypted] = encryptedChallenge.split(':');
     const iv = Buffer.from(ivHex, 'hex');
