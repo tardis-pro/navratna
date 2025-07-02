@@ -5,8 +5,6 @@
  * for the Council of Nycea platform, focusing on agent security and OAuth integration.
  */
 
-import { describe, it, expect } from '@jest/globals';
-
 // Define security enums and types for demonstration
 enum SecurityLevel {
   LOW = 'low',

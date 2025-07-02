@@ -1,4 +1,4 @@
-import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { jest } from '@jest/globals';
 import request from 'supertest';
 import express from 'express';
 import jwt from 'jsonwebtoken';
@@ -12,6 +12,7 @@ import {
   createMockBcrypt,
   createMockJWT
 } from '../utils/mockServices.js';
+import type { Mocked } from 'jest-mock';
 
 // Mock the services
 jest.mock('@uaip/shared-services', () => ({
@@ -36,8 +37,8 @@ jest.mock('@uaip/config', () => ({
 jest.mock('bcrypt');
 jest.mock('jsonwebtoken');
 
-const mockBcrypt = bcrypt as jest.Mocked<typeof bcrypt>;
-const mockJWT = jwt as jest.Mocked<typeof jwt>;
+const mockBcrypt = bcrypt as Mocked<typeof bcrypt>;
+const mockJWT = jwt as Mocked<typeof jwt>;
 
 describe('Authentication Routes', () => {
   let app: express.Application;
@@ -417,8 +418,8 @@ describe('Authentication Routes', () => {
         {},
         {},
         { id: 'user-123', role: 'user' }
-      );
-      const res = createMockResponse();
+      ) as any;
+      const res = createMockResponse() as any;
       const next = createMockNext();
 
       // Mock the authMiddleware by setting user

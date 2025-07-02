@@ -1,8 +1,9 @@
+// @ts-nocheck
 import { jest } from '@jest/globals';
 import { SecurityLevel, RiskLevel, User } from '@uaip/types';
 
 // Mock DatabaseService
-export const createMockDatabaseService = () => ({
+export const createMockDatabaseService = (): any => ({
   initialize: jest.fn().mockResolvedValue(undefined),
   healthCheck: jest.fn().mockResolvedValue({
     status: 'healthy',
@@ -17,7 +18,7 @@ export const createMockDatabaseService = () => ({
   close: jest.fn().mockResolvedValue(undefined),
 
   // User operations
-  createUser: jest.fn<any, any>().mockResolvedValue({
+  createUser: jest.fn().mockResolvedValue({
     id: 'user-123',
     username: 'testuser',
     email: 'test@example.com',
@@ -26,14 +27,14 @@ export const createMockDatabaseService = () => ({
     createdAt: new Date(),
     updatedAt: new Date()
   }),
-  getUserById: jest.fn<any, any>().mockResolvedValue({
+  getUserById: jest.fn().mockResolvedValue({
     id: 'user-123',
     username: 'testuser',
     email: 'test@example.com',
     role: 'user',
     isActive: true
   }),
-  getUserByUsername: jest.fn<any, any>().mockResolvedValue({
+  getUserByUsername: jest.fn().mockResolvedValue({
     id: 'user-123',
     username: 'testuser',
     email: 'test@example.com',
@@ -41,22 +42,22 @@ export const createMockDatabaseService = () => ({
     passwordHash: '$2b$08$test.hash.here',
     isActive: true
   }),
-  getUserByEmail: jest.fn<any, any>().mockResolvedValue({
+  getUserByEmail: jest.fn().mockResolvedValue({
     id: 'user-123',
     username: 'testuser',
     email: 'test@example.com',
     role: 'user',
     isActive: true
   }),
-  updateUser: jest.fn<any, any>().mockResolvedValue({
+  updateUser: jest.fn().mockResolvedValue({
     id: 'user-123',
     username: 'updateduser',
     email: 'updated@example.com',
     role: 'user',
     isActive: true
   }),
-  deleteUser: jest.fn<any, any>().mockResolvedValue(true),
-  findUsers: jest.fn<any, any>().mockResolvedValue([
+  deleteUser: jest.fn().mockResolvedValue(true),
+  findUsers: jest.fn().mockResolvedValue([
     {
       id: 'user-123',
       username: 'testuser',
@@ -67,7 +68,7 @@ export const createMockDatabaseService = () => ({
   ]),
 
   // Audit operations
-  createAuditLog: jest.fn<any, any>().mockResolvedValue({
+  createAuditLog: jest.fn().mockResolvedValue({
     id: 'audit-123',
     userId: 'user-123',
     action: 'LOGIN',
@@ -76,7 +77,7 @@ export const createMockDatabaseService = () => ({
     timestamp: new Date(),
     ipAddress: '127.0.0.1'
   }),
-  getAuditLogs: jest.fn<any, any>().mockResolvedValue([
+  getAuditLogs: jest.fn().mockResolvedValue([
     {
       id: 'audit-123',
       userId: 'user-123',
@@ -87,26 +88,26 @@ export const createMockDatabaseService = () => ({
   ]),
 
   // Approval workflow operations
-  createApprovalRequest: jest.fn<any, any>().mockResolvedValue({
+  createApprovalRequest: jest.fn().mockResolvedValue({
     id: 'approval-123',
     requesterId: 'user-123',
     operation: 'HIGH_RISK_OPERATION',
     status: 'pending',
     createdAt: new Date()
   }),
-  getApprovalRequest: jest.fn<any, any>().mockResolvedValue({
+  getApprovalRequest: jest.fn().mockResolvedValue({
     id: 'approval-123',
     requesterId: 'user-123',
     operation: 'HIGH_RISK_OPERATION',
     status: 'pending'
   }),
-  updateApprovalRequest: jest.fn<any, any>().mockResolvedValue({
+  updateApprovalRequest: jest.fn().mockResolvedValue({
     id: 'approval-123',
     status: 'approved',
     approvedBy: 'admin-123',
     approvedAt: new Date()
   }),
-  getPendingApprovals: jest.fn<any, any>().mockResolvedValue([
+  getPendingApprovals: jest.fn().mockResolvedValue([
     {
       id: 'approval-123',
       operation: 'HIGH_RISK_OPERATION',
@@ -116,16 +117,16 @@ export const createMockDatabaseService = () => ({
   ]),
 
   // Authentication operations
-  createRefreshToken: jest.fn<any, any>().mockResolvedValue({
+  createRefreshToken: jest.fn().mockResolvedValue({
     id: 'refresh-123',
     token: 'refresh.token.here',
     userId: 'user-123',
     expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     createdAt: new Date()
   }),
-  resetUserLoginAttempts: jest.fn<any, any>().mockResolvedValue(true),
-  updateUserLoginTracking: jest.fn<any, any>().mockResolvedValue(true),
-  getRefreshTokenWithUser: jest.fn<any, any>().mockResolvedValue({
+  resetUserLoginAttempts: jest.fn().mockResolvedValue(true),
+  updateUserLoginTracking: jest.fn().mockResolvedValue(true),
+  getRefreshTokenWithUser: jest.fn().mockResolvedValue({
     id: 'refresh-123',
     token: 'refresh.token.here',
     userId: 'user-123',
@@ -138,17 +139,17 @@ export const createMockDatabaseService = () => ({
       isActive: true
     }
   }),
-  revokeRefreshToken: jest.fn<any, any>().mockResolvedValue(true),
-  updateUserPassword: jest.fn<any, any>().mockResolvedValue(true),
-  revokeAllUserRefreshTokens: jest.fn<any, any>().mockResolvedValue(true),
-  createPasswordResetToken: jest.fn<any, any>().mockResolvedValue({
+  revokeRefreshToken: jest.fn().mockResolvedValue(true),
+  updateUserPassword: jest.fn().mockResolvedValue(true),
+  revokeAllUserRefreshTokens: jest.fn().mockResolvedValue(true),
+  createPasswordResetToken: jest.fn().mockResolvedValue({
     id: 'reset-123',
     token: 'reset.token.here',
     userId: 'user-123',
     expiresAt: new Date(Date.now() + 60 * 60 * 1000),
     createdAt: new Date()
   }),
-  getPasswordResetTokenWithUser: jest.fn<any, any>().mockResolvedValue({
+  getPasswordResetTokenWithUser: jest.fn().mockResolvedValue({
     id: 'reset-123',
     token: 'reset.token.here',
     userId: 'user-123',
@@ -161,36 +162,36 @@ export const createMockDatabaseService = () => ({
       isActive: true
     }
   }),
-  markPasswordResetTokenAsUsed: jest.fn<any, any>().mockResolvedValue(true),
-  getUserHighestRole: jest.fn<any, any>().mockResolvedValue('user'),
+  markPasswordResetTokenAsUsed: jest.fn().mockResolvedValue(true),
+  getUserHighestRole: jest.fn().mockResolvedValue('user'),
 
   // Agent usage tracking
-  getAgentHourlyUsage: jest.fn<any, any>().mockResolvedValue(5),
-  getAgentDailyUsage: jest.fn<any, any>().mockResolvedValue(50),
+  getAgentHourlyUsage: jest.fn().mockResolvedValue(5),
+  getAgentDailyUsage: jest.fn().mockResolvedValue(50),
 
   // OAuth provider operations
-  createOAuthProvider: jest.fn<any, any>().mockResolvedValue({
+  createOAuthProvider: jest.fn().mockResolvedValue({
     id: 'provider-123',
     type: 'github',
     isEnabled: true
   }),
-  getOAuthState: jest.fn<any, any>().mockResolvedValue({
+  getOAuthState: jest.fn().mockResolvedValue({
     state: 'state-123',
     providerId: 'provider-123',
     expiresAt: new Date(Date.now() + 10 * 60 * 1000)
   }),
-  getAgentOAuthConnection: jest.fn<any, any>().mockResolvedValue({
+  getAgentOAuthConnection: jest.fn().mockResolvedValue({
     id: 'connection-123',
     agentId: 'agent-123',
     providerId: 'provider-123',
     isActive: true
   }),
-  updateAgentOAuthConnection: jest.fn<any, any>().mockResolvedValue(true),
-  getUserByOAuthProvider: jest.fn<any, any>().mockResolvedValue(null)
+  updateAgentOAuthConnection: jest.fn().mockResolvedValue(true),
+  getUserByOAuthProvider: jest.fn().mockResolvedValue(null)
 });
 
 // Mock EventBusService
-export const createMockEventBusService = () => ({
+export const createMockEventBusService = (): any => ({
   connect: jest.fn().mockResolvedValue(undefined),
   close: jest.fn().mockResolvedValue(undefined),
   publish: jest.fn().mockResolvedValue(undefined),
@@ -199,7 +200,7 @@ export const createMockEventBusService = () => ({
 });
 
 // Mock RedisService
-export const createMockRedisService = () => ({
+export const createMockRedisService = (): any => ({
   connect: jest.fn().mockResolvedValue(undefined),
   disconnect: jest.fn().mockResolvedValue(undefined),
   get: jest.fn().mockResolvedValue(null),
@@ -211,7 +212,7 @@ export const createMockRedisService = () => ({
 });
 
 // Mock SecurityValidationService
-export const createMockSecurityValidationService = () => ({
+export const createMockSecurityValidationService = (): any => ({
   validateOperation: jest.fn().mockResolvedValue({
     allowed: true,
     riskLevel: SecurityLevel.MEDIUM,
@@ -234,7 +235,7 @@ export const createMockSecurityValidationService = () => ({
 });
 
 // Mock NotificationService
-export const createMockNotificationService = () => ({
+export const createMockNotificationService = (): any => ({
   sendEmail: jest.fn().mockResolvedValue({
     messageId: 'msg-123',
     status: 'sent'
@@ -246,33 +247,33 @@ export const createMockNotificationService = () => ({
 });
 
 // Mock AuditService
-export const createMockAuditService = () => ({
-  logEvent: jest.fn<any, any>().mockResolvedValue({
+export const createMockAuditService = (): any => ({
+  logEvent: jest.fn().mockResolvedValue({
     id: 'audit-123',
     timestamp: new Date(),
     eventType: 'SECURITY_EVENT',
     severity: 'INFO',
     message: 'Test audit event'
   }),
-  logSecurityEvent: jest.fn<any, any>().mockResolvedValue({
+  logSecurityEvent: jest.fn().mockResolvedValue({
     id: 'security-audit-123',
     timestamp: new Date(),
     eventType: 'SECURITY_EVENT',
     severity: 'WARNING'
   }),
-  logUserAction: jest.fn<any, any>().mockResolvedValue({
+  logUserAction: jest.fn().mockResolvedValue({
     id: 'user-action-123',
     timestamp: new Date(),
     eventType: 'USER_ACTION',
     severity: 'INFO'
   }),
-  logSystemEvent: jest.fn<any, any>().mockResolvedValue({
+  logSystemEvent: jest.fn().mockResolvedValue({
     id: 'system-event-123',
     timestamp: new Date(),
     eventType: 'SYSTEM_EVENT',
     severity: 'INFO'
   }),
-  queryEvents: jest.fn<any, any>().mockResolvedValue([
+  queryEvents: jest.fn().mockResolvedValue([
     {
       id: 'audit-123',
       timestamp: new Date(),
@@ -281,14 +282,14 @@ export const createMockAuditService = () => ({
       message: 'Test audit event'
     }
   ]),
-  getEventsByUser: jest.fn<any, any>().mockResolvedValue([]),
-  getEventsByType: jest.fn<any, any>().mockResolvedValue([]),
-  getEventsInTimeRange: jest.fn<any, any>().mockResolvedValue([]),
-  searchEvents: jest.fn<any, any>().mockResolvedValue([])
+  getEventsByUser: jest.fn().mockResolvedValue([]),
+  getEventsByType: jest.fn().mockResolvedValue([]),
+  getEventsInTimeRange: jest.fn().mockResolvedValue([]),
+  searchEvents: jest.fn().mockResolvedValue([])
 });
 
 // Mock ApprovalWorkflowService
-export const createMockApprovalWorkflowService = () => ({
+export const createMockApprovalWorkflowService = (): any => ({
   createApprovalRequest: jest.fn().mockResolvedValue({
     id: 'approval-123',
     requesterId: 'user-123',
@@ -330,7 +331,7 @@ export const createMockApprovalWorkflowService = () => ({
 });
 
 // Mock LLMProviderManagementService
-export const createMockLLMProviderManagementService = () => ({
+export const createMockLLMProviderManagementService = (): any => ({
   createProvider: jest.fn().mockResolvedValue({
     id: 'provider-123',
     name: 'OpenAI',
@@ -380,14 +381,14 @@ export const createMockUser = (overrides: Partial<User> = {}): User => ({
 });
 
 // Mock bcrypt for password hashing
-export const createMockBcrypt = () => ({
+export const createMockBcrypt = (): any => ({
   hash: jest.fn().mockResolvedValue('$2b$08$test.hash.here'),
   compare: jest.fn().mockResolvedValue(true),
   genSalt: jest.fn().mockResolvedValue('$2b$08$test.salt.here')
 });
 
 // Mock jsonwebtoken
-export const createMockJWT = () => ({
+export const createMockJWT = (): any => ({
   sign: jest.fn().mockReturnValue('test.jwt.token'),
   verify: jest.fn().mockReturnValue({
     userId: 'user-123',
@@ -402,7 +403,7 @@ export const createMockJWT = () => ({
 });
 
 // Mock OAuthProviderService
-export const createMockOAuthProviderService = () => ({
+export const createMockOAuthProviderService = (): any => ({
   validateAgentOperation: jest.fn().mockResolvedValue({
     allowed: true,
     reason: 'Valid operation'
@@ -438,7 +439,7 @@ export const createMockOAuthProviderService = () => ({
 });
 
 // Mock EnhancedAuthService
-export const createMockEnhancedAuthService = () => ({
+export const createMockEnhancedAuthService = (): any => ({
   authenticateWithOAuth: jest.fn().mockResolvedValue({
     user: {
       id: 'user-123',

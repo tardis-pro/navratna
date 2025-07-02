@@ -1,7 +1,7 @@
-import { jest, beforeEach, afterEach, expect } from '@jest/globals';
+import { jest } from '@jest/globals';
 
 // Mock logger directly to avoid module resolution issues
-const mockLogger = {
+const mockLogger: any = {
   info: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),
@@ -37,7 +37,12 @@ afterEach(() => {
 });
 
 // Global test utilities
-export const createMockRequest = (body = {}, params = {}, query = {}, user = { id: 'test-user-id', role: 'user' }) => ({
+export const createMockRequest: (
+  body?: any,
+  params?: any,
+  query?: any,
+  user?: any
+) => any = (body = {}, params = {}, query = {}, user = { id: 'test-user-id', role: 'user' }) => ({
   body,
   params,
   query,
@@ -47,7 +52,7 @@ export const createMockRequest = (body = {}, params = {}, query = {}, user = { i
   get: jest.fn().mockReturnValue('test-value')
 });
 
-export const createMockResponse = () => {
+export const createMockResponse: () => any = () => {
   const res = {
     status: jest.fn().mockReturnThis(),
     json: jest.fn().mockReturnThis(),
@@ -60,7 +65,7 @@ export const createMockResponse = () => {
   return res;
 };
 
-export const createMockNext = () => jest.fn();
+export const createMockNext: () => any = () => jest.fn();
 
 // Mock environment variables for testing
 process.env.NODE_ENV = 'test';

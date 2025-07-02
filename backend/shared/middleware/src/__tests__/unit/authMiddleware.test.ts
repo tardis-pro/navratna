@@ -35,8 +35,8 @@ describe('authMiddleware', () => {
   let next: NextFunction;
 
   beforeEach(() => {
-    req = createMockRequest();
-    res = createMockResponse();
+    req = createMockRequest() as any;
+    res = createMockResponse() as any;
     next = createMockNext();
     jest.clearAllMocks();
   });
@@ -174,8 +174,8 @@ describe('requireAdmin', () => {
   let next: NextFunction;
 
   beforeEach(() => {
-    req = createMockRequest();
-    res = createMockResponse();
+    req = createMockRequest() as any;
+    res = createMockResponse() as any;
     next = createMockNext();
   });
 
@@ -221,8 +221,8 @@ describe('requireOperator', () => {
   let next: NextFunction;
 
   beforeEach(() => {
-    req = createMockRequest();
-    res = createMockResponse();
+    req = createMockRequest() as any;
+    res = createMockResponse() as any;
     next = createMockNext();
   });
 
@@ -277,8 +277,8 @@ describe('optionalAuth', () => {
   let next: NextFunction;
 
   beforeEach(() => {
-    req = createMockRequest();
-    res = createMockResponse();
+    req = createMockRequest() as any;
+    res = createMockResponse() as any;
     next = createMockNext();
   });
 

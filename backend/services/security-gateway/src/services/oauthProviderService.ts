@@ -849,4 +849,34 @@ export class OAuthProviderService {
     // For now, return empty array as placeholder
     return [];
   }
+
+  /**
+   * Record agent operation for audit purposes
+   */
+  public async recordAgentOperation(
+    agentId: string,
+    providerId: string,
+    operation: string,
+    result: any
+  ): Promise<void> {
+    try {
+      await this.auditService.logEvent({
+        eventType: AuditEventType.AGENT_OPERATION,
+        agentId,
+        details: {
+          action: 'oauth_operation',
+          providerId,
+          operation,
+          result: result ? 'success' : 'failure'
+        }
+      });
+    } catch (error) {
+      logger.error('Failed to record agent operation', {
+        agentId,
+        providerId,
+        operation,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
 }

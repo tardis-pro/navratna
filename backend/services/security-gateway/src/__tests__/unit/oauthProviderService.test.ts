@@ -1,4 +1,4 @@
-import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { jest } from '@jest/globals';
 import { OAuthProviderService } from '../../services/oauthProviderService.js';
 import {
   createMockDatabaseService,
@@ -26,7 +26,7 @@ jest.mock('@uaip/utils', () => ({
     error: jest.fn(),
     debug: jest.fn()
   },
-  ApiError: jest.fn().mockImplementation((status, message, code) => {
+  ApiError: jest.fn().mockImplementation((status, message: string, code) => {
     const error = new Error(message);
     (error as any).status = status;
     (error as any).code = code;
@@ -428,7 +428,13 @@ describe('OAuthProviderService', () => {
         permissions: ['clone', 'pull', 'push']
       };
 
-      const result = await oauthProviderService.createAgentConnection(connectionData);
+      const result = await oauthProviderService.createAgentConnection(
+        connectionData.agentId,
+        connectionData.providerId,
+        { access_token: connectionData.accessToken, token_type: 'Bearer' },
+        connectionData.capabilities,
+        connectionData.permissions
+      );
 
       expect(result).toBeDefined();
       expect(result.agentId).toBe('agent-123');

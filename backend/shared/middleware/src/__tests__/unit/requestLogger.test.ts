@@ -55,8 +55,8 @@ describe('requestLogger', () => {
   let originalSend: Function;
 
   beforeEach(() => {
-    req = createMockRequest();
-    res = createMockResponse();
+    req = createMockRequest() as any;
+    res = createMockResponse() as any;
     next = createMockNext();
     originalSend = res.send;
     jest.clearAllMocks();
@@ -218,8 +218,8 @@ describe('defaultRequestLogger', () => {
   let next: NextFunction;
 
   beforeEach(() => {
-    req = createMockRequest();
-    res = createMockResponse();
+    req = createMockRequest() as any;
+    res = createMockResponse() as any;
     next = createMockNext();
   });
 

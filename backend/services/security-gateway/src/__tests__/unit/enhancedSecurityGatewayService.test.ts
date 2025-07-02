@@ -1,4 +1,4 @@
-import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { jest } from '@jest/globals';
 import { EnhancedSecurityGatewayService } from '../../services/enhancedSecurityGatewayService.js';
 import { OAuthProviderService } from '../../services/oauthProviderService.js';
 import { EnhancedAuthService } from '../../services/enhancedAuthService.js';

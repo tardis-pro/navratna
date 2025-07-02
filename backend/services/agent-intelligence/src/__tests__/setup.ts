@@ -5,12 +5,12 @@ import { logger } from '@uaip/utils';
 beforeEach(() => {
   // Clear all mocks before each test
   vi.clearAllMocks();
-  
+
   // Mock logger to prevent noise in test output
-  vi.spyOn(logger, 'info').mockImplementation(() => {});
-  vi.spyOn(logger, 'warn').mockImplementation(() => {});
-  vi.spyOn(logger, 'error').mockImplementation(() => {});
-  vi.spyOn(logger, 'debug').mockImplementation(() => {});
+  vi.spyOn(logger, 'info').mockImplementation(() => logger);
+  vi.spyOn(logger, 'warn').mockImplementation(() => logger);
+  vi.spyOn(logger, 'error').mockImplementation(() => logger);
+  vi.spyOn(logger, 'debug').mockImplementation(() => logger);
 });
 
 afterEach(() => {

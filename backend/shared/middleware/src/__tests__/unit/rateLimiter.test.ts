@@ -30,8 +30,8 @@ describe('createRateLimiter', () => {
   let next: NextFunction;
 
   beforeEach(() => {
-    req = createMockRequest();
-    res = createMockResponse();
+    req = createMockRequest() as any;
+    res = createMockResponse() as any;
     next = createMockNext();
     jest.clearAllMocks();
   });
@@ -101,8 +101,8 @@ describe('rateLimiter', () => {
   let next: NextFunction;
 
   beforeEach(() => {
-    req = createMockRequest();
-    res = createMockResponse();
+    req = createMockRequest() as any;
+    res = createMockResponse() as any;
     next = createMockNext();
     jest.clearAllMocks();
   });
@@ -120,8 +120,8 @@ describe('rateLimiter', () => {
 
 describe('rate limiter behavior', () => {
   it('should handle missing IP address', () => {
-    const req = createMockRequest({ ip: undefined });
-    const res = createMockResponse();
+    const req = createMockRequest({ ip: undefined }) as any;
+    const res = createMockResponse() as any;
     const next = createMockNext();
     
     const limiter = createRateLimiter();
@@ -131,8 +131,8 @@ describe('rate limiter behavior', () => {
   });
 
   it('should handle health check path', () => {
-    const req = createMockRequest({ path: '/health' });
-    const res = createMockResponse();
+    const req = createMockRequest({ path: '/health' }) as any;
+    const res = createMockResponse() as any;
     const next = createMockNext();
     
     const limiter = createRateLimiter();

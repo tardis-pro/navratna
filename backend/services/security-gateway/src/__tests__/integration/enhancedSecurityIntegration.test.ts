@@ -1,4 +1,4 @@
-import { jest, describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
+import { jest } from '@jest/globals';
 import { EnhancedSecurityGatewayService } from '../../services/enhancedSecurityGatewayService.js';
 import { OAuthProviderService } from '../../services/oauthProviderService.js';
 import { EnhancedAuthService } from '../../services/enhancedAuthService.js';
@@ -32,7 +32,7 @@ jest.mock('@uaip/utils', () => ({
     error: jest.fn(),
     debug: jest.fn()
   },
-  ApiError: jest.fn().mockImplementation((status, message, code) => {
+  ApiError: jest.fn().mockImplementation((status, message: string, code) => {
     const error = new Error(message);
     (error as any).status = status;
     (error as any).code = code;

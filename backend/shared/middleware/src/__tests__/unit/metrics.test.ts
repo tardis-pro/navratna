@@ -58,8 +58,8 @@ describe('metricsMiddleware', () => {
   let originalEnd: Function;
 
   beforeEach(() => {
-    req = createMockRequest();
-    res = createMockResponse();
+    req = createMockRequest() as any;
+    res = createMockResponse() as any;
     next = createMockNext();
     originalEnd = res.end;
     jest.clearAllMocks();
@@ -201,8 +201,8 @@ describe('metricsEndpoint', () => {
   let res: Response;
 
   beforeEach(() => {
-    req = createMockRequest();
-    res = createMockResponse();
+    req = createMockRequest() as any;
+    res = createMockResponse() as any;
     jest.clearAllMocks();
   });
 

@@ -2,7 +2,7 @@ import { vi } from 'vitest';
 import { Agent, SecurityLevel, RiskLevel } from '@uaip/types';
 
 // Mock DatabaseService
-export const createMockDatabaseService = () => ({
+export const createMockDatabaseService = (): any => ({
   initialize: vi.fn().mockResolvedValue(undefined),
   healthCheck: vi.fn().mockResolvedValue({
     status: 'healthy',
@@ -47,7 +47,7 @@ export const createMockDatabaseService = () => ({
 });
 
 // Mock EventBusService
-export const createMockEventBusService = () => ({
+export const createMockEventBusService = (): any => ({
   connect: vi.fn().mockResolvedValue(undefined),
   close: vi.fn().mockResolvedValue(undefined),
   publish: vi.fn().mockResolvedValue(undefined),
@@ -56,7 +56,7 @@ export const createMockEventBusService = () => ({
 });
 
 // Mock PersonaService
-export const createMockPersonaService = () => ({
+export const createMockPersonaService = (): any => ({
   createPersona: vi.fn().mockResolvedValue({
     id: 'persona-123',
     name: 'Test Persona',
@@ -84,7 +84,7 @@ export const createMockPersonaService = () => ({
 });
 
 // Mock DiscussionService
-export const createMockDiscussionService = () => ({
+export const createMockDiscussionService = (): any => ({
   createDiscussion: vi.fn().mockResolvedValue({
     id: 'discussion-123',
     title: 'Test Discussion',
@@ -119,7 +119,7 @@ export const createMockDiscussionService = () => ({
 });
 
 // Mock KnowledgeGraphService
-export const createMockKnowledgeGraphService = () => ({
+export const createMockKnowledgeGraphService = (): any => ({
   addNode: vi.fn().mockResolvedValue({ id: 'node-123' }),
   addRelationship: vi.fn().mockResolvedValue({ id: 'rel-123' }),
   findNodes: vi.fn().mockResolvedValue([]),
@@ -130,7 +130,7 @@ export const createMockKnowledgeGraphService = () => ({
 });
 
 // Mock AgentMemoryService
-export const createMockAgentMemoryService = () => ({
+export const createMockAgentMemoryService = (): any => ({
   storeMemory: vi.fn().mockResolvedValue({
     id: 'memory-123',
     agentId: 'agent-123',
@@ -150,7 +150,7 @@ export const createMockAgentMemoryService = () => ({
 });
 
 // Mock CapabilityDiscoveryService
-export const createMockCapabilityDiscoveryService = () => ({
+export const createMockCapabilityDiscoveryService = (): any => ({
   discoverCapabilities: vi.fn().mockResolvedValue([
     {
       id: 'capability-123',
@@ -168,7 +168,7 @@ export const createMockCapabilityDiscoveryService = () => ({
 });
 
 // Mock SecurityValidationService
-export const createMockSecurityValidationService = () => ({
+export const createMockSecurityValidationService = (): any => ({
   validateOperation: vi.fn().mockResolvedValue({
     allowed: true,
     riskLevel: SecurityLevel.MEDIUM,
@@ -191,7 +191,7 @@ export const createMockSecurityValidationService = () => ({
 });
 
 // Mock EnhancedAgentIntelligenceService
-export const createMockEnhancedAgentIntelligenceService = () => ({
+export const createMockEnhancedAgentIntelligenceService = (): any => ({
   analyzeContext: vi.fn().mockResolvedValue({
     analysisId: 'analysis-123',
     agentId: 'agent-123',
@@ -247,16 +247,23 @@ export const createMockEnhancedAgentIntelligenceService = () => ({
 export const createMockAgent = (overrides: Partial<Agent> = {}): Agent => ({
   id: 'agent-123',
   name: 'Test Agent',
-  description: 'A test agent for unit testing',
-  type: 'analytical',
+  role: 'analyst' as any,
   status: 'active',
-  capabilities: ['analysis', 'reasoning'],
   configuration: {
-    maxConcurrentTasks: 5,
-    timeoutMs: 30000,
-    retryAttempts: 3
+    model: 'gpt-4',
+    temperature: 0.7,
+    analysisDepth: 'intermediate',
+    contextWindowSize: 4000,
+    decisionThreshold: 0.7,
+    learningEnabled: true,
+    collaborationMode: 'collaborative'
   },
-  securityLevel: SecurityLevel.MEDIUM,
+  securityContext: {
+    securityLevel: 'medium',
+    allowedCapabilities: ['analysis', 'reasoning'],
+    approvalRequired: false,
+    auditLevel: 'standard'
+  },
   createdAt: new Date('2023-01-01'),
   updatedAt: new Date('2023-01-01'),
   ...overrides

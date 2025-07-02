@@ -55,8 +55,8 @@ describe('errorHandler', () => {
   let next: NextFunction;
 
   beforeEach(() => {
-    req = createMockRequest();
-    res = createMockResponse();
+    req = createMockRequest() as any;
+    res = createMockResponse() as any;
     next = createMockNext();
     jest.clearAllMocks();
   });

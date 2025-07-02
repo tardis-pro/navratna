@@ -40,8 +40,8 @@ describe('validateRequest', () => {
   let next: NextFunction;
 
   beforeEach(() => {
-    req = createMockRequest();
-    res = createMockResponse();
+    req = createMockRequest() as any;
+    res = createMockResponse() as any;
     next = createMockNext();
     jest.clearAllMocks();
   });
@@ -199,8 +199,8 @@ describe('validateID', () => {
   let next: NextFunction;
 
   beforeEach(() => {
-    req = createMockRequest();
-    res = createMockResponse();
+    req = createMockRequest() as any;
+    res = createMockResponse() as any;
     next = createMockNext();
   });
 
@@ -241,8 +241,8 @@ describe('validateUUID', () => {
   let next: NextFunction;
 
   beforeEach(() => {
-    req = createMockRequest();
-    res = createMockResponse();
+    req = createMockRequest() as any;
+    res = createMockResponse() as any;
     next = createMockNext();
   });
 
@@ -274,8 +274,8 @@ describe('validatePagination', () => {
   let next: NextFunction;
 
   beforeEach(() => {
-    req = createMockRequest();
-    res = createMockResponse();
+    req = createMockRequest() as any;
+    res = createMockResponse() as any;
     next = createMockNext();
   });
 
@@ -327,8 +327,8 @@ describe('validateJSON', () => {
   let next: NextFunction;
 
   beforeEach(() => {
-    req = createMockRequest();
-    res = createMockResponse();
+    req = createMockRequest() as any;
+    res = createMockResponse() as any;
     next = createMockNext();
   });
 
@@ -379,8 +379,8 @@ describe('requireContentType', () => {
   let next: NextFunction;
 
   beforeEach(() => {
-    req = createMockRequest();
-    res = createMockResponse();
+    req = createMockRequest() as any;
+    res = createMockResponse() as any;
     next = createMockNext();
   });
 
@@ -414,8 +414,8 @@ describe('validateRequestSize', () => {
   let next: NextFunction;
 
   beforeEach(() => {
-    req = createMockRequest();
-    res = createMockResponse();
+    req = createMockRequest() as any;
+    res = createMockResponse() as any;
     next = createMockNext();
   });
 
@@ -457,8 +457,8 @@ describe('createCustomValidator', () => {
   let next: NextFunction;
 
   beforeEach(() => {
-    req = createMockRequest();
-    res = createMockResponse();
+    req = createMockRequest() as any;
+    res = createMockResponse() as any;
     next = createMockNext();
   });
 

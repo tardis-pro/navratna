@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AgentController } from '../../controllers/agentController.js';
-import { 
+import {
   createMockDatabaseService,
   createMockEventBusService,
   createMockPersonaService,
@@ -119,7 +119,7 @@ describe('AgentController', () => {
 
     // Initialize controller with all dependencies
     controller = new AgentController(
-      mockKnowledgeGraphService,
+      mockKnowledgeGraphService as any,
       mockAgentMemoryService,
       mockPersonaService,
       mockDiscussionService,
@@ -138,12 +138,12 @@ describe('AgentController', () => {
       const minimalController = new AgentController(
         undefined,
         undefined,
-        mockPersonaService,
+        mockPersonaService as any,
         mockDiscussionService,
         mockDatabaseService,
         mockEventBusService
       );
-      
+
       expect(minimalController).toBeDefined();
       expect(minimalController).toBeInstanceOf(AgentController);
     });
@@ -166,7 +166,7 @@ describe('AgentController', () => {
           explanation: 'Test explanation'
         })
       };
-      
+
       (controller as any).agentIntelligenceService = mockAgentIntelligenceService;
       (controller as any).capabilityDiscoveryService = {
         getAgentCapabilities: vi.fn().mockResolvedValue([])
@@ -188,8 +188,8 @@ describe('AgentController', () => {
         },
         userRequest: 'What is the weather in New York?',
         constraints: {}
-      }, { agentId: 'agent-123' });
-      const res = createMockResponse();
+      }, { agentId: 'agent-123' }) as any;
+      const res = createMockResponse() as any;
       const next = createMockNext();
 
       await controller.analyzeContext(req, res, next);
@@ -222,8 +222,8 @@ describe('AgentController', () => {
           type: 'conversation',
           data: 'Test context'
         }
-      }, {}); // No agentId in params
-      const res = createMockResponse();
+      }, {}) as any; // No agentId in params
+      const res = createMockResponse() as any;
       const next = createMockNext();
 
       await controller.analyzeContext(req, res, next);
@@ -236,8 +236,8 @@ describe('AgentController', () => {
     it('should handle invalid context format', async () => {
       const req = createMockRequest({
         conversationContext: 'invalid-context-format'
-      }, { agentId: 'agent-123' });
-      const res = createMockResponse();
+      }, { agentId: 'agent-123' }) as any;
+      const res = createMockResponse() as any;
       const next = createMockNext();
 
       await controller.analyzeContext(req, res, next);
@@ -253,7 +253,7 @@ describe('AgentController', () => {
         getAgent: vi.fn().mockRejectedValue(new Error('Service unavailable')),
         analyzeContext: vi.fn()
       };
-      
+
       (controller as any).agentIntelligenceService = mockAgentIntelligenceService;
 
       const req = createMockRequest({
@@ -261,8 +261,8 @@ describe('AgentController', () => {
           type: 'conversation',
           data: 'Test context'
         }
-      }, { agentId: 'agent-123' });
-      const res = createMockResponse();
+      }, { agentId: 'agent-123' }) as any;
+      const res = createMockResponse() as any;
       const next = createMockNext();
 
       await controller.analyzeContext(req, res, next);
@@ -296,7 +296,7 @@ describe('AgentController', () => {
           dependencies: []
         })
       };
-      
+
       (controller as any).agentIntelligenceService = mockAgentIntelligenceService;
       (controller as any).securityValidationService = {
         assessRisk: vi.fn().mockResolvedValue({
@@ -315,8 +315,8 @@ describe('AgentController', () => {
         analysis: 'Market analysis',
         userPreferences: {},
         securityContext: {}
-      }, { agentId: 'agent-123' });
-      const res = createMockResponse();
+      }, { agentId: 'agent-123' }) as any;
+      const res = createMockResponse() as any;
       const next = createMockNext();
 
       await controller.generatePlan(req, res, next);
@@ -348,8 +348,8 @@ describe('AgentController', () => {
     it('should validate plan parameters', async () => {
       const req = createMockRequest({
         // Missing required fields
-      }, { agentId: 'agent-123' });
-      const res = createMockResponse();
+      }, { agentId: 'agent-123' }) as any;
+      const res = createMockResponse() as any;
       const next = createMockNext();
 
       await controller.generatePlan(req, res, next);
@@ -374,7 +374,7 @@ describe('AgentController', () => {
           dependencies: []
         })
       };
-      
+
       (controller as any).agentIntelligenceService = mockAgentIntelligenceService;
       (controller as any).securityValidationService = {
         assessRisk: vi.fn().mockResolvedValue({
@@ -393,8 +393,8 @@ describe('AgentController', () => {
         analysis: 'High-risk critical analysis',
         userPreferences: {},
         securityContext: {}
-      }, { agentId: 'agent-123' });
-      const res = createMockResponse();
+      }, { agentId: 'agent-123' }) as any;
+      const res = createMockResponse() as any;
       const next = createMockNext();
 
       await controller.generatePlan(req, res, next);
@@ -438,15 +438,15 @@ describe('AgentController', () => {
           knowledgeUsed: false
         })
       };
-      
+
       (controller as any).agentIntelligenceService = mockAgentIntelligenceService;
 
       const req = createMockRequest({
         message: 'Hello, how are you?',
         conversationHistory: [],
         context: 'casual conversation'
-      }, { agentId: 'agent-123' });
-      const res = createMockResponse();
+      }, { agentId: 'agent-123' }) as any;
+      const res = createMockResponse() as any;
       const next = createMockNext();
 
       await controller.chatWithAgent(req, res, next);
@@ -479,8 +479,8 @@ describe('AgentController', () => {
       const req = createMockRequest({
         // Missing message
         conversationHistory: []
-      }, { agentId: 'agent-123' });
-      const res = createMockResponse();
+      }, { agentId: 'agent-123' }) as any;
+      const res = createMockResponse() as any;
       const next = createMockNext();
 
       await controller.chatWithAgent(req, res, next);
@@ -494,14 +494,14 @@ describe('AgentController', () => {
       const mockAgentIntelligenceService = {
         getAgentWithPersona: vi.fn().mockResolvedValue(null)
       };
-      
+
       (controller as any).agentIntelligenceService = mockAgentIntelligenceService;
 
       const req = createMockRequest({
         message: 'Hello',
         conversationHistory: []
-      }, { agentId: 'nonexistent-agent' });
-      const res = createMockResponse();
+      }, { agentId: 'nonexistent-agent' }) as any;
+      const res = createMockResponse() as any;
       const next = createMockNext();
 
       await controller.chatWithAgent(req, res, next);
@@ -523,14 +523,14 @@ describe('AgentController', () => {
           new Error('LLM service unavailable')
         )
       };
-      
+
       (controller as any).agentIntelligenceService = mockAgentIntelligenceService;
 
       const req = createMockRequest({
         message: 'Hello',
         conversationHistory: []
-      }, { agentId: 'agent-123' });
-      const res = createMockResponse();
+      }, { agentId: 'agent-123' }) as any;
+      const res = createMockResponse() as any;
       const next = createMockNext();
 
       await controller.chatWithAgent(req, res, next);
@@ -547,7 +547,7 @@ describe('AgentController', () => {
       const mockAgentIntelligenceService = {
         createAgent: vi.fn().mockResolvedValue(mockAgent)
       };
-      
+
       (controller as any).agentIntelligenceService = mockAgentIntelligenceService;
 
       const req = createMockRequest({
@@ -556,8 +556,8 @@ describe('AgentController', () => {
         role: 'assistant',
         capabilities: ['analysis', 'reasoning'],
         personaId: 'persona-123'
-      });
-      const res = createMockResponse();
+      }) as any;
+      const res = createMockResponse() as any;
       const next = createMockNext();
 
       await controller.createAgent(req, res, next);
@@ -585,11 +585,11 @@ describe('AgentController', () => {
       const mockAgentIntelligenceService = {
         getAgent: vi.fn().mockResolvedValue(mockAgent)
       };
-      
+
       (controller as any).agentIntelligenceService = mockAgentIntelligenceService;
 
-      const req = createMockRequest({}, { agentId: 'agent-123' });
-      const res = createMockResponse();
+      const req = createMockRequest({}, { agentId: 'agent-123' }) as any;
+      const res = createMockResponse() as any;
       const next = createMockNext();
 
       await controller.getAgent(req, res, next);
@@ -609,11 +609,11 @@ describe('AgentController', () => {
       const mockAgentIntelligenceService = {
         getAgent: vi.fn().mockResolvedValue(null)
       };
-      
+
       (controller as any).agentIntelligenceService = mockAgentIntelligenceService;
 
-      const req = createMockRequest({}, { agentId: 'nonexistent-agent' });
-      const res = createMockResponse();
+      const req = createMockRequest({}, { agentId: 'nonexistent-agent' }) as any;
+      const res = createMockResponse() as any;
       const next = createMockNext();
 
       await controller.getAgent(req, res, next);
@@ -628,7 +628,7 @@ describe('AgentController', () => {
       const mockAgentIntelligenceService = {
         updateAgent: vi.fn().mockResolvedValue(mockAgent)
       };
-      
+
       (controller as any).agentIntelligenceService = mockAgentIntelligenceService;
 
       const req = createMockRequest(
@@ -637,8 +637,8 @@ describe('AgentController', () => {
           description: 'Updated description'
         },
         { agentId: 'agent-123' }
-      );
-      const res = createMockResponse();
+      ) as any;
+      const res = createMockResponse() as any;
       const next = createMockNext();
 
       await controller.updateAgent(req, res, next);
@@ -656,11 +656,11 @@ describe('AgentController', () => {
       const mockAgentIntelligenceService = {
         deleteAgent: vi.fn().mockResolvedValue(true)
       };
-      
+
       (controller as any).agentIntelligenceService = mockAgentIntelligenceService;
 
-      const req = createMockRequest({}, { agentId: 'agent-123' });
-      const res = createMockResponse();
+      const req = createMockRequest({}, { agentId: 'agent-123' }) as any;
+      const res = createMockResponse() as any;
       const next = createMockNext();
 
       await controller.deleteAgent(req, res, next);
@@ -671,14 +671,14 @@ describe('AgentController', () => {
 
     it('should list agents with filtering', async () => {
       const mockAgents = [
-        createMockAgent({ 
-          id: 'agent-1', 
+        createMockAgent({
+          id: 'agent-1',
           name: 'Agent 1',
           role: 'analytical' as any,
           isActive: true
         }),
-        createMockAgent({ 
-          id: 'agent-2', 
+        createMockAgent({
+          id: 'agent-2',
           name: 'Agent 2',
           role: 'analytical' as any,
           isActive: true
@@ -687,21 +687,21 @@ describe('AgentController', () => {
       const mockAgentIntelligenceService = {
         getAgents: vi.fn().mockResolvedValue(mockAgents)
       };
-      
+
       (controller as any).agentIntelligenceService = mockAgentIntelligenceService;
 
-      const req = createMockRequest({}, {}, { 
+      const req = createMockRequest({}, {}, {
         limit: '10',
         role: 'analytical',
         isActive: 'true'
-      });
+      }) as any;
       // Mock validated query
       (req as any).validatedQuery = {
         limit: 10,
         role: 'analytical',
         isActive: true
       };
-      const res = createMockResponse();
+      const res = createMockResponse() as any;
       const next = createMockNext();
 
       await controller.getAgents(req, res, next);
@@ -734,12 +734,12 @@ describe('AgentController', () => {
           { id: 'cap-2', name: 'reasoning', type: 'logical' }
         ])
       };
-      
+
       (controller as any).agentIntelligenceService = mockAgentIntelligenceService;
       (controller as any).capabilityDiscoveryService = mockCapabilityDiscoveryService;
 
-      const req = createMockRequest({}, { agentId: 'agent-123' });
-      const res = createMockResponse();
+      const req = createMockRequest({}, { agentId: 'agent-123' }) as any;
+      const res = createMockResponse() as any;
       const next = createMockNext();
 
       await controller.getAgentCapabilities(req, res, next);
@@ -769,12 +769,12 @@ describe('AgentController', () => {
       const mockCapabilityDiscoveryService = {
         getAgentCapabilities: vi.fn().mockRejectedValue(new Error('Service unavailable'))
       };
-      
+
       (controller as any).agentIntelligenceService = mockAgentIntelligenceService;
       (controller as any).capabilityDiscoveryService = mockCapabilityDiscoveryService;
 
-      const req = createMockRequest({}, { agentId: 'agent-123' });
-      const res = createMockResponse();
+      const req = createMockRequest({}, { agentId: 'agent-123' }) as any;
+      const res = createMockResponse() as any;
       const next = createMockNext();
 
       await controller.getAgentCapabilities(req, res, next);
@@ -791,8 +791,8 @@ describe('AgentController', () => {
         // Invalid request body - missing required fields
         name: '', // Empty name
         description: 'test'
-      });
-      const res = createMockResponse();
+      }) as any;
+      const res = createMockResponse() as any;
       const next = createMockNext();
 
       await controller.createAgent(req, res, next);
@@ -808,11 +808,11 @@ describe('AgentController', () => {
           new Error('Database connection failed')
         )
       };
-      
+
       (controller as any).agentIntelligenceService = mockAgentIntelligenceService;
 
-      const req = createMockRequest({}, { agentId: 'agent-123' });
-      const res = createMockResponse();
+      const req = createMockRequest({}, { agentId: 'agent-123' }) as any;
+      const res = createMockResponse() as any;
       const next = createMockNext();
 
       await controller.getAgent(req, res, next);
@@ -828,7 +828,7 @@ describe('AgentController', () => {
           new Error('Request timeout')
         )
       };
-      
+
       (controller as any).agentIntelligenceService = mockAgentIntelligenceService;
 
       const req = createMockRequest({
@@ -836,8 +836,8 @@ describe('AgentController', () => {
           type: 'conversation',
           data: 'Test context'
         }
-      }, { agentId: 'agent-123' });
-      const res = createMockResponse();
+      }, { agentId: 'agent-123' }) as any;
+      const res = createMockResponse() as any;
       const next = createMockNext();
 
       await controller.analyzeContext(req, res, next);
@@ -853,12 +853,12 @@ describe('AgentController', () => {
       const mockAgentIntelligenceService = {
         getAgent: vi.fn().mockResolvedValue(createMockAgent())
       };
-      
+
       (controller as any).agentIntelligenceService = mockAgentIntelligenceService;
 
       const requests = Array.from({ length: 10 }, (_, i) => ({
-        req: createMockRequest({}, { agentId: `agent-${i}` }),
-        res: createMockResponse(),
+        req: createMockRequest({}, { agentId: `agent-${i}` }) as any,
+        res: createMockResponse() as any,
         next: createMockNext()
       }));
 
@@ -896,15 +896,15 @@ describe('AgentController', () => {
           knowledgeUsed: true
         })
       };
-      
+
       (controller as any).agentIntelligenceService = mockAgentIntelligenceService;
 
       const req = createMockRequest({
         message: 'Provide a comprehensive analysis of quantum computing trends',
         conversationHistory: [],
         context: 'research analysis'
-      }, { agentId: 'agent-123' });
-      const res = createMockResponse();
+      }, { agentId: 'agent-123' }) as any;
+      const res = createMockResponse() as any;
       const next = createMockNext();
 
       await controller.chatWithAgent(req, res, next);

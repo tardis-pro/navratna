@@ -4,7 +4,7 @@ import { BaseEntitySchema, IDSchema } from './common.js';
 // Agent types
 export enum AgentRole {
   ASSISTANT = 'assistant',
-  ANALYZER = 'analyzer', 
+  ANALYZER = 'analyzer',
   ORCHESTRATOR = 'orchestrator',
   SPECIALIST = 'specialist'
 }
@@ -47,7 +47,8 @@ export const AgentSchema = BaseEntitySchema.extend({
   intelligenceConfig: AgentIntelligenceConfigSchema,
   securityContext: AgentSecurityContextSchema,
   isActive: z.boolean().default(true),
-  createdBy: IDSchema,    
+  status: z.enum(['idle', 'active', 'busy', 'error', 'offline']).default('idle'),
+  createdBy: IDSchema,
   lastActiveAt: z.date().optional(),
   configuration: z.object({
     model: z.string().optional(),
@@ -77,6 +78,7 @@ export const AgentCreateSchema = z.object({
   intelligenceConfig: AgentIntelligenceConfigSchema.optional(),
   securityContext: AgentSecurityContextSchema.optional(),
   isActive: z.boolean().default(true).optional(),
+  status: z.enum(['idle', 'active', 'busy', 'error', 'offline']).default('idle').optional(),
   createdBy: IDSchema
 });
 
@@ -132,6 +134,7 @@ export const AgentUpdateSchema = z.object({
   }).optional(),
   securityContext: AgentSecurityContextSchema.optional(),
   isActive: z.boolean().optional(),
+  status: z.enum(['idle', 'active', 'busy', 'error', 'offline']).optional(),
   lastActiveAt: z.date().optional(),
   // Model configuration fields (direct agent fields, not in configuration)
   modelId: z.string().optional(),
@@ -296,7 +299,7 @@ export type LearningResult = z.infer<typeof LearningResultSchema>;
 // Agent State Machine Types
 export enum AgentOperationalState {
   IDLE = 'idle',
-  THINKING = 'thinking', 
+  THINKING = 'thinking',
   EXECUTING = 'executing',
   WAITING = 'waiting',
   ERROR = 'error'
@@ -333,7 +336,7 @@ export enum CollaborationPatternType {
 
 export enum WorkflowStepStatus {
   PENDING = 'pending',
-  IN_PROGRESS = 'in_progress', 
+  IN_PROGRESS = 'in_progress',
   COMPLETED = 'completed',
   FAILED = 'failed',
   SKIPPED = 'skipped'
