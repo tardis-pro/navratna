@@ -3,11 +3,13 @@ import request from 'supertest';
 import { Express } from 'express';
 import { DataSource } from 'typeorm';
 import { createTestApp, createTestDataSource, cleanupTestDb } from '../utils/testHelpers';
-import { AgentEntity } from '../../entities/AgentEntity';
-import { UserEntity } from '../../entities/UserEntity';
-import { SecurityPolicyEntity } from '../../entities/SecurityPolicyEntity';
-import { AuditLogEntity } from '../../entities/AuditLogEntity';
-import { SessionEntity } from '../../entities/SessionEntity';
+import {
+  Agent as AgentEntity,
+  UserEntity,
+  SecurityPolicy as SecurityPolicyEntity,
+  AuditEvent as AuditLogEntity,
+  SessionEntity
+} from '@uaip/shared-services';
 import crypto from 'crypto';
 
 describe('Security Validation Integration Tests', () => {
@@ -20,7 +22,7 @@ describe('Security Validation Integration Tests', () => {
   beforeAll(async () => {
     dataSource = await createTestDataSource();
     app = await createTestApp(dataSource);
-    
+
     await seedTestData();
   });
 
@@ -204,14 +206,14 @@ describe('Security Validation Integration Tests', () => {
 
       expect(response.body.factors).toBeInstanceOf(Array);
       expect(response.body.factors.length).toBeGreaterThan(0);
-      
+
       const factors = response.body.factors.map((f: any) => f.type);
       expect(factors).toContain('file_size');
       expect(factors).toContain('file_type');
     });
 
     test('should handle concurrent risk assessments', async () => {
-      const requests = Array.from({ length: 5 }, (_, i) => 
+      const requests = Array.from({ length: 5 }, (_, i) =>
         request(app)
           .post('/api/security/risk/assess')
           .send({
@@ -225,7 +227,7 @@ describe('Security Validation Integration Tests', () => {
       );
 
       const responses = await Promise.all(requests);
-      
+
       responses.forEach(response => {
         expect(response.status).toBe(200);
         expect(response.body).toHaveProperty('riskScore');
@@ -253,7 +255,7 @@ describe('Security Validation Integration Tests', () => {
       }
 
       const responses = await Promise.all(requests);
-      
+
       // Most should succeed
       const successfulRequests = responses.filter(r => r.status === 200);
       expect(successfulRequests.length).toBeGreaterThan(50);
@@ -274,7 +276,7 @@ describe('Security Validation Integration Tests', () => {
 
     test('should enforce burst limits', async () => {
       const agentId = testAgent.id;
-      
+
       // Send burst of requests simultaneously
       const burstRequests = Array.from({ length: 15 }, (_, i) =>
         request(app)
@@ -287,17 +289,17 @@ describe('Security Validation Integration Tests', () => {
       );
 
       const responses = await Promise.all(burstRequests);
-      
+
       const successfulRequests = responses.filter(r => r.status === 200);
       const rateLimitedRequests = responses.filter(r => r.status === 429);
-      
+
       expect(successfulRequests.length).toBeLessThanOrEqual(10); // Burst limit
       expect(rateLimitedRequests.length).toBeGreaterThan(0);
     });
 
     test('should reset rate limits after time window', async () => {
       const agentId = testAgent.id;
-      
+
       // First request should succeed
       const response1 = await request(app)
         .post('/api/security/agent/authenticate')
@@ -336,7 +338,7 @@ describe('Security Validation Integration Tests', () => {
         .find({ where: { agentId: testAgent.id } });
 
       expect(auditLogs.length).toBeGreaterThan(0);
-      
+
       const authLog = auditLogs.find(log => log.eventType === 'AUTHENTICATION');
       expect(authLog).toBeTruthy();
       expect(authLog?.agentId).toBe(testAgent.id);
@@ -406,15 +408,15 @@ describe('Security Validation Integration Tests', () => {
 
       // Check session lifecycle logs
       const auditLogs = await dataSource.getRepository(AuditLogEntity)
-        .find({ 
+        .find({
           where: { agentId: testAgent.id },
           order: { timestamp: 'ASC' }
         });
 
-      const sessionStartLog = auditLogs.find(log => 
+      const sessionStartLog = auditLogs.find(log =>
         log.eventType === 'SESSION' && log.operation === 'session_start'
       );
-      const sessionEndLog = auditLogs.find(log => 
+      const sessionEndLog = auditLogs.find(log =>
         log.eventType === 'SESSION' && log.operation === 'session_end'
       );
 

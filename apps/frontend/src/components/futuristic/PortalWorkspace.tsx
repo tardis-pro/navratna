@@ -17,7 +17,10 @@ import { OperationsMonitor } from './portals/OperationsMonitor';
 import { IntelligencePanelPortal } from './portals/IntelligencePanelPortal';
 import { InsightsPanel } from './portals/InsightsPanel';
 import { KnowledgePortal } from './portals/KnowledgePortal';
-import { Plus, Layout, Users, Brain, Settings, MessageSquare, MessageCircle, Activity, Zap, Terminal, Monitor, Menu, X, Bot, Server, Database, Wrench, Shield, Radio, BarChart3, Lightbulb, Eye, BookOpen, MapPin, Sun, Cloud, CloudRain, CloudSnow, CloudSun, Thermometer, Search, Store } from 'lucide-react';
+import { DashboardPortal } from './portals/DashboardPortal';
+import { ArtifactsPortal } from './portals/ArtifactsPortal';
+import { DesktopWorkspace } from './DesktopWorkspace';
+import { Plus, Layout, Users, Brain, Settings, MessageSquare, MessageCircle, Activity, Zap, Terminal, Monitor, Menu, X, Bot, Server, Database, Wrench, Shield, Radio, BarChart3, Lightbulb, Eye, BookOpen, MapPin, Sun, Cloud, CloudRain, CloudSnow, CloudSun, Thermometer, Search, Store, Grid3X3, Layers, Home, Package } from 'lucide-react';
 import { uaipAPI } from '@/utils/uaip-api';
 import { PuzzlePieceIcon } from '@heroicons/react/24/outline';
 import MarketplaceHubWidget from '@/widgets/MarketplaceHubWidget';
@@ -25,7 +28,7 @@ import { ToolManagementPortal } from './portals/ToolManagementPortal';
 
 interface PortalInstance {
   id: string;
-  type: 'agent-hub' | 'discussion-hub' | 'intelligence-hub' | 'system-hub' | 'chat' | 'knowledge' | 'monitoring-hub' | 'tools' | 'tool-management' | 'provider' | 'marketplace-hub' | 'security-hub';
+  type: 'agent-hub' | 'discussion-hub' | 'intelligence-hub' | 'system-hub' | 'chat' | 'knowledge' | 'monitoring-hub' | 'tools' | 'tool-management' | 'provider' | 'marketplace-hub' | 'security-hub' | 'dashboard' | 'artifacts' | 'search' | 'tasks' | 'create';
   title: string;
   component: React.ComponentType<any>;
   position: { x: number; y: number };
@@ -187,13 +190,37 @@ const PORTAL_CONFIGS = {
     icon: Wrench,
     description: 'Manage and configure system tools and capabilities'
   },
+  'dashboard': {
+    title: 'System Dashboard',
+    component: (props: any) => <DashboardPortal {...props} />,
+    defaultSize: {
+      desktop: { width: 1000, height: 800 },
+      tablet: { width: 800, height: 700 },
+      mobile: { width: 500, height: 650 }
+    },
+    type: 'data' as const,
+    icon: Home,
+    description: 'System overview and metrics dashboard'
+  },
+  'artifacts': {
+    title: 'Artifacts Repository',
+    component: (props: any) => <ArtifactsPortal {...props} />,
+    defaultSize: {
+      desktop: { width: 900, height: 750 },
+      tablet: { width: 750, height: 700 },
+      mobile: { width: 500, height: 650 }
+    },
+    type: 'data' as const,
+    icon: Package,
+    description: 'Manage and organize digital artifacts'
+  },
 };
 
 // Portal type groups for better organization
 const PORTAL_GROUPS = {
   core: {
     title: 'Core Systems',
-    portals: ['agent-hub', 'discussion-hub', 'chat', 'marketplace-hub'],
+    portals: ['dashboard', 'agent-hub', 'discussion-hub', 'chat'],
     colorClasses: {
       text: 'text-blue-400',
       bg: 'from-blue-500/20 to-blue-600/20',
@@ -203,7 +230,7 @@ const PORTAL_GROUPS = {
   },
   intelligence: {
     title: 'Intelligence & Analysis',
-    portals: ['intelligence-hub', 'knowledge', 'monitoring-hub'],
+    portals: ['intelligence-hub', 'knowledge', 'monitoring-hub', 'artifacts'],
     colorClasses: {
       text: 'text-purple-400',
       bg: 'from-purple-500/20 to-purple-600/20',
@@ -213,7 +240,7 @@ const PORTAL_GROUPS = {
   },
   system: {
     title: 'System & Tools',
-    portals: ['system-hub', 'security-hub', 'tools', 'tool-management', 'provider'],
+    portals: ['system-hub', 'security-hub', 'tools', 'tool-management', 'provider', 'marketplace-hub'],
     colorClasses: {
       text: 'text-green-400',
       bg: 'from-green-500/20 to-green-600/20',
@@ -586,6 +613,7 @@ export const PortalWorkspace: React.FC = () => {
   const [clock, setClock] = useState<string>("");
   const [location, setLocation] = useState<{ city?: string; country?: string; lat?: number; lon?: number }>({});
   const [weather, setWeather] = useState<{ temp?: number; icon?: string; desc?: string } | null>(null);
+  const [workspaceMode, setWorkspaceMode] = useState<'desktop' | 'portal'>('desktop');
 
   // Update viewport size on resize
   useEffect(() => {
@@ -785,17 +813,17 @@ export const PortalWorkspace: React.FC = () => {
           responseTime = Date.now() - startTime;
 
           // If it's an authentication error, consider the system online but require auth
-          if (apiError instanceof Error && 
-              (apiError.message.includes('401') || 
-               apiError.message.includes('unauthorized') || 
-               apiError.message.includes('Authorization token required'))) {
+          if (apiError instanceof Error &&
+            (apiError.message.includes('401') ||
+              apiError.message.includes('unauthorized') ||
+              apiError.message.includes('Authorization token required'))) {
             // Auth error means the API is working but user needs to authenticate
             systemHealth = 'online';
             connectionCount = isWebSocketConnected ? 2 : 1;
-          } else if (apiError instanceof Error && 
-                     (apiError.message.includes('fetch') || 
-                      apiError.message.includes('network') || 
-                      apiError.message.includes('Failed to fetch'))) {
+          } else if (apiError instanceof Error &&
+            (apiError.message.includes('fetch') ||
+              apiError.message.includes('network') ||
+              apiError.message.includes('Failed to fetch'))) {
             // Network error means the API is not reachable
             systemHealth = 'offline';
             connectionCount = 0;
@@ -1111,41 +1139,61 @@ export const PortalWorkspace: React.FC = () => {
         </motion.div>
       )}
 
-      {/* Portal Instances */}
-      <AnimatePresence>
-        {portals.filter(p => !p.isMinimized).map((portal, index) => {
-          const config = PORTAL_CONFIGS[portal.type];
-          const PortalComponent = portal.component;
+      {/* Workspace Mode Toggle */}
+      <motion.button
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        onClick={() => setWorkspaceMode(workspaceMode === 'desktop' ? 'portal' : 'desktop')}
+        className="fixed top-4 right-4 z-50 w-12 h-12 bg-slate-900/80 backdrop-blur-xl border border-slate-700/50 rounded-xl flex items-center justify-center text-white"
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        title={`Switch to ${workspaceMode === 'desktop' ? 'Portal' : 'Desktop'} Mode`}
+      >
+        {workspaceMode === 'desktop' ? <Layers className="w-5 h-5" /> : <Grid3X3 className="w-5 h-5" />}
+      </motion.button>
 
-          // Simple, predictable z-index: base 100 + index, active portal gets +1000
-          const baseZIndex = 100 + index;
-          const finalZIndex = activePortalId === portal.id ? baseZIndex + 1000 : baseZIndex;
+      {/* Conditional Rendering Based on Workspace Mode */}
+      {workspaceMode === 'desktop' ? (
+        <DesktopWorkspace />
+      ) : (
+        <>
+          {/* Portal Instances */}
+          <AnimatePresence>
+            {portals.filter(p => !p.isMinimized).map((portal, index) => {
+              const config = PORTAL_CONFIGS[portal.type];
+              const PortalComponent = portal.component;
 
-          return (
-            <Portal
-              key={portal.id}
-              id={portal.id}
-              type={config.type}
-              title={portal.title}
-              initialPosition={portal.position}
-              initialSize={portal.size}
-              zIndex={finalZIndex}
-              onClose={() => closePortal(portal.id)}
-              onMaximize={() => maximizePortal(portal.id)}
-              onMinimize={() => minimizePortal(portal.id)}
-              onFocus={() => bringToFront(portal.id)}
-              viewport={viewport}
-            >
-              <PortalComponent
-                mode={portal.type === 'intelligence-hub' ? 'insights' : portal.type === 'monitoring-hub' ? 'monitor' : undefined}
-                viewport={viewport}
-                showThinkTokens={portal.type === 'discussion-hub' ? showThinkTokens : undefined}
-                onThinkTokensToggle={portal.type === 'discussion-hub' ? handleThinkTokensToggle : undefined}
-              />
-            </Portal>
-          );
-        })}
-      </AnimatePresence>
+              // Simple, predictable z-index: base 100 + index, active portal gets +1000
+              const baseZIndex = 100 + index;
+              const finalZIndex = activePortalId === portal.id ? baseZIndex + 1000 : baseZIndex;
+
+              return (
+                <Portal
+                  key={portal.id}
+                  id={portal.id}
+                  type={config.type}
+                  title={portal.title}
+                  initialPosition={portal.position}
+                  initialSize={portal.size}
+                  zIndex={finalZIndex}
+                  onClose={() => closePortal(portal.id)}
+                  onMaximize={() => maximizePortal(portal.id)}
+                  onMinimize={() => minimizePortal(portal.id)}
+                  onFocus={() => bringToFront(portal.id)}
+                  viewport={viewport}
+                >
+                  <PortalComponent
+                    mode={portal.type === 'intelligence-hub' ? 'insights' : portal.type === 'monitoring-hub' ? 'monitor' : undefined}
+                    viewport={viewport}
+                    showThinkTokens={portal.type === 'discussion-hub' ? showThinkTokens : undefined}
+                    onThinkTokensToggle={portal.type === 'discussion-hub' ? handleThinkTokensToggle : undefined}
+                  />
+                </Portal>
+              );
+            })}
+          </AnimatePresence>
+        </>
+      )}
 
       {/* Enhanced Status Bar */}
       <motion.div

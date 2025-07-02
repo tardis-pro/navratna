@@ -3,11 +3,13 @@ import request from 'supertest';
 import { Express } from 'express';
 import { DataSource } from 'typeorm';
 import { createTestApp, createTestDataSource, cleanupTestDb } from '../utils/testHelpers';
-import { OAuthProviderEntity } from '../../entities/OAuthProviderEntity';
-import { AgentEntity } from '../../entities/AgentEntity';
-import { UserEntity } from '../../entities/UserEntity';
-import { AgentOAuthConnectionEntity } from '../../entities/AgentOAuthConnectionEntity';
-import { OAuthStateEntity } from '../../entities/OAuthStateEntity';
+import {
+  OAuthProviderEntity,
+  Agent as AgentEntity,
+  UserEntity,
+  AgentOAuthConnectionEntity,
+  OAuthStateEntity
+} from '@uaip/shared-services';
 import crypto from 'crypto';
 
 describe('OAuth Flow Integration Tests', () => {
@@ -20,7 +22,7 @@ describe('OAuth Flow Integration Tests', () => {
   beforeAll(async () => {
     dataSource = await createTestDataSource();
     app = await createTestApp(dataSource);
-    
+
     // Seed test data
     await seedTestData();
   });
@@ -116,7 +118,7 @@ describe('OAuth Flow Integration Tests', () => {
       // Verify state was stored in database
       const oauthState = await dataSource.getRepository(OAuthStateEntity)
         .findOne({ where: { state: response.body.state } });
-      
+
       expect(oauthState).toBeTruthy();
       expect(oauthState?.agentId).toBe(testAgent.id);
       expect(oauthState?.providerId).toBe(githubProvider.id);
@@ -153,7 +155,7 @@ describe('OAuth Flow Integration Tests', () => {
       // Verify OAuth connection was created
       const connection = await dataSource.getRepository(AgentOAuthConnectionEntity)
         .findOne({ where: { agentId: testAgent.id, providerId: githubProvider.id } });
-      
+
       expect(connection).toBeTruthy();
       expect(connection?.capabilities).toContain('github_read');
       expect(connection?.isActive).toBe(true);
@@ -316,7 +318,7 @@ describe('OAuth Flow Integration Tests', () => {
       // Verify token was updated in database
       const updatedConnection = await dataSource.getRepository(AgentOAuthConnectionEntity)
         .findOne({ where: { id: oauthConnection.id } });
-      
+
       expect(updatedConnection?.expiresAt).toBeInstanceOf(Date);
       expect(updatedConnection?.expiresAt.getTime()).toBeGreaterThan(Date.now());
     });
@@ -386,7 +388,7 @@ describe('OAuth Flow Integration Tests', () => {
       // Verify usage stats were updated
       const updatedConnection = await dataSource.getRepository(AgentOAuthConnectionEntity)
         .findOne({ where: { id: oauthConnection.id } });
-      
+
       expect(updatedConnection?.usageStats.totalRequests).toBe(60);
       expect(updatedConnection?.usageStats.requestsThisHour).toBe(60);
       expect(updatedConnection?.lastUsedAt).toBeInstanceOf(Date);

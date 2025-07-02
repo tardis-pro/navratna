@@ -14,6 +14,7 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
+    "@dagrejs/dagre": "^1.1.5",
     "@heroicons/react": "catalog:frontend",
     "@hookform/resolvers": "catalog:frontend",
     "@radix-ui/react-accordion": "catalog:frontend",
@@ -49,6 +50,7 @@
     "@types/json-schema": "^7.0.15",
     "@uaip/types": "workspace:*",
     "@uaip/utils": "workspace:*",
+    "@xyflow/react": "^12.8.1",
     "axios": "catalog:frontend",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

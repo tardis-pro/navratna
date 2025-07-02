@@ -15,6 +15,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useKnowledge } from '@/contexts/KnowledgeContext';
 import type { KnowledgeItem, KnowledgeIngestRequest } from '@uaip/types';
 import { KnowledgeType, SourceType } from '@uaip/types';
+import KnowledgeGraphVisualization from './KnowledgeGraphVisualization';
 
 interface KnowledgePortalProps {
   className?: string;
@@ -104,7 +105,7 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
     if (!uploadContent.trim()) return;
 
     const tags = uploadTags.split(',').map(tag => tag.trim()).filter(Boolean);
-    
+
     const knowledgeItem: KnowledgeIngestRequest = {
       content: uploadContent,
       type: uploadType,
@@ -315,9 +316,8 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
                     {Object.values(items).map((item) => (
                       <Card
                         key={item.id}
-                        className={`cursor-pointer transition-all hover:bg-blue-500/10 border-blue-500/20 ${
-                          activeItemId === item.id ? 'ring-2 ring-blue-500 bg-blue-500/20' : 'bg-black/20'
-                        }`}
+                        className={`cursor-pointer transition-all hover:bg-blue-500/10 border-blue-500/20 ${activeItemId === item.id ? 'ring-2 ring-blue-500 bg-blue-500/20' : 'bg-black/20'
+                          }`}
                         onClick={() => handleItemSelect(item)}
                       >
                         <CardContent className="p-4">
@@ -595,15 +595,7 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
 
           {/* Graph View Tab */}
           <TabsContent value="graph" className="flex-1 overflow-hidden">
-            <Card className="bg-black/20 border-blue-500/20 h-full">
-              <CardContent className="p-8 text-center h-full flex items-center justify-center">
-                <div>
-                  <Brain className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-400 mb-2">Knowledge Graph Visualization</p>
-                  <p className="text-sm text-gray-500">Coming soon - Interactive knowledge graph explorer</p>
-                </div>
-              </CardContent>
-            </Card>
+            <KnowledgeGraphVisualization className="h-full" />
           </TabsContent>
         </Tabs>
       </div>

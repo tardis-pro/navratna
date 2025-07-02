@@ -43,6 +43,7 @@
     "prom-client": "catalog:backend",
     "redis": "^5.5.6",
     "speakeasy": "^2.0.0",
+    "typeorm": "^0.3.25",
     "winston": "catalog:backend",
     "zod": "catalog:"
   },

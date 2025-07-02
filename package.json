@@ -27,7 +27,13 @@
     "test": "pnpm -r test",
     "test:artifacts": "cd backend && tsx services/artifact-service/src/test/run-demo.ts",
     "test:artifacts:prd": "cd backend && tsx services/artifact-service/src/test/run-demo.ts -- --prd-only",
-    "test:artifacts:code": "cd backend && tsx services/artifact-service/src/test/run-demo.ts -- --artifact-only"
+    "test:artifacts:code": "cd backend && tsx services/artifact-service/src/test/run-demo.ts -- --artifact-only",
+    "test:integration": "./scripts/run-integration-tests.sh test",
+    "test:integration:setup": "./scripts/run-integration-tests.sh setup",
+    "test:integration:oauth": "./scripts/run-integration-tests.sh oauth",
+    "test:integration:security": "./scripts/run-integration-tests.sh security",
+    "test:integration:coverage": "./scripts/run-integration-tests.sh coverage",
+    "test:integration:cleanup": "./scripts/run-integration-tests.sh cleanup"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.0",
