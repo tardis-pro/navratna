@@ -30,7 +30,7 @@
     "events": "^3.3.0",
     "express": "catalog:backend",
     "helmet": "catalog:backend",
-    "node-cron": "^4.1.0",
+    "node-cron": "^4.2.0",
     "prom-client": "catalog:backend",
     "ws": "catalog:backend",
     "zod": "catalog:"
