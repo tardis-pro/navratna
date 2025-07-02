@@ -1,9 +1,9 @@
 import { Entity, Column, Index, OneToMany } from 'typeorm';
 import { BaseEntity } from './base.entity.js';
-import { 
-  PersonaTrait, 
-  ConversationalStyle, 
-  PersonaStatus, 
+import {
+  PersonaTrait,
+  ConversationalStyle,
+  PersonaStatus,
   PersonaVisibility,
   PersonaValidation,
   PersonaUsageStats,
@@ -19,12 +19,13 @@ import {
  * Implements the enhanced persona model from the TypeORM migration plan
  */
 @Entity('personas')
+@Index(['name'], { unique: true })
 @Index(['status', 'visibility'])
 @Index(['createdBy', 'organizationId'])
 @Index(['tags'], { where: 'tags IS NOT NULL' })
 @Index(['dominantExpertise'])
 export class Persona extends BaseEntity {
-  @Column({ length: 255 })
+  @Column({ length: 255, unique: true })
   name: string;
 
   @Column({ length: 255 })

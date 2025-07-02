@@ -1,4 +1,4 @@
-import { Entity, Column } from 'typeorm';
+import { Entity, Column, Index } from 'typeorm';
 import { BaseEntity } from './base.entity.js';
 
 export interface SecurityPolicyConditions {
@@ -31,8 +31,9 @@ export interface SecurityPolicyActions {
 }
 
 @Entity('security_policies')
+@Index(['name'], { unique: true })
 export class SecurityPolicy extends BaseEntity {
-  @Column({ type: 'varchar', length: 100 })
+  @Column({ type: 'varchar', length: 100, unique: true })
   name!: string;
 
   @Column({ type: 'text' })

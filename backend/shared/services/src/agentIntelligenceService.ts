@@ -19,13 +19,6 @@ export class AgentIntelligenceService {
       url: process.env.RABBITMQ_URL || 'amqp://localhost',
       serviceName: 'agent-intelligence'
     }, console as any);
-    if(process.env.TYPEORM_SYNC === 'true') {
-      this.databaseService.seedDatabase().then(() => {
-        logger.info('Database seeded successfully');
-      }).catch((error) => {
-        logger.error('Error seeding database', error);
-      });
-    }
   }
 
   public async initialize(): Promise<void> {
@@ -34,10 +27,10 @@ export class AgentIntelligenceService {
     try {
       await this.databaseService.initialize();
       logger.info('DatabaseService initialized successfully');
-      
+
       const maxRetries = 3;
       let retryCount = 0;
-      
+
       while (retryCount < maxRetries && !this.isInitialized) {
         try {
           await this.eventBusService.connect();
@@ -48,7 +41,7 @@ export class AgentIntelligenceService {
           retryCount++;
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
           logger.warn(`EventBus connection attempt ${retryCount}/${maxRetries} failed: ${errorMessage}`);
-          
+
           if (retryCount >= maxRetries) {
             logger.error('Failed to initialize EventBus after max retries, continuing without event publishing');
             this.isInitialized = true;
@@ -86,7 +79,7 @@ export class AgentIntelligenceService {
     if (!this.isInitialized) {
       await this.initialize();
     }
-    
+
     try {
       const agents = await this.databaseService.getActiveAgents(6);
       if (agents.length === 0) {
@@ -116,11 +109,11 @@ export class AgentIntelligenceService {
     if (!this.isInitialized) {
       await this.initialize();
     }
-    
+
     try {
       const validatedId = this.validateIDParam(agentId, 'agentId');
       const agent = await this.databaseService.getActiveAgentById(validatedId);
-      
+
       if (!agent) {
         return null;
       }
@@ -162,7 +155,7 @@ export class AgentIntelligenceService {
     if (!this.isInitialized) {
       await this.initialize();
     }
-    
+
     try {
       logger.info('Analyzing context for agent', { agentId: agent.id });
 
@@ -226,7 +219,7 @@ export class AgentIntelligenceService {
     if (!this.isInitialized) {
       await this.initialize();
     }
-    
+
     try {
       logger.info('Generating execution plan', { agentId: agent.id });
 
@@ -277,7 +270,7 @@ export class AgentIntelligenceService {
     if (!this.isInitialized) {
       await this.initialize();
     }
-    
+
     try {
       const validatedId = this.validateIDParam(agentId, 'agentId');
 
@@ -288,11 +281,11 @@ export class AgentIntelligenceService {
       if (updateData.intelligenceConfig) updatePayload.intelligenceConfig = updateData.intelligenceConfig;
       if (updateData.securityContext) updatePayload.securityContext = updateData.securityContext;
       if (updateData.isActive !== undefined) updatePayload.isActive = updateData.isActive;
-      
+
       // Handle configuration object
       if (updateData.configuration) {
         updatePayload.configuration = updateData.configuration;
-        
+
         // Extract modelId and apiType from configuration if present
         if (updateData.configuration.modelId && !updateData.modelId) {
           updatePayload.modelId = updateData.configuration.modelId;
@@ -303,7 +296,7 @@ export class AgentIntelligenceService {
           logger.info('Extracted apiType from configuration', { apiType: updateData.configuration.apiType });
         }
       }
-      
+
       // Handle direct model configuration fields (these take precedence)
       if (updateData.modelId) updatePayload.modelId = updateData.modelId;
       if (updateData.apiType) updatePayload.apiType = updateData.apiType;
@@ -311,8 +304,8 @@ export class AgentIntelligenceService {
       if (updateData.maxTokens) updatePayload.maxTokens = updateData.maxTokens;
       if (updateData.systemPrompt) updatePayload.systemPrompt = updateData.systemPrompt;
 
-      logger.info('Updating agent with payload', { 
-        agentId: validatedId, 
+      logger.info('Updating agent with payload', {
+        agentId: validatedId,
         updateFields: Object.keys(updatePayload),
         modelId: updatePayload.modelId,
         apiType: updatePayload.apiType
@@ -350,9 +343,9 @@ export class AgentIntelligenceService {
     if (!this.isInitialized) {
       await this.initialize();
     }
-    
+
     try {
-      logger.info('Creating new agent', { 
+      logger.info('Creating new agent', {
         name: agentData.name,
         hasConfiguration: !!agentData.configuration,
         configurationKeys: agentData.configuration ? Object.keys(agentData.configuration) : []
@@ -363,14 +356,14 @@ export class AgentIntelligenceService {
         agentId = this.validateIDParam(agentData.id, 'agentId');
       }
 
-      const intelligenceConfig = agentData.intelligenceConfig || 
-                                agentData.intelligence_config || 
-                                {};
-      
-      const securityContext = agentData.securityContext || 
-                             agentData.security_context || 
-                             {};
-      
+      const intelligenceConfig = agentData.intelligenceConfig ||
+        agentData.intelligence_config ||
+        {};
+
+      const securityContext = agentData.securityContext ||
+        agentData.security_context ||
+        {};
+
       const configuration = agentData.configuration || {
         model: 'gpt-3.5-turbo',
         temperature: 0.7,
@@ -380,11 +373,11 @@ export class AgentIntelligenceService {
         learningEnabled: true,
         collaborationMode: 'collaborative'
       };
-      
+
       const role = agentData.role || 'assistant';
-      
+
       let createdBy = agentData.createdBy || agentData.created_by;
-      
+
       if (createdBy) {
         createdBy = this.validateIDParam(createdBy, 'createdBy');
       } else {
@@ -403,7 +396,7 @@ export class AgentIntelligenceService {
       };
 
       const savedAgent = await this.databaseService.createAgent(createPayload);
-      
+
       const agent: Agent = {
         id: savedAgent.id,
         name: savedAgent.name,
@@ -431,11 +424,11 @@ export class AgentIntelligenceService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Error creating agent', { error: errorMessage });
-      
+
       if (error instanceof ApiError) {
         throw error;
       }
-      
+
       throw new ApiError(500, 'Failed to create agent', 'DATABASE_ERROR');
     }
   }
@@ -444,7 +437,7 @@ export class AgentIntelligenceService {
     if (!this.isInitialized) {
       await this.initialize();
     }
-    
+
     try {
       const validatedId = this.validateIDParam(agentId, 'agentId');
       const wasDeactivated = await this.databaseService.deactivateAgent(validatedId);
@@ -474,7 +467,7 @@ export class AgentIntelligenceService {
     if (!this.isInitialized) {
       await this.initialize();
     }
-    
+
     try {
       const validatedAgentId = this.validateIDParam(agentId, 'agentId');
       const validatedOperationId = this.validateIDParam(operationId, 'operationId');
@@ -486,7 +479,7 @@ export class AgentIntelligenceService {
 
       const learningData = this.extractLearning(operation, outcomes, feedback);
       await this.updateAgentKnowledge(validatedAgentId, learningData);
-      
+
       const confidenceAdjustments = this.calculateConfidenceAdjustments(
         operation,
         outcomes,
@@ -706,7 +699,7 @@ export class AgentIntelligenceService {
     const recommendationConfidence = actionRecommendations.reduce(
       (sum, rec) => sum + rec.confidence, 0
     ) / actionRecommendations.length;
-    
+
     return Math.min((baseConfidence + contextQuality + recommendationConfidence) / 3, 1);
   }
 
@@ -904,7 +897,7 @@ export class AgentIntelligenceService {
 
   private detectUrgency(context: any): string {
     const urgentWords = /urgent|asap|immediately|critical|emergency/i;
-    const hasUrgentWords = context.messages?.some((msg: MessageWithContent) => 
+    const hasUrgentWords = context.messages?.some((msg: MessageWithContent) =>
       urgentWords.test(msg.content || '')
     );
     return hasUrgentWords ? 'high' : 'normal';

@@ -13,7 +13,10 @@ export enum ToolCategory {
   DEPLOYMENT = 'deployment',
   MONITORING = 'monitoring',
   ANALYSIS = 'analysis',
-  GENERATION = 'generation'
+  GENERATION = 'generation',
+  SYSTEM = 'system',
+  NETWORK = 'network',
+  DEVELOPMENT = 'development'
 }
 
 export enum ToolExecutionStatus {
@@ -209,7 +212,7 @@ export interface ToolPermissionManager {
 }
 
 // Events for tool system observability
-export type ToolEvent = 
+export type ToolEvent =
   | { type: 'tool-registered'; payload: { toolId: string } }
   | { type: 'tool-unregistered'; payload: { toolId: string } }
   | { type: 'execution-started'; payload: { executionId: string; toolId: string; agentId: string } }

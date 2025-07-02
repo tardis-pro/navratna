@@ -1,0 +1,62 @@
+import { DataSource } from 'typeorm';
+import { initializeDatabase, getDataSource } from '../typeorm.config.js';
+import { DatabaseSeeder } from './DatabaseSeeder.js';
+
+/**
+ * Main seeding function
+ */
+export async function seedDatabase(dataSource?: DataSource): Promise<void> {
+  let shouldCloseConnection = false;
+
+  try {
+    console.log('🚀 Starting database seeding...');
+
+    if (!dataSource) {
+      // Try to use existing DataSource first
+      try {
+        dataSource = getDataSource();
+        console.log('✅ Using existing DataSource');
+      } catch (error) {
+        // If no existing DataSource, create a new one
+        console.log('📝 Creating new DataSource for seeding');
+        dataSource = await initializeDatabase();
+        shouldCloseConnection = true;
+      }
+    }
+
+    if (!dataSource.isInitialized) {
+      throw new Error('DataSource is not initialized');
+    }
+
+    const seeder = new DatabaseSeeder(dataSource);
+    await seeder.seedAll();
+
+    console.log('🎉 Database seeding completed successfully!');
+  } catch (error) {
+    console.error('💥 Database seeding failed:', error);
+    // Don't re-throw the error to prevent service startup failure
+    console.warn('⚠️ Continuing without seeding...');
+  } finally {
+    // Only close connection if we created it
+    if (shouldCloseConnection && dataSource && dataSource.isInitialized) {
+      try {
+        await dataSource.destroy();
+        console.log('🔌 Database connection closed');
+      } catch (closeError) {
+        console.warn('⚠️ Error closing database connection:', closeError);
+      }
+    }
+  }
+}
+
+// Export individual seeders for selective seeding
+export { DatabaseSeeder } from './DatabaseSeeder.js';
+export { BaseSeed } from './BaseSeed.js';
+export { UserSeed } from './UserSeed.js';
+export { SecurityPolicySeed } from './SecurityPolicySeed.js';
+export { PersonaSeed } from './PersonaSeed.js';
+export { AgentSeed } from './AgentSeed.js';
+export { ToolDefinitionSeed } from './ToolDefinitionSeed.js';
+
+// Export data functions
+export { getViralAgentsData } from './data/viralAgents.js';

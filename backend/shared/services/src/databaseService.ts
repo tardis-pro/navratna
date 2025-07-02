@@ -51,7 +51,7 @@ import { OAuthStateEntity } from './entities/oauthState.entity.js';
 import { AgentOAuthConnectionEntity } from './entities/agentOAuthConnection.entity.js';
 import { MFAChallengeEntity } from './entities/mfaChallenge.entity.js';
 import { SessionEntity } from './entities/session.entity.js';
-import { DatabaseSeeder } from './database/seedDatabase.js';
+// seedDatabase is now handled by ServiceFactory
 
 export class DatabaseService {
   private static instance: DatabaseService;
@@ -90,13 +90,7 @@ export class DatabaseService {
     });
 
     this.typeormService = TypeOrmService.getInstance();
-    if (process.env.TYPEORM_SYNC === 'true') {
-      this.seedDatabase().then(() => {
-        logger.info('Database seeded successfully');
-      }).catch((error) => {
-        logger.error('Error seeding database', error);
-      });
-    }
+    // Note: Seeding is now handled by ServiceFactory after TypeORM initialization
     // Don't initialize repositories here - do it lazily when needed
     // Don't initialize connection in constructor - do it explicitly when needed
   }
@@ -282,10 +276,6 @@ export class DatabaseService {
     try {
       await this.typeormService.initialize();
       this.isInitialized = true;
-      if (process.env.SYNC_AND_RESET === 'true') {
-        await this.seedDatabase();
-        logger.info('Database seeding completed successfully');
-      }
       logger.info('DatabaseService initialized with TypeORM');
     } catch (error) {
       logger.error('Failed to initialize TypeORM connection', { error });
@@ -562,13 +552,7 @@ export class DatabaseService {
     }
   }
 
-  public async seedDatabase(): Promise<void> {
-    const dataSource = this.typeormService.getDataSource();
-    const seeder = new DatabaseSeeder(dataSource);
-    await seeder.seedAll();
 
-    console.log('🎉 Database seeding completed successfully! Yo');
-  }
 
   // Methods for StateManagerService using TypeORM
   public async saveOperationState(operationId: string, state: any): Promise<void> {

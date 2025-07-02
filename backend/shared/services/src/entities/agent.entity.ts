@@ -1,10 +1,10 @@
 import { Entity, Column, Index, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from './base.entity.js';
-import { 
-  AgentRole, 
-  AgentPersona, 
-  AgentIntelligenceConfig, 
-  AgentSecurityContext 
+import {
+  AgentRole,
+  AgentPersona,
+  AgentIntelligenceConfig,
+  AgentSecurityContext
 } from '@uaip/types';
 
 // Related entities will be referenced by string to avoid circular dependencies
@@ -19,13 +19,14 @@ import {
  * - Agent references a Persona via personaId
  */
 @Entity('agents')
+@Index(['name'], { unique: true })
 @Index(['role', 'isActive'])
 @Index(['createdBy'])
 @Index(['lastActiveAt'])
 @Index(['securityLevel'])
 @Index(['personaId']) // Add index for persona relationship
 export class Agent extends BaseEntity {
-  @Column({ length: 255 })
+  @Column({ length: 255, unique: true })
   name: string;
 
   @Column({ type: 'enum', enum: AgentRole })

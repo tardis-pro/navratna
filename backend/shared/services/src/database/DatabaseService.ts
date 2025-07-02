@@ -50,7 +50,7 @@ export class DatabaseService {
     });
 
     this.typeormService = TypeOrmService.getInstance();
-    
+
     // Initialize all repositories
     this.users = new UserRepository();
     this.refreshTokens = new RefreshTokenRepository();
@@ -70,7 +70,7 @@ export class DatabaseService {
     this.capabilities = new CapabilityRepository();
     this.llmProviders = new LLMProviderRepository();
     this.userLLMProviders = new UserLLMProviderRepository();
-    
+
     // Initialize TypeORM connection
     this.initializeConnection();
   }
@@ -162,13 +162,13 @@ export class DatabaseService {
     };
   }> {
     const startTime = Date.now();
-    
+
     try {
       // Use TypeORM to test connection
       const manager = this.getEntityManager();
       await manager.query('SELECT 1 as health_check');
       const responseTime = Date.now() - startTime;
-      
+
       return {
         status: 'healthy',
         details: {
@@ -182,7 +182,7 @@ export class DatabaseService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Database health check failed', { error: errorMessage });
-      
+
       return {
         status: 'unhealthy',
         details: {
@@ -224,10 +224,10 @@ export class DatabaseService {
     }
 
     const startTime = Date.now();
-    
+
     try {
       const repository = this.getRepository(entity);
-      
+
       if (options?.onConflict === 'ignore') {
         // Use upsert with ignore
         await repository
@@ -244,9 +244,9 @@ export class DatabaseService {
           .insert()
           .into(entity)
           .values(records);
-          
+
         const updateColumns = options.updateColumns;
-        
+
         await queryBuilder
           .orUpdate(updateColumns, options.conflictColumns)
           .execute();
@@ -254,7 +254,7 @@ export class DatabaseService {
         // Simple insert
         await repository.save(records as any[]);
       }
-      
+
       const duration = Date.now() - startTime;
       logger.info('Bulk insert completed', {
         entity: entity.toString(),
@@ -283,7 +283,7 @@ export class DatabaseService {
     }
 
     this.isClosing = true;
-    
+
     try {
       await this.typeormService.close();
       logger.info('Database connection closed');
@@ -312,7 +312,7 @@ export class DatabaseService {
 
       while (hasMoreRows) {
         const queryBuilder = repository.createQueryBuilder();
-        
+
         // Add WHERE conditions
         if (conditions) {
           Object.keys(conditions).forEach((key, index) => {
@@ -328,7 +328,7 @@ export class DatabaseService {
           .limit(batchSize)
           .offset(offset)
           .getMany();
-        
+
         if (results.length === 0) {
           hasMoreRows = false;
         } else {
@@ -350,7 +350,7 @@ export class DatabaseService {
 
       // TypeORM handles table creation through migrations and synchronization
       const dataSource = this.typeormService.getDataSource();
-      
+
       if (!dataSource.isInitialized) {
         throw new Error('DataSource not initialized');
       }
@@ -369,6 +369,32 @@ export class DatabaseService {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Failed to initialize database tables', { error: errorMessage });
       throw new DatabaseError('Database initialization failed', {
+        originalError: errorMessage
+      });
+    }
+  }
+
+  // Database seeding method
+  public async seedDatabase(): Promise<void> {
+    try {
+      logger.info('Starting database seeding...');
+
+      const dataSource = this.typeormService.getDataSource();
+
+      if (!dataSource.isInitialized) {
+        throw new Error('DataSource not initialized');
+      }
+
+      // Use the existing DatabaseSeeder infrastructure
+      const { DatabaseSeeder } = await import('./seeders/DatabaseSeeder.js');
+      const seeder = new DatabaseSeeder(dataSource);
+      await seeder.seedAll();
+
+      logger.info('Database seeding completed successfully');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Failed to seed database', { error: errorMessage });
+      throw new DatabaseError('Database seeding failed', {
         originalError: errorMessage
       });
     }
@@ -401,15 +427,15 @@ export class DatabaseService {
    * @deprecated Use repository methods instead
    */
   public async query<T = any>(
-    text: string, 
+    text: string,
     params?: any[]
   ): Promise<{ rows: T[]; rowCount: number | null; fields?: any[] }> {
     logger.warn('DEPRECATED: query() method used. Please migrate to repository methods.');
-    
+
     try {
       const manager = this.getEntityManager();
       const result = await manager.query(text, params);
-      
+
       return {
         rows: Array.isArray(result) ? result : [result],
         rowCount: Array.isArray(result) ? result.length : 1,
@@ -425,7 +451,7 @@ export class DatabaseService {
   }
 
   // Convenience methods that delegate to repositories for backward compatibility
-  
+
   // User methods
   public async createUser(userData: any) { return this.users.createUser(userData); }
   public async getUserById(userId: string) { return this.users.findById(userId); }
@@ -442,8 +468,8 @@ export class DatabaseService {
   public async getUserPermissions(userId: string) { return this.users.getUserPermissions(userId); }
   public async getUserRiskData(userId: string) { return this.users.getUserRiskData(userId); }
   public async getUserHighestRole(userId: string) { return this.users.getUserHighestRole(userId); }
-  public async updateUserLoginAttempts(userId: string, failedAttempts: number, lockedUntil?: Date) { 
-    return this.users.updateUserLoginAttempts(userId, failedAttempts, lockedUntil); 
+  public async updateUserLoginAttempts(userId: string, failedAttempts: number, lockedUntil?: Date) {
+    return this.users.updateUserLoginAttempts(userId, failedAttempts, lockedUntil);
   }
   public async resetUserLoginAttempts(userId: string) { return this.users.resetUserLoginAttempts(userId); }
   public async updateUserLoginTracking(userId: string, updates: any) { return this.users.updateUserLoginTracking(userId, updates); }
@@ -465,11 +491,11 @@ export class DatabaseService {
   // Audit methods
   public async createAuditEvent(eventData: any) { return this.audit.createAuditEvent(eventData); }
   public async queryAuditEvents(filters: any) { return this.audit.queryAuditEvents(filters); }
-  public async countRecentAuditEvents(eventType: string, userId?: string, minutesBack?: number, detailsFilter?: any) { 
-    return this.audit.countRecentAuditEvents(eventType, userId, minutesBack, detailsFilter); 
+  public async countRecentAuditEvents(eventType: string, userId?: string, minutesBack?: number, detailsFilter?: any) {
+    return this.audit.countRecentAuditEvents(eventType, userId, minutesBack, detailsFilter);
   }
-  public async getAuditEventsInRange(startDate: Date, endDate: Date, includeArchived?: boolean) { 
-    return this.audit.getAuditEventsInRange(startDate, endDate, includeArchived); 
+  public async getAuditEventsInRange(startDate: Date, endDate: Date, includeArchived?: boolean) {
+    return this.audit.getAuditEventsInRange(startDate, endDate, includeArchived);
   }
   public async archiveOldAuditEvents(compressionDate: Date) { return this.audit.archiveOldAuditEvents(compressionDate); }
   public async deleteOldArchivedAuditEvents(cutoffDate: Date) { return this.audit.deleteOldArchivedAuditEvents(cutoffDate); }
@@ -487,8 +513,8 @@ export class DatabaseService {
   public async updateTool(id: string, updates: any) { return this.tools.update(id, updates); }
   public async deleteTool(id: string) { return this.tools.delete(id); }
   public async searchTools(searchQuery: string, filters?: any) { return this.tools.searchTools(searchQuery, filters); }
-  public async updateToolSuccessMetrics(toolId: string, wasSuccessful: boolean, executionTime?: number) { 
-    return this.tools.updateToolSuccessMetrics(toolId, wasSuccessful, executionTime); 
+  public async updateToolSuccessMetrics(toolId: string, wasSuccessful: boolean, executionTime?: number) {
+    return this.tools.updateToolSuccessMetrics(toolId, wasSuccessful, executionTime);
   }
   public async getToolPerformanceAnalytics(toolId?: string) { return this.tools.getToolPerformanceAnalytics(toolId); }
 
@@ -511,16 +537,16 @@ export class DatabaseService {
   // Operation state methods
   public async saveOperationState(operationId: string, state: any) { return this.operationStates.saveOperationState(operationId, state); }
   public async getOperationState(operationId: string) { return this.operationStates.getOperationState(operationId); }
-  public async updateOperationState(operationId: string, state: any, updates: any) { 
-    return this.operationStates.updateOperationState(operationId, state, updates); 
+  public async updateOperationState(operationId: string, state: any, updates: any) {
+    return this.operationStates.updateOperationState(operationId, state, updates);
   }
   public async deleteOldOperationStates(cutoffDate: Date) { return this.operationStates.deleteOldOperationStates(cutoffDate); }
   public async getStateStatistics() { return this.operationStates.getStateStatistics(); }
 
   // Operation checkpoint methods
   public async saveCheckpoint(operationId: string, checkpoint: any) { return this.operationCheckpoints.saveCheckpoint(operationId, checkpoint); }
-  public async getCheckpoint(operationId: string, checkpointId: string) { 
-    return this.operationCheckpoints.getCheckpoint(operationId, checkpointId); 
+  public async getCheckpoint(operationId: string, checkpointId: string) {
+    return this.operationCheckpoints.getCheckpoint(operationId, checkpointId);
   }
   public async listCheckpoints(operationId: string) { return this.operationCheckpoints.listCheckpoints(operationId); }
 
@@ -549,11 +575,11 @@ export class DatabaseService {
   public async createApprovalWorkflow(workflowData: any) { return this.approvalWorkflows.createApprovalWorkflow(workflowData); }
   public async getApprovalWorkflow(workflowId: string) { return this.approvalWorkflows.findById(workflowId); }
   public async updateApprovalWorkflow(workflowId: string, updates: any) { return this.approvalWorkflows.updateApprovalWorkflow(workflowId, updates); }
-  public async getUserApprovalWorkflows(userId: string, status?: string) { 
-    return this.approvalWorkflows.getUserApprovalWorkflows(userId, status); 
+  public async getUserApprovalWorkflows(userId: string, status?: string) {
+    return this.approvalWorkflows.getUserApprovalWorkflows(userId, status);
   }
-  public async getPendingWorkflowsForReminders(reminderThreshold: Date) { 
-    return this.approvalWorkflows.getPendingWorkflowsForReminders(reminderThreshold); 
+  public async getPendingWorkflowsForReminders(reminderThreshold: Date) {
+    return this.approvalWorkflows.getPendingWorkflowsForReminders(reminderThreshold);
   }
   public async getExpiredWorkflows() { return this.approvalWorkflows.getExpiredWorkflows(); }
 
@@ -573,7 +599,7 @@ export class DatabaseService {
   public async searchDiscussions(filters: any) {
     try {
       const manager = this.getEntityManager();
-      
+
       if (filters.textQuery) {
         // Use raw SQL for text search across multiple fields
         let searchQuery = `
@@ -753,7 +779,7 @@ export class DatabaseService {
   public async findById<T extends ObjectLiteral>(entity: EntityTarget<T>, id: string, relations?: string[]): Promise<T | null> {
     try {
       const repository = this.getRepository(entity);
-      return await repository.findOne({ 
+      return await repository.findOne({
         where: { id } as any,
         relations: relations
       });
@@ -884,7 +910,7 @@ export class DatabaseService {
     return await this.transaction(async (manager) => {
       const repository = manager.getRepository(entity);
       const results: T[] = [];
-      
+
       for (const update of updates) {
         await repository.update(update.id, { ...update.data, updatedAt: new Date() } as any);
         const result = await repository.findOne({ where: { id: update.id } as any });

@@ -20,7 +20,7 @@ import { MemoryConsolidator } from './agent-memory/memory-consolidator.service.j
 import { ToolManagementService } from './tool-management.service.js';
 import { OperationManagementService } from './operation-management.service.js';
 import { KnowledgeItemEntity, KnowledgeRelationshipEntity } from './entities/index.js';
-import { DatabaseSeeder } from './database/seedDatabase.js';
+import { seedDatabase } from './database/seeders/index.js';
 
 /**
  * Service Factory - Clean Dependency Injection Container
@@ -36,7 +36,7 @@ export class ServiceFactory {
     logLevel: process.env.LOG_LEVEL || 'info'
   });
 
-  private constructor() {}
+  private constructor() { }
 
   static getInstance(): ServiceFactory {
     if (!ServiceFactory.instance) {
@@ -60,9 +60,8 @@ export class ServiceFactory {
       await typeormService.initialize();
       this.serviceInstances.set('typeorm', typeormService);
       const dataSource = typeormService.getDataSource();
-      if(process.env.TYPEORM_SYNC === 'true') {
-        const seeder = new DatabaseSeeder(dataSource);
-        await seeder.seedAll();
+      if (process.env.TYPEORM_SYNC === 'true') {
+        await seedDatabase(dataSource);
         this.logger.info('Database seeded successfully');
       }
 
