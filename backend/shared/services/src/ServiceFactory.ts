@@ -61,8 +61,18 @@ export class ServiceFactory {
       this.serviceInstances.set('typeorm', typeormService);
       const dataSource = typeormService.getDataSource();
       if (process.env.TYPEORM_SYNC === 'true') {
-        await seedDatabase(dataSource);
-        this.logger.info('Database seeded successfully');
+        try {
+          this.logger.info('Starting database seeding process...');
+          await seedDatabase(dataSource);
+          this.logger.info('Database seeded successfully');
+        } catch (seedError) {
+          this.logger.error('Database seeding failed, but continuing service initialization', { 
+            error: seedError.message,
+            stack: seedError.stack 
+          });
+          // Don't throw the error - allow service to continue without seeding
+          // This prevents the entire service from failing due to seeding issues
+        }
       }
 
       // Initialize standalone Redis cache service
@@ -377,6 +387,50 @@ export class ServiceFactory {
   /**
    * Gracefully shutdown all services
    */
+  /**
+   * Get LLM Service instance
+   */
+  getLLMService(): any {
+    if (!this.serviceInstances.has('llmService')) {
+      this.logger.info('Creating LLM Service instance');
+      // Placeholder LLM service - actual implementation would import from @uaip/llm-service
+      const llmService = {
+        async generateResponse(prompt: string, options?: any): Promise<string> {
+          this.logger.info('LLM generateResponse called', { prompt: prompt.substring(0, 100) });
+          return 'Mock LLM response';
+        },
+        async analyzeContent(content: string): Promise<any> {
+          this.logger.info('LLM analyzeContent called');
+          return { sentiment: 'neutral', topics: [], confidence: 0.5 };
+        }
+      };
+      this.serviceInstances.set('llmService', llmService);
+    }
+    return this.serviceInstances.get('llmService');
+  }
+
+  /**
+   * Get User LLM Service instance
+   */
+  getUserLLMService(): any {
+    if (!this.serviceInstances.has('userLLMService')) {
+      this.logger.info('Creating User LLM Service instance');
+      // Placeholder User LLM service - actual implementation would import from @uaip/llm-service
+      const userLLMService = {
+        async getUserProviders(userId: string): Promise<any[]> {
+          this.logger.info('UserLLM getUserProviders called', { userId });
+          return [];
+        },
+        async generateWithUserProvider(userId: string, prompt: string, providerId?: string): Promise<string> {
+          this.logger.info('UserLLM generateWithUserProvider called', { userId, providerId });
+          return 'Mock user LLM response';
+        }
+      };
+      this.serviceInstances.set('userLLMService', userLLMService);
+    }
+    return this.serviceInstances.get('userLLMService');
+  }
+
   async shutdown(): Promise<void> {
     this.logger.info('Shutting down ServiceFactory...');
 

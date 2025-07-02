@@ -6,6 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Council of Nycea is a **Unified Agent Intelligence Platform (UAIP)** - a production-ready backend infrastructure for multi-agent collaboration, intelligent discussion orchestration, and capability-driven automation. The system uses a microservices architecture with a hybrid database strategy and event-driven communication.
 
+## Development Notes
+
+- You use puppeteer on 5173 always
+- Its running in docker compose is hotreloading
+
 ## Common Development Commands
 
 ### Start Development Environment
@@ -213,3 +218,20 @@ For focused development, use minimal services: `cd backend && npm run dev:minima
 - **132 passing tests** with comprehensive mocking system
 - **Jest configuration** optimized for TypeScript ES modules and workspace imports
 - **Mock infrastructure** for `@uaip/utils`, `@uaip/config`, `@uaip/types` packages
+
+### ✅ Persona Management System Enhancement (Completed)
+- **Persona Loading Issue Resolution**: Fixed PersonaService categorization logic for proper role-to-category mapping
+  - Enhanced `categorizePersonaRole()` function with comprehensive role mappings
+  - Added debug logging for categorization troubleshooting
+  - Fixed API endpoint usage from `/search` to `/display` for proper categorization
+- **AgentManagerPortal Persona Creation**: Implemented full persona creation functionality
+  - **Location**: `apps/frontend/src/components/futuristic/portals/AgentManagerPortal.tsx`
+  - **Features**: Complete form with name, role, description, background, expertise, tags, system prompt
+  - **UI Integration**: "Create Persona" button with purple gradient styling, modal-style form
+  - **API Integration**: Full integration with `uaipAPI.personas.create()` endpoint
+  - **Navigation**: Proper view mode handling with `create-persona` mode
+  - **Validation**: Form validation and error handling with user feedback
+- **Backend API Support**: Verified persona creation endpoints are functional
+  - **Route**: `POST /api/v1/personas` with authentication middleware
+  - **Service**: PersonaService create method with proper validation
+  - **Frontend API**: `uaipAPI.personas.create()` method properly integrated

@@ -320,7 +320,7 @@ export class AgentRepository extends BaseRepository<Agent> {
           planData.createdAt
         ]);
       } else {
-        // Store in execution_plans table (for EnhancedAgentIntelligenceService)
+        // Store in execution_plans table (for agent intelligence services)
         const query = `
           INSERT INTO execution_plans (
             id, type, agent_id, steps, dependencies, estimated_duration,

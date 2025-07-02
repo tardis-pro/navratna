@@ -163,8 +163,6 @@ export const Portal: React.FC<PortalProps> = ({
   };
 
   const handleResize = (event: any, info: any) => {
-    if (!state.isResizing) return;
-
     const minWidth = currentViewport.isMobile ? 300 : 350;
     const minHeight = currentViewport.isMobile ? 200 : 250;
     const maxWidth = currentViewport.width - state.position.x - 20;
@@ -240,8 +238,6 @@ export const Portal: React.FC<PortalProps> = ({
         animate={{ 
           x: state.position.x,
           y: state.position.y,
-          width: state.size.width,
-          height: state.size.height,
           scale: state.isMinimized ? 0.1 : 1,
           opacity: state.isMinimized ? 0.5 : 1
         }}
@@ -283,13 +279,19 @@ export const Portal: React.FC<PortalProps> = ({
         {/* Portal Container */}
         <motion.div
           className={`
-            relative w-full h-full flex flex-col
+            relative flex flex-col
             bg-gradient-to-br from-slate-900/95 to-slate-800/95 backdrop-blur-xl
             rounded-2xl border ${styles.border}
             shadow-2xl ${styles.glow}
             overflow-hidden
             ${state.isDragging ? 'cursor-grabbing' : state.isResizing ? 'cursor-nw-resize' : 'cursor-auto'}
           `}
+          style={{
+            width: state.size.width,
+            height: state.size.height,
+            minWidth: currentViewport.isMobile ? 300 : 350,
+            minHeight: currentViewport.isMobile ? 200 : 250
+          }}
           onDoubleClick={handleDoubleClick}
         >
           {/* Portal Header */}
@@ -428,18 +430,70 @@ export const Portal: React.FC<PortalProps> = ({
             <motion.div
               drag
               dragMomentum={false}
-              dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+              dragConstraints={false}
               dragElastic={0}
               onDragStart={handleResizeStart}
               onDragEnd={handleResizeEnd}
               onDrag={handleResize}
-              className="absolute bottom-0 right-0 w-6 h-6 cursor-nw-resize z-10"
-              whileHover={{ scale: 1.2 }}
+              className="absolute bottom-0 right-0 w-6 h-6 cursor-se-resize z-20 group"
+              whileHover={{ scale: 1.1 }}
+              style={{ touchAction: 'none' }}
             >
-              <div className={`w-full h-full bg-gradient-to-br ${styles.gradient} rounded-tl-lg opacity-50 hover:opacity-80 transition-opacity flex items-end justify-end p-1`}>
-                <div className="w-2 h-2 bg-white/30 rounded-sm" />
+              <div className={`w-full h-full bg-gradient-to-br ${styles.gradient} rounded-tl-lg opacity-30 group-hover:opacity-60 transition-opacity flex items-end justify-end p-1 border-t border-l ${styles.border}`}>
+                <div className="w-2 h-2 bg-white/40 rounded-sm" />
               </div>
             </motion.div>
+          )}
+
+          {/* Additional Resize Handles for better UX */}
+          {!currentViewport.isMobile && !state.isMaximized && (
+            <>
+              {/* Right edge resize handle */}
+              <motion.div
+                drag="x"
+                dragMomentum={false}
+                dragConstraints={false}
+                dragElastic={0}
+                onDragStart={handleResizeStart}
+                onDragEnd={handleResizeEnd}
+                onDrag={(event: any, info: any) => {
+                  const minWidth = 350;
+                  const maxWidth = currentViewport.width - state.position.x - 20;
+                  const newWidth = Math.max(minWidth, Math.min(maxWidth, state.size.width + info.delta.x));
+                  setState(prev => ({
+                    ...prev,
+                    size: { ...prev.size, width: newWidth }
+                  }));
+                }}
+                className="absolute top-4 right-0 bottom-4 w-2 cursor-ew-resize z-10 group"
+                style={{ touchAction: 'none' }}
+              >
+                <div className="w-full h-full bg-transparent group-hover:bg-blue-500/20 transition-colors" />
+              </motion.div>
+
+              {/* Bottom edge resize handle */}
+              <motion.div
+                drag="y"
+                dragMomentum={false}
+                dragConstraints={false}
+                dragElastic={0}
+                onDragStart={handleResizeStart}
+                onDragEnd={handleResizeEnd}
+                onDrag={(event: any, info: any) => {
+                  const minHeight = 250;
+                  const maxHeight = currentViewport.height - state.position.y - 20;
+                  const newHeight = Math.max(minHeight, Math.min(maxHeight, state.size.height + info.delta.y));
+                  setState(prev => ({
+                    ...prev,
+                    size: { ...prev.size, height: newHeight }
+                  }));
+                }}
+                className="absolute bottom-0 left-4 right-4 h-2 cursor-ns-resize z-10 group"
+                style={{ touchAction: 'none' }}
+              >
+                <div className="w-full h-full bg-transparent group-hover:bg-blue-500/20 transition-colors" />
+              </motion.div>
+            </>
           )}
         </motion.div>
       </motion.div>

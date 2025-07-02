@@ -30,6 +30,7 @@ import {
   Users
 } from 'lucide-react';
 import './App.css';
+import './styles/agent-manager.css';
 import { PortalWorkspace } from './components/futuristic/PortalWorkspace';
 
 type Mode = 'discussion' | 'uaip' | 'settings' | 'futuristic';

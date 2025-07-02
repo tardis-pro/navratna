@@ -69,6 +69,8 @@ export interface KnowledgeSearchRequest {
     sourceTypes?: SourceType[];
     createdBy?: string;
     organizationId?: string;
+    agentId?: string;
+    userId?: string;
   };
   options?: {
     limit?: number;
@@ -76,6 +78,7 @@ export interface KnowledgeSearchRequest {
     similarityThreshold?: number;
     includeRelationships?: boolean;
   };
+  scope?: KnowledgeScope;
   timestamp: number;
 }
 
@@ -242,6 +245,7 @@ export interface Episode {
     what: string;
     why: string;
     how: string;
+    operationType?: string;
   };
   experience: {
     actions: Action[];
@@ -467,4 +471,8 @@ export interface WorkingMemoryUpdate {
   lastOutcome?: any;
   currentContext?: Partial<WorkingMemory['currentContext']>;
   shortTermMemory?: Partial<WorkingMemory['shortTermMemory']>;
+  // Additional properties for agent services
+  environment?: Record<string, any>;
+  agentState?: Record<string, any>;
+  knowledgeUpdated?: Record<string, any>;
 } 

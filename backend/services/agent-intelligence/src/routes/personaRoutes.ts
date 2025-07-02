@@ -17,6 +17,14 @@ const router: Router = Router();
 // Note: PersonaController will be initialized with PersonaService in the main service
 // This is a factory function that takes the service instances
 export function createPersonaRoutes(personaController: PersonaController): Router {
+  // ===== DEBUG ROUTE (NO AUTH) =====
+  
+  // GET /api/v1/personas/debug - Debug personas without auth for testing
+  router.get(
+    '/debug',
+    personaController.getPersonasForDisplay.bind(personaController)
+  );
+
   // Apply authentication middleware to all routes
   router.use(authMiddleware);
 

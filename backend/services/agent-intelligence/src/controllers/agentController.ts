@@ -17,7 +17,14 @@ import {
 } from '@uaip/types';
 import { z } from 'zod';
 import { AgentTransformationService } from '@uaip/middleware';
-import { EnhancedAgentIntelligenceService } from '../services/enhanced-agent-intelligence.service.js';
+import { 
+  AgentCoreService,
+  AgentContextService,
+  AgentPlanningService,
+  AgentLearningService,
+  AgentDiscussionService,
+  AgentEventOrchestrator
+} from '../services/index.js';
 import { 
   KnowledgeGraphService, 
   AgentMemoryService, 
@@ -27,8 +34,24 @@ import {
   EventBusService
 } from '@uaip/shared-services';
 
+/**
+ * AgentController - Refactored to use modular agent intelligence services
+ * 
+ * Services Used:
+ * - AgentCoreService: CRUD operations
+ * - AgentContextService: Context analysis
+ * - AgentPlanningService: Execution planning
+ * - AgentLearningService: Learning from operations
+ * - AgentDiscussionService: Discussion participation and chat
+ * - AgentEventOrchestrator: Event-driven coordination
+ */
 export class AgentController {
-  private agentIntelligenceService: EnhancedAgentIntelligenceService;
+  private agentCore: AgentCoreService;
+  private agentContext: AgentContextService;
+  private agentPlanning: AgentPlanningService;
+  private agentLearning: AgentLearningService;
+  private agentDiscussion: AgentDiscussionService;
+  private agentOrchestrator: AgentEventOrchestrator;
   private capabilityDiscoveryService: CapabilityDiscoveryService;
   private securityValidationService: SecurityValidationService;
 
@@ -40,15 +63,55 @@ export class AgentController {
     databaseService?: DatabaseService,
     eventBusService?: EventBusService
   ) {
-    // Initialize EnhancedAgentIntelligenceService with proper dependencies
-    this.agentIntelligenceService = new EnhancedAgentIntelligenceService(
-      knowledgeGraphService,
+    // Initialize refactored agent services with proper dependencies
+    this.agentCore = new AgentCoreService({
+      databaseService: databaseService || new DatabaseService(),
+      eventBusService: eventBusService || new EventBusService({ url: process.env.RABBITMQ_URL || 'amqp://localhost', serviceName: 'agent-controller' }, logger as any),
+      serviceName: 'agent-controller',
+      securityLevel: 2
+    });
+    
+    this.agentContext = new AgentContextService({
+      knowledgeGraphService: knowledgeGraphService || {} as any, // Will be initialized by service
+      llmService: {} as any, // Will be initialized by service
+      eventBusService: eventBusService || new EventBusService({ url: process.env.RABBITMQ_URL || 'amqp://localhost', serviceName: 'agent-controller' }, logger as any),
+      serviceName: 'agent-controller',
+      securityLevel: 2
+    });
+    
+    this.agentPlanning = new AgentPlanningService({
+      databaseService: databaseService || new DatabaseService(),
+      eventBusService: eventBusService || new EventBusService({ url: process.env.RABBITMQ_URL || 'amqp://localhost', serviceName: 'agent-controller' }, logger as any),
+      serviceName: 'agent-controller',
+      securityLevel: 2
+    });
+    
+    this.agentLearning = new AgentLearningService({
       agentMemoryService,
-      personaService,
+      knowledgeGraphService,
+      databaseService: databaseService || new DatabaseService(),
+      eventBusService: eventBusService || new EventBusService({ url: process.env.RABBITMQ_URL || 'amqp://localhost', serviceName: 'agent-controller' }, logger as any),
+      serviceName: 'agent-controller',
+      securityLevel: 2
+    });
+    
+    this.agentDiscussion = new AgentDiscussionService({
       discussionService,
-      databaseService,
-      eventBusService
-    );
+      databaseService: databaseService || new DatabaseService(),
+      eventBusService: eventBusService || new EventBusService({ url: process.env.RABBITMQ_URL || 'amqp://localhost', serviceName: 'agent-controller' }, logger as any),
+      llmService: undefined, // Will be initialized by service
+      userLLMService: undefined, // Will be initialized by service
+      serviceName: 'agent-controller',
+      securityLevel: 2
+    });
+    
+    this.agentOrchestrator = new AgentEventOrchestrator({
+      eventBusService: eventBusService || new EventBusService({ url: process.env.RABBITMQ_URL || 'amqp://localhost', serviceName: 'agent-controller' }, logger as any),
+      databaseService: databaseService || new DatabaseService(),
+      orchestrationPipelineUrl: process.env.ORCHESTRATION_PIPELINE_URL || 'http://localhost:3002',
+      serviceName: 'agent-controller',
+      securityLevel: 2
+    });
     
     this.capabilityDiscoveryService = new CapabilityDiscoveryService();
     this.securityValidationService = new SecurityValidationService();
@@ -71,11 +134,11 @@ export class AgentController {
       await this.validateSecurity(agentId, 'analyze_context', analysisRequest);
 
       // Perform enhanced context analysis
-      const analysis = await this.agentIntelligenceService.analyzeContext(
-        agent,
-        analysisRequest.conversationContext,
+      const analysis = await this.agentContext.analyzeContext(
+        agent.id,
+        analysisRequest.conversationContext || {},
         analysisRequest.userRequest || '',
-        analysisRequest.constraints
+        req.user?.id || 'anonymous'
       );
 
       // Get available capabilities
@@ -83,10 +146,10 @@ export class AgentController {
 
       // Build enhanced response
       const response: AgentAnalysisResponse = {
-        analysis: analysis.analysis,
-        recommendedActions: analysis.recommendedActions,
+        analysis: typeof analysis.userIntent === 'string' ? analysis.userIntent : (analysis.userIntent?.primary || 'Context analyzed successfully'),
+        recommendedActions: analysis.recommendations || [],
         confidence: analysis.confidence,
-        explanation: analysis.explanation,
+        explanation: typeof analysis.userIntent === 'string' ? analysis.userIntent : (analysis.userIntent?.primary || 'Analysis completed'),
         availableCapabilities: capabilities,
         securityAssessment: { allowed: true, riskLevel: RiskLevel.LOW, reasoning: 'Validated' },
         meta: {
@@ -100,7 +163,7 @@ export class AgentController {
       logger.info('Enhanced context analysis completed', { 
         agentId, 
         confidence: analysis.confidence,
-        actionsCount: analysis.recommendedActions?.length,
+        actionsCount: analysis.recommendations?.length,
         capabilitiesCount: capabilities.length
       });
 
@@ -125,7 +188,7 @@ export class AgentController {
       const agent = await this.validateAgentExists(agentId);
 
       // Generate enhanced execution plan
-      const plan = await this.agentIntelligenceService.generateExecutionPlan(
+      const plan = await this.agentPlanning.generateExecutionPlan(
         agent,
         planRequest.analysis,
         planRequest.userPreferences,
@@ -221,7 +284,7 @@ export class AgentController {
       };
 
       // Create the agent (service will validate persona exists)
-      const agent = await this.agentIntelligenceService.createAgent(agentData);
+      const agent = await this.agentCore.createAgent(agentData, agentData.createdBy || 'anonymous');
 
       logger.info('Enhanced agent created successfully', { 
         agentId: agent.id,
@@ -271,7 +334,7 @@ export class AgentController {
     const { agentId } = req.params;
 
     try {
-      const agentWithPersona = await this.agentIntelligenceService.getAgentWithPersona(agentId);
+      const agentWithPersona = await this.agentCore.getAgentWithPersona(agentId);
       if (!agentWithPersona) {
         throw new ApiError(404, 'Agent not found', 'AGENT_NOT_FOUND');
       }
@@ -310,7 +373,7 @@ export class AgentController {
       
       // For now, pass the limit parameter to the service
       const limit = queryParams.limit;
-      const agents = await this.agentIntelligenceService.getAgents(limit);
+      const agents = await this.agentCore.getAgents(limit);
       
       // Apply client-side filtering for other parameters until we implement server-side filtering
       let filteredAgents = agents;
@@ -383,7 +446,7 @@ export class AgentController {
     const updateData = req.body;
 
     try {
-      const agent = await this.agentIntelligenceService.updateAgent(agentId, updateData);
+      const agent = await this.agentCore.updateAgent(agentId, updateData, req.user?.id || 'anonymous');
       if (!agent) {
         throw new ApiError(404, 'Agent not found', 'AGENT_NOT_FOUND');
       }
@@ -403,7 +466,7 @@ export class AgentController {
     const { agentId } = req.params;
 
     try {
-      await this.agentIntelligenceService.deleteAgent(agentId);
+      await this.agentCore.deleteAgent(agentId, req.user?.id || 'anonymous');
       logger.info('Agent deleted successfully', { agentId });
       
       res.status(204).send();
@@ -446,7 +509,7 @@ export class AgentController {
     const { operationId, outcomes, feedback } = req.body;
 
     try {
-      const learningResult = await this.agentIntelligenceService.learnFromOperation(
+      const learningResult = await this.agentLearning.learnFromOperation(
         agentId,
         operationId,
         outcomes,
@@ -479,16 +542,16 @@ export class AgentController {
         hasComment: !!comment
       });
 
-      const result = await this.agentIntelligenceService.triggerAgentParticipation({
+      const result = await this.agentDiscussion.participateInDiscussion(
         agentId,
         discussionId,
-        comment
-      });
+        comment || ''
+      );
 
       logger.info('Agent participation triggered', { 
         agentId,
         discussionId,
-        success: result.success
+        response: result.response
       });
 
       res.status(200).json({
@@ -525,7 +588,7 @@ export class AgentController {
       });
 
       // Validate agent exists and get with persona data
-      const agentWithPersona = await this.agentIntelligenceService.getAgentWithPersona(agentId);
+      const agentWithPersona = await this.agentCore.getAgentWithPersona(agentId);
       if (!agentWithPersona) {
         throw new ApiError(404, 'Agent not found', 'AGENT_NOT_FOUND');
       }
@@ -564,7 +627,7 @@ export class AgentController {
       const userId = req.user?.id || agentWithPersona.createdBy;
 
       // Generate response using the enhanced agent intelligence service
-      const result = await this.agentIntelligenceService.generateAgentResponse(
+      const result = await this.agentDiscussion.generateAgentResponse(
         agentId,
         messages,
         {
@@ -636,7 +699,7 @@ export class AgentController {
    * Validate that an agent exists and return it
    */
   private async validateAgentExists(agentId: string): Promise<Agent> {
-    const agent = await this.agentIntelligenceService.getAgent(agentId);
+    const agent = await this.agentCore.getAgent(agentId);
     if (!agent) {
       throw new ApiError(404, 'Agent not found', 'AGENT_NOT_FOUND');
     }

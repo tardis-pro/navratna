@@ -9,6 +9,18 @@ export enum AgentRole {
   SPECIALIST = 'specialist'
 }
 
+export enum AgentStatus {
+  INITIALIZING = 'initializing',
+  IDLE = 'idle',
+  ACTIVE = 'active',
+  BUSY = 'busy',
+  ERROR = 'error',
+  OFFLINE = 'offline',
+  SHUTTING_DOWN = 'shutting_down',
+  INACTIVE = 'inactive',
+  DELETED = 'deleted'
+}
+
 export const AgentPersonaSchema = z.object({
   name: z.string(),
   description: z.string(),
@@ -34,20 +46,25 @@ export const AgentSecurityContextSchema = z.object({
   allowedCapabilities: z.array(z.string()),
   restrictedDomains: z.array(z.string()).optional(),
   approvalRequired: z.boolean().default(false),
-  auditLevel: z.enum(['minimal', 'standard', 'comprehensive']).default('standard')
+  auditLevel: z.enum(['minimal', 'standard', 'comprehensive']).default('standard'),
+  maxCapabilities: z.number().optional()
 });
 
 export type AgentSecurityContext = z.infer<typeof AgentSecurityContextSchema>;
 
 export const AgentSchema = BaseEntitySchema.extend({
   name: z.string().min(1).max(255),
+  description: z.string().optional(),
   role: z.nativeEnum(AgentRole),
   personaId: IDSchema,
   persona: AgentPersonaSchema.optional(),
   intelligenceConfig: AgentIntelligenceConfigSchema,
   securityContext: AgentSecurityContextSchema,
   isActive: z.boolean().default(true),
-  status: z.enum(['idle', 'active', 'busy', 'error', 'offline']).default('idle'),
+  status: z.nativeEnum(AgentStatus).default(AgentStatus.IDLE),
+  capabilities: z.array(z.string()).default([]),
+  version: z.number().default(1),
+  metadata: z.record(z.any()).optional(),
   createdBy: IDSchema,
   lastActiveAt: z.date().optional(),
   configuration: z.object({
@@ -146,6 +163,56 @@ export const AgentUpdateSchema = z.object({
 
 export type AgentUpdate = z.infer<typeof AgentUpdateSchema>;
 
+// Agent Update Request Schema - for API requests (user-friendly format)
+export const AgentUpdateRequestSchema = z.object({
+  name: z.string().min(1).max(255).optional(),
+  description: z.string().min(1).optional(),
+  capabilities: z.array(z.string()).optional(),
+  role: z.nativeEnum(AgentRole).optional(),
+  personaId: IDSchema.optional(),
+  persona: AgentPersonaSchema.optional(),
+  configuration: z.object({
+    model: z.string().optional(),
+    temperature: z.number().min(0).max(2).optional(),
+    analysisDepth: z.enum(['basic', 'intermediate', 'advanced']).optional(),
+    contextWindowSize: z.number().positive().optional(),
+    decisionThreshold: z.number().min(0).max(1).optional(),
+    learningEnabled: z.boolean().optional(),
+    collaborationMode: z.enum(['independent', 'collaborative', 'supervised']).optional()
+  }).optional(),
+  modelId: z.string().optional(),
+  apiType: z.enum(['ollama', 'llmstudio', 'openai', 'anthropic', 'custom']).optional(),
+  securityLevel: z.enum(['low', 'medium', 'high', 'critical']).optional(),
+  isActive: z.boolean().optional()
+});
+
+export type AgentUpdateRequest = z.infer<typeof AgentUpdateRequestSchema>;
+
+// Agent Create Request Schema - for API requests (user-friendly format)
+export const CreateAgentRequestSchema = z.object({
+  name: z.string().min(1).max(255),
+  description: z.string().min(1).optional(),
+  capabilities: z.array(z.string()).default([]),
+  role: z.nativeEnum(AgentRole),
+  personaId: IDSchema.optional(),
+  persona: AgentPersonaSchema.optional(),
+  configuration: z.object({
+    model: z.string().optional(),
+    temperature: z.number().min(0).max(2).optional(),
+    analysisDepth: z.enum(['basic', 'intermediate', 'advanced']).optional(),
+    contextWindowSize: z.number().positive().optional(),
+    decisionThreshold: z.number().min(0).max(1).optional(),
+    learningEnabled: z.boolean().optional(),
+    collaborationMode: z.enum(['independent', 'collaborative', 'supervised']).optional()
+  }).optional(),
+  modelId: z.string().optional(),
+  apiType: z.enum(['ollama', 'llmstudio', 'openai', 'anthropic', 'custom']).optional(),
+  securityLevel: z.enum(['low', 'medium', 'high', 'critical']).optional(),
+  isActive: z.boolean().default(true)
+});
+
+export type CreateAgentRequest = z.infer<typeof CreateAgentRequestSchema>;
+
 // Conversation types
 export enum MessageRole {
   USER = 'user',
@@ -165,22 +232,63 @@ export type Message = z.infer<typeof MessageSchema>;
 
 export const ConversationContextSchema = z.object({
   id: IDSchema,
+  contextId: z.string().optional(),
   agentId: IDSchema,
   userId: IDSchema,
   messages: z.array(MessageSchema),
   metadata: z.record(z.any()).optional(),
   startedAt: z.date(),
-  lastActivityAt: z.date()
+  startTime: z.date().optional(),
+  lastActivityAt: z.date(),
+  lastInteractionTime: z.date().optional(),
+  userPreferences: z.record(z.any()).optional(),
+  platform: z.string().optional(),
+  device: z.string().optional(),
+  location: z.string().optional(),
+  timezone: z.string().optional(),
+  language: z.string().optional(),
+  networkQuality: z.string().optional()
 });
 
 export type ConversationContext = z.infer<typeof ConversationContextSchema>;
 
+// Environment factors for context analysis
+export const EnvironmentFactorsSchema = z.object({
+  platform: z.string().default('web'),
+  device: z.string().default('desktop'),
+  location: z.string().default('unknown'),
+  timeOfDay: z.string(),
+  dayOfWeek: z.string(),
+  timezone: z.string().default('UTC'),
+  language: z.string().default('en'),
+  networkQuality: z.string().default('good'),
+  securityLevel: z.number().min(1).max(5)
+});
+
+export type EnvironmentFactors = z.infer<typeof EnvironmentFactorsSchema>;
+
 // Agent analysis types
 export const ContextAnalysisSchema = z.object({
+  id: z.string(),
+  agentId: z.string(),
+  timestamp: z.date(),
   conversationContext: ConversationContextSchema,
   userRequest: z.string(),
+  userIntent: z.object({
+    primary: z.string(),
+    secondary: z.array(z.string()).default([]),
+    confidence: z.number().min(0).max(1),
+    keywords: z.array(z.string()).default([]),
+    sentiment: z.string()
+  }),
+  contextualFactors: z.record(z.any()).optional(),
+  environmentFactors: EnvironmentFactorsSchema,
+  confidence: z.number().min(0).max(1),
+  recommendations: z.array(z.string()).default([]),
+  relevantKnowledge: z.array(z.any()).default([]),
   constraints: z.record(z.any()).optional(),
-  priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium')
+  priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
+  metadata: z.record(z.any()).optional()
 });
 
 export type ContextAnalysis = z.infer<typeof ContextAnalysisSchema>;

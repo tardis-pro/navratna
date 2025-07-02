@@ -31,6 +31,7 @@ export interface DiscussionServiceConfig {
   enableAnalytics?: boolean;
   maxParticipants?: number;
   defaultTurnTimeout?: number;
+  auditMode?: 'comprehensive' | 'standard' | 'minimal';
 }
 
 export class DiscussionService {
@@ -58,8 +59,8 @@ export class DiscussionService {
 
   async createDiscussion(request: CreateDiscussionRequest): Promise<DiscussionType> {
     try {
-      logger.info('Creating discussion', { 
-        title: request.title, 
+      logger.info('Creating discussion', {
+        title: request.title,
         createdBy: request.createdBy,
         participantCount: request.initialParticipants?.length
       });
@@ -118,7 +119,7 @@ export class DiscussionService {
         createdAt: new Date(),
         updatedAt: new Date()
       };
-      
+
       const discussion = await this.databaseService.create<Discussion>(Discussion, discussionData);
 
       // Add initial participants
@@ -244,7 +245,7 @@ export class DiscussionService {
         participantsLength: discussion.participants?.length || 0,
         participants: discussion.participants?.map(p => ({ id: p.id, agentId: p.agentId, isActive: p.isActive })) || []
       });
-      
+
       if (!discussion.participants || discussion.participants.length < 2) {
         throw new Error('Discussion requires at least 2 participants to start');
       }
@@ -299,7 +300,7 @@ export class DiscussionService {
       const updatedDiscussion = await this.updateDiscussion(id, {
         status: DiscussionStatus.COMPLETED,
         endedAt: new Date(),
-        actualDuration: discussion.startedAt ? 
+        actualDuration: discussion.startedAt ?
           Date.now() - discussion.startedAt.getTime() : 0,
         state: {
           ...discussion.state,
@@ -341,9 +342,9 @@ export class DiscussionService {
     userId?: string;
   }): Promise<DiscussionParticipantType> {
     try {
-      logger.info('Adding participant to discussion', { 
-        discussionId, 
-        agentId: participantRequest.agentId 
+      logger.info('Adding participant to discussion', {
+        discussionId,
+        agentId: participantRequest.agentId
       });
 
       const discussion = await this.getDiscussion(discussionId, true); // Force refresh to get latest participants
@@ -363,7 +364,7 @@ export class DiscussionService {
       const maxParticipants = discussion.settings?.maxParticipants || this.maxParticipants;
       const activeParticipants = discussion.participants?.filter(p => p.isActive) || [];
       const currentParticipantCount = activeParticipants.length;
-      
+
       logger.debug('Checking participant limit', {
         discussionId,
         totalParticipants: discussion.participants?.length || 0,
@@ -372,7 +373,7 @@ export class DiscussionService {
         discussionSettingsMaxParticipants: discussion.settings?.maxParticipants,
         serviceMaxParticipants: this.maxParticipants
       });
-      
+
       if (currentParticipantCount >= maxParticipants) {
         throw new Error(`Discussion has reached maximum participants limit: ${maxParticipants}`);
       }
@@ -419,9 +420,9 @@ export class DiscussionService {
         role: participant.role
       });
 
-      logger.info('Participant added successfully', { 
-        discussionId, 
-        participantId: participant.id 
+      logger.info('Participant added successfully', {
+        discussionId,
+        participantId: participant.id
       });
       return participant;
 
@@ -431,7 +432,7 @@ export class DiscussionService {
     }
   }
 
-  async removeParticipant(discussionId: string,  participantId: string, removedBy: string): Promise<void> {
+  async removeParticipant(discussionId: string, participantId: string, removedBy: string): Promise<void> {
     try {
       logger.info('Removing participant from discussion', { discussionId, participantId, removedBy });
 
@@ -473,13 +474,13 @@ export class DiscussionService {
 
   // ===== MESSAGE MANAGEMENT =====
 
-  async sendMessage(discussionId: string,  participantId: string, content: string, messageType = MessageType.MESSAGE): Promise<DiscussionMessage> {
+  async sendMessage(discussionId: string, participantId: string, content: string, messageType = MessageType.MESSAGE): Promise<DiscussionMessage> {
     try {
-      logger.debug('Sending message to discussion', { 
-        discussionId, 
-        participantId, 
+      logger.debug('Sending message to discussion', {
+        discussionId,
+        participantId,
         messageType,
-        contentLength: content.length 
+        contentLength: content.length
       });
 
       const discussion = await this.getDiscussion(discussionId);
@@ -558,9 +559,9 @@ export class DiscussionService {
       // Check if turn should advance
       await this.checkTurnAdvancement(discussionId);
 
-      logger.debug('Message sent successfully', { 
-        discussionId, 
-        messageId: message.id 
+      logger.debug('Message sent successfully', {
+        discussionId,
+        messageId: message.id
       });
       return message;
 
@@ -576,7 +577,7 @@ export class DiscussionService {
     hasMore: boolean;
   }> {
     try {
-      const messages = await this.databaseService.findMany<DiscussionMessage>('discussion_messages', 
+      const messages = await this.databaseService.findMany<DiscussionMessage>('discussion_messages',
         { discussionId, isDeleted: false },
         {
           limit,
@@ -601,7 +602,7 @@ export class DiscussionService {
 
   // ===== TURN MANAGEMENT =====
 
-    async advanceTurn(discussionId: string, forcedBy?: string): Promise<void> {
+  async advanceTurn(discussionId: string, forcedBy?: string): Promise<void> {
     try {
       logger.debug('Advancing turn', { discussionId, forcedBy });
 
@@ -776,12 +777,12 @@ export class DiscussionService {
     }
   }
 
-    private async initializeFirstTurn(discussionId: string): Promise<void> {
+  private async initializeFirstTurn(discussionId: string): Promise<void> {
     const discussion = await this.getDiscussion(discussionId);
     if (!discussion) return;
 
     const firstParticipantId = await this.determineNextParticipant(discussion);
-    
+
     await this.updateDiscussion(discussionId, {
       state: {
         ...discussion.state,
@@ -795,15 +796,15 @@ export class DiscussionService {
     });
   }
 
-      private async determineNextParticipant(discussion: DiscussionType): Promise<string | undefined> {
+  private async determineNextParticipant(discussion: DiscussionType): Promise<string | undefined> {
     const activeParticipants = (discussion.participants || []).filter((p: DiscussionParticipantType) => p.isActive);
     if (activeParticipants.length === 0) return undefined;
 
     // Simple round-robin for now
     // In a full implementation, this would use the turn strategy configuration
-    const currentIndex = discussion.state?.currentTurn?.participantId ? 
+    const currentIndex = discussion.state?.currentTurn?.participantId ?
       activeParticipants.findIndex((p: DiscussionParticipantType) => p.id === discussion.state?.currentTurn?.participantId) : -1;
-    
+
     const nextIndex = (currentIndex + 1) % activeParticipants.length;
     return activeParticipants[nextIndex]?.id;
   }
@@ -831,7 +832,7 @@ export class DiscussionService {
     return Math.ceil(content.split(/\s+/).length * 1.3);
   }
 
-  private extractMentions(content: string, participants: DiscussionParticipantType[]):  string[] {
+  private extractMentions(content: string, participants: DiscussionParticipantType[]): string[] {
     // Extract @mentions from content
     const mentions: string[] = [];
     const mentionRegex = /@(\w+)/g;
@@ -889,10 +890,10 @@ export class DiscussionService {
   }
 
   private async emitDiscussionEvent(
-    discussionId: string, 
-    type: DiscussionEventType, 
+    discussionId: string,
+    type: DiscussionEventType,
     data: any,
-     participantId?: string
+    participantId?: string
   ): Promise<void> {
     if (!this.enableRealTimeEvents) return;
 
@@ -908,10 +909,10 @@ export class DiscussionService {
       await this.eventBusService.publish('discussion.events', event);
 
     } catch (error) {
-      logger.error('Failed to emit discussion event', { 
-        error: (error as Error).message, 
-        discussionId, 
-        type 
+      logger.error('Failed to emit discussion event', {
+        error: (error as Error).message,
+        discussionId,
+        type
       });
     }
   }

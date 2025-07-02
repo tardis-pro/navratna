@@ -70,6 +70,8 @@ export class ToolExecutor {
       approvalRequired: tool.requiresApproval,
       retryCount: 0,
       maxRetries: options.maxRetries || 3,
+      success: false,
+      data: null,
       metadata: {
         priority: options.priority || 'normal',
         timeout: options.timeout || 30000,

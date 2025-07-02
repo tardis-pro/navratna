@@ -35,7 +35,24 @@ import {
   Activity,
   Network,
   Brain,
-  Sparkles
+  Sparkles,
+  Play,
+  Pause,
+  BarChart3,
+  Clock,
+  Shield,
+  Layers,
+  MoreVertical,
+  Copy,
+  Download,
+  Upload,
+  GitBranch,
+  Target,
+  Workflow,
+  Gauge,
+  Lightbulb,
+  MessageSquare,
+  Bookmark
 } from 'lucide-react';
 import { ModelOption } from '@/types/models';
 
@@ -54,30 +71,75 @@ interface AgentManagerPortalProps {
   mode?: 'spawner' | 'monitor' | 'manager';
 }
 
-type ViewMode = 'grid' | 'list' | 'settings' | 'create';
-type ActionMode = 'view' | 'edit' | 'create' | 'delete';
+type ViewMode = 'grid' | 'list' | 'settings' | 'create' | 'create-persona';
+type ActionMode = 'view' | 'edit' | 'create' | 'create-persona' | 'delete';
 
 const getModels = async (): Promise<ModelOption[]> => {
   try {
     const response = await uaipAPI.llm.getModels();
     const models = Array.isArray(response) ? response : [];
     
-    return models.map(model => ({
-      id: model.id,
-      name: model.name,
-      description: model.description,
-      source: model.source,
-      apiEndpoint: model.apiEndpoint,
-      apiType: (model.apiType === 'ollama' || model.apiType === 'llmstudio') 
-        ? model.apiType 
-        : 'ollama' as const,
-      provider: model.provider,
-      isAvailable: model.isAvailable ?? true
-    }));
+    if (models.length > 0) {
+      return models.map(model => ({
+        id: model.id,
+        name: model.name,
+        description: model.description,
+        source: model.source,
+        apiEndpoint: model.apiEndpoint,
+        apiType: (model.apiType === 'ollama' || model.apiType === 'llmstudio') 
+          ? model.apiType 
+          : 'ollama' as const,
+        provider: model.provider,
+        isAvailable: model.isAvailable ?? true
+      }));
+    }
   } catch (error) {
-    console.error('Failed to fetch models:', error);
-    return [];
+    console.warn('Failed to fetch models from API, using fallback models:', error);
   }
+  
+  // Fallback models when API is unavailable
+  return [
+    {
+      id: 'gpt-4o-mini',
+      name: 'GPT-4O Mini',
+      description: 'Fast and efficient OpenAI model for general tasks',
+      source: 'openai',
+      apiEndpoint: 'https://api.openai.com/v1',
+      apiType: 'llmstudio' as const,
+      provider: 'OpenAI',
+      isAvailable: true
+    },
+    {
+      id: 'claude-3-5-sonnet-20241022',
+      name: 'Claude 3.5 Sonnet',
+      description: 'Advanced Anthropic model for complex reasoning',
+      source: 'anthropic',
+      apiEndpoint: 'https://api.anthropic.com',
+      apiType: 'llmstudio' as const,
+      provider: 'Anthropic',
+      isAvailable: true
+    },
+    {
+      id: 'llama-3.2-3b-instruct',
+      name: 'Llama 3.2 3B Instruct',
+      description: 'Local Ollama model for privacy-focused tasks',
+      source: 'localhost:11434',
+      apiEndpoint: 'http://localhost:11434',
+      apiType: 'ollama' as const,
+      provider: 'Meta',
+      isAvailable: true
+    },
+    {
+      id: 'mistral-7b-instruct',
+      name: 'Mistral 7B Instruct',
+      description: 'Efficient local model for general tasks',
+      source: 'localhost:11434',
+      apiEndpoint: 'http://localhost:11434',
+      apiType: 'ollama' as const,
+      provider: 'Mistral AI',
+      isAvailable: true
+    }
+  ];
 };
 
 const getServerIcon = (apiType: string) => {
@@ -178,6 +240,22 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
     isActive: true
   });
 
+  // Selected persona state for confirmation step
+  const [selectedPersona, setSelectedPersona] = useState<PersonaDisplay | null>(null);
+
+  // Form state for persona creation
+  const [personaForm, setPersonaForm] = useState({
+    name: '',
+    role: '',
+    description: '',
+    background: '',
+    systemPrompt: '',
+    tags: [] as string[],
+    expertise: [] as string[],
+    status: 'active' as const,
+    visibility: 'public' as const
+  });
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = viewMode === 'grid' ? 12 : 10;
@@ -190,6 +268,16 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
     try {
       const models = await getModels();
       setAvailableModels(models);
+      
+      if (models.length === 0) {
+        setModelsError('No models available');
+      } else if (models.some(m => m.source === 'localhost:11434' || m.source === 'openai' || m.source === 'anthropic')) {
+        // If we have fallback models, show a warning that backend is unavailable
+        const hasAPIModels = models.some(m => !['localhost:11434', 'openai', 'anthropic'].includes(m.source));
+        if (!hasAPIModels) {
+          setModelsError('Backend unavailable - using fallback models');
+        }
+      }
     } catch (error) {
       console.error('Failed to load models:', error);
       setModelsError('Failed to load available models');
@@ -249,14 +337,37 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
     });
   };
 
+  const navigateToCreatePersona = () => {
+    setViewMode('create-persona');
+    setActionMode('create-persona');
+    setSelectedAgentId(null);
+    setPersonaForm({
+      name: '',
+      role: '',
+      description: '',
+      background: '',
+      systemPrompt: '',
+      tags: [],
+      expertise: [],
+      status: 'active',
+      visibility: 'public'
+    });
+  };
+
   const navigateToView = () => {
     setViewMode(defaultView);
     setActionMode('view');
     setSelectedAgentId(null);
+    setSelectedPersona(null);
   };
 
-  const handleCreateAgent = async (persona: PersonaDisplay) => {
-    if (!agentForm.name.trim() || !agentForm.modelId || !persona.id) {
+  const handlePersonaSelect = (persona: PersonaDisplay) => {
+    setSelectedPersona(persona);
+  };
+
+  const handleCreateAgent = async () => {
+    if (!selectedPersona) return;
+    if (!agentForm.name.trim() || !agentForm.modelId || !selectedPersona.id) {
       return;
     }
 
@@ -265,11 +376,11 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
         name: agentForm.name.trim(),
         role: agentForm.role,
         modelId: agentForm.modelId,
-        personaId: persona.id,
+        personaId: selectedPersona.id,
         description: agentForm.description.trim(),
         isActive: agentForm.isActive,
-        capabilities: persona.expertise || [],
-        systemPrompt: persona.background || persona.description || '',
+        capabilities: selectedPersona.expertise || [],
+        systemPrompt: selectedPersona.background || selectedPersona.description || '',
         temperature: 0.7,
         maxTokens: 2000,
         topP: 0.9,
@@ -292,11 +403,75 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
           description: '',
           isActive: true
         });
+        setSelectedPersona(null);
         
         navigateToView();
       }
     } catch (error) {
       console.error('Failed to create agent:', error);
+    }
+  };
+
+  const handleCreatePersona = async () => {
+    if (!personaForm.name.trim() || !personaForm.role.trim() || !personaForm.description.trim()) {
+      return;
+    }
+
+    try {
+      const personaData = {
+        name: personaForm.name.trim(),
+        role: personaForm.role.trim(),
+        description: personaForm.description.trim(),
+        background: personaForm.background.trim(),
+        systemPrompt: personaForm.systemPrompt.trim() || `You are a ${personaForm.role} named ${personaForm.name}. ${personaForm.description}`,
+        traits: [], // Will be populated based on role
+        expertise: personaForm.expertise.map(exp => ({
+          id: `exp-${Date.now()}-${Math.random()}`,
+          name: exp,
+          category: 'general',
+          level: 'intermediate' as const,
+          description: `Expertise in ${exp}`,
+          keywords: [exp],
+          relatedDomains: []
+        })),
+        conversationalStyle: {
+          tone: 'professional' as const,
+          verbosity: 'moderate' as const,
+          formality: 'neutral' as const,
+          empathy: 0.7,
+          assertiveness: 0.6,
+          creativity: 0.5,
+          analyticalDepth: 0.7,
+          questioningStyle: 'direct' as const,
+          responsePattern: 'structured' as const
+        },
+        status: personaForm.status,
+        visibility: personaForm.visibility,
+        tags: personaForm.tags
+      };
+
+      const response = await uaipAPI.personas.create(personaData);
+      
+      if (response) {
+        // Reset form and navigate back
+        setPersonaForm({
+          name: '',
+          role: '',
+          description: '',
+          background: '',
+          systemPrompt: '',
+          tags: [],
+          expertise: [],
+          status: 'active',
+          visibility: 'public'
+        });
+        navigateToView();
+        
+        // Optionally refresh personas in PersonaSelector
+        console.log('Persona created successfully:', response);
+      }
+    } catch (error) {
+      console.error('Failed to create persona:', error);
     }
   };
 
@@ -377,6 +552,16 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
       return 'No persona';
     };
 
+    // Get agent health status
+    const getAgentHealth = (agent: AgentState) => {
+      if (!agent.isActive) return { status: 'offline', color: 'bg-gray-500', text: 'Offline' };
+      if (agent.modelId && agent.personaId) return { status: 'healthy', color: 'bg-green-500', text: 'Healthy' };
+      if (agent.modelId || agent.personaId) return { status: 'warning', color: 'bg-yellow-500', text: 'Partial' };
+      return { status: 'error', color: 'bg-red-500', text: 'Error' };
+    };
+
+    const health = getAgentHealth(agent);
+
     return (
       <motion.div
         key={agent.id}
@@ -384,107 +569,174 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay, duration: 0.3 }}
         className={`
-          relative group cursor-pointer
+          relative group cursor-pointer overflow-hidden
           ${viewMode === 'grid' 
-            ? 'bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700/50 hover:border-slate-600/50 rounded-xl p-4 transition-all duration-300' 
-            : 'bg-slate-800/30 hover:bg-slate-700/30 border-l-4 border-l-blue-500/50 hover:border-l-blue-400 p-4 transition-all duration-300'
+            ? 'bg-gradient-to-br from-slate-800/50 via-slate-800/40 to-slate-900/60 hover:from-slate-700/60 hover:via-slate-700/50 hover:to-slate-800/70 border border-slate-700/50 hover:border-slate-600/60 rounded-xl p-5 transition-all duration-300 shadow-lg hover:shadow-xl' 
+            : 'bg-gradient-to-r from-slate-800/40 via-slate-800/30 to-slate-800/20 hover:from-slate-700/50 hover:via-slate-700/40 hover:to-slate-700/30 border-l-4 border-l-blue-500/50 hover:border-l-blue-400 border-t border-b border-r border-slate-700/30 p-4 transition-all duration-300'
           }
-          ${isSelected ? 'ring-2 ring-blue-500/50 bg-blue-500/10' : ''}
+          ${isSelected ? 'ring-2 ring-blue-500/60 bg-blue-500/10 shadow-blue-500/20' : ''}
+          backdrop-blur-sm
         `}
         onClick={() => navigateToAgent(agent.id)}
         whileHover={{ scale: viewMode === 'grid' ? 1.02 : 1.01 }}
       >
-        {/* Agent Status Indicator */}
-        <div className="absolute top-2 right-2 flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${agent.isActive ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`} />
-          {agent.isActive && (
-            <div className="text-xs text-green-400 font-medium">Active</div>
-          )}
+        {/* Background Pattern */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-blue-500/30 to-transparent rounded-full blur-2xl" />
+          <div className="absolute bottom-0 left-0 w-16 h-16 bg-gradient-to-tr from-cyan-500/20 to-transparent rounded-full blur-xl" />
         </div>
 
-        {/* Agent Info */}
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center flex-shrink-0">
-            <Bot className="w-5 h-5 text-white" />
-          </div>
-          
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-2">
-              <h3 className="font-semibold text-white truncate text-base" title={agent.name}>
-                {agent.name}
-              </h3>
-              <span className="text-xs px-2 py-1 bg-blue-500/20 text-blue-300 rounded-full capitalize font-medium border border-blue-500/30">
-                {agent.role}
-              </span>
-            </div>
-            
-            {/* Persona Tag */}
-            <div className="mb-2">
-              <span 
-                className="inline-flex items-center gap-1 px-2 py-1 bg-purple-500/20 text-purple-300 text-xs rounded-full font-medium border border-purple-500/30 max-w-full"
-                title={getPersonaDisplayName(agent)}
-              >
-                <User className="w-3 h-3 flex-shrink-0" />
-                <span className="truncate">
-                  {getPersonaDisplayName(agent).length > 15 
-                    ? `${getPersonaDisplayName(agent).substring(0, 15)}...` 
-                    : getPersonaDisplayName(agent)
-                  }
-                </span>
-              </span>
-            </div>
-            
-            {/* Model Tag */}
-            <div className="mb-2">
-              <span 
-                className="inline-flex items-center gap-1 px-2 py-1 bg-slate-700/50 text-slate-300 text-xs rounded-full font-medium border border-slate-600/30 max-w-full"
-                title={agent.modelId}
-              >
-                <Cpu className="w-3 h-3 flex-shrink-0" />
-                <span className="truncate">
-                  {getModelDisplayName(agent.modelId).length > 12 
-                    ? `${getModelDisplayName(agent.modelId).substring(0, 12)}...` 
-                    : getModelDisplayName(agent.modelId)
-                  }
-                </span>
-              </span>
-            </div>
-            
-            {/* Description (if exists) */}
-            {agent.description && (
-              <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed" title={agent.description}>
-                {agent.description.length > 60 
-                  ? `${agent.description.substring(0, 60)}...` 
-                  : agent.description
-                }
-              </p>
-            )}
+        {/* Agent Status & Health Indicator */}
+        <div className="absolute top-3 right-3 flex items-center gap-2 z-10">
+          <div className={`w-2.5 h-2.5 rounded-full ${health.color} ${agent.isActive ? 'animate-pulse' : ''} shadow-sm`} />
+          <div className="text-xs text-slate-300 font-medium px-2 py-1 bg-slate-900/50 rounded-full backdrop-blur-sm">
+            {health.text}
           </div>
         </div>
 
-        {/* Quick Actions */}
-        <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <div className="flex items-center gap-1">
+        {/* Quick Action Menu */}
+        <div className="absolute top-3 left-3 opacity-0 group-hover:opacity-100 transition-all duration-200 z-10">
+          <div className="flex items-center gap-1 bg-slate-900/80 rounded-lg p-1 backdrop-blur-sm shadow-lg">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 navigateToAgent(agent.id, 'edit');
               }}
-              className="w-6 h-6 bg-slate-700/80 hover:bg-slate-600/80 rounded-md flex items-center justify-center text-slate-300 hover:text-white transition-colors"
+              className="w-7 h-7 bg-slate-700/80 hover:bg-slate-600/80 rounded-md flex items-center justify-center text-slate-300 hover:text-white transition-colors"
               title="Edit Agent"
             >
-              <Edit3 className="w-3 h-3" />
+              <Edit3 className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                // TODO: Copy agent configuration
+              }}
+              className="w-7 h-7 bg-slate-700/80 hover:bg-blue-600/80 rounded-md flex items-center justify-center text-slate-300 hover:text-blue-300 transition-colors"
+              title="Duplicate Agent"
+            >
+              <Copy className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 handleDeleteAgent(agent.id);
               }}
-              className="w-6 h-6 bg-red-500/20 hover:bg-red-500/30 rounded-md flex items-center justify-center text-red-400 hover:text-red-300 transition-colors"
+              className="w-7 h-7 bg-red-500/20 hover:bg-red-500/40 rounded-md flex items-center justify-center text-red-400 hover:text-red-300 transition-colors"
               title="Delete Agent"
             >
-              <Trash2 className="w-3 h-3" />
+              <Trash2 className="w-3.5 h-3.5" />
             </button>
+          </div>
+        </div>
+
+        {/* Agent Info */}
+        <div className="relative z-10">
+          <div className="flex items-start gap-4 mb-4">
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 via-cyan-500 to-purple-500 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg ring-2 ring-blue-500/20">
+              <Bot className="w-6 h-6 text-white" />
+            </div>
+            
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-2">
+                <h3 className="font-bold text-white truncate text-lg" title={agent.name}>
+                  {agent.name}
+                </h3>
+                <span className="text-xs px-2.5 py-1 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 text-blue-300 rounded-full capitalize font-semibold border border-blue-500/30 shadow-sm">
+                  {agent.role}
+                </span>
+              </div>
+              
+              {/* Persona Tag */}
+              <div className="mb-3">
+                <span 
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-300 text-xs rounded-full font-semibold border border-purple-500/30 max-w-full shadow-sm"
+                  title={getPersonaDisplayName(agent)}
+                >
+                  <User className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span className="truncate">
+                    {getPersonaDisplayName(agent).length > 15 
+                      ? `${getPersonaDisplayName(agent).substring(0, 15)}...` 
+                      : getPersonaDisplayName(agent)
+                    }
+                  </span>
+                </span>
+              </div>
+              
+              {/* Model Tag */}
+              <div className="mb-3">
+                <span 
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-slate-700/60 to-slate-600/60 text-slate-300 text-xs rounded-full font-semibold border border-slate-600/40 max-w-full shadow-sm"
+                  title={agent.modelId}
+                >
+                  <Cpu className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span className="truncate">
+                    {getModelDisplayName(agent.modelId).length > 12 
+                      ? `${getModelDisplayName(agent.modelId).substring(0, 12)}...` 
+                      : getModelDisplayName(agent.modelId)
+                    }
+                  </span>
+                </span>
+              </div>
+              
+              {/* Description */}
+              {agent.description && (
+                <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed" title={agent.description}>
+                  {agent.description.length > 80 
+                    ? `${agent.description.substring(0, 80)}...` 
+                    : agent.description
+                  }
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Agent Stats/Metrics (if in grid view) */}
+          {viewMode === 'grid' && (
+            <div className="flex items-center justify-between text-xs text-slate-400 pt-3 border-t border-slate-700/50">
+              <div className="flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                <span>Last active</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <BarChart3 className="w-3 h-3" />
+                <span>Performance</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Shield className="w-3 h-3" />
+                <span>Security</span>
+              </div>
+            </div>
+          )}
+
+          {/* Hover Actions */}
+          <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-200">
+            <div className="flex items-center gap-1">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // TODO: Start/Stop agent
+                }}
+                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                  agent.isActive 
+                    ? 'bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 hover:text-orange-300' 
+                    : 'bg-green-500/20 hover:bg-green-500/30 text-green-400 hover:text-green-300'
+                }`}
+                title={agent.isActive ? 'Pause Agent' : 'Start Agent'}
+              >
+                {agent.isActive ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // TODO: View agent details/metrics
+                }}
+                className="w-8 h-8 bg-blue-500/20 hover:bg-blue-500/30 rounded-lg flex items-center justify-center text-blue-400 hover:text-blue-300 transition-colors"
+                title="View Details"
+              >
+                <BarChart3 className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       </motion.div>
@@ -493,37 +745,66 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
 
   const renderHeader = () => (
     <div className="flex items-center justify-between mb-6">
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
-          {mode === 'spawner' ? <Zap className="w-4 h-4 text-white" /> : 
-           mode === 'monitor' ? <Activity className="w-4 h-4 text-white" /> :
-           <Users className="w-4 h-4 text-white" />}
+      <div className="flex items-center gap-4">
+        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 via-cyan-500 to-purple-500 rounded-xl flex items-center justify-center shadow-lg ring-2 ring-blue-500/20">
+          {mode === 'spawner' ? <Zap className="w-5 h-5 text-white" /> : 
+           mode === 'monitor' ? <Activity className="w-5 h-5 text-white" /> :
+           <Users className="w-5 h-5 text-white" />}
         </div>
         <div>
-          <h2 className="text-xl font-bold text-white">
+          <h2 className="text-2xl font-bold text-white">
             {mode === 'spawner' ? 'Agent Spawner' : 
              mode === 'monitor' ? 'Agent Monitor' : 
              viewMode === 'settings' ? 'Agent Settings' :
              'Agent Manager'}
           </h2>
-          <p className="text-sm text-slate-400">
-            {mode === 'spawner' ? 'Create and deploy new agents' :
-             mode === 'monitor' ? 'Monitor agent performance and status' :
-             viewMode === 'settings' ? 'Configure agent models and personas' :
-             `${Object.values(agents).length} active agent${Object.values(agents).length !== 1 ? 's' : ''}`}
-          </p>
+          <div className="flex items-center gap-3">
+            <p className="text-sm text-slate-400">
+              {mode === 'spawner' ? 'Create and deploy new agents' :
+               mode === 'monitor' ? 'Monitor agent performance and status' :
+               viewMode === 'settings' ? 'Configure agent models and personas' :
+               `${Object.values(agents).length} active agent${Object.values(agents).length !== 1 ? 's' : ''}`}
+            </p>
+            {Object.values(agents).length > 0 && viewMode !== 'settings' && (
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full font-medium">
+                  <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+                  {Object.values(agents).filter(a => a.isActive).length} Online
+                </div>
+                <div className="flex items-center gap-1 px-2 py-1 bg-slate-500/20 text-slate-400 text-xs rounded-full font-medium">
+                  <div className="w-1.5 h-1.5 bg-slate-400 rounded-full" />
+                  {Object.values(agents).filter(a => !a.isActive).length} Offline
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
+        {/* Quick Stats */}
+        {Object.values(agents).length > 0 && viewMode !== 'settings' && (
+          <div className="hidden md:flex items-center gap-2 bg-slate-800/50 rounded-lg p-2">
+            <div className="flex items-center gap-1 text-xs text-slate-400">
+              <Gauge className="w-3 h-3" />
+              <span>Status</span>
+            </div>
+            <div className="w-px h-4 bg-slate-600/50" />
+            <div className="flex items-center gap-1 text-xs text-green-400">
+              <CheckCircle2 className="w-3 h-3" />
+              <span>{Object.values(agents).filter(a => a.modelId && a.personaId).length} Ready</span>
+            </div>
+          </div>
+        )}
+
         {/* View Mode Toggle */}
-        <div className="flex items-center bg-slate-800/50 rounded-lg p-1">
+        <div className="flex items-center bg-slate-800/50 rounded-lg p-1 border border-slate-700/50">
           <button
             onClick={() => setViewMode('grid')}
-            className={`p-2 rounded-md transition-colors ${
+            className={`p-2 rounded-md transition-all duration-200 ${
               viewMode === 'grid' 
-                ? 'bg-blue-500/20 text-blue-400' 
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-blue-500/20 text-blue-400 shadow-sm' 
+                : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
             }`}
             title="Grid View"
           >
@@ -531,10 +812,10 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
           </button>
           <button
             onClick={() => setViewMode('list')}
-            className={`p-2 rounded-md transition-colors ${
+            className={`p-2 rounded-md transition-all duration-200 ${
               viewMode === 'list' 
-                ? 'bg-blue-500/20 text-blue-400' 
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-blue-500/20 text-blue-400 shadow-sm' 
+                : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
             }`}
             title="List View"
           >
@@ -542,10 +823,10 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
           </button>
           <button
             onClick={() => setViewMode('settings')}
-            className={`p-2 rounded-md transition-colors ${
+            className={`p-2 rounded-md transition-all duration-200 ${
               viewMode === 'settings' 
-                ? 'bg-blue-500/20 text-blue-400' 
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-blue-500/20 text-blue-400 shadow-sm' 
+                : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
             }`}
             title="Settings View"
           >
@@ -562,54 +843,126 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
             });
           }}
           disabled={refreshing}
-          className="p-2 bg-slate-800/50 hover:bg-slate-700/50 rounded-lg text-slate-400 hover:text-white transition-colors disabled:opacity-50"
+          className="p-2 bg-slate-800/50 hover:bg-slate-700/50 rounded-lg text-slate-400 hover:text-white transition-colors disabled:opacity-50 border border-slate-700/50 shadow-sm"
           title="Refresh Data"
         >
           <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
         </button>
 
-        {/* Create Agent Button */}
+        {/* Create Buttons */}
         {viewMode !== 'settings' && (
-          <button
-            onClick={navigateToCreate}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-lg transition-all duration-300 font-medium"
-          >
-            <Plus className="w-4 h-4" />
-            {currentViewport.isMobile ? '' : 'Create Agent'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={navigateToCreatePersona}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-lg transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
+            >
+              <User className="w-4 h-4" />
+              {currentViewport.isMobile ? '' : 'Create Persona'}
+            </button>
+            
+            <button
+              onClick={navigateToCreate}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-lg transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
+            >
+              <Plus className="w-4 h-4" />
+              {currentViewport.isMobile ? '' : 'Create Agent'}
+            </button>
+          </div>
         )}
       </div>
     </div>
   );
 
   const renderFilters = () => (
-    <div className="flex items-center gap-4 mb-6">
+    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 mb-6">
       {/* Search */}
       <div className="flex-1 relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
         <input
           type="text"
-          placeholder="Search agents..."
+          placeholder="Search agents by name, role, or description..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-colors"
+          className="w-full pl-10 pr-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 shadow-sm"
         />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 bg-slate-600/50 hover:bg-slate-500/50 rounded-full flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        )}
       </div>
 
-      {/* Role Filter */}
-      <div className="relative">
-        <select
-          value={filterRole}
-          onChange={(e) => setFilterRole(e.target.value)}
-          className="pl-3 pr-8 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-colors appearance-none"
-        >
-          <option value="">All Roles</option>
-          <option value="assistant">Assistant</option>
-          <option value="analyst">Analyst</option>
-          <option value="coordinator">Coordinator</option>
-          <option value="specialist">Specialist</option>
-        </select>
-        <Filter className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+      {/* Filters Row */}
+      <div className="flex items-center gap-3">
+        {/* Role Filter */}
+        <div className="relative">
+          <select
+            value={filterRole}
+            onChange={(e) => setFilterRole(e.target.value)}
+            className="pl-3 pr-10 py-3 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 appearance-none min-w-[140px] shadow-sm"
+          >
+            <option value="">All Roles</option>
+            <option value="assistant">Assistant</option>
+            <option value="analyst">Analyst</option>
+            <option value="coordinator">Coordinator</option>
+            <option value="specialist">Specialist</option>
+          </select>
+          <Filter className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+        </div>
+
+        {/* Status Filter */}
+        <div className="relative">
+          <select
+            value={viewMode === 'grid' ? 'active' : 'all'}
+            onChange={(e) => {
+              // TODO: Implement status filtering
+            }}
+            className="pl-3 pr-10 py-3 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 appearance-none min-w-[120px] shadow-sm"
+          >
+            <option value="all">All Status</option>
+            <option value="active">Active Only</option>
+            <option value="inactive">Inactive Only</option>
+            <option value="healthy">Healthy Only</option>
+            <option value="issues">With Issues</option>
+          </select>
+          <Shield className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+        </div>
+
+        {/* Clear Filters */}
+        {(searchQuery || filterRole) && (
+          <button
+            onClick={() => {
+              setSearchQuery('');
+              setFilterRole('');
+            }}
+            className="px-3 py-3 bg-slate-700/50 hover:bg-slate-600/50 text-slate-300 hover:text-white rounded-lg transition-colors flex items-center gap-2 text-sm font-medium border border-slate-600/50 shadow-sm"
+            title="Clear all filters"
+          >
+            <X className="w-4 h-4" />
+            <span className="hidden sm:inline">Clear</span>
+          </button>
+        )}
+
+        {/* Sort Options */}
+        <div className="relative">
+          <select
+            value="name"
+            onChange={(e) => {
+              // TODO: Implement sorting
+            }}
+            className="pl-3 pr-10 py-3 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 appearance-none min-w-[140px] shadow-sm"
+          >
+            <option value="name">Sort by Name</option>
+            <option value="role">Sort by Role</option>
+            <option value="status">Sort by Status</option>
+            <option value="created">Sort by Created</option>
+            <option value="updated">Sort by Updated</option>
+          </select>
+          <BarChart3 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+        </div>
       </div>
     </div>
   );
@@ -719,9 +1072,231 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
           Persona
         </label>
         <PersonaSelector
-          onSelectPersona={handleCreateAgent}
+          onSelectPersona={handlePersonaSelect}
           disabled={!agentForm.name.trim() || !agentForm.modelId}
         />
+      </div>
+
+      {/* Selected Persona Confirmation */}
+      {selectedPersona && (
+        <div className="border border-slate-700/50 rounded-lg p-4 bg-slate-800/30">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-medium text-slate-300">Selected Persona</h4>
+            <button
+              onClick={() => setSelectedPersona(null)}
+              className="text-slate-400 hover:text-white transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center space-x-2">
+              <span className="text-sm font-medium text-white">{selectedPersona.name}</span>
+              <span className="text-xs px-2 py-1 bg-blue-500/20 text-blue-300 rounded-full">
+                {selectedPersona.role}
+              </span>
+            </div>
+            <p className="text-sm text-slate-400">{selectedPersona.description}</p>
+            {selectedPersona.tags && selectedPersona.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {selectedPersona.tags.map((tag, index) => (
+                  <span key={index} className="text-xs px-2 py-1 bg-slate-700/50 text-slate-300 rounded">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Create Agent Button */}
+      {selectedPersona && (
+        <div className="flex justify-end pt-4">
+          <button
+            onClick={handleCreateAgent}
+            disabled={!agentForm.name.trim() || !agentForm.modelId || !selectedPersona}
+            className="px-6 py-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:from-slate-600 disabled:to-slate-700 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-all duration-200 transform hover:scale-105 disabled:scale-100"
+          >
+            Create Agent
+          </button>
+        </div>
+      )}
+    </motion.div>
+  );
+
+  const renderCreatePersonaForm = () => (
+    <motion.div
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -20 }}
+      className="space-y-6"
+    >
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-white">Create New Persona</h3>
+        <button
+          onClick={navigateToView}
+          className="p-2 hover:bg-slate-700/50 rounded-lg text-slate-400 hover:text-white transition-colors"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Persona Name */}
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">
+            Persona Name *
+          </label>
+          <input
+            type="text"
+            value={personaForm.name}
+            onChange={(e) => setPersonaForm(prev => ({ ...prev, name: e.target.value }))}
+            placeholder="Enter persona name..."
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-colors"
+          />
+        </div>
+
+        {/* Persona Role */}
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">
+            Role/Title *
+          </label>
+          <input
+            type="text"
+            value={personaForm.role}
+            onChange={(e) => setPersonaForm(prev => ({ ...prev, role: e.target.value }))}
+            placeholder="e.g., Software Engineer, Data Scientist..."
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-colors"
+          />
+        </div>
+
+        {/* Status */}
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">
+            Status
+          </label>
+          <select
+            value={personaForm.status}
+            onChange={(e) => setPersonaForm(prev => ({ ...prev, status: e.target.value as 'active' | 'inactive' }))}
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-colors"
+          >
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+
+        {/* Visibility */}
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">
+            Visibility
+          </label>
+          <select
+            value={personaForm.visibility}
+            onChange={(e) => setPersonaForm(prev => ({ ...prev, visibility: e.target.value as 'public' | 'private' }))}
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-colors"
+          >
+            <option value="public">Public</option>
+            <option value="private">Private</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Description */}
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">
+          Description *
+        </label>
+        <textarea
+          value={personaForm.description}
+          onChange={(e) => setPersonaForm(prev => ({ ...prev, description: e.target.value }))}
+          placeholder="Describe the persona's characteristics and purpose..."
+          rows={3}
+          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-colors resize-none"
+        />
+      </div>
+
+      {/* Background */}
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">
+          Background (Optional)
+        </label>
+        <textarea
+          value={personaForm.background}
+          onChange={(e) => setPersonaForm(prev => ({ ...prev, background: e.target.value }))}
+          placeholder="Provide detailed background information about the persona's experience and history..."
+          rows={4}
+          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-colors resize-none"
+        />
+      </div>
+
+      {/* Expertise */}
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">
+          Expertise Areas (Optional)
+        </label>
+        <input
+          type="text"
+          value={personaForm.expertise.join(', ')}
+          onChange={(e) => setPersonaForm(prev => ({ 
+            ...prev, 
+            expertise: e.target.value.split(',').map(s => s.trim()).filter(s => s.length > 0)
+          }))}
+          placeholder="Enter expertise areas separated by commas (e.g., Python, Machine Learning, Data Analysis)"
+          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-colors"
+        />
+        <p className="text-xs text-slate-500 mt-1">Separate multiple areas with commas</p>
+      </div>
+
+      {/* Tags */}
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">
+          Tags (Optional)
+        </label>
+        <input
+          type="text"
+          value={personaForm.tags.join(', ')}
+          onChange={(e) => setPersonaForm(prev => ({ 
+            ...prev, 
+            tags: e.target.value.split(',').map(s => s.trim()).filter(s => s.length > 0)
+          }))}
+          placeholder="Enter tags separated by commas (e.g., technical, analytical, creative)"
+          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-colors"
+        />
+        <p className="text-xs text-slate-500 mt-1">Separate multiple tags with commas</p>
+      </div>
+
+      {/* System Prompt */}
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">
+          System Prompt (Optional)
+        </label>
+        <textarea
+          value={personaForm.systemPrompt}
+          onChange={(e) => setPersonaForm(prev => ({ ...prev, systemPrompt: e.target.value }))}
+          placeholder="Custom system prompt for the persona (if left empty, will be auto-generated)"
+          rows={4}
+          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-colors resize-none"
+        />
+        <p className="text-xs text-slate-500 mt-1">If empty, a system prompt will be generated automatically based on the role and description</p>
+      </div>
+
+      {/* Create Button */}
+      <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-700/50">
+        <button
+          onClick={navigateToView}
+          className="px-6 py-2 text-slate-400 hover:text-white transition-colors font-medium"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleCreatePersona}
+          disabled={!personaForm.name.trim() || !personaForm.role.trim() || !personaForm.description.trim()}
+          className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 disabled:from-slate-600 disabled:to-slate-600 text-white rounded-lg transition-all duration-300 font-semibold disabled:cursor-not-allowed"
+        >
+          <User className="w-4 h-4" />
+          Create Persona
+        </button>
       </div>
     </motion.div>
   );
@@ -937,67 +1512,148 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
       transition={{ duration: 0.3 }}
       className={`h-full w-full ${className} ${currentViewport.isMobile ? 'px-2' : ''}`}
     >
-      <div className="h-full bg-gradient-to-br from-blue-500/5 to-cyan-500/5 backdrop-blur-xl rounded-2xl border border-blue-500/10 overflow-hidden">
-        <div className="h-full p-4 md:p-6 overflow-y-auto">
-          {viewMode === 'create' ? (
-            renderCreateForm()
-          ) : viewMode === 'settings' ? (
-            renderSettingsView()
-          ) : (
-            <>
-              {renderHeader()}
-              {renderFilters()}
-              
-              {/* Agents Grid/List */}
-              <div className={`
-                ${viewMode === 'grid' 
-                  ? `grid gap-4 ${
-                      currentViewport.isMobile ? 'grid-cols-1' : 
-                      currentViewport.isTablet ? 'grid-cols-2' : 
-                      'grid-cols-3'
-                    }`
-                  : 'space-y-3'
-                }
-              `}>
-                <AnimatePresence>
-                  {paginatedAgents.map((agent, index) => renderAgentCard(agent, index))}
-                </AnimatePresence>
-              </div>
+      <div className="h-full relative overflow-hidden">
+        {/* Background with enhanced gradients and patterns */}
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-900/95 via-slate-800/90 to-slate-900/95 backdrop-blur-xl" />
+        <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/5 via-transparent to-cyan-500/10" />
+        <div className="absolute inset-0 bg-gradient-to-bl from-purple-500/5 via-transparent to-pink-500/5" />
+        
+        {/* Animated background elements */}
+        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-gradient-to-br from-blue-500/10 to-transparent rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-gradient-to-tl from-cyan-500/10 to-transparent rounded-full blur-2xl animate-pulse" style={{ animationDelay: '1s' }} />
+        <div className="absolute top-1/2 right-1/3 w-32 h-32 bg-gradient-to-tr from-purple-500/10 to-transparent rounded-full blur-xl animate-pulse" style={{ animationDelay: '2s' }} />
+        
+        {/* Grid pattern overlay */}
+        <div className="absolute inset-0 opacity-[0.02]" style={{
+          backgroundImage: `
+            linear-gradient(rgba(59, 130, 246, 0.5) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(59, 130, 246, 0.5) 1px, transparent 1px)
+          `,
+          backgroundSize: '50px 50px'
+        }} />
+        
+        {/* Main content */}
+        <div className="relative h-full border border-slate-700/30 rounded-2xl backdrop-blur-sm shadow-2xl">
+          <div className="h-full p-4 md:p-6 overflow-y-auto custom-scrollbar">
+            {viewMode === 'create' ? (
+              renderCreateForm()
+            ) : viewMode === 'create-persona' ? (
+              renderCreatePersonaForm()
+            ) : viewMode === 'settings' ? (
+              renderSettingsView()
+            ) : (
+              <>
+                {renderHeader()}
+                {renderFilters()}
+                
+                {/* Agents Grid/List */}
+                <div className={`
+                  ${viewMode === 'grid' 
+                    ? `grid gap-4 ${
+                        currentViewport.isMobile ? 'grid-cols-1' : 
+                        currentViewport.isTablet ? 'grid-cols-2' : 
+                        'grid-cols-3 xl:grid-cols-4'
+                      }`
+                    : 'space-y-3'
+                  }
+                `}>
+                  <AnimatePresence>
+                    {paginatedAgents.map((agent, index) => renderAgentCard(agent, index))}
+                  </AnimatePresence>
+                </div>
 
-              {/* Empty State */}
-              {filteredAgents.length === 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="text-center py-12"
-                >
-                  <div className="w-16 h-16 bg-slate-800/50 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Bot className="w-8 h-8 text-slate-400" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-white mb-2">
-                    {searchQuery || filterRole ? 'No agents found' : 'No agents yet'}
-                  </h3>
-                  <p className="text-slate-400 mb-6">
-                    {searchQuery || filterRole 
-                      ? 'Try adjusting your search or filters'
-                      : 'Create your first agent to get started'
-                    }
-                  </p>
-                  {!searchQuery && !filterRole && (
-                    <button
-                      onClick={navigateToCreate}
-                      className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-lg transition-all duration-300 font-medium mx-auto"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Create Your First Agent
-                    </button>
-                  )}
-                </motion.div>
-              )}
+                {/* Empty State */}
+                {filteredAgents.length === 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-center py-16"
+                  >
+                    <div className="relative mb-8">
+                      {/* Main Icon */}
+                      <div className="w-24 h-24 bg-gradient-to-br from-slate-800/50 via-slate-700/50 to-slate-600/50 rounded-3xl flex items-center justify-center mx-auto border border-slate-600/30 shadow-xl">
+                        <Bot className="w-12 h-12 text-slate-400" />
+                      </div>
+                      
+                      {/* Floating Elements */}
+                      <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-full flex items-center justify-center border border-blue-500/30">
+                        <Sparkles className="w-4 h-4 text-blue-400" />
+                      </div>
+                      <div className="absolute -bottom-2 -left-2 w-6 h-6 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-full flex items-center justify-center border border-purple-500/30">
+                        <Brain className="w-3 h-3 text-purple-400" />
+                      </div>
+                      
+                      {/* Pulse Effect */}
+                      <div className="absolute inset-0 w-24 h-24 mx-auto bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-3xl animate-pulse" />
+                    </div>
 
-              {renderPagination()}
-            </>
-          )}
+                    <div className="max-w-md mx-auto">
+                      <h3 className="text-xl font-bold text-white mb-3">
+                        {searchQuery || filterRole ? 'No agents found' : 'Welcome to Agent Manager'}
+                      </h3>
+                      <p className="text-slate-400 mb-8 leading-relaxed">
+                        {searchQuery || filterRole 
+                          ? 'No agents match your current search criteria. Try adjusting your filters or search terms.'
+                          : 'Create intelligent AI agents to automate tasks, analyze data, and collaborate with your team. Each agent can have unique personalities, skills, and capabilities.'
+                        }
+                      </p>
+
+                      {!searchQuery && !filterRole ? (
+                        <div className="space-y-4">
+                          <button
+                            onClick={navigateToCreate}
+                            className="flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-xl transition-all duration-300 font-semibold mx-auto shadow-lg hover:shadow-xl transform hover:scale-105"
+                          >
+                            <Plus className="w-5 h-5" />
+                            Create Your First Agent
+                          </button>
+                          
+                          <div className="flex items-center justify-center gap-4 text-xs text-slate-500">
+                            <div className="flex items-center gap-1">
+                              <Lightbulb className="w-3 h-3" />
+                              <span>AI-Powered</span>
+                            </div>
+                            <div className="w-px h-3 bg-slate-600" />
+                            <div className="flex items-center gap-1">
+                              <Target className="w-3 h-3" />
+                              <span>Task-Focused</span>
+                            </div>
+                            <div className="w-px h-3 bg-slate-600" />
+                            <div className="flex items-center gap-1">
+                              <Workflow className="w-3 h-3" />
+                              <span>Collaborative</span>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                          <button
+                            onClick={() => {
+                              setSearchQuery('');
+                              setFilterRole('');
+                            }}
+                            className="flex items-center gap-2 px-6 py-3 bg-slate-700/50 hover:bg-slate-600/50 text-slate-300 hover:text-white rounded-lg transition-colors font-medium border border-slate-600/50"
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                            Clear Filters
+                          </button>
+                          <button
+                            onClick={navigateToCreate}
+                            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-lg transition-all duration-300 font-medium"
+                          >
+                            <Plus className="w-4 h-4" />
+                            Create New Agent
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+
+                {renderPagination()}
+              </>
+            )}
+          </div>
         </div>
       </div>
     </motion.div>

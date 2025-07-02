@@ -7,6 +7,8 @@ import {
 import { logger } from '@uaip/utils';
 
 export interface TurnStrategyInterface {
+  strategy: TurnStrategy;
+  
   getNextParticipant(
     discussion: Discussion,
     participants: DiscussionParticipant[],
@@ -33,6 +35,7 @@ export interface TurnStrategyInterface {
 }
 
 export class RoundRobinStrategy implements TurnStrategyInterface {
+  public readonly strategy = TurnStrategy.ROUND_ROBIN;
   private readonly strategyType = TurnStrategy.ROUND_ROBIN;
 
   async getNextParticipant(

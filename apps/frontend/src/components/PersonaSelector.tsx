@@ -68,8 +68,8 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
     setError(null);
     
     try {
-      // Try to load personas using the API
-      const personasResult = await uaipAPI.personas.search();
+      // Try to load personas using the display API endpoint with proper categorization
+      const personasResult = await uaipAPI.personas.getForDisplay();
       
       setCategories([
         'Development',
@@ -486,15 +486,30 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
         </div>
       </div>
 
-      {/* Loading overlay */}
-      {(disabled || loading) && (
+      {/* Loading overlay - only show when actually loading, not when disabled for form validation */}
+      {loading && !disabled && (
         <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-xl flex items-center space-x-4">
             <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
             <span className="text-slate-700 dark:text-slate-300 font-medium">
-              {loading ? 'Loading...' : 'Please wait...'}
+              Loading personas...
             </span>
           </div>
+        </div>
+      )}
+
+      {/* Disabled state message - show helpful message when disabled for form validation */}
+      {disabled && !loading && (
+        <div className="text-center py-8">
+          <div className="w-16 h-16 bg-gradient-to-br from-yellow-100 to-orange-100 dark:from-yellow-900/30 dark:to-orange-900/30 rounded-3xl flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="w-8 h-8 text-yellow-600 dark:text-yellow-400" />
+          </div>
+          <p className="text-slate-600 dark:text-slate-300 font-semibold">
+            Complete the form above to continue
+          </p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            Please fill in the agent name and select a language model first
+          </p>
         </div>
       )}
     </div>

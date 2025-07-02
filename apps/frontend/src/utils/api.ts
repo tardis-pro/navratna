@@ -845,14 +845,30 @@ export class UAIPAPIClient {
     },
 
     /**
-     * Search personas
+     * Search personas - uses display endpoint for frontend with proper categorization
      */
-    search: async (query?: string, expertise?: string): Promise<APIResponse<Persona[]>> => {
+    search: async (query?: string, expertise?: string): Promise<APIResponse<any[]>> => {
       const params = new URLSearchParams();
       if (query) params.append('query', query);
       if (expertise) params.append('expertise', expertise);
-      params.append('offset', '0');
-      return this.request(buildAPIURL(`${API_ROUTES.PERSONAS}/search?${params}`));
+      return this.request(buildAPIURL(`${API_ROUTES.PERSONAS}/display?${params}`));
+    },
+
+    /**
+     * Get all personas for display (used by PersonaSelector)
+     */
+    getForDisplay: async (): Promise<APIResponse<any[]>> => {
+      return this.request(buildAPIURL(`${API_ROUTES.PERSONAS}/display`));
+    },
+
+    /**
+     * Simple search for personas (frontend optimized)
+     */
+    searchSimple: async (query?: string, expertise?: string): Promise<APIResponse<any[]>> => {
+      const params = new URLSearchParams();
+      if (query) params.append('query', query);
+      if (expertise) params.append('expertise', expertise);
+      return this.request(buildAPIURL(`${API_ROUTES.PERSONAS}/search/simple?${params}`));
     },
 
     /**

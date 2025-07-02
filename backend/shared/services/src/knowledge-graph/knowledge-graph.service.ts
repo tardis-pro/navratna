@@ -22,7 +22,7 @@ export class KnowledgeGraphService {
     private readonly embeddings: EmbeddingService,
     private readonly classifier: ContentClassifier,
     private readonly relationshipDetector: RelationshipDetector
-  ) {}
+  ) { }
 
   /**
    * Primary search interface - used by all UAIP services
@@ -34,7 +34,7 @@ export class KnowledgeGraphService {
     let vectorResults: any[] = [];
     try {
       // Generate query embedding
-      if(query) {
+      if (query) {
         const queryEmbedding = await this.embeddings.generateEmbedding(query);
         const vectorFilters = this.buildVectorFilters(filters, scope);
 
@@ -47,19 +47,19 @@ export class KnowledgeGraphService {
       } else {
         filteredResults = await this.repository.applyFilters([], filters, scope);
       }
-      
+
       // Build vector filters including scope
-      
+
       // Perform vector similarity search
-     
-      
+
+
       // Apply metadata filters and hydrate results with scope
-      
+
       // Enhance with relationships if requested
-      const enhancedResults = options?.includeRelationships 
+      const enhancedResults = options?.includeRelationships
         ? await this.enhanceWithRelationships(filteredResults, scope)
         : filteredResults;
-      
+
       return {
         items: enhancedResults,
         totalCount: enhancedResults.length,
@@ -82,7 +82,7 @@ export class KnowledgeGraphService {
   async ingest(items: (KnowledgeIngestRequest & { scope?: KnowledgeScope })[]): Promise<KnowledgeIngestResponse> {
     const results: KnowledgeItem[] = [];
     const errors: string[] = [];
-    
+
     for (const item of items) {
       try {
         // Classify content
@@ -114,16 +114,16 @@ export class KnowledgeGraphService {
           }));
           await this.repository.createRelationships(scopedRelationships);
         }
-        
+
         results.push(knowledgeItem);
       } catch (error) {
         console.error(`Failed to ingest item: ${item.content.substring(0, 100)}...`, error);
         errors.push(`Ingestion failed: ${error.message}`);
       }
     }
-    
-    return { 
-      items: results, 
+
+    return {
+      items: results,
       processedCount: results.length,
       errors: errors.length > 0 ? errors : undefined
     };
@@ -136,7 +136,7 @@ export class KnowledgeGraphService {
     try {
       // Generate context embedding from discussion history and preferences
       const contextEmbedding = await this.embeddings.generateContextEmbedding(context);
-      
+
       const results = await this.vectorDb.search(contextEmbedding, {
         limit: 10,
         threshold: 0.6,
@@ -146,7 +146,7 @@ export class KnowledgeGraphService {
           scope: context.scope
         }
       });
-      
+
       return this.repository.applyFilters(results, undefined, context.scope);
     } catch (error) {
       console.error('Contextual knowledge retrieval error:', error);
@@ -180,13 +180,13 @@ export class KnowledgeGraphService {
    */
   async updateKnowledge(itemId: string, updates: Partial<KnowledgeItem>): Promise<KnowledgeItem> {
     const updatedItem = await this.repository.update(itemId, updates);
-    
+
     // Re-generate embeddings if content changed
     if (updates.content) {
       const embeddings = await this.embeddings.generateEmbeddings(updates.content);
       await this.vectorDb.update(itemId, embeddings);
     }
-    
+
     return updatedItem;
   }
 
@@ -196,6 +196,48 @@ export class KnowledgeGraphService {
   async deleteKnowledge(itemId: string): Promise<void> {
     await this.repository.delete(itemId);
     await this.vectorDb.delete(itemId);
+  }
+
+  /**
+   * Add feedback to knowledge items
+   */
+  async addFeedback(feedback: {
+    entityId: string;
+    feedbackType: string;
+    comments?: string;
+    userId: string;
+    timestamp: Date;
+  }): Promise<void> {
+    // Store feedback in repository
+    // This is a placeholder implementation
+    console.log('Feedback added:', feedback);
+  }
+
+  /**
+   * Store interaction data
+   */
+  async storeInteraction(interaction: any): Promise<void> {
+    // Store interaction in repository
+    // This is a placeholder implementation
+    console.log('Interaction stored:', interaction);
+  }
+
+  /**
+   * Adjust confidence scores
+   */
+  async adjustConfidence(itemId: string, adjustment: number): Promise<void> {
+    // Adjust confidence in repository
+    // This is a placeholder implementation
+    console.log('Confidence adjusted:', { itemId, adjustment });
+  }
+
+  /**
+   * Initialize agent context
+   */
+  async initializeAgentContext(agentId: string, context: any): Promise<void> {
+    // Initialize agent context
+    // This is a placeholder implementation
+    console.log('Agent context initialized:', { agentId, context });
   }
 
   /**
@@ -213,7 +255,7 @@ export class KnowledgeGraphService {
   // Private helper methods
   private buildVectorFilters(filters?: KnowledgeFilters, scope?: KnowledgeScope): any {
     if (!filters) return {};
-    
+
     return {
       tags: filters.tags,
       types: filters.types,
@@ -225,7 +267,7 @@ export class KnowledgeGraphService {
 
   private async enhanceWithRelationships(items: KnowledgeItem[], scope?: KnowledgeScope): Promise<KnowledgeItem[]> {
     const enhanced = [];
-    
+
     for (const item of items) {
       const relationships = await this.repository.getRelationships(item.id, undefined, scope);
       enhanced.push({
@@ -233,20 +275,20 @@ export class KnowledgeGraphService {
         relationships: relationships
       });
     }
-    
+
     return enhanced;
   }
 
   private getAppliedFilters(filters?: KnowledgeFilters): string[] {
     if (!filters) return [];
-    
+
     const applied = [];
     if (filters.tags?.length) applied.push('tags');
     if (filters.types?.length) applied.push('types');
     if (filters.confidence) applied.push('confidence');
     if (filters.timeRange) applied.push('timeRange');
     if (filters.sourceTypes?.length) applied.push('sourceTypes');
-    
+
     return applied;
   }
 } 

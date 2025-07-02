@@ -9,6 +9,7 @@ import { logger } from '@uaip/utils';
 import { TurnStrategyInterface } from './RoundRobinStrategy.js';
 
 export class ModeratedStrategy implements TurnStrategyInterface {
+  public readonly strategy = TurnStrategy.MODERATED;
   private readonly strategyType = TurnStrategy.MODERATED;
 
   async getNextParticipant(

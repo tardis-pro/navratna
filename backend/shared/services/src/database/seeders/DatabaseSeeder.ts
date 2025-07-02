@@ -27,18 +27,72 @@ export class DatabaseSeeder {
   async seedAll(): Promise<void> {
     console.log('🌱 Starting database seeding...');
 
-    try {
-      // Seed in dependency order
-      await this.seedUsers();
-      await this.seedSecurityPolicies();
-      await this.seedPersonas();
-      await this.seedAgents();
-      await this.seedToolDefinitions();
+    const results = {
+      users: false,
+      securityPolicies: false,
+      personas: false,
+      agents: false,
+      toolDefinitions: false
+    };
 
-      console.log('✅ Database seeding completed successfully!');
+    // Seed in dependency order, but continue even if individual seeders fail
+    try {
+      await this.seedUsers();
+      results.users = true;
+      console.log('   ✅ Users seeded successfully');
     } catch (error) {
-      console.error('❌ Database seeding failed:', error);
-      throw error;
+      console.error('   ❌ User seeding failed:', error.message);
+      console.warn('   ⚠️ Continuing with other seeders...');
+    }
+
+    try {
+      await this.seedSecurityPolicies();
+      results.securityPolicies = true;
+      console.log('   ✅ Security policies seeded successfully');
+    } catch (error) {
+      console.error('   ❌ Security policy seeding failed:', error.message);
+      console.warn('   ⚠️ Continuing with other seeders...');
+    }
+
+    try {
+      await this.seedPersonas();
+      results.personas = true;
+      console.log('   ✅ Personas seeded successfully');
+    } catch (error) {
+      console.error('   ❌ Persona seeding failed:', error.message);
+      console.warn('   ⚠️ Continuing with other seeders...');
+    }
+
+    try {
+      await this.seedAgents();
+      results.agents = true;
+      console.log('   ✅ Agents seeded successfully');
+    } catch (error) {
+      console.error('   ❌ Agent seeding failed:', error.message);
+      console.warn('   ⚠️ Continuing with other seeders...');
+    }
+
+    try {
+      await this.seedToolDefinitions();
+      results.toolDefinitions = true;
+      console.log('   ✅ Tool definitions seeded successfully');
+    } catch (error) {
+      console.error('   ❌ Tool definition seeding failed:', error.message);
+      console.warn('   ⚠️ Continuing with other seeders...');
+    }
+
+    // Report final results
+    const successCount = Object.values(results).filter(Boolean).length;
+    const totalCount = Object.keys(results).length;
+    
+    if (successCount === totalCount) {
+      console.log('✅ Database seeding completed successfully!');
+    } else if (successCount > 0) {
+      console.log(`⚠️ Database seeding partially completed: ${successCount}/${totalCount} seeders succeeded`);
+      console.log('   Results:', results);
+    } else {
+      console.error('❌ Database seeding failed completely - no seeders succeeded');
+      throw new Error('All seeders failed');
     }
   }
 

@@ -17,6 +17,7 @@
     "@uaip/shared-services": "workspace:*",
     "@uaip/types": "workspace:*",
     "@uaip/utils": "workspace:*",
+    "axios": "catalog:backend",
     "bcrypt": "catalog:backend",
     "compression": "catalog:backend",
     "cors": "catalog:backend",

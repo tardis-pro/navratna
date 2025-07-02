@@ -430,6 +430,27 @@ export const uaipAPI = {
         throw error;
       }
     },
+
+    async getForDisplay(): Promise<PersonaSearchResponse> {
+      try {
+        const client = getAPIClient();
+       
+        const response = await client.personas.getForDisplay();
+        console.log('🔍 Persona display response:', response);
+        
+        // Handle the response data properly - it should be an array of personas with categories
+        const personas = Array.isArray(response.data) ? response.data : [];
+        
+        return {
+          personas: personas,
+          total: personas.length,
+          hasMore: false
+        };
+      } catch (error) {
+        console.error('Failed to fetch personas for display:', error);
+        throw error;
+      }
+    },
     async create(personaData: Partial<Persona>): Promise<Persona> {
       const client = getAPIClient();
       const response = await client.personas.create(personaData);

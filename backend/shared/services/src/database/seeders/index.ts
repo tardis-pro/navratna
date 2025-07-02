@@ -31,11 +31,18 @@ export async function seedDatabase(dataSource?: DataSource): Promise<void> {
     const seeder = new DatabaseSeeder(dataSource);
     await seeder.seedAll();
 
-    console.log('🎉 Database seeding completed successfully!');
+    console.log('🎉 Database seeding process completed!');
   } catch (error) {
     console.error('💥 Database seeding failed:', error);
     // Don't re-throw the error to prevent service startup failure
     console.warn('⚠️ Continuing without seeding...');
+    
+    // Try to provide helpful information about the failure
+    if (error.message?.includes('duplicate') || error.message?.includes('unique')) {
+      console.info('💡 This might be a duplicate key error. The database may already contain seeded data.');
+    } else if (error.message?.includes('relation') || error.message?.includes('table')) {
+      console.info('💡 This might be a database schema issue. Ensure migrations have been run.');
+    }
   } finally {
     // Only close connection if we created it
     if (shouldCloseConnection && dataSource && dataSource.isInitialized) {

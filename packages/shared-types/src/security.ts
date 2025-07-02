@@ -5,7 +5,7 @@ import { AuditEventType } from './audit.js';
 // Security types
 export enum SecurityLevel {
   LOW = 'low',
-  MEDIUM = 'medium', 
+  MEDIUM = 'medium',
   HIGH = 'high',
   CRITICAL = 'critical'
 }
@@ -93,7 +93,15 @@ export enum AgentCapability {
   TASK_AUTOMATION = 'task_automation',      // Workflow automation
   CONTENT_CREATION = 'content_creation',    // Document/media creation
   INTEGRATION = 'integration',              // API integrations
-  MONITORING = 'monitoring'                 // System monitoring
+  MONITORING = 'monitoring',                // System monitoring
+  TOOL_EXECUTION = 'tool_execution',        // Execute tools and APIs
+  REPORTING = 'reporting',                  // Generate reports
+  COLLABORATION = 'collaboration',          // Team collaboration
+  WORKFLOW_MANAGEMENT = 'workflow_management', // Manage workflows
+  NATURAL_LANGUAGE_PROCESSING = 'natural_language_processing', // NLP capabilities
+  KNOWLEDGE_RETRIEVAL = 'knowledge_retrieval', // Knowledge base access
+  CONTEXT_AWARENESS = 'context_awareness',  // Context understanding
+  LEARNING = 'learning'                     // Learning and adaptation
 }
 
 // OAuth Provider Configuration
@@ -200,7 +208,7 @@ export const EnhancedUserSchema = BaseEntitySchema.extend({
   lockedUntil: z.date().optional(),
   passwordChangedAt: z.date().optional(),
   lastLoginAt: z.date().optional(),
-  
+
   // Agent-specific fields
   agentConfig: z.object({
     capabilities: z.array(z.nativeEnum(AgentCapability)).default([]),
@@ -225,7 +233,7 @@ export const EnhancedUserSchema = BaseEntitySchema.extend({
       blockedFileTypes: z.array(z.string()).optional()
     }).optional()
   }).optional(),
-  
+
   // OAuth specific fields
   oauthProviders: z.array(z.object({
     providerId: IDSchema,
@@ -244,7 +252,7 @@ export const EnhancedUserSchema = BaseEntitySchema.extend({
     capabilities: z.array(z.nativeEnum(AgentCapability)).optional(), // For agent connections
     metadata: z.record(z.any()).optional()
   })).default([]),
-  
+
   // MFA Configuration
   mfaEnabled: z.boolean().default(false),
   mfaMethods: z.array(z.object({
@@ -261,7 +269,7 @@ export const EnhancedUserSchema = BaseEntitySchema.extend({
     lastUsedAt: z.date().optional(),
     metadata: z.record(z.any()).optional()
   })).default([]),
-  
+
   // Security preferences
   securityPreferences: z.object({
     requireMFAForSensitiveOperations: z.boolean().default(true),
@@ -361,7 +369,7 @@ export const EnhancedSecurityContextSchema = z.object({
   lastAuthentication: z.date(),
   mfaVerified: z.boolean().default(false),
   riskScore: z.number().min(0).max(10).default(0),
-  
+
   // Enhanced context
   authenticationMethod: z.nativeEnum(AuthenticationMethod),
   oauthProvider: z.nativeEnum(OAuthProviderType).optional(),
@@ -378,7 +386,7 @@ export const EnhancedSecurityContextSchema = z.object({
     requirements: z.array(z.string()),
     status: z.enum(['compliant', 'non_compliant', 'pending'])
   }).optional(),
-  
+
   // Agent-specific context
   agentContext: z.object({
     agentId: IDSchema,
@@ -561,7 +569,7 @@ export const SecurityValidationResultSchema = z.object({
   reasoning: z.string().optional(),
   requiredApprovers: z.array(IDSchema).optional(),
   validUntil: z.date().optional(),
-  
+
   // Enhanced result fields
   mfaRequired: z.boolean().default(false),
   mfaMethods: z.array(z.nativeEnum(MFAMethod)).optional(),
@@ -576,7 +584,7 @@ export const SecurityValidationResultSchema = z.object({
     duration: z.number().optional(), // minutes
     alerts: z.array(z.string()).optional()
   }).optional(),
-  
+
   // Agent-specific result fields
   agentRestrictions: z.object({
     allowedOperations: z.array(z.string()).optional(),

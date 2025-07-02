@@ -4,14 +4,27 @@ import { BaseWidgetProps } from '@/components/ui/base-widget';
 import { MarketplaceHub } from '@/components/marketplace/MarketplaceHub';
 import { WidgetCategory, WidgetPermission } from '@uaip/types/widget';
 
+interface ViewportSize {
+  width: number;
+  height: number;
+  isMobile: boolean;
+  isTablet: boolean;
+  isDesktop: boolean;
+}
+
+interface WidgetProps extends BaseWidgetProps {
+  viewport?: ViewportSize;
+  mode?: 'hub' | 'standalone';
+}
+
 // Extend React.FC to allow static widgetMeta property
 interface WidgetComponent extends React.FC<WidgetProps> {
   widgetMeta?: any;
 }
 
 const MarketplaceHubWidget: WidgetComponent = (props) => {
-  // Optionally use widget context, props, etc.
-  return <MarketplaceHub {...props} />;
+  // Pass through all props including viewport and mode
+  return <MarketplaceHub {...props} mode="hub" />;
 };
 
 MarketplaceHubWidget.widgetMeta = {

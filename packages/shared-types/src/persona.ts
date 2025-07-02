@@ -17,7 +17,8 @@ export enum PersonaTone {
   EMPATHETIC = 'empathetic',
   HUMOROUS = 'humorous',
   CAUTIOUS = 'cautious',
-  OPTIMISTIC = 'optimistic'
+  OPTIMISTIC = 'optimistic',
+  PROFESSIONAL = 'professional'
 }
 
 
@@ -28,7 +29,17 @@ export enum PersonaStyle {
   INQUISITIVE = 'inquisitive',
   DECISIVE = 'decisive',
   COLLABORATIVE = 'collaborative',
-  AUTHORITATIVE = 'authoritative'
+  AUTHORITATIVE = 'authoritative',
+  INFORMATIVE = 'informative',
+  DIRECTIVE = 'directive'
+}
+
+export enum PersonaType {
+  ASSISTANT = 'assistant',
+  SPECIALIST = 'specialist',
+  COORDINATOR = 'coordinator',
+  ANALYST = 'analyst',
+  EXECUTOR = 'executor'
 }
 
 
@@ -170,6 +181,18 @@ export const PersonaSchema = BaseEntitySchema.extend({
     maxSessionDuration: z.number().min(0).optional(),
     maxMessagesPerSession: z.number().min(0).optional(),
     requiresApproval: z.boolean().default(false)
+  }).optional(),
+  conversationConfig: z.object({
+    maxResponseLength: z.number().min(1).default(2000),
+    includeSourceLinks: z.boolean().default(true),
+    confidenceThreshold: z.number().min(0).max(1).default(0.75),
+    maxSourcesPerResponse: z.number().min(1).default(5),
+    enableFollowUpSuggestions: z.boolean().default(true),
+    preferredSourceOrder: z.array(z.string()).default([]),
+    proactiveReminders: z.boolean().default(false),
+    defaultPriority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
+    responseStyle: z.string().default('balanced'),
+    contextAwareness: z.boolean().default(true)
   }).optional(),
   metadata: z.record(z.any()).optional()
 });

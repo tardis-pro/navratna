@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import { Agent, SecurityLevel, RiskLevel } from '@uaip/types';
+import { Agent, AgentStatus, SecurityLevel, RiskLevel } from '@uaip/types';
 
 // Mock DatabaseService
 export const createMockDatabaseService = (): any => ({
@@ -190,7 +190,10 @@ export const createMockSecurityValidationService = (): any => ({
   createApprovalWorkflow: vi.fn().mockResolvedValue('workflow-123')
 });
 
-// Mock EnhancedAgentIntelligenceService
+// Note: EnhancedAgentIntelligenceService has been refactored into modular services
+// Use the individual service mocks instead (AgentCoreService, AgentContextService, etc.)
+// 
+// Mock for legacy compatibility - TO BE REMOVED
 export const createMockEnhancedAgentIntelligenceService = (): any => ({
   analyzeContext: vi.fn().mockResolvedValue({
     analysisId: 'analysis-123',
@@ -248,7 +251,7 @@ export const createMockAgent = (overrides: Partial<Agent> = {}): Agent => ({
   id: 'agent-123',
   name: 'Test Agent',
   role: 'analyst' as any,
-  status: 'active',
+  status: AgentStatus.ACTIVE,
   configuration: {
     model: 'gpt-4',
     temperature: 0.7,

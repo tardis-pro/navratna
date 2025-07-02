@@ -22,6 +22,19 @@ import { AgentController } from './controllers/agentController.js';
 import { PersonaController } from './controllers/personaController.js';
 import { DiscussionController } from './controllers/discussionController.js';
 
+// Import new microservices
+import {
+  AgentCoreService,
+  AgentContextService,
+  AgentPlanningService,
+  AgentLearningService,
+  AgentDiscussionService,
+  AgentMetricsService,
+  AgentIntentService,
+  AgentInitializationService,
+  AgentEventOrchestrator
+} from './services/index.js';
+
 class AgentIntelligenceService {
   private app: express.Application;
   private databaseService: DatabaseService;
@@ -31,6 +44,20 @@ class AgentIntelligenceService {
   private agentController: AgentController;
   private personaController: PersonaController;
   private discussionController: DiscussionController;
+
+  // New microservices
+  private agentCoreService: AgentCoreService;
+  private agentContextService: AgentContextService;
+  private agentPlanningService: AgentPlanningService;
+  private agentLearningService: AgentLearningService;
+  private agentDiscussionService: AgentDiscussionService;
+  private agentMetricsService: AgentMetricsService;
+  private agentIntentService: AgentIntentService;
+  private agentInitializationService: AgentInitializationService;
+  private agentEventOrchestrator: AgentEventOrchestrator;
+  
+  // ServiceFactory instance
+  private serviceFactory: any;
 
   constructor() {
     this.app = express();
@@ -62,6 +89,9 @@ class AgentIntelligenceService {
     // Note: AgentController will be initialized after ServiceFactory is ready
     this.personaController = new PersonaController(this.personaService);
     this.discussionController = new DiscussionController(this.discussionService);
+
+    // Initialize microservices (will be fully configured in start() method)
+    this.initializeMicroservices();
 
     this.setupMiddleware();
     this.setupRoutes();
@@ -135,13 +165,102 @@ class AgentIntelligenceService {
     this.app.use(errorHandler);
   }
 
+  private initializeMicroservices(): void {
+    // Initialize microservices with basic configuration
+    // Full initialization with enhanced services happens in start() method
+    const baseConfig = {
+      databaseService: this.databaseService,
+      eventBusService: this.eventBusService,
+      knowledgeGraphService: null, // Will be set in start() method
+      llmService: null, // Will be set in start() method
+      serviceName: 'agent-intelligence',
+      securityLevel: 2
+    };
+
+    this.agentCoreService = new AgentCoreService(baseConfig);
+    this.agentContextService = new AgentContextService(baseConfig);
+    this.agentPlanningService = new AgentPlanningService(baseConfig);
+    this.agentLearningService = new AgentLearningService(baseConfig);
+    this.agentDiscussionService = new AgentDiscussionService({
+      ...baseConfig,
+      llmService: null, // Will be set in start() method
+      userLLMService: null // Will be set in start() method
+    });
+    this.agentMetricsService = new AgentMetricsService(baseConfig);
+    this.agentIntentService = new AgentIntentService({
+      ...baseConfig,
+      llmService: null, // Will be set in start() method
+      userLLMService: null // Will be set in start() method
+    });
+    this.agentInitializationService = new AgentInitializationService(baseConfig);
+    this.agentEventOrchestrator = new AgentEventOrchestrator({
+      ...baseConfig,
+      orchestrationPipelineUrl: process.env.ORCHESTRATION_PIPELINE_URL || 'http://localhost:3002'
+    });
+
+    logger.info('Microservices initialized with basic configuration');
+  }
+
+  private async configureMicroservicesWithEnhancedServices(
+    knowledgeGraphService: any,
+    agentMemoryService: any,
+    llmService: any,
+    userLLMService: any
+  ): Promise<void> {
+    try {
+      // Update services with enhanced capabilities
+      if (knowledgeGraphService) {
+        this.agentContextService['knowledgeGraphService'] = knowledgeGraphService;
+        this.agentPlanningService['knowledgeGraphService'] = knowledgeGraphService;
+        this.agentLearningService['knowledgeGraphService'] = knowledgeGraphService;
+        this.agentDiscussionService['knowledgeGraphService'] = knowledgeGraphService;
+        this.agentMetricsService['knowledgeGraphService'] = knowledgeGraphService;
+        this.agentIntentService['knowledgeGraphService'] = knowledgeGraphService;
+        this.agentInitializationService['knowledgeGraphService'] = knowledgeGraphService;
+      }
+
+      if (agentMemoryService) {
+        this.agentLearningService['agentMemoryService'] = agentMemoryService;
+        this.agentDiscussionService['agentMemoryService'] = agentMemoryService;
+        this.agentMetricsService['agentMemoryService'] = agentMemoryService;
+        this.agentInitializationService['agentMemoryService'] = agentMemoryService;
+      }
+
+      if (llmService && userLLMService) {
+        this.agentDiscussionService['llmService'] = llmService;
+        this.agentDiscussionService['userLLMService'] = userLLMService;
+        this.agentIntentService['llmService'] = llmService;
+        this.agentIntentService['userLLMService'] = userLLMService;
+      }
+
+      // Initialize the event orchestrator with all services
+      await this.agentEventOrchestrator.initialize({
+        agentCoreService: this.agentCoreService,
+        agentContextService: this.agentContextService,
+        agentPlanningService: this.agentPlanningService,
+        agentLearningService: this.agentLearningService,
+        agentDiscussionService: this.agentDiscussionService,
+        agentMetricsService: this.agentMetricsService,
+        agentIntentService: this.agentIntentService,
+        agentInitializationService: this.agentInitializationService
+      });
+
+      logger.info('Microservices configured with enhanced services and orchestrator initialized');
+    } catch (error) {
+      logger.error('Failed to configure microservices with enhanced services:', error);
+      throw error;
+    }
+  }
+
   private async initializeAgentController(): Promise<void> {
     try {
-      // Get services from ServiceFactory
-      const { serviceFactory } = await import('@uaip/shared-services');
-      const knowledgeGraphService = await serviceFactory.getKnowledgeGraphService();
-      const agentMemoryService = await serviceFactory.getAgentMemoryService();
-      
+      // Get services from ServiceFactory instance
+      if (!this.serviceFactory) {
+        throw new Error('ServiceFactory not initialized');
+      }
+      const knowledgeGraphService = await this.serviceFactory.getKnowledgeGraphService();
+      const agentMemoryService = await this.serviceFactory.getAgentMemoryService();
+
       // Initialize AgentController with enhanced services
       this.agentController = new AgentController(
         knowledgeGraphService,
@@ -151,7 +270,7 @@ class AgentIntelligenceService {
         this.databaseService,
         this.eventBusService
       );
-      
+
       logger.info('AgentController initialized with full service dependencies');
     } catch (error) {
       logger.error('Failed to initialize AgentController with enhanced services:', error);
@@ -175,11 +294,23 @@ class AgentIntelligenceService {
 
       // Initialize ServiceFactory for Knowledge Graph services
       let enhancedServicesAvailable = false;
+      let knowledgeGraphService = null;
+      let agentMemoryService = null;
+      let llmService = null;
+      let userLLMService = null;
+
       try {
         const { serviceFactory } = await import('@uaip/shared-services');
-        await serviceFactory.initialize();
+        this.serviceFactory = serviceFactory; // Store serviceFactory as instance property
+        await this.serviceFactory.initialize();
         logger.info('ServiceFactory initialized successfully');
-        
+
+        // Get enhanced services
+        knowledgeGraphService = await this.serviceFactory.getKnowledgeGraphService();
+        agentMemoryService = await this.serviceFactory.getAgentMemoryService();
+        llmService = await this.serviceFactory.getLLMService();
+        userLLMService = await this.serviceFactory.getUserLLMService();
+
         // Initialize AgentController with enhanced services
         await this.initializeAgentController();
         logger.info('AgentController initialized with enhanced services');
@@ -187,6 +318,14 @@ class AgentIntelligenceService {
       } catch (error) {
         logger.warn('ServiceFactory initialization failed, falling back to basic services:', error);
       }
+
+      // Configure microservices with enhanced services if available
+      await this.configureMicroservicesWithEnhancedServices(
+        knowledgeGraphService,
+        agentMemoryService,
+        llmService,
+        userLLMService
+      );
 
       if (!enhancedServicesAvailable) {
         // Initialize AgentController without enhanced services but with basic services
@@ -200,7 +339,7 @@ class AgentIntelligenceService {
         );
         logger.info('AgentController initialized in fallback mode');
       }
-        
+
       // Set up agent routes
       this.setupAgentRoutes();
 
@@ -236,6 +375,12 @@ class AgentIntelligenceService {
 
   public async stop(): Promise<void> {
     try {
+      // Shutdown event orchestrator first
+      if (this.agentEventOrchestrator) {
+        await this.agentEventOrchestrator.shutdown();
+        logger.info('Agent Event Orchestrator shutdown completed');
+      }
+
       // Close connections if methods exist
       if (this.eventBusService && typeof this.eventBusService.close === 'function') {
         await this.eventBusService.close();

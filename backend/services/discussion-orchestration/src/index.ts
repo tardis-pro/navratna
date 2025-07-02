@@ -1,75 +1,98 @@
 import express from 'express';
-import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import { createServer } from 'http';
-import { Server as SocketIOServer } from 'socket.io';
+import WebSocket from 'ws';
 
 import { logger } from '@uaip/utils';
 import { DatabaseService, EventBusService, DiscussionService, PersonaService } from '@uaip/shared-services';
 import { authMiddleware, errorHandler, defaultRequestLogger } from '@uaip/middleware';
+import { SERVICE_ACCESS_MATRIX, validateServiceAccess, getDatabaseConnectionString, AccessLevel } from '@uaip/shared-services';
 
 import { config } from './config/index.js';
 import { DiscussionOrchestrationService } from './services/discussionOrchestrationService.js';
-import { setupWebSocketHandlers } from './websocket/discussionSocket.js';
-import { DiscussionWebSocketHandler } from './websocket/discussionWebSocketHandler.js';
+import { EnterpriseWebSocketHandler } from './websocket/enterpriseWebSocketHandler.js';
 
 class DiscussionOrchestrationServer {
   private app: express.Application;
   private server: any;
-  private io!: SocketIOServer;
+  private wss!: WebSocket.Server;
+  private io: any; // WebSocket server instance
   private orchestrationService: DiscussionOrchestrationService;
   private databaseService: DatabaseService;
 
   private eventBusService: EventBusService;
   private discussionService: DiscussionService;
   private personaService: PersonaService;
-  private webSocketHandler?: DiscussionWebSocketHandler;
+  private webSocketHandler: EnterpriseWebSocketHandler;
   private isShuttingDown: boolean = false;
+  private serviceName = 'discussion-orchestration';
 
   constructor() {
     this.app = express();
     this.server = createServer(this.app);
-    
-    // Initialize services
-    this.databaseService = new DatabaseService();
+
+    // Validate enterprise database access
+    if (!validateServiceAccess(this.serviceName, 'postgresql', 'postgres-application', AccessLevel.WRITE)) {
+      throw new Error('Service lacks required database permissions');
+    }
+
+    // Initialize services with enterprise database connections
+    this.databaseService = DatabaseService.getInstance();
 
     this.eventBusService = new EventBusService(
       {
         url: process.env.RABBITMQ_URL || 'amqp://localhost:5672',
-        serviceName: 'discussion-orchestration',
+        serviceName: this.serviceName,
         maxReconnectAttempts: 10,
-        reconnectDelay: 5000
+        reconnectDelay: 5000,
+        exchangePrefix: 'uaip.enterprise',
+        complianceMode: true
       },
       logger
     );
-    
-    // Initialize persona service
+
+    // Initialize persona service with enterprise configuration
     this.personaService = new PersonaService({
       databaseService: this.databaseService,
-      eventBusService: this.eventBusService
+      eventBusService: this.eventBusService,
+      cacheConfig: {
+        redis: getDatabaseConnectionString(this.serviceName, 'redis', 'redis-application'),
+        ttl: 300, // 5 minutes
+        securityLevel: 3
+      }
     });
-    
-    // Initialize discussion service
+
+    // Initialize discussion service with enterprise configuration
     this.discussionService = new DiscussionService({
       databaseService: this.databaseService,
       eventBusService: this.eventBusService,
       personaService: this.personaService,
       enableRealTimeEvents: true,
-      enableAnalytics: true
+      enableAnalytics: false, // Analytics go through separate analytics-service
+      auditMode: 'comprehensive'
     });
-    
+
+    // Initialize enterprise WebSocket handler first
+    this.webSocketHandler = new EnterpriseWebSocketHandler(
+      this.server,
+      this.eventBusService,
+      this.serviceName
+    );
+
     this.orchestrationService = new DiscussionOrchestrationService(
       this.discussionService,
-      this.eventBusService,
-      undefined // webSocketHandler will be set later
+      this.eventBusService
     );
+
+    // Set up WebSocket handler after creation since types don't match exactly
+    // TODO: Create adapter or update interfaces to match
 
     this.setupMiddleware();
     this.setupRoutes();
-    this.setupWebSocket();
     this.setupErrorHandling();
+    this.auditServiceStartup();
   }
 
   private setupMiddleware(): void {
@@ -86,13 +109,7 @@ class DiscussionOrchestrationServer {
       crossOriginEmbedderPolicy: false
     }));
 
-    // CORS is handled by nginx API gateway - disable service-level CORS
-    // this.app.use(cors({
-    //   origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'],
-    //   credentials: true,
-    //   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    //   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-    // }));
+    // Zero Trust architecture - no CORS needed, all traffic through Security Gateway
 
     // Compression
     if (config.discussionOrchestration.performance.enableCompression) {
@@ -115,7 +132,7 @@ class DiscussionOrchestrationServer {
     }
 
     // Body parsing
-    this.app.use(express.json({ 
+    this.app.use(express.json({
       limit: '10mb',
       verify: (req, res, buf) => {
         if (config.discussionOrchestration.security.enableInputSanitization) {
@@ -167,45 +184,69 @@ class DiscussionOrchestrationServer {
       });
     });
 
-    // 404 handler
-    this.app.use((req, res) => {
-      res.status(404).json({
-        error: 'Not Found',
-        message: `Route ${req.method} ${req.originalUrl} not found`,
-        service: 'discussion-orchestration',
-        note: 'This service provides orchestration capabilities. For discussion CRUD operations, use the agent-intelligence service.'
-      });
+    // No traditional API routes - all operations through event bus
+    logger.info('Event-driven routes configured', {
+      service: this.serviceName,
+      apiEndpoints: ['/health', '/api/v1/info', '/api/v1/orchestration/*'],
+      primaryCommunication: 'RabbitMQ Event Bus'
     });
   }
 
-  private setupWebSocket(): void {
-    if (!config.discussionOrchestration.websocket.enabled) {
-      logger.info('WebSocket disabled in configuration');
-      return;
-    }
+  private async publishOrchestrationEvent(eventType: string, discussionId: string, user: any): Promise<void> {
+    const event = {
+      type: eventType,
+      discussionId,
+      userId: user.id,
+      timestamp: new Date().toISOString(),
+      source: this.serviceName,
+      securityLevel: user.securityLevel || 3
+    };
 
-    this.io = new SocketIOServer(this.server, {
-      cors: {
-        origin: config.discussionOrchestration.websocket.cors.origin,
-        credentials: config.discussionOrchestration.websocket.cors.credentials
-      },
-      pingTimeout: config.discussionOrchestration.websocket.pingTimeout,
-      pingInterval: config.discussionOrchestration.websocket.pingInterval,
-      maxHttpBufferSize: 1e6, // 1MB
-      transports: ['websocket', 'polling']
+    await this.eventBusService.publish('orchestration.control', event);
+
+    // Audit log for compliance
+    logger.info('AUDIT: Orchestration control event', {
+      ...event,
+      auditEvent: 'ORCHESTRATION_CONTROL',
+      compliance: true
+    });
+  }
+
+  private auditServiceStartup(): void {
+    // Comprehensive startup audit for compliance
+    const startupAudit = {
+      service: this.serviceName,
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV,
+      securityLevel: SERVICE_ACCESS_MATRIX[this.serviceName].securityLevel,
+      complianceFlags: SERVICE_ACCESS_MATRIX[this.serviceName].complianceFlags,
+      databases: SERVICE_ACCESS_MATRIX[this.serviceName].databases.map(db => ({
+        type: db.type,
+        tier: db.tier,
+        instance: db.instance,
+        encryption: db.encryption,
+        auditLevel: db.auditLevel
+      })),
+      networkSegments: SERVICE_ACCESS_MATRIX[this.serviceName].networkSegments,
+      eventBusEnabled: true,
+      webSocketEnabled: true,
+      apiSurface: 'minimal'
+    };
+
+    logger.info('AUDIT: Service startup', {
+      ...startupAudit,
+      auditEvent: 'SERVICE_STARTUP',
+      compliance: true
     });
 
-    // Create WebSocket handler and connect it to orchestration service
-    this.webSocketHandler = new DiscussionWebSocketHandler(this.orchestrationService);
-    this.orchestrationService.setWebSocketHandler(this.webSocketHandler);
-
-    // Set up Socket.IO handlers
-    setupWebSocketHandlers(this.io, this.orchestrationService);
-
-    logger.info('WebSocket server configured', {
-      cors: config.discussionOrchestration.websocket.cors,
-      pingTimeout: config.discussionOrchestration.websocket.pingTimeout,
-      pingInterval: config.discussionOrchestration.websocket.pingInterval
+    // Register with service registry via event bus
+    this.eventBusService.publish('service.registry.register', {
+      service: this.serviceName,
+      capabilities: ['discussion_orchestration', 'websocket_realtime', 'turn_management'],
+      status: 'active',
+      ...startupAudit
+    }).catch(error => {
+      logger.error('Failed to register with service registry', { error });
     });
   }
 
@@ -227,7 +268,7 @@ class DiscussionOrchestrationServer {
         error: error.message,
         stack: error.stack
       });
-      
+
       // Graceful shutdown on uncaught exception
       this.shutdown().then(() => {
         process.exit(1);
@@ -302,16 +343,16 @@ class DiscussionOrchestrationServer {
     logger.info('Shutting down Discussion Orchestration Service...');
 
     try {
-      // Close WebSocket connections
-      if (this.io) {
-        this.io.close();
-        logger.info('WebSocket server closed');
-      }
+      // Deregister from service registry
+      await this.eventBusService.publish('service.registry.deregister', {
+        service: this.serviceName,
+        timestamp: new Date().toISOString()
+      });
 
-      // Cleanup WebSocket handler
+      // Shutdown Enterprise WebSocket handler
       if (this.webSocketHandler) {
-        this.webSocketHandler.cleanup();
-        logger.info('WebSocket handler cleaned up');
+        await this.webSocketHandler.shutdown();
+        logger.info('Enterprise WebSocket handler shut down');
       }
 
       // Close HTTP server

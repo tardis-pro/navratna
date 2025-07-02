@@ -1977,4 +1977,80 @@ export class DatabaseService {
     return repository.findOne({ where: { id: connection.id } });
   }
 
+  // Agent-related methods for agent intelligence service
+
+  public async storeAgentState(agentId: string, state: any): Promise<void> {
+    await this.ensureInitialized();
+    try {
+      // Store agent state - for now using a simple approach
+      // In production, this might use a dedicated AgentState entity
+      logger.info(`Storing agent state for ${agentId}`);
+    } catch (error) {
+      logger.error(`Failed to store agent state for ${agentId}:`, error);
+      throw new DatabaseError(`Failed to store agent state: ${error.message}`);
+    }
+  }
+
+  public async storeAgentCapabilities(agentId: string, capabilities: any): Promise<void> {
+    await this.ensureInitialized();
+    try {
+      // Store agent capabilities - for now using a simple approach
+      // In production, this might use a dedicated AgentCapabilities entity
+      logger.info(`Storing agent capabilities for ${agentId}`);
+    } catch (error) {
+      logger.error(`Failed to store agent capabilities for ${agentId}:`, error);
+      throw new DatabaseError(`Failed to store agent capabilities: ${error.message}`);
+    }
+  }
+
+  public async storeLearningRecord(agentId: string, record: any): Promise<void> {
+    await this.ensureInitialized();
+    try {
+      // Store learning record - for now using a simple approach
+      // In production, this might use a dedicated LearningRecord entity
+      logger.info(`Storing learning record for ${agentId}`);
+    } catch (error) {
+      logger.error(`Failed to store learning record for ${agentId}:`, error);
+      throw new DatabaseError(`Failed to store learning record: ${error.message}`);
+    }
+  }
+
+  public async storeAgentActivity(agentId: string, activity: any): Promise<void> {
+    await this.ensureInitialized();
+    try {
+      // Store agent activity - for now using a simple approach
+      // In production, this might use a dedicated AgentActivity entity
+      logger.info(`Storing agent activity for ${agentId}`);
+    } catch (error) {
+      logger.error(`Failed to store agent activity for ${agentId}:`, error);
+      throw new DatabaseError(`Failed to store agent activity: ${error.message}`);
+    }
+  }
+
+  public async getAgentActivities(agentId: string, filters?: any): Promise<any[]> {
+    await this.ensureInitialized();
+    try {
+      // Get agent activities - for now returning empty array
+      // In production, this would query a dedicated AgentActivity entity
+      logger.info(`Getting agent activities for ${agentId}`);
+      return [];
+    } catch (error) {
+      logger.error(`Failed to get agent activities for ${agentId}:`, error);
+      throw new DatabaseError(`Failed to get agent activities: ${error.message}`);
+    }
+  }
+
+  public async getLearningRecords(agentId: string, filters?: any): Promise<any[]> {
+    await this.ensureInitialized();
+    try {
+      // Get learning records - for now returning empty array
+      // In production, this would query a dedicated LearningRecord entity
+      logger.info(`Getting learning records for ${agentId}`);
+      return [];
+    } catch (error) {
+      logger.error(`Failed to get learning records for ${agentId}:`, error);
+      throw new DatabaseError(`Failed to get learning records: ${error.message}`);
+    }
+  }
+
 }

@@ -20,7 +20,6 @@ import {
 import { AuditService } from './auditService.js';
 import { config } from '@uaip/config';
 import { randomBytes, createHash } from 'crypto';
-import base64url from 'base64url';
 
 interface OAuthTokenResponse {
   access_token: string;
@@ -715,15 +714,15 @@ export class OAuthProviderService {
   }
 
   private generateSecureState(): string {
-    return base64url.encode(randomBytes(32));
+    return randomBytes(32).toString('base64url');
   }
 
   private generateCodeVerifier(): string {
-    return base64url.encode(randomBytes(32));
+    return randomBytes(32).toString('base64url');
   }
 
   private generateCodeChallenge(verifier: string): string {
-    return base64url.encode(createHash('sha256').update(verifier).digest());
+    return createHash('sha256').update(verifier).digest('base64url');
   }
 
   private async encryptSecret(secret: string): Promise<string> {

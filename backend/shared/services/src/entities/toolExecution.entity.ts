@@ -129,6 +129,13 @@ export class ToolExecution extends BaseEntity {
   @Column({ type: 'jsonb', nullable: true })
   metadata?: Record<string, any>;
 
+  // Agent compatibility properties
+  @Column({ default: false })
+  success: boolean;
+
+  @Column({ type: 'jsonb', nullable: true })
+  data?: any;
+
   @Column({ name: 'external_references', type: 'jsonb', nullable: true })
   externalReferences?: Record<string, string>;
 

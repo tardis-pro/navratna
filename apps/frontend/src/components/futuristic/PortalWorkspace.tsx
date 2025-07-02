@@ -10,6 +10,7 @@ import { SystemConfigPortal } from './portals/SystemConfigPortal';
 import { AgentManagerPortal } from './portals/AgentManagerPortal';
 import { ToolsPanel } from './portals/ToolsPanel';
 import { SecurityGateway } from './portals/SecurityGateway';
+import { SecurityPortal } from './portals/SecurityPortal';
 import { CapabilityRegistry } from './portals/CapabilityRegistry';
 import { EventStreamMonitor } from './portals/EventStreamMonitor';
 import { OperationsMonitor } from './portals/OperationsMonitor';
@@ -20,10 +21,11 @@ import { Plus, Layout, Users, Brain, Settings, MessageSquare, MessageCircle, Act
 import { uaipAPI } from '@/utils/uaip-api';
 import { PuzzlePieceIcon } from '@heroicons/react/24/outline';
 import MarketplaceHubWidget from '@/widgets/MarketplaceHubWidget';
+import { ToolManagementPortal } from './portals/ToolManagementPortal';
 
 interface PortalInstance {
   id: string;
-  type: 'agent-hub' | 'discussion-hub' | 'intelligence-hub' | 'system-hub' | 'chat' | 'knowledge' | 'monitoring-hub' | 'tools' | 'provider' | 'marketplace-hub';
+  type: 'agent-hub' | 'discussion-hub' | 'intelligence-hub' | 'system-hub' | 'chat' | 'knowledge' | 'monitoring-hub' | 'tools' | 'tool-management' | 'provider' | 'marketplace-hub' | 'security-hub';
   title: string;
   component: React.ComponentType<any>;
   position: { x: number; y: number };
@@ -44,7 +46,7 @@ const PORTAL_CONFIGS = {
   'agent-hub': {
     title: 'Agent Hub',
     component: (props: any) => <AgentManagerPortal {...props} mode="hub" defaultView="grid" />,
-    defaultSize: { 
+    defaultSize: {
       desktop: { width: 900, height: 750 },
       tablet: { width: 750, height: 700 },
       mobile: { width: 500, height: 650 }
@@ -56,7 +58,7 @@ const PORTAL_CONFIGS = {
   'discussion-hub': {
     title: 'Discussion Hub',
     component: (props: any) => <DiscussionControlsPortal {...props} showLog={true} />,
-    defaultSize: { 
+    defaultSize: {
       desktop: { width: 800, height: 700 },
       tablet: { width: 700, height: 650 },
       mobile: { width: 400, height: 600 }
@@ -68,7 +70,7 @@ const PORTAL_CONFIGS = {
   'intelligence-hub': {
     title: 'Intelligence Hub',
     component: (props: any) => <IntelligencePanelPortal {...props} mode="insights" />,
-    defaultSize: { 
+    defaultSize: {
       desktop: { width: 650, height: 650 },
       tablet: { width: 580, height: 600 },
       mobile: { width: 400, height: 550 }
@@ -80,7 +82,7 @@ const PORTAL_CONFIGS = {
   'system-hub': {
     title: 'System Hub',
     component: (props: any) => <SystemConfigPortal {...props} showProviders={true} showSecurity={true} />,
-    defaultSize: { 
+    defaultSize: {
       desktop: { width: 850, height: 750 },
       tablet: { width: 750, height: 700 },
       mobile: { width: 500, height: 650 }
@@ -92,7 +94,7 @@ const PORTAL_CONFIGS = {
   'monitoring-hub': {
     title: 'Monitoring Hub',
     component: (props: any) => <OperationsMonitor {...props} showEvents={true} showCapabilities={true} />,
-    defaultSize: { 
+    defaultSize: {
       desktop: { width: 800, height: 700 },
       tablet: { width: 700, height: 650 },
       mobile: { width: 450, height: 600 }
@@ -104,7 +106,7 @@ const PORTAL_CONFIGS = {
   chat: {
     title: 'Agent Chat',
     component: ChatPortal,
-    defaultSize: { 
+    defaultSize: {
       desktop: { width: 500, height: 700 },
       tablet: { width: 450, height: 650 },
       mobile: { width: 380, height: 600 }
@@ -116,7 +118,7 @@ const PORTAL_CONFIGS = {
   provider: {
     title: 'Providers',
     component: ProviderSettingsPortal,
-    defaultSize: { 
+    defaultSize: {
       desktop: { width: 900, height: 750 },
       tablet: { width: 750, height: 700 },
       mobile: { width: 500, height: 650 }
@@ -128,7 +130,7 @@ const PORTAL_CONFIGS = {
   knowledge: {
     title: 'Knowledge Graph',
     component: KnowledgePortal,
-    defaultSize: { 
+    defaultSize: {
       desktop: { width: 900, height: 750 },
       tablet: { width: 750, height: 700 },
       mobile: { width: 500, height: 650 }
@@ -140,7 +142,7 @@ const PORTAL_CONFIGS = {
   tools: {
     title: 'Tools Panel',
     component: ToolsPanel,
-    defaultSize: { 
+    defaultSize: {
       desktop: { width: 700, height: 650 },
       tablet: { width: 600, height: 600 },
       mobile: { width: 450, height: 550 }
@@ -160,6 +162,30 @@ const PORTAL_CONFIGS = {
     type: 'core' as const,
     icon: Store,
     description: 'Explore agents, battles, leaderboards, and social feed.'
+  },
+  'security-hub': {
+    title: 'Security Hub',
+    component: (props: any) => <SecurityPortal {...props} mode="dashboard" />,
+    defaultSize: {
+      desktop: { width: 900, height: 750 },
+      tablet: { width: 750, height: 700 },
+      mobile: { width: 500, height: 650 }
+    },
+    type: 'system' as const,
+    icon: Shield,
+    description: 'Monitor agent security, policies, and compliance status.'
+  },
+  'tool-management': {
+    title: 'Tool Management',
+    component: (props: any) => <ToolManagementPortal {...props} />,
+    defaultSize: {
+      desktop: { width: 900, height: 750 },
+      tablet: { width: 750, height: 700 },
+      mobile: { width: 500, height: 650 }
+    },
+    type: 'tool' as const,
+    icon: Wrench,
+    description: 'Manage and configure system tools and capabilities'
   },
 };
 
@@ -187,7 +213,7 @@ const PORTAL_GROUPS = {
   },
   system: {
     title: 'System & Tools',
-    portals: ['system-hub', 'tools', 'provider'],
+    portals: ['system-hub', 'security-hub', 'tools', 'tool-management', 'provider'],
     colorClasses: {
       text: 'text-green-400',
       bg: 'from-green-500/20 to-green-600/20',
@@ -201,7 +227,7 @@ const PORTAL_GROUPS = {
 const HOTKEYS = {
   core: ['Alt+1', 'Alt+2', 'Alt+3'],
   intelligence: ['Alt+4', 'Alt+5', 'Alt+6'],
-  system: ['Alt+7', 'Alt+8', 'Alt+9'],
+  system: ['Alt+7', 'Alt+8', 'Alt+9', 'Alt+0'],
 };
 
 // --- Global Action Search Bar ---
@@ -214,8 +240,10 @@ const GLOBAL_ACTIONS = [
   { label: 'Chat with Agents', action: () => window.dispatchEvent(new CustomEvent('launchPortal', { detail: { portalType: 'chat' } })) },
   { label: 'Explore Knowledge', action: () => window.dispatchEvent(new CustomEvent('launchPortal', { detail: { portalType: 'knowledge' } })) },
   { label: 'Use Tools', action: () => window.dispatchEvent(new CustomEvent('launchPortal', { detail: { portalType: 'tools' } })) },
+  { label: 'Manage Tools', action: () => window.dispatchEvent(new CustomEvent('launchPortal', { detail: { portalType: 'tool-management' } })) },
   { label: 'Configure Providers', action: () => window.dispatchEvent(new CustomEvent('launchPortal', { detail: { portalType: 'provider' } })) },
   { label: 'Browse Marketplace', action: () => window.dispatchEvent(new CustomEvent('launchPortal', { detail: { portalType: 'marketplace-hub' } })) },
+  { label: 'Monitor Security', action: () => window.dispatchEvent(new CustomEvent('launchPortal', { detail: { portalType: 'security-hub' } })) },
   { label: 'Close Everything', action: () => window.dispatchEvent(new CustomEvent('closeAllPortals')) },
   { label: 'Get Help & Shortcuts', action: () => window.dispatchEvent(new CustomEvent('showHelp')) },
 ];
@@ -394,7 +422,7 @@ const HotCornerMenu: React.FC<{
   const isTop = corner.startsWith('top');
   const menuPosition = isTop ? 'mt-14' : 'mb-14';
   const menuArrow = (
-    <div className={`absolute ${isTop ? '-top-2' : '-bottom-2'} ${corner.includes('left') ? 'left-6' : 'right-6'} w-0 h-0`} style={{zIndex: 1001}}>
+    <div className={`absolute ${isTop ? '-top-2' : '-bottom-2'} ${corner.includes('left') ? 'left-6' : 'right-6'} w-0 h-0`} style={{ zIndex: 1001 }}>
       <div className={`mx-auto ${isTop ? '' : ''}`} style={{
         borderLeft: '8px solid transparent',
         borderRight: '8px solid transparent',
@@ -584,7 +612,7 @@ export const PortalWorkspace: React.FC = () => {
 
     updateViewport();
     window.addEventListener('resize', updateViewport);
-    
+
     return () => {
       window.removeEventListener('resize', updateViewport);
     };
@@ -603,7 +631,7 @@ export const PortalWorkspace: React.FC = () => {
   const generatePosition = useCallback(() => {
     const padding = viewport.isMobile ? 10 : viewport.isTablet ? 20 : 50;
     const offset = (portals.length * (viewport.isMobile ? 20 : 50)) % (viewport.isMobile ? 100 : 300);
-    
+
     // On mobile, stack portals more carefully
     if (viewport.isMobile) {
       return {
@@ -611,7 +639,7 @@ export const PortalWorkspace: React.FC = () => {
         y: padding + offset
       };
     }
-    
+
     return {
       x: padding + offset,
       y: padding + offset
@@ -621,11 +649,11 @@ export const PortalWorkspace: React.FC = () => {
   const createPortal = useCallback((type: keyof typeof PORTAL_CONFIGS) => {
     const config = PORTAL_CONFIGS[type];
     const size = getResponsiveSize(type);
-    
+
     // On mobile, ensure portal fits within viewport
     const maxWidth = viewport.width - (viewport.isMobile ? 20 : 100);
     const maxHeight = viewport.height - (viewport.isMobile ? 100 : 150);
-    
+
     const newPortal: PortalInstance = {
       id: `portal-${nextId}`,
       type,
@@ -642,7 +670,7 @@ export const PortalWorkspace: React.FC = () => {
     setPortals(prev => [...prev, newPortal]);
     setNextId(prev => prev + 1);
     setActivePortalId(newPortal.id); // Make new portal active by default
-    
+
     // Close mobile menu after creating portal
     if (viewport.isMobile) {
       setShowMobileMenu(false);
@@ -683,7 +711,7 @@ export const PortalWorkspace: React.FC = () => {
     window.addEventListener('launchPortal', handleLaunchPortal as EventListener);
     window.addEventListener('closeAllPortals', handleCloseAllPortals as EventListener);
     window.addEventListener('showHelp', handleShowHelp as EventListener);
-    
+
     return () => {
       window.removeEventListener('launchPortal', handleLaunchPortal as EventListener);
       window.removeEventListener('closeAllPortals', handleCloseAllPortals as EventListener);
@@ -696,8 +724,8 @@ export const PortalWorkspace: React.FC = () => {
   }, []);
 
   const minimizePortal = useCallback((id: string) => {
-    setPortals(prev => prev.map(portal => 
-      portal.id === id 
+    setPortals(prev => prev.map(portal =>
+      portal.id === id
         ? { ...portal, isMinimized: !portal.isMinimized }
         : portal
     ));
@@ -705,16 +733,16 @@ export const PortalWorkspace: React.FC = () => {
 
   const maximizePortal = useCallback((id: string) => {
     const padding = viewport.isMobile ? 10 : 50;
-    setPortals(prev => prev.map(portal => 
-      portal.id === id 
-        ? { 
-            ...portal, 
-            position: { x: padding, y: padding },
-            size: { 
-              width: viewport.width - (padding * 2), 
-              height: viewport.height - (viewport.isMobile ? 120 : 150)
-            }
+    setPortals(prev => prev.map(portal =>
+      portal.id === id
+        ? {
+          ...portal,
+          position: { x: padding, y: padding },
+          size: {
+            width: viewport.width - (padding * 2),
+            height: viewport.height - (viewport.isMobile ? 120 : 150)
           }
+        }
         : portal
     ));
   }, [viewport]);
@@ -727,24 +755,24 @@ export const PortalWorkspace: React.FC = () => {
   useEffect(() => {
     const updateSystemStatus = async () => {
       const startTime = Date.now();
-      
+
       try {
         // Get environment and connection info from UAIP API
         const envInfo = uaipAPI.getEnvironmentInfo();
-        
+
         // Check WebSocket connection status
         const isWebSocketConnected = envInfo.websocketConnected;
-        
+
         // Try to get system health from the API client
         let systemHealth: 'online' | 'degraded' | 'offline' = 'offline';
         let connectionCount = 0;
         let responseTime = 0;
-        
+
         try {
-          // Use agents endpoint as a health check since it's a lightweight operation
+          // Try to use agents endpoint but handle auth errors gracefully
           const agentsResponse = await uaipAPI.agents.list();
           responseTime = Date.now() - startTime;
-          
+
           if (agentsResponse && Array.isArray(agentsResponse)) {
             systemHealth = 'online';
             // Estimate connections based on WebSocket status and successful API response
@@ -755,23 +783,29 @@ export const PortalWorkspace: React.FC = () => {
           }
         } catch (apiError) {
           responseTime = Date.now() - startTime;
-          
-          // If API fails, check if it's a network issue or server issue
-          if (apiError instanceof Error) {
-            if (apiError.message.includes('fetch') || apiError.message.includes('network')) {
-              systemHealth = 'offline';
-              connectionCount = 0;
-            } else {
-              // Server responded but with an error - degraded service
-              systemHealth = 'degraded';
-              connectionCount = isWebSocketConnected ? 1 : 0;
-            }
-          } else {
+
+          // If it's an authentication error, consider the system online but require auth
+          if (apiError instanceof Error && 
+              (apiError.message.includes('401') || 
+               apiError.message.includes('unauthorized') || 
+               apiError.message.includes('Authorization token required'))) {
+            // Auth error means the API is working but user needs to authenticate
+            systemHealth = 'online';
+            connectionCount = isWebSocketConnected ? 2 : 1;
+          } else if (apiError instanceof Error && 
+                     (apiError.message.includes('fetch') || 
+                      apiError.message.includes('network') || 
+                      apiError.message.includes('Failed to fetch'))) {
+            // Network error means the API is not reachable
             systemHealth = 'offline';
             connectionCount = 0;
+          } else {
+            // Other errors suggest system issues
+            systemHealth = 'degraded';
+            connectionCount = isWebSocketConnected ? 1 : 0;
           }
         }
-        
+
         // Update state with real data
         setSystemStatus(systemHealth);
         setActiveConnections(connectionCount);
@@ -780,7 +814,7 @@ export const PortalWorkspace: React.FC = () => {
           lastHealthCheck: new Date(),
           environment: envInfo.isDevelopment ? 'development' : 'production'
         });
-        
+
       } catch (error) {
         console.error('[PortalWorkspace] Failed to update system status:', error);
         // Fallback to offline status on error
@@ -796,7 +830,7 @@ export const PortalWorkspace: React.FC = () => {
 
     // Initial status check
     updateSystemStatus();
-    
+
     // Set up periodic status updates every 10 seconds
     const interval = setInterval(updateSystemStatus, 10000);
 
@@ -868,7 +902,7 @@ export const PortalWorkspace: React.FC = () => {
         const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
         const geoData = await geoRes.json();
         setLocation(loc => ({ ...loc, city: geoData.address.city || geoData.address.town || geoData.address.village || geoData.address.hamlet, country: geoData.address.country }));
-      } catch {}
+      } catch { }
       // Weather (OpenWeatherMap, metric, icon)
       try {
         const apiKey = 'demo'; // Replace with your OpenWeatherMap API key
@@ -881,7 +915,7 @@ export const PortalWorkspace: React.FC = () => {
             desc: weatherData.current_weather.weathercode // OpenMeteo uses codes, you can map to icons
           });
         }
-      } catch {}
+      } catch { }
     }, (err) => {
       // fallback: no location
     });
@@ -892,10 +926,10 @@ export const PortalWorkspace: React.FC = () => {
     if (!code) return <Cloud className="w-4 h-4 text-slate-400" />;
     // Simple mapping for demo
     if ([0].includes(Number(code))) return <Sun className="w-4 h-4 text-yellow-400" />;
-    if ([1,2,3].includes(Number(code))) return <CloudSun className="w-4 h-4 text-yellow-300" />;
-    if ([45,48].includes(Number(code))) return <Cloud className="w-4 h-4 text-slate-400" />;
-    if ([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(Number(code))) return <CloudRain className="w-4 h-4 text-blue-400" />;
-    if ([71,73,75,77,85,86].includes(Number(code))) return <CloudSnow className="w-4 h-4 text-cyan-200" />;
+    if ([1, 2, 3].includes(Number(code))) return <CloudSun className="w-4 h-4 text-yellow-300" />;
+    if ([45, 48].includes(Number(code))) return <Cloud className="w-4 h-4 text-slate-400" />;
+    if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(Number(code))) return <CloudRain className="w-4 h-4 text-blue-400" />;
+    if ([71, 73, 75, 77, 85, 86].includes(Number(code))) return <CloudSnow className="w-4 h-4 text-cyan-200" />;
     return <Cloud className="w-4 h-4 text-slate-400" />;
   };
 
@@ -978,7 +1012,7 @@ export const PortalWorkspace: React.FC = () => {
               Portal Hub
               <div className={`w-2 h-2 rounded-full ${systemStatus === 'online' ? 'bg-green-400 animate-pulse' : systemStatus === 'degraded' ? 'bg-yellow-400' : 'bg-red-400'}`} />
             </div>
-            
+
             <div className="space-y-4">
               {Object.entries(PORTAL_GROUPS).map(([groupKey, group]) => (
                 <div key={groupKey} className="space-y-2">
@@ -990,15 +1024,15 @@ export const PortalWorkspace: React.FC = () => {
                       const config = PORTAL_CONFIGS[portalKey as keyof typeof PORTAL_CONFIGS];
                       const isActive = portals.some(p => p.type === portalKey);
                       const Icon = config.icon;
-                      
+
                       return (
                         <motion.button
                           key={portalKey}
                           onClick={() => togglePortal(portalKey as keyof typeof PORTAL_CONFIGS)}
                           className={`
                             flex items-center gap-3 p-3 rounded-xl border transition-all duration-300 relative w-full
-                            ${isActive 
-                              ? `bg-gradient-to-br ${group.colorClasses.bg} ${group.colorClasses.border} ${group.colorClasses.text}` 
+                            ${isActive
+                              ? `bg-gradient-to-br ${group.colorClasses.bg} ${group.colorClasses.border} ${group.colorClasses.text}`
                               : 'bg-slate-800/50 border-slate-700/50 text-slate-400'
                             }
                           `}
@@ -1024,7 +1058,7 @@ export const PortalWorkspace: React.FC = () => {
                 </div>
               ))}
             </div>
-            
+
             {portals.length > 0 && (
               <div className="border-t border-slate-700/50 pt-3 mt-3">
                 <motion.button
@@ -1050,11 +1084,10 @@ export const PortalWorkspace: React.FC = () => {
         <motion.div
           initial={{ y: 100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className={`fixed z-40 ${
-            viewport.isMobile 
-              ? 'bottom-4 left-4 right-4' 
-              : 'bottom-20 left-1/2 -translate-x-1/2'
-          }`}
+          className={`fixed z-40 ${viewport.isMobile
+            ? 'bottom-4 left-4 right-4'
+            : 'bottom-20 left-1/2 -translate-x-1/2'
+            }`}
         >
           <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-700/50 rounded-xl px-4 py-2">
             <div className={`flex items-center gap-2 ${viewport.isMobile ? 'flex-wrap' : ''}`}>
@@ -1083,11 +1116,11 @@ export const PortalWorkspace: React.FC = () => {
         {portals.filter(p => !p.isMinimized).map((portal, index) => {
           const config = PORTAL_CONFIGS[portal.type];
           const PortalComponent = portal.component;
-          
+
           // Simple, predictable z-index: base 100 + index, active portal gets +1000
           const baseZIndex = 100 + index;
           const finalZIndex = activePortalId === portal.id ? baseZIndex + 1000 : baseZIndex;
-          
+
           return (
             <Portal
               key={portal.id}
@@ -1103,7 +1136,7 @@ export const PortalWorkspace: React.FC = () => {
               onFocus={() => bringToFront(portal.id)}
               viewport={viewport}
             >
-              <PortalComponent 
+              <PortalComponent
                 mode={portal.type === 'intelligence-hub' ? 'insights' : portal.type === 'monitoring-hub' ? 'monitor' : undefined}
                 viewport={viewport}
                 showThinkTokens={portal.type === 'discussion-hub' ? showThinkTokens : undefined}
@@ -1118,27 +1151,23 @@ export const PortalWorkspace: React.FC = () => {
       <motion.div
         initial={{ y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className={`fixed z-30 ${
-          viewport.isMobile 
-            ? 'bottom-4 left-4 right-4' 
-            : 'bottom-6 left-1/2 -translate-x-1/2 w-full max-w-2xl'
-        }`}
+        className={`fixed z-30 ${viewport.isMobile
+          ? 'bottom-4 left-4 right-4'
+          : 'bottom-6 left-1/2 -translate-x-1/2 w-full max-w-2xl'
+          }`}
       >
         <div className="flex items-center justify-between gap-6 px-6 py-3 rounded-2xl shadow-xl bg-slate-900/70 backdrop-blur-xl border border-slate-800/60">
           {/* Status */}
           <div className="flex items-center gap-2">
             <span className={`relative flex h-3 w-3`}>
-              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${
-                systemStatus === 'online' ? 'bg-green-400' : systemStatus === 'degraded' ? 'bg-yellow-400' : 'bg-red-400'
-              } opacity-75`}></span>
-              <span className={`relative inline-flex rounded-full h-3 w-3 ${
-                systemStatus === 'online' ? 'bg-green-400' : systemStatus === 'degraded' ? 'bg-yellow-400' : 'bg-red-400'
-              }`}></span>
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${systemStatus === 'online' ? 'bg-green-400' : systemStatus === 'degraded' ? 'bg-yellow-400' : 'bg-red-400'
+                } opacity-75`}></span>
+              <span className={`relative inline-flex rounded-full h-3 w-3 ${systemStatus === 'online' ? 'bg-green-400' : systemStatus === 'degraded' ? 'bg-yellow-400' : 'bg-red-400'
+                }`}></span>
             </span>
             <span className="font-medium text-slate-200">System</span>
-            <span className={`font-semibold ${
-              systemStatus === 'online' ? 'text-green-400' : systemStatus === 'degraded' ? 'text-yellow-400' : 'text-red-400'
-            }`}>{systemStatus.toUpperCase()}</span>
+            <span className={`font-semibold ${systemStatus === 'online' ? 'text-green-400' : systemStatus === 'degraded' ? 'text-yellow-400' : 'text-red-400'
+              }`}>{systemStatus.toUpperCase()}</span>
             {systemMetrics.apiResponseTime && (
               <span className="ml-2 text-xs text-slate-400">({systemMetrics.apiResponseTime}ms)</span>
             )}

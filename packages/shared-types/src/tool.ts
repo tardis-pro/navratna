@@ -147,6 +147,9 @@ export interface ToolExecution {
   retryCount: number;
   maxRetries: number;
   metadata?: Record<string, any>;
+  // Properties expected by agent implementations
+  success: boolean;
+  data?: any;
 }
 
 export interface ToolCall {

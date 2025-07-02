@@ -1,7 +1,7 @@
-import { 
-  Persona, 
-  PersonaSearchFilters, 
-  CreatePersonaRequest, 
+import {
+  Persona,
+  PersonaSearchFilters,
+  CreatePersonaRequest,
   UpdatePersonaRequest,
   PersonaRecommendation,
   PersonaAnalytics,
@@ -27,6 +27,11 @@ export interface PersonaServiceConfig {
   enableRecommendations?: boolean;
   enableCaching?: boolean;
   cacheTimeout?: number;
+  cacheConfig?: {
+    redis?: string;
+    ttl?: number;
+    securityLevel?: number;
+  };
 }
 
 export class PersonaService {
@@ -58,7 +63,7 @@ export class PersonaService {
       const validation = await this.validatePersona(request);
 
       const personaRepo = await this.databaseService.getRepository(PersonaEntity);
-      
+
       const personaData = {
         name: request.name,
         role: request.role,
@@ -122,7 +127,7 @@ export class PersonaService {
 
       const personaRepo = await this.databaseService.getRepository(PersonaEntity);
       const entity = await personaRepo.findOne({ where: { id } });
-      
+
       if (!entity) {
         return null;
       }
@@ -148,12 +153,12 @@ export class PersonaService {
 
       const updatedPersona = { ...existingPersona, ...updates };
       const validation = await this.validatePersona(updatedPersona);
-      
+
       const updateData: any = { ...updates };
       if (updates.expertise) {
         updateData.expertise = this.extractExpertiseNames(updates.expertise);
       }
-      
+
       const personaRepo = await this.databaseService.getRepository(PersonaEntity);
       await personaRepo.update(id, {
         ...updateData,
@@ -197,7 +202,7 @@ export class PersonaService {
 
       const usageCount = await this.getPersonaUsageCount(id);
       if (usageCount > 0) {
-        await this.updatePersona(id, { 
+        await this.updatePersona(id, {
           status: PersonaStatus.ARCHIVED,
           updatedAt: new Date()
         });
@@ -676,14 +681,14 @@ export class PersonaService {
 
   private calculatePopularityScore(stats: PersonaUsageStats): number {
     let score = 0;
-    
+
     score += Math.min(stats.totalUsages * 2, 50);
     score += Math.min(stats.uniqueUsers * 3, 30);
-    
+
     if (stats.feedbackScore && stats.feedbackCount > 0) {
       score += stats.feedbackScore * 20;
     }
-    
+
     return Math.min(score, 100);
   }
 
@@ -766,7 +771,7 @@ export class PersonaService {
   }> {
     try {
       const searchResult = await this.searchPersonas(filters || {});
-      
+
       const displayPersonas = searchResult.personas.map(persona => ({
         id: persona.id,
         name: persona.name,
@@ -842,17 +847,17 @@ export class PersonaService {
   }> {
     try {
       const filters: PersonaSearchFilters = {};
-      
+
       if (query) {
         filters.query = query;
       }
-      
+
       if (expertiseFilter) {
         filters.expertise = [expertiseFilter];
       }
 
       const result = await this.getPersonasForDisplay(filters);
-      
+
       return {
         personas: result.personas.map(p => ({
           id: p.id,
@@ -876,7 +881,7 @@ export class PersonaService {
   getPersonaCategories(): string[] {
     return [
       'Development',
-      'Policy', 
+      'Policy',
       'Creative',
       'Analysis',
       'Business',
@@ -895,7 +900,7 @@ export class PersonaService {
     const roleToCategory: Record<string, string> = {
       // Development roles
       'Software Engineer': 'Development',
-      'Senior Software Engineer': 'Development', 
+      'Senior Software Engineer': 'Development',
       'Junior Developer': 'Development',
       'Full Stack Developer': 'Development',
       'Frontend Developer': 'Development',
@@ -906,7 +911,7 @@ export class PersonaService {
       'Infrastructure Engineer': 'Technical',
       'Cloud Engineer': 'Technical',
       'Platform Engineer': 'Technical',
-      
+
       // Management/Leadership
       'Tech Lead': 'Management',
       'Engineering Manager': 'Management',
@@ -915,7 +920,7 @@ export class PersonaService {
       'Scrum Master': 'Management',
       'Product Manager': 'Business',
       'Product Owner': 'Business',
-      
+
       // Quality/Analysis
       'QA Engineer': 'Analysis',
       'Test Engineer': 'Analysis',
@@ -925,37 +930,44 @@ export class PersonaService {
       'Systems Analyst': 'Analysis',
       'Data Analyst': 'Analysis',
       'Data Scientist': 'Analysis',
-      
+
       // Security
       'Security Engineer': 'Technical',
       'Security Analyst': 'Analysis',
       'Cybersecurity Specialist': 'Technical',
-      
+
       // Policy/Legal
       'Policy Analyst': 'Policy',
       'Legal Expert': 'Policy',
       'Economist': 'Policy',
       'Social Scientist': 'Policy',
       'Environmental Expert': 'Policy',
-      
+
       // Creative/Design
       'UX Designer': 'Creative',
       'UI Designer': 'Creative',
       'Product Designer': 'Creative',
       'Design Lead': 'Creative',
       'Creative Director': 'Creative',
+      'Graphic Designer': 'Creative',
       'Innovation Consultant': 'Creative',
-      
+
       // Research/Academic
       'Researcher': 'Research',
       'Academic Researcher': 'Research',
       'Educator': 'Research',
-      
+
       // Social/Community
       'Psychologist': 'Social',
       'Community Organizer': 'Social',
-      'Philosopher': 'Social',
-      
+      'Philosopher': 'Analysis', // Moved to Analysis as it's more analytical thinking
+
+      // Business/Entrepreneurship
+      'Entrepreneur': 'Business',
+      'Business Development': 'Business',
+      'Sales Manager': 'Business',
+      'Marketing Manager': 'Business',
+
       // Generic roles
       'Assistant': 'Business',
       'Specialist': 'Technical',
@@ -966,6 +978,10 @@ export class PersonaService {
       'Consultant': 'Business'
     };
 
-    return roleToCategory[role] || 'Business';
+    // Log the role categorization for debugging
+    const category = roleToCategory[role] || 'Business';
+    console.log(`[PersonaService] Categorizing role "${role}" -> "${category}"`);
+    
+    return category;
   }
 } 

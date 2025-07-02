@@ -18,6 +18,13 @@ export { SecurityValidationService } from './securityValidationService.js';
 // Communication Services
 export { EventBusService } from './eventBusService.js';
 
+// Vector Search Services - Aliases for compatibility
+export { QdrantService as VectorSearchService } from './qdrant.service.js';
+export { QdrantService } from './qdrant.service.js';
+
+// Enterprise Services
+export { SERVICE_ACCESS_MATRIX, validateServiceAccess, AccessLevel, getDatabaseConnectionString } from './enterprise/ServiceAccessMatrix.js';
+
 // Widget Services - NEW
 export { WidgetService, WidgetServiceOptions } from './widgetService.js';
 
@@ -34,10 +41,10 @@ export { PersonaService } from './personaService.js';
 export { DiscussionService } from './discussionService.js';
 
 // Tool Services - NEW
-export type { 
+export type {
 } from './database/toolDatabase.js';
-export type { 
-  
+export type {
+
   ToolRelationship,
   ToolRecommendation,
   UsagePattern
@@ -49,24 +56,25 @@ export { UserKnowledgeService } from './user-knowledge.service.js';
 export { ContextOrchestrationService } from './context-orchestration.service.js';
 
 // Agent Memory Services - NEW
-export * from './agent-memory/index.js'; 
+export * from './agent-memory/index.js';
 // export { EnhancedAgentIntelligenceService } from './enhanced-agent-intelligence.service.js';
 
 // Integration Services - MCP + Neo4j Sync
 export * from './integration/index.js';
 
 // Service Factory - Dependency Injection
-export { 
+export {
   ServiceFactory,
   serviceFactory,
   getKnowledgeGraphService,
-  getUserKnowledgeService, 
+  getUserKnowledgeService,
   getContextOrchestrationService,
   getAgentMemoryService
 } from './ServiceFactory.js';
 
 // Domain Services
 export { ToolManagementService } from './tool-management.service.js';
+export { ToolExecutionService } from './tool-execution.service.js';
 export { OperationManagementService } from './operation-management.service.js';
 
 // TEI Embedding Services - NEW
