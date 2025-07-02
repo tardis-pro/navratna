@@ -39,7 +39,7 @@
     "@types/compression": "catalog:backend",
     "@types/cors": "catalog:backend",
     "@types/express": "catalog:backend",
-    "@jest/globals": "^29.7.0",
+    "@jest/globals": "^30.0.3",
     "@types/jest": "catalog:backend",
     "@types/node": "catalog:backend",
     "@types/ws": "catalog:backend",
