@@ -188,6 +188,8 @@ export const DesktopWorkspace: React.FC = () => {
     isDesktop: true
   });
 
+  const [isLoading, setIsLoading] = useState(true);
+
   const [showRecentPanel, setShowRecentPanel] = useState(true);
   const [selectedIconId, setSelectedIconId] = useState<string | null>(null);
   const [showAllActions, setShowAllActions] = useState(false);
@@ -281,6 +283,15 @@ export const DesktopWorkspace: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showSettings, selectedIconId, primaryIcons]);
 
+  // Loading effect
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
   // Handle icon click
   const handleIconClick = useCallback((iconConfig: DesktopIconConfig) => {
     setSelectedIconId(iconConfig.id);
@@ -341,19 +352,61 @@ export const DesktopWorkspace: React.FC = () => {
   const primaryIcons = DESKTOP_ICONS.filter(icon => icon.category === 'primary');
   const secondaryIcons = DESKTOP_ICONS.filter(icon => icon.category === 'secondary');
 
+  // Loading screen
+  if (isLoading) {
+    return (
+      <div className={`h-screen w-full bg-gradient-to-br ${currentTheme.colors.background.primary} flex items-center justify-center`}>
+        <motion.div
+          className="text-center"
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5 }}
+        >
+          <motion.div
+            className="w-16 h-16 border-4 border-blue-500/30 border-t-blue-500 rounded-full mx-auto mb-4"
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          />
+          <h2 className={`text-xl font-bold ${currentTheme.colors.text.primary} mb-2`}>
+            Council of Nycea
+          </h2>
+          <p className={`${currentTheme.colors.text.secondary}`}>
+            Initializing Desktop Workspace...
+          </p>
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
-    <div className={`h-screen w-full bg-gradient-to-br ${currentTheme.colors.background.primary} flex flex-col overflow-hidden`}>
+    <motion.div
+      className={`h-screen w-full bg-gradient-to-br ${currentTheme.colors.background.primary} flex flex-col overflow-hidden`}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
       {/* Desktop Header */}
-      <DesktopHeader
-        viewport={viewport}
-        onToggleRecentPanel={() => setShowRecentPanel(!showRecentPanel)}
-        showRecentPanel={showRecentPanel}
-        onOpenSettings={() => setShowSettings(true)}
-        theme={currentTheme}
-      />
+      <motion.div
+        initial={{ y: -64, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 0.2, duration: 0.5 }}
+      >
+        <DesktopHeader
+          viewport={viewport}
+          onToggleRecentPanel={() => setShowRecentPanel(!showRecentPanel)}
+          showRecentPanel={showRecentPanel}
+          onOpenSettings={() => setShowSettings(true)}
+          theme={currentTheme}
+        />
+      </motion.div>
 
       {/* Main Desktop Area */}
-      <div className="flex-1 flex overflow-hidden">
+      <motion.div
+        className="flex-1 flex overflow-hidden"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4, duration: 0.5 }}
+      >
         {/* Desktop Grid */}
         <div className="flex-1 overflow-auto custom-scrollbar">
           <div
@@ -364,26 +417,41 @@ export const DesktopWorkspace: React.FC = () => {
             }}
           >
             {/* Primary Icons Row */}
-            <div
+            <motion.div
               className="grid mb-8"
               style={{
                 gridTemplateColumns: `repeat(${Math.min(gridConfig.maxIconsPerRow, primaryIcons.length)}, 1fr)`,
                 gap: gridConfig.gap
               }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.6, duration: 0.5 }}
             >
-              {primaryIcons.map((iconConfig) => (
-                <DesktopIcon
+              {primaryIcons.map((iconConfig, index) => (
+                <motion.div
                   key={iconConfig.id}
-                  config={iconConfig}
-                  size={gridConfig.iconSize}
-                  isSelected={selectedIconId === iconConfig.id}
-                  isActive={isPortalOpen(iconConfig.portalType as any)}
-                  onClick={() => handleIconClick(iconConfig)}
-                  onDoubleClick={() => handleIconDoubleClick(iconConfig)}
-                  viewport={viewport}
-                />
+                  initial={{ opacity: 0, y: 20, scale: 0.8 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{
+                    delay: 0.7 + index * 0.1,
+                    duration: 0.4,
+                    type: "spring",
+                    stiffness: 300,
+                    damping: 25
+                  }}
+                >
+                  <DesktopIcon
+                    config={iconConfig}
+                    size={gridConfig.iconSize}
+                    isSelected={selectedIconId === iconConfig.id}
+                    isActive={isPortalOpen(iconConfig.portalType as any)}
+                    onClick={() => handleIconClick(iconConfig)}
+                    onDoubleClick={() => handleIconDoubleClick(iconConfig)}
+                    viewport={viewport}
+                  />
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
 
             {/* Secondary Icons Row - Only show on larger screens */}
             {gridConfig.showSecondaryRow && (
@@ -473,14 +541,20 @@ export const DesktopWorkspace: React.FC = () => {
             />
           )}
         </AnimatePresence>
-      </div>
+      </motion.div>
 
       {/* Quick Actions Dock */}
-      <QuickActionsDock
-        viewport={viewport}
-        onActionClick={handleIconClick}
-        theme={currentTheme}
-      />
+      <motion.div
+        initial={{ y: 100, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 1.2, duration: 0.5, type: "spring", stiffness: 300, damping: 30 }}
+      >
+        <QuickActionsDock
+          viewport={viewport}
+          onActionClick={handleIconClick}
+          theme={currentTheme}
+        />
+      </motion.div>
 
       {/* Settings Modal */}
       <AnimatePresence>
@@ -493,6 +567,6 @@ export const DesktopWorkspace: React.FC = () => {
           />
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   );
 };

@@ -127,7 +127,7 @@ export const DesktopIcon: React.FC<DesktopIconProps> = ({
     <div className={`flex flex-col items-center space-y-2 ${className}`}>
       {/* Icon Container */}
       <motion.div
-        className="relative cursor-pointer select-none"
+        className="relative cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-900 rounded-2xl"
         style={{ width: size, height: size }}
         variants={iconVariants}
         animate={getAnimationState()}
@@ -145,6 +145,16 @@ export const DesktopIcon: React.FC<DesktopIconProps> = ({
         onMouseUp={() => setIsPressed(false)}
         onMouseLeave={() => setIsPressed(false)}
         whileTap={{ scale: 0.95 }}
+        role="button"
+        tabIndex={0}
+        aria-label={`${config.title} - ${config.description}`}
+        aria-pressed={isActive}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleClick();
+          }
+        }}
       >
         {/* Icon Background */}
         <div
