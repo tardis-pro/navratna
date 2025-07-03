@@ -224,7 +224,7 @@ export class EventBusService {
     };
 
     try {
-      const exchange = options?.exchange || 'events';
+      const exchange = options?.exchange || (this.config.exchangePrefix ? `${this.config.exchangePrefix}.events` : 'events');
       const routingKey = options?.routingKey || eventType;
       const messageBuffer = Buffer.from(JSON.stringify(message));
 
@@ -283,7 +283,7 @@ export class EventBusService {
 
     try {
       const queueName = options?.queue || `${this.config.serviceName}.${eventType}`;
-      const exchange = 'events';
+      const exchange = this.config.exchangePrefix ? `${this.config.exchangePrefix}.events` : 'events';
 
       // Assert queue with options
       const queueOptions = {

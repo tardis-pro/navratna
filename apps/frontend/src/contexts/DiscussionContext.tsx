@@ -43,7 +43,7 @@ interface DiscussionContextType {
   lastError: string | null;
 
   // Actions
-  start: (topic?: string, agentIds?: string[]) => Promise<void>;
+  start: (topic?: string, agentIds?: string[], enhancedContext?: any) => Promise<void>;
   stop: () => Promise<void>;
   addMessage: (content: string, agentId?: string) => Promise<void>;
 }
@@ -76,7 +76,7 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
   const { agents } = useAgents();
   const { user } = useAuth();
 
-  const start = async (topic?: string, agentIds?: string[]) => {
+  const start = async (topic?: string, agentIds?: string[], enhancedContext?: any) => {
     if (isActive) {
       console.warn('Discussion is already active');
       return;
@@ -138,7 +138,9 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
       if (!currentDiscussionId) {
         const createRequest: CreateDiscussionRequest = {
           title: `Discussion: ${discussionTopic}`,
-          description: `Automated discussion on ${discussionTopic}`,
+          description: enhancedContext?.purpose 
+            ? `${enhancedContext.purpose} discussion to generate ${enhancedContext.targetArtifact}: ${discussionTopic}`
+            : `Automated discussion on ${discussionTopic}`,
           topic: discussionTopic,
           createdBy: user.id, // Use actual logged-in user ID (guaranteed to exist due to check above)
           initialParticipants: selectedAgentIds.map(agentId => ({
@@ -164,7 +166,15 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
               skipInactive: true,
               maxSkips: 1
             }
-          }
+          },
+          metadata: enhancedContext ? {
+            discussionPurpose: enhancedContext.purpose,
+            targetArtifact: enhancedContext.targetArtifact,
+            contextType: enhancedContext.contextType,
+            originalContext: enhancedContext.originalContext,
+            additionalContext: enhancedContext.additionalContext,
+            expectedOutcome: enhancedContext.expectedOutcome
+          } : undefined
         };
         const newDiscussion = await uaipAPI.discussions.create(createRequest);
         currentDiscussionId = newDiscussion.id;

@@ -17,7 +17,8 @@ type PortalType =
   | 'artifacts'
   | 'search'
   | 'tasks'
-  | 'create';
+  | 'create'
+  | 'mini-browser';
 
 interface PortalState {
   id: string;

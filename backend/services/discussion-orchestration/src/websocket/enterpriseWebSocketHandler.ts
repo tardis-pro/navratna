@@ -24,7 +24,7 @@ interface EnterpriseConnection {
 }
 
 interface WebSocketMessage {
-  type: 'join_discussion' | 'leave_discussion' | 'send_message' | 'agent_response' | 'typing' | 'heartbeat';
+  type: 'join_discussion' | 'leave_discussion' | 'send_message' | 'agent_chat' | 'agent_response' | 'typing' | 'heartbeat';
   payload: any;
   messageId: string;
   timestamp: Date;
@@ -258,6 +258,9 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
         case 'send_message':
           await this.handleSendMessage(connectionId, message.payload);
           break;
+        case 'agent_chat':
+          await this.handleAgentChat(connectionId, message.payload);
+          break;
         case 'heartbeat':
           this.handleHeartbeat(connectionId);
           break;
@@ -429,6 +432,54 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
   }
 
   /**
+   * Handle direct agent chat messages
+   */
+  private async handleAgentChat(connectionId: string, payload: any): Promise<void> {
+    const connection = this.connections.get(connectionId);
+    if (!connection) return;
+
+    const { agentId, message, conversationHistory, context, messageId, timestamp } = payload;
+
+    try {
+      // Validate agent chat payload
+      if (!agentId || !message || typeof message !== 'string' || message.length === 0) {
+        this.sendError(connectionId, 'Invalid agent chat payload');
+        return;
+      }
+
+      logger.info('Processing agent chat request', { 
+        userId: connection.userId, 
+        agentId, 
+        messageLength: message.length 
+      });
+
+      // Forward agent chat request to agent intelligence service via event bus
+      const chatRequest = {
+        userId: connection.userId,
+        agentId,
+        message,
+        conversationHistory: conversationHistory || [],
+        context: context || {},
+        connectionId,
+        messageId,
+        timestamp: timestamp || new Date().toISOString()
+      };
+
+      // Publish to agent intelligence service for processing
+      await this.eventBusService.publish('agent.chat.request', chatRequest);
+
+      logger.info('Agent chat request forwarded to agent intelligence service', { 
+        agentId, 
+        messageId 
+      });
+
+    } catch (error) {
+      logger.error('Agent chat handling error', { connectionId, agentId, error });
+      this.sendError(connectionId, 'Agent chat processing failed');
+    }
+  }
+
+  /**
    * Event-driven message broadcasting
    */
   private async broadcastToDiscussion(discussionId: string, message: any, excludeConnectionId?: string): Promise<void> {
@@ -469,6 +520,30 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
         type: 'agent_response',
         payload: event.data
       });
+    });
+
+    // Subscribe to direct agent chat responses
+    this.eventBusService.subscribe('agent.chat.response', async (event) => {
+      const { connectionId, agentId, response, agentName, ...metadata } = event.data;
+      
+      // Send response back to the specific connection
+      if (connectionId && this.connections.has(connectionId)) {
+        await this.sendMessage(connectionId, {
+          type: 'agent_response',
+          payload: {
+            agentId,
+            response,
+            agentName,
+            ...metadata
+          }
+        });
+        
+        logger.info('Agent chat response sent to client', { 
+          connectionId, 
+          agentId, 
+          agentName 
+        });
+      }
     });
 
     // Security events
@@ -536,13 +611,28 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
   }
 
   private extractAuthToken(req: any): string | null {
+    // Debug logging to see what we're receiving
+    logger.info('WebSocket auth extraction debug:', {
+      url: req.url,
+      headers: req.headers,
+      hasAuthHeader: !!req.headers.authorization,
+      authHeaderValue: req.headers.authorization ? 'present' : 'missing'
+    });
+
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       return authHeader.substring(7);
     }
 
-    const urlParams = new URL(req.url, 'ws://localhost').searchParams;
-    return urlParams.get('token');
+    try {
+      const urlParams = new URL(req.url, 'ws://localhost').searchParams;
+      const token = urlParams.get('token');
+      logger.info('Token extraction result:', { hasToken: !!token, url: req.url });
+      return token;
+    } catch (error) {
+      logger.warn('Failed to parse WebSocket URL for token extraction:', { url: req.url, error });
+      return null;
+    }
   }
 
   private parseMessage(data: WebSocket.Data): WebSocketMessage | null {

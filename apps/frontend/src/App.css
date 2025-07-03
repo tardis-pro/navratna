@@ -1,7 +1,97 @@
 #root {
-  max-width: 1280px;
-  padding: 2rem;
+  max-width: 100vw;
+  padding: 0;
   text-align: center;
+  overflow-x: hidden;
+}
+
+/* Ultrawide 4K Responsive Support */
+@media (min-width: 1920px) {
+  .grid-cols-16 {
+    grid-template-columns: repeat(16, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 2560px) {
+  .grid-cols-20 {
+    grid-template-columns: repeat(20, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 3440px) {
+  .grid-cols-24 {
+    grid-template-columns: repeat(24, minmax(0, 1fr));
+  }
+}
+
+/* Desktop Icon Width Classes */
+.w-16 {
+  width: 4rem;
+}
+
+.h-18 {
+  height: 4.5rem;
+}
+
+/* Additional Grid Columns for Ultrawide */
+@media (min-width: 3840px) {
+  .grid-cols-28 {
+    grid-template-columns: repeat(28, minmax(0, 1fr));
+  }
+}
+
+/* Z-Index System */
+:root {
+  --z-wallpaper: -1;
+  --z-desktop-icons: 1;
+  --z-weather: 20;
+  --z-notes: 30;
+  --z-shortcuts: 40;
+  --z-taskbar: 50;
+  --z-menu-backdrop: 55;
+  --z-menu: 60;
+  --z-modal-backdrop: 90;
+  --z-modal: 100;
+  --z-windows: 1000;
+  --z-active-window: 1100;
+}
+
+/* Apply z-index values that can be used with style attribute */
+.z-wallpaper { z-index: -1; }
+.z-desktop-icons { z-index: 1; }
+.z-weather { z-index: 20; }
+.z-notes { z-index: 30; }
+.z-shortcuts { z-index: 40; }
+.z-taskbar { z-index: 50; }
+.z-menu-backdrop { z-index: 55; }
+.z-menu { z-index: 60; }
+.z-modal-backdrop { z-index: 90; }
+.z-modal { z-index: 100; }
+.z-windows { z-index: 1000; }
+.z-active-window { z-index: 1100; }
+
+/* Desktop Wallpaper Support */
+.desktop-wallpaper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: var(--z-wallpaper);
+}
+
+.desktop-wallpaper::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 1;
 }
 
 .logo {

@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useReducer, useState, useCallback, useRef } from 'react';
-import { AgentState, AgentContextValue, Message, ModelProvider } from '../types/agent';
+import React, { createContext, useContext, useReducer, useState, useCallback, useRef, useEffect } from 'react';
+import { AgentState, AgentContextValue, Message, ModelProvider, createAgentStateFromBackend } from '../types/agent';
 import { 
   ToolCall, 
   ToolResult, 
@@ -188,20 +188,28 @@ type AgentAction =
   | { type: 'REMOVE_MESSAGE'; payload: { agentId: string; messageId: string } }
   | { type: 'UPDATE_TOOL_PERMISSIONS'; payload: { agentId: string; permissions: Partial<ToolPermissionSet> } }
   | { type: 'ADD_TOOL_USAGE'; payload: { agentId: string; usage: ToolUsageRecord } }
-  | { type: 'SET_AGENT_MODEL'; payload: { agentId: string; modelId: string; providerId: string } };
+  | { type: 'SET_AGENT_MODEL'; payload: { agentId: string; modelId: string; providerId: string } }
+  | { type: 'CLEAR_AGENTS' };
 
 function agentReducer(state: Record<string, AgentState>, action: AgentAction): Record<string, AgentState> {
   switch (action.type) {
     case 'ADD_AGENT': {
+      console.log('🔥 REDUCER: ADD_AGENT received:', {
+        hasPayload: !!action.payload,
+        payloadId: action.payload?.id,
+        payloadName: action.payload?.name,
+        currentStateSize: Object.keys(state).length
+      });
+      
       // Validate payload
       if (!action.payload || !action.payload.id) {
-        console.error('ADD_AGENT: Invalid payload - missing agent or id', action.payload);
+        console.error('❌ REDUCER: ADD_AGENT: Invalid payload - missing agent or id', action.payload);
         return state;
       }
       
       // Ensure new agents have tool properties
       const toolProperties = createDefaultToolProperties();
-      return {
+      const newState = {
         ...state,
         [action.payload.id]: {
           ...action.payload,
@@ -209,6 +217,14 @@ function agentReducer(state: Record<string, AgentState>, action: AgentAction): R
           conversationHistory: []
         }
       };
+      
+      console.log('✅ REDUCER: ADD_AGENT completed:', {
+        agentId: action.payload.id,
+        newStateSize: Object.keys(newState).length,
+        allAgentIds: Object.keys(newState)
+      });
+      
+      return newState;
     }
     case 'REMOVE_AGENT': {
       if (!action.payload) {
@@ -294,6 +310,10 @@ function agentReducer(state: Record<string, AgentState>, action: AgentAction): R
           providerId: action.payload.providerId
         }
       };
+    }
+    case 'CLEAR_AGENTS': {
+      console.log('🔥 REDUCER: CLEAR_AGENTS - clearing all agents');
+      return {};
     }
     default:
       return state;
@@ -770,17 +790,26 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
 
   const addAgent = (agent: AgentState) => {
     if (!agent) {
-      console.error('addAgent: Cannot add undefined agent');
+      console.error('❌ addAgent: Cannot add undefined agent');
       return;
     }
     
     if (!agent.id) {
-      console.error('addAgent: Agent missing required id property', agent);
+      console.error('❌ addAgent: Agent missing required id property', agent);
       return;
     }
     
-    console.log('Adding agent:', agent);
+    console.log('🚀 addAgent called with:', {
+      agentId: agent.id,
+      agentName: agent.name,
+      hasId: !!agent.id,
+      currentStateSize: Object.keys(agents).length
+    });
+    
+    console.log('🔄 Dispatching ADD_AGENT...');
     dispatch({ type: 'ADD_AGENT', payload: agent });
+    
+    console.log('✅ Dispatch completed');
   };
 
   const removeAgent = (id: string) => {
@@ -904,6 +933,168 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'SET_AGENT_MODEL', payload: { agentId, modelId, providerId } });
   };
 
+  // Manual refresh function to reload agents
+  const refreshAgents = useCallback(async () => {
+    console.log('🔄 Manual refresh: Clearing agents and reloading...');
+    
+    // Clear current agents
+    dispatch({ type: 'CLEAR_AGENTS' });
+    
+    // Reset the loaded flag
+    agentsLoadedRef.current = false;
+    
+    // Reload agents
+    try {
+      const token = typeof window !== 'undefined' ? 
+        (localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken')) : null;
+        
+      if (!token) {
+        console.log('No auth token found, cannot refresh agents');
+        return;
+      }
+
+      console.log('Refreshing agents from backend...');
+      const response = await uaipAPI.agents.list();
+      console.log('Received response from backend:', response);
+      
+      // Handle response format: {agents: Array(7), total: 7, filters: {...}}
+      let agentList = [];
+      if (Array.isArray(response.agents)) {
+        agentList = response.agents;
+        console.log(`Found ${agentList.length} agents in response.agents`);
+      } else if (response.success && response.data && Array.isArray(response.data.agents)) {
+        agentList = response.data.agents;
+        console.log(`Found ${agentList.length} agents in response.data.agents`);
+      } else if (Array.isArray(response)) {
+        // Fallback for direct array response
+        agentList = response;
+        console.log(`Found ${agentList.length} agents in direct array response`);
+      } else {
+        console.log('No agents found in response or unexpected format:', response);
+      }
+      
+      if (agentList.length > 0) {
+        console.log(`Processing ${agentList.length} agents...`);
+        agentList.forEach((backendAgent, index) => {
+          try {
+            console.log(`🔄 Processing agent ${index + 1}/${agentList.length}:`, {
+              id: backendAgent.id,
+              name: backendAgent.name,
+              role: backendAgent.role
+            });
+            
+            const agentState = createAgentStateFromBackend(backendAgent);
+            console.log('✅ Created agent state:', {
+              id: agentState.id,
+              name: agentState.name,
+              role: agentState.role
+            });
+            
+            addAgent(agentState);
+            console.log('✅ Added agent to context successfully');
+            
+          } catch (error) {
+            console.error('❌ Failed to create/add agent state:', {
+              backendAgent: backendAgent,
+              error: error.message,
+              stack: error.stack
+            });
+          }
+        });
+        
+        // Mark as loaded after successful processing
+        agentsLoadedRef.current = true;
+        console.log(`🎉 Successfully refreshed ${agentList.length} agents into context`);
+      }
+    } catch (error) {
+      console.error('Failed to refresh agents from backend:', error);
+    }
+  }, [addAgent]);
+
+  // Load agents from backend when authenticated - use ref to prevent infinite loops
+  const agentsLoadedRef = useRef(false);
+  
+  useEffect(() => {
+    const loadAgents = async () => {
+      try {
+        // Check if we have authentication
+        const token = typeof window !== 'undefined' ? 
+          (localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken')) : null;
+          
+        if (!token) {
+          console.log('No auth token found, skipping agent loading');
+          return;
+        }
+
+        // Check if we already loaded agents using ref to prevent infinite loops
+        if (agentsLoadedRef.current) {
+          console.log('Agents already loaded, skipping reload');
+          return;
+        }
+
+        console.log('Loading agents from backend...');
+        const response = await uaipAPI.agents.list();
+        console.log('Received response from backend:', response);
+        
+        // Handle response format: {agents: Array(7), total: 7, filters: {...}}
+        let agentList = [];
+        if (Array.isArray(response.agents)) {
+          agentList = response.agents;
+          console.log(`Found ${agentList.length} agents in response.agents`);
+        } else if (response.success && response.data && Array.isArray(response.data.agents)) {
+          agentList = response.data.agents;
+          console.log(`Found ${agentList.length} agents in response.data.agents`);
+        } else if (Array.isArray(response)) {
+          // Fallback for direct array response
+          agentList = response;
+          console.log(`Found ${agentList.length} agents in direct array response`);
+        } else {
+          console.log('No agents found in response or unexpected format:', response);
+        }
+        
+        if (agentList.length > 0) {
+          console.log(`Processing ${agentList.length} agents...`);
+          agentList.forEach((backendAgent, index) => {
+            try {
+              console.log(`🔄 Processing agent ${index + 1}/${agentList.length}:`, {
+                id: backendAgent.id,
+                name: backendAgent.name,
+                role: backendAgent.role
+              });
+              
+              const agentState = createAgentStateFromBackend(backendAgent);
+              console.log('✅ Created agent state:', {
+                id: agentState.id,
+                name: agentState.name,
+                role: agentState.role
+              });
+              
+              addAgent(agentState);
+              console.log('✅ Added agent to context successfully');
+              
+            } catch (error) {
+              console.error('❌ Failed to create/add agent state:', {
+                backendAgent: backendAgent,
+                error: error.message,
+                stack: error.stack
+              });
+            }
+          });
+          
+          // Mark as loaded after successful processing
+          agentsLoadedRef.current = true;
+          console.log(`🎉 Successfully loaded ${agentList.length} agents into context`);
+        }
+      } catch (error) {
+        console.error('Failed to load agents from backend:', error);
+      }
+    };
+
+    // Small delay to ensure auth is set up, then load agents
+    const timeoutId = setTimeout(loadAgents, 100);
+    return () => clearTimeout(timeoutId);
+  }, []); // Empty dependency array to run only once
+
   const value: AgentContextValue = {
     agents,
     addAgent,
@@ -917,6 +1108,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     getToolUsageHistory,
     updateToolPermissions,
     setAgentModel,
+    refreshAgents,
     
     // Model Provider Management
     modelState,

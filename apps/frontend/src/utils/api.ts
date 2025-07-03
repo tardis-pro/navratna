@@ -805,6 +805,48 @@ export class UAIPAPIClient {
     },
 
     /**
+     * Chat with agent
+     */
+    chat: async (agentId: string, chatData: {
+      message: string;
+      conversationHistory?: Array<{
+        content: string;
+        sender: string;
+        timestamp: string;
+      }>;
+      context?: any;
+    }): Promise<APIResponse<{
+      response: string;
+      agentName: string;
+      confidence: number;
+      model?: string;
+      tokensUsed?: number;
+      memoryEnhanced?: boolean;
+      knowledgeUsed?: number;
+      persona?: any;
+      conversationContext?: any;
+      timestamp?: string;
+      toolsExecuted?: Array<any>;
+    }>> => {
+      return this.request<{
+        response: string;
+        agentName: string;
+        confidence: number;
+        model?: string;
+        tokensUsed?: number;
+        memoryEnhanced?: boolean;
+        knowledgeUsed?: number;
+        persona?: any;
+        conversationContext?: any;
+        timestamp?: string;
+        toolsExecuted?: Array<any>;
+      }>(buildAPIURL(`${API_ROUTES.AGENTS}/${agentId}/chat`), {
+        method: 'POST',
+        body: JSON.stringify(chatData),
+      });
+    },
+
+    /**
      * Health check endpoints
      */
     health: {

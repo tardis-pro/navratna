@@ -37,7 +37,7 @@ export interface AgentOperationRequest {
 
 export class AgentEventOrchestrator {
   private databaseService: DatabaseService;
-  private eventBusService: EventBusService;
+  public eventBusService: EventBusService; // Make public for WebSocket chat subscription
   private orchestrationPipelineUrl: string;
   private serviceName: string;
   private securityLevel: number;

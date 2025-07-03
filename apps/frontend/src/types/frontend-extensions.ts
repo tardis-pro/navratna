@@ -309,6 +309,7 @@ export interface AgentContextValue {
   getToolUsageHistory: (agentId: string) => ToolUsageRecord[];
   updateToolPermissions: (agentId: string, permissions: Partial<ToolPermissionSet>) => void;
   setAgentModel: (agentId: string, modelId: string, providerId: string) => void;
+  refreshAgents: () => Promise<void>;
   
   // Model Provider Management
   modelState: {

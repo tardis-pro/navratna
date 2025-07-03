@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useSearchParams } from 'react-router-dom';
 import { useAgents } from '../../../contexts/AgentContext';
 import { PersonaSelector } from '../../PersonaSelector';
 import { AgentState, createAgentStateFromBackend } from '../../../types/agent';
@@ -7,7 +8,6 @@ import { Persona, PersonaDisplay } from '../../../types/persona';
 import { useDiscussion } from '../../../contexts/DiscussionContext';
 import { uaipAPI } from '../../../utils/uaip-api';
 import { AgentRole, LLMModel, LLMProviderType } from '@uaip/types';
-import { useToast } from '@/components/ui/use-toast';
 import { 
   Users, 
   Plus, 
@@ -56,6 +56,7 @@ import {
   Bookmark
 } from 'lucide-react';
 import { ModelOption } from '@/types/models';
+import { useToast } from '@/components/ui/use-toast';
 
 interface ViewportSize {
   width: number;
@@ -302,26 +303,58 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
   // Load existing agents
   const loadExistingAgents = async () => {
     try {
+      console.log('🔄 Loading agents from API...');
       const response = await uaipAPI.agents.list();
       
-      // Handle response properly - the API returns an array directly
-      if (Array.isArray(response)) {
-        // Clear existing agents first by removing all current agents
-        const currentAgentIds = Object.keys(agents || {});
-        currentAgentIds.forEach(agentId => {
-          removeAgent(agentId);
-        });
-
-        // Add fresh agents from the API
-        for (const agentData of response) {
-          const agentState = createAgentStateFromBackend(agentData);
-          addAgent(agentState);
+      // Handle response properly - the API returns {agents: Array(7), total: 7, filters: {...}}
+      let agentsArray = [];
+      if (Array.isArray(response.agents)) {
+        agentsArray = response.agents;
+        console.log(`📥 Received ${agentsArray.length} agents from API:`, agentsArray);
+      } else if (response.success && response.data && Array.isArray(response.data.agents)) {
+        agentsArray = response.data.agents;
+        console.log(`📥 Received ${agentsArray.length} agents from API (nested):`, agentsArray);
+      } else if (Array.isArray(response)) {
+        // Fallback for direct array response
+        agentsArray = response;
+        console.log(`📥 Received ${agentsArray.length} agents from API (direct array):`, agentsArray);
+      } else {
+        console.log('⚠️ Unexpected API response format:', response);
+        return;
+      }
+      
+      if (agentsArray.length > 0) {
+        
+        // Instead of clearing and re-adding, let's just add missing agents
+        // and update existing ones
+        const currentAgentIds = new Set(Object.keys(agents || {}));
+        const incomingAgentIds = new Set(agentsArray.map(agent => agent.id));
+        
+        // Add or update agents from the API
+        for (const agentData of agentsArray) {
+          try {
+            const agentState = createAgentStateFromBackend(agentData);
+            console.log(`➕ Adding/updating agent: ${agentData.id} (${agentData.name})`);
+            addAgent(agentState);
+          } catch (error) {
+            console.error(`❌ Failed to process agent ${agentData.id}:`, error);
+          }
         }
         
-        console.log(`✅ Loaded ${response.length} agents from API`);
+        // Remove agents that no longer exist in the API
+        for (const agentId of currentAgentIds) {
+          if (!incomingAgentIds.has(agentId)) {
+            console.log(`🗑️ Removing agent not in API: ${agentId}`);
+            removeAgent(agentId);
+          }
+        }
+        
+        console.log(`✅ Agent sync complete: ${agentsArray.length} agents from API, ${Object.keys(agents || {}).length} in context`);
+      } else {
+        console.log('⚠️ No agents found in API response');
       }
     } catch (error) {
-      console.error('Failed to load existing agents:', error);
+      console.error('❌ Failed to load existing agents:', error);
     }
   };
 
@@ -333,9 +366,12 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
 
   // Debug: Monitor agents changes
   useEffect(() => {
-    if (Object.keys(agents || {}).length > 0) {
-      console.log(`✅ Agent Manager: ${Object.keys(agents || {}).length} agents loaded`);
-    }
+    const agentCount = Object.keys(agents || {}).length;
+    console.log(`🔍 Agent Manager: ${agentCount} agents in context`, {
+      agentIds: Object.keys(agents || {}),
+      agentNames: Object.values(agents || {}).map(a => a.name),
+      filteredCount: filteredAgents?.length || 0
+    });
   }, [agents]);
 
   // Navigation helpers (portal-specific, no URL changes)
@@ -639,174 +675,118 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
         className={`
           relative group cursor-pointer overflow-hidden
           ${viewMode === 'grid' 
-            ? 'bg-gradient-to-br from-slate-800/50 via-slate-800/40 to-slate-900/60 hover:from-slate-700/60 hover:via-slate-700/50 hover:to-slate-800/70 border border-slate-700/50 hover:border-slate-600/60 rounded-xl p-5 transition-all duration-300 shadow-lg hover:shadow-xl' 
-            : 'bg-gradient-to-r from-slate-800/40 via-slate-800/30 to-slate-800/20 hover:from-slate-700/50 hover:via-slate-700/40 hover:to-slate-700/30 border-l-4 border-l-blue-500/50 hover:border-l-blue-400 border-t border-b border-r border-slate-700/30 p-4 transition-all duration-300'
+            ? 'bg-slate-800/60 hover:bg-slate-700/70 border border-slate-600/30 hover:border-slate-500/50 rounded-lg p-4 transition-all duration-200 shadow-lg hover:shadow-xl' 
+            : 'bg-slate-800/40 hover:bg-slate-700/50 border-l-2 border-l-blue-500 border-y border-r border-slate-600/30 p-3 transition-all duration-200'
           }
-          ${isSelected ? 'ring-2 ring-blue-500/60 bg-blue-500/10 shadow-blue-500/20' : ''}
-          backdrop-blur-sm
+          ${isSelected ? 'ring-1 ring-blue-400 bg-blue-500/5 border-blue-400' : ''}
         `}
-        onClick={() => navigateToAgent(agent.id)}
+        onClick={() => {
+          // Open chat portal with this agent
+          const chatEvent = new CustomEvent('openAgentChat', { 
+            detail: { 
+              agentId: agent.id, 
+              agentName: agent.name,
+              persona: agent.persona 
+            } 
+          });
+          window.dispatchEvent(chatEvent);
+        }}
         whileHover={{ scale: viewMode === 'grid' ? 1.02 : 1.01 }}
       >
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-blue-500/30 to-transparent rounded-full blur-2xl" />
-          <div className="absolute bottom-0 left-0 w-16 h-16 bg-gradient-to-tr from-cyan-500/20 to-transparent rounded-full blur-xl" />
+
+        {/* Agent Status */}
+        <div className="absolute top-2 right-2">
+          <div className={`w-2 h-2 rounded-full ${health.color}`} />
         </div>
 
-        {/* Agent Status & Health Indicator */}
-        <div className="absolute top-3 right-3 flex items-center gap-2 z-10">
-          <div className={`w-2.5 h-2.5 rounded-full ${health.color} ${agent.isActive ? 'animate-pulse' : ''} shadow-sm`} />
-          <div className="text-xs text-slate-300 font-medium px-2 py-1 bg-slate-900/50 rounded-full backdrop-blur-sm">
-            {health.text}
-          </div>
-        </div>
-
-        {/* Quick Action Menu */}
-        <div className="absolute top-3 left-3 opacity-0 group-hover:opacity-100 transition-all duration-200 z-10">
-          <div className="flex items-center gap-1 bg-slate-900/80 rounded-lg p-1 backdrop-blur-sm shadow-lg">
+        {/* Quick Actions */}
+        <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex gap-1">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 navigateToAgent(agent.id, 'edit');
               }}
-              className="w-7 h-7 bg-slate-700/80 hover:bg-slate-600/80 rounded-md flex items-center justify-center text-slate-300 hover:text-white transition-colors"
-              title="Edit Agent"
+              className="w-6 h-6 bg-slate-700 hover:bg-slate-600 rounded text-slate-300 hover:text-white transition-colors flex items-center justify-center"
+              title="Edit"
             >
-              <Edit3 className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                // TODO: Copy agent configuration
-              }}
-              className="w-7 h-7 bg-slate-700/80 hover:bg-blue-600/80 rounded-md flex items-center justify-center text-slate-300 hover:text-blue-300 transition-colors"
-              title="Duplicate Agent"
-            >
-              <Copy className="w-3.5 h-3.5" />
+              <Edit3 className="w-3 h-3" />
             </button>
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 handleDeleteAgent(agent.id);
               }}
-              className="w-7 h-7 bg-red-500/20 hover:bg-red-500/40 rounded-md flex items-center justify-center text-red-400 hover:text-red-300 transition-colors"
-              title="Delete Agent"
+              className="w-6 h-6 bg-red-500/30 hover:bg-red-500/50 rounded text-red-400 hover:text-red-300 transition-colors flex items-center justify-center"
+              title="Delete"
             >
-              <Trash2 className="w-3.5 h-3.5" />
+              <Trash2 className="w-3 h-3" />
             </button>
           </div>
         </div>
 
         {/* Agent Info */}
-        <div className="relative z-10">
-          <div className="flex items-start gap-4 mb-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 via-cyan-500 to-purple-500 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg ring-2 ring-blue-500/20">
-              <Bot className="w-6 h-6 text-white" />
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center flex-shrink-0">
+            <Bot className="w-5 h-5 text-white" />
+          </div>
+          
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="font-semibold text-white truncate" title={agent.name}>
+                {agent.name}
+              </h3>
+              <span className="text-xs px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded capitalize">
+                {agent.role}
+              </span>
             </div>
             
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-2">
-                <h3 className="font-bold text-white truncate text-lg" title={agent.name}>
-                  {agent.name}
-                </h3>
-                <span className="text-xs px-2.5 py-1 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 text-blue-300 rounded-full capitalize font-semibold border border-blue-500/30 shadow-sm">
-                  {agent.role}
-                </span>
-              </div>
-              
-              {/* Persona Tag */}
-              <div className="mb-3">
-                <span 
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-300 text-xs rounded-full font-semibold border border-purple-500/30 max-w-full shadow-sm"
-                  title={getPersonaDisplayName(agent)}
-                >
-                  <User className="w-3.5 h-3.5 flex-shrink-0" />
-                  <span className="truncate">
-                    {getPersonaDisplayName(agent).length > 15 
-                      ? `${getPersonaDisplayName(agent).substring(0, 15)}...` 
-                      : getPersonaDisplayName(agent)
-                    }
-                  </span>
-                </span>
-              </div>
-              
-              {/* Model Tag */}
-              <div className="mb-3">
-                <span 
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-slate-700/60 to-slate-600/60 text-slate-300 text-xs rounded-full font-semibold border border-slate-600/40 max-w-full shadow-sm"
-                  title={agent.modelId}
-                >
-                  <Cpu className="w-3.5 h-3.5 flex-shrink-0" />
-                  <span className="truncate">
-                    {getModelDisplayName(agent.modelId).length > 12 
-                      ? `${getModelDisplayName(agent.modelId).substring(0, 12)}...` 
-                      : getModelDisplayName(agent.modelId)
-                    }
-                  </span>
-                </span>
-              </div>
-              
-              {/* Description */}
-              {agent.description && (
-                <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed" title={agent.description}>
-                  {agent.description.length > 80 
-                    ? `${agent.description.substring(0, 80)}...` 
-                    : agent.description
-                  }
-                </p>
-              )}
+            <div className="text-xs text-slate-400 truncate" title={getPersonaDisplayName(agent)}>
+              {getPersonaDisplayName(agent)}
             </div>
-          </div>
-
-          {/* Agent Stats/Metrics (if in grid view) */}
-          {viewMode === 'grid' && (
-            <div className="flex items-center justify-between text-xs text-slate-400 pt-3 border-t border-slate-700/50">
-              <div className="flex items-center gap-1">
-                <Clock className="w-3 h-3" />
-                <span>Last active</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <BarChart3 className="w-3 h-3" />
-                <span>Performance</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Shield className="w-3 h-3" />
-                <span>Security</span>
-              </div>
-            </div>
-          )}
-
-          {/* Hover Actions */}
-          <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-200">
-            <div className="flex items-center gap-1">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  // TODO: Start/Stop agent
-                }}
-                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-                  agent.isActive 
-                    ? 'bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 hover:text-orange-300' 
-                    : 'bg-green-500/20 hover:bg-green-500/30 text-green-400 hover:text-green-300'
-                }`}
-                title={agent.isActive ? 'Pause Agent' : 'Start Agent'}
-              >
-                {agent.isActive ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  // TODO: View agent details/metrics
-                }}
-                className="w-8 h-8 bg-blue-500/20 hover:bg-blue-500/30 rounded-lg flex items-center justify-center text-blue-400 hover:text-blue-300 transition-colors"
-                title="View Details"
-              >
-                <BarChart3 className="w-4 h-4" />
-              </button>
+            
+            <div className="text-xs text-slate-500 truncate" title={`Model: ${getModelDisplayName(agent.modelId)}`}>
+              {getModelDisplayName(agent.modelId)}
             </div>
           </div>
         </div>
+
+        {/* Persona Traits Tooltip on Hover */}
+        <div className="absolute bottom-full left-0 right-0 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-20">
+          <div className="bg-slate-900/95 backdrop-blur-md border border-slate-600/50 rounded-lg p-3 shadow-xl">
+            <div className="text-xs font-semibold text-slate-200 mb-2">Persona Traits</div>
+            {agent.persona?.traits && agent.persona.traits.length > 0 ? (
+              <div className="space-y-1">
+                {agent.persona.traits.slice(0, 3).map((trait, index) => (
+                  <div key={index} className="text-xs text-slate-300">
+                    • {trait}
+                  </div>
+                ))}
+                {agent.persona.traits.length > 3 && (
+                  <div className="text-xs text-slate-400">
+                    +{agent.persona.traits.length - 3} more
+                  </div>
+                )}
+              </div>
+            ) : agent.persona?.expertise && agent.persona.expertise.length > 0 ? (
+              <div className="space-y-1">
+                {agent.persona.expertise.slice(0, 3).map((skill, index) => (
+                  <div key={index} className="text-xs text-slate-300">
+                    • {skill}
+                  </div>
+                ))}
+                {agent.persona.expertise.length > 3 && (
+                  <div className="text-xs text-slate-400">
+                    +{agent.persona.expertise.length - 3} more
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-xs text-slate-400">No traits available</div>
+            )}
+          </div>
+        </div>
+
       </motion.div>
     );
   };
@@ -961,8 +941,16 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
         {/* Refresh Button */}
         <button
           onClick={() => {
+            console.log('🔄 Manual refresh triggered');
             setRefreshing(true);
-            Promise.all([loadModels(), loadExistingAgents()]).finally(() => {
+            Promise.all([
+              loadModels(),
+              loadExistingAgents()
+            ]).then(() => {
+              console.log('✅ Manual refresh completed');
+            }).catch(error => {
+              console.error('❌ Manual refresh failed:', error);
+            }).finally(() => {
               setRefreshing(false);
             });
           }}
@@ -1798,12 +1786,12 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
                 {/* Agents Grid/List */}
                 <div className={`
                   ${viewMode === 'grid' 
-                    ? `grid gap-4 ${
+                    ? `grid gap-3 ${
                         currentViewport.isMobile ? 'grid-cols-1' : 
                         currentViewport.isTablet ? 'grid-cols-2' : 
-                        'grid-cols-3 xl:grid-cols-4'
+                        'grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5'
                       }`
-                    : 'space-y-3'
+                    : 'space-y-2'
                   }
                 `}>
                   <AnimatePresence>
@@ -1840,6 +1828,13 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
                       <h3 className="text-xl font-bold text-white mb-3">
                         {searchQuery || filterRole ? 'No agents found' : 'Welcome to Agent Manager'}
                       </h3>
+                      {/* Debug Info */}
+                      <div className="mb-4 p-2 bg-slate-800/50 rounded-lg border border-slate-700/50 text-xs text-slate-400">
+                        <div>Debug: {Object.keys(agents || {}).length} agents in context</div>
+                        <div>Filtered: {filteredAgents?.length || 0} agents after filtering</div>
+                        <div>Search: "{searchQuery}", Role filter: "{filterRole}"</div>
+                        <div>Agent IDs: {Object.keys(agents || {}).join(', ') || 'none'}</div>
+                      </div>
                       <p className="text-slate-400 mb-8 leading-relaxed">
                         {searchQuery || filterRole 
                           ? 'No agents match your current search criteria. Try adjusting your filters or search terms.'

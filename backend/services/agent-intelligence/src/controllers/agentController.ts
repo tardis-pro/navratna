@@ -66,7 +66,12 @@ export class AgentController {
     // Initialize refactored agent services with proper dependencies
     this.agentCore = new AgentCoreService({
       databaseService: databaseService || new DatabaseService(),
-      eventBusService: eventBusService || new EventBusService({ url: process.env.RABBITMQ_URL || 'amqp://localhost', serviceName: 'agent-intelligence' }, logger as any),
+      eventBusService: eventBusService || new EventBusService({ 
+        url: process.env.RABBITMQ_URL || 'amqp://localhost:5672', 
+        serviceName: 'agent-intelligence',
+        exchangePrefix: 'uaip.enterprise',
+        complianceMode: true
+      }, logger as any),
       serviceName: 'agent-intelligence',
       securityLevel: 3
     });
@@ -74,14 +79,24 @@ export class AgentController {
     this.agentContext = new AgentContextService({
       knowledgeGraphService: knowledgeGraphService || {} as any, // Will be initialized by service
       llmService: {} as any, // Will be initialized by service
-      eventBusService: eventBusService || new EventBusService({ url: process.env.RABBITMQ_URL || 'amqp://localhost', serviceName: 'agent-intelligence' }, logger as any),
+      eventBusService: eventBusService || new EventBusService({ 
+        url: process.env.RABBITMQ_URL || 'amqp://localhost:5672', 
+        serviceName: 'agent-intelligence',
+        exchangePrefix: 'uaip.enterprise',
+        complianceMode: true
+      }, logger as any),
       serviceName: 'agent-intelligence',
       securityLevel: 3
     });
 
     this.agentPlanning = new AgentPlanningService({
       databaseService: databaseService || new DatabaseService(),
-      eventBusService: eventBusService || new EventBusService({ url: process.env.RABBITMQ_URL || 'amqp://localhost', serviceName: 'agent-intelligence' }, logger as any),
+      eventBusService: eventBusService || new EventBusService({ 
+        url: process.env.RABBITMQ_URL || 'amqp://localhost:5672', 
+        serviceName: 'agent-intelligence',
+        exchangePrefix: 'uaip.enterprise',
+        complianceMode: true
+      }, logger as any),
       serviceName: 'agent-intelligence',
       securityLevel: 3
     });
@@ -90,7 +105,12 @@ export class AgentController {
       agentMemoryService,
       knowledgeGraphService,
       databaseService: databaseService || new DatabaseService(),
-      eventBusService: eventBusService || new EventBusService({ url: process.env.RABBITMQ_URL || 'amqp://localhost', serviceName: 'agent-intelligence' }, logger as any),
+      eventBusService: eventBusService || new EventBusService({ 
+        url: process.env.RABBITMQ_URL || 'amqp://localhost:5672', 
+        serviceName: 'agent-intelligence',
+        exchangePrefix: 'uaip.enterprise',
+        complianceMode: true
+      }, logger as any),
       serviceName: 'agent-intelligence',
       securityLevel: 3
     });
@@ -98,7 +118,12 @@ export class AgentController {
     this.agentDiscussion = new AgentDiscussionService({
       discussionService,
       databaseService: databaseService || new DatabaseService(),
-      eventBusService: eventBusService || new EventBusService({ url: process.env.RABBITMQ_URL || 'amqp://localhost', serviceName: 'agent-intelligence' }, logger as any),
+      eventBusService: eventBusService || new EventBusService({ 
+        url: process.env.RABBITMQ_URL || 'amqp://localhost:5672', 
+        serviceName: 'agent-intelligence',
+        exchangePrefix: 'uaip.enterprise',
+        complianceMode: true
+      }, logger as any),
       llmService: undefined, // Will be initialized by service
       userLLMService: undefined, // Will be initialized by service
       serviceName: 'agent-intelligence',
@@ -106,7 +131,12 @@ export class AgentController {
     });
 
     this.agentOrchestrator = new AgentEventOrchestrator({
-      eventBusService: eventBusService || new EventBusService({ url: process.env.RABBITMQ_URL || 'amqp://localhost', serviceName: 'agent-intelligence' }, logger as any),
+      eventBusService: eventBusService || new EventBusService({ 
+        url: process.env.RABBITMQ_URL || 'amqp://localhost:5672', 
+        serviceName: 'agent-intelligence',
+        exchangePrefix: 'uaip.enterprise',
+        complianceMode: true
+      }, logger as any),
       databaseService: databaseService || new DatabaseService(),
       orchestrationPipelineUrl: process.env.ORCHESTRATION_PIPELINE_URL || 'http://localhost:3002',
       serviceName: 'agent-intelligence',
@@ -143,10 +173,122 @@ export class AgentController {
         agentInitializationService: undefined // Not available in controller
       });
 
+      // Set up WebSocket agent chat event subscription
+      await this.setupChatEventSubscription();
+
       logger.info('AgentController services initialized successfully');
     } catch (error) {
       logger.error('Failed to initialize AgentController services:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Set up event subscription for WebSocket agent chat requests
+   */
+  private async setupChatEventSubscription(): Promise<void> {
+    try {
+      // Use the orchestrator's event bus service for consistency
+      const eventBusService = this.agentOrchestrator.eventBusService;
+      
+      if (eventBusService) {
+        // Debug: Test if event bus is working at all
+        logger.info('Setting up event bus subscriptions with service:', { 
+          connected: !!eventBusService,
+          serviceName: eventBusService.constructor.name 
+        });
+        
+        await eventBusService.subscribe('agent.chat.request', async (event) => {
+          logger.info('Raw event received:', { event });
+          const { userId, agentId, message, conversationHistory, context, connectionId, messageId } = event.data || event;
+          
+          logger.info('Received WebSocket agent chat request', { 
+            userId, 
+            agentId, 
+            messageId,
+            messageLength: message?.length 
+          });
+
+          try {
+            // Process the chat request using the existing chat method
+            const chatRequest = {
+              agentId,
+              message,
+              conversationHistory: conversationHistory || [],
+              context: context || {}
+            };
+
+            // Use the existing chat method from the controller
+            const mockReq = { 
+              params: { agentId }, 
+              body: chatRequest,
+              user: { id: userId } 
+            } as any;
+            
+            const mockRes = {
+              json: (data: any) => {
+                // Extract response data and publish back via event bus
+                if (data.success && data.data) {
+                  eventBusService.publish('agent.chat.response', {
+                    connectionId,
+                    agentId,
+                    response: data.data.response,
+                    agentName: data.data.agentName,
+                    confidence: data.data.confidence,
+                    memoryEnhanced: data.data.memoryEnhanced,
+                    knowledgeUsed: data.data.knowledgeUsed,
+                    toolsExecuted: data.data.toolsExecuted,
+                    messageId,
+                    timestamp: new Date().toISOString()
+                  });
+                } else {
+                  // Send error response
+                  eventBusService.publish('agent.chat.response', {
+                    connectionId,
+                    agentId,
+                    response: 'Sorry, I encountered an error processing your message.',
+                    agentName: 'System',
+                    error: data.error?.message || 'Unknown error',
+                    messageId,
+                    timestamp: new Date().toISOString()
+                  });
+                }
+              },
+              status: () => ({ json: () => {} })
+            } as any;
+
+            // Call the existing chat method
+            await this.chatWithAgent(mockReq, mockRes, () => {});
+
+          } catch (error) {
+            logger.error('Error processing WebSocket agent chat request', { 
+              agentId, 
+              messageId, 
+              error 
+            });
+
+            // Send error response back via WebSocket
+            await eventBusService.publish('agent.chat.response', {
+              connectionId,
+              agentId,
+              response: 'Sorry, I encountered an error processing your message.',
+              agentName: 'System',
+              error: error instanceof Error ? error.message : 'Unknown error',
+              messageId,
+              timestamp: new Date().toISOString()
+            });
+          }
+        });
+
+        logger.info('WebSocket agent chat event subscription set up successfully');
+      } else {
+        logger.warn('EventBusService not available for WebSocket subscription');
+      }
+    } catch (error) {
+      logger.error('Failed to set up WebSocket agent chat event subscription', { 
+        error: error instanceof Error ? error.message : error,
+        stack: error instanceof Error ? error.stack : undefined
+      });
     }
   }
 

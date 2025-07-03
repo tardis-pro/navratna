@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAgents } from '../../../contexts/AgentContext';
 import { uaipAPI } from '../../../utils/uaip-api';
+import { DiscussionTrigger } from '../../DiscussionTrigger';
+import { useWebSocket } from '../../../hooks/useUAIP';
 import { 
   MessageSquare, 
   Send, 
@@ -14,7 +16,8 @@ import {
   Zap,
   Activity,
   Clock,
-  Sparkles
+  Sparkles,
+  Users
 } from 'lucide-react';
 
 interface ChatMessage {
@@ -85,53 +88,16 @@ interface ChatResponse {
   timestamp: string;
 }
 
-// Conversation management class as suggested in the CHAT_ENDPOINT_GUIDE.md
-class AgentConversation {
-  constructor(public agentId: string) {
-    this.agentId = agentId;
-    this.history = [];
-    this.context = {};
-  }
-  
-  history: Array<{content: string; sender: string; timestamp: string}> = [];
-  context: any = {};
-  
-  async sendMessage(message: string, additionalContext = {}) {
-    const response = await uaipAPI.agents.chat(
-      this.agentId, 
-      {
-        message,
-        conversationHistory: this.history.slice(-10), // Keep last 10 messages
-        context: { ...this.context, ...additionalContext }
-      }
-    );
-    
-    // Add to history
-    this.history.push(
-      { content: message, sender: 'user', timestamp: new Date().toISOString() },
-      { content: response.response, sender: response.agentName, timestamp: response.timestamp }
-    );
-    
-    return response;
-  }
-  
-  setContext(context: any) {
-    this.context = { ...this.context, ...context };
-  }
-  
-  clearHistory() {
-    this.history = [];
-  }
-}
 
 export const ChatPortal: React.FC<ChatPortalProps> = ({ className }) => {
   const { agents } = useAgents();
+  const { isConnected: isWebSocketConnected, sendMessage: sendWebSocketMessage, lastEvent } = useWebSocket();
   const [selectedAgentId, setSelectedAgentId] = useState<string>('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [currentMessage, setCurrentMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [conversation, setConversation] = useState<AgentConversation | null>(null);
+  const [conversationHistory, setConversationHistory] = useState<Array<{content: string; sender: string; timestamp: string}>>([]);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -144,6 +110,32 @@ export const ChatPortal: React.FC<ChatPortalProps> = ({ className }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Listen for WebSocket agent responses
+  useEffect(() => {
+    if (lastEvent && lastEvent.type === 'agent_response') {
+      const { agentId, response, agentName, confidence, memoryEnhanced, knowledgeUsed, toolsExecuted } = lastEvent.payload;
+      
+      // Only handle responses for the currently selected agent
+      if (agentId === selectedAgentId) {
+        const agentMessage: ChatMessage = {
+          content: response,
+          sender: agentName,
+          timestamp: new Date().toISOString(),
+          agentId: agentId,
+          confidence: confidence,
+          memoryEnhanced: memoryEnhanced,
+          knowledgeUsed: knowledgeUsed,
+          toolsExecuted: toolsExecuted
+        };
+
+        setMessages(prev => [...prev, agentMessage]);
+        setConversationHistory(prev => [...prev, { content: response, sender: agentName, timestamp: new Date().toISOString() }]);
+        setIsLoading(false);
+        setError(null);
+      }
+    }
+  }, [lastEvent, selectedAgentId]);
+
   // Auto-select first agent if available and create conversation
   useEffect(() => {
     if (!selectedAgentId && agentList.length > 0) {
@@ -151,18 +143,23 @@ export const ChatPortal: React.FC<ChatPortalProps> = ({ className }) => {
     }
   }, [agentList, selectedAgentId]);
 
-  // Create new conversation when agent changes
+  // Clear conversation when agent changes
   useEffect(() => {
     if (selectedAgentId) {
-      const newConversation = new AgentConversation(selectedAgentId);
-      setConversation(newConversation);
-      setMessages([]); // Clear messages when switching agents
+      setMessages([]);
+      setConversationHistory([]);
       setError(null);
     }
   }, [selectedAgentId]);
 
   const sendMessage = useCallback(async () => {
-    if (!currentMessage.trim() || !conversation || isLoading) return;
+    if (!currentMessage.trim() || !selectedAgentId || isLoading) return;
+
+    // Check WebSocket connection
+    if (!isWebSocketConnected) {
+      setError('WebSocket not connected. Please wait for connection.');
+      return;
+    }
 
     const messageText = currentMessage.trim();
     const userMessage: ChatMessage = {
@@ -176,41 +173,60 @@ export const ChatPortal: React.FC<ChatPortalProps> = ({ className }) => {
     setIsLoading(true);
     setError(null);
 
-    try {
-      // Use the conversation management class
-      const chatData = await conversation.sendMessage(messageText);
+    // Update conversation history
+    setConversationHistory(prev => [...prev, { content: messageText, sender: 'user', timestamp: new Date().toISOString() }]);
 
-      const agentMessage: ChatMessage = {
-        content: chatData.response,
-        sender: chatData.agentName,
-        timestamp: chatData.timestamp || new Date().toISOString(),
-        agentId: selectedAgentId,
-        confidence: chatData.confidence,
-        memoryEnhanced: chatData.memoryEnhanced,
-        knowledgeUsed: chatData.knowledgeUsed,
-        toolsExecuted: chatData.toolsExecuted,
-        capabilities: chatData.availableCapabilities
+    try {
+      // Send message via WebSocket for real-time response
+      const chatMessage = {
+        type: 'agent_chat',
+        payload: {
+          agentId: selectedAgentId,
+          message: messageText,
+          conversationHistory: conversationHistory.slice(-10),
+          context: {},
+          messageId: `msg-${Date.now()}`,
+          timestamp: new Date().toISOString()
+        }
       };
 
-      setMessages(prev => [...prev, agentMessage]);
+      sendWebSocketMessage(chatMessage);
+      console.log('Sent WebSocket message to agent:', selectedAgent?.name);
+
+      // Set a fallback timeout in case WebSocket response doesn't arrive
+      const timeoutId = setTimeout(() => {
+        if (isLoading) {
+          setIsLoading(false);
+          setError('Agent response timed out. Please try again.');
+        }
+      }, 60000); // 60 second fallback timeout
+
+      // Store timeout ID to clear it when response arrives
+      const cleanup = () => clearTimeout(timeoutId);
+      return cleanup;
 
     } catch (error) {
-      console.error('Chat error:', error);
-      setError(error instanceof Error ? error.message : 'Failed to send message');
+      console.error('WebSocket chat error:', error);
+      
+      let errorMessage = 'Failed to send message via WebSocket';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      setError(errorMessage);
+      setIsLoading(false);
       
       // Add error message to chat
-      const errorMessage: ChatMessage = {
-        content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      const errorChatMessage: ChatMessage = {
+        content: `Sorry, I encountered an error: ${errorMessage}`,
         sender: selectedAgent?.name || 'System',
         timestamp: new Date().toISOString(),
         agentId: selectedAgentId
       };
       
-      setMessages(prev => [...prev, errorMessage]);
-    } finally {
-      setIsLoading(false);
+      setMessages(prev => [...prev, errorChatMessage]);
     }
-  }, [currentMessage, conversation, selectedAgentId, selectedAgent, isLoading]);
+  }, [currentMessage, selectedAgentId, selectedAgent, isLoading, conversationHistory, isWebSocketConnected, sendWebSocketMessage]);
 
   const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -221,17 +237,9 @@ export const ChatPortal: React.FC<ChatPortalProps> = ({ className }) => {
 
   const clearConversation = useCallback(() => {
     setMessages([]);
+    setConversationHistory([]);
     setError(null);
-    if (conversation) {
-      conversation.clearHistory();
-    }
-  }, [conversation]);
-
-  const setContext = useCallback((context: any) => {
-    if (conversation) {
-      conversation.setContext(context);
-    }
-  }, [conversation]);
+  }, []);
 
   return (
     <div className={`flex flex-col h-full space-y-4 ${className}`}>
@@ -258,20 +266,48 @@ export const ChatPortal: React.FC<ChatPortalProps> = ({ className }) => {
             </motion.div>
             <div>
               <h3 className="text-lg font-bold text-white">Agent Chat</h3>
-              <p className="text-sm text-slate-400">
-                {selectedAgent ? `Chatting with ${selectedAgent.name}` : 'Select an agent to start chatting'}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm text-slate-400">
+                  {selectedAgent ? `Chatting with ${selectedAgent.name}` : 'Select an agent to start chatting'}
+                </p>
+                <div className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`} />
+                <span className={`text-xs ${isWebSocketConnected ? 'text-green-400' : 'text-red-400'}`}>
+                  {isWebSocketConnected ? 'Real-time' : 'Offline'}
+                </span>
+              </div>
             </div>
           </div>
           
-          {messages.length > 0 && (
-            <button
-              onClick={clearConversation}
-              className="px-3 py-1 text-xs bg-red-500/20 text-red-400 rounded-lg border border-red-500/30 hover:bg-red-500/30 transition-colors"
-            >
-              Clear
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {messages.length > 0 && (
+              <DiscussionTrigger
+                trigger={
+                  <button className="px-3 py-1 text-xs bg-purple-500/20 text-purple-400 rounded-lg border border-purple-500/30 hover:bg-purple-500/30 transition-colors flex items-center gap-1">
+                    <Users className="w-3 h-3" />
+                    Discuss
+                  </button>
+                }
+                contextType="chat"
+                contextData={{
+                  chatHistory: messages.map(msg => ({
+                    content: msg.content,
+                    sender: msg.sender,
+                    timestamp: msg.timestamp
+                  })),
+                  topic: selectedAgent ? `Chat with ${selectedAgent.name}` : 'Agent Chat Discussion'
+                }}
+                preselectedAgents={selectedAgentId ? [selectedAgentId] : []}
+              />
+            )}
+            {messages.length > 0 && (
+              <button
+                onClick={clearConversation}
+                className="px-3 py-1 text-xs bg-red-500/20 text-red-400 rounded-lg border border-red-500/30 hover:bg-red-500/30 transition-colors"
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Agent Selector */}
@@ -503,13 +539,13 @@ export const ChatPortal: React.FC<ChatPortalProps> = ({ className }) => {
                   onChange={(e) => setCurrentMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder={selectedAgent ? `Message ${selectedAgent.name}...` : "Select an agent first..."}
-                  disabled={!conversation || isLoading}
+                  disabled={!selectedAgentId || isLoading}
                   className="w-full bg-slate-700/50 border border-slate-600/50 rounded-xl px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
               <motion.button
                 onClick={sendMessage}
-                disabled={!currentMessage.trim() || !conversation || isLoading}
+                disabled={!currentMessage.trim() || !selectedAgentId || isLoading}
                 className="p-3 bg-gradient-to-br from-blue-500 to-cyan-500 text-white rounded-xl hover:from-blue-600 hover:to-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { RiskLevel, MFAMethod, OAuthProviderType } from '@uaip/types';
 
 export interface SecurityPermissions {
@@ -153,12 +153,7 @@ export const SecurityProvider: React.FC<SecurityProviderProps> = ({ children }) 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load initial security data
-  useEffect(() => {
-    refreshSecurityData();
-  }, []);
-
-  const refreshSecurityData = async () => {
+  const refreshSecurityData = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -199,9 +194,14 @@ export const SecurityProvider: React.FC<SecurityProviderProps> = ({ children }) 
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const updateSettings = async (updates: Partial<SecuritySettings>) => {
+  // Load initial security data
+  useEffect(() => {
+    refreshSecurityData();
+  }, [refreshSecurityData]);
+
+  const updateSettings = useCallback(async (updates: Partial<SecuritySettings>) => {
     try {
       setError(null);
       // In real implementation: await api.post('/security/settings', updates);
@@ -210,9 +210,9 @@ export const SecurityProvider: React.FC<SecurityProviderProps> = ({ children }) 
       setError(err instanceof Error ? err.message : 'Failed to update settings');
       throw err;
     }
-  };
+  }, []);
 
-  const enableMFA = async (method: MFAMethod) => {
+  const enableMFA = useCallback(async (method: MFAMethod) => {
     try {
       setError(null);
       // In real implementation: await api.post('/security/mfa/enable', { method });
@@ -225,9 +225,9 @@ export const SecurityProvider: React.FC<SecurityProviderProps> = ({ children }) 
       setError(err instanceof Error ? err.message : 'Failed to enable MFA');
       throw err;
     }
-  };
+  }, []);
 
-  const disableMFA = async (method: MFAMethod) => {
+  const disableMFA = useCallback(async (method: MFAMethod) => {
     try {
       setError(null);
       // In real implementation: await api.delete(`/security/mfa/${method}`);
@@ -240,9 +240,9 @@ export const SecurityProvider: React.FC<SecurityProviderProps> = ({ children }) 
       setError(err instanceof Error ? err.message : 'Failed to disable MFA');
       throw err;
     }
-  };
+  }, []);
 
-  const connectOAuth = async (provider: OAuthProviderType) => {
+  const connectOAuth = useCallback(async (provider: OAuthProviderType) => {
     try {
       setError(null);
       // In real implementation: await api.post('/security/oauth/connect', { provider });
@@ -258,9 +258,9 @@ export const SecurityProvider: React.FC<SecurityProviderProps> = ({ children }) 
       setError(err instanceof Error ? err.message : 'Failed to connect OAuth provider');
       throw err;
     }
-  };
+  }, []);
 
-  const disconnectOAuth = async (provider: OAuthProviderType) => {
+  const disconnectOAuth = useCallback(async (provider: OAuthProviderType) => {
     try {
       setError(null);
       // In real implementation: await api.delete(`/security/oauth/${provider}`);
@@ -269,9 +269,9 @@ export const SecurityProvider: React.FC<SecurityProviderProps> = ({ children }) 
       setError(err instanceof Error ? err.message : 'Failed to disconnect OAuth provider');
       throw err;
     }
-  };
+  }, []);
 
-  const fetchAuditLog = async (filters?: AuditLogFilters) => {
+  const fetchAuditLog = useCallback(async (filters?: AuditLogFilters) => {
     try {
       setError(null);
       // In real implementation: await api.get('/security/audit', { params: filters });
@@ -295,13 +295,13 @@ export const SecurityProvider: React.FC<SecurityProviderProps> = ({ children }) 
       setError(err instanceof Error ? err.message : 'Failed to fetch audit log');
       throw err;
     }
-  };
+  }, []);
 
-  const clearError = () => {
+  const clearError = useCallback(() => {
     setError(null);
-  };
+  }, []);
 
-  const value: SecurityContextType = {
+  const value: SecurityContextType = useMemo(() => ({
     permissions,
     mfaStatus,
     settings,
@@ -318,7 +318,24 @@ export const SecurityProvider: React.FC<SecurityProviderProps> = ({ children }) 
     fetchAuditLog,
     refreshSecurityData,
     clearError
-  };
+  }), [
+    permissions,
+    mfaStatus,
+    settings,
+    metrics,
+    auditLog,
+    oauthConnections,
+    isLoading,
+    error,
+    updateSettings,
+    enableMFA,
+    disableMFA,
+    connectOAuth,
+    disconnectOAuth,
+    fetchAuditLog,
+    refreshSecurityData,
+    clearError
+  ]);
 
   return (
     <SecurityContext.Provider value={value}>

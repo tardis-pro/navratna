@@ -735,19 +735,69 @@ export const uaipAPI = {
       persona?: any;
       conversationContext: any;
       timestamp: string;
+      toolsExecuted?: Array<any>;
     }> {
-      // For now, return a mock response since this endpoint doesn't exist yet
-      return {
-        response: `Mock response to: ${request.message}`,
-        agentName: 'Mock Agent',
-        confidence: 0.8,
-        model: 'mock-model',
-        tokensUsed: 50,
-        memoryEnhanced: false,
-        knowledgeUsed: 0,
-        conversationContext: {},
-        timestamp: new Date().toISOString()
-      };
+      try {
+        const client = getAPIClient();
+        const authToken = client.getAuthToken();
+        
+        // Make direct HTTP request to the agent chat endpoint with timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+        
+        const response = await fetch(`/api/v1/agents/${agentId}/chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: JSON.stringify({
+            message: request.message,
+            conversationHistory: request.conversationHistory || [],
+            context: request.context || {}
+          }),
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        
+        if (!data.success) {
+          throw new Error(data.error?.message || 'Failed to chat with agent');
+        }
+        
+        return {
+          response: data.data.response,
+          agentName: data.data.agentName,
+          confidence: data.data.confidence || 0.8,
+          model: data.data.model || 'unknown',
+          tokensUsed: data.data.tokensUsed || 0,
+          memoryEnhanced: data.data.memoryEnhanced || false,
+          knowledgeUsed: data.data.knowledgeUsed || 0,
+          persona: data.data.persona,
+          conversationContext: data.data.conversationContext || {},
+          timestamp: data.data.timestamp || new Date().toISOString(),
+          toolsExecuted: data.data.toolsExecuted || []
+        };
+      } catch (error) {
+        console.error('Agent chat error:', error);
+        
+        if (error instanceof Error) {
+          if (error.name === 'AbortError') {
+            throw new Error('Agent response timed out after 30 seconds. The LLM service may be busy.');
+          }
+          if (error.message.includes('fetch')) {
+            throw new Error('Failed to connect to agent service. Please check if the backend is running.');
+          }
+        }
+        
+        throw error;
+      }
     }
   },
 

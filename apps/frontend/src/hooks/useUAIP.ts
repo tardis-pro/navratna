@@ -445,7 +445,20 @@ export function useWebSocket(url?: string) {
   const maxReconnectAttempts = 5;
 
   const connect = useCallback(async () => {
-    const wsUrl = url || `ws://localhost:8081/ws`;
+    // Get authentication token for WebSocket connection
+    const token = typeof window !== 'undefined' 
+      ? (localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken'))
+      : null;
+    
+    if (!token) {
+      setError('Authentication required for WebSocket connection');
+      console.warn('[UAIP WebSocket] No authentication token found - WebSocket connection requires authentication');
+      return;
+    }
+
+    // Include token in WebSocket URL as query parameter
+    const baseUrl = url || `ws://localhost:8081/ws`;
+    const wsUrl = `${baseUrl}?token=${encodeURIComponent(token)}`;
     
     try {
       wsRef.current = new WebSocket(wsUrl);

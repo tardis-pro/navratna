@@ -22,6 +22,7 @@ import { Badge } from '@/components/ui/badge'
 import { Loader2, Search, Filter, RefreshCw, Info, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { API_CONFIG } from '@/config/apiConfig'
+import { uaipAPI } from '@/utils/uaip-api'
 
 import '@xyflow/react/dist/style.css'
 
@@ -147,10 +148,12 @@ const getLayoutedElements = (
 
 interface KnowledgeGraphVisualizationInnerProps {
   className?: string
+  onNodeSelect?: (nodeData: { id: string; data: any }) => void
 }
 
 const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInnerProps> = ({
-  className = ''
+  className = '',
+  onNodeSelect
 }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState<KnowledgeNode>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<KnowledgeEdge>([])
@@ -190,8 +193,13 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
     (event: React.MouseEvent, node: KnowledgeNode) => {
       setSelectedNode(node)
       setShowDetails(true)
+      
+      // Call external callback if provided
+      if (onNodeSelect) {
+        onNodeSelect({ id: node.id, data: node.data })
+      }
     },
-    []
+    [onNodeSelect]
   )
 
   const fetchKnowledgeGraph = useCallback(async () => {
@@ -213,18 +221,8 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
         params.append('types', filterType)
       }
 
-      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.API_ROUTES.KNOWLEDGE}/graph?${params}`, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include'
-      })
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch knowledge graph: ${response.statusText}`)
-      }
-
-      const result = await response.json()
+      // Use UAIP API client for authenticated requests
+      const result = await uaipAPI.client.request(`${API_CONFIG.API_ROUTES.KNOWLEDGE}/graph?${params}`)
 
       if (!result.success) {
         throw new Error(result.error || 'Failed to fetch knowledge graph')
@@ -395,14 +393,27 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
                   <Info className="w-4 h-4 mr-2" />
                   Knowledge Details
                 </h3>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setShowDetails(false)}
-                  className="text-gray-400 hover:text-white"
-                >
-                  <EyeOff className="w-4 h-4" />
-                </Button>
+                <div className="flex gap-1">
+                  {onNodeSelect && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => onNodeSelect({ id: selectedNode.id, data: selectedNode.data })}
+                      className="text-purple-400 hover:text-purple-300"
+                      title="Examine in Atomic View"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setShowDetails(false)}
+                    className="text-gray-400 hover:text-white"
+                  >
+                    <EyeOff className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
 
               <div className="space-y-3 text-sm">

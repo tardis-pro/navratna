@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -116,16 +116,20 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
   const [selectedTab, setSelectedTab] = useState('overview');
   const { toast } = useToast();
 
-  // Default viewport if not provided
-  const defaultViewport: ViewportSize = {
-    width: typeof window !== 'undefined' ? window.innerWidth : 1024,
-    height: typeof window !== 'undefined' ? window.innerHeight : 768,
-    isMobile: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
-    isTablet: typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
-    isDesktop: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
-  };
-
-  const currentViewport = viewport || defaultViewport;
+  // Default viewport if not provided - memoized to prevent infinite re-renders
+  const currentViewport = useMemo(() => {
+    if (viewport) return viewport;
+    
+    const defaultViewport: ViewportSize = {
+      width: typeof window !== 'undefined' ? window.innerWidth : 1024,
+      height: typeof window !== 'undefined' ? window.innerHeight : 768,
+      isMobile: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
+      isTablet: typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
+      isDesktop: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
+    };
+    
+    return defaultViewport;
+  }, [viewport]);
 
   const fetchSecurityData = useCallback(async () => {
     try {

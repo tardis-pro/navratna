@@ -16,7 +16,8 @@ import {
   Bell,
   User,
   Menu,
-  X
+  X,
+  Globe
 } from 'lucide-react';
 import { DesktopIcon } from './desktop/DesktopIcon';
 import { RecentItemsPanel } from './desktop/RecentItemsPanel';
@@ -177,6 +178,16 @@ const DESKTOP_ICONS: DesktopIconConfig[] = [
     portalType: 'create',
     category: 'secondary',
     description: 'Create new resources'
+  },
+  {
+    id: 'mini-browser',
+    title: 'Mini Browser',
+    icon: Globe,
+    color: { primary: '#0EA5E9', secondary: '#0284C7' },
+    portalType: 'mini-browser',
+    category: 'secondary',
+    description: 'Web browser with screenshot capture',
+    shortcut: 'Ctrl+B'
   }
 ];
 
