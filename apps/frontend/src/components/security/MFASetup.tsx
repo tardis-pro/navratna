@@ -422,13 +422,7 @@ export const MFASetup: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h2 className="text-2xl font-bold">Multi-Factor Authentication</h2>
-        <p className="text-muted-foreground mt-1">
-          Add an extra layer of security to your account
-        </p>
-      </div>
+      {/* Header - removed since portal provides its own header */}
 
       {/* Security Status */}
       <Card className={`border-2 ${enabledMethods.length > 0 ? 'border-green-200 bg-green-50' : 'border-orange-200 bg-orange-50'}`}>

@@ -285,7 +285,7 @@ export class AgentContextService {
     return `analysis_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  private async getAgentData(agentId: string): Promise<Agent | null> {
+  private async getAgentData(_agentId: string): Promise<Agent | null> {
     // Request agent data through event bus
     // This would be implemented to communicate with Agent Core Service
     return null;

@@ -1,13 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
-import { 
-  
+import {
+
   CapabilityDiscoveryService,
   SecurityValidationService,
 } from '@uaip/shared-services';
 import { logger, ApiError } from '@uaip/utils';
-import { 
-  AgentAnalysisRequest, 
-  AgentPlanRequest, 
+import {
+  AgentAnalysisRequest,
+  AgentPlanRequest,
   AgentAnalysisResponse,
   AgentPlanResponse,
   Agent,
@@ -17,7 +17,7 @@ import {
 } from '@uaip/types';
 import { z } from 'zod';
 import { AgentTransformationService } from '@uaip/middleware';
-import { 
+import {
   AgentCoreService,
   AgentContextService,
   AgentPlanningService,
@@ -25,10 +25,10 @@ import {
   AgentDiscussionService,
   AgentEventOrchestrator
 } from '../services/index.js';
-import { 
-  KnowledgeGraphService, 
-  AgentMemoryService, 
-  PersonaService, 
+import {
+  KnowledgeGraphService,
+  AgentMemoryService,
+  PersonaService,
   DiscussionService,
   DatabaseService,
   EventBusService
@@ -66,55 +66,88 @@ export class AgentController {
     // Initialize refactored agent services with proper dependencies
     this.agentCore = new AgentCoreService({
       databaseService: databaseService || new DatabaseService(),
-      eventBusService: eventBusService || new EventBusService({ url: process.env.RABBITMQ_URL || 'amqp://localhost', serviceName: 'agent-controller' }, logger as any),
-      serviceName: 'agent-controller',
-      securityLevel: 2
+      eventBusService: eventBusService || new EventBusService({ url: process.env.RABBITMQ_URL || 'amqp://localhost', serviceName: 'agent-intelligence' }, logger as any),
+      serviceName: 'agent-intelligence',
+      securityLevel: 3
     });
-    
+
     this.agentContext = new AgentContextService({
       knowledgeGraphService: knowledgeGraphService || {} as any, // Will be initialized by service
       llmService: {} as any, // Will be initialized by service
-      eventBusService: eventBusService || new EventBusService({ url: process.env.RABBITMQ_URL || 'amqp://localhost', serviceName: 'agent-controller' }, logger as any),
-      serviceName: 'agent-controller',
-      securityLevel: 2
+      eventBusService: eventBusService || new EventBusService({ url: process.env.RABBITMQ_URL || 'amqp://localhost', serviceName: 'agent-intelligence' }, logger as any),
+      serviceName: 'agent-intelligence',
+      securityLevel: 3
     });
-    
+
     this.agentPlanning = new AgentPlanningService({
       databaseService: databaseService || new DatabaseService(),
-      eventBusService: eventBusService || new EventBusService({ url: process.env.RABBITMQ_URL || 'amqp://localhost', serviceName: 'agent-controller' }, logger as any),
-      serviceName: 'agent-controller',
-      securityLevel: 2
+      eventBusService: eventBusService || new EventBusService({ url: process.env.RABBITMQ_URL || 'amqp://localhost', serviceName: 'agent-intelligence' }, logger as any),
+      serviceName: 'agent-intelligence',
+      securityLevel: 3
     });
-    
+
     this.agentLearning = new AgentLearningService({
       agentMemoryService,
       knowledgeGraphService,
       databaseService: databaseService || new DatabaseService(),
-      eventBusService: eventBusService || new EventBusService({ url: process.env.RABBITMQ_URL || 'amqp://localhost', serviceName: 'agent-controller' }, logger as any),
-      serviceName: 'agent-controller',
-      securityLevel: 2
+      eventBusService: eventBusService || new EventBusService({ url: process.env.RABBITMQ_URL || 'amqp://localhost', serviceName: 'agent-intelligence' }, logger as any),
+      serviceName: 'agent-intelligence',
+      securityLevel: 3
     });
-    
+
     this.agentDiscussion = new AgentDiscussionService({
       discussionService,
       databaseService: databaseService || new DatabaseService(),
-      eventBusService: eventBusService || new EventBusService({ url: process.env.RABBITMQ_URL || 'amqp://localhost', serviceName: 'agent-controller' }, logger as any),
+      eventBusService: eventBusService || new EventBusService({ url: process.env.RABBITMQ_URL || 'amqp://localhost', serviceName: 'agent-intelligence' }, logger as any),
       llmService: undefined, // Will be initialized by service
       userLLMService: undefined, // Will be initialized by service
-      serviceName: 'agent-controller',
-      securityLevel: 2
+      serviceName: 'agent-intelligence',
+      securityLevel: 3
     });
-    
+
     this.agentOrchestrator = new AgentEventOrchestrator({
-      eventBusService: eventBusService || new EventBusService({ url: process.env.RABBITMQ_URL || 'amqp://localhost', serviceName: 'agent-controller' }, logger as any),
+      eventBusService: eventBusService || new EventBusService({ url: process.env.RABBITMQ_URL || 'amqp://localhost', serviceName: 'agent-intelligence' }, logger as any),
       databaseService: databaseService || new DatabaseService(),
       orchestrationPipelineUrl: process.env.ORCHESTRATION_PIPELINE_URL || 'http://localhost:3002',
-      serviceName: 'agent-controller',
-      securityLevel: 2
+      serviceName: 'agent-intelligence',
+      securityLevel: 3
     });
-    
+
     this.capabilityDiscoveryService = new CapabilityDiscoveryService();
     this.securityValidationService = new SecurityValidationService();
+  }
+
+  /**
+   * Initialize all agent services
+   */
+  public async initialize(): Promise<void> {
+    try {
+      logger.info('Initializing AgentController services...');
+
+      // Initialize all agent services
+      await this.agentCore.initialize();
+      await this.agentContext.initialize();
+      await this.agentPlanning.initialize();
+      await this.agentLearning.initialize();
+      await this.agentDiscussion.initialize();
+
+      // Initialize orchestrator with all services
+      await this.agentOrchestrator.initialize({
+        agentCoreService: this.agentCore,
+        agentContextService: this.agentContext,
+        agentPlanningService: this.agentPlanning,
+        agentLearningService: this.agentLearning,
+        agentDiscussionService: this.agentDiscussion,
+        agentMetricsService: undefined, // Not available in controller
+        agentIntentService: undefined, // Not available in controller
+        agentInitializationService: undefined // Not available in controller
+      });
+
+      logger.info('AgentController services initialized successfully');
+    } catch (error) {
+      logger.error('Failed to initialize AgentController services:', error);
+      throw error;
+    }
   }
 
   /**
@@ -160,8 +193,8 @@ export class AgentController {
         }
       };
 
-      logger.info('Enhanced context analysis completed', { 
-        agentId, 
+      logger.info('Enhanced context analysis completed', {
+        agentId,
         confidence: analysis.confidence,
         actionsCount: analysis.recommendations?.length,
         capabilitiesCount: capabilities.length
@@ -217,8 +250,8 @@ export class AgentController {
         }
       };
 
-      logger.info('Enhanced plan generation completed', { 
-        agentId, 
+      logger.info('Enhanced plan generation completed', {
+        agentId,
         planType: plan.type,
         stepsCount: plan.steps?.length,
         requiresApproval: approvalRequired
@@ -239,8 +272,8 @@ export class AgentController {
     const rawData = req.body;
 
     try {
-      logger.info('Creating new enhanced agent', { 
-        name: rawData.name, 
+      logger.info('Creating new enhanced agent', {
+        name: rawData.name,
         inputFormat: this.detectInputFormat(rawData),
         hasPersonaId: !!rawData.personaId,
         hasPersonaData: !!rawData.persona
@@ -248,7 +281,7 @@ export class AgentController {
 
       // COMPOSITION MODEL: Handle different input formats
       let agentRequest;
-      
+
       if (rawData.personaId) {
         // COMPOSITION MODEL: Direct personaId provided
         logger.info('Creating agent with persona reference', { personaId: rawData.personaId });
@@ -256,15 +289,15 @@ export class AgentController {
       } else if (rawData.persona || this.isPersonaFormat(rawData)) {
         // TRANSFORMATION MODE: Persona data provided, need to transform
         logger.info('Transforming persona format to agent request', { name: rawData.name });
-        
+
         agentRequest = AgentTransformationService.transformPersonaToAgentRequest(rawData);
-        
+
         // Validate transformation result
         if (!AgentTransformationService.validateTransformation(agentRequest)) {
           throw new ApiError(400, 'Persona transformation failed validation', 'TRANSFORMATION_ERROR');
         }
-        
-        logger.info('Persona transformation successful', { 
+
+        logger.info('Persona transformation successful', {
           originalRole: rawData.role || rawData.persona?.role,
           mappedRole: agentRequest.role,
           capabilities: agentRequest.capabilities
@@ -274,9 +307,17 @@ export class AgentController {
         throw new ApiError(400, 'Either personaId or persona data must be provided', 'MISSING_PERSONA_REFERENCE');
       }
 
+      // Log the request data before validation
+      logger.info('Agent request before validation', {
+        agentRequest: JSON.stringify(agentRequest, null, 2),
+        capabilities: agentRequest.capabilities,
+        capabilitiesType: typeof agentRequest.capabilities,
+        capabilitiesLength: Array.isArray(agentRequest.capabilities) ? agentRequest.capabilities.length : 'not array'
+      });
+
       // Validate the final request against schema
       const validatedRequest = AgentCreateRequestSchema.parse(agentRequest);
-      
+
       // Add user context (when auth is properly implemented)
       const agentData = {
         ...validatedRequest,
@@ -286,11 +327,31 @@ export class AgentController {
       // Create the agent (service will validate persona exists)
       const agent = await this.agentCore.createAgent(agentData, agentData.createdBy || 'anonymous');
 
-      logger.info('Enhanced agent created successfully', { 
+      // Attach tools if provided
+      if (agentData.attachedTools && agentData.attachedTools.length > 0) {
+        await this.attachToolsToAgent(agent.id, agentData.attachedTools);
+        logger.info('Tools attached to agent', {
+          agentId: agent.id,
+          toolsCount: agentData.attachedTools.length,
+          tools: agentData.attachedTools.map(t => t.toolName)
+        });
+      }
+
+      // Set up chat configuration
+      if (agentData.chatConfig) {
+        await this.configureChatCapabilities(agent.id, agentData.chatConfig);
+        logger.info('Chat configuration applied', {
+          agentId: agent.id,
+          chatConfig: agentData.chatConfig
+        });
+      }
+
+      logger.info('Enhanced agent created successfully', {
         agentId: agent.id,
         role: agent.role,
         personaId: agent.personaId,
-        transformationApplied: !rawData.personaId
+        transformationApplied: !rawData.personaId,
+        toolsAttached: agentData.attachedTools?.length || 0
       });
 
       // Return agent with composition information
@@ -307,6 +368,14 @@ export class AgentController {
       this.sendSuccessResponse(res, response, 201);
 
     } catch (error) {
+      // Log the full error for debugging
+      logger.error('Agent creation error details', {
+        error: error instanceof Error ? error.message : error,
+        stack: error instanceof Error ? error.stack : undefined,
+        requestData: rawData,
+        errorType: error.constructor.name
+      });
+
       this.handleEnhancedError(error, 'agent creation', { name: rawData.name }, next);
     }
   }
@@ -350,10 +419,10 @@ export class AgentController {
         }
       };
 
-      logger.info('Fetched agent with persona data', { 
-        agentId, 
+      logger.info('Fetched agent with persona data', {
+        agentId,
         personaId: agentWithPersona.personaId,
-        personaName: agentWithPersona.personaData?.name 
+        personaName: agentWithPersona.personaData?.name
       });
 
       this.sendSuccessResponse(res, response);
@@ -370,45 +439,45 @@ export class AgentController {
     try {
       // Get validated query parameters from middleware
       const queryParams = (req as any).validatedQuery || {};
-      
+
       // For now, pass the limit parameter to the service
       const limit = queryParams.limit;
       const agents = await this.agentCore.getAgents(limit);
-      
+
       // Apply client-side filtering for other parameters until we implement server-side filtering
       let filteredAgents = agents;
-      
+
       if (queryParams.role) {
         filteredAgents = filteredAgents.filter(agent => agent.role === queryParams.role);
       }
-      
+
       if (queryParams.isActive !== undefined) {
         filteredAgents = filteredAgents.filter(agent => agent.isActive === queryParams.isActive);
       }
-      
-             if (queryParams.capabilities && queryParams.capabilities.length > 0) {
-         filteredAgents = filteredAgents.filter(agent => 
-           queryParams.capabilities.some((cap: string) => 
-             (agent as any).capabilities?.includes(cap)
-           )
-         );
-       }
-      
+
+      if (queryParams.capabilities && queryParams.capabilities.length > 0) {
+        filteredAgents = filteredAgents.filter(agent =>
+          queryParams.capabilities.some((cap: string) =>
+            (agent as any).capabilities?.includes(cap)
+          )
+        );
+      }
+
       // Apply sorting
       if (queryParams.sortBy) {
         const sortField = queryParams.sortBy;
         const sortOrder = queryParams.sortOrder || 'desc';
-        
+
         filteredAgents.sort((a: any, b: any) => {
           let aVal = a[sortField];
           let bVal = b[sortField];
-          
+
           // Handle date fields
           if (sortField === 'createdAt' || sortField === 'lastActiveAt') {
             aVal = new Date(aVal).getTime();
             bVal = new Date(bVal).getTime();
           }
-          
+
           if (sortOrder === 'asc') {
             return aVal > bVal ? 1 : -1;
           } else {
@@ -416,12 +485,12 @@ export class AgentController {
           }
         });
       }
-      
+
       // Apply offset
       if (queryParams.offset) {
         filteredAgents = filteredAgents.slice(queryParams.offset);
       }
-      
+
       // Apply limit after filtering and offset
       if (queryParams.limit && !limit) { // Only apply if we didn't already limit at DB level
         filteredAgents = filteredAgents.slice(0, queryParams.limit);
@@ -468,7 +537,7 @@ export class AgentController {
     try {
       await this.agentCore.deleteAgent(agentId, req.user?.id || 'anonymous');
       logger.info('Agent deleted successfully', { agentId });
-      
+
       res.status(204).send();
 
     } catch (error) {
@@ -536,7 +605,7 @@ export class AgentController {
       const { agentId } = req.params;
       const { discussionId, comment } = req.body;
 
-      logger.info('Triggering agent participation in discussion', { 
+      logger.info('Triggering agent participation in discussion', {
         agentId,
         discussionId,
         hasComment: !!comment
@@ -548,7 +617,7 @@ export class AgentController {
         comment || ''
       );
 
-      logger.info('Agent participation triggered', { 
+      logger.info('Agent participation triggered', {
         agentId,
         discussionId,
         response: result.response
@@ -564,7 +633,7 @@ export class AgentController {
       });
 
     } catch (error) {
-      logger.error('Error triggering agent participation', { 
+      logger.error('Error triggering agent participation', {
         agentId: req.params.agentId,
         error: error instanceof Error ? error.message : 'Unknown error'
       });
@@ -580,8 +649,8 @@ export class AgentController {
     const { message, conversationHistory, context } = req.body;
 
     try {
-      logger.info('Starting casual chat with agent', { 
-        agentId, 
+      logger.info('Starting casual chat with agent', {
+        agentId,
         messageLength: message?.length,
         hasHistory: !!conversationHistory?.length,
         hasContext: !!context
@@ -600,7 +669,7 @@ export class AgentController {
 
       // Build conversation messages from history
       const messages = [];
-      
+
       // Add conversation history if provided
       if (conversationHistory && Array.isArray(conversationHistory)) {
         conversationHistory.forEach((msg, index) => {
@@ -626,19 +695,62 @@ export class AgentController {
       // Get user ID from request for LLM service context
       const userId = req.user?.id || agentWithPersona.createdBy;
 
+      // Get agent's available tools and capabilities
+      const availableTools = await this.getAgentAvailableTools(agentId);
+      const agentCapabilities = await this.fetchAgentCapabilities(agentWithPersona, message);
+
+      // Enhanced chat context with all agent functions
+      const enhancedContext = {
+        conversationType: 'enhanced_chat',
+        agentPersona: agentWithPersona.personaData,
+        additionalContext: context,
+        enableMemoryRetrieval: true,
+        enableKnowledgeSearch: true,
+        enableToolExecution: true,
+        availableTools,
+        agentCapabilities,
+        chatConfig: agentWithPersona.metadata?.chatConfig,
+        // Allow agent to analyze and plan if needed
+        enableContextAnalysis: true,
+        enablePlanGeneration: true,
+        // Real-time capabilities
+        enableRealTimeSearch: true,
+        enableLearning: true
+      };
+
       // Generate response using the enhanced agent intelligence service
       const result = await this.agentDiscussion.generateAgentResponse(
         agentId,
         messages,
-        {
-          conversationType: 'casual_chat',
-          agentPersona: agentWithPersona.personaData,
-          additionalContext: context,
-          enableMemoryRetrieval: true,
-          enableKnowledgeSearch: true
-        },
+        enhancedContext,
         userId
       );
+
+      // Execute any tools if the agent decided to use them
+      let toolResults = null;
+      if (result.suggestedTools && result.suggestedTools.length > 0) {
+        toolResults = await this.executeToolsInChat(agentId, result.suggestedTools, userId);
+        
+        // Generate follow-up response with tool results if tools were executed
+        if (toolResults && toolResults.some(r => r.success)) {
+          const followUpResult = await this.agentDiscussion.generateAgentResponse(
+            agentId,
+            [...messages, {
+              id: `tool-results-${Date.now()}`,
+              content: `Tool execution results: ${JSON.stringify(toolResults)}`,
+              sender: 'system',
+              timestamp: new Date().toISOString(),
+              type: 'tool-result'
+            }],
+            { ...enhancedContext, toolResults },
+            userId
+          );
+          
+          // Merge results
+          result.response = followUpResult.response;
+          result.toolsExecuted = toolResults;
+        }
+      }
 
       // Build response with persona and memory information
       const response = {
@@ -656,7 +768,10 @@ export class AgentController {
           name: agentWithPersona.personaData.name,
           role: agentWithPersona.personaData.role,
           personality: agentWithPersona.personaData.traits,
-          expertise: agentWithPersona.personaData.expertise?.map((e: any) => e.name || e) || [],
+          expertise: Array.isArray(agentWithPersona.personaData.expertise) 
+            ? agentWithPersona.personaData.expertise.map((e: string | { name: string }) => 
+                typeof e === 'string' ? e : e.name) 
+            : [],
           communicationStyle: agentWithPersona.personaData.conversationalStyle
         } : null,
         // Conversation metadata
@@ -670,14 +785,14 @@ export class AgentController {
       };
 
       if (result.error) {
-        logger.warn('Chat response generated with errors', { 
-          agentId, 
+        logger.warn('Chat response generated with errors', {
+          agentId,
           error: result.error,
           fallbackUsed: true
         });
       }
 
-      logger.info('Casual chat completed successfully', { 
+      logger.info('Casual chat completed successfully', {
         agentId,
         agentName: agentWithPersona.name,
         responseLength: result.response?.length,
@@ -739,7 +854,7 @@ export class AgentController {
     return await this.capabilityDiscoveryService.getAgentCapabilities(agent.id);
   }
 
-  
+
 
   /**
    * Check if approval is required based on risk level
@@ -763,15 +878,15 @@ export class AgentController {
    */
   private isPersonaFormat(input: any): boolean {
     // Check for persona-specific indicators
-    const hasPersonaStructure = input.persona || 
-                               (input.role && !['assistant', 'analyzer', 'orchestrator', 'specialist'].includes(input.role)) ||
-                               (input.expertise && !input.capabilities) ||
-                               input.traits ||
-                               input.background;
-    
+    const hasPersonaStructure = input.persona ||
+      (input.role && !['assistant', 'analyzer', 'orchestrator', 'specialist'].includes(input.role)) ||
+      (input.expertise && !input.capabilities) ||
+      input.traits ||
+      input.background;
+
     // Check for missing agent-specific required fields
     const missingAgentFields = !input.capabilities || !input.description;
-    
+
     return hasPersonaStructure || missingAgentFields;
   }
 
@@ -798,6 +913,18 @@ export class AgentController {
     });
 
     if (error instanceof z.ZodError) {
+      // Log detailed Zod validation errors
+      logger.error('Zod validation failed with details', {
+        operation,
+        errors: error.errors.map(e => ({
+          path: e.path.join('.'),
+          message: e.message,
+          received: e.received,
+          expected: e.expected
+        })),
+        fullErrors: error.errors
+      });
+
       // Enhanced Zod validation error handling
       const enhancedError = new ApiError(400, 'Request validation failed', 'VALIDATION_ERROR', {
         details: error.errors,
@@ -818,10 +945,236 @@ export class AgentController {
    */
   private handleError(error: any, operation: string, context: any, next: NextFunction): void {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error(`Error in ${operation}`, { 
-      ...context, 
-      error: errorMessage 
+    logger.error(`Error in ${operation}`, {
+      ...context,
+      error: errorMessage
     });
     next(error);
+  }
+
+  /**
+   * Attach tools to an agent during creation/update
+   */
+  private async attachToolsToAgent(agentId: string, tools: Array<{toolId: string, toolName: string, category: string, permissions?: string[]}>): Promise<void> {
+    try {
+      for (const tool of tools) {
+        await this.capabilityDiscoveryService.assignCapabilityToAgent(agentId, tool.toolId, {
+          permissions: tool.permissions || ['execute'],
+          category: tool.category,
+          metadata: {
+            attachedAt: new Date().toISOString(),
+            source: 'agent-creation'
+          }
+        });
+      }
+      
+      // Publish tool attachment event
+      await this.agentOrchestrator.publishEvent('agent.tools.attached', {
+        agentId,
+        tools: tools.map(t => ({ id: t.toolId, name: t.toolName, category: t.category })),
+        timestamp: new Date().toISOString()
+      });
+      
+      logger.info('Tools successfully attached to agent', {
+        agentId,
+        toolCount: tools.length,
+        toolIds: tools.map(t => t.toolId)
+      });
+    } catch (error) {
+      logger.error('Failed to attach tools to agent', {
+        agentId,
+        tools,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw new ApiError(500, 'Failed to attach tools to agent', 'TOOL_ATTACHMENT_ERROR');
+    }
+  }
+
+  /**
+   * Configure chat capabilities for an agent
+   */
+  private async configureChatCapabilities(agentId: string, chatConfig: any): Promise<void> {
+    try {
+      // Store chat configuration in agent metadata
+      await this.agentCore.updateAgent(agentId, {
+        metadata: {
+          chatConfig: {
+            ...chatConfig,
+            configuredAt: new Date().toISOString()
+          }
+        }
+      }, 'system');
+
+      // Initialize chat-specific capabilities
+      if (chatConfig.enableKnowledgeAccess) {
+        await this.enableKnowledgeAccess(agentId);
+      }
+      
+      if (chatConfig.enableToolExecution) {
+        await this.enableToolExecutionInChat(agentId);
+      }
+      
+      if (chatConfig.enableMemoryEnhancement) {
+        await this.enableMemoryEnhancement(agentId);
+      }
+
+      // Publish chat configuration event
+      await this.agentOrchestrator.publishEvent('agent.chat.configured', {
+        agentId,
+        chatConfig,
+        timestamp: new Date().toISOString()
+      });
+
+      logger.info('Chat capabilities configured for agent', {
+        agentId,
+        chatConfig
+      });
+    } catch (error) {
+      logger.error('Failed to configure chat capabilities', {
+        agentId,
+        chatConfig,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw new ApiError(500, 'Failed to configure chat capabilities', 'CHAT_CONFIG_ERROR');
+    }
+  }
+
+  /**
+   * Enable knowledge access for agent during chat
+   */
+  private async enableKnowledgeAccess(agentId: string): Promise<void> {
+    // Add knowledge search capability to agent
+    await this.capabilityDiscoveryService.assignCapabilityToAgent(agentId, 'knowledge-search', {
+      permissions: ['search', 'read'],
+      category: 'knowledge',
+      metadata: {
+        enabledForChat: true,
+        configuredAt: new Date().toISOString()
+      }
+    });
+  }
+
+  /**
+   * Enable tool execution during chat conversations
+   */
+  private async enableToolExecutionInChat(agentId: string): Promise<void> {
+    // Configure agent for in-chat tool execution
+    await this.agentCore.updateAgent(agentId, {
+      capabilities: ['chat-tool-execution', 'real-time-computation']
+    }, 'system');
+  }
+
+  /**
+   * Enable memory enhancement for chat conversations
+   */
+  private async enableMemoryEnhancement(agentId: string): Promise<void> {
+    // Add memory enhancement capabilities
+    await this.capabilityDiscoveryService.assignCapabilityToAgent(agentId, 'memory-enhancement', {
+      permissions: ['read', 'write', 'analyze'],
+      category: 'memory',
+      metadata: {
+        enhancementType: 'conversational',
+        configuredAt: new Date().toISOString()
+      }
+    });
+  }
+
+  /**
+   * Get all available tools for an agent
+   */
+  private async getAgentAvailableTools(agentId: string): Promise<any[]> {
+    try {
+      const capabilities = await this.capabilityDiscoveryService.getAgentCapabilities(agentId);
+      return capabilities.map(cap => ({
+        id: cap.id,
+        name: cap.name,
+        category: cap.category,
+        description: cap.description,
+        parameters: cap.parameters,
+        permissions: cap.permissions
+      }));
+    } catch (error) {
+      logger.warn('Failed to get agent tools', { agentId, error });
+      return [];
+    }
+  }
+
+  /**
+   * Execute tools during chat conversation
+   */
+  private async executeToolsInChat(agentId: string, suggestedTools: any[], userId: string): Promise<any[]> {
+    const results = [];
+    
+    for (const toolSuggestion of suggestedTools) {
+      try {
+        // Validate agent has permission to use this tool
+        const hasPermission = await this.validateToolPermission(agentId, toolSuggestion.toolId);
+        if (!hasPermission) {
+          results.push({
+            toolId: toolSuggestion.toolId,
+            success: false,
+            error: 'Permission denied for tool execution',
+            timestamp: new Date().toISOString()
+          });
+          continue;
+        }
+
+        // Execute the tool
+        const toolResult = await this.capabilityDiscoveryService.executeTool(
+          toolSuggestion.toolId,
+          toolSuggestion.parameters,
+          {
+            agentId,
+            userId,
+            context: 'chat-execution',
+            timestamp: new Date().toISOString()
+          }
+        );
+
+        results.push({
+          toolId: toolSuggestion.toolId,
+          toolName: toolSuggestion.toolName,
+          success: true,
+          result: toolResult,
+          parameters: toolSuggestion.parameters,
+          timestamp: new Date().toISOString()
+        });
+
+        logger.info('Tool executed successfully in chat', {
+          agentId,
+          toolId: toolSuggestion.toolId,
+          userId
+        });
+
+      } catch (error) {
+        results.push({
+          toolId: toolSuggestion.toolId,
+          success: false,
+          error: error instanceof Error ? error.message : 'Tool execution failed',
+          timestamp: new Date().toISOString()
+        });
+
+        logger.error('Tool execution failed in chat', {
+          agentId,
+          toolId: toolSuggestion.toolId,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Validate if agent has permission to execute a specific tool
+   */
+  private async validateToolPermission(agentId: string, toolId: string): Promise<boolean> {
+    try {
+      const agentCapabilities = await this.capabilityDiscoveryService.getAgentCapabilities(agentId);
+      return agentCapabilities.some(cap => cap.id === toolId && cap.permissions?.includes('execute'));
+    } catch (error) {
+      logger.warn('Failed to validate tool permission', { agentId, toolId, error });
+      return false;
+    }
   }
 } 

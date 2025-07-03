@@ -10,6 +10,7 @@ Council of Nycea is a **Unified Agent Intelligence Platform (UAIP)** - a product
 
 - You use puppeteer on 5173 always
 - Its running in docker compose is hotreloading
+- You are in pnpm workspace, always think global, extend configs, no private local thing unless explicitly required or deemed necessary
 
 ## Common Development Commands
 
@@ -110,12 +111,12 @@ council-of-nycea/
 ```
 
 ### Core Services
-- **Agent Intelligence** (3001) - AI agent management, context analysis, persona handling
-- **Orchestration Pipeline** (3002) - Workflow coordination, operation management
-- **Capability Registry** (3003) - Tool management, sandboxed execution  
-- **Security Gateway** (3004) - Authentication, authorization, auditing
-- **Discussion Orchestration** (3005) - Real-time collaborative discussions via WebSocket
-- **LLM Service** (llm-service) - Multi-provider LLM integration (OpenAI, Anthropic, Ollama)
+- **Agent Intelligence** (3001) - Modular AI agent management with 6 specialized microservices, context analysis, persona handling
+- **Orchestration Pipeline** (3002) - Workflow coordination, operation management, tool execution orchestration
+- **Capability Registry** (3003) - Tool management, sandboxed execution, enterprise tool adapters (Jira, Confluence, Slack)
+- **Security Gateway** (3004) - Authentication, authorization, OAuth providers, MFA, agent security dashboard
+- **Discussion Orchestration** (3005) - Event-driven real-time collaborative discussions via WebSocket
+- **LLM Service** (llm-service) - Multi-provider LLM integration (OpenAI, Anthropic, Ollama) with MCP protocol support
 - **Artifact Service** (artifact-service) - Code generation, documentation, PRD creation
 
 ### Database Architecture
@@ -185,13 +186,19 @@ For focused development, use minimal services: `cd backend && npm run dev:minima
 
 ## Key Patterns
 
-- **Security**: All requests go through Security Gateway for auth/authz
-- **Events**: RabbitMQ for async communication between services
-- **Real-time**: WebSocket connections for agent discussions and live updates
-- **Caching**: Redis for API responses, sessions, and real-time data
-- **Audit**: Comprehensive audit trails for all operations
-- **Sandboxing**: Secure tool execution in Capability Registry
-- **Multi-agent**: Sophisticated agent personas with contextual awareness
+- **Security**: All requests go through Security Gateway for auth/authz with MFA and OAuth integration
+- **Events**: RabbitMQ for async communication between services with event-driven discussion flows
+- **Real-time**: Enterprise WebSocket connections for agent discussions and live security monitoring
+- **Caching**: Redis for API responses, sessions, and real-time data with performance optimization
+- **Audit**: Comprehensive audit trails for all operations with security dashboard visualization
+- **Sandboxing**: Secure tool execution in Capability Registry with enterprise tool adapters
+- **Multi-agent**: Sophisticated agent personas with modular microservice architecture (6 specialized services)
+- **MCP Integration**: Model Context Protocol support for enhanced AI reasoning and tool capabilities
+- **Tool Execution**: Unified tool execution service across all microservices for consistent patterns
+- **Enhanced Agents**: Tool attachment system with real-time execution during conversations
+- **Knowledge Separation**: User knowledge (Security Gateway) vs Agent knowledge (Agent Intelligence) architecture
+- **Chat Capabilities**: Configurable agent chat features (knowledge access, tool execution, memory enhancement)
+- **CORS Centralization**: All CORS handling at nginx gateway level for simplified security management
 
 ## Troubleshooting
 
@@ -203,6 +210,49 @@ For focused development, use minimal services: `cd backend && npm run dev:minima
 - **Test failures**: Middleware tests expect proper mock setup; check Jest configuration and workspace imports
 
 ## Recent Development Progress
+
+### ✅ Security Components Implementation (Completed)
+- **Frontend Security Dashboard**: Complete security management interface
+  - **Location**: `apps/frontend/src/components/security/`
+  - **Components**: AgentSecurityDashboard, MFASetup, OAuthConnectionsManager
+  - **Features**: Real-time security monitoring, MFA configuration, OAuth connection management
+  - **Integration**: Full integration with SecurityGateway service endpoints
+- **OAuth Provider Service Updates**: Enhanced OAuth integration capabilities
+  - **Location**: `backend/services/security-gateway/src/services/oauthProviderService.ts`
+  - **Features**: Multi-provider support, token management, connection validation
+  - **Providers**: GitHub, Gmail, Zoho, Microsoft, Custom OAuth providers
+
+### ✅ Enterprise Tool Integration (Completed)
+- **Enterprise Tool Adapters**: Production-ready integrations for enterprise platforms
+  - **Location**: `backend/services/capability-registry/src/adapters/`
+  - **Adapters**: Confluence, Jira, Slack enterprise connectors
+  - **Features**: Secure API access, data synchronization, workflow automation
+- **Enterprise Tool Registry**: Centralized tool management system
+  - **Location**: `backend/services/capability-registry/src/services/enterprise-tool-registry.ts`
+  - **Features**: Tool discovery, capability registration, usage analytics
+  - **Security**: Sandboxed execution with enterprise-grade access controls
+
+### ✅ MCP (Model Context Protocol) Integration (Completed)
+- **MCP Server Configuration**: Multi-server MCP integration for enhanced AI capabilities
+  - **Location**: `.mcp.json` configuration file
+  - **Servers**: thinker, calculator, puppeteer, neo4j integration servers
+  - **Features**: Enhanced reasoning, calculations, web automation, graph queries
+  - **Benefits**: Extended AI agent capabilities with specialized tool access
+
+### ✅ Tool Execution Service (Completed)
+- **Shared Tool Execution Service**: Simplified cross-service tool execution
+  - **Location**: `backend/shared/services/src/tool-execution.service.ts`
+  - **Features**: Unified tool execution interface, error handling, result formatting
+  - **Integration**: Used across agent-intelligence, orchestration-pipeline, and capability-registry
+  - **Benefits**: Consistent tool execution patterns, reduced code duplication
+
+### ✅ Event-Driven Discussion Enhancement (Completed)
+- **Event-Driven Discussion Service**: Enhanced real-time collaboration capabilities
+  - **Location**: `backend/services/discussion-orchestration/src/services/eventDrivenDiscussionService.ts`
+  - **Features**: Event-based discussion flow, real-time updates, participant management
+- **Enterprise WebSocket Handler**: Production-grade WebSocket management
+  - **Location**: `backend/services/discussion-orchestration/src/websocket/enterpriseWebSocketHandler.ts`
+  - **Features**: Enterprise security, connection pooling, message routing
 
 ### ✅ Middleware Testing Infrastructure (Completed)
 - **Complete test suite** for `backend/shared/middleware` package
@@ -235,3 +285,206 @@ For focused development, use minimal services: `cd backend && npm run dev:minima
   - **Route**: `POST /api/v1/personas` with authentication middleware
   - **Service**: PersonaService create method with proper validation
   - **Frontend API**: `uaipAPI.personas.create()` method properly integrated
+
+### ✅ Agent Intelligence Service Refactoring (Completed)
+- **Monolithic Service Removal**: Successfully removed `enhanced-agent-intelligence.service.ts` (3,044 lines)
+- **Modular Architecture Implementation**: Refactored into 6 specialized microservices:
+  - **AgentCoreService** (`backend/services/agent-intelligence/src/services/agent-core.service.ts`): CRUD operations for agents
+  - **AgentContextService** (`backend/services/agent-intelligence/src/services/agent-context.service.ts`): Context analysis and user intent processing
+  - **AgentPlanningService** (`backend/services/agent-intelligence/src/services/agent-planning.service.ts`): Execution plan generation and security validation
+  - **AgentLearningService** (`backend/services/agent-intelligence/src/services/agent-learning.service.ts`): Learning from operations and feedback
+  - **AgentDiscussionService** (`backend/services/agent-intelligence/src/services/agent-discussion.service.ts`): Discussion participation and chat responses
+  - **AgentEventOrchestrator** (`backend/services/agent-intelligence/src/services/agent-event-orchestrator.service.ts`): Event-driven coordination
+- **AgentController Refactoring**: Updated `backend/services/agent-intelligence/src/controllers/agentController.ts`
+  - Migrated from monolithic service to modular service architecture
+  - Fixed all method signatures and service configurations
+  - All compilation errors resolved
+- **Create Agent Flow Enhancement**: Fixed UI issue in AgentManagerPortal
+  - **Location**: `apps/frontend/src/components/futuristic/portals/AgentManagerPortal.tsx:1074-1125`
+  - **Problem**: Missing save button after persona selection
+  - **Solution**: Added persona confirmation section with "Create Agent" button
+  - **UX**: Users can now review selected persona before final agent creation
+- **Benefits Achieved**: 
+  - **Maintainability**: Each service < 500 lines with single responsibility
+  - **Scalability**: Services can scale independently  
+  - **Testability**: Focused unit testing per service
+  - **Reliability**: Better failure isolation
+  - **Code Quality**: Eliminated massive monolithic service
+
+### ✅ Enhanced Agent Functionality & Tool Integration (Completed)
+- **Tool Attachment to Agents**: Full tool attachment system during agent creation and updates
+  - **Backend Implementation**: `backend/services/agent-intelligence/src/controllers/agentController.ts`
+  - **Schema Enhancement**: Updated `@uaip/types` AgentCreateRequestSchema with `attachedTools` field
+  - **Features**: Tool selection with permissions, category-based organization, validation and security
+  - **API Integration**: Tools automatically attached during agent creation with proper event publishing
+- **Enhanced Chat Functionality**: All agent functions available during conversations
+  - **Real-time Tool Execution**: Agents can execute tools mid-conversation with permission validation
+  - **Knowledge Access**: Agents access user knowledge base during chat interactions
+  - **Memory Enhancement**: Conversation history and learning integration in real-time
+  - **Context Analysis**: Agents analyze user intent and generate execution plans during chat
+- **Chat Configuration System**: Fine-grained control over agent chat capabilities
+  - **Configuration Options**: Knowledge access, tool execution, memory enhancement toggles
+  - **Performance Settings**: Max concurrent chats, conversation timeouts, resource management
+  - **Security**: Permission-based tool execution with comprehensive validation
+- **Knowledge Routes Architecture**: Proper separation of user vs agent knowledge operations
+  - **User Knowledge**: Security Gateway handles user document upload/search (`/api/v1/knowledge`)
+  - **Agent Knowledge**: Agent Intelligence handles agent-specific knowledge operations during conversations
+  - **CORS Centralization**: All CORS handling moved to nginx gateway, removed from individual services
+- **UI Components Enhancement**: Complete frontend support for enhanced agent functionality
+  - **AgentManagerPortal Updates**: Tool attachment section with interactive tool selection grid
+  - **Chat Configuration UI**: Toggles for capabilities, performance settings, visual feedback
+  - **ChatPortal Enhancements**: Real-time tool execution indicators, capability displays, enhanced metadata
+  - **Tool Execution Visualization**: Success/failure indicators, execution timelines, result summaries
+- **Code Quality & Integration**:
+  - **Type Safety**: Full TypeScript integration with Zod validation schemas
+  - **Error Handling**: Comprehensive error handling for tool execution and chat operations
+  - **Event-Driven**: Tool attachment and chat operations publish events for system coordination
+  - **Backwards Compatibility**: All existing functionality preserved while adding enhancements
+
+**Benefits Achieved**:
+- **Enhanced User Experience**: Seamless tool integration during conversations with visual feedback
+- **Flexible Configuration**: Granular control over agent capabilities and performance settings
+- **Real-time Capabilities**: Agents can access knowledge, execute tools, and learn during conversations
+- **Security & Permissions**: Comprehensive permission system for tool execution and resource access
+- **Scalable Architecture**: Tool attachment and chat enhancements scale with existing microservice infrastructure
+
+## Enhanced Agent Usage Examples
+
+### Creating Agents with Tool Attachment
+
+```typescript
+// Create agent with tools and enhanced chat capabilities
+POST /api/v1/agents
+{
+  "name": "Research Assistant",
+  "description": "AI agent for research and analysis",
+  "capabilities": ["research", "analysis", "documentation"],
+  "personaId": "persona-123",
+  "attachedTools": [
+    {
+      "toolId": "web-search",
+      "toolName": "Web Search",
+      "category": "search",
+      "permissions": ["execute", "read"]
+    },
+    {
+      "toolId": "document-analyzer", 
+      "toolName": "Document Analyzer",
+      "category": "analysis",
+      "permissions": ["execute", "read", "write"]
+    }
+  ],
+  "chatConfig": {
+    "enableKnowledgeAccess": true,
+    "enableToolExecution": true,
+    "enableMemoryEnhancement": true,
+    "maxConcurrentChats": 3,
+    "conversationTimeout": 3600000
+  }
+}
+```
+
+### Enhanced Chat with Tool Execution
+
+```typescript
+// Chat with full agent capabilities
+POST /api/v1/agents/:agentId/chat
+{
+  "message": "Research the latest trends in AI and create a summary document",
+  "conversationHistory": [
+    {
+      "content": "Hello, I need help with research",
+      "sender": "user",
+      "timestamp": "2024-01-01T10:00:00Z"
+    }
+  ],
+  "context": {
+    "domain": "technology", 
+    "urgency": "high",
+    "outputFormat": "document"
+  }
+}
+
+// Response includes tool execution results
+{
+  "success": true,
+  "data": {
+    "response": "I've researched the latest AI trends and created a comprehensive summary document...",
+    "agentName": "Research Assistant",
+    "confidence": 0.92,
+    "toolsExecuted": [
+      {
+        "toolId": "web-search",
+        "toolName": "Web Search",
+        "success": true,
+        "result": "Found 15 relevant articles",
+        "timestamp": "2024-01-01T10:01:00Z"
+      },
+      {
+        "toolId": "document-analyzer",
+        "toolName": "Document Analyzer", 
+        "success": true,
+        "result": "Generated 3-page summary document",
+        "timestamp": "2024-01-01T10:02:00Z"
+      }
+    ],
+    "memoryEnhanced": true,
+    "knowledgeUsed": 2.5
+  }
+}
+```
+
+### Knowledge Routes Usage
+
+```typescript
+// User Knowledge Management (Security Gateway)
+POST /api/v1/knowledge
+{
+  "title": "Project Documentation",
+  "content": "Full project specifications...",
+  "tags": ["project", "documentation", "requirements"]
+}
+
+// Agent Knowledge Access (during chat - automatic)
+// Agents automatically access user knowledge when relevant
+// No direct API calls needed - handled internally during conversations
+```
+
+### UI Integration Examples
+
+**Agent Creation with Tools:**
+- Interactive tool selection grid with categories
+- Real-time tool attachment/detachment
+- Chat capability configuration toggles
+- Visual feedback for attached tools
+
+**Enhanced Chat Interface:**
+- Real-time tool execution indicators
+- Success/failure visual feedback  
+- Agent capability badges
+- Tool execution timeline display
+
+**Agent Capabilities Display:**
+- Knowledge access indicator
+- Tool execution status
+- Memory enhancement status
+- Enhanced agent badge
+
+## Important File Changes
+
+### Backend Schema & Type Changes
+- **`packages/shared-types/src/agent.ts`**: Enhanced `AgentCreateRequestSchema` with tool attachment and chat configuration support
+- **`backend/services/agent-intelligence/src/controllers/agentController.ts`**: Added tool attachment, chat configuration, and enhanced chat capabilities
+- **`backend/services/agent-intelligence/src/services/agent-core.service.ts`**: Core agent operations with tool integration support
+
+### Frontend UI Enhancements  
+- **`apps/frontend/src/components/futuristic/portals/AgentManagerPortal.tsx`**: Tool attachment UI and chat configuration interface
+- **`apps/frontend/src/components/futuristic/portals/ChatPortal.tsx`**: Enhanced chat with tool execution visualization and capability displays
+
+### Configuration & Routing
+- **`api-gateway/nginx.conf`**: CORS centralization and knowledge routes properly configured
+- **All backend services**: Removed individual CORS middleware in favor of nginx centralization
+
+### Knowledge Architecture
+- **Security Gateway**: User knowledge management routes (`/api/v1/knowledge`)
+- **Agent Intelligence**: Agent-specific knowledge operations during conversations (internal)```

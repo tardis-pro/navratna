@@ -140,10 +140,12 @@ export const DesktopIcon: React.FC<DesktopIconProps> = ({
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
         onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
+        onMouseLeave={() => {
+          setIsHovered(false);
+          setIsPressed(false);
+        }}
         onMouseDown={() => setIsPressed(true)}
         onMouseUp={() => setIsPressed(false)}
-        onMouseLeave={() => setIsPressed(false)}
         whileTap={{ scale: 0.95 }}
         role="button"
         tabIndex={0}
@@ -156,39 +158,60 @@ export const DesktopIcon: React.FC<DesktopIconProps> = ({
           }
         }}
       >
-        {/* Icon Background */}
+        {/* Sleek Icon Background */}
         <div
-          className="w-full h-full rounded-2xl flex items-center justify-center relative overflow-hidden"
+          className="w-full h-full rounded-2xl flex items-center justify-center relative overflow-hidden backdrop-blur-sm"
           style={{
-            background: `linear-gradient(135deg, ${config.color.primary}, ${config.color.secondary})`,
+            background: isActive
+              ? `linear-gradient(135deg, ${config.color.primary}40, ${config.color.secondary}60)`
+              : 'rgba(255, 255, 255, 0.05)',
             borderRadius: borderRadius,
-            border: isSelected ? '2px solid #3B82F6' : isActive ? '2px solid rgba(59, 130, 246, 0.5)' : 'none',
-            boxShadow: isActive ? '0 0 0 2px rgba(59, 130, 246, 0.2)' : 'none'
+            border: isSelected
+              ? '1px solid rgba(59, 130, 246, 0.8)'
+              : isActive
+                ? '1px solid rgba(59, 130, 246, 0.4)'
+                : '1px solid rgba(255, 255, 255, 0.1)',
+            boxShadow: isActive
+              ? `0 0 20px ${config.color.primary}30, inset 0 1px 0 rgba(255, 255, 255, 0.1)`
+              : 'inset 0 1px 0 rgba(255, 255, 255, 0.1)'
           }}
         >
-          {/* Shine Effect */}
+          {/* Subtle Glow Effect */}
           <motion.div
-            className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent"
-            style={{ borderRadius: borderRadius }}
-            animate={{
-              opacity: isHovered ? 0.3 : 0.1
+            className="absolute inset-0 rounded-2xl"
+            style={{
+              background: `radial-gradient(circle at center, ${config.color.primary}20, transparent 70%)`,
+              borderRadius: borderRadius
             }}
-            transition={{ duration: 0.2 }}
+            animate={{
+              opacity: isHovered ? 0.6 : isActive ? 0.3 : 0
+            }}
+            transition={{ duration: 0.3 }}
           />
 
           {/* Icon */}
           <IconComponent
             size={iconSize}
-            className="text-white drop-shadow-sm relative z-10"
+            className={`relative z-10 transition-colors duration-200 ${isActive
+                ? 'text-white drop-shadow-lg'
+                : 'text-white/80 hover:text-white'
+              }`}
+            style={{
+              filter: isActive ? `drop-shadow(0 0 8px ${config.color.primary}80)` : 'none'
+            }}
           />
 
-          {/* Active Indicator */}
+          {/* Active Pulse */}
           {isActive && (
             <motion.div
-              className="absolute inset-0 border-2 border-blue-400 rounded-2xl"
-              style={{ borderRadius: borderRadius }}
+              className="absolute inset-0 rounded-2xl"
+              style={{
+                border: `1px solid ${config.color.primary}60`,
+                borderRadius: borderRadius
+              }}
               animate={{
-                opacity: [0.5, 1, 0.5],
+                scale: [1, 1.05, 1],
+                opacity: [0.5, 0.8, 0.5],
               }}
               transition={{
                 duration: 2,

@@ -1,5 +1,4 @@
 import express, { Express } from 'express';
-import cors from 'cors';
 import helmet from 'helmet';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';

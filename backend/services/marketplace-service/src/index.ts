@@ -1,5 +1,4 @@
 import express from 'express';
-import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
@@ -19,7 +18,8 @@ const databaseService = new DatabaseService();
 
 // Middleware
 app.use(helmet());
-app.use(cors());
+// CORS is handled by nginx API gateway - disable service-level CORS
+// app.use(cors());
 app.use(compression());
 app.use(morgan('combined'));
 app.use(express.json({ limit: '10mb' }));

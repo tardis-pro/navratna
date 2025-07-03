@@ -84,9 +84,19 @@ export class EnterpriseToolRegistry {
   }
 
   async initialize(): Promise<void> {
-    // Validate service access
-    if (!validateServiceAccess(this.serviceName, 'postgresql', 'postgres-application', AccessLevel.WRITE)) {
-      throw new Error('Service lacks required database permissions for tool registry');
+    // Import config here to avoid circular dependencies
+    const { config } = await import('@uaip/config');
+
+    // Safely access enterprise configuration with fallback
+    const enterpriseConfig = config.enterprise || { enabled: false, zeroTrustMode: false, serviceAccessMatrix: 'standard' };
+
+    // Determine database instance name based on enterprise mode
+    const databaseInstance = enterpriseConfig.enabled ? 'postgres-application' : 'postgres';
+    const useEnterpriseMatrix = enterpriseConfig.enabled;
+
+    // Validate service access using appropriate matrix
+    if (!validateServiceAccess(this.serviceName, 'postgresql', databaseInstance, AccessLevel.WRITE, useEnterpriseMatrix)) {
+      throw new Error(`Service lacks required database permissions for tool registry (instance: ${databaseInstance}, enterprise: ${useEnterpriseMatrix})`);
     }
 
     // Set up event subscriptions
@@ -97,7 +107,9 @@ export class EnterpriseToolRegistry {
 
     logger.info('Enterprise Tool Registry initialized', {
       service: this.serviceName,
-      toolCount: this.tools.size
+      toolCount: this.tools.size,
+      enterpriseMode: enterpriseConfig.enabled,
+      databaseInstance
     });
   }
 

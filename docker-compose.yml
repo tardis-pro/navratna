@@ -231,6 +231,10 @@ services:
       - TEI_EMBEDDING_URL=http://tei-embeddings:80
       - TEI_RERANKER_URL=http://tei-reranker:8083
       - TEI_EMBEDDING_CPU_URL=http://tei-embeddings-cpu:80
+      # Enterprise Configuration
+      - ENTERPRISE_MODE=false
+      - ZERO_TRUST_MODE=disabled
+      - SERVICE_ACCESS_MATRIX=standard
     ports:
       - "3001:3001"
     volumes:
@@ -322,6 +326,10 @@ services:
       - TEI_EMBEDDING_URL=http://tei-embeddings:80
       - TEI_RERANKER_URL=http://tei-reranker:8083
       - TEI_EMBEDDING_CPU_URL=http://tei-embeddings-cpu:80
+      # Enterprise Configuration
+      - ENTERPRISE_MODE=false
+      - ZERO_TRUST_MODE=disabled
+      - SERVICE_ACCESS_MATRIX=standard
     ports:
       - "3003:3003"
     volumes:

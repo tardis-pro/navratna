@@ -64,6 +64,7 @@
     "react": "catalog:frontend",
     "react-day-picker": "catalog:frontend",
     "react-dom": "catalog:frontend",
+    "react-error-boundary": "^6.0.0",
     "react-hook-form": "catalog:frontend",
     "react-resizable-panels": "catalog:frontend",
     "react-router-dom": "catalog:frontend",

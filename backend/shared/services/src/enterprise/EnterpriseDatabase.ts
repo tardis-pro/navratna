@@ -9,17 +9,17 @@
 import { DatabaseService } from '../databaseService.js';
 import { TypeOrmService } from '../typeormService.js';
 import { logger } from '@uaip/utils';
-import { 
-  SERVICE_ACCESS_MATRIX, 
-  DatabaseTier, 
-  AccessLevel, 
-  validateServiceAccess, 
-  getDatabaseConnectionString 
+import {
+  SERVICE_ACCESS_MATRIX,
+  DatabaseTier,
+  AccessLevel,
+  validateServiceAccess,
+  getDatabaseConnectionString
 } from './ServiceAccessMatrix.js';
 
 export interface EnterpriseConnectionConfig {
   serviceName: string;
-  databaseType: 'postgresql' | 'neo4j' | 'qdrant' | 'redis';
+  databaseType: 'postgresql' | 'neo4j' | 'qdrant' | 'redis' | 'rabbitmq';
   databaseInstance: string;
   requestedPermissions: AccessLevel[];
 }
@@ -90,7 +90,7 @@ export class EnterpriseDatabase extends DatabaseService {
    */
   public async initializeEnterpriseConnections(): Promise<void> {
     const serviceConfig = SERVICE_ACCESS_MATRIX[this.serviceName];
-    
+
     if (!serviceConfig) {
       throw new Error(`Service ${this.serviceName} not found in access matrix`);
     }
@@ -106,7 +106,7 @@ export class EnterpriseDatabase extends DatabaseService {
     // Register each allowed database connection
     for (const dbConfig of serviceConfig.databases) {
       const configKey = `${dbConfig.type}-${dbConfig.instance}`;
-      
+
       this.connectionConfigs.set(configKey, {
         serviceName: this.serviceName,
         databaseType: dbConfig.type,
@@ -330,7 +330,7 @@ export class EnterpriseDatabase extends DatabaseService {
     }>;
   } {
     const serviceConfig = SERVICE_ACCESS_MATRIX[this.serviceName];
-    
+
     if (!serviceConfig) {
       throw new Error(`Service ${this.serviceName} not found in access matrix`);
     }
@@ -427,11 +427,11 @@ export class EnterpriseDatabase extends DatabaseService {
     const accessDeniedEvents = this.auditEvents.filter(e => e.eventType === 'ACCESS_DENIED');
 
     const recommendations: string[] = [];
-    
+
     if (accessDeniedEvents.length > 0) {
       recommendations.push('Review and address access denied events');
     }
-    
+
     if (serviceConfig.securityLevel < 3) {
       recommendations.push('Consider upgrading security level for enhanced protection');
     }
@@ -473,7 +473,7 @@ export class EnterpriseDatabase extends DatabaseService {
     for (const dbConfig of serviceConfig.databases) {
       try {
         const startTime = Date.now();
-        
+
         // Attempt to validate access (this is a mock check)
         const hasAccess = validateServiceAccess(
           this.serviceName,

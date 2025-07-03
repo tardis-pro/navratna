@@ -8,6 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/components/ui/use-toast';
+import { useSecurity } from '@/contexts/SecurityContext';
 import {
   Shield,
   ShieldAlert,
@@ -104,11 +105,13 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
   viewport,
   mode = 'dashboard'
 }) => {
-  const [metrics, setMetrics] = useState<SecurityMetrics | null>(null);
+  // Use centralized security state
+  const { metrics, auditLog, refreshSecurityData, isLoading, error } = useSecurity();
+  
+  // Local UI state only
   const [activities, setActivities] = useState<AgentActivity[]>([]);
   const [policies, setPolicies] = useState<SecurityPolicy[]>([]);
   const [timeRange, setTimeRange] = useState<'24h' | '7d' | '30d'>('24h');
-  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedTab, setSelectedTab] = useState('overview');
   const { toast } = useToast();
@@ -126,20 +129,12 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
 
   const fetchSecurityData = useCallback(async () => {
     try {
-      setLoading(true);
-      // Mock data for demonstration since security endpoints may not be implemented yet
-      const mockMetrics: SecurityMetrics = {
-        overallScore: 85,
-        riskLevel: RiskLevel.MEDIUM,
-        totalOperations: 1247,
-        blockedOperations: 23,
-        approvedOperations: 1224,
-        pendingApprovals: 5,
-        activePolicies: 12,
-        recentIncidents: 2,
-        complianceScore: 92
-      };
-
+      setRefreshing(true);
+      
+      // Use centralized security data refresh
+      await refreshSecurityData();
+      
+      // Mock additional data that's not in central state yet
       const mockActivities: AgentActivity[] = [
         {
           id: '1',
@@ -167,7 +162,6 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
         }
       ];
 
-      setMetrics(mockMetrics);
       setActivities(mockActivities);
       setPolicies(mockPolicies);
     } catch (error) {
@@ -177,10 +171,9 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
         variant: 'destructive'
       });
     } finally {
-      setLoading(false);
       setRefreshing(false);
     }
-  }, [toast]);
+  }, [refreshSecurityData, toast]);
 
   useEffect(() => {
     fetchSecurityData();
@@ -242,30 +235,43 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
   const renderOverviewMetrics = () => {
     if (!metrics) return null;
 
+    // Convert SecurityContext metrics to dashboard format
+    const dashboardMetrics = {
+      overallScore: metrics.securityScore,
+      riskLevel: metrics.riskLevel,
+      totalOperations: 1247, // Mock for now
+      blockedOperations: metrics.blockedAttempts,
+      approvedOperations: 1224, // Mock for now
+      pendingApprovals: 5, // Mock for now
+      activePolicies: 12, // Mock for now
+      recentIncidents: metrics.recentIncidents,
+      complianceScore: 92 // Mock for now
+    };
+
     const metricCards = [
       {
         title: 'Security Score',
-        value: `${metrics.overallScore}%`,
+        value: `${dashboardMetrics.overallScore}%`,
         icon: <Shield className="w-5 h-5" />,
-        trend: metrics.overallScore > 80 ? 'up' : 'down',
-        color: metrics.overallScore > 80 ? 'text-green-600' : 'text-orange-600'
+        trend: dashboardMetrics.overallScore > 80 ? 'up' : 'down',
+        color: dashboardMetrics.overallScore > 80 ? 'text-green-600' : 'text-orange-600'
       },
       {
         title: 'Risk Level',
-        value: metrics.riskLevel,
+        value: dashboardMetrics.riskLevel,
         icon: <ShieldAlert className="w-5 h-5" />,
         badge: true,
-        color: RISK_COLORS[metrics.riskLevel]
+        color: RISK_COLORS[dashboardMetrics.riskLevel]
       },
       {
         title: 'Total Operations',
-        value: metrics.totalOperations.toLocaleString(),
+        value: dashboardMetrics.totalOperations.toLocaleString(),
         icon: <Activity className="w-5 h-5" />,
-        subValue: `${metrics.blockedOperations} blocked`
+        subValue: `${dashboardMetrics.blockedOperations} blocked`
       },
       {
         title: 'Compliance Score',
-        value: `${metrics.complianceScore}%`,
+        value: `${dashboardMetrics.complianceScore}%`,
         icon: <CheckCircle2 className="w-5 h-5" />,
         progress: true
       }
@@ -490,7 +496,7 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
     );
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
         <Loader2 className="w-8 h-8 animate-spin" />
@@ -508,9 +514,9 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
           className="flex items-center justify-between"
         >
           <div>
-            <h2 className="text-2xl font-bold">Agent Security Dashboard</h2>
+            <h2 className="text-2xl font-bold">Security Dashboard</h2>
             <p className="text-muted-foreground">
-              Monitor and manage agent security policies and activities
+              Monitor and manage security policies and activities
             </p>
           </div>
 

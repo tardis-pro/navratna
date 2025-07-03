@@ -1,9 +1,7 @@
 import express from 'express';
-import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
-import path from 'path';
 
 import { logger } from '@uaip/utils';
 import { errorHandler, rateLimiter, metricsMiddleware, metricsEndpoint } from '@uaip/middleware';
@@ -18,6 +16,7 @@ import { createAgentRoutes } from './routes/agentRoutes.js';
 import { createPersonaRoutes } from './routes/personaRoutes.js';
 import { createDiscussionRoutes } from './routes/discussionRoutes.js';
 import { healthRoutes } from './routes/healthRoutes.js';
+import knowledgeRoutes from './routes/knowledgeRoutes.js';
 import { AgentController } from './controllers/agentController.js';
 import { PersonaController } from './controllers/personaController.js';
 import { DiscussionController } from './controllers/discussionController.js';
@@ -55,7 +54,7 @@ class AgentIntelligenceService {
   private agentIntentService: AgentIntentService;
   private agentInitializationService: AgentInitializationService;
   private agentEventOrchestrator: AgentEventOrchestrator;
-  
+
   // ServiceFactory instance
   private serviceFactory: any;
 
@@ -135,6 +134,9 @@ class AgentIntelligenceService {
     // For now, set up non-agent routes
     this.app.use('/api/v1/personas', createPersonaRoutes(this.personaController));
     this.app.use('/api/v1/discussions', createDiscussionRoutes(this.discussionController));
+    
+    // Knowledge routes - handled by this service as configured in nginx
+    this.app.use('/api/v1/knowledge', knowledgeRoutes);
   }
 
   private setup404Handler(): void {
@@ -233,6 +235,18 @@ class AgentIntelligenceService {
         this.agentIntentService['userLLMService'] = userLLMService;
       }
 
+      // Initialize all microservices
+      logger.info('Initializing microservices...');
+      await this.agentCoreService.initialize();
+      await this.agentContextService.initialize();
+      await this.agentPlanningService.initialize();
+      await this.agentLearningService.initialize();
+      await this.agentDiscussionService.initialize();
+      await this.agentMetricsService.initialize();
+      await this.agentIntentService.initialize();
+      await this.agentInitializationService.initialize();
+      logger.info('All microservices initialized successfully');
+
       // Initialize the event orchestrator with all services
       await this.agentEventOrchestrator.initialize({
         agentCoreService: this.agentCoreService,
@@ -270,6 +284,9 @@ class AgentIntelligenceService {
         this.databaseService,
         this.eventBusService
       );
+
+      // Initialize AgentController services
+      await this.agentController.initialize();
 
       logger.info('AgentController initialized with full service dependencies');
     } catch (error) {
@@ -328,6 +345,18 @@ class AgentIntelligenceService {
       );
 
       if (!enhancedServicesAvailable) {
+        // Initialize microservices in fallback mode (without enhanced services)
+        logger.info('Initializing microservices in fallback mode...');
+        await this.agentCoreService.initialize();
+        await this.agentContextService.initialize();
+        await this.agentPlanningService.initialize();
+        await this.agentLearningService.initialize();
+        await this.agentDiscussionService.initialize();
+        await this.agentMetricsService.initialize();
+        await this.agentIntentService.initialize();
+        await this.agentInitializationService.initialize();
+        logger.info('All microservices initialized in fallback mode');
+
         // Initialize AgentController without enhanced services but with basic services
         this.agentController = new AgentController(
           undefined, // knowledgeGraphService
@@ -337,6 +366,10 @@ class AgentIntelligenceService {
           this.databaseService,
           this.eventBusService
         );
+
+        // Initialize AgentController services
+        await this.agentController.initialize();
+
         logger.info('AgentController initialized in fallback mode');
       }
 

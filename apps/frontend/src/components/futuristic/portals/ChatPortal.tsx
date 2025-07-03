@@ -25,6 +25,19 @@ interface ChatMessage {
   confidence?: number;
   memoryEnhanced?: boolean;
   knowledgeUsed?: number;
+  toolsExecuted?: Array<{
+    toolId: string;
+    toolName: string;
+    success: boolean;
+    result?: any;
+    error?: string;
+    timestamp: string;
+  }>;
+  capabilities?: Array<{
+    id: string;
+    name: string;
+    category: string;
+  }>;
 }
 
 interface ChatPortalProps {
@@ -39,6 +52,20 @@ interface ChatResponse {
   tokensUsed: number;
   memoryEnhanced: boolean;
   knowledgeUsed: number;
+  toolsExecuted?: Array<{
+    toolId: string;
+    toolName: string;
+    success: boolean;
+    result?: any;
+    error?: string;
+    timestamp: string;
+  }>;
+  availableCapabilities?: Array<{
+    id: string;
+    name: string;
+    category: string;
+    description: string;
+  }>;
   persona?: {
     name: string;
     role: string;
@@ -160,7 +187,9 @@ export const ChatPortal: React.FC<ChatPortalProps> = ({ className }) => {
         agentId: selectedAgentId,
         confidence: chatData.confidence,
         memoryEnhanced: chatData.memoryEnhanced,
-        knowledgeUsed: chatData.knowledgeUsed
+        knowledgeUsed: chatData.knowledgeUsed,
+        toolsExecuted: chatData.toolsExecuted,
+        capabilities: chatData.availableCapabilities
       };
 
       setMessages(prev => [...prev, agentMessage]);
@@ -262,6 +291,50 @@ export const ChatPortal: React.FC<ChatPortalProps> = ({ className }) => {
             </select>
           </div>
         )}
+
+        {/* Agent Capabilities Display */}
+        {selectedAgent && (
+          <div className="mt-3 p-3 bg-slate-800/30 border border-slate-700/50 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-xs font-medium text-slate-300">Agent Capabilities</h4>
+              <div className="flex items-center gap-1">
+                <Activity className="w-3 h-3 text-green-400" />
+                <span className="text-xs text-green-400">Enhanced</span>
+              </div>
+            </div>
+            
+            <div className="flex flex-wrap gap-1 mb-2">
+              {selectedAgent.capabilities?.slice(0, 4).map((capability, index) => (
+                <span
+                  key={index}
+                  className="text-xs px-2 py-1 bg-blue-500/20 text-blue-300 rounded"
+                >
+                  {capability}
+                </span>
+              ))}
+              {selectedAgent.capabilities && selectedAgent.capabilities.length > 4 && (
+                <span className="text-xs px-2 py-1 bg-slate-600 text-slate-300 rounded">
+                  +{selectedAgent.capabilities.length - 4} more
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div className="flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-yellow-400" />
+                <span className="text-slate-400">Knowledge</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Zap className="w-3 h-3 text-purple-400" />
+                <span className="text-slate-400">Tools</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Brain className="w-3 h-3 text-cyan-400" />
+                <span className="text-slate-400">Memory</span>
+              </div>
+            </div>
+          </div>
+        )}
       </motion.div>
 
       {/* Chat Messages */}
@@ -333,6 +406,39 @@ export const ChatPortal: React.FC<ChatPortalProps> = ({ className }) => {
                               <span>{message.knowledgeUsed} KB</span>
                             </div>
                           )}
+                          {message.toolsExecuted && message.toolsExecuted.length > 0 && (
+                            <div className="flex items-center gap-1">
+                              <Zap className="w-3 h-3" />
+                              <span>{message.toolsExecuted.length} tools</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Tool Execution Results */}
+                      {message.sender !== 'user' && message.toolsExecuted && message.toolsExecuted.length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-slate-600/30">
+                          <div className="text-xs text-slate-400 mb-1">Tools Executed:</div>
+                          <div className="space-y-1">
+                            {message.toolsExecuted.map((tool, toolIndex) => (
+                              <div
+                                key={toolIndex}
+                                className={`flex items-center gap-2 text-xs px-2 py-1 rounded ${
+                                  tool.success 
+                                    ? 'bg-green-500/10 text-green-400 border border-green-500/20' 
+                                    : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                                }`}
+                              >
+                                <Zap className="w-3 h-3" />
+                                <span className="font-medium">{tool.toolName}</span>
+                                {tool.success ? (
+                                  <CheckCircle2 className="w-3 h-3" />
+                                ) : (
+                                  <AlertCircle className="w-3 h-3" />
+                                )}
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>

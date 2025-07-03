@@ -7,6 +7,7 @@ import { Persona, PersonaDisplay } from '../../../types/persona';
 import { useDiscussion } from '../../../contexts/DiscussionContext';
 import { uaipAPI } from '../../../utils/uaip-api';
 import { AgentRole, LLMModel, LLMProviderType } from '@uaip/types';
+import { useToast } from '@/components/ui/use-toast';
 import { 
   Users, 
   Plus, 
@@ -216,6 +217,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
     refreshModelData
   } = useAgents();
   const discussion = useDiscussion();
+  const { toast } = useToast();
 
   // Portal-specific state management (no URL params)
   const [viewMode, setViewMode] = useState<ViewMode>(defaultView);
@@ -237,11 +239,22 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
     modelId: '',
     personaId: '',
     description: '',
-    isActive: true
+    isActive: true,
+    attachedTools: [] as Array<{toolId: string, toolName: string, category: string, permissions?: string[]}>,
+    chatConfig: {
+      enableKnowledgeAccess: true,
+      enableToolExecution: true,
+      enableMemoryEnhancement: true,
+      maxConcurrentChats: 5,
+      conversationTimeout: 3600000
+    }
   });
 
   // Selected persona state for confirmation step
   const [selectedPersona, setSelectedPersona] = useState<PersonaDisplay | null>(null);
+
+  // Available tools state
+  const [availableTools, setAvailableTools] = useState<Array<{id: string, name: string, category: string, description: string}>>([]);
 
   // Form state for persona creation
   const [personaForm, setPersonaForm] = useState({
@@ -293,11 +306,19 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
       
       // Handle response properly - the API returns an array directly
       if (Array.isArray(response)) {
-        // Update agent context with fresh data
+        // Clear existing agents first by removing all current agents
+        const currentAgentIds = Object.keys(agents || {});
+        currentAgentIds.forEach(agentId => {
+          removeAgent(agentId);
+        });
+
+        // Add fresh agents from the API
         for (const agentData of response) {
           const agentState = createAgentStateFromBackend(agentData);
           addAgent(agentState);
         }
+        
+        console.log(`✅ Loaded ${response.length} agents from API`);
       }
     } catch (error) {
       console.error('Failed to load existing agents:', error);
@@ -312,8 +333,8 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
 
   // Debug: Monitor agents changes
   useEffect(() => {
-    if (Object.keys(agents).length > 0) {
-      console.log(`✅ Agent Manager: ${Object.keys(agents).length} agents loaded`);
+    if (Object.keys(agents || {}).length > 0) {
+      console.log(`✅ Agent Manager: ${Object.keys(agents || {}).length} agents loaded`);
     }
   }, [agents]);
 
@@ -333,7 +354,15 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
       modelId: '',
       personaId: '',
       description: '',
-      isActive: true
+      isActive: true,
+      attachedTools: [],
+      chatConfig: {
+        enableKnowledgeAccess: true,
+        enableToolExecution: true,
+        enableMemoryEnhancement: true,
+        maxConcurrentChats: 5,
+        conversationTimeout: 3600000
+      }
     });
   };
 
@@ -379,20 +408,51 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
         personaId: selectedPersona.id,
         description: agentForm.description.trim(),
         isActive: agentForm.isActive,
-        capabilities: selectedPersona.expertise || [],
+        capabilities: Array.isArray(selectedPersona.expertise) ? selectedPersona.expertise : 
+                     (selectedPersona.expertise && typeof selectedPersona.expertise === 'string') ? 
+                     selectedPersona.expertise.split(',').map(s => s.trim()).filter(s => s.length > 0) :
+                     ['general-assistance'],
         systemPrompt: selectedPersona.background || selectedPersona.description || '',
         temperature: 0.7,
         maxTokens: 2000,
         topP: 0.9,
         frequencyPenalty: 0,
-        presencePenalty: 0
+        presencePenalty: 0,
+        // Enhanced agent functionality
+        attachedTools: agentForm.attachedTools,
+        chatConfig: agentForm.chatConfig
       };
+
+      // Validate required fields before sending
+      console.log('Creating agent with data:', {
+        ...agentData,
+        capabilities: agentData.capabilities,
+        capabilitiesLength: agentData.capabilities?.length
+      });
+
+      if (!agentData.capabilities || agentData.capabilities.length === 0) {
+        toast({
+          title: 'Validation Error',
+          description: 'Agent must have at least one capability',
+          variant: 'destructive'
+        });
+        return;
+      }
 
       const response = await uaipAPI.agents.create(agentData);
       
       if (response.success && response.data) {
         const newAgent = createAgentStateFromBackend(response.data);
         addAgent(newAgent);
+        
+        // Show success message
+        toast({
+          title: 'Agent Created',
+          description: `Agent "${agentData.name}" has been created successfully`,
+        });
+
+        // Refresh the agents list to ensure UI is updated
+        await loadExistingAgents();
         
         // Reset form and navigate back
         setAgentForm({
@@ -401,7 +461,15 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
           modelId: '',
           personaId: '',
           description: '',
-          isActive: true
+          isActive: true,
+          attachedTools: [],
+          chatConfig: {
+            enableKnowledgeAccess: true,
+            enableToolExecution: true,
+            enableMemoryEnhancement: true,
+            maxConcurrentChats: 5,
+            conversationTimeout: 3600000
+          }
         });
         setSelectedPersona(null);
         
@@ -495,7 +563,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
 
   // Filter and search logic
   const filteredAgents = useMemo(() => {
-    let filtered = Object.values(agents);
+    let filtered = Object.values(agents || {});
 
     // Apply search filter
     if (searchQuery.trim()) {
@@ -743,6 +811,62 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
     );
   };
 
+  // Helper functions for tool attachment and chat configuration
+  const mockAvailableTools = [
+    { id: 'web-search', name: 'Web Search', category: 'search', description: 'Search the web for information' },
+    { id: 'document-analyzer', name: 'Document Analyzer', category: 'analysis', description: 'Analyze documents and extract insights' },
+    { id: 'code-executor', name: 'Code Executor', category: 'development', description: 'Execute and test code snippets' },
+    { id: 'data-processor', name: 'Data Processor', category: 'data', description: 'Process and transform data' },
+    { id: 'image-generator', name: 'Image Generator', category: 'creative', description: 'Generate images from text descriptions' },
+    { id: 'email-sender', name: 'Email Sender', category: 'communication', description: 'Send emails and notifications' },
+    { id: 'calendar-manager', name: 'Calendar Manager', category: 'productivity', description: 'Manage calendar events and scheduling' },
+    { id: 'file-manager', name: 'File Manager', category: 'utility', description: 'Manage files and directories' }
+  ];
+
+  const toggleToolAttachment = (tool: {id: string, name: string, category: string, description: string}) => {
+    setAgentForm(prev => {
+      const isAttached = prev.attachedTools?.some(t => t.toolId === tool.id) || false;
+      if (isAttached) {
+        return {
+          ...prev,
+          attachedTools: (prev.attachedTools || []).filter(t => t.toolId !== tool.id)
+        };
+      } else {
+        return {
+          ...prev,
+          attachedTools: [...(prev.attachedTools || []), {
+            toolId: tool.id,
+            toolName: tool.name,
+            category: tool.category,
+            permissions: ['execute', 'read']
+          }]
+        };
+      }
+    });
+  };
+
+  const removeToolAttachment = (toolId: string) => {
+    setAgentForm(prev => ({
+      ...prev,
+      attachedTools: prev.attachedTools.filter(t => t.toolId !== toolId)
+    }));
+  };
+
+  const updateChatConfig = (key: string, value: any) => {
+    setAgentForm(prev => ({
+      ...prev,
+      chatConfig: {
+        enableKnowledgeAccess: true,
+        enableToolExecution: true,
+        enableMemoryEnhancement: true,
+        maxConcurrentChats: 5,
+        conversationTimeout: 3600000,
+        ...prev.chatConfig,
+        [key]: value
+      }
+    }));
+  };
+
   const renderHeader = () => (
     <div className="flex items-center justify-between mb-6">
       <div className="flex items-center gap-4">
@@ -763,17 +887,17 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
               {mode === 'spawner' ? 'Create and deploy new agents' :
                mode === 'monitor' ? 'Monitor agent performance and status' :
                viewMode === 'settings' ? 'Configure agent models and personas' :
-               `${Object.values(agents).length} active agent${Object.values(agents).length !== 1 ? 's' : ''}`}
+               `${Object.values(agents || {}).length} active agent${Object.values(agents || {}).length !== 1 ? 's' : ''}`}
             </p>
-            {Object.values(agents).length > 0 && viewMode !== 'settings' && (
+            {Object.values(agents || {}).length > 0 && viewMode !== 'settings' && (
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1 px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full font-medium">
                   <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
-                  {Object.values(agents).filter(a => a.isActive).length} Online
+                  {Object.values(agents || {}).filter(a => a.isActive).length} Online
                 </div>
                 <div className="flex items-center gap-1 px-2 py-1 bg-slate-500/20 text-slate-400 text-xs rounded-full font-medium">
                   <div className="w-1.5 h-1.5 bg-slate-400 rounded-full" />
-                  {Object.values(agents).filter(a => !a.isActive).length} Offline
+                  {Object.values(agents || {}).filter(a => !a.isActive).length} Offline
                 </div>
               </div>
             )}
@@ -783,7 +907,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
 
       <div className="flex items-center gap-3">
         {/* Quick Stats */}
-        {Object.values(agents).length > 0 && viewMode !== 'settings' && (
+        {Object.values(agents || {}).length > 0 && viewMode !== 'settings' && (
           <div className="hidden md:flex items-center gap-2 bg-slate-800/50 rounded-lg p-2">
             <div className="flex items-center gap-1 text-xs text-slate-400">
               <Gauge className="w-3 h-3" />
@@ -792,7 +916,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
             <div className="w-px h-4 bg-slate-600/50" />
             <div className="flex items-center gap-1 text-xs text-green-400">
               <CheckCircle2 className="w-3 h-3" />
-              <span>{Object.values(agents).filter(a => a.modelId && a.personaId).length} Ready</span>
+              <span>{Object.values(agents || {}).filter(a => a.modelId && a.personaId).length} Ready</span>
             </div>
           </div>
         )}
@@ -1110,6 +1234,131 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
         </div>
       )}
 
+      {/* Tool Attachment Section */}
+      {selectedPersona && (
+        <div className="border border-slate-700/50 rounded-lg p-4 bg-slate-800/30">
+          <h4 className="text-sm font-medium text-slate-300 mb-3">Tool Attachment</h4>
+          <div className="space-y-3">
+            {/* Available Tools */}
+            <div>
+              <label className="block text-xs text-slate-400 mb-2">Available Tools</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-32 overflow-y-auto">
+                {mockAvailableTools.map((tool) => (
+                  <div
+                    key={tool.id}
+                    className={`p-2 border rounded cursor-pointer transition-colors ${
+                      agentForm.attachedTools?.some(t => t.toolId === tool.id)
+                        ? 'border-blue-500 bg-blue-500/10 text-blue-300'
+                        : 'border-slate-600 hover:border-slate-500 text-slate-300'
+                    }`}
+                    onClick={() => toggleToolAttachment(tool)}
+                  >
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-medium">{tool.name}</span>
+                      <span className="text-xs px-1 py-0.5 bg-slate-600 rounded">{tool.category}</span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">{tool.description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* Attached Tools Summary */}
+            {(agentForm.attachedTools?.length || 0) > 0 && (
+              <div>
+                <label className="block text-xs text-slate-400 mb-2">
+                  Attached Tools ({agentForm.attachedTools?.length || 0})
+                </label>
+                <div className="flex flex-wrap gap-1">
+                  {(agentForm.attachedTools || []).map((tool, index) => (
+                    <span
+                      key={index}
+                      className="text-xs px-2 py-1 bg-blue-500/20 text-blue-300 rounded flex items-center gap-1"
+                    >
+                      {tool.toolName}
+                      <button
+                        onClick={() => removeToolAttachment(tool.toolId)}
+                        className="hover:text-blue-100 transition-colors"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Chat Configuration Section */}
+      {selectedPersona && (
+        <div className="border border-slate-700/50 rounded-lg p-4 bg-slate-800/30">
+          <h4 className="text-sm font-medium text-slate-300 mb-3">Chat Configuration</h4>
+          <div className="space-y-3">
+            {/* Chat Capabilities */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={agentForm.chatConfig?.enableKnowledgeAccess || false}
+                  onChange={(e) => updateChatConfig('enableKnowledgeAccess', e.target.checked)}
+                  className="w-4 h-4 text-blue-600 bg-slate-800 border-slate-600 rounded focus:ring-blue-500 focus:ring-2"
+                />
+                <span className="text-xs text-slate-300">Knowledge Access</span>
+              </label>
+              
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={agentForm.chatConfig?.enableToolExecution || false}
+                  onChange={(e) => updateChatConfig('enableToolExecution', e.target.checked)}
+                  className="w-4 h-4 text-blue-600 bg-slate-800 border-slate-600 rounded focus:ring-blue-500 focus:ring-2"
+                />
+                <span className="text-xs text-slate-300">Tool Execution</span>
+              </label>
+              
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={agentForm.chatConfig?.enableMemoryEnhancement || false}
+                  onChange={(e) => updateChatConfig('enableMemoryEnhancement', e.target.checked)}
+                  className="w-4 h-4 text-blue-600 bg-slate-800 border-slate-600 rounded focus:ring-blue-500 focus:ring-2"
+                />
+                <span className="text-xs text-slate-300">Memory Enhancement</span>
+              </label>
+            </div>
+
+            {/* Chat Settings */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Max Concurrent Chats</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="20"
+                  value={agentForm.chatConfig?.maxConcurrentChats || 5}
+                  onChange={(e) => updateChatConfig('maxConcurrentChats', parseInt(e.target.value))}
+                  className="w-full px-2 py-1 text-xs bg-slate-800/50 border border-slate-700/50 rounded text-white"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Conversation Timeout (minutes)</label>
+                <input
+                  type="number"
+                  min="5"
+                  max="1440"
+                  value={Math.floor((agentForm.chatConfig?.conversationTimeout || 3600000) / 60000)}
+                  onChange={(e) => updateChatConfig('conversationTimeout', parseInt(e.target.value) * 60000)}
+                  className="w-full px-2 py-1 text-xs bg-slate-800/50 border border-slate-700/50 rounded text-white"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Create Agent Button */}
       {selectedPersona && (
         <div className="flex justify-end pt-4">
@@ -1390,7 +1639,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
 
       {/* Agent Configuration Cards */}
       <div className="space-y-4">
-        {Object.values(agents).length === 0 ? (
+        {Object.values(agents || {}).length === 0 ? (
           <div className="text-center py-16">
             <div className="w-20 h-20 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-inner">
               <Bot className="w-10 h-10 text-slate-400" />

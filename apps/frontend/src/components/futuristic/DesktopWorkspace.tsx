@@ -26,6 +26,7 @@ import { DesktopSettings } from './desktop/DesktopSettings';
 import { useDesktop } from './hooks/useDesktop';
 import { usePortalManager } from './hooks/usePortalManager';
 import { useIconDragDrop } from './hooks/useDragAndDrop';
+import { useAgents } from './hooks/useAgents';
 import { getTheme, resolveTheme } from './desktop/DesktopThemes';
 import { Button } from '@/components/ui/button';
 
@@ -179,14 +180,28 @@ const DESKTOP_ICONS: DesktopIconConfig[] = [
   }
 ];
 
-export const DesktopWorkspace: React.FC = () => {
-  const [viewport, setViewport] = useState<ViewportSize>({
-    width: typeof window !== 'undefined' ? window.innerWidth : 1024,
-    height: typeof window !== 'undefined' ? window.innerHeight : 768,
-    isMobile: false,
-    isTablet: false,
-    isDesktop: true
-  });
+interface DesktopWorkspaceProps {
+  onOpenPortal?: (type: string) => void;
+  isPortalOpen?: (type: string) => boolean;
+  portals?: any[];
+  viewport?: ViewportSize;
+}
+
+export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
+  onOpenPortal,
+  isPortalOpen,
+  portals = [],
+  viewport: externalViewport
+}) => {
+  const [viewport, setViewport] = useState<ViewportSize>(
+    externalViewport || {
+      width: typeof window !== 'undefined' ? window.innerWidth : 1024,
+      height: typeof window !== 'undefined' ? window.innerHeight : 768,
+      isMobile: false,
+      isTablet: false,
+      isDesktop: true
+    }
+  );
 
   const [isLoading, setIsLoading] = useState(true);
 
@@ -207,10 +222,16 @@ export const DesktopWorkspace: React.FC = () => {
     getTrendingItems
   } = useDesktop();
 
-  const { openPortal, isPortalOpen } = usePortalManager();
+  // Use external portal functions if provided, otherwise use internal ones
+  const portalManager = usePortalManager();
+  const openPortalFn = onOpenPortal || portalManager.openPortal;
+  const isPortalOpenFn = isPortalOpen || portalManager.isPortalOpen;
 
   // Initialize drag and drop
   const dragAndDrop = useIconDragDrop(iconPositions, updateIconPosition);
+
+  // Fetch agents
+  const { agents, loading: agentsLoading } = useAgents();
 
   // Calculate activity stats
   const activityStats = getActivityStats();
@@ -238,6 +259,7 @@ export const DesktopWorkspace: React.FC = () => {
 
     return () => window.removeEventListener('resize', updateViewport);
   }, []);
+  const primaryIcons = DESKTOP_ICONS.filter(icon => icon.category === 'primary');
 
   // Keyboard navigation
   useEffect(() => {
@@ -306,8 +328,8 @@ export const DesktopWorkspace: React.FC = () => {
     });
 
     // Open corresponding portal
-    openPortal(iconConfig.portalType as any);
-  }, [addRecentItem, openPortal]);
+    openPortalFn(iconConfig.portalType as any);
+  }, [addRecentItem, openPortalFn]);
 
   // Handle icon double-click (same as single click for now)
   const handleIconDoubleClick = useCallback((iconConfig: DesktopIconConfig) => {
@@ -349,8 +371,32 @@ export const DesktopWorkspace: React.FC = () => {
   const gridConfig = getGridConfig();
 
   // Filter icons by category
-  const primaryIcons = DESKTOP_ICONS.filter(icon => icon.category === 'primary');
   const secondaryIcons = DESKTOP_ICONS.filter(icon => icon.category === 'secondary');
+
+  // Create agent icons
+  const agentIcons = agents.map(agent => ({
+    id: agent.id,
+    title: agent.name,
+    icon: Bot,
+    color: {
+      primary: agent.status === 'active' ? '#10B981' :
+        agent.status === 'idle' ? '#F59E0B' :
+          agent.status === 'error' ? '#EF4444' : '#6B7280',
+      secondary: agent.status === 'active' ? '#059669' :
+        agent.status === 'idle' ? '#D97706' :
+          agent.status === 'error' ? '#DC2626' : '#4B5563'
+    },
+    portalType: 'agent-hub',
+    category: 'agent' as const,
+    badge: {
+      status: agent.status === 'active' ? 'online' as const :
+        agent.status === 'error' ? 'error' as const :
+          agent.status === 'idle' ? 'warning' as const : undefined,
+      text: agent.status === 'offline' ? 'OFF' : undefined
+    },
+    description: agent.description || `${agent.type} agent`,
+    agentData: agent
+  }));
 
   // Loading screen
   if (isLoading) {
@@ -380,24 +426,53 @@ export const DesktopWorkspace: React.FC = () => {
 
   return (
     <motion.div
-      className={`h-screen w-full bg-gradient-to-br ${currentTheme.colors.background.primary} flex flex-col overflow-hidden`}
+      className="h-screen w-full bg-gradient-to-br from-slate-950 via-blue-950/20 to-slate-950 flex flex-col overflow-hidden relative"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
     >
-      {/* Desktop Header */}
+      {/* AI Grid Background */}
+      <div className="absolute inset-0 opacity-[0.02]">
+        <div className="absolute inset-0" style={{
+          backgroundImage: `
+            linear-gradient(rgba(59, 130, 246, 0.1) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(59, 130, 246, 0.1) 1px, transparent 1px)
+          `,
+          backgroundSize: '50px 50px'
+        }} />
+      </div>
+
+      {/* Subtle AI Glow Effects */}
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl" />
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl" />
+      {/* Minimal Desktop Header */}
       <motion.div
+        className="relative z-10 h-16 bg-black/10 backdrop-blur-xl border-b border-white/5"
         initial={{ y: -64, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.2, duration: 0.5 }}
       >
-        <DesktopHeader
-          viewport={viewport}
-          onToggleRecentPanel={() => setShowRecentPanel(!showRecentPanel)}
-          showRecentPanel={showRecentPanel}
-          onOpenSettings={() => setShowSettings(true)}
-          theme={currentTheme}
-        />
+        <div className="flex items-center justify-between h-full px-6">
+          {/* Logo */}
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-cyan-400 rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-sm">🏛️</span>
+            </div>
+            <div className="text-white font-medium">Council of Nycea</div>
+          </div>
+
+          {/* Minimal Controls */}
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowSettings(true)}
+              className="text-white/60 hover:text-white hover:bg-white/10 w-8 h-8 p-0 rounded-lg"
+            >
+              <Settings size={16} />
+            </Button>
+          </div>
+        </div>
       </motion.div>
 
       {/* Main Desktop Area */}
@@ -444,7 +519,7 @@ export const DesktopWorkspace: React.FC = () => {
                     config={iconConfig}
                     size={gridConfig.iconSize}
                     isSelected={selectedIconId === iconConfig.id}
-                    isActive={isPortalOpen(iconConfig.portalType as any)}
+                    isActive={isPortalOpenFn(iconConfig.portalType as any)}
                     onClick={() => handleIconClick(iconConfig)}
                     onDoubleClick={() => handleIconDoubleClick(iconConfig)}
                     viewport={viewport}
@@ -468,7 +543,7 @@ export const DesktopWorkspace: React.FC = () => {
                     config={iconConfig}
                     size={gridConfig.iconSize}
                     isSelected={selectedIconId === iconConfig.id}
-                    isActive={isPortalOpen(iconConfig.portalType as any)}
+                    isActive={isPortalOpenFn(iconConfig.portalType as any)}
                     onClick={() => handleIconClick(iconConfig)}
                     onDoubleClick={() => handleIconDoubleClick(iconConfig)}
                     viewport={viewport}
@@ -514,7 +589,7 @@ export const DesktopWorkspace: React.FC = () => {
                         config={iconConfig}
                         size={gridConfig.iconSize}
                         isSelected={selectedIconId === iconConfig.id}
-                        isActive={isPortalOpen(iconConfig.portalType as any)}
+                        isActive={isPortalOpenFn(iconConfig.portalType as any)}
                         onClick={() => handleIconClick(iconConfig)}
                         onDoubleClick={() => handleIconDoubleClick(iconConfig)}
                         viewport={viewport}
@@ -522,6 +597,57 @@ export const DesktopWorkspace: React.FC = () => {
                     ))}
                   </div>
                 )}
+              </motion.div>
+            )}
+
+            {/* Agents Section */}
+            {agentIcons.length > 0 && (
+              <motion.div
+                className="mt-8"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 1.2, duration: 0.5 }}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-white/80 font-medium text-sm flex items-center space-x-2">
+                    <Bot className="w-4 h-4" />
+                    <span>Active Agents</span>
+                    <span className="text-xs text-white/50">({agents.filter(a => a.status === 'active').length} online)</span>
+                  </h3>
+                </div>
+
+                <div
+                  className="grid"
+                  style={{
+                    gridTemplateColumns: `repeat(${Math.min(gridConfig.maxIconsPerRow, agentIcons.length)}, 1fr)`,
+                    gap: gridConfig.gap
+                  }}
+                >
+                  {agentIcons.map((agentIcon, index) => (
+                    <motion.div
+                      key={agentIcon.id}
+                      initial={{ opacity: 0, y: 20, scale: 0.8 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{
+                        delay: 1.3 + index * 0.1,
+                        duration: 0.4,
+                        type: "spring",
+                        stiffness: 300,
+                        damping: 25
+                      }}
+                    >
+                      <DesktopIcon
+                        config={agentIcon}
+                        size={gridConfig.iconSize * 0.9} // Slightly smaller for agents
+                        isSelected={selectedIconId === agentIcon.id}
+                        isActive={agentIcon.agentData.status === 'active'}
+                        onClick={() => handleIconClick(agentIcon)}
+                        onDoubleClick={() => handleIconDoubleClick(agentIcon)}
+                        viewport={viewport}
+                      />
+                    </motion.div>
+                  ))}
+                </div>
               </motion.div>
             )}
           </div>

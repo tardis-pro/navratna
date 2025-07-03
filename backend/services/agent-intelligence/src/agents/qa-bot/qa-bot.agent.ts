@@ -4,7 +4,7 @@
  * Integrates with knowledge bases, documentation, and learning from interactions
  */
 
-import { Agent, AgentRole, AgentCapability, Message, ConversationContext } from '@uaip/types';
+import { Agent, AgentRole, AgentCapability, ConversationContext } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { EventBusService, KnowledgeGraphService, QdrantService } from '@uaip/shared-services';
 import { BaseAgent } from '../base-agent';

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useReducer, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { AgentSecurityDashboard } from '@/components/security/AgentSecurityDashboard';
 import { 
@@ -64,53 +64,35 @@ export const SecurityPortal: React.FC<SecurityPortalProps> = ({
         }} />
       </div>
 
-      {/* Header */}
+      {/* Controls Bar - no redundant header */}
       <motion.div 
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         className="relative z-10 bg-slate-900/70 backdrop-blur-xl border-b border-slate-700/50"
       >
         <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <motion.div 
-                initial={{ scale: 0.9 }}
-                animate={{ scale: 1 }}
-                className="flex items-center gap-3"
-              >
-                <div className="p-2 rounded-lg bg-red-500/20 border border-red-500/30">
-                  <Shield className="w-5 h-5 text-red-400" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-white">Security Dashboard</h2>
-                  <p className="text-sm text-slate-400">Monitor agent security and compliance</p>
-                </div>
-              </motion.div>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowDetails(!showDetails)}
-                className="p-2 rounded-lg bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700/50 text-slate-300 hover:text-white transition-colors"
-                title={showDetails ? "Hide details" : "Show details"}
-              >
-                {showDetails ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-              <button
-                onClick={handleRefresh}
-                disabled={loading}
-                className="p-2 rounded-lg bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700/50 text-slate-300 hover:text-white transition-colors disabled:opacity-50"
-                title="Refresh data"
-              >
-                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              </button>
-              <button
-                className="p-2 rounded-lg bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700/50 text-slate-300 hover:text-white transition-colors"
-                title="Security settings"
-              >
-                <Settings className="w-4 h-4" />
-              </button>
-            </div>
+          <div className="flex items-center justify-end gap-3">
+            <button
+              onClick={() => setShowDetails(!showDetails)}
+              className="p-2 rounded-lg bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700/50 text-slate-300 hover:text-white transition-colors"
+              title={showDetails ? "Hide details" : "Show details"}
+            >
+              {showDetails ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+            <button
+              onClick={handleRefresh}
+              disabled={loading}
+              className="p-2 rounded-lg bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700/50 text-slate-300 hover:text-white transition-colors disabled:opacity-50"
+              title="Refresh data"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+            <button
+              className="p-2 rounded-lg bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700/50 text-slate-300 hover:text-white transition-colors"
+              title="Security settings"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </motion.div>

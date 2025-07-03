@@ -35,6 +35,7 @@ interface PortalInstance {
   size: { width: number; height: number };
   isVisible: boolean;
   isMinimized?: boolean;
+  zIndex?: number;
 }
 
 interface ViewportSize {
@@ -324,7 +325,7 @@ const GlobalActionSearchBar: React.FC = () => {
 
   return (
     <>
-      <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-lg flex justify-center pointer-events-none">
+      <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100001] w-full max-w-lg flex justify-center pointer-events-none">
         <button
           className="w-full flex items-center gap-2 px-5 py-3 rounded-2xl bg-slate-900/70 border border-slate-700/60 shadow-xl backdrop-blur-xl text-slate-300 hover:bg-slate-800/80 transition-all duration-200 pointer-events-auto"
           style={{ boxShadow: '0 4px 32px 0 rgba(80,80,180,0.10)' }}
@@ -342,7 +343,7 @@ const GlobalActionSearchBar: React.FC = () => {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="fixed top-0 left-0 w-full h-full z-[1000] flex items-start justify-center bg-black/30 backdrop-blur-sm"
+            className="fixed top-0 left-0 w-full h-full z-[100002] flex items-start justify-center bg-black/30 backdrop-blur-sm"
             onClick={() => setOpen(false)}
           >
             <motion.div
@@ -462,11 +463,26 @@ const HotCornerMenu: React.FC<{
   );
 
   // --- Hover/Focus intent logic ---
-  const [hovered, setHovered] = React.useState(false);
-  React.useEffect(() => {
-    if (hovered) setShow(true);
-    else setTimeout(() => { if (!hovered) setShow(false); }, 120);
-  }, [hovered]);
+  const [hovered, setHovered] = useState(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleMouseEnter = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    setHovered(true);
+    setShow(true);
+  }, [setShow]);
+
+  const handleMouseLeave = useCallback(() => {
+    setHovered(false);
+    timeoutRef.current = setTimeout(() => {
+      if (!hovered) {
+        setShow(false);
+      }
+    }, 200);
+  }, [setShow, hovered]);
 
   // --- Hotkey display logic ---
   const hotkeys = groupKey ? HOTKEYS[groupKey] : [];
@@ -478,42 +494,57 @@ const HotCornerMenu: React.FC<{
     if (show && popoverRef.current) {
       const pop = popoverRef.current;
       const rect = pop.getBoundingClientRect();
-      let top = rect.top, left = rect.left;
-      let style: React.CSSProperties = {};
+      const newStyle: React.CSSProperties = {};
+
       // Clamp vertically
       if (rect.bottom > window.innerHeight) {
-        style.bottom = 16; // 4 * 4px
-        style.top = 'auto';
+        newStyle.bottom = 16; // 4 * 4px
+        newStyle.top = 'auto';
       } else if (rect.top < 0) {
-        style.top = 16;
-        style.bottom = 'auto';
+        newStyle.top = 16;
+        newStyle.bottom = 'auto';
       }
+
       // Clamp horizontally
       if (rect.right > window.innerWidth) {
-        style.right = 16;
-        style.left = 'auto';
+        newStyle.right = 16;
+        newStyle.left = 'auto';
       } else if (rect.left < 0) {
-        style.left = 16;
-        style.right = 'auto';
+        newStyle.left = 16;
+        newStyle.right = 'auto';
       }
-      setPopoverStyle(style);
+
+      // Only update if style actually changed
+      setPopoverStyle(prevStyle => {
+        const hasChanged = Object.keys(newStyle).some(key =>
+          prevStyle[key as keyof React.CSSProperties] !== newStyle[key as keyof React.CSSProperties]
+        );
+        return hasChanged ? newStyle : prevStyle;
+      });
     }
   }, [show]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div
       className={`fixed z-50 ${positions[corner]}`}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onFocus={() => setHovered(true)}
-      onBlur={() => setHovered(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       tabIndex={0}
     >
       <button
         className={`w-12 h-12 rounded-full bg-slate-900/70 border border-slate-700/50 flex items-center justify-center text-white shadow-lg hover:bg-slate-800/90 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 ${show ? 'scale-110' : 'scale-100'}`}
         aria-label={group ? group.title : 'Quick Actions'}
-        onMouseEnter={() => setHovered(true)}
-        onFocus={() => setHovered(true)}
+        onMouseEnter={handleMouseEnter}
+        onFocus={handleMouseEnter}
         onClick={() => setShow(!show)}
       >
         {corner === 'top-left' && <Layout className="w-6 h-6" />}
@@ -530,12 +561,15 @@ const HotCornerMenu: React.FC<{
             exit={{ opacity: 0, scale: 0.8, y: isTop ? 20 : -20 }}
             transition={{ type: 'spring', stiffness: 300, damping: 20 }}
             className={`absolute ${menuPosition} ${corner.includes('left') ? 'left-0' : 'right-0'} min-w-[220px] bg-slate-900/95 border border-slate-700/70 rounded-2xl shadow-2xl p-4 space-y-2 backdrop-blur-xl`}
-            style={{ zIndex: 1000, ...popoverStyle }}
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
-            onFocus={() => setHovered(true)}
-            onBlur={() => setHovered(false)}
-            tabIndex={0}
+            style={{ zIndex: 100000, ...popoverStyle }}
+            onMouseEnter={() => {
+              setHovered(true);
+              if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+                timeoutRef.current = null;
+              }
+            }}
+            onMouseLeave={handleMouseLeave}
           >
             {menuArrow}
             {group && (
@@ -549,9 +583,13 @@ const HotCornerMenu: React.FC<{
               return (
                 <button
                   key={portalKey}
-                  onClick={() => { togglePortal(portalKey as keyof typeof PORTAL_CONFIGS); setShow(false); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    togglePortal(portalKey as keyof typeof PORTAL_CONFIGS);
+                    setShow(false);
+                  }}
                   className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-all duration-200 ${isActive ? `${group.colorClasses.bg} ${group.colorClasses.text}` : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/70 hover:text-white'}`}
-                  tabIndex={0}
+                  onMouseEnter={(e) => e.stopPropagation()}
                 >
                   <Icon className="w-4 h-4 flex-shrink-0" />
                   <span className="truncate text-sm">{config.title}</span>
@@ -565,7 +603,12 @@ const HotCornerMenu: React.FC<{
               <>
                 <div className="text-xs font-semibold mb-2 text-yellow-400">Quick Actions</div>
                 <button
-                  onClick={() => { closeAll && closeAll(); setShow(false); }}
+                  onClick={() => { 
+                    if (closeAll) {
+                      closeAll(); 
+                    }
+                    setShow(false); 
+                  }}
                   className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/20 text-red-300 hover:bg-red-500/40 hover:text-white text-sm"
                 >
                   <Plus className="w-4 h-4 rotate-45" /> Close All Portals
@@ -590,6 +633,7 @@ export const PortalWorkspace: React.FC = () => {
   const [portals, setPortals] = useState<PortalInstance[]>([]);
   const [nextId, setNextId] = useState(1);
   const [activePortalId, setActivePortalId] = useState<string | null>(null);
+  const [maxZIndex, setMaxZIndex] = useState(1000);
   const [systemStatus, setSystemStatus] = useState<'online' | 'degraded' | 'offline'>('online');
   const [activeConnections, setActiveConnections] = useState(0);
   const [systemMetrics, setSystemMetrics] = useState<{
@@ -692,8 +736,11 @@ export const PortalWorkspace: React.FC = () => {
         width: Math.min(size.width, maxWidth),
         height: Math.min(size.height, maxHeight)
       },
-      isVisible: true
+      isVisible: true,
+      zIndex: maxZIndex + 1
     };
+    
+    setMaxZIndex(prev => prev + 1);
 
     setPortals(prev => [...prev, newPortal]);
     setNextId(prev => prev + 1);
@@ -703,7 +750,7 @@ export const PortalWorkspace: React.FC = () => {
     if (viewport.isMobile) {
       setShowMobileMenu(false);
     }
-  }, [nextId, generatePosition, getResponsiveSize, viewport]);
+  }, [nextId, generatePosition, getResponsiveSize, viewport, maxZIndex]);
 
   const closePortal = useCallback((id: string) => {
     setPortals(prev => prev.filter(portal => portal.id !== id));
@@ -749,7 +796,16 @@ export const PortalWorkspace: React.FC = () => {
 
   const bringToFront = useCallback((id: string) => {
     setActivePortalId(id);
-  }, []);
+    setMaxZIndex(prev => prev + 1);
+    
+    // Update the portal's z-index to be the highest
+    setPortals(prev => prev.map(portal => {
+      if (portal.id === id) {
+        return { ...portal, zIndex: maxZIndex + 1 };
+      }
+      return portal;
+    }));
+  }, [maxZIndex]);
 
   const minimizePortal = useCallback((id: string) => {
     setPortals(prev => prev.map(portal =>
@@ -874,7 +930,7 @@ export const PortalWorkspace: React.FC = () => {
   };
 
   // --- Hotkey handler ---
-  React.useEffect(() => {
+  useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       // Helper to match hotkey string
       const matchHotkey = (hotkey: string) => {
@@ -930,7 +986,9 @@ export const PortalWorkspace: React.FC = () => {
         const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
         const geoData = await geoRes.json();
         setLocation(loc => ({ ...loc, city: geoData.address.city || geoData.address.town || geoData.address.village || geoData.address.hamlet, country: geoData.address.country }));
-      } catch { }
+      } catch (error) {
+        console.warn('Failed to get location data:', error);
+      }
       // Weather (OpenWeatherMap, metric, icon)
       try {
         const apiKey = 'demo'; // Replace with your OpenWeatherMap API key
@@ -943,9 +1001,11 @@ export const PortalWorkspace: React.FC = () => {
             desc: weatherData.current_weather.weathercode // OpenMeteo uses codes, you can map to icons
           });
         }
-      } catch { }
+      } catch (error) {
+        console.warn('Failed to get weather data:', error);
+      }
     }, (err) => {
-      // fallback: no location
+      console.warn('Geolocation not available:', err);
     });
   }, []);
 
@@ -1139,61 +1199,50 @@ export const PortalWorkspace: React.FC = () => {
         </motion.div>
       )}
 
-      {/* Workspace Mode Toggle */}
-      <motion.button
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        onClick={() => setWorkspaceMode(workspaceMode === 'desktop' ? 'portal' : 'desktop')}
-        className="fixed top-4 right-4 z-50 w-12 h-12 bg-slate-900/80 backdrop-blur-xl border border-slate-700/50 rounded-xl flex items-center justify-center text-white"
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        title={`Switch to ${workspaceMode === 'desktop' ? 'Portal' : 'Desktop'} Mode`}
-      >
-        {workspaceMode === 'desktop' ? <Layers className="w-5 h-5" /> : <Grid3X3 className="w-5 h-5" />}
-      </motion.button>
+      {/* Desktop Workspace - Always visible as base layer */}
+      <DesktopWorkspace
+        onOpenPortal={createPortal}
+        isPortalOpen={(type) => portals.some(p => p.type === type && p.isVisible)}
+        portals={portals}
+        viewport={viewport}
+      />
 
-      {/* Conditional Rendering Based on Workspace Mode */}
-      {workspaceMode === 'desktop' ? (
-        <DesktopWorkspace />
-      ) : (
-        <>
-          {/* Portal Instances */}
-          <AnimatePresence>
-            {portals.filter(p => !p.isMinimized).map((portal, index) => {
-              const config = PORTAL_CONFIGS[portal.type];
-              const PortalComponent = portal.component;
+      {/* Portal Instances - Float above desktop */}
+      <AnimatePresence>
+        {portals.filter(p => !p.isMinimized).map((portal, index) => {
+          const config = PORTAL_CONFIGS[portal.type];
+          const PortalComponent = portal.component;
 
-              // Simple, predictable z-index: base 100 + index, active portal gets +1000
-              const baseZIndex = 100 + index;
-              const finalZIndex = activePortalId === portal.id ? baseZIndex + 1000 : baseZIndex;
+          // Use the portal's stored z-index, with active portal getting a boost
+          const finalZIndex = activePortalId === portal.id ? 
+            (portal.zIndex || 1000) + 10000 : 
+            (portal.zIndex || 1000 + index);
 
-              return (
-                <Portal
-                  key={portal.id}
-                  id={portal.id}
-                  type={config.type}
-                  title={portal.title}
-                  initialPosition={portal.position}
-                  initialSize={portal.size}
-                  zIndex={finalZIndex}
-                  onClose={() => closePortal(portal.id)}
-                  onMaximize={() => maximizePortal(portal.id)}
-                  onMinimize={() => minimizePortal(portal.id)}
-                  onFocus={() => bringToFront(portal.id)}
-                  viewport={viewport}
-                >
-                  <PortalComponent
-                    mode={portal.type === 'intelligence-hub' ? 'insights' : portal.type === 'monitoring-hub' ? 'monitor' : undefined}
-                    viewport={viewport}
-                    showThinkTokens={portal.type === 'discussion-hub' ? showThinkTokens : undefined}
-                    onThinkTokensToggle={portal.type === 'discussion-hub' ? handleThinkTokensToggle : undefined}
-                  />
-                </Portal>
-              );
-            })}
-          </AnimatePresence>
-        </>
-      )}
+          return (
+            <Portal
+              key={portal.id}
+              id={portal.id}
+              type={config.type}
+              title={portal.title}
+              initialPosition={portal.position}
+              initialSize={portal.size}
+              zIndex={finalZIndex}
+              onClose={() => closePortal(portal.id)}
+              onMaximize={() => maximizePortal(portal.id)}
+              onMinimize={() => minimizePortal(portal.id)}
+              onFocus={() => bringToFront(portal.id)}
+              viewport={viewport}
+            >
+              <PortalComponent
+                mode={portal.type === 'intelligence-hub' ? 'insights' : portal.type === 'monitoring-hub' ? 'monitor' : undefined}
+                viewport={viewport}
+                showThinkTokens={portal.type === 'discussion-hub' ? showThinkTokens : undefined}
+                onThinkTokensToggle={portal.type === 'discussion-hub' ? handleThinkTokensToggle : undefined}
+              />
+            </Portal>
+          );
+        })}
+      </AnimatePresence>
 
       {/* Enhanced Status Bar */}
       <motion.div

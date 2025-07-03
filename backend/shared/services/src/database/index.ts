@@ -9,6 +9,9 @@ export {
   checkDatabaseHealth
 } from './typeorm.config.js';
 
+// TypeORM Types
+export { Repository } from 'typeorm';
+
 export { seedDatabase } from './seedDatabase.js';
 // Legacy DataSource exports for backward compatibility
 export {

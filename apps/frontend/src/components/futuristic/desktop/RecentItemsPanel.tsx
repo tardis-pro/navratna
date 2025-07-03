@@ -246,7 +246,7 @@ export const RecentItemsPanel: React.FC<RecentItemsPanelProps> = ({
                       </p>
                     </motion.div>
                   ) : (
-                    filteredItems.map((item, index) => {
+                    filteredItems.filter(item => !item.icon).map((item, index) => {
                       const IconComponent = item.icon;
                       return (
                         <motion.div
@@ -332,15 +332,22 @@ export const RecentItemsPanel: React.FC<RecentItemsPanelProps> = ({
           </TabsContent>
 
           <TabsContent value="activity" className="flex-1 overflow-hidden mt-0">
-            {activityStats && (
+            {activityStats ? (
               <ActivityFeed
-                activityEvents={activityEvents}
-                recentItems={recentItems}
+                activityEvents={activityEvents || []}
+                recentItems={recentItems || []}
                 activityStats={activityStats}
-                trendingItems={trendingItems}
+                trendingItems={trendingItems || []}
                 onItemClick={onItemClick}
                 className="h-full"
               />
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <Activity className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                  <p className="text-slate-400 text-sm">No activity data available</p>
+                </div>
+              </div>
             )}
           </TabsContent>
         </Tabs>

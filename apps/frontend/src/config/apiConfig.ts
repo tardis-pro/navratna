@@ -45,7 +45,7 @@ export const API_ROUTES = {
 
   // Capability Registry Service routes
   CAPABILITIES: '/api/v1/capabilities',
-  
+
   // Tools routes (from capability registry service)
   TOOLS: '/api/v1/tools',
 
@@ -64,10 +64,10 @@ export const API_ROUTES = {
   // LLM Service routes
   LLM: '/api/v1/llm',
   USER_LLM: '/api/v1/user/llm',
-  
+
   // Knowledge Graph Service routes
   KNOWLEDGE: '/api/v1/knowledge',
-  
+
   // System metrics and monitoring
   SYSTEM: '/api/v1/system',
 
@@ -79,13 +79,15 @@ export const API_ROUTES = {
  * API Configuration Object - PRODUCTION READY
  */
 export const API_CONFIG = {
+  BASE_URL: API_BASE_URL,
   baseURL: API_BASE_URL,
   timeout: isProduction ? 30000 : 10000,
   headers: {
     'Content-Type': 'application/json',
     'X-Client-Version': '1.0.0',
     'X-Environment': isDevelopment ? 'development' : 'production'
-  }
+  },
+  API_ROUTES
 };
 
 /**
@@ -129,7 +131,7 @@ export const getEffectiveAPIBaseURL = () => {
  */
 export const buildAPIURL = (route: string) => {
   const baseURL = getEffectiveAPIBaseURL();
-  
+
   // Ensure proper URL construction
   const cleanBaseURL = baseURL.endsWith('/') ? baseURL.slice(0, -1) : baseURL;
   const cleanRoute = route.startsWith('/') ? route : `/${route}`;

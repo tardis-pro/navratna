@@ -109,6 +109,21 @@ export const AgentCreateRequestSchema = z.object({
   role: z.nativeEnum(AgentRole).optional().default(AgentRole.ASSISTANT),
   personaId: IDSchema.optional(),
   persona: AgentPersonaSchema.optional(),
+  // Tool attachment support
+  attachedTools: z.array(z.object({
+    toolId: z.string(),
+    toolName: z.string(),
+    category: z.string(),
+    permissions: z.array(z.string()).optional()
+  })).optional().default([]),
+  // Chat functionality enhancements
+  chatConfig: z.object({
+    enableKnowledgeAccess: z.boolean().optional().default(true),
+    enableToolExecution: z.boolean().optional().default(true),
+    enableMemoryEnhancement: z.boolean().optional().default(true),
+    maxConcurrentChats: z.number().positive().optional().default(5),
+    conversationTimeout: z.number().positive().optional().default(3600000) // 1 hour in ms
+  }).optional(),
   configuration: z.object({
     model: z.string().optional(),
     temperature: z.number().min(0).max(2).optional(),

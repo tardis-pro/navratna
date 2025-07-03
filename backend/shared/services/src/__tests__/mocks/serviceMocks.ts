@@ -1,5 +1,5 @@
 // Jest is globally available
-import { TestUtils } from '../helpers/testUtils.js';
+import { TestUtils } from '../helpers/testUtils';
 
 export class ServiceMockFactory {
   static createMockRedisService() {

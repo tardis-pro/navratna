@@ -1,10 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Activity, 
-  TrendingUp, 
-  Clock, 
-  Star, 
+import {
+  Activity,
+  TrendingUp,
+  Clock,
+  Star,
   BarChart3,
   Filter,
   Calendar,
@@ -203,7 +203,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
                   {filteredEvents.map((event, index) => {
                     const EventIcon = getEventTypeIcon(event.type);
                     const relatedItem = recentItems.find(item => item.id === event.itemId);
-                    
+
                     return (
                       <motion.div
                         key={event.id}
@@ -216,7 +216,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
                         <div className="w-8 h-8 bg-slate-700/50 rounded-lg flex items-center justify-center flex-shrink-0">
                           <EventIcon size={14} className="text-slate-400" />
                         </div>
-                        
+
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-2">
                             <Badge className={`text-xs px-2 py-0.5 ${getEventTypeColor(event.type)}`}>
@@ -226,13 +226,13 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
                               {formatTimestamp(event.timestamp)}
                             </span>
                           </div>
-                          
+
                           {relatedItem && (
                             <p className="text-white text-sm mt-1 truncate">
                               {relatedItem.title}
                             </p>
                           )}
-                          
+
                           {event.duration && (
                             <p className="text-slate-400 text-xs">
                               Duration: {Math.round(event.duration / 1000)}s
@@ -252,9 +252,9 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
               <div className="p-3 space-y-2">
                 {trendingItems.map((trend, index) => {
                   if (!trend.item) return null;
-                  
-                  const IconComponent = trend.item.icon;
-                  
+
+                  const IconComponent = trend.item.icon || Activity;
+
                   return (
                     <motion.div
                       key={trend.itemId}
@@ -267,7 +267,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
                       <div className="w-10 h-10 bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
                         <IconComponent size={16} className="text-green-400" />
                       </div>
-                      
+
                       <div className="flex-1 min-w-0">
                         <h4 className="text-white font-medium truncate">{trend.item.title}</h4>
                         <div className="flex items-center space-x-2 mt-1">
@@ -298,7 +298,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
                   </div>
                   <span className="text-white font-semibold">{activityStats.todayEvents}</span>
                 </div>
-                
+
                 <div className="bg-slate-800/30 rounded-lg p-3">
                   <div className="flex items-center space-x-2 mb-1">
                     <BarChart3 size={14} className="text-purple-400" />
@@ -316,7 +316,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
                 </h4>
                 <div className="space-y-2">
                   {activityStats.mostUsedItems.slice(0, 3).map((item, index) => {
-                    const IconComponent = item.icon;
+                    const IconComponent = item.icon || Activity;
                     return (
                       <div
                         key={item.id}

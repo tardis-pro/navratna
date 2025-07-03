@@ -4,10 +4,10 @@
  * Part of the refactored agent-intelligence microservices
  */
 
-import { Agent, AgentStatus, AgentRole, CreateAgentRequest, AgentUpdateRequest } from '@uaip/types';
+import { Agent, AgentStatus, AgentRole, CreateAgentRequest, AgentIntelligenceConfig, AgentSecurityContext } from '@uaip/types';
 import { logger } from '@uaip/utils';
-import { DatabaseService, EventBusService } from '@uaip/shared-services';
-import { SERVICE_ACCESS_MATRIX, validateServiceAccess, AccessLevel } from '@uaip/shared-services';
+import { DatabaseService, EventBusService, Repository, validateServiceAccess, AccessLevel } from '@uaip/shared-services';
+import { config } from '@uaip/config';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface AgentCoreConfig {
@@ -17,12 +17,47 @@ export interface AgentCoreConfig {
   securityLevel: number;
 }
 
+interface CreateCommandEvent {
+  requestId: string;
+  data: CreateAgentRequest;
+  userId: string;
+}
+
+interface UpdateCommandEvent {
+  requestId: string;
+  agentId: string;
+  data: Partial<CreateAgentRequest>;
+  userId: string;
+}
+
+interface DeleteCommandEvent {
+  requestId: string;
+  agentId: string;
+  userId: string;
+}
+
+interface GetQueryEvent {
+  requestId: string;
+  agentId: string;
+}
+
+interface ListQueryEvent {
+  requestId: string;
+  filters?: {
+    limit?: number;
+    offset?: number;
+    role?: AgentRole;
+    status?: AgentStatus;
+    createdBy?: string;
+  };
+}
+
 export class AgentCoreService {
   private databaseService: DatabaseService;
   private eventBusService: EventBusService;
   private serviceName: string;
   private securityLevel: number;
-  private agentRepository: any;
+  private agentRepository: Repository<Agent>;
 
   constructor(config: AgentCoreConfig) {
     this.databaseService = config.databaseService;
@@ -32,10 +67,25 @@ export class AgentCoreService {
   }
 
   async initialize(): Promise<void> {
-    // Validate database access
-    if (!validateServiceAccess(this.serviceName, 'postgresql', 'postgres-application', AccessLevel.WRITE)) {
-      throw new Error('Service lacks required database permissions for agents');
+    // Safely access enterprise configuration with fallback
+    const enterpriseConfig = config.enterprise || { enabled: false, zeroTrustMode: false, serviceAccessMatrix: 'standard' };
+
+    // Determine database instance name based on enterprise mode
+    const databaseInstance = enterpriseConfig.enabled ? 'postgres-application' : 'postgres';
+    const useEnterpriseMatrix = enterpriseConfig.enabled;
+
+    // Validate database access using appropriate matrix
+    if (!validateServiceAccess(this.serviceName, 'postgresql', databaseInstance, AccessLevel.WRITE, useEnterpriseMatrix)) {
+      throw new Error(`Service lacks required database permissions for agents (instance: ${databaseInstance}, enterprise: ${useEnterpriseMatrix})`);
     }
+
+    logger.debug('Database access validation passed', {
+      service: this.serviceName,
+      databaseInstance,
+      enterpriseMode: enterpriseConfig.enabled,
+      useEnterpriseMatrix,
+      configAvailable: !!config.enterprise
+    });
 
     // Initialize agent repository
     this.agentRepository = await this.databaseService.getRepository('Agent');
@@ -45,7 +95,10 @@ export class AgentCoreService {
 
     logger.info('Agent Core Service initialized', {
       service: this.serviceName,
-      securityLevel: this.securityLevel
+      securityLevel: this.securityLevel,
+      environment: process.env.NODE_ENV,
+      enterpriseMode: enterpriseConfig.enabled,
+      databaseInstance
     });
   }
 
@@ -77,6 +130,24 @@ export class AgentCoreService {
       // Generate agent ID
       const agentId = uuidv4();
 
+      // Create default intelligence config
+      const defaultIntelligenceConfig = {
+        analysisDepth: 'intermediate' as const,
+        contextWindowSize: 4000,
+        decisionThreshold: 0.7,
+        learningEnabled: true,
+        collaborationMode: 'collaborative' as const
+      };
+
+      // Create default security context
+      const defaultSecurityContext = {
+        securityLevel: (agentData.securityLevel || 'medium') as const,
+        allowedCapabilities: agentData.capabilities || [],
+        restrictedDomains: [],
+        approvalRequired: false,
+        auditLevel: 'standard' as const
+      };
+
       const agent: Agent = {
         id: agentId,
         name: agentData.name,
@@ -85,11 +156,23 @@ export class AgentCoreService {
         capabilities: agentData.capabilities || [],
         configuration: agentData.configuration || {},
         status: AgentStatus.ACTIVE,
-        personaId: agentData.personaId,
+        personaId: agentData.personaId!,
+        intelligenceConfig: defaultIntelligenceConfig,
+        securityContext: defaultSecurityContext,
+        isActive: agentData.isActive !== undefined ? agentData.isActive : true,
         createdBy,
         createdAt: new Date(),
         updatedAt: new Date(),
         version: 1,
+        // Model configuration fields from the request
+        modelId: agentData.modelId,
+        apiType: agentData.apiType,
+        temperature: agentData.temperature,
+        maxTokens: agentData.maxTokens,
+        systemPrompt: agentData.systemPrompt,
+        // Additional optional fields
+        metadata: {},
+        lastActiveAt: undefined,
       };
 
       // Save to database
@@ -145,7 +228,7 @@ export class AgentCoreService {
   /**
    * Get agent with persona data
    */
-  async getAgentWithPersona(agentId: string): Promise<Agent & { personaData?: any } | null> {
+  async getAgentWithPersona(agentId: string): Promise<Agent & { personaData?: Record<string, unknown> } | null> {
     try {
       const agent = await this.getAgent(agentId);
       if (!agent) return null;
@@ -313,63 +396,69 @@ export class AgentCoreService {
   /**
    * Event handlers
    */
-  private async handleCreateCommand(event: any): Promise<void> {
+  private async handleCreateCommand(event: CreateCommandEvent): Promise<void> {
     const { requestId, data, userId } = event;
     try {
       const agent = await this.createAgent(data, userId);
       await this.respondToRequest(requestId, { success: true, data: agent });
     } catch (error) {
-      await this.respondToRequest(requestId, { success: false, error: error.message });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      await this.respondToRequest(requestId, { success: false, error: errorMessage });
     }
   }
 
-  private async handleUpdateCommand(event: any): Promise<void> {
+  private async handleUpdateCommand(event: UpdateCommandEvent): Promise<void> {
     const { requestId, agentId, data, userId } = event;
     try {
       const agent = await this.updateAgent(agentId, data, userId);
       await this.respondToRequest(requestId, { success: true, data: agent });
     } catch (error) {
-      await this.respondToRequest(requestId, { success: false, error: error.message });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      await this.respondToRequest(requestId, { success: false, error: errorMessage });
     }
   }
 
-  private async handleDeleteCommand(event: any): Promise<void> {
+  private async handleDeleteCommand(event: DeleteCommandEvent): Promise<void> {
     const { requestId, agentId, userId } = event;
     try {
       await this.deleteAgent(agentId, userId);
       await this.respondToRequest(requestId, { success: true });
     } catch (error) {
-      await this.respondToRequest(requestId, { success: false, error: error.message });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      await this.respondToRequest(requestId, { success: false, error: errorMessage });
     }
   }
 
-  private async handleGetQuery(event: any): Promise<void> {
+  private async handleGetQuery(event: GetQueryEvent): Promise<void> {
     const { requestId, agentId } = event;
     try {
       const agent = await this.getAgent(agentId);
       await this.respondToRequest(requestId, { success: true, data: agent });
     } catch (error) {
-      await this.respondToRequest(requestId, { success: false, error: error.message });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      await this.respondToRequest(requestId, { success: false, error: errorMessage });
     }
   }
 
-  private async handleListQuery(event: any): Promise<void> {
+  private async handleListQuery(event: ListQueryEvent): Promise<void> {
     const { requestId, filters } = event;
     try {
       const agents = await this.getAgents(filters);
       await this.respondToRequest(requestId, { success: true, data: agents });
     } catch (error) {
-      await this.respondToRequest(requestId, { success: false, error: error.message });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      await this.respondToRequest(requestId, { success: false, error: errorMessage });
     }
   }
 
-  private async handleGetWithPersonaQuery(event: any): Promise<void> {
+  private async handleGetWithPersonaQuery(event: GetQueryEvent): Promise<void> {
     const { requestId, agentId } = event;
     try {
       const agent = await this.getAgentWithPersona(agentId);
       await this.respondToRequest(requestId, { success: true, data: agent });
     } catch (error) {
-      await this.respondToRequest(requestId, { success: false, error: error.message });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      await this.respondToRequest(requestId, { success: false, error: errorMessage });
     }
   }
 
@@ -391,7 +480,7 @@ export class AgentCoreService {
     }
   }
 
-  private async publishAgentEvent(channel: string, data: any): Promise<void> {
+  private async publishAgentEvent(channel: string, data: Record<string, unknown>): Promise<void> {
     try {
       await this.eventBusService.publish(channel, {
         ...data,
@@ -403,7 +492,7 @@ export class AgentCoreService {
     }
   }
 
-  private async respondToRequest(requestId: string, response: any): Promise<void> {
+  private async respondToRequest(requestId: string, response: Record<string, unknown>): Promise<void> {
     await this.eventBusService.publish('agent.response', {
       requestId,
       ...response,
@@ -411,13 +500,24 @@ export class AgentCoreService {
     });
   }
 
-  private async requestPersonaData(personaId: string): Promise<any> {
-    // This would be implemented to request persona data through event bus
-    // For now, return null to indicate no persona data
-    return null;
+  private async requestPersonaData(personaId: string): Promise<Record<string, unknown> | null> {
+    try {
+      // Request persona data through event bus from persona service
+      const requestId = uuidv4();
+      const response = await this.eventBusService.request('persona.query.get', {
+        requestId,
+        personaId,
+        source: this.serviceName
+      });
+
+      return response?.data || null;
+    } catch (error) {
+      logger.warn('Failed to fetch persona data', { personaId, error });
+      return null;
+    }
   }
 
-  private auditLog(event: string, data: any): void {
+  private auditLog(event: string, data: Record<string, unknown>): void {
     logger.info(`AUDIT: ${event}`, {
       ...data,
       service: this.serviceName,

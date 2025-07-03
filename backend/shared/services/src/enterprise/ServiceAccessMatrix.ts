@@ -23,7 +23,7 @@ export enum AccessLevel {
 }
 
 export interface DatabaseConnection {
-  type: 'postgresql' | 'neo4j' | 'qdrant' | 'redis';
+  type: 'postgresql' | 'neo4j' | 'qdrant' | 'redis' | 'rabbitmq';
   tier: DatabaseTier;
   instance: string;
   port: number;
@@ -42,7 +42,7 @@ export interface ServiceAccess {
 
 /**
  * Zero Trust Service Access Matrix
- * 
+ *
  * Defines precise access control for each service based on:
  * - Security level requirements
  * - Business need-to-know
@@ -53,7 +53,7 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
   // =============================================================================
   // LEVEL 4 RESTRICTED - SECURITY TIER
   // =============================================================================
-  
+
   'security-gateway': {
     serviceName: 'security-gateway',
     securityLevel: 4,
@@ -102,7 +102,7 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
   // =============================================================================
   // LEVEL 3 CONFIDENTIAL - APPLICATION TIER
   // =============================================================================
-  
+
   'agent-intelligence': {
     serviceName: 'agent-intelligence',
     securityLevel: 3,
@@ -286,7 +286,7 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
   // =============================================================================
   // LEVEL 2/3 HYBRID - OPERATIONS TIER
   // =============================================================================
-  
+
   'orchestration-pipeline': {
     serviceName: 'orchestration-pipeline',
     securityLevel: 3,
@@ -335,7 +335,7 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
   // =============================================================================
   // LEVEL 2 INTERNAL - ANALYTICS TIER  
   // =============================================================================
-  
+
   'analytics-service': {
     serviceName: 'analytics-service',
     securityLevel: 2,
@@ -471,15 +471,207 @@ export const COMPLIANCE_CONTROLS = {
 };
 
 /**
+ * Standard Development Service Access Matrix
+ *
+ * Simplified access control for development environments
+ * Maps docker-compose service names to standard database instances
+ */
+export const STANDARD_SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
+  'agent-intelligence': {
+    serviceName: 'agent-intelligence',
+    securityLevel: 2,
+    databases: [
+      {
+        type: 'postgresql',
+        tier: DatabaseTier.APPLICATION,
+        instance: 'postgres', // Docker container name
+        port: 5432,
+        permissions: [AccessLevel.READ, AccessLevel.WRITE],
+        encryption: 'optional',
+        auditLevel: 'minimal'
+      },
+      {
+        type: 'neo4j',
+        tier: DatabaseTier.APPLICATION,
+        instance: 'neo4j',
+        port: 7687,
+        permissions: [AccessLevel.READ, AccessLevel.WRITE],
+        encryption: 'optional',
+        auditLevel: 'minimal'
+      },
+      {
+        type: 'redis',
+        tier: DatabaseTier.APPLICATION,
+        instance: 'redis',
+        port: 6379,
+        permissions: [AccessLevel.READ, AccessLevel.WRITE],
+        encryption: 'optional',
+        auditLevel: 'minimal'
+      },
+      {
+        type: 'qdrant',
+        tier: DatabaseTier.APPLICATION,
+        instance: 'qdrant',
+        port: 6333,
+        permissions: [AccessLevel.READ, AccessLevel.WRITE],
+        encryption: 'optional',
+        auditLevel: 'minimal'
+      }
+    ],
+    networkSegments: ['uaip-network'],
+    complianceFlags: ['DEV_MODE']
+  },
+
+  'capability-registry': {
+    serviceName: 'capability-registry',
+    securityLevel: 2,
+    databases: [
+      {
+        type: 'postgresql',
+        tier: DatabaseTier.APPLICATION,
+        instance: 'postgres',
+        port: 5432,
+        permissions: [AccessLevel.READ, AccessLevel.WRITE],
+        encryption: 'optional',
+        auditLevel: 'minimal'
+      },
+      {
+        type: 'redis',
+        tier: DatabaseTier.APPLICATION,
+        instance: 'redis',
+        port: 6379,
+        permissions: [AccessLevel.READ, AccessLevel.WRITE],
+        encryption: 'optional',
+        auditLevel: 'minimal'
+      },
+      {
+        type: 'qdrant',
+        tier: DatabaseTier.APPLICATION,
+        instance: 'qdrant',
+        port: 6333,
+        permissions: [AccessLevel.READ],
+        encryption: 'optional',
+        auditLevel: 'minimal'
+      }
+    ],
+    networkSegments: ['uaip-network'],
+    complianceFlags: ['DEV_MODE']
+  },
+
+  'orchestration-pipeline': {
+    serviceName: 'orchestration-pipeline',
+    securityLevel: 2,
+    databases: [
+      {
+        type: 'postgresql',
+        tier: DatabaseTier.APPLICATION,
+        instance: 'postgres',
+        port: 5432,
+        permissions: [AccessLevel.READ, AccessLevel.WRITE],
+        encryption: 'optional',
+        auditLevel: 'minimal'
+      },
+      {
+        type: 'redis',
+        tier: DatabaseTier.APPLICATION,
+        instance: 'redis',
+        port: 6379,
+        permissions: [AccessLevel.READ, AccessLevel.WRITE],
+        encryption: 'optional',
+        auditLevel: 'minimal'
+      },
+      {
+        type: 'rabbitmq',
+        tier: DatabaseTier.APPLICATION,
+        instance: 'rabbitmq',
+        port: 5672,
+        permissions: [AccessLevel.READ, AccessLevel.WRITE],
+        encryption: 'optional',
+        auditLevel: 'minimal'
+      }
+    ],
+    networkSegments: ['uaip-network'],
+    complianceFlags: ['DEV_MODE']
+  },
+
+  'discussion-orchestration': {
+    serviceName: 'discussion-orchestration',
+    securityLevel: 2,
+    databases: [
+      {
+        type: 'postgresql',
+        tier: DatabaseTier.APPLICATION,
+        instance: 'postgres',
+        port: 5432,
+        permissions: [AccessLevel.READ, AccessLevel.WRITE],
+        encryption: 'optional',
+        auditLevel: 'minimal'
+      },
+      {
+        type: 'redis',
+        tier: DatabaseTier.APPLICATION,
+        instance: 'redis',
+        port: 6379,
+        permissions: [AccessLevel.READ, AccessLevel.WRITE],
+        encryption: 'optional',
+        auditLevel: 'minimal'
+      },
+      {
+        type: 'rabbitmq',
+        tier: DatabaseTier.APPLICATION,
+        instance: 'rabbitmq',
+        port: 5672,
+        permissions: [AccessLevel.READ, AccessLevel.WRITE],
+        encryption: 'optional',
+        auditLevel: 'minimal'
+      }
+    ],
+    networkSegments: ['uaip-network'],
+    complianceFlags: ['DEV_MODE']
+  },
+
+  'security-gateway': {
+    serviceName: 'security-gateway',
+    securityLevel: 3,
+    databases: [
+      {
+        type: 'postgresql',
+        tier: DatabaseTier.APPLICATION,
+        instance: 'postgres',
+        port: 5432,
+        permissions: [AccessLevel.READ, AccessLevel.WRITE],
+        encryption: 'optional',
+        auditLevel: 'minimal'
+      },
+      {
+        type: 'redis',
+        tier: DatabaseTier.APPLICATION,
+        instance: 'redis',
+        port: 6379,
+        permissions: [AccessLevel.READ, AccessLevel.WRITE],
+        encryption: 'optional',
+        auditLevel: 'minimal'
+      }
+    ],
+    networkSegments: ['uaip-network'],
+    complianceFlags: ['DEV_MODE']
+  }
+};
+
+/**
  * Validates if a service has access to a specific database
  */
 export function validateServiceAccess(
   serviceName: string,
   databaseType: string,
   databaseInstance: string,
-  requestedPermission: AccessLevel
+  requestedPermission: AccessLevel,
+  useEnterpriseMatrix: boolean = true
 ): boolean {
-  const serviceAccess = SERVICE_ACCESS_MATRIX[serviceName];
+  // Choose the appropriate access matrix
+  const accessMatrix = useEnterpriseMatrix ? SERVICE_ACCESS_MATRIX : STANDARD_SERVICE_ACCESS_MATRIX;
+
+  const serviceAccess = accessMatrix[serviceName];
   if (!serviceAccess) {
     return false;
   }
@@ -487,7 +679,7 @@ export function validateServiceAccess(
   const dbAccess = serviceAccess.databases.find(
     db => db.type === databaseType && db.instance === databaseInstance
   );
-  
+
   if (!dbAccess) {
     return false;
   }
@@ -511,7 +703,7 @@ export function getDatabaseConnectionString(
   const dbAccess = serviceAccess.databases.find(
     db => db.type === databaseType && db.instance === databaseInstance
   );
-  
+
   if (!dbAccess) {
     return null;
   }
@@ -521,18 +713,18 @@ export function getDatabaseConnectionString(
     case 'postgresql':
       const sslMode = dbAccess.encryption === 'required' ? '?sslmode=require' : '';
       return `postgresql://${getCredentialsForService(serviceName, databaseInstance)}@${databaseInstance}:${dbAccess.port}/${getDatabaseName(dbAccess.tier)}${sslMode}`;
-    
+
     case 'neo4j':
       const protocol = dbAccess.encryption === 'required' ? 'bolt+s' : 'bolt';
       return `${protocol}://${getCredentialsForService(serviceName, databaseInstance)}@${databaseInstance}:${dbAccess.port}`;
-    
+
     case 'qdrant':
       const scheme = dbAccess.encryption === 'required' ? 'https' : 'http';
       return `${scheme}://${databaseInstance}:${dbAccess.port}`;
-    
+
     case 'redis':
       return `redis://:${getPasswordForService(serviceName, databaseInstance)}@${databaseInstance}:${dbAccess.port}`;
-    
+
     default:
       return null;
   }
@@ -553,7 +745,7 @@ function getCredentialsForService(serviceName: string, databaseInstance: string)
     'neo4j-agent': 'neo4j:${NEO4J_AGENT_PASSWORD}',
     'neo4j-operations': 'neo4j:${NEO4J_OPERATIONS_PASSWORD}'
   };
-  
+
   return credentialMap[databaseInstance] || '';
 }
 
@@ -562,7 +754,7 @@ function getPasswordForService(serviceName: string, databaseInstance: string): s
     'redis-security': '${REDIS_SECURITY_PASSWORD}',
     'redis-application': '${REDIS_APPLICATION_PASSWORD}'
   };
-  
+
   return passwordMap[databaseInstance] || '';
 }
 
@@ -574,6 +766,6 @@ function getDatabaseName(tier: DatabaseTier): string {
     [DatabaseTier.OPERATIONS]: 'uaip_operations',
     [DatabaseTier.DMZ]: 'uaip_dmz'
   };
-  
+
   return dbNameMap[tier];
 }

@@ -194,9 +194,9 @@ export const QuickActionsDock: React.FC<QuickActionsDockProps> = ({
         animate={{ y: 0 }}
         transition={{ type: "spring", stiffness: 300, damping: 30, delay: 0.2 }}
       >
-        {/* Dock Background */}
+        {/* Sleek Dock Background */}
         <div
-          className="bg-slate-900/90 backdrop-blur-xl border-t border-slate-700/50 shadow-2xl"
+          className="bg-black/20 backdrop-blur-xl border-t border-white/10 shadow-2xl"
           style={{ height: dockHeight }}
         >
           <div className="h-full flex items-center justify-center px-6">
@@ -221,39 +221,42 @@ export const QuickActionsDock: React.FC<QuickActionsDockProps> = ({
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <motion.button
-                            className="relative rounded-2xl flex items-center justify-center shadow-lg transition-all duration-200 group"
+                            className="relative rounded-2xl flex items-center justify-center backdrop-blur-sm transition-all duration-200 group border border-white/10"
                             style={{
                               width: buttonSize,
                               height: buttonSize,
-                              background: `linear-gradient(135deg, ${action.color}, ${action.color}dd)`
+                              background: `rgba(255, 255, 255, 0.05)`,
+                              boxShadow: `inset 0 1px 0 rgba(255, 255, 255, 0.1)`
                             }}
                             onClick={action.action}
                             onMouseEnter={() => setHoveredAction(action.id)}
                             onMouseLeave={() => setHoveredAction(null)}
                             whileHover={{
-                              scale: 1.1,
-                              y: -4,
-                              boxShadow: `0 8px 24px ${action.color}40`
+                              scale: 1.05,
+                              y: -2,
+                              backgroundColor: 'rgba(255, 255, 255, 0.1)'
                             }}
                             whileTap={{ scale: 0.95 }}
                           >
                             {/* Icon */}
                             <IconComponent
                               size={iconSize}
-                              className="text-white drop-shadow-sm"
+                              className="text-white/80 group-hover:text-white transition-colors duration-200"
+                              style={{
+                                filter: `drop-shadow(0 0 8px ${action.color}60)`
+                              }}
                             />
 
-                            {/* Hover Glow Effect */}
+                            {/* Subtle Glow Effect */}
                             <motion.div
                               className="absolute inset-0 rounded-2xl"
                               style={{
-                                background: `linear-gradient(135deg, ${action.color}40, ${action.color}20)`
+                                background: `radial-gradient(circle at center, ${action.color}30, transparent 70%)`
                               }}
                               animate={{
-                                opacity: hoveredAction === action.id ? 1 : 0,
-                                scale: hoveredAction === action.id ? 1.2 : 1
+                                opacity: hoveredAction === action.id ? 0.6 : 0
                               }}
-                              transition={{ duration: 0.2 }}
+                              transition={{ duration: 0.3 }}
                             />
 
                             {/* Active Indicator */}
@@ -296,7 +299,7 @@ export const QuickActionsDock: React.FC<QuickActionsDockProps> = ({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <motion.button
-                        className="bg-slate-700/50 hover:bg-slate-600/50 rounded-2xl flex items-center justify-center shadow-lg transition-all duration-200 border border-slate-600/30"
+                        className="bg-white/5 hover:bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm transition-all duration-200 border border-white/10"
                         style={{
                           width: buttonSize,
                           height: buttonSize
@@ -311,7 +314,7 @@ export const QuickActionsDock: React.FC<QuickActionsDockProps> = ({
                         >
                           <MoreHorizontal
                             size={iconSize}
-                            className="text-slate-300"
+                            className="text-white/60 group-hover:text-white/80 transition-colors duration-200"
                           />
                         </motion.div>
                       </motion.button>

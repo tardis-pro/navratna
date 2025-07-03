@@ -115,7 +115,8 @@ export const Portal: React.FC<PortalProps> = ({
   const constraintsRef = useRef<HTMLDivElement>(null);
   const x = useMotionValue(initialPosition.x);
   const y = useMotionValue(initialPosition.y);
-  
+  const [isDragFromHeader, setIsDragFromHeader] = useState(false);
+
   // Transform values for glow effects
   const glowOpacity = useTransform(x, [0, 100], [0.3, 0.8]);
   const scaleOnHover = useTransform(x, [0, 100], [1, 1.02]);
@@ -133,7 +134,7 @@ export const Portal: React.FC<PortalProps> = ({
       // On mobile, ensure portal stays within bounds
       const maxX = Math.max(10, currentViewport.width - state.size.width - 10);
       const maxY = Math.max(10, currentViewport.height - state.size.height - 100);
-      
+
       setState(prev => ({
         ...prev,
         position: {
@@ -144,13 +145,40 @@ export const Portal: React.FC<PortalProps> = ({
     }
   }, [currentViewport, state.size, state.isMaximized]);
 
-  const handleDragStart = () => {
+  const handleDragStart = (event: any, info: any) => {
     setState(prev => ({ ...prev, isDragging: true, isActive: true }));
+    setIsDragFromHeader(false);
     onFocus?.();
   };
 
-  const handleDragEnd = () => {
-    setState(prev => ({ ...prev, isDragging: false }));
+  const handleDragEnd = (event: any, info: any) => {
+    setState(prev => ({
+      ...prev,
+      isDragging: false,
+      position: {
+        x: info.point.x - info.offset.x,
+        y: info.point.y - info.offset.y
+      }
+    }));
+    setIsDragFromHeader(false);
+  };
+
+  const handleHeaderDragStart = (event: any, info: any) => {
+    setState(prev => ({ ...prev, isDragging: true, isActive: true }));
+    setIsDragFromHeader(true);
+    onFocus?.();
+  };
+
+  const handleHeaderDragEnd = (event: any, info: any) => {
+    setState(prev => ({
+      ...prev,
+      isDragging: false,
+      position: {
+        x: info.point.x - info.offset.x,
+        y: info.point.y - info.offset.y
+      }
+    }));
+    setIsDragFromHeader(false);
   };
 
   const handleResizeStart = () => {
@@ -186,8 +214,8 @@ export const Portal: React.FC<PortalProps> = ({
       ...prev,
       isMaximized: !prev.isMaximized,
       position: prev.isMaximized ? initialPosition : { x: padding, y: padding },
-      size: prev.isMaximized ? initialSize : { 
-        width: currentViewport.width - (padding * 2), 
+      size: prev.isMaximized ? initialSize : {
+        width: currentViewport.width - (padding * 2),
         height: currentViewport.height - (currentViewport.isMobile ? 120 : 150)
       }
     }));
@@ -200,11 +228,15 @@ export const Portal: React.FC<PortalProps> = ({
   };
 
   const handlePortalFocus = (e: React.MouseEvent) => {
-    // Only handle focus if clicking on the portal itself, not child elements
-    if (e.target === e.currentTarget || (e.target as Element).closest('.portal-header')) {
-      setState(prev => ({ ...prev, isActive: true }));
-      onFocus?.();
-    }
+    e.stopPropagation();
+    setState(prev => ({ ...prev, isActive: true }));
+    onFocus?.();
+  };
+
+  const handlePortalClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setState(prev => ({ ...prev, isActive: true }));
+    onFocus?.();
   };
 
   const handleBlur = () => {
@@ -219,49 +251,36 @@ export const Portal: React.FC<PortalProps> = ({
   const isDragEnabled = !currentViewport.isMobile;
 
   return (
-    <div ref={constraintsRef} className="fixed inset-0 pointer-events-none">
+    <div ref={constraintsRef} className="fixed inset-0 pointer-events-none" style={{ zIndex: 1 }}>
       <motion.div
-        drag={isDragEnabled && !state.isResizing}
-        dragMomentum={false}
-        dragConstraints={constraintsRef}
-        dragElastic={0.1}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-        onFocus={handlePortalFocus}
-        onBlur={handleBlur}
-        initial={{ 
-          x: initialPosition.x, 
+        initial={{
+          x: initialPosition.x,
           y: initialPosition.y,
           scale: 0.8,
           opacity: 0
         }}
-        animate={{ 
+        animate={{
           x: state.position.x,
           y: state.position.y,
           scale: state.isMinimized ? 0.1 : 1,
           opacity: state.isMinimized ? 0.5 : 1
         }}
-        whileHover={{ 
-          scale: state.isMinimized ? 0.1 : (currentViewport.isMobile ? 1 : 1.02),
-          transition: { duration: 0.2 }
-        }}
-        whileTap={{ scale: currentViewport.isMobile ? 1 : 0.98 }}
         transition={{
           type: "spring",
           stiffness: 300,
           damping: 30
         }}
-        style={{ 
+        style={{
           zIndex: state.zIndex,
-          filter: state.isActive ? 'drop-shadow(0 0 20px rgba(59, 130, 246, 0.5))' : 'none',
+          position: 'fixed',
           pointerEvents: 'auto'
         }}
         className={`
-          pointer-events-auto
-          ${state.isMaximized ? 'fixed inset-0' : 'absolute'}
+          ${state.isMaximized ? 'inset-0' : ''}
           ${className}
         `}
-        onClick={handlePortalFocus}
+        onClick={handlePortalClick}
+        onMouseDown={handlePortalFocus}
       >
         {/*  Pulse Effect */}
         <AnimatePresence>
@@ -285,14 +304,20 @@ export const Portal: React.FC<PortalProps> = ({
             shadow-2xl ${styles.glow}
             overflow-hidden
             ${state.isDragging ? 'cursor-grabbing' : state.isResizing ? 'cursor-nw-resize' : 'cursor-auto'}
+            ${state.isActive ? 'ring-2 ring-blue-500/50' : ''}
           `}
           style={{
             width: state.size.width,
             height: state.size.height,
             minWidth: currentViewport.isMobile ? 300 : 350,
-            minHeight: currentViewport.isMobile ? 200 : 250
+            minHeight: currentViewport.isMobile ? 200 : 250,
+            filter: state.isActive ? 'drop-shadow(0 0 20px rgba(59, 130, 246, 0.5))' : 'none'
           }}
           onDoubleClick={handleDoubleClick}
+          whileHover={{
+            scale: state.isMinimized ? 0.1 : (currentViewport.isMobile ? 1 : 1.01),
+            transition: { duration: 0.2 }
+          }}
         >
           {/* Portal Header */}
           <motion.div
@@ -303,18 +328,29 @@ export const Portal: React.FC<PortalProps> = ({
               bg-gradient-to-r ${styles.gradient}
               border-b ${styles.border}
               ${isDragEnabled && !state.isResizing ? 'cursor-grab active:cursor-grabbing' : 'cursor-auto'}
+              select-none
             `}
             drag={isDragEnabled && !state.isResizing}
             dragMomentum={false}
             dragConstraints={constraintsRef}
             dragElastic={0}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
+            dragPropagation={true}
+            onDragStart={handleHeaderDragStart}
+            onDragEnd={handleHeaderDragEnd}
+            onDrag={(event, info) => {
+              setState(prev => ({
+                ...prev,
+                position: {
+                  x: info.point.x - info.offset.x,
+                  y: info.point.y - info.offset.y
+                }
+              }));
+            }}
           >
             <div className="flex items-center gap-3">
               <motion.div
                 className={`w-3 h-3 rounded-full bg-gradient-to-r ${styles.gradient} ${styles.border} border`}
-                animate={{ 
+                animate={{
                   scale: state.isActive ? [1, 1.2, 1] : 1,
                   opacity: state.isActive ? [0.7, 1, 0.7] : 0.7
                 }}
@@ -417,9 +453,12 @@ export const Portal: React.FC<PortalProps> = ({
             relative flex-1 overflow-hidden
             ${currentViewport.isMobile ? 'pb-4' : 'pb-6'}
           `}>
-            <div 
+            <div
               className="h-full overflow-auto p-4 md:p-6"
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                handlePortalFocus(e as any);
+              }}
             >
               {children}
             </div>

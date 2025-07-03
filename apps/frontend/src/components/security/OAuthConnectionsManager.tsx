@@ -340,13 +340,8 @@ export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentI
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">OAuth Connections</h2>
-          <p className="text-muted-foreground">
-            Manage third-party service integrations for enhanced capabilities
-          </p>
-        </div>
+      {/* Header - removed since portal provides its own header */}
+      <div className="flex items-center justify-end">
         <Button variant="outline" onClick={fetchConnections}>
           <RefreshCw className="w-4 h-4 mr-2" />
           Refresh

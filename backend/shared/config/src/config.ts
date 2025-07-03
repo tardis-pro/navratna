@@ -129,45 +129,45 @@ export interface ServicesConfig {
 }
 
 
-  type Unit =
-      | "Years"
-      | "Year"
-      | "Yrs"
-      | "Yr"
-      | "Y"
-      | "Weeks"
-      | "Week"
-      | "W"
-      | "Days"
-      | "Day"
-      | "D"
-      | "Hours"
-      | "Hour"
-      | "Hrs"
-      | "Hr"
-      | "H"
-      | "Minutes"
-      | "Minute"
-      | "Mins"
-      | "Min"
-      | "M"
-      | "Seconds"
-      | "Second"
-      | "Secs"
-      | "Sec"
-      | "s"
-      | "Milliseconds"
-      | "Millisecond"
-      | "Msecs"
-      | "Msec"
-      | "Ms";
+type Unit =
+  | "Years"
+  | "Year"
+  | "Yrs"
+  | "Yr"
+  | "Y"
+  | "Weeks"
+  | "Week"
+  | "W"
+  | "Days"
+  | "Day"
+  | "D"
+  | "Hours"
+  | "Hour"
+  | "Hrs"
+  | "Hr"
+  | "H"
+  | "Minutes"
+  | "Minute"
+  | "Mins"
+  | "Min"
+  | "M"
+  | "Seconds"
+  | "Second"
+  | "Secs"
+  | "Sec"
+  | "s"
+  | "Milliseconds"
+  | "Millisecond"
+  | "Msecs"
+  | "Msec"
+  | "Ms";
 
-  type UnitAnyCase = Unit | Uppercase<Unit> | Lowercase<Unit>;
+type UnitAnyCase = Unit | Uppercase<Unit> | Lowercase<Unit>;
 
-  type StringValue =
-      | `${number}`
-      | `${number}${UnitAnyCase}`
-      | `${number} ${UnitAnyCase}`;
+type StringValue =
+  | `${number}`
+  | `${number}${UnitAnyCase}`
+  | `${number} ${UnitAnyCase}`;
 
 
 const fullString = (value: string | undefined) => {
@@ -253,7 +253,12 @@ export interface Config {
   notifications: NotificationsConfig;
   port: number;
   environment: string;
-  
+  enterprise: {
+    enabled: boolean;
+    zeroTrustMode: boolean;
+    serviceAccessMatrix: string;
+  };
+
   getExecutionConfig(): ExecutionConfig;
   getRedisConfig(): RedisConfig;
   getStateConfig(): StateConfig;
@@ -336,10 +341,10 @@ function parseRedisUrl(url?: string) {
 
   try {
     console.log('🔧 Parsing Redis URL:', url.replace(/:[^:@]+@/, ':***@'));
-    
+
     // Handle Redis URL format: redis://:password@host:port or redis://user:password@host:port
     const parsed = new URL(url);
-    
+
     // Extract password - handle both :password@host and user:password@host formats
     let password: string | undefined;
     if (parsed.password) {
@@ -351,21 +356,21 @@ function parseRedisUrl(url?: string) {
         password = match[1];
       }
     }
-    
+
     const result = {
       host: parsed.hostname,
       port: parseInt(parsed.port) || 6379,
       password: password,
       db: parsed.pathname && parsed.pathname.length > 1 ? parseInt(parsed.pathname.slice(1)) : 0
     };
-    
+
     console.log('🔧 Parsed Redis config:', {
       host: result.host,
       port: result.port,
       hasPassword: !!result.password,
       db: result.db
     });
-    
+
     return result;
   } catch (error) {
     console.error('Failed to parse REDIS_URL:', error);
@@ -405,12 +410,12 @@ const defaultConfig: Config = {
     qdrant: {
       url: process.env.QDRANT_URL || (() => {
         // Check multiple indicators for containerized environment
-        const isDocker = process.env.DOCKER_ENV === 'true' || 
-                        process.env.NODE_ENV === 'production' ||
-                        process.env.KUBERNETES_SERVICE_HOST ||
-                        process.env.HOSTNAME?.includes('docker') ||
-                        process.platform === 'linux' && process.env.container;
-        
+        const isDocker = process.env.DOCKER_ENV === 'true' ||
+          process.env.NODE_ENV === 'production' ||
+          process.env.KUBERNETES_SERVICE_HOST ||
+          process.env.HOSTNAME?.includes('docker') ||
+          process.platform === 'linux' && process.env.container;
+
         return isDocker ? 'http://qdrant:6333' : 'http://localhost:6333';
       })(),
       collectionName: process.env.QDRANT_COLLECTION_NAME || 'knowledge_embeddings'
@@ -541,15 +546,20 @@ const defaultConfig: Config = {
   },
   port: parseInt(process.env.PORT || '3000'),
   environment: process.env.NODE_ENV || 'development',
-  
+  enterprise: {
+    enabled: process.env.ENTERPRISE_MODE === 'true' || process.env.ZERO_TRUST_MODE === 'enabled',
+    zeroTrustMode: process.env.ZERO_TRUST_MODE === 'enabled',
+    serviceAccessMatrix: process.env.SERVICE_ACCESS_MATRIX || 'standard'
+  },
+
   getExecutionConfig(): ExecutionConfig {
     return this.execution;
   },
-  
+
   getRedisConfig(): RedisConfig {
     return this.redis;
   },
-  
+
   getStateConfig(): StateConfig {
     return this.state;
   }
