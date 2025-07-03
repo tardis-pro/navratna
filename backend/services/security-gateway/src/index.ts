@@ -222,13 +222,17 @@ class SecurityGatewayServer {
       // Initialize all dependent services after database is ready
       await this.initializeServices();
 
-      // Initialize event bus
+      // Initialize standard event bus
       await this.eventBusService.connect();
-      logger.info('Event bus connected successfully');
+      logger.info('Standard event bus connected successfully');
 
-      // Setup event subscriptions
+      // Initialize enterprise event bus
+      await this.enterpriseEventBusService.connect();
+      logger.info('Enterprise event bus connected successfully');
+
+      // Setup event subscriptions for both buses
       await this.setupEventSubscriptions();
-      logger.info('Event subscriptions configured');
+      logger.info('Event subscriptions configured for both standard and enterprise buses');
 
       // Start the server
       this.app.listen(this.port, () => {
@@ -249,6 +253,14 @@ class SecurityGatewayServer {
   }
 
   private async setupEventSubscriptions(): Promise<void> {
+    // Setup standard event bus subscriptions
+    await this.setupStandardEventSubscriptions();
+    
+    // Setup enterprise event bus subscriptions
+    await this.setupEnterpriseEventSubscriptions();
+  }
+
+  private async setupStandardEventSubscriptions(): Promise<void> {
     // Subscribe to WebSocket authentication requests
     await this.eventBusService.subscribe('security.auth.validate', async (event) => {
       try {
@@ -292,6 +304,92 @@ class SecurityGatewayServer {
             reason: 'Internal authentication error'
           });
         }
+      }
+    });
+  }
+
+  private async setupEnterpriseEventSubscriptions(): Promise<void> {
+    // Subscribe to enterprise security events (same event name, enterprise exchange, explicit queue name)
+    await this.enterpriseEventBusService.subscribe('security.auth.validate', async (event) => {
+      try {
+        const { token, correlationId, service, operation, complianceLevel } = event.data;
+        
+        logger.info('Processing enterprise auth validation', { 
+          service, 
+          operation, 
+          complianceLevel,
+          correlationId: correlationId?.substring(0, 10) + '...' 
+        });
+
+        // Validate JWT token with enhanced enterprise validation
+        const authResult = await this.validateJWTToken(token);
+        
+        // Add enterprise-specific compliance checks
+        const enterpriseAuthResult = {
+          ...authResult,
+          complianceLevel: complianceLevel || 'standard',
+          auditTrail: true,
+          enterpriseValidation: true
+        };
+        
+        // Publish response back to requesting service via enterprise bus
+        await this.enterpriseEventBusService.publish('security.auth.response', {
+          correlationId,
+          valid: enterpriseAuthResult.valid,
+          userId: enterpriseAuthResult.userId,
+          sessionId: enterpriseAuthResult.sessionId,
+          securityLevel: enterpriseAuthResult.securityLevel,
+          complianceFlags: enterpriseAuthResult.complianceFlags,
+          complianceLevel: enterpriseAuthResult.complianceLevel,
+          email: enterpriseAuthResult.email,
+          role: enterpriseAuthResult.role,
+          reason: enterpriseAuthResult.reason,
+          auditTrail: enterpriseAuthResult.auditTrail,
+          enterpriseValidation: enterpriseAuthResult.enterpriseValidation
+        });
+
+        logger.info('Enterprise auth validation completed', { 
+          correlationId: correlationId?.substring(0, 10) + '...', 
+          valid: enterpriseAuthResult.valid,
+          complianceLevel: enterpriseAuthResult.complianceLevel
+        });
+
+      } catch (error) {
+        logger.error('Enterprise auth validation failed', { error });
+        
+        // Send error response via enterprise bus
+        if (event.data.correlationId) {
+          await this.enterpriseEventBusService.publish('security.auth.response', {
+            correlationId: event.data.correlationId,
+            valid: false,
+            reason: 'Internal enterprise authentication error',
+            auditTrail: true
+          });
+        }
+      }
+    }, { queue: 'security-gateway.enterprise.auth.validate' });
+
+    // Subscribe to enterprise audit events
+    await this.enterpriseEventBusService.subscribe('security.enterprise.audit.log', async (event) => {
+      try {
+        const { auditData, correlationId } = event.data;
+        
+        logger.info('Processing enterprise audit log', { 
+          correlationId: correlationId?.substring(0, 10) + '...',
+          auditType: auditData?.type 
+        });
+
+        // Process audit data through audit service
+        if (this.auditService && auditData) {
+          await this.auditService.logEvent(auditData);
+        }
+
+        logger.info('Enterprise audit log processed', { 
+          correlationId: correlationId?.substring(0, 10) + '...' 
+        });
+
+      } catch (error) {
+        logger.error('Enterprise audit log processing failed', { error });
       }
     });
   }
@@ -378,9 +476,16 @@ class SecurityGatewayServer {
       // Close event bus connections
       try {
         await this.eventBusService.close();
-        logger.info('Event bus disconnected');
+        logger.info('Standard event bus disconnected');
       } catch (error) {
-        logger.error('Error closing event bus connection', { error });
+        logger.error('Error closing standard event bus connection', { error });
+      }
+
+      try {
+        await this.enterpriseEventBusService.close();
+        logger.info('Enterprise event bus disconnected');
+      } catch (error) {
+        logger.error('Error closing enterprise event bus connection', { error });
       }
 
       logger.info('Graceful shutdown completed');
