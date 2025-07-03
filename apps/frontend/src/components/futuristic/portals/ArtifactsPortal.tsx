@@ -4,7 +4,6 @@ import {
   Package,
   Plus,
   Search,
-  Filter,
   Download,
   Upload,
   FileText,
@@ -16,26 +15,13 @@ import {
   Star,
   Clock,
   User,
-  Tag,
-  MoreVertical,
   Eye,
-  Edit,
-  Trash2
+  MoreHorizontal
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-
-interface ViewportSize {
-  width: number;
-  height: number;
-  isMobile: boolean;
-  isTablet: boolean;
-  isDesktop: boolean;
-}
 
 interface Artifact {
   id: string;
@@ -54,22 +40,17 @@ interface Artifact {
 }
 
 interface ArtifactsPortalProps {
-  viewport?: ViewportSize;
   className?: string;
 }
 
 export const ArtifactsPortal: React.FC<ArtifactsPortalProps> = ({
-  viewport,
   className = ''
 }) => {
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
-  const [selectedStatus, setSelectedStatus] = useState<string>('all');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [sortBy, setSortBy] = useState<'name' | 'date' | 'size' | 'downloads'>('date');
 
-  // Mock data
+  // Mock data (same as original)
   useEffect(() => {
     const mockArtifacts: Artifact[] = [
       {
@@ -95,7 +76,7 @@ export const ArtifactsPortal: React.FC<ArtifactsPortalProps> = ({
         createdAt: new Date('2024-01-18'),
         updatedAt: new Date('2024-01-18'),
         author: 'Agent Alpha',
-        description: 'Comprehensive analysis of recent agent discussions',
+        description: 'Comprehensive analysis of recent agent discussions and patterns',
         tags: ['analysis', 'report', 'discussion'],
         isFavorite: false,
         downloadCount: 12,
@@ -131,145 +112,96 @@ export const ArtifactsPortal: React.FC<ArtifactsPortalProps> = ({
         downloadCount: 3,
         version: '2024.01.20',
         status: 'published'
-      },
-      {
-        id: '5',
-        name: 'Draft API Documentation',
-        type: 'document',
-        size: 45200,
-        createdAt: new Date('2024-01-21'),
-        updatedAt: new Date('2024-01-21'),
-        author: 'Agent Gamma',
-        description: 'Work in progress API documentation for new features',
-        tags: ['documentation', 'api', 'draft'],
-        isFavorite: false,
-        downloadCount: 0,
-        version: '0.1.0',
-        status: 'draft'
       }
     ];
 
     setArtifacts(mockArtifacts);
   }, []);
 
-  // Filter and sort artifacts
+  // Filter artifacts
   const filteredArtifacts = artifacts
     .filter(artifact => {
       const matchesSearch = artifact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                           artifact.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                           artifact.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+                           artifact.description?.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesType = selectedType === 'all' || artifact.type === selectedType;
-      const matchesStatus = selectedStatus === 'all' || artifact.status === selectedStatus;
-      
-      return matchesSearch && matchesType && matchesStatus;
+      return matchesSearch && matchesType;
     })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case 'name':
-          return a.name.localeCompare(b.name);
-        case 'date':
-          return b.updatedAt.getTime() - a.updatedAt.getTime();
-        case 'size':
-          return b.size - a.size;
-        case 'downloads':
-          return b.downloadCount - a.downloadCount;
-        default:
-          return 0;
-      }
-    });
+    .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
 
   // Get type icon
   const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'code':
-        return Code;
-      case 'document':
-        return FileText;
-      case 'image':
-        return Image;
-      case 'video':
-        return Video;
-      case 'audio':
-        return Music;
-      case 'archive':
-        return Archive;
-      default:
-        return Package;
-    }
+    const icons = {
+      'code': Code,
+      'document': FileText,
+      'image': Image,
+      'video': Video,
+      'audio': Music,
+      'archive': Archive,
+    };
+    return icons[type as keyof typeof icons] || Package;
   };
 
   // Get type color
   const getTypeColor = (type: string) => {
-    const colors: Record<string, string> = {
-      'code': 'bg-blue-500/20 text-blue-400',
-      'document': 'bg-green-500/20 text-green-400',
-      'image': 'bg-purple-500/20 text-purple-400',
-      'video': 'bg-red-500/20 text-red-400',
-      'audio': 'bg-yellow-500/20 text-yellow-400',
-      'archive': 'bg-gray-500/20 text-gray-400',
-      'other': 'bg-slate-500/20 text-slate-400'
+    const colors = {
+      'code': 'text-blue-400',
+      'document': 'text-green-400',
+      'image': 'text-purple-400',
+      'video': 'text-red-400',
+      'audio': 'text-yellow-400',
+      'archive': 'text-gray-400',
     };
-    return colors[type] || colors.other;
-  };
-
-  // Get status color
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'published':
-        return 'bg-green-500/20 text-green-400';
-      case 'draft':
-        return 'bg-yellow-500/20 text-yellow-400';
-      case 'archived':
-        return 'bg-gray-500/20 text-gray-400';
-      default:
-        return 'bg-slate-500/20 text-slate-400';
-    }
+    return colors[type as keyof typeof colors] || 'text-slate-400';
   };
 
   // Format file size
   const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
+    if (bytes === 0) return '0 B';
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = ['B', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  // Format date
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
   return (
-    <div className={`h-full bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 ${className}`}>
-      {/* Header */}
-      <div className="p-6 border-b border-purple-500/20 bg-black/20 backdrop-blur-sm">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-3">
-            <Package className="w-8 h-8 text-purple-400" />
+    <div className={`h-full flex flex-col bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 ${className}`}>
+      {/* Minimal Header */}
+      <motion.div 
+        className="p-6 border-b border-cyan-500/20 bg-slate-900/50 backdrop-blur-sm"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <motion.div
+              className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center"
+              animate={{ 
+                boxShadow: [
+                  '0 0 20px rgba(59, 130, 246, 0.3)',
+                  '0 0 30px rgba(6, 182, 212, 0.4)',
+                  '0 0 20px rgba(59, 130, 246, 0.3)'
+                ]
+              }}
+              transition={{ duration: 2, repeat: Infinity }}
+            >
+              <Package className="w-6 h-6 text-white" />
+            </motion.div>
             <div>
-              <h2 className="text-2xl font-bold text-white">Artifacts Repository</h2>
-              <p className="text-purple-300">Manage and organize your digital assets</p>
+              <h2 className="text-2xl font-bold text-white">Artifacts</h2>
+              <p className="text-slate-400">Digital assets and generated content</p>
             </div>
           </div>
-          <div className="flex items-center space-x-2">
-            <Button className="bg-purple-600 hover:bg-purple-700">
-              <Upload className="w-4 h-4 mr-2" />
-              Upload
-            </Button>
-            <Button variant="outline" className="border-purple-500/50 text-purple-400 hover:bg-purple-500/10">
-              <Plus className="w-4 h-4 mr-2" />
-              Create
-            </Button>
-          </div>
+          
+          <button
+            className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-xl hover:from-cyan-400 hover:to-blue-500 transition-all duration-300 flex items-center gap-2 hover:scale-105 active:scale-95"
+          >
+            <Plus className="w-4 h-4" />
+            Create
+          </button>
         </div>
 
-        {/* Search and Filters */}
-        <div className="flex flex-col md:flex-row gap-4">
+        {/* Simplified Controls */}
+        <div className="flex gap-4">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
             <Input
@@ -277,178 +209,130 @@ export const ArtifactsPortal: React.FC<ArtifactsPortalProps> = ({
               placeholder="Search artifacts..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-slate-800/50 border-slate-600/50 text-white placeholder-slate-400"
+              className="pl-10 bg-slate-800/50 border-slate-600/30 text-white placeholder-slate-400 rounded-xl focus:border-cyan-500/50"
             />
           </div>
           
-          <div className="flex items-center space-x-2">
-            <select
-              value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value)}
-              className="bg-slate-800/50 border border-slate-600/50 text-white text-sm rounded px-3 py-2"
-            >
-              <option value="all">All Types</option>
-              <option value="code">Code</option>
-              <option value="document">Documents</option>
-              <option value="image">Images</option>
-              <option value="video">Videos</option>
-              <option value="audio">Audio</option>
-              <option value="archive">Archives</option>
-            </select>
-
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="bg-slate-800/50 border border-slate-600/50 text-white text-sm rounded px-3 py-2"
-            >
-              <option value="all">All Status</option>
-              <option value="published">Published</option>
-              <option value="draft">Draft</option>
-              <option value="archived">Archived</option>
-            </select>
-
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="bg-slate-800/50 border border-slate-600/50 text-white text-sm rounded px-3 py-2"
-            >
-              <option value="date">Sort by Date</option>
-              <option value="name">Sort by Name</option>
-              <option value="size">Sort by Size</option>
-              <option value="downloads">Sort by Downloads</option>
-            </select>
-          </div>
+          <select
+            value={selectedType}
+            onChange={(e) => setSelectedType(e.target.value)}
+            className="bg-slate-800/50 border border-slate-600/30 text-white text-sm rounded-xl px-4 py-3 min-w-[120px] focus:border-cyan-500/50 focus:outline-none"
+          >
+            <option value="all">All Types</option>
+            <option value="code">Code</option>
+            <option value="document">Documents</option>
+            <option value="image">Images</option>
+            <option value="video">Videos</option>
+            <option value="archive">Archives</option>
+          </select>
         </div>
-      </div>
+      </motion.div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-hidden">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-2">
-              <span className="text-slate-400 text-sm">
-                {filteredArtifacts.length} artifact{filteredArtifacts.length !== 1 ? 's' : ''}
-              </span>
-              {searchQuery && (
-                <Badge className="bg-purple-500/20 text-purple-400">
-                  Filtered
-                </Badge>
-              )}
-            </div>
-          </div>
+      {/* Clean Content Grid */}
+      <div className="flex-1 overflow-hidden p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <span className="text-slate-400 text-sm">
+            {filteredArtifacts.length} artifacts
+          </span>
+        </div>
 
-          <ScrollArea className="h-full">
-            <div className={`grid gap-4 ${
-              viewMode === 'grid' 
-                ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
-                : 'grid-cols-1'
-            }`}>
-              <AnimatePresence>
-                {filteredArtifacts.map((artifact, index) => {
-                  const TypeIcon = getTypeIcon(artifact.type);
-                  
-                  return (
-                    <motion.div
-                      key={artifact.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -20 }}
-                      transition={{ delay: index * 0.05 }}
-                    >
-                      <Card className="bg-slate-800/30 border-slate-700/50 hover:bg-slate-700/50 transition-all duration-200 group cursor-pointer">
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex items-center space-x-3">
-                              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${getTypeColor(artifact.type)}`}>
-                                <TypeIcon size={20} />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <h3 className="text-white font-medium truncate">{artifact.name}</h3>
-                                <p className="text-slate-400 text-xs">v{artifact.version}</p>
-                              </div>
-                            </div>
-                            
-                            <div className="flex items-center space-x-1">
-                              {artifact.isFavorite && (
-                                <Star size={14} className="text-yellow-400 fill-current" />
-                              )}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 p-0"
-                              >
-                                <MoreVertical size={14} />
-                              </Button>
-                            </div>
+        <ScrollArea className="h-full">
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <AnimatePresence>
+              {filteredArtifacts.map((artifact, index) => {
+                const TypeIcon = getTypeIcon(artifact.type);
+                
+                return (
+                  <motion.div
+                    key={artifact.id}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={{ delay: index * 0.05 }}
+                    whileHover={{ y: -4, transition: { duration: 0.2 } }}
+                    className="group cursor-pointer"
+                  >
+                    {/* Simplified Card */}
+                    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800/60 via-blue-900/30 to-purple-900/20 backdrop-blur-xl border border-cyan-500/20 hover:border-cyan-400/40 transition-all duration-300 p-6">
+                      {/* Glow effect */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 via-transparent to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                      
+                      {/* Header */}
+                      <div className="relative flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-xl bg-slate-700/50 flex items-center justify-center ${getTypeColor(artifact.type)}`}>
+                            <TypeIcon className="w-5 h-5" />
                           </div>
+                          {artifact.isFavorite && (
+                            <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                          )}
+                        </div>
+                        
+                        <button className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-slate-600/50 rounded-lg">
+                          <MoreHorizontal className="w-4 h-4 text-slate-400" />
+                        </button>
+                      </div>
 
-                          <div className="space-y-2 mb-3">
-                            <div className="flex items-center justify-between text-xs">
-                              <Badge className={getStatusColor(artifact.status)}>
-                                {artifact.status}
-                              </Badge>
-                              <span className="text-slate-400">{formatFileSize(artifact.size)}</span>
-                            </div>
-                            
-                            {artifact.description && (
-                              <p className="text-slate-400 text-xs line-clamp-2">
-                                {artifact.description}
-                              </p>
+                      {/* Content */}
+                      <div className="relative space-y-3">
+                        <div>
+                          <h3 className="text-white font-semibold text-sm line-clamp-1 mb-1">
+                            {artifact.name}
+                          </h3>
+                          <p className="text-slate-400 text-xs line-clamp-2 leading-relaxed">
+                            {artifact.description}
+                          </p>
+                        </div>
+
+                        {/* Meta info */}
+                        <div className="flex items-center justify-between text-xs text-slate-500">
+                          <span>{artifact.author}</span>
+                          <span>{formatFileSize(artifact.size)}</span>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-center justify-between pt-3 border-t border-slate-700/50">
+                          <div className="flex items-center gap-1 text-xs text-slate-400">
+                            <Download className="w-3 h-3" />
+                            <span>{artifact.downloadCount}</span>
+                          </div>
+                          
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button className="text-xs text-cyan-400 hover:text-cyan-300 px-2 py-1 rounded">
+                              View
+                            </button>
+                            <button className="text-xs text-slate-400 hover:text-white p-1 rounded">
+                              <Download className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Tags */}
+                        {artifact.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {artifact.tags.slice(0, 2).map(tag => (
+                              <span 
+                                key={tag} 
+                                className="text-xs px-2 py-1 bg-slate-700/50 text-slate-300 rounded-md"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                            {artifact.tags.length > 2 && (
+                              <span className="text-xs px-2 py-1 bg-slate-700/50 text-slate-400 rounded-md">
+                                +{artifact.tags.length - 2}
+                              </span>
                             )}
                           </div>
-
-                          <div className="flex items-center justify-between text-xs text-slate-400">
-                            <div className="flex items-center space-x-1">
-                              <User size={10} />
-                              <span>{artifact.author}</span>
-                            </div>
-                            <div className="flex items-center space-x-1">
-                              <Download size={10} />
-                              <span>{artifact.downloadCount}</span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-700/50">
-                            <div className="flex items-center space-x-1 text-xs text-slate-400">
-                              <Clock size={10} />
-                              <span>{formatDate(artifact.updatedAt)}</span>
-                            </div>
-                            
-                            <div className="flex items-center space-x-1">
-                              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
-                                <Eye size={12} className="mr-1" />
-                                View
-                              </Button>
-                              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
-                                <Download size={12} />
-                              </Button>
-                            </div>
-                          </div>
-
-                          {/* Tags */}
-                          {artifact.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-2">
-                              {artifact.tags.slice(0, 3).map(tag => (
-                                <Badge key={tag} className="bg-slate-700/50 text-slate-300 text-xs px-1.5 py-0.5">
-                                  {tag}
-                                </Badge>
-                              ))}
-                              {artifact.tags.length > 3 && (
-                                <Badge className="bg-slate-700/50 text-slate-300 text-xs px-1.5 py-0.5">
-                                  +{artifact.tags.length - 3}
-                                </Badge>
-                              )}
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  );
-                })}
-              </AnimatePresence>
-            </div>
-          </ScrollArea>
-        </div>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </div>
+        </ScrollArea>
       </div>
     </div>
   );

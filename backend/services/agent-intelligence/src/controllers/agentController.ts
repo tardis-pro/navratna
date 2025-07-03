@@ -471,12 +471,19 @@ export class AgentController {
 
       // Attach tools if provided
       if (agentData.attachedTools && agentData.attachedTools.length > 0) {
-        await this.attachToolsToAgent(agent.id, agentData.attachedTools);
-        logger.info('Tools attached to agent', {
-          agentId: agent.id,
-          toolsCount: agentData.attachedTools.length,
-          tools: agentData.attachedTools.map(t => t.toolName)
-        });
+        // Validate and filter tools
+        const validatedTools = agentData.attachedTools.filter(tool => 
+          tool.toolId && tool.toolName && tool.category
+        ) as Array<{toolId: string; toolName: string; category: string; permissions?: string[]}>;
+        
+        if (validatedTools.length > 0) {
+          await this.attachToolsToAgent(agent.id, validatedTools);
+          logger.info('Tools attached to agent', {
+            agentId: agent.id,
+            toolsCount: validatedTools.length,
+            tools: validatedTools.map(t => t.toolName)
+          });
+        }
       }
 
       // Set up chat configuration
@@ -753,11 +760,11 @@ export class AgentController {
         hasComment: !!comment
       });
 
-      const result = await this.agentDiscussion.participateInDiscussion(
+      const result = await this.agentDiscussion.participateInDiscussion({
         agentId,
-        discussionId,
-        comment || ''
-      );
+        message: comment || '',
+        userId: 'system' // Use system as default user for triggered participation
+      });
 
       logger.info('Agent participation triggered', {
         agentId,
@@ -1061,8 +1068,8 @@ export class AgentController {
         errors: error.errors.map(e => ({
           path: e.path.join('.'),
           message: e.message,
-          received: e.received,
-          expected: e.expected
+          received: (e as any).received,
+          expected: (e as any).expected
         })),
         fullErrors: error.errors
       });
@@ -1230,10 +1237,10 @@ export class AgentController {
       return capabilities.map(cap => ({
         id: cap.id,
         name: cap.name,
-        category: cap.category,
+        category: cap.metadata?.category || 'general',
         description: cap.description,
-        parameters: cap.parameters,
-        permissions: cap.permissions
+        parameters: cap.toolConfig?.parameters || cap.artifactConfig?.variables || [],
+        permissions: cap.securityRequirements?.requiredPermissions || []
       }));
     } catch (error) {
       logger.warn('Failed to get agent tools', { agentId, error });
@@ -1313,7 +1320,11 @@ export class AgentController {
   private async validateToolPermission(agentId: string, toolId: string): Promise<boolean> {
     try {
       const agentCapabilities = await this.capabilityDiscoveryService.getAgentCapabilities(agentId);
-      return agentCapabilities.some(cap => cap.id === toolId && cap.permissions?.includes('execute'));
+      return agentCapabilities.some(cap => 
+        cap.id === toolId && 
+        (cap.securityRequirements?.requiredPermissions?.includes('execute') || 
+         cap.securityRequirements?.requiredPermissions?.length === 0)
+      );
     } catch (error) {
       logger.warn('Failed to validate tool permission', { agentId, toolId, error });
       return false;

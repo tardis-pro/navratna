@@ -11,12 +11,36 @@ export default defineConfig(({ mode }) => {
     server: {
       host: "::",
       port: 5173,
+      allowedHosts: [
+        'localhost',
+        '127.0.0.1',
+        'api-gateway',
+        'uaip-api-gateway',
+        'council-frontend',
+        'frontend',
+        '.local',
+        '.vercel.app',
+        '.netlify.app',
+        'all'
+      ],
+      origin: 'http://localhost:5173',
       proxy: {
         '/api': {
           target: apiTarget,
           changeOrigin: true,
           secure: false,
-          rewrite: (path) => path.replace(/^\/api/, '/api')
+          rewrite: (path) => path.replace(/^\/api/, '/api'),
+          configure: (proxy, _options) => {
+            proxy.on('error', (err, _req, _res) => {
+              console.log('Proxy error:', err);
+            });
+            proxy.on('proxyReq', (proxyReq, req, _res) => {
+              console.log('Sending Request to the Target:', req.method, req.url);
+            });
+            proxy.on('proxyRes', (proxyRes, req, _res) => {
+              console.log('Received Response from the Target:', proxyRes.statusCode, req.url);
+            });
+          },
         },
         '/health': {
           target: apiTarget,

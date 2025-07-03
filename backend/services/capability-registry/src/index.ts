@@ -7,10 +7,12 @@ import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
 import { config } from '@uaip/config';
-import { ToolGraphDatabase, DatabaseService, EventBusService } from '@uaip/shared-services';
+import { ToolGraphDatabase, DatabaseService, EventBusService, IntegrationService } from '@uaip/shared-services';
 import { ToolRegistry } from './services/toolRegistry.js';
 import { ToolExecutor } from './services/toolExecutor.js';
 import { BaseToolExecutor } from './services/baseToolExecutor.js';
+import { MCPClientService } from './services/mcpClientService.js';
+import { OAuthCapabilityDiscovery } from './services/oauthCapabilityDiscovery.js';
 import { ToolController } from './controllers/toolController.js';
 import { CapabilityController } from './controllers/capabilityController.js';
 import { createToolRoutes } from './routes/toolRoutes.js';
@@ -25,9 +27,12 @@ class CapabilityRegistryService {
 
   private databaseService: DatabaseService;
   private eventBusService: EventBusService;
+  private integrationService: IntegrationService;
   private toolRegistry: ToolRegistry;
   private toolExecutor: ToolExecutor;
   private baseExecutor: BaseToolExecutor;
+  private mcpClientService: MCPClientService;
+  private oauthCapabilityDiscovery: OAuthCapabilityDiscovery;
   private toolController: ToolController;
   private capabilityController: CapabilityController;
 
@@ -155,8 +160,8 @@ class CapabilityRegistryService {
     // Initialize base tool executor
     this.baseExecutor = new BaseToolExecutor();
 
-    // Initialize tool registry with TypeORM service
-    this.toolRegistry = new ToolRegistry(this.postgresql, this.neo4j);
+    // Initialize tool registry with TypeORM service and EventBusService
+    this.toolRegistry = new ToolRegistry(this.postgresql, this.neo4j, this.eventBusService);
 
     // Initialize tool executor
     this.toolExecutor = new ToolExecutor(
@@ -165,6 +170,22 @@ class CapabilityRegistryService {
       this.toolRegistry,
       this.baseExecutor
     );
+
+    // Initialize MCP Client Service
+    this.mcpClientService = MCPClientService.getInstance();
+    await this.mcpClientService.initialize(this.eventBusService, this.databaseService);
+    logger.info('MCP Client Service initialized and auto-started servers');
+
+    // Initialize OAuth Capability Discovery
+    this.oauthCapabilityDiscovery = OAuthCapabilityDiscovery.getInstance();
+    await this.oauthCapabilityDiscovery.initialize(this.eventBusService);
+    logger.info('OAuth Capability Discovery Service initialized');
+
+    // Initialize Integration Service for database synchronization
+    this.integrationService = IntegrationService.getInstance();
+    await this.integrationService.initialize();
+    this.integrationService.start();
+    logger.info('Integration Service initialized - Starting 5-second sync cadence for PostgreSQL ↔ Neo4j ↔ Qdrant');
 
     // Initialize controllers
     this.toolController = new ToolController(this.toolRegistry, this.toolExecutor);
@@ -180,9 +201,33 @@ class CapabilityRegistryService {
     this.app.get('/metrics', metricsEndpoint);
 
     // Health check endpoint
-    this.app.get('/health', (req, res) => {
+    this.app.get('/health', async (req, res) => {
       const neo4jConnectionStatus = this.neo4j?.getConnectionStatus();
       const neo4jStatus = neo4jConnectionStatus?.isConnected ? 'connected' : 'disconnected';
+
+      // Get MCP system status
+      const mcpStatus = await this.mcpClientService?.getSystemStatus();
+
+      // Get OAuth provider status
+      const connectedProviders = this.oauthCapabilityDiscovery?.getConnectedProviders();
+      const oauthStatus = {
+        connectedProviders: connectedProviders?.size || 0,
+        availableCapabilities: 0,
+        providers: Array.from(connectedProviders?.entries() || []).map(([id, config]) => ({
+          id,
+          name: config.name,
+          capabilities: config.capabilities.length,
+          webhookSupport: config.webhookSupport
+        }))
+      };
+
+      // Get Integration Service status
+      const integrationStatus = await this.integrationService?.healthCheck();
+      
+      // Calculate total OAuth capabilities
+      oauthStatus.availableCapabilities = oauthStatus.providers.reduce(
+        (total, provider) => total + provider.capabilities, 0
+      );
 
       res.json({
         status: 'healthy',
@@ -197,11 +242,30 @@ class CapabilityRegistryService {
             retries: neo4jConnectionStatus?.retries
           }
         },
+        mcp: {
+          status: mcpStatus?.healthStatus || 'unknown',
+          totalServers: mcpStatus?.totalServers || 0,
+          runningServers: mcpStatus?.runningServers || 0,
+          errorServers: mcpStatus?.errorServers || 0,
+          totalTools: mcpStatus?.totalTools || 0,
+          uptime: mcpStatus?.uptime || 0
+        },
+        oauth: oauthStatus,
+        integration: {
+          status: integrationStatus?.status || 'unknown',
+          syncCadence: '5 seconds',
+          syncEnabled: true,
+          databases: ['PostgreSQL', 'Neo4j', 'Qdrant'],
+          details: integrationStatus?.details || {}
+        },
         features: {
           toolManagement: 'available',
           toolExecution: 'available',
+          mcpProtocol: mcpStatus?.runningServers > 0 ? 'available' : 'degraded',
+          oauthIntegration: oauthStatus.connectedProviders > 0 ? 'available' : 'ready',
           graphRelationships: neo4jStatus === 'connected' ? 'available' : 'degraded',
-          recommendations: neo4jStatus === 'connected' ? 'available' : 'degraded'
+          recommendations: neo4jStatus === 'connected' ? 'available' : 'degraded',
+          databaseSync: integrationStatus?.status === 'healthy' ? 'available' : 'degraded'
         }
       });
     });
@@ -216,6 +280,7 @@ class CapabilityRegistryService {
         features: [
           'Tool Registration & Management',
           'Tool Execution with Tracking',
+          'MCP Protocol Integration',
           'Graph-based Relationships',
           'Smart Recommendations',
           'Usage Analytics',
@@ -317,6 +382,18 @@ class CapabilityRegistryService {
     logger.info('Shutting down Capability Registry Service...');
 
     try {
+      // Shutdown Integration Service first to stop sync workers
+      if (this.integrationService) {
+        await this.integrationService.stop();
+        logger.info('Integration Service stopped - Database sync halted');
+      }
+
+      // Shutdown MCP Client Service
+      if (this.mcpClientService) {
+        await this.mcpClientService.shutdown();
+        logger.info('MCP Client Service shut down');
+      }
+
       // Close database connections
       if (this.postgresql) {
         await this.postgresql.close();
@@ -339,8 +416,6 @@ class CapabilityRegistryService {
         await this.eventBusService.close();
         logger.info('EventBusService connection closed');
       }
-
-
 
       logger.info('Capability Registry Service shut down successfully');
       process.exit(0);

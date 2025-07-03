@@ -7,6 +7,7 @@ import { errorHandler, rateLimiter, metricsMiddleware, metricsEndpoint } from '@
 import { DatabaseService } from '@uaip/shared-services';
 import { EventBusService } from '@uaip/shared-services';
 import { initializeServices } from '@uaip/shared-services';
+import jwt from 'jsonwebtoken';
 
 // Import routes
 import authRoutes from './routes/authRoutes.js';
@@ -27,6 +28,7 @@ class SecurityGatewayServer {
   private port: number;
   private databaseService: DatabaseService;
   private eventBusService: EventBusService;
+  private enterpriseEventBusService: EventBusService;
   private securityGatewayService: SecurityGatewayService | null = null;
   private approvalWorkflowService: ApprovalWorkflowService | null = null;
   private auditService: AuditService | null = null;
@@ -43,6 +45,17 @@ class SecurityGatewayServer {
       {
         url: process.env.RABBITMQ_URL || 'amqp://localhost:5672',
         serviceName: 'security-gateway'
+      },
+      logger
+    );
+
+    // Initialize enterprise event bus for enterprise exchange
+    this.enterpriseEventBusService = new EventBusService(
+      {
+        url: process.env.RABBITMQ_URL || 'amqp://localhost:5672',
+        serviceName: 'security-gateway',
+        exchangePrefix: 'uaip.enterprise',
+        complianceMode: true
       },
       logger
     );
@@ -213,6 +226,10 @@ class SecurityGatewayServer {
       await this.eventBusService.connect();
       logger.info('Event bus connected successfully');
 
+      // Setup event subscriptions
+      await this.setupEventSubscriptions();
+      logger.info('Event subscriptions configured');
+
       // Start the server
       this.app.listen(this.port, () => {
         logger.info(`Security Gateway service started on port ${this.port}`, {
@@ -228,6 +245,103 @@ class SecurityGatewayServer {
     } catch (error) {
       logger.error('Failed to start Security Gateway service', { error });
       process.exit(1);
+    }
+  }
+
+  private async setupEventSubscriptions(): Promise<void> {
+    // Subscribe to WebSocket authentication requests
+    await this.eventBusService.subscribe('security.auth.validate', async (event) => {
+      try {
+        const { token, correlationId, service, operation } = event.data;
+        
+        logger.info('Processing WebSocket auth validation', { 
+          service, 
+          operation, 
+          correlationId: correlationId?.substring(0, 10) + '...' 
+        });
+
+        // Validate JWT token using existing auth service
+        const authResult = await this.validateJWTToken(token);
+        
+        // Publish response back to requesting service
+        await this.eventBusService.publish('security.auth.response', {
+          correlationId,
+          valid: authResult.valid,
+          userId: authResult.userId,
+          sessionId: authResult.sessionId,
+          securityLevel: authResult.securityLevel,
+          complianceFlags: authResult.complianceFlags,
+          email: authResult.email,
+          role: authResult.role,
+          reason: authResult.reason
+        });
+
+        logger.info('WebSocket auth validation completed', { 
+          correlationId: correlationId?.substring(0, 10) + '...', 
+          valid: authResult.valid 
+        });
+
+      } catch (error) {
+        logger.error('WebSocket auth validation failed', { error });
+        
+        // Send error response
+        if (event.data.correlationId) {
+          await this.eventBusService.publish('security.auth.response', {
+            correlationId: event.data.correlationId,
+            valid: false,
+            reason: 'Internal authentication error'
+          });
+        }
+      }
+    });
+  }
+
+  private async validateJWTToken(token: string): Promise<{
+    valid: boolean;
+    userId?: string;
+    sessionId?: string;
+    securityLevel?: number;
+    complianceFlags?: string[];
+    email?: string;
+    role?: string;
+    reason?: string;
+  }> {
+    try {
+      // Use the same JWT validation logic as authMiddleware
+      const jwtSecret = config.jwt.secret;
+      if (!jwtSecret) {
+        return { valid: false, reason: 'JWT secret not configured' };
+      }
+
+      // Verify JWT token
+      const decoded = jwt.verify(token, jwtSecret) as any;
+
+      // Validate token payload
+      if (!decoded.userId || !decoded.email || !decoded.role) {
+        return { valid: false, reason: 'Invalid token payload structure' };
+      }
+
+      // Check if token is expired (additional check beyond JWT verification)
+      if (decoded.exp && Date.now() >= decoded.exp * 1000) {
+        return { valid: false, reason: 'Token expired' };
+      }
+      
+      return {
+        valid: true,
+        userId: decoded.userId,
+        sessionId: decoded.sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        securityLevel: decoded.securityLevel || 3,
+        complianceFlags: decoded.complianceFlags || [],
+        email: decoded.email,
+        role: decoded.role
+      };
+
+    } catch (error) {
+      logger.warn('JWT token validation failed', { error: error instanceof Error ? error.message : 'Unknown error' });
+      return { 
+        valid: false, 
+        reason: error instanceof Error ? error.message : 'Token validation failed'
+      };
     }
   }
 

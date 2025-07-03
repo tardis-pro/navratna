@@ -132,20 +132,20 @@ export class AgentCoreService {
 
       // Create default intelligence config
       const defaultIntelligenceConfig = {
-        analysisDepth: 'intermediate' as const,
+        analysisDepth: 'intermediate' as 'basic' | 'intermediate' | 'advanced',
         contextWindowSize: 4000,
         decisionThreshold: 0.7,
         learningEnabled: true,
-        collaborationMode: 'collaborative' as const
+        collaborationMode: 'collaborative' as 'independent' | 'collaborative' | 'supervised'
       };
 
       // Create default security context
       const defaultSecurityContext = {
-        securityLevel: (agentData.securityLevel || 'medium') as const,
+        securityLevel: (agentData.securityLevel || 'medium') as 'low' | 'medium' | 'high' | 'critical',
         allowedCapabilities: agentData.capabilities || [],
         restrictedDomains: [],
         approvalRequired: false,
-        auditLevel: 'standard' as const
+        auditLevel: 'standard' as 'minimal' | 'standard' | 'comprehensive'
       };
 
       const agent: Agent = {
@@ -167,9 +167,9 @@ export class AgentCoreService {
         // Model configuration fields from the request
         modelId: agentData.modelId,
         apiType: agentData.apiType,
-        temperature: agentData.temperature,
-        maxTokens: agentData.maxTokens,
-        systemPrompt: agentData.systemPrompt,
+        temperature: (agentData as any).temperature,
+        maxTokens: (agentData as any).maxTokens,
+        systemPrompt: (agentData as any).systemPrompt,
         // Additional optional fields
         metadata: {},
         lastActiveAt: undefined,

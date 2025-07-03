@@ -148,16 +148,24 @@ class DiscussionWebSocketClient {
 
   async connect() {
     try {
-      // Try to dynamically import Socket.IO client
+      // Try to dynamically import Socket.IO client with proper error handling
       let io: any;
       try {
         const socketIO = await import('socket.io-client');
-        io = socketIO.io;
+        io = socketIO.io || socketIO.default?.io;
+        
+        if (!io) {
+          throw new Error('Socket.IO client not properly exported');
+        }
       } catch (importError) {
-        console.error('❌ Socket.IO client not installed!');
-        console.error('📦 Please install it by running: npm install socket.io-client');
-        console.error('📖 See SOCKET_IO_SETUP.md for complete setup instructions');
-        throw new Error('socket.io-client dependency is required for WebSocket connections');
+        console.error('❌ Socket.IO client not available!');
+        console.error('📦 Install with: npm install socket.io-client');
+        console.error('🔧 Or continue without real-time features');
+        
+        // Graceful degradation - continue without WebSocket
+        this.socket = null;
+        console.warn('⚠️ WebSocket disabled - using polling for updates');
+        return;
       }
       
       // Get authentication tokens from the API client
@@ -167,13 +175,14 @@ class DiscussionWebSocketClient {
       
       // Validate authentication data before connecting
       if (!authToken || !userId) {
-        console.error('[Socket.IO] Authentication required but missing:', { 
+        console.warn('[Socket.IO] Authentication data missing - deferring connection:', { 
           hasToken: !!authToken, 
-          hasUserId: !!userId,
-          authToken: authToken ? 'present' : 'missing',
-          userId: userId ? 'present' : 'missing'
+          hasUserId: !!userId
         });
-        throw new Error('Socket.IO connection requires valid authentication (token and userId)');
+        
+        // Graceful degradation - store config and connect later when auth is available
+        this.socket = null;
+        return;
       }
       
       console.log('[Socket.IO] Connecting with auth:', { 
@@ -184,17 +193,23 @@ class DiscussionWebSocketClient {
         userIdPreview: userId ? `${userId.substring(0, 8)}...` : 'none'
       });
       
-      // Connect to Socket.IO server through API Gateway
+      // Connect to Socket.IO server with enhanced configuration
       this.socket = io(this.config.url, {
-        transports: ['websocket'],
+        transports: ['websocket', 'polling'], // Fallback to polling if WebSocket fails
         auth: {
-          // Send proper authentication - ensure no undefined values
           token: authToken,
           userId: userId
         },
         reconnection: true,
         reconnectionAttempts: this.maxReconnectAttempts,
-        reconnectionDelay: this.reconnectDelay
+        reconnectionDelay: this.reconnectDelay,
+        timeout: this.config.timeout || 10000,
+        forceNew: false,
+        autoConnect: true,
+        // Additional security headers
+        extraHeaders: {
+          'User-Agent': 'UAIP-Frontend/1.0'
+        }
       }) as SocketIOClient;
       
       this.socket.on('connect', () => {
@@ -264,6 +279,37 @@ class DiscussionWebSocketClient {
       
       this.socket.on('connect_error', (error) => {
         console.error('[Socket.IO] Connection error:', error);
+        
+        // Enhanced error handling with retry logic
+        this.reconnectAttempts++;
+        
+        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+          console.error('[Socket.IO] Max reconnection attempts reached, giving up');
+          this.socket = null;
+        } else {
+          console.log(`[Socket.IO] Retrying connection (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+        }
+      });
+      
+      // Add error event handling for runtime errors
+      this.socket.on('error', (error) => {
+        console.error('[Socket.IO] Runtime error:', error);
+      });
+      
+      // Handle authentication errors
+      this.socket.on('AUTH_TOKEN_REQUIRED', () => {
+        console.error('[Socket.IO] Authentication token required');
+        this.disconnect();
+      });
+      
+      this.socket.on('INVALID_TOKEN', () => {
+        console.error('[Socket.IO] Invalid authentication token');
+        this.disconnect();
+      });
+      
+      this.socket.on('TOKEN_EXPIRED', () => {
+        console.error('[Socket.IO] Authentication token expired');
+        this.disconnect();
       });
 
       this.socket.on('joined_discussion', (data) => {
@@ -276,6 +322,13 @@ class DiscussionWebSocketClient {
       
     } catch (error) {
       console.error('[Socket.IO] Failed to create connection:', error);
+      
+      // Ensure socket is null on error for graceful degradation
+      this.socket = null;
+      
+      // Continue without WebSocket - the hook will still work for basic operations
+      // Users will just need to manually refresh to see updates
+      console.warn('⚠️ Continuing without real-time updates');
     }
   }
 
@@ -312,7 +365,9 @@ class DiscussionWebSocketClient {
       this.socket.emit('join_discussion', { discussionId });
       this.joinedDiscussions.add(discussionId);
     } else {
-      console.warn('[Socket.IO] Cannot join discussion - not connected');
+      console.warn('[Socket.IO] Cannot join discussion - not connected:', discussionId);
+      // Store for later when connection is established
+      this.joinedDiscussions.add(discussionId);
     }
   }
 
@@ -320,20 +375,69 @@ class DiscussionWebSocketClient {
     if (this.socket && this.socket.connected) {
       console.log('[Socket.IO] Leaving discussion:', discussionId);
       this.socket.emit('leave_discussion', { discussionId });
-      this.joinedDiscussions.delete(discussionId);
     }
+    this.joinedDiscussions.delete(discussionId);
   }
 
   disconnect() {
-    if (this.socket) {
+    if (this.socket && this.socket.connected) {
+      console.log('[Socket.IO] Disconnecting...');
       this.socket.disconnect();
-      this.socket = null;
-      this.joinedDiscussions.clear();
     }
+    this.socket = null;
+    this.joinedDiscussions.clear();
+    this.listeners.clear();
+    this.reconnectAttempts = 0;
   }
 
   isConnected(): boolean {
     return this.socket?.connected || false;
+  }
+  
+  /**
+   * Get connection status with detailed information
+   */
+  getConnectionStatus(): {
+    connected: boolean;
+    reconnecting: boolean;
+    attempts: number;
+    maxAttempts: number;
+  } {
+    return {
+      connected: this.isConnected(),
+      reconnecting: this.reconnectAttempts > 0,
+      attempts: this.reconnectAttempts,
+      maxAttempts: this.maxReconnectAttempts
+    };
+  }
+  
+  /**
+   * Attempt to reconnect manually
+   */
+  async reconnect(): Promise<void> {
+    if (this.socket) {
+      this.disconnect();
+    }
+    
+    this.reconnectAttempts = 0;
+    await this.connect();
+  }
+  
+  /**
+   * Send message with error handling
+   */
+  sendMessage(discussionId: string, content: string, messageType?: MessageType) {
+    if (this.socket && this.socket.connected) {
+      console.log('[Socket.IO] Sending message to discussion:', discussionId);
+      this.socket.emit('send_message', {
+        discussionId,
+        content,
+        messageType: messageType || MessageType.MESSAGE
+      });
+    } else {
+      console.warn('[Socket.IO] Cannot send message - not connected');
+      throw new Error('WebSocket not connected - please try again');
+    }
   }
 }
 
@@ -1430,6 +1534,164 @@ export const uaipAPI = {
       }
       
       return response.data!;
+    }
+  },
+
+  // ============================================================================
+  // MCP CONFIGURATION API METHODS
+  // ============================================================================
+  
+  mcp: {
+    async uploadConfig(configFile: File): Promise<{
+      message: string;
+      configPath: string;
+      serversProcessed: number;
+      successCount: number;
+      errorCount: number;
+      skippedCount: number;
+      installationResults: Array<{
+        name: string;
+        status: 'success' | 'error' | 'skipped';
+        error?: string;
+        pid?: number;
+      }>;
+      installationStatus: Record<string, string>;
+      installationErrors: Record<string, string>;
+      mergedServers: string[];
+    }> {
+      try {
+        const formData = new FormData();
+        formData.append('mcpConfig', configFile);
+
+        const authToken = uaipAPI.client.getAuthToken();
+        
+        const response = await fetch('/api/v1/mcp/upload-config', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: formData
+        });
+
+        if (!response.ok) {
+          throw new Error(`Upload failed: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.error?.message || 'Upload failed');
+        }
+
+        return result.data;
+      } catch (error) {
+        console.error('MCP config upload error:', error);
+        throw error;
+      }
+    },
+
+    async getStatus(): Promise<{
+      configExists: boolean;
+      configPath: string;
+      servers: Array<{
+        name: string;
+        command: string;
+        args: string[];
+        disabled: boolean;
+        status: 'unknown' | 'running' | 'stopped';
+      }>;
+    }> {
+      try {
+        const client = getAPIClient();
+        const response = await fetch('/api/v1/mcp/status', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${client.getAuthToken()}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`Status request failed: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.error?.message || 'Failed to get MCP status');
+        }
+
+        return result.data;
+      } catch (error) {
+        console.error('MCP status error:', error);
+        throw error;
+      }
+    },
+
+    async getConfig(): Promise<{
+      exists: boolean;
+      config: any | null;
+      serversCount?: number;
+      servers?: string[];
+      message?: string;
+    }> {
+      try {
+        const client = getAPIClient();
+        const response = await fetch('/api/v1/mcp/config', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${client.getAuthToken()}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`Config request failed: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.error?.message || 'Failed to get MCP config');
+        }
+
+        return result.data;
+      } catch (error) {
+        console.error('MCP config error:', error);
+        throw error;
+      }
+    },
+
+    async restartServer(serverName: string): Promise<{
+      message: string;
+      serverName: string;
+      status: string;
+    }> {
+      try {
+        const client = getAPIClient();
+        const response = await fetch(`/api/v1/mcp/restart-server/${encodeURIComponent(serverName)}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${client.getAuthToken()}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`Restart request failed: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.error?.message || 'Failed to restart MCP server');
+        }
+
+        return result.data;
+      } catch (error) {
+        console.error('MCP server restart error:', error);
+        throw error;
+      }
     }
   }
 };

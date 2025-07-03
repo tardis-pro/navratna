@@ -34,7 +34,7 @@ router.use(authMiddleware);
  * POST /v1/knowledge
  * Add knowledge to user's personal knowledge base
  */
-router.post('/', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+router.post('/', authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
@@ -83,7 +83,7 @@ router.post('/', authMiddleware, async (req: Request, res: Response): Promise<vo
  * GET /v1/knowledge/search
  * Search user's knowledge base
  */
-router.get('/search', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+router.get('/search', authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
@@ -148,7 +148,7 @@ router.get('/search', authMiddleware, async (req: Request, res: Response): Promi
  * GET /v1/knowledge/tags/:tag
  * Get knowledge items by tag
  */
-router.get('/tags/:tag', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+router.get('/tags/:tag', authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
@@ -192,7 +192,7 @@ router.get('/tags/:tag', authMiddleware, async (req: Request, res: Response): Pr
  * GET /v1/knowledge/stats
  * Get user's knowledge statistics
  */
-router.get('/stats', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+router.get('/stats', authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
@@ -229,7 +229,7 @@ router.get('/stats', authMiddleware, async (req: Request, res: Response): Promis
  * PATCH /v1/knowledge/:itemId
  * Update a knowledge item
  */
-router.patch('/:itemId', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+router.patch('/:itemId', authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
@@ -288,7 +288,7 @@ router.patch('/:itemId', authMiddleware, async (req: Request, res: Response): Pr
  * DELETE /v1/knowledge/:itemId
  * Delete a knowledge item
  */
-router.delete('/:itemId', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+router.delete('/:itemId', authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
@@ -338,7 +338,7 @@ router.delete('/:itemId', authMiddleware, async (req: Request, res: Response): P
  * GET /v1/knowledge/:itemId/related
  * Get related knowledge items
  */
-router.get('/:itemId/related', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+router.get('/:itemId/related', authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
@@ -382,7 +382,7 @@ router.get('/:itemId/related', authMiddleware, async (req: Request, res: Respons
  * GET /v1/knowledge/graph
  * Get user's knowledge graph data (nodes and relationships)
  */
-router.get('/graph', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+router.get('/graph', authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
@@ -492,7 +492,7 @@ router.get('/graph', authMiddleware, async (req: Request, res: Response): Promis
  * GET /v1/knowledge/graph/relationships/:itemId
  * Get relationships for a specific knowledge item
  */
-router.get('/graph/relationships/:itemId', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+router.get('/graph/relationships/:itemId', authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
@@ -573,7 +573,7 @@ router.get('/graph/relationships/:itemId', authMiddleware, async (req: Request, 
  * GET /v1/knowledge/health
  * Health check for knowledge services
  */
-router.get('/health', async (req: Request, res: Response): Promise<void> => {
+router.get('/health', async (req: Request, res: Response) => {
   try {
     const healthStatus = await servicesHealthCheck();
 

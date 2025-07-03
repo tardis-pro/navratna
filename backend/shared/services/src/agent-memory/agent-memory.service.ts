@@ -55,6 +55,10 @@ export class AgentMemoryService {
     await this.episodicMemoryManager.storeEpisode(agentId, episode);
   }
 
+  async addEpisode(agentId: string, episode: Episode): Promise<void> {
+    await this.storeEpisode(agentId, episode);
+  }
+
   async findSimilarEpisodes(agentId: string, currentSituation: string): Promise<Episode[]> {
     return this.episodicMemoryManager.findSimilarEpisodes(agentId, currentSituation);
   }

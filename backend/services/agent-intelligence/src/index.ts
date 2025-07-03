@@ -156,6 +156,69 @@ class AgentIntelligenceService {
     });
   }
 
+  private async setupEventSubscriptions(): Promise<void> {
+    // Subscribe to agent chat requests from WebSocket connections
+    await this.eventBusService.subscribe('agent.chat.request', async (event) => {
+      try {
+        const { userId, agentId, message, conversationHistory, context, connectionId, messageId, timestamp } = event.data;
+        
+        logger.info('Processing agent chat request', { 
+          userId: userId?.substring(0, 8) + '...',
+          agentId: agentId?.substring(0, 8) + '...',
+          messageLength: message?.length || 0,
+          connectionId,
+          messageId
+        });
+
+        // Forward to agent discussion service for processing
+        const chatResponse = await this.agentDiscussionService.participateInDiscussion({
+          agentId,
+          message,
+          userId,
+          conversationHistory: conversationHistory || [],
+          context: context || {}
+        });
+
+        // Publish response back via event bus
+        await this.eventBusService.publish('agent.chat.response', {
+          connectionId,
+          agentId,
+          userId,
+          messageId,
+          response: chatResponse.response,
+          agentName: chatResponse.agentName || 'Agent',
+          confidence: chatResponse.confidence || 0.8,
+          timestamp: new Date().toISOString(),
+          metadata: chatResponse.metadata || {}
+        });
+
+        logger.info('Agent chat response sent', { 
+          agentId: agentId?.substring(0, 8) + '...',
+          connectionId,
+          messageId,
+          responseLength: chatResponse.response?.length || 0
+        });
+
+      } catch (error) {
+        logger.error('Agent chat processing failed', { error, event: event.data });
+        
+        // Send error response
+        if (event.data.connectionId) {
+          await this.eventBusService.publish('agent.chat.response', {
+            connectionId: event.data.connectionId,
+            agentId: event.data.agentId,
+            messageId: event.data.messageId,
+            response: 'I apologize, but I encountered an error processing your request. Please try again.',
+            agentName: 'Agent',
+            confidence: 0.0,
+            error: true,
+            timestamp: new Date().toISOString()
+          });
+        }
+      }
+    });
+  }
+
   private setupAgentRoutes(): void {
     // Set up agent routes after controller is initialized
     this.app.use('/api/v1/agents', createAgentRoutes(this.agentController));
@@ -380,6 +443,10 @@ class AgentIntelligenceService {
       try {
         await this.eventBusService.connect();
         logger.info('Event bus connected successfully');
+        
+        // Setup event subscriptions for agent chat
+        await this.setupEventSubscriptions();
+        logger.info('Event subscriptions configured');
       } catch (error) {
         logger.warn('Event bus connection failed, continuing without event publishing:', error);
         // Service can still function without event bus for basic operations

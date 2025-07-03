@@ -274,27 +274,6 @@ class DiscussionOrchestrationServer {
         process.exit(1);
       });
     });
-
-    // Graceful shutdown signals
-    process.on('SIGTERM', () => {
-      logger.info('SIGTERM received, starting graceful shutdown');
-      this.shutdown().then(() => {
-        process.exit(0);
-      }).catch((error) => {
-        logger.error('Error during SIGTERM shutdown', { error: error instanceof Error ? error.message : 'Unknown error' });
-        process.exit(1);
-      });
-    });
-
-    process.on('SIGINT', () => {
-      logger.info('SIGINT received, starting graceful shutdown');
-      this.shutdown().then(() => {
-        process.exit(0);
-      }).catch((error) => {
-        logger.error('Error during SIGINT shutdown', { error: error instanceof Error ? error.message : 'Unknown error' });
-        process.exit(1);
-      });
-    });
   }
 
   public async start(): Promise<void> {
@@ -305,9 +284,8 @@ class DiscussionOrchestrationServer {
       await this.databaseService.initialize();
       logger.info('DatabaseService initialized successfully');
 
-      // Initialize TypeORM first
-
-      logger.info('TypeORM service initialized successfully');
+      // Initialize shared services
+      logger.info('Shared services initialized successfully');
 
       // Initialize event bus
       await this.eventBusService.connect();
@@ -324,7 +302,7 @@ class DiscussionOrchestrationServer {
         });
       });
 
-      // Setup graceful shutdown
+      // Setup graceful shutdown (only once)
       this.setupGracefulShutdown();
 
     } catch (error) {
@@ -389,26 +367,36 @@ class DiscussionOrchestrationServer {
   }
 
   private setupGracefulShutdown(): void {
-    // Graceful shutdown signals
-    process.on('SIGTERM', () => {
-      logger.info('SIGTERM received, starting graceful shutdown');
-      this.shutdown().then(() => {
-        process.exit(0);
-      }).catch((error) => {
-        logger.error('Error during SIGTERM shutdown', { error: error instanceof Error ? error.message : 'Unknown error' });
-        process.exit(1);
+    // Increase maxListeners to prevent memory leak warnings
+    process.setMaxListeners(0);
+    
+    // Check if listeners already exist to prevent duplicates
+    const existingListeners = process.listenerCount('SIGTERM') + process.listenerCount('SIGINT');
+    
+    if (existingListeners === 0) {
+      // Graceful shutdown signals - only add if not already added
+      process.once('SIGTERM', () => {
+        logger.info('SIGTERM received, starting graceful shutdown');
+        this.shutdown().then(() => {
+          process.exit(0);
+        }).catch((error) => {
+          logger.error('Error during SIGTERM shutdown', { error: error instanceof Error ? error.message : 'Unknown error' });
+          process.exit(1);
+        });
       });
-    });
 
-    process.on('SIGINT', () => {
-      logger.info('SIGINT received, starting graceful shutdown');
-      this.shutdown().then(() => {
-        process.exit(0);
-      }).catch((error) => {
-        logger.error('Error during SIGINT shutdown', { error: error instanceof Error ? error.message : 'Unknown error' });
-        process.exit(1);
+      process.once('SIGINT', () => {
+        logger.info('SIGINT received, starting graceful shutdown');
+        this.shutdown().then(() => {
+          process.exit(0);
+        }).catch((error) => {
+          logger.error('Error during SIGINT shutdown', { error: error instanceof Error ? error.message : 'Unknown error' });
+          process.exit(1);
+        });
       });
-    });
+    } else {
+      logger.debug(`Signal listeners already exist (${existingListeners}), skipping setup`);
+    }
   }
 
   public getStatus(): any {

@@ -6,54 +6,184 @@ import {
   DiscussionEventType,
   MessageType 
 } from '@uaip/types';
+import { z } from 'zod';
+import jwt from 'jsonwebtoken';
+import { config } from '@uaip/config';
+import { authMiddleware, testJWTToken } from '@uaip/middleware';
+import { RedisSessionManager } from './redis-session-manager.js';
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
-   participantId?: string;
+  participantId?: string;
   discussionId?: string;
+  sessionId?: string;
+  securityLevel?: number;
+  lastActivity?: Date;
+  messageCount?: number;
+  rateLimitReset?: number;
 }
 
 interface SocketData {
   userId: string;
-   participantId?: string;
+  participantId?: string;
   discussionId?: string;
+  sessionId?: string;
+  securityLevel?: number;
 }
+
+// Validation schemas for incoming WebSocket messages
+const JoinDiscussionSchema = z.object({
+  discussionId: z.string().uuid('Discussion ID must be a valid UUID')
+});
+
+const SendMessageSchema = z.object({
+  discussionId: z.string().uuid('Discussion ID must be a valid UUID'),
+  content: z.string().min(1, 'Message content cannot be empty').max(10000, 'Message content too long'),
+  messageType: z.nativeEnum(MessageType).optional(),
+  replyToId: z.string().uuid().optional(),
+  threadId: z.string().uuid().optional()
+});
+
+const ReactionSchema = z.object({
+  discussionId: z.string().uuid('Discussion ID must be a valid UUID'),
+  messageId: z.string().uuid('Message ID must be a valid UUID'),
+  emoji: z.string().min(1).max(10, 'Emoji must be 1-10 characters')
+});
+
+const TypingSchema = z.object({
+  discussionId: z.string().uuid('Discussion ID must be a valid UUID')
+});
+
+// Rate limiting configuration
+const RATE_LIMITS = {
+  MESSAGES_PER_MINUTE: 30,
+  TYPING_EVENTS_PER_MINUTE: 60,
+  REACTIONS_PER_MINUTE: 20,
+  TURN_REQUESTS_PER_MINUTE: 10
+};
+
+// Redis session manager instance
+let redisSessionManager: RedisSessionManager;
 
 export function setupWebSocketHandlers(
   io: SocketIOServer, 
   orchestrationService: DiscussionOrchestrationService
 ): void {
+  // Initialize Redis session manager
+  redisSessionManager = new RedisSessionManager({
+    host: process.env.REDIS_HOST || 'localhost',
+    port: parseInt(process.env.REDIS_PORT || '6379'),
+    password: process.env.REDIS_PASSWORD,
+    db: 2 // Use separate DB for WebSocket sessions
+  });
   
-  // Authentication middleware
-  io.use(async (socket: AuthenticatedSocket, next) => {
+  // Enhanced authentication middleware with proper JWT validation
+  io.use((socket: AuthenticatedSocket, next) => {
     try {
-      const token = socket.handshake.auth.token || socket.handshake.headers.authorization;
+      // Extract token from multiple possible sources
+      let token = socket.handshake.auth?.token;
+      
+      if (!token && socket.handshake.headers.authorization) {
+        const authHeader = socket.handshake.headers.authorization;
+        if (authHeader.startsWith('Bearer ')) {
+          token = authHeader.substring(7);
+        }
+      }
       
       if (!token) {
-        return next(new Error('Authentication token required'));
+        logger.warn('WebSocket connection attempted without token', {
+          socketId: socket.id,
+          ip: socket.handshake.address,
+          origin: socket.handshake.headers.origin,
+          userAgent: socket.handshake.headers['user-agent']
+        });
+        return next(new Error('AUTH_TOKEN_REQUIRED'));
       }
 
-      // TODO: Validate token and extract user info
-      // For now, we'll extract from the token directly
-      const userId = socket.handshake.auth.userId;
+      // Validate JWT token using existing auth infrastructure
+      const tokenValidation = testJWTToken(token);
       
-      if (!userId) {
-        return next(new Error('Invalid authentication token'));
+      if (!tokenValidation.isValid) {
+        logger.warn('Invalid JWT token for WebSocket connection', {
+          socketId: socket.id,
+          error: tokenValidation.error,
+          ip: socket.handshake.address,
+          diagnostics: tokenValidation.diagnostics
+        });
+        return next(new Error('INVALID_TOKEN'));
       }
 
-      socket.userId = userId;
-      logger.debug('Socket authenticated', { 
+      const payload = tokenValidation.payload;
+      
+      if (!payload || !payload.userId) {
+        logger.warn('JWT token missing required user information', {
+          socketId: socket.id,
+          hasPayload: !!payload,
+          payloadKeys: payload ? Object.keys(payload) : []
+        });
+        return next(new Error('INVALID_TOKEN_PAYLOAD'));
+      }
+
+      // Check token expiration
+      if (payload.isExpired) {
+        logger.warn('Expired JWT token for WebSocket connection', {
+          socketId: socket.id,
+          userId: payload.userId,
+          expiredAt: payload.exp
+        });
+        return next(new Error('TOKEN_EXPIRED'));
+      }
+
+      // Set authenticated user information
+      socket.userId = payload.userId;
+      socket.sessionId = `ws_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      socket.securityLevel = getSecurityLevelFromRole(payload.role);
+      socket.lastActivity = new Date();
+      socket.messageCount = 0;
+      socket.rateLimitReset = Date.now() + 60000; // Reset every minute
+
+      // Create session in Redis (async operation wrapped)
+      const mockConnection = {
+        connectionId: socket.sessionId,
+        userId: payload.userId,
+        discussionId: '', // Will be set when joining discussion
+        authenticated: true,
+        securityLevel: socket.securityLevel,
+        messageCount: 0,
+        lastActivity: new Date(),
+        rateLimitReset: Date.now() + 60000
+      } as any;
+      
+      // Store session in Redis (without discussion ID initially) - async operation
+      redisSessionManager.createSession(
+        mockConnection,
+        socket.handshake.address,
+        socket.handshake.headers['user-agent']
+      ).catch(error => {
+        logger.error('Failed to create Redis session', {
+          socketId: socket.id,
+          userId: payload.userId,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+      });
+
+      logger.info('WebSocket authenticated successfully', { 
         socketId: socket.id, 
-        userId 
+        userId: payload.userId,
+        role: payload.role,
+        securityLevel: socket.securityLevel,
+        sessionId: socket.sessionId
       });
       
       next();
     } catch (error) {
-      logger.error('Socket authentication failed', {
+      logger.error('WebSocket authentication error', {
         socketId: socket.id,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        ip: socket.handshake.address
       });
-      next(new Error('Authentication failed'));
+      next(new Error('AUTHENTICATION_FAILED'));
     }
   });
 
@@ -63,15 +193,15 @@ export function setupWebSocketHandlers(
       userId: socket.userId
     });
 
-    // Join discussion room
-    socket.on('join_discussion', async (data: { discussionId: string }) => {
+    // Join discussion room with enhanced validation
+    socket.on('join_discussion', async (data: any) => {
       try {
-        const { discussionId } = data;
+        // Update activity timestamp
+        socket.lastActivity = new Date();
         
-        if (!discussionId) {
-          socket.emit('error', { message: 'Discussion ID is required' });
-          return;
-        }
+        // Validate input data
+        const validatedData = JoinDiscussionSchema.parse(data);
+        const { discussionId } = validatedData;
 
         // Verify user has access to this discussion
         const hasAccess = await orchestrationService.verifyParticipantAccess(
@@ -80,7 +210,16 @@ export function setupWebSocketHandlers(
         );
 
         if (!hasAccess) {
-          socket.emit('error', { message: 'Access denied to discussion' });
+          logger.warn('WebSocket access denied to discussion', {
+            socketId: socket.id,
+            userId: socket.userId,
+            discussionId,
+            securityLevel: socket.securityLevel
+          });
+          socket.emit('error', { 
+            code: 'ACCESS_DENIED',
+            message: 'Access denied to discussion'
+          });
           return;
         }
 
@@ -118,12 +257,30 @@ export function setupWebSocketHandlers(
         });
 
       } catch (error) {
-        logger.error('Failed to join discussion', {
-          socketId: socket.id,
-          userId: socket.userId,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        });
-        socket.emit('error', { message: 'Failed to join discussion' });
+        if (error instanceof z.ZodError) {
+          logger.warn('Invalid join discussion data', {
+            socketId: socket.id,
+            userId: socket.userId,
+            validationErrors: error.errors,
+            data
+          });
+          socket.emit('error', { 
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid discussion data',
+            details: error.errors.map(e => `${e.path.join('.')}: ${e.message}`)
+          });
+        } else {
+          logger.error('Failed to join discussion', {
+            socketId: socket.id,
+            userId: socket.userId,
+            error: error instanceof Error ? error.message : 'Unknown error',
+            stack: error instanceof Error ? error.stack : undefined
+          });
+          socket.emit('error', { 
+            code: 'JOIN_FAILED',
+            message: 'Failed to join discussion'
+          });
+        }
       }
     });
 
@@ -160,26 +317,46 @@ export function setupWebSocketHandlers(
       }
     });
 
-    // Send message
-    socket.on('send_message', async (data: {
-      discussionId: string;
-      content: string;
-      messageType?: MessageType;
-      replyToId?: string;
-      threadId?: string;
-    }) => {
+    // Send message with rate limiting and validation
+    socket.on('send_message', async (data: any) => {
       try {
-        const { discussionId, content, messageType, replyToId, threadId } = data;
-
-        if (!socket.participantId) {
-          socket.emit('error', { message: 'Must join discussion first' });
+        // Update activity and check rate limits
+        socket.lastActivity = new Date();
+        socket.messageCount = (socket.messageCount || 0) + 1;
+        
+        if (!(await redisSessionManager.checkRateLimit(socket.sessionId!, 'messages', RATE_LIMITS.MESSAGES_PER_MINUTE))) {
+          logger.warn('Message rate limit exceeded', {
+            socketId: socket.id,
+            sessionId: socket.sessionId,
+            userId: socket.userId,
+            messageCount: socket.messageCount
+          });
+          socket.emit('error', { 
+            code: 'RATE_LIMIT_EXCEEDED',
+            message: 'Too many messages sent. Please slow down.'
+          });
           return;
         }
+
+        // Validate input data
+        const validatedData = SendMessageSchema.parse(data);
+        const { discussionId, content, messageType, replyToId, threadId } = validatedData;
+
+        if (!socket.participantId) {
+          socket.emit('error', { 
+            code: 'NOT_IN_DISCUSSION',
+            message: 'Must join discussion first'
+          });
+          return;
+        }
+
+        // Additional content sanitization
+        const sanitizedContent = sanitizeMessageContent(content);
 
         const message = await orchestrationService.sendMessage(
           discussionId,
           socket.participantId,
-          content,
+          sanitizedContent,
           messageType || MessageType.MESSAGE,
           { replyToId, threadId }
         );
@@ -198,50 +375,112 @@ export function setupWebSocketHandlers(
         });
 
       } catch (error) {
-        logger.error('Failed to send message via socket', {
+        if (error instanceof z.ZodError) {
+          logger.warn('Invalid message data', {
+            socketId: socket.id,
+            userId: socket.userId,
+            validationErrors: error.errors,
+            data
+          });
+          socket.emit('error', { 
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid message data',
+            details: error.errors.map(e => `${e.path.join('.')}: ${e.message}`)
+          });
+        } else {
+          logger.error('Failed to send message via socket', {
+            socketId: socket.id,
+            userId: socket.userId,
+            error: error instanceof Error ? error.message : 'Unknown error',
+            stack: error instanceof Error ? error.stack : undefined
+          });
+          socket.emit('error', { 
+            code: 'MESSAGE_SEND_FAILED',
+            message: 'Failed to send message'
+          });
+        }
+      }
+    });
+
+    // Typing indicators with rate limiting
+    socket.on('typing_start', async (data: any) => {
+      try {
+        socket.lastActivity = new Date();
+        
+        if (!(await redisSessionManager.checkRateLimit(socket.sessionId!, 'typing', RATE_LIMITS.TYPING_EVENTS_PER_MINUTE))) {
+          return; // Silently ignore typing events if rate limited
+        }
+        
+        const validatedData = TypingSchema.parse(data);
+        
+        if (socket.participantId) {
+          socket.to(`discussion:${validatedData.discussionId}`).emit('user_typing', {
+            participantId: socket.participantId,
+            userId: socket.userId,
+            timestamp: new Date()
+          });
+        }
+      } catch (error) {
+        // Silently ignore typing validation errors to avoid spam
+        logger.debug('Invalid typing start data', {
           socketId: socket.id,
           error: error instanceof Error ? error.message : 'Unknown error'
         });
-        socket.emit('error', { message: 'Failed to send message' });
       }
     });
 
-    // Typing indicators
-    socket.on('typing_start', (data: { discussionId: string }) => {
-      if (socket.participantId) {
-        socket.to(`discussion:${data.discussionId}`).emit('user_typing', {
-          participantId: socket.participantId,
-          userId: socket.userId,
-          timestamp: new Date()
-        });
-      }
-    });
-
-    socket.on('typing_stop', (data: { discussionId: string }) => {
-      if (socket.participantId) {
-        socket.to(`discussion:${data.discussionId}`).emit('user_stopped_typing', {
-          participantId: socket.participantId,
-          userId: socket.userId,
-          timestamp: new Date()
-        });
-      }
-    });
-
-    // Turn management
-    socket.on('request_turn', async (data: { discussionId: string }) => {
+    socket.on('typing_stop', (data: any) => {
       try {
+        socket.lastActivity = new Date();
+        
+        const validatedData = TypingSchema.parse(data);
+        
+        if (socket.participantId) {
+          socket.to(`discussion:${validatedData.discussionId}`).emit('user_stopped_typing', {
+            participantId: socket.participantId,
+            userId: socket.userId,
+            timestamp: new Date()
+          });
+        }
+      } catch (error) {
+        // Silently ignore typing validation errors
+        logger.debug('Invalid typing stop data', {
+          socketId: socket.id,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    });
+
+    // Turn management with rate limiting
+    socket.on('request_turn', async (data: any) => {
+      try {
+        socket.lastActivity = new Date();
+        
+        if (!(await redisSessionManager.checkRateLimit(socket.sessionId!, 'turns', RATE_LIMITS.TURN_REQUESTS_PER_MINUTE))) {
+          socket.emit('error', { 
+            code: 'RATE_LIMIT_EXCEEDED',
+            message: 'Too many turn requests. Please wait.'
+          });
+          return;
+        }
+        
+        const validatedData = TypingSchema.parse(data); // Reuse schema since it has same structure
+        
         if (!socket.participantId) {
-          socket.emit('error', { message: 'Must join discussion first' });
+          socket.emit('error', { 
+            code: 'NOT_IN_DISCUSSION',
+            message: 'Must join discussion first'
+          });
           return;
         }
 
         const result = await orchestrationService.requestTurn(
-          data.discussionId,
+          validatedData.discussionId,
           socket.participantId
         );
 
         // Notify all participants about turn request
-        io.to(`discussion:${data.discussionId}`).emit('turn_requested', {
+        io.to(`discussion:${validatedData.discussionId}`).emit('turn_requested', {
           participantId: socket.participantId,
           userId: socket.userId,
           timestamp: new Date(),
@@ -249,11 +488,22 @@ export function setupWebSocketHandlers(
         });
 
       } catch (error) {
-        logger.error('Failed to request turn', {
-          socketId: socket.id,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        });
-        socket.emit('error', { message: 'Failed to request turn' });
+        if (error instanceof z.ZodError) {
+          socket.emit('error', { 
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid turn request data'
+          });
+        } else {
+          logger.error('Failed to request turn', {
+            socketId: socket.id,
+            userId: socket.userId,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+          socket.emit('error', { 
+            code: 'TURN_REQUEST_FAILED',
+            message: 'Failed to request turn'
+          });
+        }
       }
     });
 
@@ -286,55 +536,93 @@ export function setupWebSocketHandlers(
       }
     });
 
-    // Reactions
-    socket.on('add_reaction', async (data: {
-      discussionId: string;
-      messageId: string;
-      emoji: string;
-    }) => {
+    // Reactions with validation and rate limiting
+    socket.on('add_reaction', async (data: any) => {
       try {
+        socket.lastActivity = new Date();
+        
+        if (!(await redisSessionManager.checkRateLimit(socket.sessionId!, 'reactions', RATE_LIMITS.REACTIONS_PER_MINUTE))) {
+          socket.emit('error', { 
+            code: 'RATE_LIMIT_EXCEEDED',
+            message: 'Too many reactions. Please slow down.'
+          });
+          return;
+        }
+        
+        const validatedData = ReactionSchema.parse(data);
+        
         if (!socket.participantId) {
-          socket.emit('error', { message: 'Must join discussion first' });
+          socket.emit('error', { 
+            code: 'NOT_IN_DISCUSSION',
+            message: 'Must join discussion first'
+          });
           return;
         }
 
         const reaction = await orchestrationService.addReaction(
-          data.discussionId,
-          data.messageId,
+          validatedData.discussionId,
+          validatedData.messageId,
           socket.participantId,
-          data.emoji
+          validatedData.emoji
         );
 
         // Broadcast reaction to all participants
-        io.to(`discussion:${data.discussionId}`).emit('reaction_added', {
-          messageId: data.messageId,
+        io.to(`discussion:${validatedData.discussionId}`).emit('reaction_added', {
+          messageId: validatedData.messageId,
           reaction,
           timestamp: new Date()
         });
 
       } catch (error) {
-        logger.error('Failed to add reaction', {
-          socketId: socket.id,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        });
-        socket.emit('error', { message: 'Failed to add reaction' });
+        if (error instanceof z.ZodError) {
+          socket.emit('error', { 
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid reaction data',
+            details: error.errors.map(e => `${e.path.join('.')}: ${e.message}`)
+          });
+        } else {
+          logger.error('Failed to add reaction', {
+            socketId: socket.id,
+            userId: socket.userId,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+          socket.emit('error', { 
+            code: 'REACTION_FAILED',
+            message: 'Failed to add reaction'
+          });
+        }
       }
     });
 
-    // Handle disconnection
+    // Handle disconnection with cleanup
     socket.on('disconnect', (reason) => {
       logger.info('Client disconnected from discussion socket', {
         socketId: socket.id,
         userId: socket.userId,
         discussionId: socket.discussionId,
+        sessionId: socket.sessionId,
+        messageCount: socket.messageCount,
+        lastActivity: socket.lastActivity,
         reason
       });
+
+      // Clean up Redis session
+      if (socket.sessionId) {
+        redisSessionManager.removeSession(socket.sessionId).catch(error => {
+          logger.error('Failed to remove Redis session on disconnect', {
+            socketId: socket.id,
+            sessionId: socket.sessionId,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+        });
+      }
 
       // Notify discussion participants if user was in a discussion
       if (socket.discussionId && socket.participantId) {
         socket.to(`discussion:${socket.discussionId}`).emit('participant_disconnected', {
           participantId: socket.participantId,
           userId: socket.userId,
+          sessionId: socket.sessionId,
           timestamp: new Date()
         });
       }
@@ -379,4 +667,58 @@ export function setupWebSocketHandlers(
   });
 
   logger.info('WebSocket handlers configured for discussion orchestration');
-} 
+}
+
+// Helper functions for security and rate limiting
+
+function getSecurityLevelFromRole(role: string): number {
+  switch (role) {
+    case 'admin': return 5;
+    case 'operator': return 4;
+    case 'moderator': return 3;
+    case 'user': return 2;
+    default: return 1;
+  }
+}
+
+// Redis session manager cleanup
+process.on('SIGTERM', async () => {
+  logger.info('Received SIGTERM, cleaning up Redis connections...');
+  if (redisSessionManager) {
+    await redisSessionManager.destroy();
+  }
+});
+
+process.on('SIGINT', async () => {
+  logger.info('Received SIGINT, cleaning up Redis connections...');
+  if (redisSessionManager) {
+    await redisSessionManager.destroy();
+  }
+});
+
+function sanitizeMessageContent(content: string): string {
+  // Basic content sanitization - remove potential script injections
+  return content
+    .replace(/<script[^>]*>.*?<\/script>/gi, '')
+    .replace(/<iframe[^>]*>.*?<\/iframe>/gi, '')
+    .replace(/javascript:/gi, '')
+    .replace(/on\w+=/gi, '')
+    .trim();
+}
+
+// Periodic cleanup of expired Redis sessions
+setInterval(async () => {
+  if (redisSessionManager) {
+    try {
+      await redisSessionManager.cleanupExpiredSessions();
+      
+      // Log session statistics
+      const stats = await redisSessionManager.getSessionStats();
+      logger.debug('WebSocket session stats', stats);
+    } catch (error) {
+      logger.error('Failed to cleanup expired sessions', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+}, 5 * 60 * 1000); // Run cleanup every 5 minutes 

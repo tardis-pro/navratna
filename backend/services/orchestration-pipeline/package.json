@@ -32,6 +32,7 @@
     "helmet": "catalog:backend",
     "node-cron": "^4.1.0",
     "prom-client": "catalog:backend",
+    "typeorm": "^0.3.25",
     "ws": "catalog:backend",
     "zod": "catalog:"
   },

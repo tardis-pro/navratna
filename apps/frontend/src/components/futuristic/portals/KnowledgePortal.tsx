@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Upload, Database, Brain, FileText, Tag, TrendingUp, Link, Filter, Download, Trash2, Edit3, Eye, Plus, MessageSquare } from 'lucide-react';
+import { Search, Upload, Database, Brain, FileText, Tag, TrendingUp, Link, Filter, Download, Trash2, Edit3, Eye, Plus, MessageSquare, Copy } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -69,6 +69,7 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedItemForAtomic, setSelectedItemForAtomic] = useState<KnowledgeItem | null>(null);
   const [activeTab, setActiveTab] = useState<string>('browse');
+  const [relatedItems, setRelatedItems] = useState<KnowledgeItem[]>([]);
 
   // Load stats on mount
   useEffect(() => {
@@ -371,7 +372,6 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
                 const item = Object.values(items).find(item => item.id === nodeData.id);
                 if (item) {
                   setSelectedItemForAtomic(item);
-                  setViewMode('atomic');
                   setActiveTab('atomic');
                 }
               }}
@@ -393,7 +393,6 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
                 onDelete={async (id) => {
                   await deleteKnowledge(id);
                   setSelectedItemForAtomic(null);
-                  setViewMode('list');
                   setActiveTab('browse');
                 }}
                 onLoadRelated={async (itemId) => {

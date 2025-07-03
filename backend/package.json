@@ -25,6 +25,10 @@
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix"
   },
+  "dependencies": {
+    "typeorm": "^0.3.25",
+    "ioredis": "^5.6.1"
+  },
   "devDependencies": {
     "@eslint/js": "catalog:backend",
     "@typescript-eslint/eslint-plugin": "catalog:backend",

@@ -38,6 +38,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
   private heartbeatInterval: NodeJS.Timeout;
   private cleanupInterval: NodeJS.Timeout;
   private serviceName: string;
+  private authResponseHandlers = new Map<string, (event: any) => void>();
 
   constructor(server: any, eventBusService: EventBusService, serviceName: string) {
     super();
@@ -59,7 +60,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
     this.heartbeatInterval = setInterval(this.sendHeartbeats.bind(this), 30000);
     this.cleanupInterval = setInterval(this.cleanupStaleConnections.bind(this), 60000);
 
-    // Subscribe to event bus for discussion events
+    // Subscribe to event bus for discussion events AND auth responses
     this.setupEventBusSubscriptions();
 
     logger.info(`Enterprise WebSocket server initialized for ${serviceName}`, {
@@ -183,22 +184,11 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
         return { valid: false, reason: 'No authentication token provided' };
       }
 
-      // Validate through Security Gateway via event bus
-      const authRequest = {
-        token,
-        service: this.serviceName,
-        operation: 'websocket_auth',
-        timestamp: new Date().toISOString()
-      };
-
-      // Publish auth request to security queue
-      await this.eventBusService.publish('security.auth.validate', authRequest);
-
-      // Wait for response (implement timeout)
-      const authResponse = await this.waitForAuthResponse(token, 5000);
+      // Wait for auth response from Security Gateway with shorter timeout
+      const authResponse = await this.waitForAuthResponse(token, 2000);
 
       if (!authResponse || !authResponse.valid) {
-        return { valid: false, reason: 'Authentication validation failed' };
+        return { valid: false, reason: authResponse?.reason || 'Authentication validation failed' };
       }
 
       return {
@@ -546,6 +536,33 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
       }
     });
 
+    // Subscribe to auth responses for WebSocket authentication
+    this.eventBusService.subscribe('security.auth.response', async (event) => {
+      const { correlationId } = event.data;
+      
+      logger.info('Received security auth response', {
+        correlationId,
+        hasHandler: this.authResponseHandlers.has(correlationId),
+        pendingHandlers: Array.from(this.authResponseHandlers.keys()),
+        valid: event.data?.valid,
+        userId: event.data?.userId
+      });
+      
+      // Find and call the appropriate handler
+      const handler = this.authResponseHandlers.get(correlationId);
+      if (handler) {
+        logger.info('Calling auth response handler', { correlationId });
+        handler(event);
+        // Clean up the handler after use
+        this.authResponseHandlers.delete(correlationId);
+      } else {
+        logger.warn('No handler found for auth response', { 
+          correlationId,
+          availableHandlers: Array.from(this.authResponseHandlers.keys())
+        });
+      }
+    });
+
     // Security events
     this.eventBusService.subscribe('security.alert', async (event) => {
       // Handle security alerts that may affect WebSocket connections
@@ -553,6 +570,8 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
         await this.handleSecurityAlert(event.data);
       }
     });
+
+    logger.info('WebSocket event subscriptions established');
   }
 
   /**
@@ -717,10 +736,58 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
   }
 
   private async waitForAuthResponse(token: string, timeout: number): Promise<any> {
-    // Implementation would depend on your event bus response mechanism
-    // This is a placeholder for the actual implementation
-    return new Promise((resolve) => {
-      setTimeout(() => resolve({ valid: true, userId: 'temp', sessionId: 'temp', securityLevel: 3 }), 100);
+    return new Promise(async (resolve, reject) => {
+      const correlationId = `auth_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Set up timeout
+      const timeoutId = setTimeout(() => {
+        logger.warn('WebSocket authentication timeout', { correlationId, timeout });
+        // Clean up handler on timeout
+        this.authResponseHandlers.delete(correlationId);
+        resolve({ valid: false, reason: 'Authentication timeout' });
+      }, timeout);
+      
+      // Set up response handler using the pre-established subscription
+      const responseHandler = (event: any) => {
+        logger.debug('Received auth response event', {
+          expectedCorrelationId: correlationId,
+          receivedCorrelationId: event.data?.correlationId,
+          matches: event.data?.correlationId === correlationId,
+          valid: event.data?.valid
+        });
+        
+        if (event.data.correlationId === correlationId) {
+          clearTimeout(timeoutId);
+          logger.info('WebSocket auth response matched', { 
+            correlationId, 
+            valid: event.data?.valid,
+            userId: event.data?.userId 
+          });
+          resolve(event.data);
+        }
+      };
+      
+      try {
+        // Store the handler for this correlation ID
+        this.authResponseHandlers.set(correlationId, responseHandler);
+        
+        // Publish auth request with correlation ID
+        await this.eventBusService.publish('security.auth.validate', {
+          token,
+          service: this.serviceName,
+          operation: 'websocket_auth',
+          correlationId,
+          timestamp: new Date().toISOString()
+        });
+        
+        logger.info('WebSocket auth request published', { correlationId });
+        
+      } catch (error) {
+        logger.error('WebSocket auth setup failed', { error, correlationId });
+        clearTimeout(timeoutId);
+        this.authResponseHandlers.delete(correlationId);
+        resolve({ valid: false, reason: 'Event bus error' });
+      }
     });
   }
 
@@ -732,6 +799,9 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
 
     clearInterval(this.heartbeatInterval);
     clearInterval(this.cleanupInterval);
+
+    // Clear all pending auth handlers
+    this.authResponseHandlers.clear();
 
     // Close all connections gracefully
     const closePromises: Promise<void>[] = [];

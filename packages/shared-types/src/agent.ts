@@ -168,6 +168,7 @@ export const AgentUpdateSchema = z.object({
   isActive: z.boolean().optional(),
   status: z.enum(['idle', 'active', 'busy', 'error', 'offline']).optional(),
   lastActiveAt: z.date().optional(),
+  metadata: z.record(z.any()).optional(),
   // Model configuration fields (direct agent fields, not in configuration)
   modelId: z.string().optional(),
   apiType: z.enum(['ollama', 'llmstudio', 'openai', 'anthropic', 'custom']).optional(),
@@ -220,8 +221,12 @@ export const CreateAgentRequestSchema = z.object({
     learningEnabled: z.boolean().optional(),
     collaborationMode: z.enum(['independent', 'collaborative', 'supervised']).optional()
   }).optional(),
+  metadata: z.record(z.any()).optional(),
   modelId: z.string().optional(),
   apiType: z.enum(['ollama', 'llmstudio', 'openai', 'anthropic', 'custom']).optional(),
+  temperature: z.number().min(0).max(2).optional(),
+  maxTokens: z.number().positive().optional(),
+  systemPrompt: z.string().optional(),
   securityLevel: z.enum(['low', 'medium', 'high', 'critical']).optional(),
   isActive: z.boolean().default(true)
 });

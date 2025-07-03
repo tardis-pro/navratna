@@ -16,7 +16,8 @@ export enum ToolCategory {
   GENERATION = 'generation',
   SYSTEM = 'system',
   NETWORK = 'network',
-  DEVELOPMENT = 'development'
+  DEVELOPMENT = 'development',
+  MCP = 'mcp'
 }
 
 export enum ToolExecutionStatus {

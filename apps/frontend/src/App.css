@@ -5,6 +5,23 @@
   overflow-x: hidden;
 }
 
+/* Neural AI Shimmer Animation */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-gradient-shift {
+  background-size: 200% 200%;
+  animation: gradient-shift 3s ease infinite;
+}
+
 /* Ultrawide 4K Responsive Support */
 @media (min-width: 1920px) {
   .grid-cols-16 {

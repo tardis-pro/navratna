@@ -11,6 +11,7 @@ import { config } from './config/index.js';
 // import { capabilityRoutes } from './routes/capabilityRoutes.js'; // Removed - using tool routes instead
 import { toolRoutes } from './routes/toolRoutes.js';
 import { healthRoutes } from './routes/healthRoutes.js';
+import { mcpRoutes } from './routes/mcpRoutes.js';
 
 export class CapabilityRegistryApp {
   private app: express.Application;
@@ -77,6 +78,9 @@ export class CapabilityRegistryApp {
     });
     
     this.app.use('/api/v1/tools', toolRoutes);
+
+    // MCP configuration routes
+    this.app.use('/api/v1/mcp', mcpRoutes);
 
     // 404 handler
     this.app.use((req, res) => {

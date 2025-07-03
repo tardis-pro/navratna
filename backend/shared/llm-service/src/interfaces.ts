@@ -8,6 +8,8 @@ export interface LLMRequest {
   temperature?: number;
   model?: string;
   stream?: boolean;
+  userId?: string;
+  agentId?: string;
 }
 
 export interface LLMResponse {
@@ -18,6 +20,9 @@ export interface LLMResponse {
   error?: string;
   toolCalls?: ToolCall[];
   finishReason?: 'stop' | 'length' | 'tool_calls' | 'error';
+  response?: string;
+  suggestedTools?: ToolSuggestion[];
+  toolsExecuted?: ToolExecutionResult[];
 }
 
 export interface ToolCall {
@@ -45,6 +50,27 @@ export interface AgentResponseRequest {
 
 export interface AgentResponseResponse extends LLMResponse {
   toolResults?: ToolResult[];
+  suggestedTools?: ToolSuggestion[];
+  toolsExecuted?: ToolExecutionResult[];
+  response?: string;
+}
+
+export interface ToolSuggestion {
+  toolId: string;
+  toolName: string;
+  parameters: any;
+  confidence: number;
+  reasoning?: string;
+}
+
+export interface ToolExecutionResult {
+  toolId: string;
+  toolName: string;
+  success: boolean;
+  result?: any;
+  error?: string;
+  timestamp: string;
+  parameters?: any;
 }
 
 export interface Message {

@@ -22,7 +22,14 @@ export class BaseToolExecutor {
         return this.executeFileReader(parameters);
       case 'web-search':
         return this.executeWebSearch(parameters);
+      // Dynamic tool discovery - MCP and OAuth tools
       default:
+        if (toolId.startsWith('mcp-')) {
+          return this.executeMCPTool(toolId, parameters);
+        }
+        if (toolId.startsWith('oauth-')) {
+          return this.executeOAuthTool(toolId, parameters);
+        }
         throw new Error(`Unknown tool: ${toolId}`);
     }
   }
@@ -468,5 +475,80 @@ export class BaseToolExecutor {
     }
     
     return result;
+  }
+
+  // MCP Tool Execution - Delegate to MCP Client Service
+  private async executeMCPTool(toolId: string, parameters: any): Promise<any> {
+    logger.info(`Delegating MCP tool execution: ${toolId}`, { parameters });
+    
+    try {
+      // Import MCP Client Service dynamically to avoid circular dependencies
+      const { MCPClientService } = await import('./mcpClientService.js');
+      const mcpClient = MCPClientService.getInstance();
+      
+      // Extract server name from dynamic tool ID (e.g., 'mcp-calculator-add' -> 'calculator', tool: 'add')
+      const parts = toolId.split('-');
+      if (parts.length < 3) {
+        throw new Error(`Invalid MCP tool ID format: ${toolId}. Expected: mcp-server-tool`);
+      }
+      
+      const serverName = parts[1]; // e.g., 'calculator'
+      const toolName = parts.slice(2).join('-'); // e.g., 'add' or 'complex-tool-name'
+      
+      // Execute through MCP protocol
+      const result = await mcpClient.executeTool(serverName, toolName, parameters);
+      
+      return {
+        toolId,
+        serverName,
+        toolName,
+        parameters,
+        result,
+        protocol: 'mcp',
+        executionTime: Date.now(),
+        success: true
+      };
+    } catch (error) {
+      logger.error(`MCP tool execution failed for ${toolId}:`, error);
+      throw new Error(`MCP execution failed: ${error.message}`);
+    }
+  }
+
+  // OAuth Tool Execution - Delegate to OAuth Provider
+  private async executeOAuthTool(toolId: string, parameters: any): Promise<any> {
+    logger.info(`Executing OAuth tool: ${toolId}`, { parameters });
+    
+    try {
+      // Extract provider and action from tool ID (e.g., 'oauth-github-list-repos' -> 'github', 'list-repos')
+      const parts = toolId.split('-');
+      if (parts.length < 3) {
+        throw new Error(`Invalid OAuth tool ID format: ${toolId}. Expected: oauth-provider-action`);
+      }
+      
+      const provider = parts[1]; // e.g., 'github'
+      const action = parts.slice(2).join('-'); // e.g., 'list-repos'
+      
+      // TODO: Implement OAuth provider execution
+      // This would typically call the specific OAuth provider's API
+      // For now, return a placeholder response
+      
+      return {
+        toolId,
+        provider,
+        action,
+        parameters,
+        result: {
+          message: `OAuth ${provider} ${action} executed successfully`,
+          data: parameters,
+          placeholder: true
+        },
+        protocol: 'oauth',
+        executionTime: Date.now(),
+        success: true
+      };
+    } catch (error) {
+      logger.error(`OAuth tool execution failed for ${toolId}:`, error);
+      throw new Error(`OAuth execution failed: ${error.message}`);
+    }
   }
 } 

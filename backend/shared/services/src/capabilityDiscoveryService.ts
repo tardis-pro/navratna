@@ -347,6 +347,62 @@ export class CapabilityDiscoveryService {
     return score;
   }
 
+  public async assignCapabilityToAgent(
+    agentId: string, 
+    capabilityId: string, 
+    options?: {
+      permissions?: string[];
+      category?: string;
+      metadata?: Record<string, any>;
+    }
+  ): Promise<void> {
+    await this.ensureInitialized();
+    
+    try {
+      logger.info('Assigning capability to agent', { agentId, capabilityId, options });
+      
+      // Use DatabaseService to assign capability to agent
+      await this.databaseService.assignCapabilityToAgent(agentId, capabilityId, options);
+      
+      logger.info('Capability assigned to agent successfully', { agentId, capabilityId });
+    } catch (error: any) {
+      logger.error('Failed to assign capability to agent', { agentId, capabilityId, error: error.message });
+      throw new ApiError(500, 'Failed to assign capability', 'ASSIGNMENT_ERROR');
+    }
+  }
+
+  public async executeTool(
+    toolId: string,
+    parameters: any,
+    context?: {
+      agentId?: string;
+      userId?: string;
+      context?: string;
+      timestamp?: string;
+    }
+  ): Promise<any> {
+    await this.ensureInitialized();
+    
+    try {
+      logger.info('Executing tool', { toolId, context });
+      
+      // Get the tool/capability
+      const capability = await this.getCapabilityById(toolId);
+      if (!capability) {
+        throw new ApiError(404, 'Tool not found', 'TOOL_NOT_FOUND');
+      }
+      
+      // Execute through database service
+      const result = await this.databaseService.executeTool(toolId, parameters, context);
+      
+      logger.info('Tool executed successfully', { toolId, result });
+      return result;
+    } catch (error: any) {
+      logger.error('Failed to execute tool', { toolId, error: error.message });
+      throw new ApiError(500, 'Tool execution failed', 'EXECUTION_ERROR');
+    }
+  }
+
   public async searchCapabilitiesAdvanced(searchParams: {
     query?: string;
     types?: string[];

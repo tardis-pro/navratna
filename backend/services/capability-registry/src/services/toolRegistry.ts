@@ -3,7 +3,7 @@
 // Part of capability-registry microservice
 
 import { ToolDefinition, ToolUsageRecord, ToolCategory, SecurityLevel } from '@uaip/types';
-import { ToolDatabase, ToolGraphDatabase, ToolRelationship, ToolRecommendation, DatabaseService, serviceFactory } from '@uaip/shared-services';
+import { ToolDatabase, ToolGraphDatabase, ToolRelationship, ToolRecommendation, DatabaseService, serviceFactory, EventBusService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { z } from 'zod';
 
@@ -55,8 +55,87 @@ export class ToolRegistry {
 
   constructor(
     private postgresql: DatabaseService,
-    private neo4j: ToolGraphDatabase
-  ) {}
+    private neo4j: ToolGraphDatabase,
+    private eventBusService?: EventBusService
+  ) {
+    this.setupEventSubscriptions();
+  }
+
+  // Setup event subscriptions for dynamic tool registration
+  private async setupEventSubscriptions(): Promise<void> {
+    if (!this.eventBusService) return;
+
+    try {
+      // Listen for MCP tool registration events
+      await this.eventBusService.subscribe('tool.register', async (event) => {
+        await this.handleToolRegistration(event);
+      });
+
+      // Listen for OAuth provider capability events
+      await this.eventBusService.subscribe('oauth.capabilities.discovered', async (event) => {
+        await this.handleOAuthCapabilities(event);
+      });
+
+      logger.info('Tool Registry event subscriptions configured');
+    } catch (error) {
+      logger.error('Failed to setup Tool Registry event subscriptions:', error);
+    }
+  }
+
+  // Handle dynamic tool registration from MCP servers
+  private async handleToolRegistration(event: any): Promise<void> {
+    try {
+      const { tool, source, serverName } = event;
+      logger.info(`Registering tool from ${source}: ${tool.id}`);
+      
+      // Register the tool with enhanced metadata
+      await this.registerTool({
+        ...tool,
+        metadata: {
+          ...tool.metadata,
+          autoRegistered: true,
+          registrationSource: source,
+          registrationTimestamp: new Date().toISOString()
+        }
+      });
+    } catch (error) {
+      logger.error(`Failed to handle tool registration for ${event.tool?.id}:`, error);
+    }
+  }
+
+  // Handle OAuth provider capabilities
+  private async handleOAuthCapabilities(event: any): Promise<void> {
+    try {
+      const { provider, capabilities } = event;
+      
+      for (const capability of capabilities) {
+        const toolId = `oauth-${provider}-${capability.action}`;
+        
+        await this.registerTool({
+          id: toolId,
+          name: capability.name,
+          description: capability.description,
+          category: ToolCategory.COMMUNICATION,
+          version: '1.0.0',
+          parameters: capability.parameters || {},
+          returnType: capability.returnType || {},
+          securityLevel: SecurityLevel.MEDIUM,
+          requiresApproval: false,
+          isEnabled: true,
+          executionTimeEstimate: 3000,
+          costEstimate: 0.02,
+          author: `${provider} OAuth Provider`,
+          tags: ['oauth', provider, capability.category, 'auto-registered'],
+          dependencies: [],
+          examples: capability.examples || []
+        });
+      }
+      
+      logger.info(`Registered ${capabilities.length} OAuth capabilities for ${provider}`);
+    } catch (error) {
+      logger.error(`Failed to handle OAuth capabilities for ${event.provider}:`, error);
+    }
+  }
 
   private async getToolManagementService() {
     if (!this.toolManagementService) {

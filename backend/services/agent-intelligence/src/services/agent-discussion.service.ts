@@ -82,7 +82,143 @@ export class AgentDiscussionService {
   /**
    * Handle agent participation in discussions with knowledge enhancement
    */
-  async participateInDiscussion(agentId: string, discussionId: string, message: string): Promise<{
+  /**
+   * Direct agent chat (for WebSocket connections)
+   */
+  async participateInDiscussion(params: {
+    agentId: string;
+    message: string;
+    userId: string;
+    conversationHistory?: any[];
+    context?: any;
+  }): Promise<{
+    response: string;
+    agentName?: string;
+    confidence?: number;
+    metadata?: any;
+  }> {
+    const { agentId, message, userId, conversationHistory = [], context = {} } = params;
+    
+    try {
+      logger.info('Processing direct agent chat', { 
+        agentId: agentId?.substring(0, 8) + '...',
+        userId: userId?.substring(0, 8) + '...',
+        messageLength: message?.length || 0,
+        historyLength: conversationHistory.length
+      });
+
+      // Get agent data
+      const agent = await this.getAgentData(agentId);
+      if (!agent) {
+        throw new ApiError(404, 'Agent not found', 'AGENT_NOT_FOUND');
+      }
+
+      // Update working memory with chat context
+      if (this.agentMemoryService) {
+        await this.agentMemoryService.updateWorkingMemory(agentId, {
+          currentContext: {
+            activeDiscussion: {
+              discussionId: `chat-${Date.now()}`,
+              topic: 'Direct Chat',
+              participants: [userId],
+              myRole: 'assistant',
+              conversationHistory: conversationHistory.slice(-10),
+              currentGoals: ['assist user', 'provide helpful responses']
+            }
+          }
+        });
+      }
+
+      // Get contextual knowledge for the chat
+      const contextualKnowledge = this.knowledgeGraphService ?
+        await this.knowledgeGraphService.getContextualKnowledge({
+          discussionHistory: conversationHistory,
+          relevantTags: ['chat', 'conversation'],
+          scope: { agentId, userId }
+        }) : [];
+
+      // Generate response using LLM
+      const response = await this.generateChatResponse(
+        message,
+        agent,
+        conversationHistory,
+        contextualKnowledge,
+        userId
+      );
+
+      // Store chat interaction as an episode
+      if (this.agentMemoryService) {
+        await this.agentMemoryService.addEpisode(agentId, {
+          agentId,
+          episodeId: `chat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          type: 'collaboration',
+          context: {
+            when: new Date(),
+            where: 'chat-interface',
+            who: [userId, agentId],
+            what: `Direct chat with user ${userId}`,
+            why: 'User initiated chat conversation',
+            how: 'Real-time chat interface'
+          },
+          experience: {
+            actions: [{
+              id: `action-${Date.now()}`,
+              description: 'Process user message and generate response',
+              type: 'chat-response',
+              timestamp: new Date(),
+              success: true,
+              metadata: { userMessage: message, agentResponse: response }
+            }],
+            decisions: [],
+            outcomes: [{
+              id: `outcome-${Date.now()}`,
+              description: 'Successfully responded to user query',
+              type: 'chat-completion',
+              success: true,
+              impact: 0.5,
+              timestamp: new Date(),
+              metadata: { responseLength: response.length }
+            }],
+            emotions: [],
+            learnings: contextualKnowledge ? ['Applied contextual knowledge in response'] : []
+          },
+          significance: {
+            importance: 0.3,
+            novelty: 0.2,
+            success: 1.0,
+            impact: 0.4
+          },
+          connections: {
+            relatedEpisodes: [],
+            triggeredBy: [],
+            ledTo: [],
+            similarTo: []
+          }
+        } as Episode);
+      }
+
+      return {
+        response,
+        agentName: agent.name || 'Agent',
+        confidence: 0.85,
+        metadata: {
+          agentId,
+          timestamp: new Date().toISOString(),
+          knowledgeUsed: contextualKnowledge.length,
+          historyLength: conversationHistory.length
+        }
+      };
+
+    } catch (error) {
+      logger.error('Direct agent chat failed', { error, agentId, userId });
+      throw error;
+    }
+  }
+
+  /**
+   * Legacy method for discussion participation
+   */
+  async participateInDiscussionLegacy(agentId: string, discussionId: string, message: string): Promise<{
     response: string;
     confidence: number;
     knowledgeContributed: boolean;
@@ -232,6 +368,8 @@ export class AgentDiscussionService {
     error?: string;
     knowledgeUsed: number;
     memoryEnhanced: boolean;
+    suggestedTools?: any[];
+    toolsExecuted?: any[];
   }> {
     try {
       this.validateID(agentId, 'agentId');
@@ -318,7 +456,9 @@ export class AgentDiscussionService {
         confidence: llmResponse.confidence,
         error: llmResponse.error,
         knowledgeUsed: relevantKnowledge.length,
-        memoryEnhanced: !!workingMemory
+        memoryEnhanced: !!workingMemory,
+        suggestedTools: llmResponse.suggestedTools || [],
+        toolsExecuted: llmResponse.toolsExecuted || []
       };
     } catch (error) {
       logger.error('Failed to generate agent response', { error, agentId });
@@ -327,7 +467,9 @@ export class AgentDiscussionService {
         model: 'error',
         error: error.message,
         knowledgeUsed: 0,
-        memoryEnhanced: false
+        memoryEnhanced: false,
+        suggestedTools: [],
+        toolsExecuted: []
       };
     }
   }
@@ -557,7 +699,11 @@ export class AgentDiscussionService {
   private async handleParticipateInDiscussion(event: any): Promise<void> {
     const { requestId, agentId, discussionId, message } = event;
     try {
-      const result = await this.participateInDiscussion(agentId, discussionId, message);
+      const result = await this.participateInDiscussion({
+        agentId,
+        message,
+        userId: 'system' // Default for event-driven participation
+      });
       await this.respondToRequest(requestId, { success: true, data: result });
     } catch (error) {
       await this.respondToRequest(requestId, { success: false, error: error.message });
@@ -888,6 +1034,57 @@ Reasoning: ${reasoning.join('; ')}`,
       });
     } catch (error) {
       logger.error('Failed to publish discussion event', { channel, error });
+    }
+  }
+
+  /**
+   * Generate chat response using LLM
+   */
+  private async generateChatResponse(
+    message: string,
+    agent: Agent,
+    conversationHistory: any[],
+    contextualKnowledge: any[],
+    userId: string
+  ): Promise<string> {
+    try {
+      // Build conversation context from history
+      const historyContext = conversationHistory.map(entry => 
+        `${entry.sender === 'user' ? 'User' : 'Assistant'}: ${entry.content}`
+      ).join('\n');
+
+      // Build knowledge context
+      const knowledgeContext = contextualKnowledge.length > 0 
+        ? `\n\nRelevant knowledge:\n${contextualKnowledge.map(k => `- ${k.content}`).join('\n')}`
+        : '';
+
+      // Create chat prompt
+      const prompt = `${agent.systemPrompt || 'You are a helpful AI assistant.'}
+
+Agent Name: ${agent.name}
+Role: ${agent.role}
+
+${historyContext ? `Previous conversation:\n${historyContext}\n` : ''}${knowledgeContext}
+
+User: ${message}
+Assistant:`;
+
+      // Use LLM service to generate response
+      const llmRequest: LLMRequest = {
+        prompt,
+        maxTokens: agent.maxTokens || 1000,
+        temperature: agent.temperature || 0.7,
+        userId,
+        agentId: agent.id
+      };
+
+      const llmResponse = await this.llmService.generateResponse(llmRequest);
+      
+      return llmResponse.response || "I apologize, but I'm having trouble generating a response right now. Please try again.";
+
+    } catch (error) {
+      logger.error('Failed to generate chat response', { error, agentId: agent.id });
+      return "I apologize, but I encountered an error while processing your message. Please try again.";
     }
   }
 

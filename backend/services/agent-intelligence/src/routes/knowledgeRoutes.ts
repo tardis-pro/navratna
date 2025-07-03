@@ -3,11 +3,48 @@
  * Handles knowledge-related endpoints routed from nginx gateway
  */
 
-import express from 'express';
+import express, { Request, Response, Router } from 'express';
 import { authMiddleware } from '@uaip/middleware';
 import { logger } from '@uaip/utils';
 
-const router = express.Router();
+const router: Router = express.Router();
+
+// Helper function to search knowledge for agents
+async function searchKnowledgeForAgent(query: string, options: {
+  limit?: number;
+  offset?: number;
+  userId?: string;
+  agentContext?: string;
+}): Promise<any[]> {
+  // Mock implementation - replace with actual knowledge service integration
+  return [
+    {
+      id: 'kb_001',
+      title: 'Sample Knowledge Entry',
+      content: `Knowledge entry related to: ${query}`,
+      relevance: 0.85,
+      type: 'factual',
+      tags: ['sample', 'knowledge']
+    }
+  ];
+}
+
+// Mock results for development
+const mockResults = {
+  items: [
+    {
+      id: 'kb_001',
+      title: 'Sample Knowledge Entry',
+      content: 'This is a sample knowledge entry for agent intelligence service',
+      relevance: 0.85,
+      type: 'factual',
+      tags: ['sample', 'knowledge']
+    }
+  ],
+  total: 1,
+  query: '',
+  filters: {}
+};
 
 // Apply authentication middleware to all knowledge routes
 router.use(authMiddleware);
@@ -16,18 +53,19 @@ router.use(authMiddleware);
  * GET /api/v1/knowledge/search
  * Search the knowledge base
  */
-router.get('/search', async (req, res) => {
+router.get('/search', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { query, limit = 10, offset = 0 } = req.query;
     
     if (!query || typeof query !== 'string') {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: {
           code: 'INVALID_QUERY',
           message: 'Search query is required'
         }
       });
+      return;
     }
 
     logger.info('Knowledge search request', {
@@ -47,7 +85,11 @@ router.get('/search', async (req, res) => {
 
     res.json({
       success: true,
-      data: mockResults,
+      data: {
+        ...mockResults,
+        query,
+        items: results
+      },
       meta: {
         timestamp: new Date(),
         service: 'agent-intelligence'
@@ -69,7 +111,7 @@ router.get('/search', async (req, res) => {
  * GET /api/v1/knowledge/entries/:id
  * Get specific knowledge entry
  */
-router.get('/entries/:id', async (req, res) => {
+router.get('/entries/:id', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     
@@ -117,18 +159,19 @@ router.get('/entries/:id', async (req, res) => {
  * POST /api/v1/knowledge/entries
  * Create new knowledge entry
  */
-router.post('/entries', async (req, res) => {
+router.post('/entries', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { title, content, tags = [], metadata = {} } = req.body;
     
     if (!title || !content) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: {
           code: 'INVALID_ENTRY',
           message: 'Title and content are required'
         }
       });
+      return;
     }
 
     logger.info('Knowledge entry creation request', {
@@ -176,7 +219,7 @@ router.post('/entries', async (req, res) => {
  * GET /api/v1/knowledge/recommendations
  * Get knowledge recommendations for agents
  */
-router.get('/recommendations', async (req, res) => {
+router.get('/recommendations', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { agentId, context } = req.query;
     

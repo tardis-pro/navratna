@@ -22,6 +22,7 @@ import { DiscussionControlsPortal } from './futuristic/portals/DiscussionControl
 import { ProviderSettingsPortal } from './futuristic/portals/ProviderSettingsPortal';
 import { MultiChatManager } from './futuristic/portals/MultiChatManager';
 import { MiniBrowserPortal } from './futuristic/portals/MiniBrowserPortal';
+import ToolsIntegrationsPortal from './futuristic/portals/ToolsIntegrationsPortal';
 import { GlobalUpload } from './GlobalUpload';
 import { KnowledgeShortcut } from './KnowledgeShortcut';
 import { AtomicKnowledgeViewer } from './futuristic/portals/AtomicKnowledgeViewer';
@@ -111,6 +112,7 @@ const APPLICATIONS: Application[] = [
   { id: 'system', title: 'System Config', icon: Target, color: 'text-indigo-400', component: SystemConfigPortal, category: 'tools' },
   { id: 'tools', title: 'Tool Manager', icon: Wrench, color: 'text-violet-400', component: ToolManagementPortal, category: 'tools' },
   { id: 'providers', title: 'Providers', icon: Plus, color: 'text-yellow-400', component: ProviderSettingsPortal, category: 'tools' },
+  { id: 'integrations', title: 'Tools & Integrations', icon: Wrench, color: 'text-cyan-400', component: ToolsIntegrationsPortal, category: 'tools' },
   { id: 'mini-browser', title: 'Mini Browser', icon: Globe, color: 'text-blue-400', component: MiniBrowserPortal, category: 'tools' },
   { id: 'security', title: 'Security', icon: Shield, color: 'text-red-400', component: SecurityPortal, category: 'security' },
   { id: 'discussion', title: 'Discussion Hub', icon: TrendingUp, color: 'text-emerald-400', component: DiscussionControlsPortal, category: 'security' },

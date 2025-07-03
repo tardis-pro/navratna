@@ -782,7 +782,7 @@ export class AgentEventOrchestrator {
     }
   }
 
-  private async publishEvent(channel: string, data: any): Promise<void> {
+  public async publishEvent(channel: string, data: any): Promise<void> {
     try {
       await this.eventBusService.publish(channel, {
         ...data,

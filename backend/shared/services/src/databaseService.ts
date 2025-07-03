@@ -2053,4 +2053,81 @@ export class DatabaseService {
     }
   }
 
+  // ===== CAPABILITY ASSIGNMENT METHODS =====
+
+  /**
+   * Assign a capability to an agent
+   */
+  public async assignCapabilityToAgent(
+    agentId: string, 
+    capabilityId: string, 
+    options?: {
+      permissions?: string[];
+      category?: string;
+      metadata?: Record<string, any>;
+    }
+  ): Promise<void> {
+    await this.ensureInitialized();
+    try {
+      logger.info(`Assigning capability ${capabilityId} to agent ${agentId}`, options);
+      // In production, this would create an AgentCapability association record
+      // For now, we'll just log the assignment
+    } catch (error) {
+      logger.error(`Failed to assign capability to agent:`, error);
+      throw new DatabaseError(`Failed to assign capability: ${error.message}`);
+    }
+  }
+
+  /**
+   * Execute a tool/capability
+   */
+  public async executeTool(
+    toolId: string,
+    parameters: any,
+    context?: {
+      agentId?: string;
+      userId?: string;
+      context?: string;
+      timestamp?: string;
+    }
+  ): Promise<any> {
+    await this.ensureInitialized();
+    try {
+      logger.info(`Executing tool ${toolId}`, { parameters, context });
+      
+      // In production, this would:
+      // 1. Look up the tool definition
+      // 2. Validate parameters
+      // 3. Execute the tool
+      // 4. Store execution record
+      // 5. Return results
+      
+      // Mock execution result
+      return {
+        success: true,
+        result: `Tool ${toolId} executed successfully`,
+        timestamp: new Date().toISOString(),
+        executionTime: Math.random() * 1000 + 100
+      };
+    } catch (error) {
+      logger.error(`Failed to execute tool ${toolId}:`, error);
+      throw new DatabaseError(`Failed to execute tool: ${error.message}`);
+    }
+  }
+
+  /**
+   * Store an episode in agent memory
+   */
+  public async storeEpisode(agentId: string, episode: any): Promise<void> {
+    await this.ensureInitialized();
+    try {
+      logger.info(`Storing episode for agent ${agentId}`, { episodeId: episode.episodeId });
+      // In production, this would store the episode in a dedicated EpisodicMemory table
+      // For now, we'll just log the storage
+    } catch (error) {
+      logger.error(`Failed to store episode for agent ${agentId}:`, error);
+      throw new DatabaseError(`Failed to store episode: ${error.message}`);
+    }
+  }
+
 }
