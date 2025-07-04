@@ -13,10 +13,13 @@ import {
   TrendingUp,
   Zap,
   Cpu,
-  Network
+  Network,
+  MessageSquare,
+  Users
 } from 'lucide-react';
 import { useDiscussion } from '../../../contexts/DiscussionContext';
 import { useAgents } from '../../../contexts/AgentContext';
+import { DiscussionTrigger } from '../../DiscussionTrigger';
 
 interface DiscussionControlsPortalProps {
   className?: string;
@@ -169,22 +172,27 @@ export const DiscussionControlsPortal: React.FC<DiscussionControlsPortalProps> =
       >
         <div className="flex items-center gap-4">
           {!isActive ? (
-            <motion.button
-              onClick={handleStart}
-              disabled={!canStart || isLoading}
-              className="flex-1 flex items-center justify-center gap-3 bg-gradient-to-r from-blue-600 via-blue-700 to-cyan-600 hover:from-blue-700 hover:via-blue-800 hover:to-cyan-700 disabled:from-slate-600 disabled:to-slate-700 text-white px-6 py-4 rounded-xl font-semibold transition-all duration-300 shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 disabled:shadow-none relative overflow-hidden"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <motion.div
-                className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0"
-                animate={{ x: [-100, 100] }}
-                transition={{ duration: 2, repeat: Infinity }}
-              />
-              <Play className="w-5 h-5" />
-              <span>Initialize Discussion</span>
-              <Zap className="w-4 h-4" />
-            </motion.button>
+            <DiscussionTrigger
+              trigger={
+                <motion.button
+                  disabled={!canStart || isLoading}
+                  className="flex-1 flex items-center justify-center gap-3 bg-gradient-to-r from-blue-600 via-blue-700 to-cyan-600 hover:from-blue-700 hover:via-blue-800 hover:to-cyan-700 disabled:from-slate-600 disabled:to-slate-700 text-white px-6 py-4 rounded-xl font-semibold transition-all duration-300 shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 disabled:shadow-none relative overflow-hidden"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <motion.div
+                    className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0"
+                    animate={{ x: [-100, 100] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  />
+                  <MessageSquare className="w-5 h-5" />
+                  <span>Initiate Discussion</span>
+                  <Users className="w-4 h-4" />
+                </motion.button>
+              }
+              contextType="general"
+              className="flex-1"
+            />
           ) : (
             <motion.button
               onClick={handleStop}

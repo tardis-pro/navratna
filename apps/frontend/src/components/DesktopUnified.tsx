@@ -4,7 +4,7 @@ import {
   Home, Bot, Package, MessageSquare, Brain, Settings, BarChart3, Search, Target, TrendingUp, 
   Wrench, Plus, User, Activity, Clock, X, Minimize2, Shield, Menu, Power, Monitor, Folder, 
   Terminal, Globe, Calculator, Command, Image, StickyNote, Cloud, Edit3, Save, Trash2,
-  Sun, CloudSun, CloudRain, CloudSnow, MapPin, Thermometer, Wind, Droplets
+  Sun, CloudSun, CloudRain, CloudSnow, MapPin, Thermometer, Wind, Droplets, History, Users
 } from 'lucide-react';
 
 // Import portal components
@@ -22,10 +22,12 @@ import { DiscussionControlsPortal } from './futuristic/portals/DiscussionControl
 import { ProviderSettingsPortal } from './futuristic/portals/ProviderSettingsPortal';
 import { MultiChatManager } from './futuristic/portals/MultiChatManager';
 import { MiniBrowserPortal } from './futuristic/portals/MiniBrowserPortal';
+import { UserChatPortal } from './futuristic/portals/UserChatPortal';
 import ToolsIntegrationsPortal from './futuristic/portals/ToolsIntegrationsPortal';
 import { GlobalUpload } from './GlobalUpload';
 import { KnowledgeShortcut } from './KnowledgeShortcut';
 import { AtomicKnowledgeViewer } from './futuristic/portals/AtomicKnowledgeViewer';
+import ChatHistoryManager from './ChatHistoryManager';
 
 // Design System Tokens
 const DESIGN_TOKENS = {
@@ -105,6 +107,7 @@ const APPLICATIONS: Application[] = [
   { id: 'dashboard', title: 'Dashboard', icon: Home, color: 'text-blue-400', component: DashboardPortal, category: 'core' },
   { id: 'agents', title: 'Agent Manager', icon: Bot, color: 'text-cyan-400', component: AgentManager, category: 'core' },
   { id: 'chat', title: 'Chat Portal', icon: MessageSquare, color: 'text-green-400', component: ChatPortal, category: 'core' },
+  { id: 'user-chat', title: 'User Chat', icon: Users, color: 'text-emerald-400', component: UserChatPortal, category: 'core' },
   { id: 'knowledge', title: 'Knowledge Graph', icon: Brain, color: 'text-orange-400', component: KnowledgePortal, category: 'data' },
   { id: 'artifacts', title: 'Artifacts', icon: Package, color: 'text-purple-400', component: ArtifactsPortal, category: 'data' },
   { id: 'intelligence', title: 'Intelligence', icon: BarChart3, color: 'text-pink-400', component: IntelligencePanelPortal, category: 'data' },
@@ -115,7 +118,7 @@ const APPLICATIONS: Application[] = [
   { id: 'integrations', title: 'Tools & Integrations', icon: Wrench, color: 'text-cyan-400', component: ToolsIntegrationsPortal, category: 'tools' },
   { id: 'mini-browser', title: 'Mini Browser', icon: Globe, color: 'text-blue-400', component: MiniBrowserPortal, category: 'tools' },
   { id: 'security', title: 'Security', icon: Shield, color: 'text-red-400', component: SecurityPortal, category: 'security' },
-  { id: 'discussion', title: 'Discussion Hub', icon: TrendingUp, color: 'text-emerald-400', component: DiscussionControlsPortal, category: 'security' },
+  { id: 'discussion', title: 'Discussion Hub', icon: TrendingUp, color: 'text-teal-400', component: DiscussionControlsPortal, category: 'security' },
 ];
 
 const Button: React.FC<{
@@ -838,6 +841,7 @@ export const Desktop: React.FC = () => {
   });
   const [showCustomization, setShowCustomization] = useState(false);
   const [showGlobalUpload, setShowGlobalUpload] = useState(false);
+  const [showChatHistory, setShowChatHistory] = useState(false);
   const [showKnowledgeShortcut, setShowKnowledgeShortcut] = useState(false);
   const [selectedKnowledgeItem, setSelectedKnowledgeItem] = useState<any>(null);
 
@@ -1140,6 +1144,36 @@ export const Desktop: React.FC = () => {
                 className="h-full"
               />
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Chat History Floating Button */}
+      <motion.button
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={() => setShowChatHistory(true)}
+        className="fixed bottom-20 right-6 w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 z-40 flex items-center justify-center"
+        title="Chat History"
+      >
+        <History className="w-5 h-5" />
+      </motion.button>
+
+      {/* Chat History Modal */}
+      {showChatHistory && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 w-full max-w-4xl h-[80vh] overflow-hidden">
+            <ChatHistoryManager
+              onOpenChat={(agentId, agentName, sessionId) => {
+                // Close history modal and open chat
+                setShowChatHistory(false);
+                const chatEvent = new CustomEvent('openAgentChat', {
+                  detail: { agentId, agentName, sessionId }
+                });
+                window.dispatchEvent(chatEvent);
+              }}
+              onClose={() => setShowChatHistory(false)}
+            />
           </div>
         </div>
       )}

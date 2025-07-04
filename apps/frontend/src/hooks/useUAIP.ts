@@ -13,6 +13,7 @@ import {
   WebSocketEvent
 } from '../types/uaip-interfaces';
 import { uaipAPI } from '../utils/uaip-api';
+import { getWebSocketURL } from '../config/apiConfig';
 
 // Enhanced error handling for production deployment
 const createUIError = (error: any, context: string): UIError => ({
@@ -457,7 +458,7 @@ export function useWebSocket(url?: string) {
     }
 
     // Include token in WebSocket URL as query parameter
-    const baseUrl = url || `ws://localhost:8081/ws`;
+    const baseUrl = url || getWebSocketURL().replace('/socket.io', '/ws');
     const wsUrl = `${baseUrl}?token=${encodeURIComponent(token)}`;
     
     try {

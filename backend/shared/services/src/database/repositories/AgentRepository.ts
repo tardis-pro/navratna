@@ -405,7 +405,7 @@ export class AgentRepository extends BaseRepository<Agent> {
     try {
       const agent = await this.repository.findOne({
         where: { id: agentId, isActive: true },
-        select: ['intelligenceConfig', 'securityContext']
+        select: ['id', 'intelligenceConfig', 'securityContext']
       });
 
       return agent ? {

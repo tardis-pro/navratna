@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { uaipAPI, resetWebSocketClient } from '../utils/uaip-api';
+import { uaipAPI } from '../utils/uaip-api';
 
 export interface User {
   id: string;
@@ -46,11 +46,11 @@ interface AuthContextType extends AuthState {
   login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
-  
+
   // UAIP Backend Flow Integration
   security: SecurityFlow;
   systemOperations: SystemOperationsFlow;
-  
+
   // UI State Management
   activeFlows: string[];
   flowResults: Map<string, any>;
@@ -73,7 +73,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isLoading: true,
     error: null
   });
-  
+
   const [activeFlows, setActiveFlows] = useState<string[]>([]);
   const [flowResults, setFlowResults] = useState<Map<string, any>>(new Map());
   const [flowErrors, setFlowErrors] = useState<Map<string, string>>(new Map());
@@ -81,7 +81,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Check for existing authentication on mount
   useEffect(() => {
     checkAuthStatus();
-    
+
     // Listen for auth failures from the API client
     const unsubscribe = uaipAPI.client.onAuthFailure(() => {
       console.log('Auth failure detected, clearing state');
@@ -92,17 +92,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         error: null
       });
     });
-    
+
     return unsubscribe;
   }, []);
 
   // Generic flow execution handler
   const executeFlow = async (service: string, flow: string, params?: any) => {
     const flowId = `${service}.${flow}`;
-    
+
     try {
       setActiveFlows(prev => [...prev.filter(f => f !== flowId), flowId]);
-      setFlowErrors(prev => { 
+      setFlowErrors(prev => {
         const newMap = new Map(prev);
         newMap.delete(flowId);
         return newMap;
@@ -119,13 +119,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // For other services, throw an error indicating they're not implemented
         throw new Error(`Service '${service}' is not yet implemented. Available services: security, systemOperations`);
       }
-      
+
       setFlowResults(prev => {
         const newMap = new Map(prev);
         newMap.set(flowId, result);
         return newMap;
       });
-      
+
       setActiveFlows(prev => prev.filter(f => f !== flowId));
       return result;
     } catch (error) {
@@ -226,13 +226,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const checkAuthStatus = useCallback(async () => {
     try {
       setState(prev => ({ ...prev, isLoading: true, error: null }));
-      
+
       // Check if we have a valid stored token
-      const accessToken = typeof window !== 'undefined' ? 
+      const accessToken = typeof window !== 'undefined' ?
         (localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken')) : null;
-      const refreshToken = typeof window !== 'undefined' ? 
+      const refreshToken = typeof window !== 'undefined' ?
         (localStorage.getItem('refreshToken') || sessionStorage.getItem('refreshToken')) : null;
-      
+
       if (!accessToken || !uaipAPI.client.isAuthenticated()) {
         setState(prev => ({ ...prev, isLoading: false }));
         return;
@@ -244,11 +244,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // Try to get current user from backend
       const response = await uaipAPI.client.auth.me();
-      
+
       if (response.success && response.data) {
         // Set user context for security headers
         uaipAPI.client.setUserContext(response.data.id, undefined, isRemembered);
-        
+
         setState({
           user: response.data,
           isAuthenticated: true,
@@ -268,10 +268,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     } catch (error) {
       console.error('Auth status check failed:', error);
-      
+
       // Clear invalid tokens
       uaipAPI.client.clearAuth();
-      
+
       // Don't set error state for failed auth checks - just silently log out
       setState({
         user: null,
@@ -285,13 +285,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = useCallback(async (email: string, password: string, rememberMe = false) => {
     try {
       setState(prev => ({ ...prev, isLoading: true, error: null }));
-      
+
       const response = await uaipAPI.client.auth.login({ email, password });
-      
+
       if (response.success && response.data) {
         const { user, tokens } = response.data;
         const { accessToken, refreshToken } = tokens;
-        
+
         // Set complete authentication context (this will store tokens AND set them on the client)
         uaipAPI.client.setAuthContext({
           token: accessToken,
@@ -299,10 +299,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           userId: user.id,
           rememberMe
         });
-        
-        // Reset WebSocket client to use new authentication
-        resetWebSocketClient();
-        
+
+        // WebSocket client reset removed - using useWebSocket hook instead
+
         // Set authenticated user
         setState({
           user,
@@ -330,16 +329,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = useCallback(async () => {
     try {
       setState(prev => ({ ...prev, isLoading: true }));
-      
+
       // Call backend logout
       await uaipAPI.client.auth.logout();
-      
+
       // Clear auth from API client (this will also clear stored tokens)
       uaipAPI.client.clearAuth();
-      
-      // Reset WebSocket client since auth is cleared
-      resetWebSocketClient();
-      
+
+      // WebSocket client reset removed - using useWebSocket hook instead
+
       // Clear auth state
       setState({
         user: null,
@@ -349,13 +347,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
     } catch (error) {
       console.error('Logout failed:', error);
-      
+
       // Force clear state even if backend call fails
       uaipAPI.client.clearAuth();
-      
-      // Reset WebSocket client even on error
-      resetWebSocketClient();
-      
+
+      // WebSocket client reset removed - using useWebSocket hook instead
+
       setState({
         user: null,
         isAuthenticated: false,
@@ -367,10 +364,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const refreshUser = useCallback(async () => {
     if (!state.isAuthenticated) return;
-    
+
     try {
       const response = await uaipAPI.client.auth.me();
-      
+
       if (response.success && response.data) {
         setState(prev => ({
           ...prev,
@@ -408,11 +405,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     login,
     logout,
     refreshUser,
-    
+
     // UAIP Backend Flow Integration
     security,
     systemOperations,
-    
+
     // UI State Management
     activeFlows,
     flowResults,

@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { config } from '@uaip/config';
 import { logger } from '@uaip/utils';
 import { DatabaseService,  } from '@uaip/shared-services';
-import { authMiddleware, requireAdmin } from '@uaip/middleware';
+import { authMiddleware, requireAdmin, csrfProtection } from '@uaip/middleware';
 import { validateRequest } from '@uaip/middleware';
 import { AuditEventType } from '@uaip/types';
 import { AuditService } from '../services/auditService.js';
@@ -686,5 +686,15 @@ router.post('/reset-password',
         return;
     }
   });
+
+/**
+ * @route GET /api/v1/auth/csrf-token
+ * @desc Get CSRF token for client
+ * @access Public
+ */
+router.get('/csrf-token', csrfProtection.tokenEndpoint());
+
+// Apply CSRF protection to state-changing operations
+router.use(csrfProtection.middleware());
 
 export default router; 

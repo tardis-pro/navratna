@@ -11,7 +11,7 @@ export {
   createLoggerStream,
   createLogContext,
   logWithContext
-} from './loggers.js';
+} from './loggers';
 
 // Error handling utilities
 export { 
@@ -26,15 +26,18 @@ export {
   InternalServerError,
   ExternalServiceError,
   SecurityError
-} from './errors.js';
+} from './errors';
 
 // Widget system utilities
 export {
   WidgetRegistry,
-  globalWidgetRegistry,
+  globalWidgetRegistry
+} from './widget-registry';
+
+export type {
   UserContext,
   WidgetRegistryOptions
-} from './widget-registry.js';
+} from './widget-registry';
 
 
 // Agent transformation utilities

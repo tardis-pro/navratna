@@ -63,7 +63,9 @@ class AgentIntelligenceService {
     this.databaseService = new DatabaseService();
     this.eventBusService = new EventBusService({
       url: process.env.RABBITMQ_URL || 'amqp://localhost',
-      serviceName: 'agent-intelligence'
+      serviceName: 'agent-intelligence',
+      exchangePrefix: 'uaip.enterprise',
+      complianceMode: true
     }, logger);
 
     // Initialize persona and discussion services
@@ -410,6 +412,10 @@ class AgentIntelligenceService {
       if (!enhancedServicesAvailable) {
         // Initialize microservices in fallback mode (without enhanced services)
         logger.info('Initializing microservices in fallback mode...');
+        
+        // LLM services will be accessed via event bus - no direct import needed
+        logger.info('LLM services will be accessed via event bus in fallback mode');
+        
         await this.agentCoreService.initialize();
         await this.agentContextService.initialize();
         await this.agentPlanningService.initialize();

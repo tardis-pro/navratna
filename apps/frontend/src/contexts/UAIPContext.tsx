@@ -57,20 +57,20 @@ interface UAIPContextType {
   events: DataState<UAIPEvent[]>;
   systemMetrics: DataState<SystemMetrics>;
   toolIntegrations: DataState<ToolIntegration[]>;
-  
+
   // UI state
   uiState: UIState;
   setUIState: (state: Partial<UIState>) => void;
-  
+
   // Actions
   refreshData: () => Promise<void>;
   executeOperation: (operationDef: any) => Promise<string>;
   approveExecution: (executionId: string) => Promise<void>;
   rejectExecution: (executionId: string, reason: string) => Promise<void>;
-  
+
   // WebSocket status
   isWebSocketConnected: boolean;
-  
+
   // Error handling
   clearError: (errorId: string) => void;
   addError: (error: Omit<UIError, 'id' | 'timestamp'>) => void;
@@ -88,8 +88,8 @@ const transformAgentToEnhanced = (agent: any): EnhancedAgentState => ({
   lastActivity: new Date(agent.lastActivity || Date.now()),
   metrics: {
     totalOperations: agent.toolUsageHistory?.length || 0,
-    successRate: agent.toolUsageHistory?.length > 0 
-      ? agent.toolUsageHistory.filter((usage: any) => usage.success).length / agent.toolUsageHistory.length 
+    successRate: agent.toolUsageHistory?.length > 0
+      ? agent.toolUsageHistory.filter((usage: any) => usage.success).length / agent.toolUsageHistory.length
       : 0,
     averageResponseTime: 250, // Default value, would come from actual metrics
     uptime: 0.95 // Default value, would come from actual metrics
@@ -113,8 +113,8 @@ const transformAgentToEnhanced = (agent: any): EnhancedAgentState => ({
 
 const transformOperationToUI = (operation: Operation): UIOperation => ({
   ...operation,
-  progress: operation.status === OperationStatus.RUNNING ? 50 : 
-           operation.status === OperationStatus.COMPLETED ? 100 : 0,
+  progress: operation.status === OperationStatus.RUNNING ? 50 :
+    operation.status === OperationStatus.COMPLETED ? 100 : 0,
   startTime: operation.createdAt ? new Date(operation.createdAt) : new Date(),
   endTime: operation.completedAt ? new Date(operation.completedAt) : undefined
 });
@@ -130,44 +130,44 @@ const transformApprovalToUI = (approval: ApprovalWorkflow): UIApprovalWorkflow =
 export function UAIPProvider({ children }: { children: React.ReactNode }) {
   const { agents: agentContextAgents, agentIntelligence, capabilityRegistry, orchestrationPipeline } = useAgents();
   const { user } = useAuth();
-  
+
   // Data states
   const [agents, setAgents] = useState<DataState<EnhancedAgentState[]>>({
     data: [],
     isLoading: false,
     lastUpdated: new Date()
   });
-  
+
   const [operations, setOperations] = useState<DataState<UIOperation[]>>({
     data: [],
     isLoading: false,
     lastUpdated: new Date()
   });
-  
+
   const [capabilities, setCapabilities] = useState<DataState<UICapability[]>>({
     data: [],
     isLoading: false,
     lastUpdated: new Date()
   });
-  
+
   const [approvals, setApprovals] = useState<DataState<UIApprovalWorkflow[]>>({
     data: [],
     isLoading: false,
     lastUpdated: new Date()
   });
-  
+
   const [insights, setInsights] = useState<DataState<AIInsight[]>>({
     data: [],
     isLoading: false,
     lastUpdated: new Date()
   });
-  
+
   const [events, setEvents] = useState<DataState<UAIPEvent[]>>({
     data: [],
     isLoading: false,
     lastUpdated: new Date()
   });
-  
+
   const [systemMetrics, setSystemMetrics] = useState<DataState<SystemMetrics>>({
     data: {
       timestamp: new Date(),
@@ -179,13 +179,13 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
     isLoading: false,
     lastUpdated: new Date()
   });
-  
+
   const [toolIntegrations, setToolIntegrations] = useState<DataState<ToolIntegration[]>>({
     data: [],
     isLoading: false,
     lastUpdated: new Date()
   });
-  
+
   // UI state
   const [uiState, setUIStateInternal] = useState<UIState>({
     activePanel: 'intelligence',
@@ -197,9 +197,9 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
       compactMode: false
     }
   });
-  
+
   const [isWebSocketConnected, setIsWebSocketConnected] = useState(false);
-  
+
   // Transform agents from context
   useEffect(() => {
     const enhancedAgents = Object.values(agentContextAgents).map(transformAgentToEnhanced);
@@ -208,13 +208,13 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
       data: enhancedAgents,
       lastUpdated: new Date()
     }));
-    
+
     // Update system metrics based on agent data
     const activeAgents = enhancedAgents.filter(a => a.status === 'active').length;
     const idleAgents = enhancedAgents.filter(a => a.status === 'idle').length;
     const busyAgents = enhancedAgents.filter(a => a.status === 'busy').length;
     const offlineAgents = enhancedAgents.filter(a => a.status === 'offline').length;
-    
+
     setSystemMetrics(prev => ({
       ...prev,
       data: {
@@ -225,16 +225,16 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
       lastUpdated: new Date()
     }));
   }, [agentContextAgents]);
-  
+
   // Load capabilities from API
   const loadCapabilities = useCallback(async () => {
     if (!user) return;
-    
+
     setCapabilities(prev => ({ ...prev, isLoading: true }));
     try {
       const capabilitiesData = await capabilityRegistry.discoverTools({});
       const uiCapabilities = capabilitiesData.map(transformCapabilityToUI);
-      
+
       setCapabilities({
         data: uiCapabilities,
         isLoading: false,
@@ -255,22 +255,22 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
       }));
     }
   }, [user]);
-  
+
   // Load approvals from API
   const loadApprovals = useCallback(async () => {
     if (!user) return;
-    
+
     setApprovals(prev => ({ ...prev, isLoading: true }));
     try {
       const approvalsData = await uaipAPI.approvals.getPending();
       const uiApprovals = approvalsData.map(transformApprovalToUI);
-      
+
       setApprovals({
         data: uiApprovals,
         isLoading: false,
         lastUpdated: new Date()
       });
-      
+
       // Update system metrics
       setSystemMetrics(prev => ({
         ...prev,
@@ -297,13 +297,13 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
       }));
     }
   }, [user]);
-  
+
   // Generate insights based on current data
   const generateInsights = useCallback(() => {
     const newInsights: AIInsight[] = [];
     const agentData = agents.data;
     const operationData = operations.data;
-    
+
     // Agent collaboration insight
     if (agentData.length > 1) {
       const activeAgents = agentData.filter(a => a.status === 'active');
@@ -326,12 +326,12 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
         });
       }
     }
-    
+
     // Performance optimization insight
-    const avgResponseTime = agentData.length > 0 
+    const avgResponseTime = agentData.length > 0
       ? agentData.reduce((sum, agent) => sum + agent.metrics.averageResponseTime, 0) / agentData.length
       : 0;
-    
+
     if (avgResponseTime > 1000) {
       newInsights.push({
         id: 'perf-insight',
@@ -351,58 +351,40 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
         status: 'new'
       });
     }
-    
+
     setInsights({
       data: newInsights,
       isLoading: false,
       lastUpdated: new Date()
     });
   }, [agents.data, operations.data]);
-  
+
   // WebSocket integration
   useEffect(() => {
     let wsClient: any = null;
-    
+
     const initWebSocket = async () => {
       if (!user) return;
-      
+
       try {
-        wsClient = uaipAPI.websocket;
-        setIsWebSocketConnected(wsClient.isConnected());
-        
-        // Listen for discussion events and convert to UAIP events
-        wsClient.addEventListener('*', (event: DiscussionEvent) => {
-          const uaipEvent: UAIPEvent = {
-            id: `event-${Date.now()}`,
-            type: event.type.includes('error') ? 'error' : 'info',
-            source: 'Discussion System',
-            message: `${event.type}: ${JSON.stringify(event.data)}`,
-            timestamp: event.timestamp,
-            correlationId: event.discussionId
-          };
-          
-          setEvents(prev => ({
-            ...prev,
-            data: [uaipEvent, ...prev.data.slice(0, 99)], // Keep last 100 events
-            lastUpdated: new Date()
-          }));
-        });
-        
+        // WebSocket initialization removed - using useWebSocket hook in components instead
+        setIsWebSocketConnected(false);
+        console.log('WebSocket initialization skipped - using useWebSocket hook in components');
       } catch (error) {
         console.warn('WebSocket not available:', error);
         setIsWebSocketConnected(false);
       }
     };
-    
+
     initWebSocket();
-    
+
     return () => {
       if (wsClient) {
         // Cleanup if needed
       }
     };
   }, [user]);
-  
+
   // Periodic data refresh
   useEffect(() => {
     // Don't refresh if there are ongoing errors to prevent spam
@@ -411,12 +393,12 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
       console.warn('Skipping periodic refresh due to existing errors');
       return;
     }
-    
+
     // Increase refresh interval if not connected to WebSocket to reduce load
-    const refreshInterval = isWebSocketConnected 
-      ? uiState.preferences.refreshInterval 
+    const refreshInterval = isWebSocketConnected
+      ? uiState.preferences.refreshInterval
       : Math.max(uiState.preferences.refreshInterval * 2, 30000); // Min 30s when offline
-    
+
     const interval = setInterval(() => {
       if (user && !hasErrors) {
         // Only refresh if not currently loading to prevent overlapping requests
@@ -427,12 +409,12 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
         }
       }
     }, refreshInterval);
-    
+
     return () => clearInterval(interval);
   }, [user, uiState.preferences.refreshInterval, isWebSocketConnected, capabilities.error, capabilities.isLoading, approvals.error, approvals.isLoading, loadCapabilities, loadApprovals, generateInsights]);
-  
+
   // Error recovery removed - no automatic retries to prevent infinite loops
-  
+
   // Initial data load
   useEffect(() => {
     if (user) {
@@ -441,7 +423,7 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
       generateInsights();
     }
   }, [user, loadCapabilities, loadApprovals, generateInsights]);
-  
+
   // Actions
   const refreshData = useCallback(async () => {
     await Promise.all([
@@ -450,16 +432,16 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
     ]);
     generateInsights();
   }, [loadCapabilities, loadApprovals, generateInsights]);
-  
+
   const executeOperation = useCallback(async (operationDef: any): Promise<string> => {
     const operationId = await orchestrationPipeline.createOperation(operationDef);
     await orchestrationPipeline.executeOperation(operationId);
     return operationId;
   }, [orchestrationPipeline]);
-  
+
   const approveExecution = useCallback(async (executionId: string) => {
     if (!user) throw new Error('User not authenticated');
-    
+
     try {
       await uaipAPI.approvals.approve(executionId, { approverId: user.id });
       // Only refresh if approval was successful
@@ -480,10 +462,10 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
       throw error; // Re-throw for component handling
     }
   }, [user, loadApprovals]);
-  
+
   const rejectExecution = useCallback(async (executionId: string, reason: string) => {
     if (!user) throw new Error('User not authenticated');
-    
+
     try {
       await uaipAPI.approvals.reject(executionId, { approverId: user.id, reason });
       // Only refresh if rejection was successful
@@ -504,18 +486,18 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
       throw error; // Re-throw for component handling
     }
   }, [user, loadApprovals]);
-  
+
   const setUIState = useCallback((newState: Partial<UIState>) => {
     setUIStateInternal(prev => ({ ...prev, ...newState }));
   }, []);
-  
+
   const clearError = useCallback((errorId: string) => {
     // Clear error from all data states
     const clearErrorFromState = (state: any) => ({
       ...state,
       error: state.error?.id === errorId ? undefined : state.error
     });
-    
+
     setAgents(clearErrorFromState);
     setOperations(clearErrorFromState);
     setCapabilities(clearErrorFromState);
@@ -525,14 +507,14 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
     setSystemMetrics(clearErrorFromState);
     setToolIntegrations(clearErrorFromState);
   }, []);
-  
+
   const addError = useCallback((error: Omit<UIError, 'id' | 'timestamp'>) => {
     const fullError: UIError = {
       ...error,
       id: `error-${Date.now()}`,
       timestamp: new Date()
     };
-    
+
     // Add error as an event
     const errorEvent: UAIPEvent = {
       id: `event-${Date.now()}`,
@@ -542,13 +524,13 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
       timestamp: new Date(),
       correlationId: fullError.id
     };
-    
+
     setEvents(prev => ({
       ...prev,
       data: [errorEvent, ...prev.data.slice(0, 99)]
     }));
   }, []);
-  
+
   const value: UAIPContextType = {
     // Data states
     agents,
@@ -559,25 +541,25 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
     events,
     systemMetrics,
     toolIntegrations,
-    
+
     // UI state
     uiState,
     setUIState,
-    
+
     // Actions
     refreshData,
     executeOperation,
     approveExecution,
     rejectExecution,
-    
+
     // WebSocket status
     isWebSocketConnected,
-    
+
     // Error handling
     clearError,
     addError
   };
-  
+
   return (
     <UAIPContext.Provider value={value}>
       {children}

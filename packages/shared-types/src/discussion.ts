@@ -316,7 +316,7 @@ export const CreateDiscussionRequestSchema = DiscussionSchema.omit({
   initialParticipants: z.array(z.object({
     agentId: IDSchema, // Only need agentId - persona comes from agent
     role: z.enum(['participant', 'moderator', 'observer', 'facilitator']).default('participant')
-  })).min(2),
+  })).min(1), // Allow single participant for agent-user chat sessions
   // Make turnStrategy optional with default
   turnStrategy: TurnStrategyConfigSchema.optional().default({
     strategy: TurnStrategy.ROUND_ROBIN,

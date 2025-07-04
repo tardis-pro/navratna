@@ -11,7 +11,10 @@ import {
   WidgetRegistryQuery
 } from '@uaip/types';
 import { 
- 
+  WidgetRegistry
+} from '@uaip/utils';
+import type { UserContext } from '@uaip/utils';
+import { 
   WidgetContext,
   BaseWidgetProps
 } from '@/components/ui/base-widget';

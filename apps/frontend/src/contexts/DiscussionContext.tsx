@@ -112,8 +112,12 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
         ? agentIds.filter(id => availableAgents.some(agent => agent.id === id))
         : availableAgents.slice(0, 3).map(agent => agent.id);
 
+      if (selectedAgentIds.length === 0) {
+        throw new Error('No valid agents available for discussion');
+      }
+
       if (selectedAgentIds.length < 2) {
-        throw new Error('At least 2 agents are required for a discussion');
+        console.warn(`Only ${selectedAgentIds.length} agent(s) available, proceeding with minimum participants`);
       }
 
       console.log('Starting discussion with agents:', selectedAgentIds);
@@ -162,7 +166,7 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
           turnStrategy: {
             strategy: TurnStrategy.ROUND_ROBIN,
             config: {
-              type: TurnStrategy.ROUND_ROBIN,
+              type: 'round_robin' as const,
               skipInactive: true,
               maxSkips: 1
             }
@@ -176,6 +180,15 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
             expectedOutcome: enhancedContext.expectedOutcome
           } : undefined
         };
+        
+        console.log('Creating discussion with request:', {
+          title: createRequest.title,
+          topic: createRequest.topic,
+          createdBy: createRequest.createdBy,
+          participantCount: createRequest.initialParticipants.length,
+          turnStrategy: createRequest.turnStrategy
+        });
+        
         const newDiscussion = await uaipAPI.discussions.create(createRequest);
         currentDiscussionId = newDiscussion.id;
         setDiscussionId(currentDiscussionId);
@@ -219,7 +232,24 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
 
     } catch (error) {
       console.error('Failed to start discussion:', error);
-      setLastError(error instanceof Error ? error.message : 'Failed to start discussion');
+      
+      // Enhanced error logging for validation failures
+      if (error instanceof Error) {
+        if (error.message.includes('Validation failed')) {
+          console.error('Discussion validation failed. Check required fields:', {
+            requiredFields: ['title', 'topic', 'createdBy', 'initialParticipants (min 1)'],
+            providedData: {
+              title: discussionTopic ? `Discussion: ${discussionTopic}` : 'MISSING',
+              topic: discussionTopic || 'MISSING',
+              createdBy: user?.id || 'MISSING',
+              participantCount: selectedAgentIds?.length || 0
+            }
+          });
+        }
+        setLastError(error.message);
+      } else {
+        setLastError('Failed to start discussion');
+      }
     } finally {
       setIsLoading(false);
     }

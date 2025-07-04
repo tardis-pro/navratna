@@ -303,10 +303,41 @@ export class UserLLMService {
    */
   async generateAgentResponse(userId: string, request: AgentResponseRequest): Promise<AgentResponseResponse> {
     try {
+      // Log the incoming request structure
+      logger.info('UserLLMService.generateAgentResponse - Incoming request', {
+        userId,
+        hasAgent: !!request.agent,
+        agentKeys: request.agent ? Object.keys(request.agent) : [],
+        agentName: request.agent?.name,
+        agentRole: request.agent?.role,
+        hasPersona: !!request.agent?.persona,
+        personaKeys: request.agent?.persona ? Object.keys(request.agent.persona) : [],
+        personaDescription: request.agent?.persona?.description,
+        personaCapabilities: request.agent?.persona?.capabilities,
+        messagesCount: request.messages?.length || 0,
+        hasContext: !!request.context,
+        hasTools: !!(request.tools && request.tools.length > 0),
+        toolsCount: request.tools?.length || 0
+      });
+
+      // Build prompts
+      const agentPrompt = this.buildAgentPrompt(request);
+      const systemPrompt = this.buildAgentSystemPrompt(request);
+
+      // Log the built prompts
+      logger.info('UserLLMService.generateAgentResponse - Built prompts', {
+        userId,
+        agentName: request.agent?.name,
+        systemPromptLength: systemPrompt.length,
+        systemPrompt: systemPrompt.substring(0, 500) + (systemPrompt.length > 500 ? '...' : ''),
+        agentPromptLength: agentPrompt.length,
+        agentPrompt: agentPrompt.substring(0, 300) + (agentPrompt.length > 300 ? '...' : '')
+      });
+
       // Convert to LLM request
       const llmRequest: LLMRequest = {
-        prompt: this.buildAgentPrompt(request),
-        systemPrompt: this.buildAgentSystemPrompt(request),
+        prompt: agentPrompt,
+        systemPrompt: systemPrompt,
         maxTokens: 200, // Keep responses concise
         temperature: 0.7,
         model: request.agent.configuration?.model || request.agent.modelId

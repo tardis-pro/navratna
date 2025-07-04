@@ -413,18 +413,17 @@ export class AgentDiscussionService {
       const effectiveUserId = userId || agent.createdBy;
 
       let llmResponse;
+      // Use event bus for LLM requests
       if (effectiveUserId) {
-        // Use user-specific LLM service if userId is available
-        logger.info('Using user-specific LLM service for agent response', {
+        logger.info('Requesting user-specific LLM response via event bus', {
           agentId,
           userId: effectiveUserId,
           source: userId ? 'provided' : 'agent-creator'
         });
-        llmResponse = await this.userLLMService.generateAgentResponse(effectiveUserId, agentRequest);
+        llmResponse = await this.requestLLMResponse(agentRequest, effectiveUserId);
       } else {
-        // Fall back to global LLM service
-        logger.warn('No userId available, using global LLM service for agent response', { agentId });
-        llmResponse = await this.llmService.generateAgentResponse(agentRequest);
+        logger.warn('No userId available, requesting global LLM response via event bus', { agentId });
+        llmResponse = await this.requestLLMResponse(agentRequest);
       }
 
       // Update working memory with this interaction if available
@@ -446,11 +445,31 @@ export class AgentDiscussionService {
         }
       }
 
+      // Extract content from response - handle different possible structures
+      let responseContent = llmResponse.content;
+      if (!responseContent && llmResponse?.response) {
+        responseContent = llmResponse.response;
+      }
+      if (!responseContent && llmResponse?.message) {
+        responseContent = llmResponse.message;
+      }
+      if (!responseContent && llmResponse?.text) {
+        responseContent = llmResponse.text;
+      }
+
+      logger.info('generateAgentResponse - Final response content extracted', {
+        agentId,
+        hasExtractedContent: !!responseContent,
+        extractedContentLength: responseContent?.length || 0,
+        extractedContent: responseContent?.substring(0, 100) || 'No content',
+        originalResponseStructure: llmResponse ? Object.keys(llmResponse) : 'null'
+      });
+
       // Store interaction as knowledge
-      await this.storeInteractionKnowledge(agentId, { message: userMessage, context }, llmResponse.content, []);
+      await this.storeInteractionKnowledge(agentId, { message: userMessage, context }, responseContent, []);
 
       return {
-        response: llmResponse.content || 'I apologize, but I encountered an issue generating a response.',
+        response: responseContent || 'I apologize, but I encountered an issue generating a response.',
         model: llmResponse.model || 'unknown',
         tokensUsed: llmResponse.tokensUsed,
         confidence: llmResponse.confidence,
@@ -461,7 +480,13 @@ export class AgentDiscussionService {
         toolsExecuted: llmResponse.toolsExecuted || []
       };
     } catch (error) {
-      logger.error('Failed to generate agent response', { error, agentId });
+      logger.error('Failed to generate agent response', { 
+        error: error.message, 
+        errorDetails: error,
+        agentId,
+        hasUserLLMService: !!this.userLLMService,
+        hasLLMService: !!this.llmService
+      });
       return {
         response: 'I apologize, but I encountered an error while processing your request.',
         model: 'error',
@@ -741,6 +766,64 @@ export class AgentDiscussionService {
   }
 
   /**
+   * Request LLM response via event bus
+   */
+  private async requestLLMResponse(agentRequest: any, userId?: string): Promise<any> {
+    try {
+      const requestId = `llm-request-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Publish LLM request event
+      const eventType = userId ? 'llm.user.request' : 'llm.global.request';
+      const eventData = {
+        requestId,
+        agentRequest,
+        userId,
+        timestamp: new Date().toISOString()
+      };
+      
+      await this.eventBusService.publish(eventType, eventData);
+      
+      // Wait for response (with timeout)
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          logger.warn('LLM request timeout', { requestId, eventType });
+          reject(new Error('LLM request timeout'));
+        }, 30000); // 30 second timeout
+        
+        // Subscribe to response
+        logger.info('Subscribing to LLM response', { responseChannel: `llm.response.${requestId}` });
+        this.eventBusService.subscribe(`llm.response.${requestId}`, (responseData: any) => {
+          logger.info('LLM response received', { requestId, hasResponseData: !!responseData });
+          clearTimeout(timeout);
+          
+          // Extract content from event data structure
+          let actualResponse = responseData;
+          if (responseData && responseData.data) {
+            actualResponse = responseData.data;
+          }
+          
+          logger.info('LLM response data extracted', { 
+            requestId, 
+            hasActualResponse: !!actualResponse,
+            actualResponseKeys: actualResponse ? Object.keys(actualResponse) : 'none',
+            hasContent: !!actualResponse?.content
+          });
+          
+          resolve(actualResponse);
+        });
+      });
+    } catch (error) {
+      logger.error('Failed to request LLM response via event bus', { error });
+      // Return fallback response
+      return {
+        response: 'I apologize, but I cannot process your request at the moment.',
+        model: 'fallback',
+        error: error.message
+      };
+    }
+  }
+
+  /**
    * Helper methods
    */
   private async generateLLMAgentResponse(
@@ -989,8 +1072,31 @@ Reasoning: ${reasoning.join('; ')}`,
 
   private async getAgentData(agentId: string): Promise<Agent | null> {
     try {
-      const response = await this.eventBusService.request('agent.query.get', { agentId });
-      return response.success ? response.data : null;
+      // Use AgentCoreService directly instead of RPC to avoid timeout issues
+      const { AgentCoreService } = await import('./agent-core.service.js');
+      const agentCoreService = new AgentCoreService({
+        databaseService: this.databaseService,
+        eventBusService: this.eventBusService,
+        serviceName: this.serviceName,
+        securityLevel: this.securityLevel
+      });
+      
+      await agentCoreService.initialize();
+      // Use getAgentWithPersona to get complete agent data including persona
+      const agentWithPersona = await agentCoreService.getAgentWithPersona(agentId);
+      
+      if (agentWithPersona && agentWithPersona.personaData) {
+        // Map personaData to persona for compatibility with LLM service expectations
+        (agentWithPersona as any).persona = agentWithPersona.personaData;
+        logger.info('Agent data retrieved with persona', { 
+          agentId, 
+          agentName: agentWithPersona.name,
+          hasPersona: !!agentWithPersona.personaData,
+          personaKeys: agentWithPersona.personaData ? Object.keys(agentWithPersona.personaData) : []
+        });
+      }
+      
+      return agentWithPersona;
     } catch (error) {
       logger.warn('Failed to get agent data', { error, agentId });
       return null;
@@ -1058,29 +1164,87 @@ Reasoning: ${reasoning.join('; ')}`,
         ? `\n\nRelevant knowledge:\n${contextualKnowledge.map(k => `- ${k.content}`).join('\n')}`
         : '';
 
-      // Create chat prompt
-      const prompt = `${agent.systemPrompt || 'You are a helpful AI assistant.'}
-
-Agent Name: ${agent.name}
-Role: ${agent.role}
-
-${historyContext ? `Previous conversation:\n${historyContext}\n` : ''}${knowledgeContext}
-
-User: ${message}
-Assistant:`;
-
-      // Use LLM service to generate response
-      const llmRequest: LLMRequest = {
-        prompt,
-        maxTokens: agent.maxTokens || 1000,
-        temperature: agent.temperature || 0.7,
-        userId,
-        agentId: agent.id
+      // Create agent request for event bus
+      const agentRequest = {
+        agent: {
+          id: agent.id,
+          name: agent.name,
+          role: agent.role,
+          systemPrompt: agent.systemPrompt || 'You are a helpful AI assistant.',
+          maxTokens: agent.maxTokens || 1000,
+          temperature: agent.temperature || 0.7,
+          modelId: agent.modelId,
+          configuration: agent.configuration,
+          persona: (agent as any).persona // Include persona data for enhanced prompts
+        },
+        messages: [
+          ...conversationHistory.map(entry => ({
+            content: entry.content,
+            sender: entry.sender,
+            timestamp: entry.timestamp
+          })),
+          {
+            content: message,
+            sender: 'user',
+            timestamp: new Date().toISOString()
+          }
+        ],
+        context: knowledgeContext ? { knowledgeContext } : undefined
       };
 
-      const llmResponse = await this.llmService.generateResponse(llmRequest);
+      logger.info('Requesting LLM response via event bus', { 
+        agentId: agent.id, 
+        userId, 
+        messageLength: message.length,
+        historyLength: conversationHistory.length,
+        agentRequestStructure: {
+          agentKeys: agentRequest.agent ? Object.keys(agentRequest.agent) : [],
+          hasPersona: !!agentRequest.agent?.persona,
+          personaKeys: agentRequest.agent?.persona ? Object.keys(agentRequest.agent.persona) : [],
+          messagesCount: agentRequest.messages?.length || 0,
+          hasContext: !!agentRequest.context
+        },
+        agentPersonaData: agentRequest.agent?.persona ? {
+          description: agentRequest.agent.persona.description,
+          capabilities: agentRequest.agent.persona.capabilities,
+          role: agentRequest.agent.persona.role
+        } : 'No persona data'
+      });
+
+      // Use event-driven LLM request
+      const llmResponse = await this.requestLLMResponse(agentRequest, userId);
       
-      return llmResponse.response || "I apologize, but I'm having trouble generating a response right now. Please try again.";
+      logger.info('LLM response received from event bus', { 
+        agentId: agent.id,
+        hasContent: !!llmResponse?.content,
+        contentLength: llmResponse?.content?.length || 0,
+        hasError: !!llmResponse?.error,
+        responseStructure: llmResponse ? Object.keys(llmResponse) : 'null',
+        rawResponse: JSON.stringify(llmResponse).substring(0, 200)
+      });
+
+      // Extract content from response - handle different possible structures
+      let responseContent = llmResponse?.content;
+      
+      // Fallback to other possible content fields
+      if (!responseContent && llmResponse?.response) {
+        responseContent = llmResponse.response;
+      }
+      if (!responseContent && llmResponse?.message) {
+        responseContent = llmResponse.message;
+      }
+      if (!responseContent && llmResponse?.text) {
+        responseContent = llmResponse.text;
+      }
+
+      logger.info('Final response content extracted', {
+        agentId: agent.id,
+        hasExtractedContent: !!responseContent,
+        extractedContentLength: responseContent?.length || 0,
+        extractedContent: responseContent?.substring(0, 100) || 'No content'
+      });
+
+      return responseContent || "I apologize, but I'm having trouble generating a response right now. Please try again.";
 
     } catch (error) {
       logger.error('Failed to generate chat response', { error, agentId: agent.id });

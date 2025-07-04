@@ -12,9 +12,10 @@ const isProduction = import.meta.env.PROD;
 /**
  * API Base URL Configuration - PRODUCTION READY
  * 
- * Uses environment variable or defaults to API Gateway URL
+ * Uses environment variable or dynamically detects current origin
  */
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
+  (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8081');
 
 /**
  * API Gateway Configuration
@@ -144,6 +145,7 @@ export const buildAPIURL = (route: string) => {
  */
 export const getWebSocketURL = () => {
   const baseURL = getEffectiveAPIBaseURL();
-  const wsURL = baseURL.replace('http', 'ws');
-  return `${wsURL}/ws`;
+  // Convert http/https to ws/wss
+  const wsURL = baseURL.replace(/^http/, 'ws');
+  return `${wsURL}/socket.io`;
 }; 

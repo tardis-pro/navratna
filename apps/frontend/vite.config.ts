@@ -21,6 +21,8 @@ export default defineConfig(({ mode }) => {
         '.local',
         '.vercel.app',
         '.netlify.app',
+        '.ngrok-free.app',
+        '3440-2402-e280-3e2c-76e-7917-4452-f5bb-a42d.ngrok-free.app',
         'all'
       ],
       origin: 'http://localhost:5173',

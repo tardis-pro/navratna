@@ -39,6 +39,7 @@ export class EventBusService {
   private connection: amqp.ChannelModel | null = null;
   private channel: amqp.Channel | null = null;
   private subscribers: Map<string, EventHandler[]> = new Map();
+  private activeConsumers: Set<string> = new Set();
   private isConnected: boolean = false;
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number;
@@ -65,7 +66,7 @@ export class EventBusService {
   }
 
   private async ensureConnected(): Promise<void> {
-    if (this.isConnected) {
+    if (this.isConnected && this.channel) {
       return;
     }
 
@@ -75,6 +76,9 @@ export class EventBusService {
 
     this.connectionPromise = this.connect().catch((error) => {
       this.connectionPromise = null;
+      this.logger.warn('Failed to establish connection, will retry on next operation', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
       throw error;
     });
 
@@ -105,6 +109,7 @@ export class EventBusService {
         this.logger.error('RabbitMQ connection error', { error: err.message });
         this.isConnected = false;
         this.connectionPromise = null;
+        this.activeConsumers.clear(); // Clear active consumers on connection error
         this.scheduleReconnect();
       });
 
@@ -112,15 +117,29 @@ export class EventBusService {
         this.logger.warn('RabbitMQ connection closed');
         this.isConnected = false;
         this.connectionPromise = null;
+        this.activeConsumers.clear(); // Clear active consumers on connection close
         this.scheduleReconnect();
       });
 
       this.channel.on('error', (err: Error) => {
         this.logger.error('RabbitMQ channel error', { error: err.message });
+        // Clear consumers and reset channel to prevent delivery tag issues
+        this.activeConsumers.clear();
+        this.channel = null;
+        // Recreate channel if connection is still alive
+        if (this.connection && this.isConnected) {
+          this.recreateChannelSafely();
+        }
       });
 
       this.channel.on('close', () => {
         this.logger.warn('RabbitMQ channel closed');
+        this.activeConsumers.clear();
+        this.channel = null;
+        // Recreate channel if connection is still alive
+        if (this.connection && this.isConnected) {
+          this.recreateChannelSafely();
+        }
       });
 
       // Create default exchanges
@@ -131,6 +150,9 @@ export class EventBusService {
       this.connectionPromise = null;
 
       this.logger.info('Successfully connected to RabbitMQ');
+
+      // Establish any stored subscriptions
+      await this.reestablishSubscriptions();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error('Failed to connect to RabbitMQ', { error: errorMessage });
@@ -145,14 +167,27 @@ export class EventBusService {
       throw new Error('Channel not available');
     }
 
-    // Create topic exchange for events
+    // Create basic exchanges
     await this.channel.assertExchange('events', 'topic', { durable: true });
-
-    // Create direct exchange for RPC-style communication
     await this.channel.assertExchange('rpc', 'direct', { durable: true });
-
-    // Create dead letter exchange
     await this.channel.assertExchange('events.dlx', 'topic', { durable: true });
+
+    // Create enterprise-prefixed exchanges if configured
+    if (this.config.exchangePrefix) {
+      const enterpriseEventsExchange = `${this.config.exchangePrefix}.events`;
+      const enterpriseRpcExchange = `${this.config.exchangePrefix}.rpc`;
+      const enterpriseDlxExchange = `${this.config.exchangePrefix}.events.dlx`;
+
+      await this.channel.assertExchange(enterpriseEventsExchange, 'topic', { durable: true });
+      await this.channel.assertExchange(enterpriseRpcExchange, 'direct', { durable: true });
+      await this.channel.assertExchange(enterpriseDlxExchange, 'topic', { durable: true });
+
+      this.logger.debug('Enterprise RabbitMQ exchanges set up successfully', {
+        eventsExchange: enterpriseEventsExchange,
+        rpcExchange: enterpriseRpcExchange,
+        dlxExchange: enterpriseDlxExchange
+      });
+    }
 
     this.logger.debug('RabbitMQ exchanges set up successfully');
   }
@@ -172,18 +207,100 @@ export class EventBusService {
       try {
         await this.connect();
 
-        // Re-establish all subscriptions
-        const subscriberEntries = Array.from(this.subscribers.entries());
-        for (const [eventType, handlers] of subscriberEntries) {
-          for (const handler of handlers) {
-            await this.subscribe(eventType, handler);
-          }
-        }
+        // Re-establish all subscriptions after connection is established
+        await this.reestablishSubscriptions();
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         this.logger.error('Reconnection attempt failed', { error: errorMessage });
       }
     }, delay);
+  }
+
+  private async recreateChannelSafely(): Promise<void> {
+    try {
+      if (!this.connection || !this.isConnected) {
+        this.logger.warn('Cannot recreate channel - connection not available');
+        return;
+      }
+
+      this.logger.info('Recreating RabbitMQ channel after error');
+      this.channel = await this.connection.createChannel();
+
+      if (!this.channel) {
+        throw new Error('Failed to recreate channel');
+      }
+
+      // Set up channel event handlers again
+      this.channel.on('error', (err: Error) => {
+        this.logger.error('RabbitMQ channel error', { error: err.message });
+        this.activeConsumers.clear();
+        this.channel = null;
+        // Don't immediately recreate to avoid infinite loops
+        setTimeout(() => {
+          if (this.connection && this.isConnected) {
+            this.recreateChannelSafely();
+          }
+        }, 1000);
+      });
+
+      this.channel.on('close', () => {
+        this.logger.warn('RabbitMQ channel closed');
+        this.activeConsumers.clear();
+        this.channel = null;
+        // Don't immediately recreate to avoid infinite loops
+        setTimeout(() => {
+          if (this.connection && this.isConnected) {
+            this.recreateChannelSafely();
+          }
+        }, 1000);
+      });
+
+      // Recreate exchanges
+      await this.setupExchanges();
+
+      // Reestablish subscriptions
+      await this.reestablishSubscriptions();
+
+      this.logger.info('RabbitMQ channel recreated successfully');
+    } catch (error) {
+      this.logger.error('Failed to recreate channel', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      // If channel recreation fails, trigger full reconnection
+      this.isConnected = false;
+      this.scheduleReconnect();
+    }
+  }
+
+  private async reestablishSubscriptions(): Promise<void> {
+    if (!this.isConnected || !this.channel) {
+      this.logger.warn('Cannot reestablish subscriptions - not connected');
+      return;
+    }
+
+    // Clear active consumers since we're reestablishing everything
+    this.activeConsumers.clear();
+
+    const subscriberEntries = Array.from(this.subscribers.entries());
+    this.logger.info(`Reestablishing ${subscriberEntries.length} subscriptions`);
+
+    for (const [eventType, handlers] of subscriberEntries) {
+      if (handlers.length > 0) {
+        try {
+          await this.setupSubscription(eventType);
+          this.logger.info('Successfully reestablished subscription', {
+            eventType,
+            handlerCount: handlers.length
+          });
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          this.logger.error('Failed to reestablish subscription', {
+            eventType,
+            error: errorMessage
+          });
+        }
+      }
+    }
   }
 
   public async publish(
@@ -260,6 +377,17 @@ export class EventBusService {
         error: errorMessage,
         messageId: message.id
       });
+
+      // Check if this is a channel error that requires reconnection
+      if (errorMessage.includes('Channel closed') || errorMessage.includes('Connection closed')) {
+        this.isConnected = false;
+        this.activeConsumers.clear();
+        this.connectionPromise = null;
+        this.logger.warn('Connection lost during publish, will reconnect on next operation');
+      }
+
+      // For WebSocket auth, we need to throw the error so the caller can handle it
+      // For other events, we could gracefully fail
       throw new ApiError(500, 'Failed to publish event', 'EVENT_PUBLISH_ERROR', {
         eventType,
         messageId: message.id
@@ -272,17 +400,42 @@ export class EventBusService {
     handler: EventHandler,
     options?: SubscriptionOptions
   ): Promise<void> {
+    // Always store subscription first
+    if (!this.subscribers.has(eventType)) {
+      this.subscribers.set(eventType, []);
+    }
+
+    // Check if handler is already stored to avoid duplicates
+    const handlers = this.subscribers.get(eventType);
+    if (handlers && !handlers.includes(handler)) {
+      handlers.push(handler);
+    }
+
+    // If not connected, just store the subscription for later
     if (!this.isConnected || !this.channel) {
-      // Store subscription for later when connected
-      if (!this.subscribers.has(eventType)) {
-        this.subscribers.set(eventType, []);
-      }
-      this.subscribers.get(eventType)!.push(handler);
+      this.logger.debug('Storing subscription for later connection', { eventType });
+      return;
+    }
+
+    // If connected, set up the subscription immediately
+    await this.setupSubscription(eventType, options);
+  }
+
+  private async setupSubscription(eventType: string, options?: SubscriptionOptions): Promise<void> {
+    if (!this.channel) {
+      throw new Error('Channel not available for subscription setup');
+    }
+
+    // Use consistent queue names without timestamps to avoid duplicates
+    const queueName = options?.queue || `${this.config.serviceName}.${eventType}`;
+
+    // Check if we already have an active consumer for this event type
+    if (this.activeConsumers.has(eventType)) {
+      this.logger.debug('Consumer already active for event type', { queueName, eventType });
       return;
     }
 
     try {
-      const queueName = options?.queue || `${this.config.serviceName}.${eventType}`;
       const exchange = this.config.exchangePrefix ? `${this.config.exchangePrefix}.events` : 'events';
 
       // Assert queue with options
@@ -306,8 +459,9 @@ export class EventBusService {
         await this.channel.prefetch(options.prefetch);
       }
 
-      // Set up consumer
-      await this.channel.consume(queueName, async (msg: amqp.ConsumeMessage | null) => {
+      // Set up consumer for all handlers of this event type
+      const handlers = this.subscribers.get(eventType) || [];
+      const consumerTag = await this.channel.consume(queueName, async (msg: amqp.ConsumeMessage | null) => {
         if (!msg) return;
 
         try {
@@ -320,12 +474,31 @@ export class EventBusService {
             source: eventMessage.source
           });
 
-          // Execute handler
-          await handler(eventMessage);
+          // Execute all handlers for this event type
+          for (const handler of handlers) {
+            await handler(eventMessage);
+          }
 
           // Acknowledge message if not auto-ack
-          if (!options?.autoAck && this.channel) {
-            this.channel.ack(msg);
+          if (!options?.autoAck && this.channel && msg) {
+            try {
+              // Check if channel is still valid before acknowledging
+              if (this.channel && this.isConnected) {
+                this.channel.ack(msg);
+              } else {
+                this.logger.warn('Cannot acknowledge message - channel not available', {
+                  deliveryTag: msg.fields?.deliveryTag,
+                  channelExists: !!this.channel,
+                  isConnected: this.isConnected
+                });
+              }
+            } catch (ackError) {
+              this.logger.warn('Failed to acknowledge message', {
+                error: ackError instanceof Error ? ackError.message : 'Unknown error',
+                deliveryTag: msg.fields?.deliveryTag
+              });
+              // Don't throw error - just log and continue
+            }
           }
 
           this.logger.debug('Event processed successfully', {
@@ -341,26 +514,43 @@ export class EventBusService {
           });
 
           // Reject message and send to dead letter queue if configured
-          if (options?.deadLetterExchange && this.channel) {
-            this.channel.nack(msg, false, false);
-          } else if (this.channel) {
-            this.channel.nack(msg, false, true); // Requeue
+          if (this.channel && msg && this.isConnected) {
+            try {
+              if (options?.deadLetterExchange) {
+                this.channel.nack(msg, false, false);
+              } else {
+                this.channel.nack(msg, false, true); // Requeue
+              }
+            } catch (nackError) {
+              this.logger.warn('Failed to nack message', {
+                error: nackError instanceof Error ? nackError.message : 'Unknown error',
+                deliveryTag: msg.fields?.deliveryTag,
+                channelExists: !!this.channel,
+                isConnected: this.isConnected
+              });
+              // Don't throw error - just log and continue
+            }
+          } else {
+            this.logger.warn('Cannot nack message - channel not available', {
+              deliveryTag: msg?.fields?.deliveryTag,
+              channelExists: !!this.channel,
+              isConnected: this.isConnected
+            });
           }
         }
       }, {
         noAck: options?.autoAck || false
       });
 
-      // Store subscription
-      if (!this.subscribers.has(eventType)) {
-        this.subscribers.set(eventType, []);
-      }
-      this.subscribers.get(eventType)!.push(handler);
+      // Mark this event type as having an active consumer
+      this.activeConsumers.add(eventType);
 
       this.logger.info('Successfully subscribed to event', {
         eventType,
         queueName,
-        handlerCount: this.subscribers.get(eventType)!.length
+        exchange,
+        handlerCount: handlers.length,
+        consumerTag: consumerTag?.consumerTag
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -384,6 +574,8 @@ export class EventBusService {
 
       if (handlers.length === 0) {
         this.subscribers.delete(eventType);
+        // Remove from active consumers if no handlers remain
+        this.activeConsumers.delete(eventType);
       }
 
       this.logger.info('Unsubscribed from event', {
@@ -527,6 +719,10 @@ export class EventBusService {
       if (this.connection) {
         await this.connection.close();
       }
+
+      // Clear active consumers on shutdown
+      this.activeConsumers.clear();
+      this.isConnected = false;
 
       this.logger.info('Event bus shutdown completed');
     } catch (error) {

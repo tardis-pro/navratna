@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
 import { useAgents } from '../../../contexts/AgentContext';
 import { PersonaSelector } from '../../PersonaSelector';
+import { AgentEditModal } from '../../AgentEditModal';
 import { AgentState, createAgentStateFromBackend } from '../../../types/agent';
 import { Persona, PersonaDisplay } from '../../../types/persona';
 import { useDiscussion } from '../../../contexts/DiscussionContext';
@@ -256,6 +257,10 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
 
   // Available tools state
   const [availableTools, setAvailableTools] = useState<Array<{id: string, name: string, category: string, description: string}>>([]);
+  
+  // Edit modal state
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
 
   // Form state for persona creation
   const [personaForm, setPersonaForm] = useState({
@@ -378,6 +383,22 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
   const navigateToAgent = (agentId: string, action: ActionMode = 'view') => {
     setSelectedAgentId(agentId);
     setActionMode(action);
+  };
+
+  // Edit modal handlers
+  const handleEditAgent = (agentId: string) => {
+    setEditingAgentId(agentId);
+    setEditModalOpen(true);
+  };
+
+  const handleCloseEditModal = () => {
+    setEditModalOpen(false);
+    setEditingAgentId(null);
+  };
+
+  const handleSaveAgent = (agentId: string, updates: Partial<AgentState>) => {
+    // This is handled by the modal itself, just close it
+    handleCloseEditModal();
   };
 
   const navigateToCreate = () => {
@@ -681,15 +702,8 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
           ${isSelected ? 'ring-1 ring-blue-400 bg-blue-500/5 border-blue-400' : ''}
         `}
         onClick={() => {
-          // Open chat portal with this agent
-          const chatEvent = new CustomEvent('openAgentChat', { 
-            detail: { 
-              agentId: agent.id, 
-              agentName: agent.name,
-              persona: agent.persona 
-            } 
-          });
-          window.dispatchEvent(chatEvent);
+          // Show context menu or handle primary action
+          console.log('Agent card clicked:', agent.name);
         }}
         whileHover={{ scale: viewMode === 'grid' ? 1.02 : 1.01 }}
       >
@@ -705,10 +719,10 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                navigateToAgent(agent.id, 'edit');
+                handleEditAgent(agent.id);
               }}
               className="w-6 h-6 bg-slate-700 hover:bg-slate-600 rounded text-slate-300 hover:text-white transition-colors flex items-center justify-center"
-              title="Edit"
+              title="Edit Agent"
             >
               <Edit3 className="w-3 h-3" />
             </button>
@@ -748,6 +762,63 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
             <div className="text-xs text-slate-500 truncate" title={`Model: ${getModelDisplayName(agent.modelId)}`}>
               {getModelDisplayName(agent.modelId)}
             </div>
+          </div>
+
+          {/* Chat Action Buttons */}
+          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                const chatEvent = new CustomEvent('openNewAgentChat', { 
+                  detail: { 
+                    agentId: agent.id, 
+                    agentName: agent.name,
+                    forceNew: true
+                  } 
+                });
+                window.dispatchEvent(chatEvent);
+              }}
+              className="p-2 bg-green-500/20 text-green-400 hover:bg-green-500/30 rounded-lg transition-colors"
+              title="Start New Chat"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+            
+            {/* New Chat Button */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                const chatEvent = new CustomEvent('openNewAgentChat', { 
+                  detail: { 
+                    agentId: agent.id, 
+                    agentName: agent.name
+                  } 
+                });
+                window.dispatchEvent(chatEvent);
+              }}
+              className="p-2 bg-green-500/20 text-green-400 hover:bg-green-500/30 rounded-lg transition-colors"
+              title="Start New Chat"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+
+            {/* Resume Chat / History Button */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                const chatEvent = new CustomEvent('openAgentChat', { 
+                  detail: { 
+                    agentId: agent.id, 
+                    agentName: agent.name
+                  } 
+                });
+                window.dispatchEvent(chatEvent);
+              }}
+              className="p-2 bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 rounded-lg transition-colors"
+              title="Resume Chat / View History"
+            >
+              <MessageSquare className="w-4 h-4" />
+            </button>
           </div>
         </div>
 
@@ -1727,7 +1798,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
 
                   {/* Action Button */}
                   <button
-                    onClick={() => navigateToAgent(agent.id, 'edit')}
+                    onClick={() => handleEditAgent(agent.id)}
                     className="opacity-0 group-hover:opacity-100 p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all duration-200 hover:scale-110 flex-shrink-0"
                   >
                     <Edit3 className="w-5 h-5" />
@@ -1900,6 +1971,16 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Edit Modal */}
+      {editModalOpen && editingAgentId && (
+        <AgentEditModal
+          agentId={editingAgentId}
+          isOpen={editModalOpen}
+          onClose={handleCloseEditModal}
+          onSave={handleSaveAgent}
+        />
+      )}
     </motion.div>
   );
 }; 

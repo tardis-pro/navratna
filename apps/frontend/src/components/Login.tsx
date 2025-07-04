@@ -89,8 +89,15 @@ export const Login: React.FC = () => {
 
   const demoCredentials = [
     { email: 'admin1@uaip.dev', password: 'admin123!', role: 'Admin' },
-    { email: 'user@example.com', password: 'password123', role: 'User' },
-    { email: 'demo@example.com', password: 'demo123', role: 'Demo' }
+    { email: 'manager1@uaip.dev', password: 'manager123!', role: 'User' },
+    { email: 'analyst1@uaip.dev', password: 'analyst123!', role: 'Demo' },
+    { email: 'developer1@uaip.dev', password: 'dev123!', role: 'Demo' },
+    { email: 'guest1@uaip.dev', password: 'guest123!', role: 'Demo' },
+    { email: 'codemaster@uaip.dev', password: 'viral123!', role: 'Demo' },
+    { email: 'creativeguru@uaip.dev', password: 'create123!', role: 'Demo' },
+    { email: 'battlemaster@uaip.dev', password: 'fight123!', role: 'Demo' },
+    { email: 'socialguru@uaip.dev', password: 'social123!', role: 'Demo' },
+    { email: 'devgenius@uaip.dev', password: 'genius123!', role: 'Demo' }
   ];
 
   const fillDemoCredentials = (email: string, password: string) => {

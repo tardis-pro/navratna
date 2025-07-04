@@ -154,7 +154,7 @@ export const DiscussionStarter: React.FC<DiscussionStarterProps> = ({
         ) : (
           <>
             <Play className="w-4 h-4" />
-            Start Discussion
+            Initiate Discussion
           </>
         )}
       </button>

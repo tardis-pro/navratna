@@ -22,7 +22,7 @@ import type {
   UpdatePersonaRequest,
   PersonaSearchFilters,
   PersonaRecommendation,
-  
+
   // Discussion types
   Discussion,
   DiscussionParticipant,
@@ -34,22 +34,22 @@ import type {
   CreateDiscussionRequest,
   UpdateDiscussionRequest,
   DiscussionSearchFilters,
-  
+
   // WebSocket types
   WebSocketConfig,
   WebSocketEvent,
   TurnInfo,
   DiscussionWebSocketEvent,
-  
+
   // System types
   HealthStatus,
   SystemMetrics,
-  
+
   // LLM types
   LLMGenerationRequest,
   LLMModel,
   PersonaTemplate,
-  
+
   // Knowledge Graph types
   KnowledgeItem,
   KnowledgeSearchRequest,
@@ -62,8 +62,8 @@ import type {
 } from '@uaip/types';
 
 // Import enums separately (not as type imports)
-import { 
-  DiscussionStatus, 
+import {
+  DiscussionStatus,
   MessageType,
   LLMProviderType
 } from '@uaip/types';
@@ -71,7 +71,6 @@ import {
 // Import frontend-specific types
 import type {
   MessageSearchOptions,
-  DiscussionEvent,
   PersonaDisplay,
   PersonaSearchResponse,
   DiscussionSearchResponse,
@@ -91,7 +90,7 @@ const isProduction = !isDevelopment;
 
 // Generate unique IDs
 export function generateUUID(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
     const r = Math.random() * 16 | 0;
     const v = c === 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
@@ -117,381 +116,15 @@ export function getAPIClient(): UAIPAPIClient {
 }
 
 // ============================================================================
-// WEBSOCKET CLIENT
+// WEBSOCKET CLIENT (REMOVED - Using useWebSocket hook instead)
 // ============================================================================
-
-interface SocketIOClient {
-  connected: boolean;
-  emit: (event: string, data: any) => void;
-  on: (event: string, callback: (data: any) => void) => void;
-  disconnect: () => void;
-}
-
-class DiscussionWebSocketClient {
-  private socket: SocketIOClient | null = null;
-  private config: WebSocketConfig;
-  private listeners: Map<string, Set<(event: DiscussionEvent) => void>> = new Map();
-  private reconnectAttempts = 0;
-  private maxReconnectAttempts: number;
-  private reconnectDelay: number;
-  private joinedDiscussions: Set<string> = new Set();
-
-  constructor(config: WebSocketConfig) {
-    this.config = config;
-    this.maxReconnectAttempts = config.reconnectAttempts || 5;
-    this.reconnectDelay = config.reconnectDelay || 1000;
-    
-    if (config.autoConnect) {
-      this.connect();
-    }
-  }
-
-  async connect() {
-    try {
-      // Try to dynamically import Socket.IO client with proper error handling
-      let io: any;
-      try {
-        const socketIO = await import('socket.io-client');
-        io = socketIO.io || socketIO.default?.io;
-        
-        if (!io) {
-          throw new Error('Socket.IO client not properly exported');
-        }
-      } catch (importError) {
-        console.error('❌ Socket.IO client not available!');
-        console.error('📦 Install with: npm install socket.io-client');
-        console.error('🔧 Or continue without real-time features');
-        
-        // Graceful degradation - continue without WebSocket
-        this.socket = null;
-        console.warn('⚠️ WebSocket disabled - using polling for updates');
-        return;
-      }
-      
-      // Get authentication tokens from the API client
-      const apiClient = getAPIClient();
-      const authToken = apiClient.getAuthToken();
-      const userId = apiClient.getUserId();
-      
-      // Validate authentication data before connecting
-      if (!authToken || !userId) {
-        console.warn('[Socket.IO] Authentication data missing - deferring connection:', { 
-          hasToken: !!authToken, 
-          hasUserId: !!userId
-        });
-        
-        // Graceful degradation - store config and connect later when auth is available
-        this.socket = null;
-        return;
-      }
-      
-      console.log('[Socket.IO] Connecting with auth:', { 
-        hasToken: !!authToken, 
-        hasUserId: !!userId,
-        url: this.config.url,
-        tokenPreview: authToken ? `${authToken.substring(0, 10)}...` : 'none',
-        userIdPreview: userId ? `${userId.substring(0, 8)}...` : 'none'
-      });
-      
-      // Connect to Socket.IO server with enhanced configuration
-      this.socket = io(this.config.url, {
-        transports: ['websocket', 'polling'], // Fallback to polling if WebSocket fails
-        auth: {
-          token: authToken,
-          userId: userId
-        },
-        reconnection: true,
-        reconnectionAttempts: this.maxReconnectAttempts,
-        reconnectionDelay: this.reconnectDelay,
-        timeout: this.config.timeout || 10000,
-        forceNew: false,
-        autoConnect: true,
-        // Additional security headers
-        extraHeaders: {
-          'User-Agent': 'UAIP-Frontend/1.0'
-        }
-      }) as SocketIOClient;
-      
-      this.socket.on('connect', () => {
-        console.log('[Socket.IO] Connected to discussions');
-        this.reconnectAttempts = 0;
-        
-        // Rejoin all previously joined discussions
-        this.joinedDiscussions.forEach(discussionId => {
-          this.joinDiscussion(discussionId);
-        });
-      });
-      
-      // Listen for discussion events
-      this.socket.on('message_received', (data) => {
-        const discussionEvent: DiscussionEvent = {
-          type: 'message_added',
-          discussionId: data.discussionId,
-          data: data,
-          timestamp: new Date(data.timestamp)
-        };
-        this.notifyListeners(discussionEvent);
-      });
-
-      this.socket.on('turn_started', (data) => {
-        const discussionEvent: DiscussionEvent = {
-          type: 'turn_started',
-          discussionId: data.discussionId,
-          data: data,
-          timestamp: new Date(data.timestamp)
-        };
-        this.notifyListeners(discussionEvent);
-      });
-
-      this.socket.on('turn_ended', (data) => {
-        const discussionEvent: DiscussionEvent = {
-          type: 'turn_ended',
-          discussionId: data.discussionId,
-          data: data,
-          timestamp: new Date(data.timestamp)
-        };
-        this.notifyListeners(discussionEvent);
-      });
-
-      this.socket.on('participant_joined', (data) => {
-        const discussionEvent: DiscussionEvent = {
-          type: 'participant_joined',
-          discussionId: data.discussionId,
-          data: data,
-          timestamp: new Date(data.timestamp)
-        };
-        this.notifyListeners(discussionEvent);
-      });
-
-      this.socket.on('participant_left', (data) => {
-        const discussionEvent: DiscussionEvent = {
-          type: 'participant_left',
-          discussionId: data.discussionId,
-          data: data,
-          timestamp: new Date(data.timestamp)
-        };
-        this.notifyListeners(discussionEvent);
-      });
-      
-      this.socket.on('disconnect', () => {
-        console.log('[Socket.IO] Disconnected from discussions');
-      });
-      
-      this.socket.on('connect_error', (error) => {
-        console.error('[Socket.IO] Connection error:', error);
-        
-        // Enhanced error handling with retry logic
-        this.reconnectAttempts++;
-        
-        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-          console.error('[Socket.IO] Max reconnection attempts reached, giving up');
-          this.socket = null;
-        } else {
-          console.log(`[Socket.IO] Retrying connection (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-        }
-      });
-      
-      // Add error event handling for runtime errors
-      this.socket.on('error', (error) => {
-        console.error('[Socket.IO] Runtime error:', error);
-      });
-      
-      // Handle authentication errors
-      this.socket.on('AUTH_TOKEN_REQUIRED', () => {
-        console.error('[Socket.IO] Authentication token required');
-        this.disconnect();
-      });
-      
-      this.socket.on('INVALID_TOKEN', () => {
-        console.error('[Socket.IO] Invalid authentication token');
-        this.disconnect();
-      });
-      
-      this.socket.on('TOKEN_EXPIRED', () => {
-        console.error('[Socket.IO] Authentication token expired');
-        this.disconnect();
-      });
-
-      this.socket.on('joined_discussion', (data) => {
-        console.log('[Socket.IO] Successfully joined discussion:', data.discussionId);
-      });
-
-      this.socket.on('left_discussion', (data) => {
-        console.log('[Socket.IO] Left discussion:', data.discussionId);
-      });
-      
-    } catch (error) {
-      console.error('[Socket.IO] Failed to create connection:', error);
-      
-      // Ensure socket is null on error for graceful degradation
-      this.socket = null;
-      
-      // Continue without WebSocket - the hook will still work for basic operations
-      // Users will just need to manually refresh to see updates
-      console.warn('⚠️ Continuing without real-time updates');
-    }
-  }
-
-  private notifyListeners(event: DiscussionEvent) {
-    const eventListeners = this.listeners.get(event.type);
-    if (eventListeners) {
-      eventListeners.forEach(listener => listener(event));
-    }
-    
-    // Also notify wildcard listeners
-    const wildcardListeners = this.listeners.get('*');
-    if (wildcardListeners) {
-      wildcardListeners.forEach(listener => listener(event));
-    }
-  }
-
-  addEventListener(eventType: string, listener: (event: DiscussionEvent) => void) {
-    if (!this.listeners.has(eventType)) {
-      this.listeners.set(eventType, new Set());
-    }
-    this.listeners.get(eventType)!.add(listener);
-  }
-
-  removeEventListener(eventType: string, listener: (event: DiscussionEvent) => void) {
-    const eventListeners = this.listeners.get(eventType);
-    if (eventListeners) {
-      eventListeners.delete(listener);
-    }
-  }
-
-  joinDiscussion(discussionId: string) {
-    if (this.socket && this.socket.connected) {
-      console.log('[Socket.IO] Joining discussion:', discussionId);
-      this.socket.emit('join_discussion', { discussionId });
-      this.joinedDiscussions.add(discussionId);
-    } else {
-      console.warn('[Socket.IO] Cannot join discussion - not connected:', discussionId);
-      // Store for later when connection is established
-      this.joinedDiscussions.add(discussionId);
-    }
-  }
-
-  leaveDiscussion(discussionId: string) {
-    if (this.socket && this.socket.connected) {
-      console.log('[Socket.IO] Leaving discussion:', discussionId);
-      this.socket.emit('leave_discussion', { discussionId });
-    }
-    this.joinedDiscussions.delete(discussionId);
-  }
-
-  disconnect() {
-    if (this.socket && this.socket.connected) {
-      console.log('[Socket.IO] Disconnecting...');
-      this.socket.disconnect();
-    }
-    this.socket = null;
-    this.joinedDiscussions.clear();
-    this.listeners.clear();
-    this.reconnectAttempts = 0;
-  }
-
-  isConnected(): boolean {
-    return this.socket?.connected || false;
-  }
-  
-  /**
-   * Get connection status with detailed information
-   */
-  getConnectionStatus(): {
-    connected: boolean;
-    reconnecting: boolean;
-    attempts: number;
-    maxAttempts: number;
-  } {
-    return {
-      connected: this.isConnected(),
-      reconnecting: this.reconnectAttempts > 0,
-      attempts: this.reconnectAttempts,
-      maxAttempts: this.maxReconnectAttempts
-    };
-  }
-  
-  /**
-   * Attempt to reconnect manually
-   */
-  async reconnect(): Promise<void> {
-    if (this.socket) {
-      this.disconnect();
-    }
-    
-    this.reconnectAttempts = 0;
-    await this.connect();
-  }
-  
-  /**
-   * Send message with error handling
-   */
-  sendMessage(discussionId: string, content: string, messageType?: MessageType) {
-    if (this.socket && this.socket.connected) {
-      console.log('[Socket.IO] Sending message to discussion:', discussionId);
-      this.socket.emit('send_message', {
-        discussionId,
-        content,
-        messageType: messageType || MessageType.MESSAGE
-      });
-    } else {
-      console.warn('[Socket.IO] Cannot send message - not connected');
-      throw new Error('WebSocket not connected - please try again');
-    }
-  }
-}
-
-// Global WebSocket client instance
-let wsClient: DiscussionWebSocketClient | null = null;
-
-export function getWebSocketClient(): DiscussionWebSocketClient {
-  if (!wsClient) {
-    // Check authentication before creating WebSocket client
-    const apiClient = getAPIClient();
-    const authToken = apiClient.getAuthToken();
-    const userId = apiClient.getUserId();
-    
-    if (!authToken || !userId) {
-      console.warn('[WebSocket] Cannot create WebSocket client - authentication required');
-      console.warn('[WebSocket] Please ensure user is logged in before using WebSocket features');
-      throw new Error('WebSocket client requires authentication. Please log in first.');
-    }
-    
-    // Use API Gateway URL for Socket.IO connection
-    const baseUrl = getEffectiveAPIBaseURL();
-    console.log('[WebSocket] Creating authenticated WebSocket client for:', {
-      baseUrl,
-      hasAuth: !!authToken,
-      hasUserId: !!userId
-    });
-    
-    wsClient = new DiscussionWebSocketClient({
-      url: baseUrl, // Socket.IO connects to the base URL
-      autoConnect: true,
-      reconnectAttempts: 5,
-      reconnectDelay: 1000
-    });
-  }
-  return wsClient;
-}
-
-/**
- * Reset the WebSocket client (call this on login/logout)
- */
-export function resetWebSocketClient(): void {
-  if (wsClient) {
-    console.log('[WebSocket] Resetting WebSocket client due to auth change');
-    wsClient.disconnect();
-    wsClient = null;
-  }
-}
 
 // Enhanced API wrapper with production-ready error handling
 export const uaipAPI = {
   get client() {
     return getAPIClient();
   },
-  
+
   // Get current environment info
   getEnvironmentInfo() {
     return {
@@ -499,31 +132,27 @@ export const uaipAPI = {
       isProduction,
       baseURL: getEffectiveAPIBaseURL(),
       config: envConfig,
-      routes: API_ROUTES,
-      websocketConnected: wsClient?.isConnected() || false
+      routes: API_ROUTES
     };
   },
 
-  // WebSocket client access
-  get websocket() {
-    return getWebSocketClient();
-  },
+  // WebSocket client access removed - using useWebSocket hook instead
 
   // ============================================================================
   // PERSONA API METHODS
   // ============================================================================
-  
+
   personas: {
     async search(query?: string, expertise?: string): Promise<PersonaSearchResponse> {
       try {
         const client = getAPIClient();
-       
+
         const response = await client.personas.search(query, expertise);
         console.log('🔍 Persona search response:', response);
-        
+
         // Handle the response data properly - it should be an array of personas
         const personas = Array.isArray(response.data) ? response.data : [];
-        
+
         return {
           personas: personas,
           total: personas.length,
@@ -538,13 +167,13 @@ export const uaipAPI = {
     async getForDisplay(): Promise<PersonaSearchResponse> {
       try {
         const client = getAPIClient();
-       
+
         const response = await client.personas.getForDisplay();
         console.log('🔍 Persona display response:', response);
-        
+
         // Handle the response data properly - it should be an array of personas with categories
         const personas = Array.isArray(response.data) ? response.data : [];
-        
+
         return {
           personas: personas,
           total: personas.length,
@@ -560,19 +189,19 @@ export const uaipAPI = {
       const response = await client.personas.create(personaData);
       return response.data;
     },
-    
+
     async getTemplates(): Promise<PersonaTemplate[]> {
       const client = getAPIClient();
       const response = await client.personas.getTemplates();
       return response.data;
     },
-    
+
     async get(id: string): Promise<Persona> {
       const client = getAPIClient();
       const response = await client.personas.get(id);
       return response.data;
     },
-    
+
     async update(id: string, updates: Partial<Persona>): Promise<Persona> {
       const client = getAPIClient();
       const response = await client.personas.update(id, updates);
@@ -584,20 +213,20 @@ export const uaipAPI = {
       const response = await client.personas.delete(id);
       return response.data;
     },
-    
-    
+
+
 
   },
 
   // ============================================================================
   // DISCUSSION API METHODS
   // ============================================================================
-  
+
   discussions: {
     async list(filters?: DiscussionSearchFilters): Promise<DiscussionSearchResponse> {
       const client = getAPIClient();
       const response = await client.discussions.search(filters?.query, filters?.status?.[0]);
-      
+
       // Transform the response to match our interface
       return {
         discussions: response.data || [],
@@ -609,11 +238,11 @@ export const uaipAPI = {
     async get(id: string): Promise<Discussion> {
       const client = getAPIClient();
       const response = await client.discussions.get(id);
-      
+
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to fetch discussion');
       }
-      
+
       return response.data!;
     },
 
@@ -628,29 +257,29 @@ export const uaipAPI = {
         initialParticipants: discussion.initialParticipants,
         settings: discussion.settings
       });
-      
+
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to create discussion');
       }
-      
+
       return response.data!;
     },
 
     async update(id: string, updates: UpdateDiscussionRequest): Promise<Discussion> {
       const client = getAPIClient();
       const response = await client.discussions.update(id, updates);
-      
+
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to update discussion');
       }
-      
+
       return response.data!;
     },
 
     async start(id: string): Promise<void> {
       const client = getAPIClient();
       const response = await client.discussions.start(id);
-      
+
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to start discussion');
       }
@@ -659,7 +288,7 @@ export const uaipAPI = {
     async pause(id: string): Promise<void> {
       const client = getAPIClient();
       const response = await client.discussions.update(id, { status: DiscussionStatus.PAUSED });
-      
+
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to pause discussion');
       }
@@ -668,7 +297,7 @@ export const uaipAPI = {
     async resume(id: string): Promise<void> {
       const client = getAPIClient();
       const response = await client.discussions.update(id, { status: DiscussionStatus.ACTIVE });
-      
+
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to resume discussion');
       }
@@ -680,7 +309,7 @@ export const uaipAPI = {
         reason: 'Discussion ended by user',
         summary: 'Discussion completed'
       });
-      
+
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to end discussion');
       }
@@ -692,18 +321,18 @@ export const uaipAPI = {
         agentId: participant.agentId,
         role: participant.role || 'participant'
       });
-      
+
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to add participant');
       }
-      
+
       return response.data!;
     },
 
     async removeParticipant(id: string, participantId: string): Promise<void> {
       const client = getAPIClient();
       const response = await client.discussions.removeParticipant(id, participantId);
-      
+
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to remove participant');
       }
@@ -712,11 +341,11 @@ export const uaipAPI = {
     async getMessages(id: string, options?: MessageSearchOptions): Promise<DiscussionMessage[]> {
       const client = getAPIClient();
       const response = await client.discussions.getMessages(id, options?.limit, options?.offset);
-      
+
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to fetch messages');
       }
-      
+
       return response.data!;
     },
 
@@ -728,11 +357,11 @@ export const uaipAPI = {
         messageType: message.messageType || MessageType.MESSAGE,
         metadata: message.metadata
       });
-      
+
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to send message');
       }
-      
+
       return response.data!;
     },
 
@@ -742,7 +371,7 @@ export const uaipAPI = {
         force: false,
         reason: 'Turn advanced by user'
       });
-      
+
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to advance turn');
       }
@@ -765,56 +394,56 @@ export const uaipAPI = {
   // ============================================================================
   // AGENT API METHODS
   // ============================================================================
-  
+
   agents: {
     async list(): Promise<any[]> {
       const client = getAPIClient();
       const response = await client.agents.list();
-      
+
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to fetch agents');
       }
-      
+
       return response.data!;
     },
 
     async get(id: string): Promise<any> {
       const client = getAPIClient();
       const response = await client.agents.get(id);
-      
+
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to fetch agent');
       }
-      
+
       return response.data!;
     },
 
     async create(agentData: any): Promise<any> {
       const client = getAPIClient();
       const response = await client.agents.create(agentData);
-      
+
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to create agent');
       }
-      
+
       return response.data!;
     },
 
     async update(id: string, updates: any): Promise<any> {
       const client = getAPIClient();
       const response = await client.agents.update(id, updates);
-      
+
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to update agent');
       }
-      
+
       return response.data!;
     },
 
     async delete(id: string): Promise<void> {
       const client = getAPIClient();
       const response = await client.agents.delete(id);
-      
+
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to delete agent');
       }
@@ -844,11 +473,11 @@ export const uaipAPI = {
       try {
         const client = getAPIClient();
         const authToken = client.getAuthToken();
-        
+
         // Make direct HTTP request to the agent chat endpoint with timeout
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-        
+
         const response = await fetch(`/api/v1/agents/${agentId}/chat`, {
           method: 'POST',
           headers: {
@@ -862,7 +491,7 @@ export const uaipAPI = {
           }),
           signal: controller.signal
         });
-        
+
         clearTimeout(timeoutId);
 
         if (!response.ok) {
@@ -870,11 +499,11 @@ export const uaipAPI = {
         }
 
         const data = await response.json();
-        
+
         if (!data.success) {
           throw new Error(data.error?.message || 'Failed to chat with agent');
         }
-        
+
         return {
           response: data.data.response,
           agentName: data.data.agentName,
@@ -890,7 +519,7 @@ export const uaipAPI = {
         };
       } catch (error) {
         console.error('Agent chat error:', error);
-        
+
         if (error instanceof Error) {
           if (error.name === 'AbortError') {
             throw new Error('Agent response timed out after 30 seconds. The LLM service may be busy.');
@@ -899,7 +528,7 @@ export const uaipAPI = {
             throw new Error('Failed to connect to agent service. Please check if the backend is running.');
           }
         }
-        
+
         throw error;
       }
     }
@@ -908,14 +537,14 @@ export const uaipAPI = {
   // ============================================================================
   // TOOLS API METHODS
   // ============================================================================
-  
+
   tools: {
     async list(criteria?: any): Promise<any[]> {
       try {
         const client = getAPIClient();
         // Use the proper tools API method
         const response = await client.tools.list(criteria);
-        
+
         if (!response.success) {
           // Check if it's an authentication error (403)
           if (response.error?.details?.statusCode === 403) {
@@ -923,7 +552,7 @@ export const uaipAPI = {
           } else {
             console.warn('Tools API not available, returning mock data:', response.error);
           }
-          
+
           // Return mock capabilities when API is not available or user not authenticated
           return [
             {
@@ -983,7 +612,7 @@ export const uaipAPI = {
             }
           ];
         }
-        
+
         // Transform backend response to frontend format
         const tools = response.data.tools || [];
         return tools.map((tool: any) => ({
@@ -1001,7 +630,7 @@ export const uaipAPI = {
           usageCount: tool.usageCount || 0,
           metadata: tool.metadata || {}
         }));
-        
+
       } catch (error) {
         console.warn('Tools API failed, returning mock data:', error);
         // Return mock data on error to prevent infinite retries
@@ -1032,11 +661,11 @@ export const uaipAPI = {
       try {
         const client = getAPIClient();
         const response = await client.tools.get(id);
-        
+
         if (!response.success) {
           throw new Error(response.error?.message || 'Failed to fetch tool');
         }
-        
+
         return response.data!;
       } catch (error) {
         console.error('Failed to get tool:', error);
@@ -1048,11 +677,11 @@ export const uaipAPI = {
       try {
         const client = getAPIClient();
         const response = await client.tools.register(toolData);
-        
+
         if (!response.success) {
           throw new Error(response.error?.message || 'Failed to create tool');
         }
-        
+
         return response.data!;
       } catch (error) {
         console.error('Failed to create tool:', error);
@@ -1064,11 +693,11 @@ export const uaipAPI = {
       try {
         const client = getAPIClient();
         const response = await client.tools.execute(toolId, params);
-        
+
         if (!response.success) {
           throw new Error(response.error?.message || 'Failed to execute tool');
         }
-        
+
         return {
           success: true,
           data: response.data,
@@ -1092,12 +721,12 @@ export const uaipAPI = {
       try {
         const client = getAPIClient();
         const response = await client.tools.getCategories();
-        
+
         if (!response.success) {
           console.warn('Categories API not available, returning mock categories');
           return ['System', 'External', 'Analysis', 'Communication', 'Development'];
         }
-        
+
         return response.data!;
       } catch (error) {
         console.warn('Failed to get tool categories, returning mock categories:', error);
@@ -1109,16 +738,16 @@ export const uaipAPI = {
   // ============================================================================
   // LLM API METHODS (User-specific)
   // ============================================================================
-  
+
   llm: {
     async getModels(): Promise<Array<LLMModel>> {
       const client = getAPIClient();
       const response = await client.userLLM.getModels();
-      
+
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to fetch models');
       }
-      
+
       // Transform the response to match expected interface
       return (response.data || []).map((model: any) => ({
         id: model.id || 'unknown',
@@ -1153,11 +782,11 @@ export const uaipAPI = {
     }>> {
       const client = getAPIClient();
       const response = await client.userLLM.getProviders();
-      
+
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to fetch providers');
       }
-      
+
       // Transform the response to match expected interface
       return (response.data || []).map((provider: any) => ({
         id: provider.id || 'unknown',
@@ -1183,11 +812,11 @@ export const uaipAPI = {
     async createProvider(providerData: ModelProvider): Promise<any> {
       const client = getAPIClient();
       const response = await client.userLLM.createProvider(providerData);
-      
+
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to create provider');
       }
-      
+
       return response.data!;
     },
 
@@ -1201,7 +830,7 @@ export const uaipAPI = {
     }): Promise<void> {
       const client = getAPIClient();
       const response = await client.userLLM.updateProviderConfig(providerId, config);
-      
+
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to update provider configuration');
       }
@@ -1210,7 +839,7 @@ export const uaipAPI = {
     async updateProviderApiKey(providerId: string, apiKey: string): Promise<void> {
       const client = getAPIClient();
       const response = await client.userLLM.updateProviderApiKey(providerId, apiKey);
-      
+
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to update API key');
       }
@@ -1219,18 +848,18 @@ export const uaipAPI = {
     async testProvider(providerId: string): Promise<any> {
       const client = getAPIClient();
       const response = await client.userLLM.testProvider(providerId);
-      
+
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to test provider');
       }
-      
+
       return response.data!;
     },
 
     async deleteProvider(providerId: string): Promise<void> {
       const client = getAPIClient();
       const response = await client.userLLM.deleteProvider(providerId);
-      
+
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to delete provider');
       }
@@ -1246,11 +875,11 @@ export const uaipAPI = {
     }): Promise<any> {
       const client = getAPIClient();
       const response = await client.userLLM.generateResponse(request);
-      
+
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to generate response');
       }
-      
+
       return response.data!;
     },
 
@@ -1262,11 +891,11 @@ export const uaipAPI = {
     }): Promise<any> {
       const client = getAPIClient();
       const response = await client.userLLM.generateAgentResponse(request);
-      
+
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to generate agent response');
       }
-      
+
       return response.data!;
     },
 
@@ -1338,7 +967,7 @@ export const uaipAPI = {
   // ============================================================================
   // APPROVALS API METHODS
   // ============================================================================
-  
+
   approvals: {
     async approve(executionId: string, approvalData: { approverId: string }): Promise<void> {
       try {
@@ -1350,7 +979,7 @@ export const uaipAPI = {
           approverId: approvalData.approverId,
           timestamp: new Date()
         });
-        
+
         if (!response.success) {
           throw new Error(response.error?.message || 'Failed to approve execution');
         }
@@ -1370,7 +999,7 @@ export const uaipAPI = {
           approverId: rejectionData.approverId,
           timestamp: new Date()
         });
-        
+
         if (!response.success) {
           throw new Error(response.error?.message || 'Failed to reject execution');
         }
@@ -1384,29 +1013,29 @@ export const uaipAPI = {
       try {
         const client = getAPIClient();
         const response = await client.approvals.getPendingApprovals();
-        
+
         if (!response.success) {
           console.warn('Pending approvals API failed:', response.error);
           // Return empty array when API fails
           return [];
         }
-        
+
         // Handle the actual backend response structure
         // Backend returns: { data: { pendingApprovals: [...], count: number, summary: {...} } }
         const responseData = response.data || {};
         const approvals = responseData.pendingApprovals || responseData || [];
-        
+
         // Ensure approvals is an array
         if (!Array.isArray(approvals)) {
           console.warn('Expected approvals to be an array, got:', typeof approvals, approvals);
           return [];
         }
-        
+
         // Transform to frontend format
         return approvals.map((item: any) => {
           // Handle the nested structure from backend (workflow + status)
           const approval = item.workflow || item;
-          
+
           return {
             // Base ApprovalWorkflow properties
             id: approval.id || `approval-${Date.now()}`,
@@ -1430,7 +1059,7 @@ export const uaipAPI = {
             requestedBy: approval.metadata?.createdBy || approval.metadata?.requestedBy || 'system'
           };
         });
-        
+
       } catch (error) {
         console.error('Failed to get pending approvals:', error);
         // Return empty array instead of throwing to prevent infinite retries
@@ -1444,40 +1073,40 @@ export const uaipAPI = {
     async uploadKnowledge(items: KnowledgeIngestRequest[]): Promise<KnowledgeIngestResponse> {
       const client = getAPIClient();
       const response = await client.knowledge.uploadKnowledge(items);
-      
+
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to upload knowledge');
       }
-      
+
       return response.data!;
     },
 
     async searchKnowledge(query: KnowledgeSearchRequest): Promise<KnowledgeSearchResponse> {
       const client = getAPIClient();
       const response = await client.knowledge.searchKnowledge(query);
-      
+
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to search knowledge');
       }
-      
+
       return response.data!;
     },
 
     async updateKnowledge(itemId: string, updates: Partial<KnowledgeItem>): Promise<KnowledgeItem> {
       const client = getAPIClient();
       const response = await client.knowledge.updateKnowledge(itemId, updates);
-      
+
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to update knowledge');
       }
-      
+
       return response.data!;
     },
 
     async deleteKnowledge(itemId: string): Promise<void> {
       const client = getAPIClient();
       const response = await client.knowledge.deleteKnowledge(itemId);
-      
+
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to delete knowledge');
       }
@@ -1495,44 +1124,44 @@ export const uaipAPI = {
     }> {
       const client = getAPIClient();
       const response = await client.knowledge.getKnowledgeStats();
-      
+
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to get knowledge stats');
       }
-      
+
       return response.data!;
     },
 
     async getRelatedKnowledge(itemId: string): Promise<KnowledgeItem[]> {
       const client = getAPIClient();
       const response = await client.knowledge.getRelatedKnowledge(itemId);
-      
+
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to get related knowledge');
       }
-      
+
       return response.data!;
     },
 
     async getKnowledgeByTag(tag: string): Promise<KnowledgeItem[]> {
       const client = getAPIClient();
       const response = await client.knowledge.getKnowledgeByTag(tag);
-      
+
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to get knowledge by tag');
       }
-      
+
       return response.data!;
     },
 
     async getKnowledgeItem(itemId: string): Promise<KnowledgeItem> {
       const client = getAPIClient();
       const response = await client.knowledge.getKnowledgeItem(itemId);
-      
+
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to get knowledge item');
       }
-      
+
       return response.data!;
     }
   },
@@ -1540,7 +1169,7 @@ export const uaipAPI = {
   // ============================================================================
   // MCP CONFIGURATION API METHODS
   // ============================================================================
-  
+
   mcp: {
     async uploadConfig(configFile: File): Promise<{
       message: string;
@@ -1564,7 +1193,7 @@ export const uaipAPI = {
         formData.append('mcpConfig', configFile);
 
         const authToken = uaipAPI.client.getAuthToken();
-        
+
         const response = await fetch('/api/v1/mcp/upload-config', {
           method: 'POST',
           headers: {

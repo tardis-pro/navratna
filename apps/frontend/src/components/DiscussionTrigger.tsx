@@ -243,17 +243,18 @@ export const DiscussionTrigger: React.FC<DiscussionTriggerProps> = ({
   };
 
   return (
+    <div className="relative z-[9999]">
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild className={className}>
         {trigger}
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-gradient-to-br from-slate-900/95 via-blue-900/30 to-purple-900/20 backdrop-blur-xl border border-slate-700/50 z-[9999]">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <MessageSquare className="w-5 h-5" />
-            Start Discussion Session
+          <DialogTitle className="flex items-center gap-2 text-white">
+            <MessageSquare className="w-5 h-5 text-cyan-400" />
+            Initiate Discussion Session
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-slate-300">
             Configure the purpose and expected outcomes for your agent discussion
           </DialogDescription>
         </DialogHeader>
@@ -262,16 +263,16 @@ export const DiscussionTrigger: React.FC<DiscussionTriggerProps> = ({
           {/* Purpose Selection */}
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium">Discussion Purpose</label>
+              <label className="text-sm font-medium text-white">Discussion Purpose</label>
               <div className="grid grid-cols-1 gap-2 mt-2">
                 {DISCUSSION_PURPOSES.map((purpose) => (
                   <Card 
                     key={purpose.value}
                     className={`cursor-pointer transition-all hover:shadow-md ${
                       selectedPurpose === purpose.value 
-                        ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-950' 
-                        : 'hover:bg-gray-50 dark:hover:bg-gray-800'
-                    }`}
+                        ? 'ring-2 ring-cyan-400 bg-gradient-to-br from-cyan-900/30 to-blue-900/30 border-cyan-400/50' 
+                        : 'bg-gradient-to-br from-slate-800/50 to-slate-900/50 border-slate-700/50 hover:from-slate-700/50 hover:to-slate-800/50 hover:border-slate-600/50'
+                    } border backdrop-blur-sm`}
                     onClick={() => {
                       setSelectedPurpose(purpose.value);
                       if (purpose.artifacts[0]) {
@@ -283,14 +284,14 @@ export const DiscussionTrigger: React.FC<DiscussionTriggerProps> = ({
                       <div className="flex items-start gap-3">
                         <div className={`p-2 rounded-lg ${
                           selectedPurpose === purpose.value 
-                            ? 'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300'
-                            : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                            ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                            : 'bg-slate-700/50 text-slate-400 border border-slate-600/30'
                         }`}>
                           {purpose.icon}
                         </div>
                         <div className="flex-1">
-                          <h4 className="font-medium text-sm">{purpose.label}</h4>
-                          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                          <h4 className="font-medium text-sm text-white">{purpose.label}</h4>
+                          <p className="text-xs text-slate-400 mt-1">
                             {purpose.description}
                           </p>
                         </div>
@@ -303,7 +304,7 @@ export const DiscussionTrigger: React.FC<DiscussionTriggerProps> = ({
 
             {/* Custom Topic */}
             <div>
-              <label htmlFor="topic" className="text-sm font-medium">
+              <label htmlFor="topic" className="text-sm font-medium text-white">
                 Custom Topic (optional)
               </label>
               <Textarea
@@ -311,14 +312,14 @@ export const DiscussionTrigger: React.FC<DiscussionTriggerProps> = ({
                 value={customTopic}
                 onChange={(e) => setCustomTopic(e.target.value)}
                 placeholder="Override the auto-generated topic with your custom description..."
-                className="mt-1"
+                className="mt-1 bg-slate-800/50 border-slate-700 text-white placeholder-slate-400 focus:border-cyan-500"
                 rows={3}
               />
             </div>
 
             {/* Additional Context */}
             <div>
-              <label htmlFor="context" className="text-sm font-medium">
+              <label htmlFor="context" className="text-sm font-medium text-white">
                 Additional Context
               </label>
               <Textarea
@@ -326,7 +327,7 @@ export const DiscussionTrigger: React.FC<DiscussionTriggerProps> = ({
                 value={additionalContext}
                 onChange={(e) => setAdditionalContext(e.target.value)}
                 placeholder="Provide any additional context or constraints for the discussion..."
-                className="mt-1"
+                className="mt-1 bg-slate-800/50 border-slate-700 text-white placeholder-slate-400 focus:border-cyan-500"
                 rows={3}
               />
             </div>
@@ -336,9 +337,9 @@ export const DiscussionTrigger: React.FC<DiscussionTriggerProps> = ({
           <div className="space-y-4">
             {/* Artifact Selection */}
             <div>
-              <label className="text-sm font-medium">Expected Artifact</label>
+              <label className="text-sm font-medium text-white">Expected Artifact</label>
               <Select value={selectedArtifact} onValueChange={(value: ArtifactType) => setSelectedArtifact(value)}>
-                <SelectTrigger className="mt-1">
+                <SelectTrigger className="mt-1 bg-slate-800/50 border-slate-700 text-white focus:border-cyan-500">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -362,32 +363,32 @@ export const DiscussionTrigger: React.FC<DiscussionTriggerProps> = ({
 
             {/* Agent Selection */}
             <div>
-              <label className="text-sm font-medium">
+              <label className="text-sm font-medium text-white">
                 Select Agents ({selectedAgents.length} selected)
               </label>
               <div className="grid grid-cols-1 gap-2 mt-2 max-h-60 overflow-y-auto">
                 {agentList.map((agent) => (
                   <Card
                     key={agent.id}
-                    className={`cursor-pointer transition-all ${
+                    className={`cursor-pointer transition-all border backdrop-blur-sm ${
                       selectedAgents.includes(agent.id)
-                        ? 'ring-2 ring-green-500 bg-green-50 dark:bg-green-950'
-                        : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+                        ? 'ring-2 ring-cyan-400 bg-gradient-to-br from-cyan-900/30 to-blue-900/30 border-cyan-400/50'
+                        : 'bg-gradient-to-br from-slate-800/50 to-slate-900/50 border-slate-700/50 hover:from-slate-700/50 hover:to-slate-800/50 hover:border-slate-600/50'
                     }`}
                     onClick={() => toggleAgent(agent.id)}
                   >
                     <CardContent className="p-3">
                       <div className="flex items-center justify-between">
                         <div>
-                          <h4 className="font-medium text-sm">{agent.name}</h4>
-                          <p className="text-xs text-gray-600 dark:text-gray-400">
+                          <h4 className="font-medium text-sm text-white">{agent.name}</h4>
+                          <p className="text-xs text-slate-400">
                             {agent.role} • {agent.capabilities?.slice(0, 2).join(', ')}
                           </p>
                         </div>
                         <div className={`w-4 h-4 rounded border-2 ${
                           selectedAgents.includes(agent.id)
-                            ? 'bg-green-500 border-green-500'
-                            : 'border-gray-300'
+                            ? 'bg-cyan-500 border-cyan-500'
+                            : 'border-slate-500'
                         }`}>
                           {selectedAgents.includes(agent.id) && (
                             <div className="w-full h-full flex items-center justify-center">
@@ -405,23 +406,23 @@ export const DiscussionTrigger: React.FC<DiscussionTriggerProps> = ({
             {/* Context Preview */}
             {contextData && (
               <div>
-                <label className="text-sm font-medium">Context Data</label>
-                <Card className="mt-1">
+                <label className="text-sm font-medium text-white">Context Data</label>
+                <Card className="mt-1 bg-gradient-to-br from-slate-800/50 to-slate-900/50 border-slate-700/50">
                   <CardContent className="p-3">
-                    <div className="text-xs space-y-2">
-                      <div><strong>Type:</strong> {contextType}</div>
+                    <div className="text-xs space-y-2 text-slate-300">
+                      <div><strong className="text-white">Type:</strong> {contextType}</div>
                       {contextData.knowledgeItem && (
                         <>
-                          <div><strong>Knowledge Type:</strong> {contextData.knowledgeItem.type}</div>
-                          <div><strong>Tags:</strong> {contextData.knowledgeItem.tags.join(', ')}</div>
-                          <div><strong>Content Preview:</strong> {contextData.knowledgeItem.content.substring(0, 150)}...</div>
+                          <div><strong className="text-white">Knowledge Type:</strong> {contextData.knowledgeItem.type}</div>
+                          <div><strong className="text-white">Tags:</strong> {contextData.knowledgeItem.tags.join(', ')}</div>
+                          <div><strong className="text-white">Content Preview:</strong> {contextData.knowledgeItem.content.substring(0, 150)}...</div>
                         </>
                       )}
                       {contextData.topic && (
-                        <div><strong>Topic:</strong> {contextData.topic}</div>
+                        <div><strong className="text-white">Topic:</strong> {contextData.topic}</div>
                       )}
                       {contextData.chatHistory && (
-                        <div><strong>Chat History:</strong> {contextData.chatHistory.length} messages</div>
+                        <div><strong className="text-white">Chat History:</strong> {contextData.chatHistory.length} messages</div>
                       )}
                     </div>
                   </CardContent>
@@ -432,8 +433,8 @@ export const DiscussionTrigger: React.FC<DiscussionTriggerProps> = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex justify-between items-center pt-4 border-t">
-          <div className="text-sm text-gray-600 dark:text-gray-400">
+        <div className="flex justify-between items-center pt-4 border-t border-slate-700/50">
+          <div className="text-sm text-slate-400">
             {selectedAgents.length === 0 
               ? 'Auto-selecting best agents for discussion'
               : `${selectedAgents.length} agents selected`
@@ -446,7 +447,7 @@ export const DiscussionTrigger: React.FC<DiscussionTriggerProps> = ({
             <Button 
               onClick={handleStartDiscussion} 
               disabled={isLoading}
-              className="bg-blue-600 hover:bg-blue-700"
+              className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 border border-cyan-500/30"
             >
               {isLoading ? (
                 <>
@@ -456,7 +457,7 @@ export const DiscussionTrigger: React.FC<DiscussionTriggerProps> = ({
               ) : (
                 <>
                   <MessageSquare className="w-4 h-4 mr-2" />
-                  Start Discussion
+                  Initiate Discussion
                 </>
               )}
             </Button>
@@ -464,5 +465,6 @@ export const DiscussionTrigger: React.FC<DiscussionTriggerProps> = ({
         </div>
       </DialogContent>
     </Dialog>
+    </div>
   );
 };

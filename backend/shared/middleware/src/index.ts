@@ -38,6 +38,25 @@ export {
 // Request logging middleware exports
 export { requestLogger, defaultRequestLogger } from './requestLogger.js';
 
+// CSRF protection middleware exports
+export { 
+  CSRFProtection,
+  csrfProtection,
+  csrfMiddleware,
+  csrfTokenEndpoint
+} from './csrfProtection.js';
+
+// API Key authentication middleware exports
+export {
+  APIKeyAuthService,
+  apiKeyAuth,
+  apiKeyMiddleware,
+  requireReadPermission,
+  requireWritePermission,
+  requireExecutePermission
+} from './apiKeyAuth.js';
+export type { APIKeyRequest, APIKey } from './apiKeyAuth.js';
+
 // Type extensions
 export {} from './types';
 

@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAgents } from '../../../contexts/AgentContext';
+import { useAuth } from '../../../contexts/AuthContext';
 import { uaipAPI } from '../../../utils/uaip-api';
 import { DiscussionTrigger } from '../../DiscussionTrigger';
-import { useWebSocket } from '../../../hooks/useUAIP';
-import { 
-  MessageSquare, 
-  Send, 
-  Bot, 
-  User, 
-  Loader2, 
+import { useEnhancedWebSocket } from '../../../hooks/useEnhancedWebSocket';
+import { chatPersistenceService, ChatSession, PersistentChatMessage } from '../../../services/ChatPersistenceService';
+import {
+  MessageSquare,
+  Send,
+  Bot,
+  User,
+  Loader2,
   X,
   Minimize2,
   Maximize2,
@@ -54,6 +56,7 @@ interface ChatWindow {
   id: string;
   agentId: string;
   agentName: string;
+  sessionId?: string;
   discussionId?: string;
   messages: ChatMessage[];
   isMinimized: boolean;
@@ -63,6 +66,7 @@ interface ChatWindow {
   totalMessages: number;
   canLoadMore: boolean;
   mode: 'floating' | 'portal';
+  isPersistent: boolean;
 }
 
 interface UnifiedChatSystemProps {
@@ -71,49 +75,52 @@ interface UnifiedChatSystemProps {
   defaultAgentId?: string;
 }
 
-export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({ 
-  className, 
+export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
+  className,
   mode = 'hybrid',
-  defaultAgentId 
+  defaultAgentId
 }) => {
   const { agents } = useAgents();
-  const { isConnected: isWebSocketConnected, sendMessage: sendWebSocketMessage, lastEvent } = useWebSocket();
-  
+  const { isAuthenticated, user } = useAuth();
+  const { 
+    isConnected: isWebSocketConnected, 
+    sendMessage: sendWebSocketMessage, 
+    lastEvent,
+    connectionType,
+    authStatus,
+    error: wsError,
+    addEventListener,
+    connect: connectWebSocket
+  } = useEnhancedWebSocket();
+
   // State management
   const [chatWindows, setChatWindows] = useState<ChatWindow[]>([]);
   const [currentMessage, setCurrentMessage] = useState<{ [windowId: string]: string }>({});
   const [viewMode, setViewMode] = useState<'floating' | 'portal'>(mode === 'portal' ? 'portal' : 'floating');
   const [selectedAgentId, setSelectedAgentId] = useState<string>(defaultAgentId || '');
   const [portalMessages, setPortalMessages] = useState<ChatMessage[]>([]);
-  const [conversationHistory, setConversationHistory] = useState<Array<{content: string; sender: string; timestamp: string}>>([]);
+  const [conversationHistory, setConversationHistory] = useState<Array<{ content: string; sender: string; timestamp: string }>>([]);
+
+  // Track which agents have open windows to ensure uniqueness
+  const openAgentWindows = useRef<Set<string>>(new Set());
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const agentList = Object.values(agents);
   const selectedAgent = agentList.find(agent => agent.id === selectedAgentId);
 
-  // Auto-scroll to bottom when new messages arrive
+  // Connect WebSocket only when authenticated
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [portalMessages]);
-
-  // Listen for agent chat open events
-  useEffect(() => {
-    const handleOpenAgentChat = (event: CustomEvent) => {
-      const { agentId, agentName } = event.detail;
-      openChatWindow(agentId, agentName);
-    };
-
-    window.addEventListener('openAgentChat', handleOpenAgentChat as EventListener);
-    return () => {
-      window.removeEventListener('openAgentChat', handleOpenAgentChat as EventListener);
-    };
-  }, []);
+    if (isAuthenticated && !isWebSocketConnected) {
+      console.log('User authenticated, connecting WebSocket...');
+      connectWebSocket();
+    }
+  }, [isAuthenticated, isWebSocketConnected, connectWebSocket]);
 
   // Listen for WebSocket agent responses
   useEffect(() => {
     if (lastEvent && lastEvent.type === 'agent_response') {
       const { agentId, response, agentName, confidence, memoryEnhanced, knowledgeUsed, toolsExecuted } = lastEvent.payload;
-      
+
       const agentMessage: ChatMessage = {
         id: `msg-${Date.now()}-agent`,
         content: response,
@@ -137,14 +144,36 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       // Update floating windows
       const targetWindow = chatWindows.find(w => w.agentId === agentId);
       if (targetWindow) {
-        setChatWindows(prev => 
-          prev.map(w => w.id === targetWindow.id ? { 
-            ...w, 
+        setChatWindows(prev =>
+          prev.map(w => w.id === targetWindow.id ? {
+            ...w,
             messages: [...w.messages, agentMessage],
             isLoading: false,
             error: null
           } : w)
         );
+
+        // Persist agent message if session exists
+        if (targetWindow.sessionId) {
+          const persistentMessage: PersistentChatMessage = {
+            id: agentMessage.id,
+            content: agentMessage.content,
+            sender: agentMessage.sender,
+            senderName: agentMessage.senderName,
+            timestamp: agentMessage.timestamp,
+            agentId: agentMessage.agentId,
+            messageType: agentMessage.messageType,
+            confidence: agentMessage.confidence,
+            memoryEnhanced: agentMessage.memoryEnhanced,
+            knowledgeUsed: agentMessage.knowledgeUsed,
+            toolsExecuted: agentMessage.toolsExecuted,
+            metadata: agentMessage.metadata
+          };
+          
+          chatPersistenceService.addMessage(targetWindow.sessionId, persistentMessage).catch(error => {
+            console.error('Failed to persist agent message:', error);
+          });
+        }
       }
 
       // Update portal mode if current agent
@@ -154,6 +183,190 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       }
     }
   }, [lastEvent, chatWindows, viewMode, selectedAgentId]);
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [portalMessages]);
+
+  // Define openChatWindow function before it's used
+  const openChatWindow = useCallback(async (agentId: string, agentName: string) => {
+    // Check if chat window already exists for this agent
+    if (openAgentWindows.current.has(agentId)) {
+      console.log(`Chat window for agent ${agentName} (${agentId}) already exists - focusing existing window`);
+      // Focus/restore existing window
+      setChatWindows(prev =>
+        prev.map(w => w.agentId === agentId ? { ...w, isMinimized: false } : w)
+      );
+      return;
+    }
+
+    console.log(`Creating new chat window for agent ${agentName} (${agentId})`);
+
+    try {
+      // Create or get existing chat session
+      const session = await chatPersistenceService.createChatSession(agentId, agentName, true);
+      
+      // Load existing messages
+      const existingMessages = await chatPersistenceService.getMessages(session.id);
+      
+      // Convert persistent messages to chat messages
+      const chatMessages: ChatMessage[] = existingMessages.map(msg => ({
+        id: msg.id,
+        content: msg.content,
+        sender: msg.sender,
+        senderName: msg.senderName,
+        timestamp: msg.timestamp,
+        agentId: msg.agentId,
+        messageType: msg.messageType,
+        confidence: msg.confidence,
+        memoryEnhanced: msg.memoryEnhanced,
+        knowledgeUsed: msg.knowledgeUsed,
+        toolsExecuted: msg.toolsExecuted,
+        metadata: msg.metadata
+      }));
+
+      // Create new floating chat window
+      const newWindow: ChatWindow = {
+        id: `chat-${Date.now()}-${agentId}`,
+        agentId,
+        agentName,
+        sessionId: session.id,
+        discussionId: session.discussionId,
+        messages: chatMessages,
+        isMinimized: false,
+        isLoading: false,
+        error: null,
+        hasLoadedHistory: true,
+        totalMessages: session.messageCount,
+        canLoadMore: existingMessages.length >= 50,
+        mode: 'floating',
+        isPersistent: session.isPersistent
+      };
+
+      // Add agent to tracking set
+      openAgentWindows.current.add(agentId);
+      
+      setChatWindows(prev => [...prev, newWindow]);
+      setCurrentMessage(prev => ({ ...prev, [newWindow.id]: '' }));
+
+      console.log(`Opened ${session.isPersistent ? 'persistent' : 'temporary'} chat with agent:`, agentName);
+    } catch (error) {
+      console.error('Failed to open chat window:', error);
+      
+      // Fallback to non-persistent chat
+      const newWindow: ChatWindow = {
+        id: `chat-${Date.now()}-${agentId}`,
+        agentId,
+        agentName,
+        messages: [],
+        isMinimized: false,
+        isLoading: false,
+        error: 'Failed to create persistent chat session',
+        hasLoadedHistory: true,
+        totalMessages: 0,
+        canLoadMore: false,
+        mode: 'floating',
+        isPersistent: false
+      };
+
+      // Add agent to tracking set (fallback case)
+      openAgentWindows.current.add(agentId);
+      
+      setChatWindows(prev => [...prev, newWindow]);
+      setCurrentMessage(prev => ({ ...prev, [newWindow.id]: '' }));
+    }
+  }, []); // Remove chatWindows dependency to prevent stale closures
+
+  // Keep tracking set in sync with actual windows
+  useEffect(() => {
+    const currentAgentIds = new Set(chatWindows.map(w => w.agentId));
+    openAgentWindows.current = currentAgentIds;
+  }, [chatWindows]);
+
+  // Define openNewChatWindow function for forced new chats
+  const openNewChatWindow = useCallback(async (agentId: string, agentName: string) => {
+    console.log(`Creating NEW chat window for agent ${agentName} (${agentId}) - ignoring existing sessions`);
+
+    try {
+      // Force create a new session without checking for existing ones
+      const session = await chatPersistenceService.createChatSession(agentId, agentName, true, true);
+      
+      // Create new floating chat window
+      const newWindow: ChatWindow = {
+        id: `chat-${Date.now()}-${agentId}-new`,
+        agentId,
+        agentName,
+        sessionId: session.id,
+        discussionId: session.discussionId,
+        messages: [], // Always start with empty messages for new chats
+        isMinimized: false,
+        isLoading: false,
+        error: null,
+        hasLoadedHistory: true,
+        totalMessages: 0,
+        canLoadMore: false,
+        mode: 'floating',
+        isPersistent: session.isPersistent
+      };
+
+      setChatWindows(prev => [...prev, newWindow]);
+      setCurrentMessage(prev => ({ ...prev, [newWindow.id]: '' }));
+
+      console.log(`Opened NEW ${session.isPersistent ? 'persistent' : 'temporary'} chat with agent:`, agentName);
+    } catch (error) {
+      console.error('Failed to create new chat window:', error);
+      
+      // Fallback to non-persistent chat
+      const newWindow: ChatWindow = {
+        id: `chat-${Date.now()}-${agentId}-new`,
+        agentId,
+        agentName,
+        messages: [],
+        isMinimized: false,
+        isLoading: false,
+        error: 'Failed to create persistent chat session',
+        hasLoadedHistory: true,
+        totalMessages: 0,
+        canLoadMore: false,
+        mode: 'floating',
+        isPersistent: false
+      };
+      
+      setChatWindows(prev => [...prev, newWindow]);
+      setCurrentMessage(prev => ({ ...prev, [newWindow.id]: '' }));
+    }
+  }, []);
+
+  // Listen for agent chat open events
+  useEffect(() => {
+    const handleOpenAgentChat = (event: CustomEvent) => {
+      const { agentId, agentName, sessionId } = event.detail;
+      if (sessionId) {
+        // Resume specific session - TODO: Implement session resumption
+        openChatWindow(agentId, agentName);
+      } else {
+        openChatWindow(agentId, agentName);
+      }
+    };
+
+    const handleOpenNewAgentChat = (event: CustomEvent) => {
+      const { agentId, agentName, forceNew } = event.detail;
+      if (forceNew) {
+        openNewChatWindow(agentId, agentName);
+      } else {
+        openChatWindow(agentId, agentName);
+      }
+    };
+
+    window.addEventListener('openAgentChat', handleOpenAgentChat as EventListener);
+    window.addEventListener('openNewAgentChat', handleOpenNewAgentChat as EventListener);
+    
+    return () => {
+      window.removeEventListener('openAgentChat', handleOpenAgentChat as EventListener);
+      window.removeEventListener('openNewAgentChat', handleOpenNewAgentChat as EventListener);
+    };
+  }, [openChatWindow, openNewChatWindow]);
 
   // Auto-select first agent for portal mode
   useEffect(() => {
@@ -170,39 +383,16 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     }
   }, [selectedAgentId, viewMode]);
 
-  const openChatWindow = useCallback(async (agentId: string, agentName: string) => {
-    // Check if chat window already exists
-    const existingWindow = chatWindows.find(w => w.agentId === agentId);
-    if (existingWindow) {
-      setChatWindows(prev => 
-        prev.map(w => w.id === existingWindow.id ? { ...w, isMinimized: false } : w)
-      );
-      return;
-    }
-
-    // Create new floating chat window
-    const newWindow: ChatWindow = {
-      id: `chat-${Date.now()}-${agentId}`,
-      agentId,
-      agentName,
-      messages: [],
-      isMinimized: false,
-      isLoading: false,
-      error: null,
-      hasLoadedHistory: true,
-      totalMessages: 0,
-      canLoadMore: false,
-      mode: 'floating'
-    };
-
-    setChatWindows(prev => [...prev, newWindow]);
-    setCurrentMessage(prev => ({ ...prev, [newWindow.id]: '' }));
-    
-    console.log('Opened chat with agent:', agentName);
-  }, [chatWindows]);
-
   const closeChatWindow = useCallback((windowId: string) => {
-    setChatWindows(prev => prev.filter(w => w.id !== windowId));
+    setChatWindows(prev => {
+      const windowToClose = prev.find(w => w.id === windowId);
+      if (windowToClose) {
+        console.log(`Closing chat window for agent ${windowToClose.agentName} (${windowToClose.agentId})`);
+        // Remove agent from tracking set when window is closed
+        openAgentWindows.current.delete(windowToClose.agentId);
+      }
+      return prev.filter(w => w.id !== windowId);
+    });
     setCurrentMessage(prev => {
       const newMessages = { ...prev };
       delete newMessages[windowId];
@@ -211,7 +401,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   }, []);
 
   const minimizeChatWindow = useCallback((windowId: string) => {
-    setChatWindows(prev => 
+    setChatWindows(prev =>
       prev.map(w => w.id === windowId ? { ...w, isMinimized: !w.isMinimized } : w)
     );
   }, []);
@@ -219,18 +409,10 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   const sendFloatingMessage = useCallback(async (windowId: string) => {
     const window = chatWindows.find(w => w.id === windowId);
     const messageText = currentMessage[windowId]?.trim();
-    
+
     if (!window || !messageText || window.isLoading) return;
 
-    if (!isWebSocketConnected) {
-      setChatWindows(prev => 
-        prev.map(w => w.id === windowId ? { 
-          ...w, 
-          error: 'WebSocket not connected. Please wait for connection.'
-        } : w)
-      );
-      return;
-    }
+    // Remove the WebSocket requirement - we'll handle fallback in the send logic
 
     const userMessage: ChatMessage = {
       id: `msg-${Date.now()}`,
@@ -242,42 +424,126 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       metadata: { agentId: window.agentId }
     };
 
-    setChatWindows(prev => 
-      prev.map(w => w.id === windowId ? { 
-        ...w, 
+    setChatWindows(prev =>
+      prev.map(w => w.id === windowId ? {
+        ...w,
         messages: [...w.messages, userMessage],
         isLoading: true,
         error: null
       } : w)
     );
-    
+
     setCurrentMessage(prev => ({ ...prev, [windowId]: '' }));
 
+    // Persist user message if session exists
+    if (window.sessionId) {
+      try {
+        const persistentMessage: PersistentChatMessage = {
+          id: userMessage.id,
+          content: userMessage.content,
+          sender: userMessage.sender,
+          senderName: userMessage.senderName,
+          timestamp: userMessage.timestamp,
+          agentId: userMessage.agentId,
+          messageType: userMessage.messageType,
+          metadata: userMessage.metadata
+        };
+        await chatPersistenceService.addMessage(window.sessionId, persistentMessage);
+      } catch (error) {
+        console.error('Failed to persist user message:', error);
+      }
+    }
+
     try {
-      const chatMessage = {
-        type: 'agent_chat',
-        payload: {
-          agentId: window.agentId,
+      if (isWebSocketConnected) {
+        // Try WebSocket first
+        const chatMessage = {
+          type: 'agent_chat',
+          payload: {
+            agentId: window.agentId,
+            message: messageText,
+            conversationHistory: window.messages.slice(-10).map(m => ({
+              content: m.content,
+              sender: m.sender === 'user' ? 'user' : m.senderName,
+              timestamp: m.timestamp
+            })),
+            context: {},
+            messageId: `msg-${Date.now()}`,
+            timestamp: new Date().toISOString()
+          }
+        };
+
+        sendWebSocketMessage(chatMessage);
+        console.log('Floating chat message sent via WebSocket');
+      } else {
+        // Fallback to direct API call
+        console.log('WebSocket not connected, using direct API call for floating chat');
+        
+        const response = await uaipAPI.client.agents.chat(window.agentId, {
           message: messageText,
           conversationHistory: window.messages.slice(-10).map(m => ({
             content: m.content,
             sender: m.sender === 'user' ? 'user' : m.senderName,
             timestamp: m.timestamp
           })),
-          context: {},
-          messageId: `msg-${Date.now()}`,
-          timestamp: new Date().toISOString()
-        }
-      };
+          context: {}
+        });
 
-      sendWebSocketMessage(chatMessage);
+        if (response.success && response.data) {
+          const agentMessage: ChatMessage = {
+            id: `msg-${Date.now()}-agent`,
+            content: response.data.response,
+            sender: 'agent',
+            senderName: response.data.agentName || window.agentName,
+            timestamp: new Date().toISOString(),
+            messageType: MessageType.MESSAGE,
+            confidence: response.data.confidence,
+            memoryEnhanced: response.data.memoryEnhanced,
+            knowledgeUsed: response.data.knowledgeUsed,
+            toolsExecuted: response.data.toolsExecuted,
+            agentId: window.agentId
+          };
+
+          setChatWindows(prev =>
+            prev.map(w => w.id === windowId ? {
+              ...w,
+              messages: [...w.messages, agentMessage],
+              isLoading: false,
+              error: null
+            } : w)
+          );
+
+          // Persist agent message if session exists
+          if (window.sessionId) {
+            try {
+              const persistentMessage: PersistentChatMessage = {
+                id: agentMessage.id,
+                content: agentMessage.content,
+                sender: agentMessage.sender,
+                senderName: agentMessage.senderName,
+                timestamp: agentMessage.timestamp,
+                agentId: agentMessage.agentId,
+                messageType: agentMessage.messageType,
+                confidence: agentMessage.confidence,
+                memoryEnhanced: agentMessage.memoryEnhanced,
+                knowledgeUsed: agentMessage.knowledgeUsed,
+                toolsExecuted: agentMessage.toolsExecuted,
+                metadata: agentMessage.metadata
+              };
+              await chatPersistenceService.addMessage(window.sessionId, persistentMessage);
+            } catch (error) {
+              console.error('Failed to persist agent message:', error);
+            }
+          }
+        }
+      }
     } catch (error) {
-      console.error('WebSocket chat error:', error);
-      setChatWindows(prev => 
-        prev.map(w => w.id === windowId ? { 
-          ...w, 
+      console.error('Chat error:', error);
+      setChatWindows(prev =>
+        prev.map(w => w.id === windowId ? {
+          ...w,
           isLoading: false,
-          error: 'Failed to send message'
+          error: 'Failed to send message. Please try again.'
         } : w)
       );
     }
@@ -286,8 +552,6 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   const sendPortalMessage = useCallback(async () => {
     const messageText = currentMessage['portal']?.trim();
     if (!messageText || !selectedAgentId) return;
-
-    if (!isWebSocketConnected) return;
 
     const userMessage: ChatMessage = {
       id: `msg-${Date.now()}`,
@@ -303,21 +567,66 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     setConversationHistory(prev => [...prev, { content: messageText, sender: 'user', timestamp: new Date().toISOString() }]);
 
     try {
-      const chatMessage = {
-        type: 'agent_chat',
-        payload: {
-          agentId: selectedAgentId,
+      if (isWebSocketConnected) {
+        // Try WebSocket first
+        const chatMessage = {
+          type: 'agent_chat',
+          payload: {
+            agentId: selectedAgentId,
+            message: messageText,
+            conversationHistory: conversationHistory.slice(-10),
+            context: {},
+            messageId: `msg-${Date.now()}`,
+            timestamp: new Date().toISOString()
+          }
+        };
+        
+        sendWebSocketMessage(chatMessage);
+        console.log('Message sent via WebSocket');
+      } else {
+        // Fallback to direct API call
+        console.log('WebSocket not connected, using direct API call');
+        
+        const response = await uaipAPI.client.agents.chat(selectedAgentId, {
           message: messageText,
           conversationHistory: conversationHistory.slice(-10),
-          context: {},
-          messageId: `msg-${Date.now()}`,
-          timestamp: new Date().toISOString()
-        }
-      };
+          context: {}
+        });
 
-      sendWebSocketMessage(chatMessage);
+        if (response.success && response.data) {
+          const agentMessage: ChatMessage = {
+            id: `msg-${Date.now()}-agent`,
+            content: response.data.response,
+            sender: 'agent',
+            senderName: response.data.agentName || 'Assistant',
+            timestamp: new Date().toISOString(),
+            messageType: MessageType.MESSAGE,
+            confidence: response.data.confidence,
+            memoryEnhanced: response.data.memoryEnhanced,
+            knowledgeUsed: response.data.knowledgeUsed,
+            toolsExecuted: response.data.toolsExecuted
+          };
+
+          setPortalMessages(prev => [...prev, agentMessage]);
+          setConversationHistory(prev => [...prev, { 
+            content: response.data.response, 
+            sender: 'agent', 
+            timestamp: new Date().toISOString() 
+          }]);
+        }
+      }
     } catch (error) {
       console.error('Portal chat error:', error);
+      // Add error message to chat
+      const errorMessage: ChatMessage = {
+        id: `msg-${Date.now()}-error`,
+        content: 'Sorry, I encountered an error. Please try again.',
+        sender: 'system',
+        senderName: 'System',
+        timestamp: new Date().toISOString(),
+        messageType: MessageType.MESSAGE
+      };
+      setPortalMessages(prev => [...prev, errorMessage]);
     }
   }, [currentMessage, selectedAgentId, conversationHistory, isWebSocketConnected, sendWebSocketMessage]);
 
@@ -369,24 +678,24 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           <motion.div
             key={window.id}
             initial={{ opacity: 0, y: 100, scale: 0.8, rotateX: -15 }}
-            animate={{ 
-              opacity: 1, 
-              y: 0, 
+            animate={{
+              opacity: 1,
+              y: 0,
               scale: 1,
               rotateX: 0,
               height: window.isMinimized ? 'auto' : '500px'
             }}
             exit={{ opacity: 0, y: 100, scale: 0.8, rotateX: -15 }}
-            whileHover={{ 
-              scale: 1.02, 
+            whileHover={{
+              scale: 1.02,
               y: -4,
               transition: { duration: 0.2 }
             }}
-            transition={{ 
-              duration: 0.4, 
-              type: "spring", 
-              stiffness: 200, 
-              damping: 20 
+            transition={{
+              duration: 0.4,
+              type: "spring",
+              stiffness: 200,
+              damping: 20
             }}
             className={`
               relative overflow-hidden rounded-xl shadow-2xl backdrop-blur-xl
@@ -397,20 +706,20 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
               before:from-cyan-500/10 before:via-transparent before:to-purple-500/10
               before:opacity-0 hover:before:opacity-100 before:transition-opacity before:duration-500
             `}
-            style={{ 
+            style={{
               marginRight: `${index * 20}px`,
               filter: 'drop-shadow(0 25px 25px rgba(0, 0, 0, 0.15)) drop-shadow(0 0 20px rgba(59, 130, 246, 0.2))'
             }}
           >
             {/* Chat Header */}
-            <motion.div 
+            <motion.div
               className="relative flex items-center justify-between p-4 border-b border-cyan-500/20 bg-gradient-to-r from-slate-800/80 to-blue-900/40 backdrop-blur-sm"
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
             >
               <div className="flex items-center gap-3">
-                <motion.div 
+                <motion.div
                   className="relative w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center"
                   whileHover={{ scale: 1.1, rotate: 5 }}
                   transition={{ type: "spring", stiffness: 300 }}
@@ -430,16 +739,15 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                   <div className="font-semibold text-white text-sm tracking-wide">{window.agentName}</div>
                   <div className="flex items-center gap-2 text-xs">
                     <motion.div
-                      className={`w-2 h-2 rounded-full ${
-                        window.isLoading ? 'bg-yellow-400' : 'bg-emerald-400'
-                      }`}
-                      animate={{ 
+                      className={`w-2 h-2 rounded-full ${window.isLoading ? 'bg-yellow-400' : 'bg-emerald-400'
+                        }`}
+                      animate={{
                         scale: window.isLoading ? [1, 1.2, 1] : 1,
                         opacity: window.isLoading ? [1, 0.6, 1] : 1
                       }}
-                      transition={{ 
-                        duration: 1.5, 
-                        repeat: window.isLoading ? Infinity : 0 
+                      transition={{
+                        duration: 1.5,
+                        repeat: window.isLoading ? Infinity : 0
                       }}
                     />
                     <span className={window.isLoading ? 'text-yellow-300' : 'text-emerald-300'}>
@@ -448,7 +756,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                   </div>
                 </div>
               </div>
-              
+
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => minimizeChatWindow(window.id)}
@@ -456,8 +764,8 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                 >
                   <div className="absolute inset-0 bg-slate-700/30 group-hover:bg-cyan-500/30 transition-colors" />
                   <div className="absolute inset-0 border border-slate-500/30 group-hover:border-cyan-400/50 rounded-lg transition-colors" />
-                  {window.isMinimized ? 
-                    <Maximize2 className="w-4 h-4 text-slate-300 group-hover:text-cyan-300 transition-colors relative z-10" /> : 
+                  {window.isMinimized ?
+                    <Maximize2 className="w-4 h-4 text-slate-300 group-hover:text-cyan-300 transition-colors relative z-10" /> :
                     <Minimize2 className="w-4 h-4 text-slate-300 group-hover:text-cyan-300 transition-colors relative z-10" />
                   }
                 </button>
@@ -475,7 +783,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
             {!window.isMinimized && (
               <>
                 {/* Messages */}
-                <motion.div 
+                <motion.div
                   id={`messages-${window.id}`}
                   className="flex-1 overflow-y-auto p-4 space-y-4 max-h-80 scroll-smooth"
                   initial={{ opacity: 0 }}
@@ -492,48 +800,43 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                       className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
                       initial={{ opacity: 0, y: 20, scale: 0.9 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
-                      transition={{ 
+                      transition={{
                         delay: msgIndex * 0.05,
                         type: "spring",
                         stiffness: 200
                       }}
                     >
                       <motion.div
-                        className={`relative max-w-xs rounded-xl text-sm overflow-hidden ${
-                          message.sender === 'user' ? 'ml-4' : 'mr-4'
-                        }`}
+                        className={`relative max-w-xs rounded-xl text-sm overflow-hidden ${message.sender === 'user' ? 'ml-4' : 'mr-4'
+                          }`}
                         whileHover={{ scale: 1.02, y: -1 }}
                         transition={{ type: "spring", stiffness: 300 }}
                       >
                         {/* Message background with gradient border */}
-                        <div className={`absolute inset-0 rounded-xl ${
-                          message.sender === 'user'
-                            ? 'bg-gradient-to-r from-blue-500 to-cyan-500'
-                            : 'bg-gradient-to-r from-slate-600 to-blue-600'
-                        }`} />
-                        <div className={`absolute inset-0.5 rounded-lg ${
-                          message.sender === 'user'
-                            ? 'bg-gradient-to-r from-blue-600 to-cyan-600'
-                            : 'bg-gradient-to-r from-slate-800 to-slate-700'
-                        }`} />
-                        
+                        <div className={`absolute inset-0 rounded-xl ${message.sender === 'user'
+                          ? 'bg-gradient-to-r from-blue-500 to-cyan-500'
+                          : 'bg-gradient-to-r from-slate-600 to-blue-600'
+                          }`} />
+                        <div className={`absolute inset-0.5 rounded-lg ${message.sender === 'user'
+                          ? 'bg-gradient-to-r from-blue-600 to-cyan-600'
+                          : 'bg-gradient-to-r from-slate-800 to-slate-700'
+                          }`} />
+
                         <div className="relative z-10 p-3">
-                          <div className={`whitespace-pre-wrap ${
-                            message.sender === 'user' ? 'text-white' : 'text-slate-100'
-                          }`}>
+                          <div className={`whitespace-pre-wrap ${message.sender === 'user' ? 'text-white' : 'text-slate-100'
+                            }`}>
                             {message.content}
                           </div>
-                          
-                          <div className={`text-xs mt-2 flex items-center justify-between ${
-                            message.sender === 'user' ? 'text-blue-100' : 'text-slate-300'
-                          }`}>
+
+                          <div className={`text-xs mt-2 flex items-center justify-between ${message.sender === 'user' ? 'text-blue-100' : 'text-slate-300'
+                            }`}>
                             <span className="opacity-80">
                               {new Date(message.timestamp).toLocaleTimeString()}
                             </span>
                             {message.metadata && (
                               <div className="flex items-center gap-2 ml-2">
                                 {message.confidence && (
-                                  <motion.span 
+                                  <motion.span
                                     className="opacity-70 flex items-center gap-1"
                                     whileHover={{ scale: 1.1 }}
                                     title="Confidence Score"
@@ -543,8 +846,8 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                                   </motion.span>
                                 )}
                                 {message.memoryEnhanced && (
-                                  <motion.span 
-                                    className="opacity-70" 
+                                  <motion.span
+                                    className="opacity-70"
                                     title="Memory Enhanced"
                                     whileHover={{ scale: 1.2, rotate: 5 }}
                                   >
@@ -552,8 +855,8 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                                   </motion.span>
                                 )}
                                 {message.knowledgeUsed && message.knowledgeUsed > 0 && (
-                                  <motion.span 
-                                    className="opacity-70" 
+                                  <motion.span
+                                    className="opacity-70"
                                     title="Knowledge Used"
                                     whileHover={{ scale: 1.2, rotate: -5 }}
                                   >
@@ -567,9 +870,9 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                       </motion.div>
                     </motion.div>
                   ))}
-                  
+
                   {window.isLoading && (
-                    <motion.div 
+                    <motion.div
                       className="flex justify-start"
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
@@ -592,7 +895,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                   )}
 
                   {window.error && (
-                    <motion.div 
+                    <motion.div
                       className="flex justify-center"
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
@@ -607,7 +910,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                             <span className="text-red-200 text-sm">{window.error}</span>
                           </div>
                           <button
-                            onClick={() => setChatWindows(prev => 
+                            onClick={() => setChatWindows(prev =>
                               prev.map(w => w.id === window.id ? { ...w, error: null } : w)
                             )}
                             className="text-xs text-red-300 hover:text-red-200 underline hover:no-underline transition-colors hover:scale-105 active:scale-95"
@@ -621,7 +924,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                 </motion.div>
 
                 {/* Input */}
-                <motion.div 
+                <motion.div
                   className="p-4 border-t border-cyan-500/20 bg-gradient-to-r from-slate-800/60 to-blue-900/30 backdrop-blur-sm"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -647,11 +950,10 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                       disabled={!currentMessage[window.id]?.trim() || window.isLoading}
                       className="relative px-4 py-3 rounded-xl overflow-hidden flex items-center justify-center group disabled:cursor-not-allowed hover:scale-105 active:scale-95 transition-transform duration-200"
                     >
-                      <div className={`absolute inset-0 transition-all duration-300 ${
-                        !currentMessage[window.id]?.trim() || window.isLoading
-                          ? 'bg-slate-700/50'
-                          : 'bg-gradient-to-r from-cyan-500 to-blue-600 group-hover:from-cyan-400 group-hover:to-blue-500'
-                      }`} />
+                      <div className={`absolute inset-0 transition-all duration-300 ${!currentMessage[window.id]?.trim() || window.isLoading
+                        ? 'bg-slate-700/50'
+                        : 'bg-gradient-to-r from-cyan-500 to-blue-600 group-hover:from-cyan-400 group-hover:to-blue-500'
+                        }`} />
                       <div className="absolute inset-0.5 bg-slate-900 rounded-lg" />
                       {window.isLoading ? (
                         <motion.div
@@ -666,31 +968,29 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                       )}
                     </button>
                   </div>
-                  
+
                   {/* Connection Status */}
                   <div className="flex items-center justify-between mt-3 text-xs">
                     <div className="flex items-center gap-3">
-                      <motion.span 
+                      <motion.span
                         className="flex items-center gap-2 px-2 py-1 rounded-lg bg-slate-800/50 border border-slate-600/30"
                         whileHover={{ scale: 1.05 }}
                       >
                         <motion.div
-                          className={`w-2 h-2 rounded-full ${
-                            window.discussionId ? 'bg-emerald-400' : 'bg-yellow-400'
-                          }`}
-                          animate={{ 
+                          className={`w-2 h-2 rounded-full ${window.discussionId ? 'bg-emerald-400' : 'bg-yellow-400'
+                            }`}
+                          animate={{
                             scale: [1, 1.2, 1],
                             opacity: [1, 0.7, 1]
                           }}
-                          transition={{ 
-                            duration: 2, 
+                          transition={{
+                            duration: 2,
                             repeat: Infinity,
                             ease: "easeInOut"
                           }}
                         />
-                        <span className={`${
-                          window.discussionId ? 'text-emerald-300' : 'text-yellow-300'
-                        }`}>
+                        <span className={`${window.discussionId ? 'text-emerald-300' : 'text-yellow-300'
+                          }`}>
                           {window.discussionId ? 'Persistent Chat' : 'Memory Only'}
                         </span>
                       </motion.span>
@@ -722,7 +1022,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           <div className="flex items-center gap-4">
             <motion.div
               className="w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center"
-              animate={{ 
+              animate={{
                 boxShadow: [
                   '0 0 20px rgba(59, 130, 246, 0.3)',
                   '0 0 30px rgba(6, 182, 212, 0.4)',
@@ -746,13 +1046,13 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
               </div>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-3">
             {portalMessages.length > 0 && (
               <DiscussionTrigger
                 trigger={
-                  <button 
-                    className="px-4 py-2 text-sm bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-300 rounded-xl border border-purple-500/30 hover:from-purple-500/30 hover:to-pink-500/30 transition-all flex items-center gap-2 hover:scale-105 active:scale-95"
+                  <button
+                    className="px-4 py-2 text-sm bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-300 rounded-xl border border-cyan-500/30 hover:from-cyan-500/30 hover:to-blue-500/30 transition-all flex items-center gap-2 hover:scale-105 active:scale-95"
                   >
                     <Users className="w-4 h-4" />
                     Discuss
@@ -811,7 +1111,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
 
         {/* Agent Capabilities Display */}
         {selectedAgent && (
-          <motion.div 
+          <motion.div
             className="mt-4 p-4 bg-slate-800/30 border border-slate-700/30 rounded-xl"
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
@@ -824,7 +1124,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                 <span className="text-sm text-emerald-400">Enhanced</span>
               </div>
             </div>
-            
+
             <div className="flex flex-wrap gap-2 mb-3">
               {selectedAgent.capabilities?.slice(0, 6).map((capability, index) => (
                 <motion.span
@@ -879,12 +1179,12 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                   <div className="text-center">
                     <motion.div
                       className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center"
-                      animate={{ 
+                      animate={{
                         rotate: [0, 5, -5, 0],
                         scale: [1, 1.05, 1]
                       }}
-                      transition={{ 
-                        duration: 4, 
+                      transition={{
+                        duration: 4,
                         repeat: Infinity,
                         ease: "easeInOut"
                       }}
@@ -903,7 +1203,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                   key={message.id}
                   initial={{ opacity: 0, y: 20, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ 
+                  transition={{
                     delay: index * 0.05,
                     type: "spring",
                     stiffness: 200
@@ -911,27 +1211,26 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                   className={`flex gap-4 ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   {message.sender !== 'user' && (
-                    <motion.div 
+                    <motion.div
                       className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-xl flex items-center justify-center flex-shrink-0"
                       whileHover={{ scale: 1.1, rotate: 5 }}
                     >
                       <Bot className="w-5 h-5 text-white" />
                     </motion.div>
                   )}
-                  
+
                   <div className={`max-w-[80%] ${message.sender === 'user' ? 'order-1' : ''}`}>
                     <motion.div
-                      className={`relative overflow-hidden rounded-2xl ${
-                        message.sender === 'user'
-                          ? 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white ml-auto'
-                          : 'bg-slate-800/50 text-white border border-slate-600/30'
-                      }`}
+                      className={`relative overflow-hidden rounded-2xl ${message.sender === 'user'
+                        ? 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white ml-auto'
+                        : 'bg-slate-800/50 text-white border border-slate-600/30'
+                        }`}
                       whileHover={{ scale: 1.01, y: -1 }}
                       transition={{ type: "spring", stiffness: 300 }}
                     >
                       <div className="p-4">
                         <p className="text-sm leading-relaxed">{message.content}</p>
-                        
+
                         {/* Agent message metadata */}
                         {message.sender !== 'user' && (
                           <div className="flex items-center gap-4 mt-3 pt-3 border-t border-slate-600/30 text-xs text-slate-400">
@@ -970,11 +1269,10 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                               {message.toolsExecuted.map((tool, toolIndex) => (
                                 <motion.div
                                   key={toolIndex}
-                                  className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg ${
-                                    tool.success 
-                                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
-                                      : 'bg-red-500/10 text-red-400 border border-red-500/20'
-                                  }`}
+                                  className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg ${tool.success
+                                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                    : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                                    }`}
                                   whileHover={{ scale: 1.02 }}
                                 >
                                   <Zap className="w-3 h-3" />
@@ -991,14 +1289,14 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                         )}
                       </div>
                     </motion.div>
-                    
+
                     <div className="text-xs text-slate-500 mt-2 px-4">
                       {new Date(message.timestamp).toLocaleTimeString()}
                     </div>
                   </div>
 
                   {message.sender === 'user' && (
-                    <motion.div 
+                    <motion.div
                       className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center flex-shrink-0"
                       whileHover={{ scale: 1.1, rotate: -5 }}
                     >
@@ -1013,7 +1311,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           </div>
 
           {/* Message Input */}
-          <motion.div 
+          <motion.div
             className="p-6 border-t border-cyan-500/20 bg-gradient-to-r from-slate-800/60 to-blue-900/30 backdrop-blur-sm"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

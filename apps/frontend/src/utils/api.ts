@@ -13,6 +13,7 @@
 
 import { API_ROUTES, buildAPIURL } from '@/config/apiConfig';
 import { ModelProvider } from '@/types';
+import { csrfService } from '../services/CSRFService';
 
 // Import types from shared-types package
 import type {
@@ -338,6 +339,18 @@ export class UAIPAPIClient {
     
     // Add correlation ID for request tracing
     headers['X-Correlation-ID'] = this.generateCorrelationId();
+
+    // Add CSRF protection for state-changing operations
+    const isStateChanging = options.method && !['GET', 'HEAD', 'OPTIONS'].includes(options.method.toUpperCase());
+    if (isStateChanging) {
+      try {
+        const csrfHeaders = await csrfService.getHeaders();
+        Object.assign(headers, csrfHeaders);
+      } catch (csrfError) {
+        // Log CSRF error but don't fail the request
+        console.warn('Failed to get CSRF token:', csrfError);
+      }
+    }
 
     const config: RequestInit = {
       ...processedOptions,

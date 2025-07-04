@@ -6,7 +6,7 @@
 
 import { Agent, AgentStatus, AgentRole, CreateAgentRequest, AgentIntelligenceConfig, AgentSecurityContext } from '@uaip/types';
 import { logger } from '@uaip/utils';
-import { DatabaseService, EventBusService, Repository, validateServiceAccess, AccessLevel } from '@uaip/shared-services';
+import { DatabaseService, EventBusService, Repository, validateServiceAccess, AccessLevel, PersonaService } from '@uaip/shared-services';
 import { config } from '@uaip/config';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -502,15 +502,17 @@ export class AgentCoreService {
 
   private async requestPersonaData(personaId: string): Promise<Record<string, unknown> | null> {
     try {
-      // Request persona data through event bus from persona service
-      const requestId = uuidv4();
-      const response = await this.eventBusService.request('persona.query.get', {
-        requestId,
-        personaId,
-        source: this.serviceName
+      // Use the PersonaService directly since personas are in the same service
+      const personaService = new PersonaService({
+        databaseService: this.databaseService,
+        eventBusService: this.eventBusService,
+        enableAnalytics: false,
+        enableRecommendations: false,
+        enableCaching: false
       });
-
-      return response?.data || null;
+      
+      const persona = await personaService.getPersona(personaId);
+      return persona ? persona as Record<string, unknown> : null;
     } catch (error) {
       logger.warn('Failed to fetch persona data', { personaId, error });
       return null;

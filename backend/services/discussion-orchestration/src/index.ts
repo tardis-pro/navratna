@@ -4,6 +4,7 @@ import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import { createServer } from 'http';
 import WebSocket from 'ws';
+import { Server as SocketIOServer } from 'socket.io';
 
 import { logger } from '@uaip/utils';
 import { DatabaseService, EventBusService, DiscussionService, PersonaService } from '@uaip/shared-services';
@@ -13,12 +14,13 @@ import { SERVICE_ACCESS_MATRIX, validateServiceAccess, getDatabaseConnectionStri
 import { config } from './config/index.js';
 import { DiscussionOrchestrationService } from './services/discussionOrchestrationService.js';
 import { EnterpriseWebSocketHandler } from './websocket/enterpriseWebSocketHandler.js';
+import { UserChatHandler } from './websocket/userChatHandler.js';
 
 class DiscussionOrchestrationServer {
   private app: express.Application;
   private server: any;
   private wss!: WebSocket.Server;
-  private io: any; // WebSocket server instance
+  private io: SocketIOServer; // Socket.IO server instance
   private orchestrationService: DiscussionOrchestrationService;
   private databaseService: DatabaseService;
 
@@ -26,12 +28,21 @@ class DiscussionOrchestrationServer {
   private discussionService: DiscussionService;
   private personaService: PersonaService;
   private webSocketHandler: EnterpriseWebSocketHandler;
+  private userChatHandler: UserChatHandler;
   private isShuttingDown: boolean = false;
   private serviceName = 'discussion-orchestration';
 
   constructor() {
     this.app = express();
     this.server = createServer(this.app);
+    
+    // Initialize Socket.IO server
+    this.io = new SocketIOServer(this.server, {
+      cors: {
+        origin: "*", // Configure appropriately for production
+        methods: ["GET", "POST"]
+      }
+    });
 
     // Validate enterprise database access
     if (!validateServiceAccess(this.serviceName, 'postgresql', 'postgres-application', AccessLevel.WRITE)) {
@@ -74,20 +85,20 @@ class DiscussionOrchestrationServer {
       auditMode: 'comprehensive'
     });
 
-    // Initialize enterprise WebSocket handler first
+    // Initialize enterprise WebSocket handler
     this.webSocketHandler = new EnterpriseWebSocketHandler(
       this.server,
       this.eventBusService,
       this.serviceName
     );
 
+    // Initialize user chat handler
+    this.userChatHandler = new UserChatHandler(this.io);
+
     this.orchestrationService = new DiscussionOrchestrationService(
       this.discussionService,
       this.eventBusService
     );
-
-    // Set up WebSocket handler after creation since types don't match exactly
-    // TODO: Create adapter or update interfaces to match
 
     this.setupMiddleware();
     this.setupRoutes();
@@ -184,10 +195,64 @@ class DiscussionOrchestrationServer {
       });
     });
 
+    // User chat API routes
+    this.app.get('/api/v1/users/online', (req, res) => {
+      try {
+        const connectedUsers = this.userChatHandler.getConnectedUsers();
+        res.json({
+          success: true,
+          users: connectedUsers.map(user => ({
+            userId: user.userId,
+            username: user.username,
+            status: user.status,
+            lastActivity: user.lastActivity
+          }))
+        });
+      } catch (error) {
+        res.status(500).json({
+          success: false,
+          error: 'Failed to fetch online users'
+        });
+      }
+    });
+
+    this.app.get('/api/v1/users/:userId/status', (req, res) => {
+      try {
+        const { userId } = req.params;
+        const userStatus = this.userChatHandler.getUserStatus(userId);
+        
+        if (userStatus) {
+          res.json({
+            success: true,
+            user: {
+              userId: userStatus.userId,
+              username: userStatus.username,
+              status: userStatus.status,
+              lastActivity: userStatus.lastActivity,
+              isOnline: true
+            }
+          });
+        } else {
+          res.json({
+            success: true,
+            user: {
+              userId,
+              isOnline: false
+            }
+          });
+        }
+      } catch (error) {
+        res.status(500).json({
+          success: false,
+          error: 'Failed to fetch user status'
+        });
+      }
+    });
+
     // No traditional API routes - all operations through event bus
     logger.info('Event-driven routes configured', {
       service: this.serviceName,
-      apiEndpoints: ['/health', '/api/v1/info', '/api/v1/orchestration/*'],
+      apiEndpoints: ['/health', '/api/v1/info', '/api/v1/users/*', '/api/v1/orchestration/*'],
       primaryCommunication: 'RabbitMQ Event Bus'
     });
   }
@@ -369,10 +434,10 @@ class DiscussionOrchestrationServer {
   private setupGracefulShutdown(): void {
     // Increase maxListeners to prevent memory leak warnings
     process.setMaxListeners(0);
-    
+
     // Check if listeners already exist to prevent duplicates
     const existingListeners = process.listenerCount('SIGTERM') + process.listenerCount('SIGINT');
-    
+
     if (existingListeners === 0) {
       // Graceful shutdown signals - only add if not already added
       process.once('SIGTERM', () => {

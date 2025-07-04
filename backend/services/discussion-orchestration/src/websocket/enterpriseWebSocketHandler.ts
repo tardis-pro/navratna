@@ -455,13 +455,41 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
         timestamp: timestamp || new Date().toISOString()
       };
 
-      // Publish to agent intelligence service for processing
-      await this.eventBusService.publish('agent.chat.request', chatRequest);
-
-      logger.info('Agent chat request forwarded to agent intelligence service', { 
-        agentId, 
-        messageId 
-      });
+      // Publish to agent intelligence service for processing with retry logic
+      let publishSuccess = false;
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      while (!publishSuccess && retryCount < maxRetries) {
+        try {
+          await this.eventBusService.publish('agent.chat.request', chatRequest);
+          publishSuccess = true;
+          
+          logger.info('Agent chat request forwarded to agent intelligence service', { 
+            agentId, 
+            messageId,
+            retryCount
+          });
+        } catch (publishError) {
+          retryCount++;
+          logger.warn('Failed to publish agent chat request, retrying...', { 
+            agentId, 
+            messageId, 
+            retryCount, 
+            maxRetries,
+            error: publishError instanceof Error ? publishError.message : 'Unknown error'
+          });
+          
+          if (retryCount < maxRetries) {
+            // Wait a bit before retry to allow reconnection
+            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+          }
+        }
+      }
+      
+      if (!publishSuccess) {
+        throw new Error(`Failed to publish agent chat request after ${maxRetries} attempts`);
+      }
 
     } catch (error) {
       logger.error('Agent chat handling error', { connectionId, agentId, error });

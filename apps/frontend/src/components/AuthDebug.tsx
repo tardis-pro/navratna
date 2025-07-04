@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { uaipAPI, resetWebSocketClient } from '@/services/uaip-api';
+import { uaipAPI } from '@/services/uaip-api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,22 +11,22 @@ export const AuthDebug: React.FC = () => {
   const [testResults, setTestResults] = useState<Record<string, any>>({});
   const [isTestingWebSocket, setIsTestingWebSocket] = useState(false);
 
-  const authToken = typeof window !== 'undefined' 
+  const authToken = typeof window !== 'undefined'
     ? localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken')
     : null;
   const userId = typeof window !== 'undefined'
-    ? localStorage.getItem('userId') || sessionStorage.getItem('userId') 
+    ? localStorage.getItem('userId') || sessionStorage.getItem('userId')
     : null;
 
   const runAuthTest = async () => {
     const results: Record<string, any> = {};
-    
+
     try {
       // Check stored tokens
       const authToken = uaipAPI.client.getAuthToken();
       const userId = uaipAPI.client.getUserId();
       const sessionId = uaipAPI.client.getSessionId();
-      
+
       results.storedAuth = {
         hasToken: !!authToken,
         hasUserId: !!userId,
@@ -35,7 +35,7 @@ export const AuthDebug: React.FC = () => {
         userIdValue: userId || 'null',
         sessionIdValue: sessionId || 'null'
       };
-      
+
       // Test API call
       try {
         const response = await uaipAPI.client.auth.me();
@@ -50,70 +50,55 @@ export const AuthDebug: React.FC = () => {
           error: error instanceof Error ? error.message : 'Unknown error'
         };
       }
-      
+
       // Check environment info
       results.environment = uaipAPI.getEnvironmentInfo();
-      
+
     } catch (error) {
       results.error = error instanceof Error ? error.message : 'Unknown error';
     }
-    
+
     setTestResults(results);
   };
 
   const testWebSocketConnection = async () => {
     setIsTestingWebSocket(true);
     const results: Record<string, any> = {};
-    
+
     try {
       // First check if we have authentication
       const authToken = uaipAPI.client.getAuthToken();
       const userId = uaipAPI.client.getUserId();
-      
+
       results.authCheck = {
         hasToken: !!authToken,
         hasUserId: !!userId,
         tokenPreview: authToken ? `${authToken.substring(0, 10)}...` : 'none',
         userIdValue: userId || 'null'
       };
-      
+
       if (!authToken || !userId) {
         results.error = 'Authentication required for WebSocket connection';
         setTestResults(prev => ({ ...prev, websocketTest: results }));
         setIsTestingWebSocket(false);
         return;
       }
-      
-      // Reset WebSocket client to force fresh connection
-      resetWebSocketClient();
-      
-      // Try to get WebSocket client
-      try {
-        const wsClient = uaipAPI.websocket;
-        results.clientCreation = {
-          success: true,
-          isConnected: wsClient.isConnected()
-        };
-        
-        // Wait a moment for connection
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        results.connectionStatus = {
-          isConnected: wsClient.isConnected(),
-          finalStatus: 'Connection attempt completed'
-        };
-        
-      } catch (error) {
-        results.clientCreation = {
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        };
-      }
-      
+
+      // WebSocket functionality removed - using useWebSocket hook instead
+      results.clientCreation = {
+        success: false,
+        error: 'WebSocket functionality moved to useWebSocket hook'
+      };
+
+      results.connectionStatus = {
+        isConnected: false,
+        finalStatus: 'WebSocket testing disabled - use useWebSocket hook in components'
+      };
+
     } catch (error) {
       results.error = error instanceof Error ? error.message : 'Unknown error';
     }
-    
+
     setTestResults(prev => ({ ...prev, websocketTest: results }));
     setIsTestingWebSocket(false);
   };
@@ -140,14 +125,14 @@ export const AuthDebug: React.FC = () => {
             </Badge>
             {isLoading && <Badge variant="outline">Loading...</Badge>}
           </div>
-          
+
           {/* User Info */}
           {user && (
             <div className="p-2 bg-gray-50 rounded text-sm">
               <strong>User:</strong> {user.email} (ID: {user.id})
             </div>
           )}
-          
+
           {/* Action Buttons */}
           <div className="flex gap-2">
             <Button onClick={handleLogin} disabled={isAuthenticated || isLoading}>
@@ -159,15 +144,15 @@ export const AuthDebug: React.FC = () => {
             <Button onClick={runAuthTest} variant="outline">
               Test Auth
             </Button>
-            <Button 
-              onClick={testWebSocketConnection} 
+            <Button
+              onClick={testWebSocketConnection}
               disabled={isTestingWebSocket}
               variant="outline"
             >
               {isTestingWebSocket ? 'Testing WebSocket...' : 'Test WebSocket'}
             </Button>
           </div>
-          
+
           {/* Test Results */}
           {Object.keys(testResults).length > 0 && (
             <div className="space-y-2">
@@ -179,7 +164,7 @@ export const AuthDebug: React.FC = () => {
           )}
         </CardContent>
       </Card>
-      
+
       {/* Troubleshooting Guide */}
       <Card>
         <CardHeader>
@@ -195,7 +180,7 @@ export const AuthDebug: React.FC = () => {
                 <li><strong>Authentication failed</strong> - Invalid or expired tokens</li>
                 <li><strong>Missing socket.io-client</strong> - Run: npm install socket.io-client</li>
               </ul>
-              
+
               <div className="mt-4">
                 <strong>Expected Flow:</strong>
                 <ol className="list-decimal list-inside mt-2 space-y-1">

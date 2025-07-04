@@ -3,7 +3,7 @@ import helmet from 'helmet';
 import compression from 'compression';
 import { config } from '@uaip/config';
 import { logger } from '@uaip/utils';
-import { DatabaseService } from '@uaip/shared-services';
+import { DatabaseService, EventBusService } from '@uaip/shared-services';
 import llmRoutes from './routes/llmRoutes';
 import userLLMRoutes from './routes/userLLMRoutes';
 import healthRoutes from './routes/healthRoutes';
@@ -52,6 +52,95 @@ app.use((req, res) => {
   });
 });
 
+// Event handlers for LLM requests
+async function handleUserLLMRequest(event: any, eventBusService: any) {
+  try {
+    logger.info('Raw event received', { event });
+    const { requestId, agentRequest, userId } = event.data || event;
+    logger.info('Processing user LLM request', { requestId, userId, hasAgentRequest: !!agentRequest });
+    
+    // Import and use UserLLMService from shared package
+    const { UserLLMService } = await import('@uaip/llm-service');
+    const userLLMService = new UserLLMService();
+    
+    // Add error handling and better logging
+    logger.info('Calling UserLLMService.generateAgentResponse', { 
+      userId, 
+      hasAgentRequest: !!agentRequest,
+      agentRequestKeys: agentRequest ? Object.keys(agentRequest) : [],
+      hasAgent: agentRequest?.agent ? true : false,
+      hasMessages: agentRequest?.messages ? true : false,
+      hasContext: agentRequest?.context ? true : false
+    });
+    const response = await userLLMService.generateAgentResponse(userId, agentRequest);
+    logger.info('UserLLMService response received', { 
+      hasResponse: !!response,
+      responseContent: response?.content?.substring(0, 100),
+      responseModel: response?.model,
+      responseError: response?.error
+    });
+    
+    // Publish response
+    const responseChannel = `llm.response.${requestId}`;
+    logger.info('Publishing LLM response', { responseChannel, hasResponse: !!response });
+    await eventBusService.publish(responseChannel, response);
+    
+    logger.info('User LLM request processed', { requestId, userId });
+  } catch (error) {
+    logger.error('Failed to process user LLM request', { 
+      error: error.message, 
+      stack: error.stack,
+      requestId: event?.data?.requestId || event?.requestId,
+      userId: event?.data?.userId || event?.userId 
+    });
+    
+    // Publish error response
+    try {
+      await eventBusService.publish(`llm.response.${event?.data?.requestId || event?.requestId}`, {
+        error: error.message,
+        success: false
+      });
+    } catch (publishError) {
+      logger.error('Failed to publish error response', { publishError });
+    }
+  }
+}
+
+async function handleGlobalLLMRequest(event: any, eventBusService: any) {
+  try {
+    const { requestId, agentRequest } = event.data || event;
+    logger.info('Processing global LLM request', { requestId });
+    
+    // Import and use LLMService
+    const { llmService } = await import('@uaip/llm-service');
+    // llmService is already a singleton instance
+    logger.info('Calling llmService.generateAgentResponse', { hasAgentRequest: !!agentRequest });
+    const response = await llmService.generateAgentResponse(agentRequest);
+    logger.info('LLMService response received', { hasResponse: !!response });
+    
+    // Publish response
+    await eventBusService.publish(`llm.response.${requestId}`, response);
+    
+    logger.info('Global LLM request processed', { requestId });
+  } catch (error) {
+    logger.error('Failed to process global LLM request', { 
+      error: error.message, 
+      stack: error.stack,
+      requestId: event?.data?.requestId || event?.requestId 
+    });
+    
+    // Publish error response
+    try {
+      await eventBusService.publish(`llm.response.${event?.data?.requestId || event?.requestId}`, {
+        error: error.message,
+        success: false
+      });
+    } catch (publishError) {
+      logger.error('Failed to publish error response', { publishError });
+    }
+  }
+}
+
 // Start server
 async function startServer() {
   try {
@@ -60,6 +149,21 @@ async function startServer() {
     const databaseService = DatabaseService.getInstance();
     await databaseService.initialize();
     logger.info('Database service initialized successfully');
+
+    // Initialize event bus service
+    logger.info('Initializing event bus service...');
+    const eventBusService = new EventBusService({
+      url: process.env.RABBITMQ_URL || 'amqp://localhost',
+      serviceName: 'llm-service',
+      exchangePrefix: 'uaip.enterprise',
+      complianceMode: true
+    }, logger);
+    await eventBusService.connect();
+    
+    // Subscribe to LLM request events
+    await eventBusService.subscribe('llm.user.request', (event: any) => handleUserLLMRequest(event, eventBusService));
+    await eventBusService.subscribe('llm.global.request', (event: any) => handleGlobalLLMRequest(event, eventBusService));
+    logger.info('Event bus subscriptions configured');
 
     app.listen(PORT, () => {
       logger.info(`LLM Service API running on port ${PORT}`, {
