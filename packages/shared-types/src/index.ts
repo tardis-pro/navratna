@@ -38,3 +38,5 @@ export * from './battle';
 export * from './social';
 // Widget system types - NEW
 export * from './widget';
+// Conversation Intelligence types - NEW
+export * from './conversation-intelligence';

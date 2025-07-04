@@ -15,6 +15,7 @@ import { config } from './config/index.js';
 import { DiscussionOrchestrationService } from './services/discussionOrchestrationService.js';
 import { EnterpriseWebSocketHandler } from './websocket/enterpriseWebSocketHandler.js';
 import { UserChatHandler } from './websocket/userChatHandler.js';
+import { ConversationIntelligenceHandler } from './websocket/conversationIntelligenceHandler.js';
 
 class DiscussionOrchestrationServer {
   private app: express.Application;
@@ -29,6 +30,7 @@ class DiscussionOrchestrationServer {
   private personaService: PersonaService;
   private webSocketHandler: EnterpriseWebSocketHandler;
   private userChatHandler: UserChatHandler;
+  private conversationIntelligenceHandler: ConversationIntelligenceHandler;
   private isShuttingDown: boolean = false;
   private serviceName = 'discussion-orchestration';
 
@@ -94,6 +96,9 @@ class DiscussionOrchestrationServer {
 
     // Initialize user chat handler
     this.userChatHandler = new UserChatHandler(this.io);
+
+    // Initialize conversation intelligence handler
+    this.conversationIntelligenceHandler = new ConversationIntelligenceHandler(this.io, this.eventBusService);
 
     this.orchestrationService = new DiscussionOrchestrationService(
       this.discussionService,
@@ -188,6 +193,7 @@ class DiscussionOrchestrationServer {
         ],
         endpoints: {
           websocket: '/socket.io',
+          conversationIntelligence: '/socket.io/conversation-intelligence',
           health: '/health',
           info: '/api/v1/info'
         },

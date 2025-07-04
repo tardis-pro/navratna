@@ -13,6 +13,7 @@ export { AgentMetricsService } from './agent-metrics.service';
 export { AgentIntentService } from './agent-intent.service';
 export { AgentInitializationService } from './agent-initialization.service';
 export { AgentEventOrchestrator } from './agent-event-orchestrator.service';
+export { ConversationIntelligenceService } from './conversation-intelligence.service';
 
 // Export service configuration interfaces
 export type { AgentCoreConfig } from './agent-core.service';

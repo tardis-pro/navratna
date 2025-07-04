@@ -4,7 +4,9 @@ import {
   KnowledgeSearchResponse,
   KnowledgeIngestRequest,
   KnowledgeIngestResponse,
-  KnowledgeFilters
+  KnowledgeFilters,
+  KnowledgeType,
+  SourceType
 } from '@uaip/types';
 import { KnowledgeGraphService } from './knowledge-graph/knowledge-graph.service.js';
 
@@ -156,5 +158,224 @@ export class UserKnowledgeService {
    */
   async findRelatedKnowledge(userId: string, itemId: string, relationshipTypes?: string[]): Promise<KnowledgeItem[]> {
     return this.knowledgeGraphService.findRelated(itemId, relationshipTypes, { userId });
+  }
+
+  /**
+   * Store conversation memory with embeddings
+   */
+  async storeConversationMemory(
+    userId: string,
+    conversationId: string,
+    userMessage: string,
+    assistantResponse: string,
+    metadata?: {
+      agentId?: string;
+      intent?: any;
+      topic?: string;
+      sentiment?: string;
+    }
+  ): Promise<KnowledgeItem> {
+    const conversationTurn = {
+      conversationId,
+      userMessage,
+      assistantResponse,
+      timestamp: new Date(),
+      ...metadata
+    };
+
+    const items = await this.addKnowledge(userId, [{
+      content: JSON.stringify(conversationTurn),
+      type: KnowledgeType.EPISODIC,
+      tags: ['conversation', 'memory', metadata?.topic || 'general'].filter(Boolean),
+      source: {
+        type: SourceType.AGENT_INTERACTION,
+        identifier: metadata?.agentId || conversationId,
+        metadata: { conversationId }
+      },
+      confidence: 1.0
+    }]);
+
+    return items.items[0];
+  }
+
+  /**
+   * Get conversation history for a user
+   */
+  async getConversationHistory(
+    userId: string,
+    filters?: {
+      conversationId?: string;
+      agentId?: string;
+      limit?: number;
+      dateRange?: { start: Date; end: Date };
+    }
+  ): Promise<KnowledgeItem[]> {
+    const searchFilters: KnowledgeFilters = {
+      tags: ['conversation', 'memory'],
+      types: [KnowledgeType.EPISODIC]
+    };
+
+    if (filters?.dateRange) {
+      searchFilters.dateRange = filters.dateRange;
+    }
+
+    const results = await this.search(userId, {
+      query: filters?.conversationId || '',
+      filters: searchFilters,
+      options: {
+        limit: filters?.limit || 50
+      }
+    });
+
+    // Filter by conversation or agent if specified
+    let items = results.items;
+    if (filters?.conversationId) {
+      items = items.filter(item => {
+        const content = JSON.parse(item.content);
+        return content.conversationId === filters.conversationId;
+      });
+    }
+    if (filters?.agentId) {
+      items = items.filter(item => {
+        const content = JSON.parse(item.content);
+        return content.agentId === filters.agentId;
+      });
+    }
+
+    return items;
+  }
+
+  /**
+   * Store user preference learned from conversations
+   */
+  async storeUserPreference(
+    userId: string,
+    preference: {
+      type: string;
+      value: any;
+      confidence: number;
+      source: string;
+    }
+  ): Promise<KnowledgeItem> {
+    const items = await this.addKnowledge(userId, [{
+      content: JSON.stringify(preference),
+      type: KnowledgeType.CONCEPTUAL,
+      tags: ['preference', 'user-behavior', preference.type],
+      source: {
+        type: SourceType.AGENT_EPISODE,
+        identifier: preference.source
+      },
+      confidence: preference.confidence
+    }]);
+
+    return items.items[0];
+  }
+
+  /**
+   * Get user preferences
+   */
+  async getUserPreferences(userId: string, type?: string): Promise<Array<{
+    type: string;
+    value: any;
+    confidence: number;
+    source: string;
+    updatedAt: Date;
+  }>> {
+    const tags = ['preference'];
+    if (type) {
+      tags.push(type);
+    }
+
+    const items = await this.getKnowledgeByTags(userId, tags, 100);
+    
+    return items.map(item => {
+      const pref = JSON.parse(item.content);
+      return {
+        ...pref,
+        updatedAt: item.updatedAt
+      };
+    });
+  }
+
+  /**
+   * Store detected conversation pattern
+   */
+  async storeConversationPattern(
+    userId: string,
+    pattern: {
+      type: 'query_sequence' | 'tool_preference' | 'topic_interest' | 'interaction_style';
+      description: string;
+      frequency: number;
+      confidence: number;
+      examples: string[];
+    }
+  ): Promise<KnowledgeItem> {
+    const items = await this.addKnowledge(userId, [{
+      content: JSON.stringify({
+        ...pattern,
+        lastObserved: new Date()
+      }),
+      type: KnowledgeType.PROCEDURAL,
+      tags: ['pattern', 'conversation', pattern.type],
+      source: {
+        type: SourceType.AGENT_EPISODE,
+        identifier: 'pattern-detection'
+      },
+      confidence: pattern.confidence
+    }]);
+
+    return items.items[0];
+  }
+
+  /**
+   * Get user's conversation patterns
+   */
+  async getConversationPatterns(
+    userId: string,
+    type?: string
+  ): Promise<Array<{
+    type: string;
+    description: string;
+    frequency: number;
+    confidence: number;
+    examples: string[];
+    lastObserved: Date;
+  }>> {
+    const tags = ['pattern', 'conversation'];
+    if (type) {
+      tags.push(type);
+    }
+
+    const items = await this.getKnowledgeByTags(userId, tags, 50);
+    
+    return items
+      .map(item => JSON.parse(item.content))
+      .sort((a, b) => b.frequency - a.frequency);
+  }
+
+  /**
+   * Search conversation history using semantic search
+   */
+  async searchConversations(
+    userId: string,
+    query: string,
+    options?: {
+      limit?: number;
+      similarityThreshold?: number;
+    }
+  ): Promise<KnowledgeItem[]> {
+    const results = await this.search(userId, {
+      query,
+      filters: {
+        tags: ['conversation', 'memory'],
+        types: [KnowledgeType.EPISODIC]
+      },
+      options: {
+        limit: options?.limit || 10,
+        similarityThreshold: options?.similarityThreshold || 0.7
+      }
+    });
+
+    return results.items;
   }
 } 

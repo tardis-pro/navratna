@@ -91,3 +91,6 @@ export {
   getAgentMemoryService as getAgentMemoryServiceForAPI,
   servicesHealthCheck
 } from './ServiceInitializer.js';
+
+// Redis Cache Service
+export { redisCacheService, RedisCacheService } from './redis-cache.service.js';

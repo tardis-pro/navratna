@@ -5,12 +5,17 @@ import morgan from 'morgan';
 
 import { logger } from '@uaip/utils';
 import { errorHandler, rateLimiter, metricsMiddleware, metricsEndpoint } from '@uaip/middleware';
+import { LLMService } from '@uaip/llm-service';
 import {
   DatabaseService,
   EventBusService,
   PersonaService,
   DiscussionService,
-  ServiceFactory
+  ServiceFactory,
+  UserKnowledgeService,
+  QdrantService,
+  EmbeddingService,
+  redisCacheService
 } from '@uaip/shared-services';
 import { createAgentRoutes } from './routes/agentRoutes.js';
 import { createPersonaRoutes } from './routes/personaRoutes.js';
@@ -31,7 +36,8 @@ import {
   AgentMetricsService,
   AgentIntentService,
   AgentInitializationService,
-  AgentEventOrchestrator
+  AgentEventOrchestrator,
+  ConversationIntelligenceService
 } from './services/index.js';
 
 class AgentIntelligenceService {
@@ -54,6 +60,7 @@ class AgentIntelligenceService {
   private agentIntentService: AgentIntentService;
   private agentInitializationService: AgentInitializationService;
   private agentEventOrchestrator: AgentEventOrchestrator;
+  private conversationIntelligenceService: ConversationIntelligenceService;
 
   // ServiceFactory instance
   private serviceFactory: any;
@@ -265,6 +272,9 @@ class AgentIntelligenceService {
       orchestrationPipelineUrl: process.env.ORCHESTRATION_PIPELINE_URL || 'http://localhost:3002'
     });
 
+    // ConversationIntelligenceService will be initialized in start() method after all dependencies are ready
+    this.conversationIntelligenceService = null;
+
     logger.info('Microservices initialized with basic configuration');
   }
 
@@ -310,6 +320,28 @@ class AgentIntelligenceService {
       await this.agentMetricsService.initialize();
       await this.agentIntentService.initialize();
       await this.agentInitializationService.initialize();
+      
+      // Initialize ConversationIntelligenceService with all dependencies
+      if (this.conversationIntelligenceService === null) {
+        const userKnowledgeService = await this.serviceFactory.getUserKnowledgeService();
+        const qdrantService = await this.serviceFactory.getQdrantService();
+        const embeddingService = await this.serviceFactory.getEmbeddingService();
+        
+        // Initialize Redis cache service
+        await redisCacheService.initialize();
+        
+        this.conversationIntelligenceService = new ConversationIntelligenceService(
+          this.eventBusService,
+          userKnowledgeService,
+          qdrantService,
+          embeddingService,
+          llmService,
+          redisCacheService
+        );
+        
+        logger.info('ConversationIntelligenceService initialized successfully');
+      }
+      
       logger.info('All microservices initialized successfully');
 
       // Initialize the event orchestrator with all services
@@ -424,6 +456,29 @@ class AgentIntelligenceService {
         await this.agentMetricsService.initialize();
         await this.agentIntentService.initialize();
         await this.agentInitializationService.initialize();
+        
+        // Initialize ConversationIntelligenceService in fallback mode
+        try {
+          // Initialize Redis cache service
+          await redisCacheService.initialize();
+          
+          // Create minimal ConversationIntelligenceService with limited functionality
+          // Note: Some features may be limited without enhanced services
+          this.conversationIntelligenceService = new ConversationIntelligenceService(
+            this.eventBusService,
+            null, // userKnowledgeService - fallback mode
+            null, // qdrantService - fallback mode
+            null, // embeddingService - fallback mode
+            null, // llmService - fallback mode
+            redisCacheService
+          );
+          
+          logger.info('ConversationIntelligenceService initialized in fallback mode');
+        } catch (error) {
+          logger.warn('Failed to initialize ConversationIntelligenceService in fallback mode:', error);
+          this.conversationIntelligenceService = null;
+        }
+        
         logger.info('All microservices initialized in fallback mode');
 
         // Initialize AgentController without enhanced services but with basic services

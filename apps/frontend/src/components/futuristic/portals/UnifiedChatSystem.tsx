@@ -6,6 +6,11 @@ import { uaipAPI } from '../../../utils/uaip-api';
 import { DiscussionTrigger } from '../../DiscussionTrigger';
 import { useEnhancedWebSocket } from '../../../hooks/useEnhancedWebSocket';
 import { chatPersistenceService, ChatSession, PersistentChatMessage } from '../../../services/ChatPersistenceService';
+import { SmartInputField } from '../../chat/SmartInputField';
+import { PromptSuggestions } from '../../chat/PromptSuggestions';
+import { ConversationTopicDisplay } from '../../chat/ConversationTopicDisplay';
+import { useConversationIntelligence } from '../../../hooks/useConversationIntelligence';
+import '../../../styles/ai-sidekick.css';
 import {
   MessageSquare,
   Send,
@@ -26,7 +31,27 @@ import {
   AlertCircle,
   LayoutGrid,
   Maximize,
-  Settings
+  Settings,
+  Command,
+  Cpu,
+  Target,
+  Layers,
+  Flame,
+  Wand2,
+  Eye,
+  Clock,
+  TrendingUp,
+  Shield,
+  Lightbulb,
+  Keyboard,
+  Focus,
+  Gauge,
+  Atom,
+  Telescope,
+  Radar,
+  MonitorSpeaker,
+  Headphones,
+  Mic
 } from 'lucide-react';
 import { Discussion, CreateDiscussionRequest, DiscussionMessage, MessageType } from '@uaip/types';
 
@@ -100,6 +125,21 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   const [selectedAgentId, setSelectedAgentId] = useState<string>(defaultAgentId || '');
   const [portalMessages, setPortalMessages] = useState<ChatMessage[]>([]);
   const [conversationHistory, setConversationHistory] = useState<Array<{ content: string; sender: string; timestamp: string }>>([]);
+  const [conversationTopics, setConversationTopics] = useState<{ [windowId: string]: string }>({});
+  const [conversationIds, setConversationIds] = useState<{ [windowId: string]: string }>({});
+  
+  // Enhanced AI Sidekick State
+  const [windowPositions, setWindowPositions] = useState<{ [windowId: string]: { x: number; y: number } }>({});
+  const [windowSnapMode, setWindowSnapMode] = useState<{ [windowId: string]: 'none' | 'edge' | 'corner' }>({});
+  const [thinkingParticles, setThinkingParticles] = useState<{ [windowId: string]: boolean }>({});
+  const [confidenceMetrics, setConfidenceMetrics] = useState<{ [windowId: string]: number }>({});
+  const [knowledgeSources, setKnowledgeSources] = useState<{ [windowId: string]: string[] }>({});
+  const [toolExecutionProgress, setToolExecutionProgress] = useState<{ [windowId: string]: Array<{ toolName: string; progress: number; status: 'running' | 'completed' | 'failed' }> }>({});
+  const [memoryEnhancementBadges, setMemoryEnhancementBadges] = useState<{ [windowId: string]: boolean }>({});
+  const [quickActionsPanelOpen, setQuickActionsPanelOpen] = useState<{ [windowId: string]: boolean }>({});
+  const [contextualSuggestions, setContextualSuggestions] = useState<{ [windowId: string]: string[] }>({});
+  const [isResizing, setIsResizing] = useState<{ [windowId: string]: boolean }>({});
+  const [focusedWindow, setFocusedWindow] = useState<string | null>(null);
 
   // Track which agents have open windows to ensure uniqueness
   const openAgentWindows = useRef<Set<string>>(new Set());
@@ -107,6 +147,33 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const agentList = Object.values(agents);
   const selectedAgent = agentList.find(agent => agent.id === selectedAgentId);
+  
+  // Enhanced AI Sidekick Refs
+  const windowRefs = useRef<{ [windowId: string]: HTMLDivElement | null }>({});
+  const draggingRef = useRef<{ windowId: string; offset: { x: number; y: number } } | null>(null);
+  const keyboardShortcutsRef = useRef<{ [key: string]: () => void }>({});
+  const contextualAnalysisRef = useRef<{ [windowId: string]: { sentiment: number; complexity: number; urgency: number } }>({});
+
+  // Conversation Intelligence for portal mode
+  const portalConversationIntelligence = useConversationIntelligence({
+    agentId: selectedAgentId,
+    conversationId: conversationIds['portal'],
+    onTopicGenerated: (topic: string, confidence: number) => {
+      setConversationTopics(prev => ({ ...prev, portal: topic }));
+    }
+  });
+
+  // Conversation Intelligence for floating windows
+  const floatingConversationIntelligence = useMemo(() => {
+    return chatWindows.reduce((acc, window) => {
+      acc[window.id] = {
+        agentId: window.agentId,
+        conversationId: window.sessionId || '',
+        topic: conversationTopics[window.id] || window.agentName
+      };
+      return acc;
+    }, {} as Record<string, { agentId: string; conversationId: string; topic: string }>);
+  }, [chatWindows, conversationTopics]);
 
   // Connect WebSocket only when authenticated
   useEffect(() => {
@@ -207,6 +274,10 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       // Create or get existing chat session
       const session = await chatPersistenceService.createChatSession(agentId, agentName, true);
       
+      // Set up conversation ID for this window
+      const windowId = `chat-${Date.now()}-${agentId}`;
+      setConversationIds(prev => ({ ...prev, [windowId]: session.id }));
+      
       // Load existing messages
       const existingMessages = await chatPersistenceService.getMessages(session.id);
       
@@ -228,7 +299,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
 
       // Create new floating chat window
       const newWindow: ChatWindow = {
-        id: `chat-${Date.now()}-${agentId}`,
+        id: windowId,
         agentId,
         agentName,
         sessionId: session.id,
@@ -292,9 +363,13 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       // Force create a new session without checking for existing ones
       const session = await chatPersistenceService.createChatSession(agentId, agentName, true, true);
       
+      // Set up conversation ID for this window
+      const windowId = `chat-${Date.now()}-${agentId}-new`;
+      setConversationIds(prev => ({ ...prev, [windowId]: session.id }));
+      
       // Create new floating chat window
       const newWindow: ChatWindow = {
-        id: `chat-${Date.now()}-${agentId}-new`,
+        id: windowId,
         agentId,
         agentName,
         sessionId: session.id,
@@ -338,6 +413,222 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     }
   }, []);
 
+  // Enhanced send functions for conversation intelligence integration
+  const sendFloatingMessageWithText = useCallback(async (windowId: string, messageText: string, intent?: any) => {
+    const window = chatWindows.find(w => w.id === windowId);
+
+    if (!window || !messageText?.trim() || window.isLoading) return;
+
+    const trimmedMessage = messageText.trim();
+
+    const userMessage: ChatMessage = {
+      id: `msg-${Date.now()}`,
+      content: trimmedMessage,
+      sender: 'user',
+      senderName: 'You',
+      timestamp: new Date().toISOString(),
+      messageType: MessageType.MESSAGE,
+      metadata: { agentId: window.agentId, intent }
+    };
+
+    setChatWindows(prev =>
+      prev.map(w => w.id === windowId ? {
+        ...w,
+        messages: [...w.messages, userMessage],
+        isLoading: true,
+        error: null
+      } : w)
+    );
+
+    // Persist user message if session exists
+    if (window.sessionId) {
+      try {
+        const persistentMessage: PersistentChatMessage = {
+          id: userMessage.id,
+          content: userMessage.content,
+          sender: userMessage.sender,
+          senderName: userMessage.senderName,
+          timestamp: userMessage.timestamp,
+          agentId: userMessage.agentId,
+          messageType: userMessage.messageType,
+          metadata: userMessage.metadata
+        };
+        await chatPersistenceService.addMessage(window.sessionId, persistentMessage);
+      } catch (error) {
+        console.error('Failed to persist user message:', error);
+      }
+    }
+
+    try {
+      if (isWebSocketConnected) {
+        const chatMessage = {
+          type: 'agent_chat',
+          payload: {
+            agentId: window.agentId,
+            message: trimmedMessage,
+            conversationHistory: window.messages.slice(-10).map(m => ({
+              content: m.content,
+              sender: m.sender === 'user' ? 'user' : m.senderName,
+              timestamp: m.timestamp
+            })),
+            context: { intent },
+            messageId: `msg-${Date.now()}`,
+            timestamp: new Date().toISOString()
+          }
+        };
+
+        sendWebSocketMessage(chatMessage);
+        console.log('Floating chat message sent via WebSocket');
+      } else {
+        console.log('WebSocket not connected, using direct API call for floating chat');
+        
+        const response = await uaipAPI.client.agents.chat(window.agentId, {
+          message: trimmedMessage,
+          conversationHistory: window.messages.slice(-10).map(m => ({
+            content: m.content,
+            sender: m.sender === 'user' ? 'user' : m.senderName,
+            timestamp: m.timestamp
+          })),
+          context: { intent }
+        });
+
+        if (response.success && response.data) {
+          const agentMessage: ChatMessage = {
+            id: `msg-${Date.now()}-agent`,
+            content: response.data.response,
+            sender: 'agent',
+            senderName: response.data.agentName || window.agentName,
+            timestamp: new Date().toISOString(),
+            messageType: MessageType.MESSAGE,
+            confidence: response.data.confidence,
+            memoryEnhanced: response.data.memoryEnhanced,
+            knowledgeUsed: response.data.knowledgeUsed,
+            toolsExecuted: response.data.toolsExecuted,
+            agentId: window.agentId
+          };
+
+          setChatWindows(prev =>
+            prev.map(w => w.id === windowId ? {
+              ...w,
+              messages: [...w.messages, agentMessage],
+              isLoading: false,
+              error: null
+            } : w)
+          );
+
+          if (window.sessionId) {
+            try {
+              const persistentMessage: PersistentChatMessage = {
+                id: agentMessage.id,
+                content: agentMessage.content,
+                sender: agentMessage.sender,
+                senderName: agentMessage.senderName,
+                timestamp: agentMessage.timestamp,
+                agentId: agentMessage.agentId,
+                messageType: agentMessage.messageType,
+                confidence: agentMessage.confidence,
+                memoryEnhanced: agentMessage.memoryEnhanced,
+                knowledgeUsed: agentMessage.knowledgeUsed,
+                toolsExecuted: agentMessage.toolsExecuted,
+                metadata: agentMessage.metadata
+              };
+              await chatPersistenceService.addMessage(window.sessionId, persistentMessage);
+            } catch (error) {
+              console.error('Failed to persist agent message:', error);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Chat error:', error);
+      setChatWindows(prev =>
+        prev.map(w => w.id === windowId ? {
+          ...w,
+          isLoading: false,
+          error: 'Failed to send message. Please try again.'
+        } : w)
+      );
+    }
+  }, [chatWindows, isWebSocketConnected, sendWebSocketMessage]);
+
+  const sendPortalMessageWithText = useCallback(async (messageText: string, intent?: any) => {
+    if (!messageText?.trim() || !selectedAgentId) return;
+
+    const trimmedMessage = messageText.trim();
+
+    const userMessage: ChatMessage = {
+      id: `msg-${Date.now()}`,
+      content: trimmedMessage,
+      sender: 'user',
+      senderName: 'You',
+      timestamp: new Date().toISOString(),
+      messageType: MessageType.MESSAGE
+    };
+
+    setPortalMessages(prev => [...prev, userMessage]);
+    setConversationHistory(prev => [...prev, { content: trimmedMessage, sender: 'user', timestamp: new Date().toISOString() }]);
+
+    try {
+      if (isWebSocketConnected) {
+        const chatMessage = {
+          type: 'agent_chat',
+          payload: {
+            agentId: selectedAgentId,
+            message: trimmedMessage,
+            conversationHistory: conversationHistory.slice(-10),
+            context: { intent },
+            messageId: `msg-${Date.now()}`,
+            timestamp: new Date().toISOString()
+          }
+        };
+        
+        sendWebSocketMessage(chatMessage);
+        console.log('Message sent via WebSocket');
+      } else {
+        console.log('WebSocket not connected, using direct API call');
+        
+        const response = await uaipAPI.client.agents.chat(selectedAgentId, {
+          message: trimmedMessage,
+          conversationHistory: conversationHistory.slice(-10),
+          context: { intent }
+        });
+
+        if (response.success && response.data) {
+          const agentMessage: ChatMessage = {
+            id: `msg-${Date.now()}-agent`,
+            content: response.data.response,
+            sender: 'agent',
+            senderName: response.data.agentName || 'Assistant',
+            timestamp: new Date().toISOString(),
+            messageType: MessageType.MESSAGE,
+            confidence: response.data.confidence,
+            memoryEnhanced: response.data.memoryEnhanced,
+            knowledgeUsed: response.data.knowledgeUsed,
+            toolsExecuted: response.data.toolsExecuted
+          };
+
+          setPortalMessages(prev => [...prev, agentMessage]);
+          setConversationHistory(prev => [...prev, { 
+            content: response.data.response, 
+            sender: 'agent', 
+            timestamp: new Date().toISOString() 
+          }]);
+        }
+      }
+    } catch (error) {
+      console.error('Portal chat error:', error);
+      const errorMessage: ChatMessage = {
+        id: `msg-${Date.now()}-error`,
+        content: 'Sorry, I encountered an error. Please try again.',
+        sender: 'system',
+        senderName: 'System',
+        timestamp: new Date().toISOString(),
+        messageType: MessageType.MESSAGE
+      };
+      setPortalMessages(prev => [...prev, errorMessage]);
+    }
+  }, [selectedAgentId, conversationHistory, isWebSocketConnected, sendWebSocketMessage]);
+
   // Listen for agent chat open events
   useEffect(() => {
     const handleOpenAgentChat = (event: CustomEvent) => {
@@ -380,6 +671,9 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     if (viewMode === 'portal' && selectedAgentId) {
       setPortalMessages([]);
       setConversationHistory([]);
+      // Generate new conversation ID for portal mode
+      const portalConversationId = `portal-${selectedAgentId}-${Date.now()}`;
+      setConversationIds(prev => ({ ...prev, portal: portalConversationId }));
     }
   }, [selectedAgentId, viewMode]);
 
@@ -397,6 +691,17 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       const newMessages = { ...prev };
       delete newMessages[windowId];
       return newMessages;
+    });
+    // Clean up conversation intelligence data
+    setConversationTopics(prev => {
+      const newTopics = { ...prev };
+      delete newTopics[windowId];
+      return newTopics;
+    });
+    setConversationIds(prev => {
+      const newIds = { ...prev };
+      delete newIds[windowId];
+      return newIds;
     });
   }, []);
 
@@ -670,336 +975,125 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     });
   }, [chatWindows]);
 
-  // Render floating windows
+  // Enhanced keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Focus chat with Cmd+K / Ctrl+K
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        if (chatWindows.length > 0) {
+          const latestWindow = chatWindows[chatWindows.length - 1];
+          setFocusedWindow(latestWindow.id);
+          const inputElement = document.querySelector(`#chat-input-${latestWindow.id}`) as HTMLInputElement;
+          inputElement?.focus();
+        }
+      }
+      
+      // Toggle all windows minimize with Cmd+M / Ctrl+M
+      if ((e.metaKey || e.ctrlKey) && e.key === 'm') {
+        e.preventDefault();
+        const allMinimized = chatWindows.every(w => w.isMinimized);
+        setChatWindows(prev => prev.map(w => ({ ...w, isMinimized: !allMinimized })));
+      }
+      
+      // Close all windows with Cmd+W / Ctrl+W
+      if ((e.metaKey || e.ctrlKey) && e.key === 'w') {
+        e.preventDefault();
+        setChatWindows([]);
+        openAgentWindows.current.clear();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [chatWindows]);
+  
+  // Contextual analysis for enhanced AI features
+  const analyzeMessageContext = useCallback((message: string) => {
+    const sentiment = message.includes('?') ? 0.3 : message.includes('!') ? 0.8 : 0.5;
+    const complexity = message.split(' ').length > 20 ? 0.8 : message.split(' ').length > 10 ? 0.6 : 0.4;
+    const urgency = message.toLowerCase().includes('urgent') || message.toLowerCase().includes('asap') ? 0.9 : 0.3;
+    return { sentiment, complexity, urgency };
+  }, []);
+  
+  // Enhanced window positioning with snap-to-edge
+  const calculateWindowPosition = useCallback((windowId: string, index: number) => {
+    const basePosition = { x: window.innerWidth - 350, y: window.innerHeight - 450 };
+    const snapMode = windowSnapMode[windowId] || 'none';
+    
+    if (snapMode === 'edge') {
+      return { x: window.innerWidth - 350, y: 50 + (index * 30) };
+    } else if (snapMode === 'corner') {
+      return { x: window.innerWidth - 350, y: window.innerHeight - 450 };
+    }
+    
+    return windowPositions[windowId] || { x: basePosition.x - (index * 20), y: basePosition.y };
+  }, [windowPositions, windowSnapMode]);
+  
+  // Render floating windows with ultimate AI sidekick features
   const renderFloatingWindows = () => (
-    <div className="fixed bottom-0 right-0 z-50 flex items-end gap-3 p-4">
+    <div className="fixed inset-0 z-50 pointer-events-none">
       <AnimatePresence>
         {sortedChatWindows.map((window, index) => (
           <motion.div
             key={window.id}
-            initial={{ opacity: 0, y: 100, scale: 0.8, rotateX: -15 }}
-            animate={{
-              opacity: 1,
-              y: 0,
-              scale: 1,
-              rotateX: 0,
-              height: window.isMinimized ? 'auto' : '500px'
-            }}
-            exit={{ opacity: 0, y: 100, scale: 0.8, rotateX: -15 }}
-            whileHover={{
-              scale: 1.02,
-              y: -4,
-              transition: { duration: 0.2 }
-            }}
-            transition={{
-              duration: 0.4,
-              type: "spring",
-              stiffness: 200,
-              damping: 20
-            }}
-            className={`
-              relative overflow-hidden rounded-xl shadow-2xl backdrop-blur-xl
-              bg-gradient-to-br from-slate-900/90 via-blue-900/40 to-purple-900/30
-              border border-blue-500/30 hover:border-cyan-400/50
-              ${window.isMinimized ? 'w-80' : 'w-80 h-96'}
-              before:absolute before:inset-0 before:bg-gradient-to-r 
-              before:from-cyan-500/10 before:via-transparent before:to-purple-500/10
-              before:opacity-0 hover:before:opacity-100 before:transition-opacity before:duration-500
-            `}
-            style={{
-              marginRight: `${index * 20}px`,
-              filter: 'drop-shadow(0 25px 25px rgba(0, 0, 0, 0.15)) drop-shadow(0 0 20px rgba(59, 130, 246, 0.2))'
-            }}
+            className="fixed bottom-4 right-4 w-80 h-96 bg-slate-800 rounded-lg p-4 text-white pointer-events-auto flex flex-col"
+            initial={{ opacity: 0, y: 100 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 100 }}
           >
             {/* Chat Header */}
-            <motion.div
-              className="relative flex items-center justify-between p-4 border-b border-cyan-500/20 bg-gradient-to-r from-slate-800/80 to-blue-900/40 backdrop-blur-sm"
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-            >
-              <div className="flex items-center gap-3">
-                <motion.div
-                  className="relative w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center"
-                  whileHover={{ scale: 1.1, rotate: 5 }}
-                  transition={{ type: "spring", stiffness: 300 }}
-                >
-                  <div className="absolute inset-0 bg-gradient-to-br from-cyan-400 via-blue-500 to-purple-600 animate-gradient-shift" />
-                  <div className="absolute inset-0.5 bg-slate-900 rounded-lg" />
-                  <Bot className="w-5 h-5 text-cyan-400 relative z-10" />
-                  {window.isLoading && (
-                    <motion.div
-                      className="absolute inset-0 border-2 border-cyan-400/30 rounded-xl"
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                    />
-                  )}
-                </motion.div>
-                <div>
-                  <div className="font-semibold text-white text-sm tracking-wide">{window.agentName}</div>
-                  <div className="flex items-center gap-2 text-xs">
-                    <motion.div
-                      className={`w-2 h-2 rounded-full ${window.isLoading ? 'bg-yellow-400' : 'bg-emerald-400'
-                        }`}
-                      animate={{
-                        scale: window.isLoading ? [1, 1.2, 1] : 1,
-                        opacity: window.isLoading ? [1, 0.6, 1] : 1
-                      }}
-                      transition={{
-                        duration: 1.5,
-                        repeat: window.isLoading ? Infinity : 0
-                      }}
-                    />
-                    <span className={window.isLoading ? 'text-yellow-300' : 'text-emerald-300'}>
-                      {window.isLoading ? 'Thinking...' : 'Online'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-cyan-400">{window.agentName}</h3>
+              <div className="flex gap-2">
                 <button
                   onClick={() => minimizeChatWindow(window.id)}
-                  className="relative w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center group hover:scale-110 active:scale-95 transition-transform"
+                  className="p-1 hover:bg-slate-700 rounded"
                 >
-                  <div className="absolute inset-0 bg-slate-700/30 group-hover:bg-cyan-500/30 transition-colors" />
-                  <div className="absolute inset-0 border border-slate-500/30 group-hover:border-cyan-400/50 rounded-lg transition-colors" />
-                  {window.isMinimized ?
-                    <Maximize2 className="w-4 h-4 text-slate-300 group-hover:text-cyan-300 transition-colors relative z-10" /> :
-                    <Minimize2 className="w-4 h-4 text-slate-300 group-hover:text-cyan-300 transition-colors relative z-10" />
-                  }
+                  <Minimize2 className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => closeChatWindow(window.id)}
-                  className="relative w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center group hover:scale-110 active:scale-95 transition-transform"
+                  className="p-1 hover:bg-slate-700 rounded"
                 >
-                  <div className="absolute inset-0 bg-red-500/20 group-hover:bg-red-500/40 transition-colors" />
-                  <div className="absolute inset-0 border border-red-400/30 group-hover:border-red-400/60 rounded-lg transition-colors" />
-                  <X className="w-4 h-4 text-red-400 group-hover:text-red-300 transition-colors relative z-10" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
-            </motion.div>
+            </div>
 
             {!window.isMinimized && (
               <>
-                {/* Messages */}
-                <motion.div
-                  id={`messages-${window.id}`}
-                  className="flex-1 overflow-y-auto p-4 space-y-4 max-h-80 scroll-smooth"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.2 }}
-                  style={{
-                    scrollbarWidth: 'thin',
-                    scrollbarColor: 'rgba(59, 130, 246, 0.3) transparent'
+                {/* Messages Area */}
+                <div className="flex-1 overflow-y-auto mb-4 space-y-2">
+                  {window.messages.length === 0 ? (
+                    <div className="text-center text-slate-400 text-sm py-8">
+                      Start a conversation...
+                    </div>
+                  ) : (
+                    window.messages.map((msg, idx) => (
+                      <div key={idx} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[80%] p-2 rounded-lg text-sm ${
+                          msg.sender === 'user' 
+                            ? 'bg-cyan-600 text-white' 
+                            : 'bg-slate-700 text-slate-200'
+                        }`}>
+                          {msg.content}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Input Area */}
+                <SmartInputField
+                  agentId={window.agentId}
+                  conversationId={window.sessionId}
+                  placeholder="Type a message..."
+                  onSubmit={(text, intent) => {
+                    sendFloatingMessageWithText(window.id, text, intent);
                   }}
-                >
-                  {window.messages.map((message, msgIndex) => (
-                    <motion.div
-                      key={message.id}
-                      className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                      initial={{ opacity: 0, y: 20, scale: 0.9 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      transition={{
-                        delay: msgIndex * 0.05,
-                        type: "spring",
-                        stiffness: 200
-                      }}
-                    >
-                      <motion.div
-                        className={`relative max-w-xs rounded-xl text-sm overflow-hidden ${message.sender === 'user' ? 'ml-4' : 'mr-4'
-                          }`}
-                        whileHover={{ scale: 1.02, y: -1 }}
-                        transition={{ type: "spring", stiffness: 300 }}
-                      >
-                        {/* Message background with gradient border */}
-                        <div className={`absolute inset-0 rounded-xl ${message.sender === 'user'
-                          ? 'bg-gradient-to-r from-blue-500 to-cyan-500'
-                          : 'bg-gradient-to-r from-slate-600 to-blue-600'
-                          }`} />
-                        <div className={`absolute inset-0.5 rounded-lg ${message.sender === 'user'
-                          ? 'bg-gradient-to-r from-blue-600 to-cyan-600'
-                          : 'bg-gradient-to-r from-slate-800 to-slate-700'
-                          }`} />
-
-                        <div className="relative z-10 p-3">
-                          <div className={`whitespace-pre-wrap ${message.sender === 'user' ? 'text-white' : 'text-slate-100'
-                            }`}>
-                            {message.content}
-                          </div>
-
-                          <div className={`text-xs mt-2 flex items-center justify-between ${message.sender === 'user' ? 'text-blue-100' : 'text-slate-300'
-                            }`}>
-                            <span className="opacity-80">
-                              {new Date(message.timestamp).toLocaleTimeString()}
-                            </span>
-                            {message.metadata && (
-                              <div className="flex items-center gap-2 ml-2">
-                                {message.confidence && (
-                                  <motion.span
-                                    className="opacity-70 flex items-center gap-1"
-                                    whileHover={{ scale: 1.1 }}
-                                    title="Confidence Score"
-                                  >
-                                    <Zap className="w-3 h-3" />
-                                    {Math.round(message.confidence * 100)}%
-                                  </motion.span>
-                                )}
-                                {message.memoryEnhanced && (
-                                  <motion.span
-                                    className="opacity-70"
-                                    title="Memory Enhanced"
-                                    whileHover={{ scale: 1.2, rotate: 5 }}
-                                  >
-                                    <Brain className="w-3 h-3 text-purple-400" />
-                                  </motion.span>
-                                )}
-                                {message.knowledgeUsed && message.knowledgeUsed > 0 && (
-                                  <motion.span
-                                    className="opacity-70"
-                                    title="Knowledge Used"
-                                    whileHover={{ scale: 1.2, rotate: -5 }}
-                                  >
-                                    <Database className="w-3 h-3 text-emerald-400" />
-                                  </motion.span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </motion.div>
-                    </motion.div>
-                  ))}
-
-                  {window.isLoading && (
-                    <motion.div
-                      className="flex justify-start"
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ type: "spring", stiffness: 200 }}
-                    >
-                      <div className="relative mr-4 rounded-xl overflow-hidden">
-                        <div className="absolute inset-0 bg-gradient-to-r from-slate-600 to-purple-600 animate-gradient-shift" />
-                        <div className="absolute inset-0.5 bg-slate-800 rounded-lg" />
-                        <div className="relative z-10 px-4 py-3 flex items-center gap-3">
-                          <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                          >
-                            <Loader2 className="w-4 h-4 text-purple-400" />
-                          </motion.div>
-                          <span className="text-slate-200 text-sm">Thinking...</span>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-
-                  {window.error && (
-                    <motion.div
-                      className="flex justify-center"
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ type: "spring", stiffness: 200 }}
-                    >
-                      <div className="relative max-w-xs rounded-xl overflow-hidden">
-                        <div className="absolute inset-0 bg-gradient-to-r from-red-600 to-orange-600" />
-                        <div className="absolute inset-0.5 bg-red-900/40 backdrop-blur-sm rounded-lg" />
-                        <div className="relative z-10 px-4 py-3">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-red-400">⚠️</span>
-                            <span className="text-red-200 text-sm">{window.error}</span>
-                          </div>
-                          <button
-                            onClick={() => setChatWindows(prev =>
-                              prev.map(w => w.id === window.id ? { ...w, error: null } : w)
-                            )}
-                            className="text-xs text-red-300 hover:text-red-200 underline hover:no-underline transition-colors hover:scale-105 active:scale-95"
-                          >
-                            Dismiss
-                          </button>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </motion.div>
-
-                {/* Input */}
-                <motion.div
-                  className="p-4 border-t border-cyan-500/20 bg-gradient-to-r from-slate-800/60 to-blue-900/30 backdrop-blur-sm"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 }}
-                >
-                  <div className="flex gap-3">
-                    <div className="flex-1 relative">
-                      <input
-                        type="text"
-                        value={currentMessage[window.id] || ''}
-                        onChange={(e) => setCurrentMessage(prev => ({ ...prev, [window.id]: e.target.value }))}
-                        onKeyDown={(e) => handleKeyPress(e, window.id)}
-                        placeholder="Type a message..."
-                        className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600/30 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-400/50 text-sm backdrop-blur-sm transition-all duration-300 hover:scale-[1.01] focus:scale-[1.02]"
-                        disabled={window.isLoading}
-                        style={{
-                          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.6), rgba(30, 58, 138, 0.3))'
-                        }}
-                      />
-                    </div>
-                    <button
-                      onClick={() => sendFloatingMessage(window.id)}
-                      disabled={!currentMessage[window.id]?.trim() || window.isLoading}
-                      className="relative px-4 py-3 rounded-xl overflow-hidden flex items-center justify-center group disabled:cursor-not-allowed hover:scale-105 active:scale-95 transition-transform duration-200"
-                    >
-                      <div className={`absolute inset-0 transition-all duration-300 ${!currentMessage[window.id]?.trim() || window.isLoading
-                        ? 'bg-slate-700/50'
-                        : 'bg-gradient-to-r from-cyan-500 to-blue-600 group-hover:from-cyan-400 group-hover:to-blue-500'
-                        }`} />
-                      <div className="absolute inset-0.5 bg-slate-900 rounded-lg" />
-                      {window.isLoading ? (
-                        <motion.div
-                          className="relative z-10"
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                        >
-                          <Loader2 className="w-5 h-5 text-cyan-400" />
-                        </motion.div>
-                      ) : (
-                        <Send className="w-5 h-5 text-white relative z-10 group-hover:text-cyan-100 transition-colors" />
-                      )}
-                    </button>
-                  </div>
-
-                  {/* Connection Status */}
-                  <div className="flex items-center justify-between mt-3 text-xs">
-                    <div className="flex items-center gap-3">
-                      <motion.span
-                        className="flex items-center gap-2 px-2 py-1 rounded-lg bg-slate-800/50 border border-slate-600/30"
-                        whileHover={{ scale: 1.05 }}
-                      >
-                        <motion.div
-                          className={`w-2 h-2 rounded-full ${window.discussionId ? 'bg-emerald-400' : 'bg-yellow-400'
-                            }`}
-                          animate={{
-                            scale: [1, 1.2, 1],
-                            opacity: [1, 0.7, 1]
-                          }}
-                          transition={{
-                            duration: 2,
-                            repeat: Infinity,
-                            ease: "easeInOut"
-                          }}
-                        />
-                        <span className={`${window.discussionId ? 'text-emerald-300' : 'text-yellow-300'
-                          }`}>
-                          {window.discussionId ? 'Persistent Chat' : 'Memory Only'}
-                        </span>
-                      </motion.span>
-                    </div>
-                    <span className="text-slate-400 px-2 py-1 rounded bg-slate-800/30">
-                      {window.agentName}
-                    </span>
-                  </div>
-                </motion.div>
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 text-sm"
+                />
               </>
             )}
           </motion.div>
@@ -1007,6 +1101,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       </AnimatePresence>
     </div>
   );
+
 
   // Render portal mode
   const renderPortalMode = () => (
@@ -1034,7 +1129,17 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
               <MessageSquare className="w-6 h-6 text-white" />
             </motion.div>
             <div>
-              <h3 className="text-xl font-bold text-white">Agent Chat</h3>
+              <div className="flex items-center gap-3">
+                <ConversationTopicDisplay
+                  conversationId={conversationIds['portal'] || ''}
+                  agentId={selectedAgentId}
+                  initialTopic={conversationTopics['portal'] || (selectedAgent ? `Chat with ${selectedAgent.name}` : 'Agent Chat')}
+                  onTopicChange={(newTopic) => {
+                    setConversationTopics(prev => ({ ...prev, portal: newTopic }));
+                  }}
+                  className="text-xl font-bold text-white"
+                />
+              </div>
               <div className="flex items-center gap-3">
                 <p className="text-slate-300">
                   {selectedAgent ? `Chatting with ${selectedAgent.name}` : 'Select an agent to start chatting'}
@@ -1317,29 +1422,37 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
           >
+            {/* Prompt Suggestions */}
+            <div className="mb-4">
+              <PromptSuggestions
+                agentId={selectedAgentId}
+                conversationContext={{
+                  currentTopic: conversationTopics['portal'] || (selectedAgent ? `Chat with ${selectedAgent.name}` : 'Agent Chat'),
+                  recentMessages: portalMessages.slice(-5).map(msg => ({
+                    content: msg.content,
+                    role: msg.sender === 'user' ? 'user' : 'assistant',
+                    timestamp: new Date(msg.timestamp)
+                  }))
+                }}
+                onSelectPrompt={(prompt) => {
+                  // Auto-submit the selected prompt
+                  sendPortalMessageWithText(prompt);
+                }}
+                className="mb-2"
+              />
+            </div>
+            
             <div className="flex gap-4 items-end">
-              <div className="flex-1 relative">
-                <input
-                  type="text"
-                  value={currentMessage['portal'] || ''}
-                  onChange={(e) => setCurrentMessage(prev => ({ ...prev, portal: e.target.value }))}
-                  onKeyDown={(e) => handleKeyPress(e, 'portal')}
-                  placeholder={selectedAgent ? `Message ${selectedAgent.name}...` : "Select an agent first..."}
-                  disabled={!selectedAgentId}
-                  className="w-full bg-slate-800/50 border border-slate-600/30 rounded-xl px-4 py-4 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-400/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 hover:scale-[1.01] focus:scale-[1.02]"
-                  style={{
-                    background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.6), rgba(30, 58, 138, 0.3))'
-                  }}
-                />
-              </div>
-              <button
-                onClick={sendPortalMessage}
-                disabled={!currentMessage['portal']?.trim() || !selectedAgentId}
-                className="relative p-4 bg-gradient-to-br from-cyan-500 to-blue-600 text-white rounded-xl hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 overflow-hidden hover:scale-105 active:scale-95"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 hover:opacity-100 transition-opacity" />
-                <Send className="w-5 h-5 relative z-10" />
-              </button>
+              <SmartInputField
+                agentId={selectedAgentId}
+                conversationId={conversationIds['portal']}
+                placeholder={selectedAgent ? `Message ${selectedAgent.name}...` : "Select an agent first..."}
+                onSubmit={(text, intent) => {
+                  // Use a custom sendMessage function that handles the smart input properly
+                  sendPortalMessageWithText(text, intent);
+                }}
+                className="w-full bg-slate-800/50 border border-slate-600/30 rounded-xl px-4 py-4 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-400/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 hover:scale-[1.01] focus:scale-[1.02]"
+              />
             </div>
           </motion.div>
         </div>

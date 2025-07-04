@@ -792,7 +792,7 @@ export class AgentDiscussionService {
         
         // Subscribe to response
         logger.info('Subscribing to LLM response', { responseChannel: `llm.response.${requestId}` });
-        this.eventBusService.subscribe(`llm.response.${requestId}`, (responseData: any) => {
+        this.eventBusService.subscribe(`llm.response.${requestId}`, async (responseData: any) => {
           logger.info('LLM response received', { requestId, hasResponseData: !!responseData });
           clearTimeout(timeout);
           
