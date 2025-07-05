@@ -1,74 +1,85 @@
-import express, { Express } from 'express';
-import helmet from 'helmet';
+import { BaseService, ServiceConfig } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
+import { authMiddleware } from '@uaip/middleware';
 
 import { ArtifactFactory } from './ArtifactFactory.js';
 import { ArtifactService } from './ArtifactService.js';
 import { artifactRoutes } from './routes/artifactRoutes.js';
 
-const app: Express = express();
-const PORT = config.services?.artifactService?.port || 3004;
+class ArtifactServiceApp extends BaseService {
+  private artifactFactory: ArtifactFactory;
+  private artifactService: ArtifactService;
 
-// Initialize core services
-const artifactFactory = new ArtifactFactory();
-const artifactService = new ArtifactService();
+  constructor() {
+    const serviceConfig: ServiceConfig = {
+      name: 'artifact-service',
+      port: config.services?.artifactService?.port || 3004,
+      version: '1.0.0',
+      rateLimitConfig: {
+        windowMs: 15 * 60 * 1000, // 15 minutes
+        max: 100 // limit each IP to 100 requests per windowMs
+      },
+      customMiddleware: []
+    };
+    super(serviceConfig);
+    this.artifactFactory = new ArtifactFactory();
+    this.artifactService = new ArtifactService();
+  }
 
-// Middleware
-app.use(helmet());
-// CORS is handled by nginx API gateway - disable service-level CORS
-// app.use(cors());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+  protected async initialize(): Promise<void> {
+    logger.info('Initializing Artifact Service...');
+    
+    // Service-specific initialization
+    await this.artifactService.initialize();
+    
+    logger.info('Artifact Service initialized successfully');
+  }
 
-// Request logging
-app.use((req, res, next) => {
-  logger.info(`${req.method} ${req.path}`, {
-    userAgent: req.get('User-Agent'),
-    ip: req.ip
-  });
-  next();
+  protected async setupRoutes(): Promise<void> {
+    // API routes with auth middleware
+    this.app.use('/api/v1/artifacts', authMiddleware, artifactRoutes(this.artifactService));
+    
+    // Service-specific status endpoint
+    this.app.get('/status', (req, res) => {
+      const factoryStatus = this.artifactFactory.getSystemStatus();
+      const serviceHealth = this.artifactService.getServiceHealth();
+      res.json({
+        service: this.config.name,
+        version: this.config.version,
+        factory: factoryStatus,
+        serviceHealth: serviceHealth
+      });
+    });
+  }
+
+  protected async checkServiceHealth(): Promise<boolean> {
+    try {
+      const serviceHealth = this.artifactService.getServiceHealth();
+      return serviceHealth.status === 'healthy';
+    } catch (error) {
+      logger.error('Service health check failed:', error);
+      return false;
+    }
+  }
+
+  // Expose services for external access
+  public getArtifactFactory(): ArtifactFactory {
+    return this.artifactFactory;
+  }
+
+  public getArtifactService(): ArtifactService {
+    return this.artifactService;
+  }
+}
+
+// Create and start service
+const service = new ArtifactServiceApp();
+
+// Start the service
+service.start().catch(error => {
+  logger.error('Failed to start Artifact Service:', error);
+  process.exit(1);
 });
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  const factoryStatus = artifactFactory.getSystemStatus();
-  const serviceHealth = artifactService.getServiceHealth();
-  res.json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    service: 'artifact-service',
-    version: '1.0.0',
-    factory: factoryStatus,
-    serviceHealth: serviceHealth
-  });
-});
-
-// API routes - re-enabled with minimal routes for testing
-app.use('/api/v1/artifacts', artifactRoutes(artifactService));
-
-// Error handling
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  logger.error('Unhandled error:', err);
-  res.status(500).json({
-    error: 'Internal server error',
-    message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
-  });
-});
-
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({
-    error: 'Not found',
-    message: `Route ${req.originalUrl} not found`
-  });
-});
-
-// Start server
-app.listen(PORT, () => {
-  logger.info(`🚀 Artifact Service running on port ${PORT}`);
-  logger.info(`📊 Health check available at http://localhost:${PORT}/health`);
-  logger.info(`🔧 API endpoints available at http://localhost:${PORT}/api/v1/artifacts`);
-});
-
-export { app, artifactFactory, artifactService }; 
+export { service };

@@ -1,9 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
 import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
-import { User, SecurityLevel } from '@uaip/types';
-import { config } from '@uaip/config';
+import { JWTValidator } from './JWTValidator.js';
 
 // Extend Express Request interface
 declare global {
@@ -21,219 +19,36 @@ declare global {
   }
 }
 
-interface JWTPayload {
-  userId: string;
-  email: string;
-  role: string;
-  sessionId?: string;
-  iat: number;
-  exp: number;
-  iss?: string;
-  aud?: string;
-}
-
-// Simplified user interface for authentication context
-interface AuthUser {
-  id: string;
-  email: string;
-  role: string;
-  sessionId?: string;
-}
-
-interface AuthenticatedRequest extends Request {
-  user?: AuthUser;
-  startTime?: number;
-}
-
-// Validate JWT secret on module load
-const validateJWTSecret = (): string => {
-  const jwtSecret = config.jwt.secret;
-  
-  if (!jwtSecret) {
-    logger.error('JWT secret is not configured in shared config');
-    throw new Error('JWT secret is required in configuration');
-  }
-  
-  if (jwtSecret === 'uaip_dev_jwt_secret_key_change_in_production') {
-    logger.warn('Using default JWT secret - this should be changed in production');
-  }
-  
-  if (jwtSecret.length < 32) {
-    logger.warn('JWT secret is shorter than recommended 32 characters');
-  }
-  
-  return jwtSecret;
-};
-
-// Cache the validated JWT secret
-const JWT_SECRET = validateJWTSecret();
-
 export const authMiddleware = async (
   req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
-  let token: string | undefined;
-  
   try {
-    // Set request start time for performance tracking
     req.startTime = Date.now();
-    
-    // Generate request ID for tracing
     req.id = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    // Extract token from Authorization header
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      logger.debug('Missing or invalid authorization header', {
-        requestId: req.id,
-        path: req.path,
-        method: req.method,
-        hasAuthHeader: !!authHeader,
-        authHeaderPrefix: authHeader?.substring(0, 10) + '...',
-        allHeaders: Object.keys(req.headers)
-      });
       throw new ApiError(401, 'Authorization token required', 'MISSING_TOKEN');
     }
 
-    token = authHeader.substring(7); // Remove 'Bearer ' prefix
-    
-    // Log token info for debugging (without exposing the actual token)
-    logger.debug('Attempting JWT verification', {
-      requestId: req.id,
-      tokenLength: token.length,
-      tokenPrefix: token.substring(0, 10) + '...',
-      path: req.path,
-      method: req.method
-    });
+    const token = authHeader.substring(7);
+    const decoded = JWTValidator.verify(token);
 
-    // Verify JWT token
-    const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
-
-    // Validate token payload
-    if (!decoded.userId || !decoded.email || !decoded.role) {
-      logger.warn('Invalid token payload structure', {
-        requestId: req.id,
-        hasUserId: !!decoded.userId,
-        hasEmail: !!decoded.email,
-        hasRole: !!decoded.role,
-        tokenIat: decoded.iat,
-        tokenExp: decoded.exp
-      });
-      throw new ApiError(401, 'Invalid token payload', 'INVALID_TOKEN');
-    }
-
-    // Check if token is expired (additional check beyond JWT verification)
-    if (decoded.exp && Date.now() >= decoded.exp * 1000) {
-      logger.warn('Token expired', {
-        requestId: req.id,
-        userId: decoded.userId,
-        expiredAt: new Date(decoded.exp * 1000).toISOString(),
-        currentTime: new Date().toISOString()
-      });
-      throw new ApiError(401, 'Token expired', 'TOKEN_EXPIRED');
-    }
-
-    // Set user context on request
     req.user = {
       id: decoded.userId,
       email: decoded.email,
       role: decoded.role,
-      sessionId: decoded.sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      sessionId: decoded.sessionId
     };
-
-    // Log successful authentication
-    logger.debug('User authenticated successfully', {
-      userId: decoded.userId,
-      role: decoded.role,
-      requestId: req.id,
-      path: req.path,
-      method: req.method,
-      sessionId: req.user.sessionId
-    });
 
     next();
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown authentication error';
-    
-    // Enhanced error logging with more context
-    logger.warn('Authentication failed', {
-      error: errorMessage,
-      errorType: error instanceof Error ? error.constructor.name : 'Unknown',
-      path: req.path,
-      method: req.method,
-      userAgent: req.headers['user-agent'],
-      ip: req.ip,
-      requestId: req.id,
-      timestamp: new Date().toISOString()
-    });
-
-    // Handle specific JWT errors with better error messages
-    if (error instanceof jwt.JsonWebTokenError) {
-      if (error.name === 'TokenExpiredError') {
-        logger.info('Token expired during verification', {
-          requestId: req.id,
-          path: req.path,
-          expiredAt: (error as any).expiredAt
-        });
-        return next(new ApiError(401, 'Token expired', 'TOKEN_EXPIRED'));
-      } else if (error.name === 'NotBeforeError') {
-        logger.warn('Token not active yet', {
-          requestId: req.id,
-          path: req.path,
-          notBefore: (error as any).notBefore
-        });
-        return next(new ApiError(401, 'Token not active yet', 'TOKEN_NOT_ACTIVE'));
-      } else if (error.message === 'invalid signature') {
-        // Get diagnostic information for signature errors (if token is available)
-        const diagnostics = token ? diagnoseJWTSignatureError(token) : null;
-        
-        logger.warn('JWT token has invalid signature', {
-          requestId: req.id,
-          path: req.path,
-          jwtError: error.message,
-          errorName: error.name,
-          tokenInfo: diagnostics?.tokenInfo,
-          possibleCauses: diagnostics?.possibleCauses,
-          configInfo: diagnostics?.configInfo,
-          jwtSecretLength: config.jwt.secret.length,
-          jwtSecretPrefix: config.jwt.secret.substring(0, 8) + '...'
-        });
-        return next(new ApiError(401, 'Invalid token signature - token may be tampered with or signed with wrong secret', 'INVALID_SIGNATURE'));
-      } else if (error.message === 'jwt malformed') {
-        logger.warn('JWT token is malformed', {
-          requestId: req.id,
-          path: req.path,
-          jwtError: error.message
-        });
-        return next(new ApiError(401, 'Malformed token format', 'MALFORMED_TOKEN'));
-      } else if (error.name === 'JsonWebTokenError') {
-        logger.warn('Invalid JWT token format or other JWT error', {
-          requestId: req.id,
-          path: req.path,
-          jwtError: error.message,
-          errorName: error.name
-        });
-        return next(new ApiError(401, `Invalid token: ${error.message}`, 'INVALID_TOKEN'));
-      }
-    }
-
-    if (error instanceof ApiError) {
-      return next(error);
-    }
-
-    // Log unexpected errors with full context
-    logger.error('Unexpected authentication error', {
-      error: errorMessage,
-      stack: error instanceof Error ? error.stack : undefined,
-      requestId: req.id,
-      path: req.path,
-      method: req.method
-    });
-
-    next(new ApiError(401, 'Authentication failed', 'AUTH_ERROR'));
+    next(error);
   }
 };
+
 
 // Optional middleware for admin-only routes
 export const requireAdmin = (

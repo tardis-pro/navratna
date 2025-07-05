@@ -769,7 +769,9 @@ export class EventBusService {
       };
 
       // Subscribe to response
-      this.subscribe(responseEventType, responseHandler).then(() => {
+      try {
+        await this.subscribe(responseEventType, responseHandler);
+        
         // Publish request with correlation ID
         const requestMessage = {
           ...data,
@@ -777,8 +779,10 @@ export class EventBusService {
           responseEventType
         };
 
-        return this.publish(eventType, requestMessage);
-      }).catch(reject);
+        await this.publish(eventType, requestMessage);
+      } catch (error) {
+        reject(error);
+      }
     });
   }
 

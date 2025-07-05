@@ -479,8 +479,21 @@ export class ToolRegistry {
   async healthCheck(): Promise<{ postgresql: boolean; neo4j: boolean }> {
     try {
       // Test PostgreSQL connection by attempting a simple query instead of looking for a specific tool
-      const postgresqlHealth = await this.postgresql.healthCheck().then(result => result.status === 'healthy').catch(() => false);
-      const neo4jHealth = await this.neo4j.verifyConnectivity().then(() => true).catch(() => false);
+      let postgresqlHealth = false;
+      try {
+        const result = await this.postgresql.healthCheck();
+        postgresqlHealth = result.status === 'healthy';
+      } catch {
+        postgresqlHealth = false;
+      }
+
+      let neo4jHealth = false;
+      try {
+        await this.neo4j.verifyConnectivity();
+        neo4jHealth = true;
+      } catch {
+        neo4jHealth = false;
+      }
       
       return {
         postgresql: postgresqlHealth,

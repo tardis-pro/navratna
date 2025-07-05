@@ -111,31 +111,27 @@ export class ContextOrchestrationService {
       timestamp: Date.now()
     };
 
+    const agentPromise = agentId
+      ? this.knowledgeGraphService.search({ ...searchRequest, scope: { agentId } })
+      : Promise.resolve(undefined);
+
+    const userPromise = userId
+      ? this.knowledgeGraphService.search({ ...searchRequest, scope: { userId } })
+      : Promise.resolve(undefined);
+
+    const generalPromise = this.knowledgeGraphService.search({ ...searchRequest, scope: {} });
+
     // Parallel retrieval from all layers
-    const [agentResults, userResults, generalResults] = await Promise.all([
-      // Agent-specific knowledge
-      agentId ? this.knowledgeGraphService.search({
-        ...searchRequest,
-        scope: { agentId }
-      }).then(r => r.items) : Promise.resolve([]),
-      
-      // User-specific knowledge
-      userId ? this.knowledgeGraphService.search({
-        ...searchRequest,
-        scope: { userId }
-      }).then(r => r.items) : Promise.resolve([]),
-      
-      // General knowledge
-      this.knowledgeGraphService.search({
-        ...searchRequest,
-        scope: {}
-      }).then(r => r.items)
+    const [agentResult, userResult, generalResult] = await Promise.all([
+      agentPromise,
+      userPromise,
+      generalPromise
     ]);
 
     return {
-      agent: agentResults,
-      user: userResults,
-      general: generalResults
+      agent: agentResult ? agentResult.items : [],
+      user: userResult ? userResult.items : [],
+      general: generalResult.items
     };
   }
 

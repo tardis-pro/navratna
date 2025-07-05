@@ -1,9 +1,18 @@
 // Re-export types needed by entities
 export { SecurityLevel } from '@uaip/types';
 
+// Base Service Class for all microservices
+export { BaseService, ServiceConfig, createService } from './BaseService.js';
+
 // Database Services
 export { DatabaseService } from './databaseService.js';
 // Note: TypeOrmService is internal and not exported
+
+// Domain Services
+export { UserService } from './services/UserService.js';
+export { ToolService } from './services/ToolService.js';
+export { AgentService } from './services/AgentService.js';
+export { ProjectService } from './services/ProjectService.js';
 
 // All Database-related exports (TypeORM, services, types)
 export * from './database/index.js';

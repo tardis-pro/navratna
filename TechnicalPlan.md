@@ -107,12 +107,10 @@ Council of Nycea: Technical Debt Cleanup Plan
   maintainabilityEffort: 3 days
 
   Tasks:
-  - Convert all CommonJS patterns to ES modules
   - Replace Promise chains with async/await (25+
   files)
   - Enable TypeScript strict mode gradually
-  - Convert remaining JavaScript files to
-  TypeScript
+star
 
   ---
   🟡 Phase 3: Testing & Quality (Weeks 5-6)

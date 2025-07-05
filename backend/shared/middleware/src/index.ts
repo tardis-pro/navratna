@@ -65,4 +65,29 @@ export {} from './types';
 export { AgentValidationMiddleware } from './agentValidationMiddleware.js'; 
 export { AgentTransformationService } from './agentTransformationService.js';
 
+// Agent middleware exports
+export {
+  loadAgentContext,
+  requireAgentPermission,
+  requireSecurityLevel,
+  trackAgentOperation,
+  agentRateLimit,
+  executeAgentOperation,
+  requireAgentCapability,
+  requireAgentStatus,
+  executeAgentTool,
+  agentOperationChain
+} from './agentMiddleware.js';
+export type { AgentContext } from './agentMiddleware.js';
+
+// JWT validator exports
+export {
+  JWTValidator,
+  createJWTMiddleware,
+  requireRole,
+  requirePermissions,
+  refreshTokenMiddleware
+} from './jwtValidator.js';
+export type { JWTPayload, JWTConfig } from './jwtValidator.js';
+
 

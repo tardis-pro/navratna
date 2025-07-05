@@ -586,6 +586,10 @@ export class EnhancedAuthService {
     return await this.databaseService.createSession(session as any);
   }
 
+  import { JWTValidator } from '@uaip/middleware';
+
+// ... (rest of the file)
+
   private async generateJWTTokens(
     user: EnhancedUser,
     session: Session
@@ -600,18 +604,14 @@ export class EnhancedAuthService {
       agentCapabilities: session.agentCapabilities
     };
 
-    const accessToken = jwt.sign(payload, config.jwt.secret, {
-      expiresIn: config.jwt.accessTokenExpiry || '15m'
-    });
-
-    const refreshToken = jwt.sign(
-      { ...payload, type: 'refresh' },
-      config.jwt.refreshSecret,
-      { expiresIn: config.jwt.refreshTokenExpiry || '7d' }
-    );
+    const accessToken = JWTValidator.sign(payload);
+    const refreshToken = JWTValidator.sign({ ...payload, type: 'refresh' });
 
     return { accessToken, refreshToken };
   }
+
+// ... (rest of the file)
+
 
   private async checkMFARequirement(
     user: EnhancedUser,

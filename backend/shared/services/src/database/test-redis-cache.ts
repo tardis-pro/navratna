@@ -146,12 +146,15 @@ async function testRedisCache() {
 
 // Run test if called directly
 if (import.meta.url === `file://${process.argv[1]}`) {
-  testRedisCache()
-    .then(() => process.exit(0))
-    .catch((error) => {
+  (async () => {
+    try {
+      await testRedisCache();
+      process.exit(0);
+    } catch (error) {
       console.error('Test failed:', error);
       process.exit(1);
-    });
+    }
+  })();
 }
 
 export { testRedisCache }; 

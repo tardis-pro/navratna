@@ -79,7 +79,7 @@ export class DiscussionWebSocketHandler {
   /**
    * Handle new WebSocket connection with enhanced security
    */
-  handleConnection(ws: WebSocket, request: IncomingMessage): void {
+  async handleConnection(ws: WebSocket, request: IncomingMessage): Promise<void> {
     const connectionId = this.generateConnectionId();
     
     try {
@@ -131,29 +131,19 @@ export class DiscussionWebSocketHandler {
       };
 
       // Check connection limits per user using Redis
-      this.redisSessionManager.checkConnectionLimits(userId, WS_RATE_LIMITS.MAX_CONNECTIONS_PER_USER)
-        .then(canConnect => {
-          if (!canConnect) {
-            logger.warn('WebSocket connection rejected: too many connections', {
-              connectionId,
-              userId,
-              discussionId
-            });
-            ws.close(1008, 'Too many connections');
-            return;
-          }
-          
-          // Continue with connection setup if allowed
-          this.continueConnectionSetup(connection, request.socket.remoteAddress, request.headers['user-agent'] as string);
-        })
-        .catch(error => {
-          logger.error('Failed to check connection limits', {
-            connectionId,
-            userId,
-            error: error instanceof Error ? error.message : 'Unknown error'
-          });
-          ws.close(1011, 'Internal error');
+      const canConnect = await this.redisSessionManager.checkConnectionLimits(userId, WS_RATE_LIMITS.MAX_CONNECTIONS_PER_USER);
+      if (!canConnect) {
+        logger.warn('WebSocket connection rejected: too many connections', {
+          connectionId,
+          userId,
+          discussionId
         });
+        ws.close(1008, 'Too many connections');
+        return;
+      }
+      
+      // Continue with connection setup if allowed
+      await this.continueConnectionSetup(connection, request.socket.remoteAddress, request.headers['user-agent'] as string);
       
     } catch (error) {
       logger.error('Error handling WebSocket connection', {
