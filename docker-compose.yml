@@ -202,6 +202,30 @@ services:
       timeout: 30s
       retries: 3
 
+  # Object Storage (MinIO)
+  minio:
+    image: minio/minio:latest
+    container_name: uaip-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-uaip_minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-uaip_minio_password}
+      MINIO_DOMAIN: minio
+      MINIO_REGION_NAME: us-east-1
+    ports:
+      - "9000:9000"   # API
+      - "9001:9001"   # Console
+    volumes:
+      - minio_data:/data
+      - minio_config:/root/.minio
+    networks:
+      - uaip-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
   # Shared base service - build once, use everywhere
   backend-base:
     build:
@@ -419,6 +443,11 @@ services:
       - QDRANT_URL=http://qdrant:6333
       - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:-uaip_user}:${RABBITMQ_DEFAULT_PASS:-uaip_password}@rabbitmq:5672
       - JWT_SECRET=${JWT_SECRET:-uaip_dev_jwt_secret_key_change_in_production}
+      # MinIO Configuration
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-uaip_minio}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-uaip_minio_password}
+      - MINIO_BUCKET_NAME=uaip-storage
       # TEI Configuration
       - TEI_EMBEDDING_URL=http://tei-embeddings:80
       - TEI_RERANKER_URL=http://tei-reranker:8083
@@ -442,6 +471,8 @@ services:
       redis:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      minio:
         condition: service_healthy
       tei-embeddings-cpu:
         condition: service_healthy
@@ -631,6 +662,8 @@ volumes:
   redis_data:
   qdrant_data:
   rabbitmq_data:
+  minio_data:
+  minio_config:
   prometheus_data:
   grafana_data:
   # TEI Data Volumes

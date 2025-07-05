@@ -40,3 +40,5 @@ export * from './social';
 export * from './widget';
 // Conversation Intelligence types - NEW
 export * from './conversation-intelligence';
+// Project types - NEW
+export * from './project';

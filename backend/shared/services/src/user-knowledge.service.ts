@@ -216,7 +216,7 @@ export class UserKnowledgeService {
     };
 
     if (filters?.dateRange) {
-      searchFilters.dateRange = filters.dateRange;
+      searchFilters.timeRange = filters.dateRange;
     }
 
     const results = await this.search(userId, {
@@ -224,7 +224,8 @@ export class UserKnowledgeService {
       filters: searchFilters,
       options: {
         limit: filters?.limit || 50
-      }
+      },
+      timestamp: Date.now()
     });
 
     // Filter by conversation or agent if specified
@@ -373,7 +374,8 @@ export class UserKnowledgeService {
       options: {
         limit: options?.limit || 10,
         similarityThreshold: options?.similarityThreshold || 0.7
-      }
+      },
+      timestamp: Date.now()
     });
 
     return results.items;

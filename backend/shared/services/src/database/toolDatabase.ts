@@ -289,14 +289,8 @@ export class ToolDatabase {
   }
 
   private mapSecurityLevelToEnum(level: string): any {
-    // Map string security levels to enum values
-    const levelMap: Record<string, string> = {
-      'safe': 'low',
-      'moderate': 'medium',
-      'restricted': 'high',
-      'dangerous': 'critical'
-    };
-    return levelMap[level] || 'medium';
+    // Return the level directly as we now use consistent enum values
+    return level;
   }
 
   // Helper methods for compatibility (keeping for interface compatibility)

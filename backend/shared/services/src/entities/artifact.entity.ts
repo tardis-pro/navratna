@@ -44,6 +44,12 @@ export class Artifact extends BaseEntity {
   @Column({ type: 'jsonb', default: '[]' })
   tags: string[];
 
+  // Project Integration
+  @Column({ name: 'project_id', type: 'uuid', nullable: true })
+  projectId?: string;
+
+  // Note: ProjectEntity relation will be added after it's created
+
   // Traceability
   @Column({ name: 'conversation_id', type: 'varchar' })
   conversationId: string;

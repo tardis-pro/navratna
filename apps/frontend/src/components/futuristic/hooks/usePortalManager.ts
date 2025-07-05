@@ -6,6 +6,7 @@ type PortalType =
   | 'intelligence-hub' 
   | 'system-hub' 
   | 'chat' 
+  | 'user-chat'
   | 'knowledge' 
   | 'monitoring-hub' 
   | 'tools' 
@@ -13,12 +14,20 @@ type PortalType =
   | 'provider' 
   | 'marketplace-hub' 
   | 'security-hub'
+  | 'system-admin'
   | 'dashboard'
   | 'artifacts'
   | 'search'
   | 'tasks'
   | 'create'
-  | 'mini-browser';
+  | 'create-anything'
+  | 'mini-browser'
+  | 'documents'
+  | 'database-admin'
+  | 'system-console'
+  | 'system-monitoring'
+  | 'user-management'
+  | 'api-management';
 
 interface PortalState {
   id: string;

@@ -1,7 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import { EventBusService } from '@uaip/shared-services';
 import { createLogger } from '@uaip/utils';
-import { validateJWTToken } from '@uaip/middleware/authMiddleware';
+import { validateJWTToken } from '@uaip/middleware';
 import {
   ConversationIntelligenceEventType,
   ConversationWebSocketEventType,

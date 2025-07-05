@@ -11,6 +11,10 @@ export { Persona } from './persona.entity.js';
 
 // User System entities
 export { UserEntity } from './user.entity.js';
+export { UserPreferencesEntity } from './user-preferences.entity.js';
+export { UserContactEntity } from './user-contact.entity.js';
+export { UserMessageEntity } from './user-message.entity.js';
+export { UserPresenceEntity } from './user-presence.entity.js';
 export { RefreshTokenEntity } from './refreshToken.entity.js';
 export { PasswordResetTokenEntity } from './passwordResetToken.entity.js';
 
@@ -67,6 +71,14 @@ export { LLMProvider } from './llmProvider.entity.js';
 // Knowledge Graph entities
 export { KnowledgeItemEntity } from './knowledge-item.entity.js';
 export { KnowledgeRelationshipEntity } from './knowledge-relationship.entity.js';
+
+// Project System entities
+export { ProjectEntity } from './project.entity.js';
+export { ProjectMemberEntity } from './project-member.entity.js';
+export { ProjectFileEntity } from './project-file.entity.js';
+
+// Short Link System entities
+export { ShortLinkEntity } from './short-link.entity.js';
 
 // User LLM Integration entities
 export { UserLLMProvider } from './userLLMProvider.entity.js';

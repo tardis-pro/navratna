@@ -101,6 +101,11 @@
       "require": "./dist/database/index.js",
       "types": "./dist/database/index.d.ts"
     },
+    "./entities": {
+      "import": "./dist/entities/index.js",
+      "require": "./dist/entities/index.js",
+      "types": "./dist/entities/index.d.ts"
+    },
     "./agentIntelligenceService": {
       "import": "./dist/agentIntelligenceService.js",
       "require": "./dist/agentIntelligenceService.js",

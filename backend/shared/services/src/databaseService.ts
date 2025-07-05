@@ -2130,4 +2130,47 @@ export class DatabaseService {
     }
   }
 
+  // ===== PUBLIC GETTER METHODS FOR UNIFIED TOOL REGISTRY =====
+
+  /**
+   * Get the tool repository (public access for external services)
+   */
+  public getToolRepository(): ToolRepository {
+    return this.toolRepository;
+  }
+
+  /**
+   * Get the data source (public access for external services)
+   */
+  public getDataSource() {
+    return this.typeormService.getDataSource();
+  }
+
+  /**
+   * Get neo4j service placeholder (to be implemented)
+   */
+  public get neo4jService(): any {
+    // TODO: Implement Neo4j service integration
+    logger.warn('Neo4j service not yet implemented');
+    return null;
+  }
+
+  /**
+   * Get redis service placeholder (to be implemented)
+   */
+  public get redisService(): any {
+    // TODO: Implement Redis service integration
+    logger.warn('Redis service not yet implemented');
+    return null;
+  }
+
+  /**
+   * Get workflow repository placeholder (to be implemented)
+   */
+  public get workflowRepository(): any {
+    // TODO: Implement workflow repository
+    logger.warn('Workflow repository not yet implemented');
+    return null;
+  }
+
 }

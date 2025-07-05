@@ -18,7 +18,7 @@ const RegisterToolSchema = z.object({
   category: z.string().min(1),
   parameters: z.object({}).passthrough(),
   returnType: z.object({}).passthrough().optional(),
-  securityLevel: z.enum(['safe', 'moderate', 'restricted', 'dangerous']),
+  securityLevel: z.enum(['low', 'medium', 'high', 'critical']),
   requiresApproval: z.boolean(),
   isEnabled: z.boolean().optional().default(true),
   executionTimeEstimate: z.number().positive().optional(),
@@ -790,10 +790,10 @@ export class ToolController {
     // Transform securityLevel string to SecurityLevel enum
     if (transformed.securityLevel) {
       const securityMap: Record<string, SecurityLevel> = {
-        'safe': SecurityLevel.LOW,
-        'moderate': SecurityLevel.MEDIUM,
-        'restricted': SecurityLevel.HIGH,
-        'dangerous': SecurityLevel.CRITICAL
+        'low': SecurityLevel.LOW,
+        'medium': SecurityLevel.MEDIUM,
+        'high': SecurityLevel.HIGH,
+        'critical': SecurityLevel.CRITICAL
       };
       transformed.securityLevel = securityMap[transformed.securityLevel] || SecurityLevel.MEDIUM;
     }
@@ -836,10 +836,10 @@ export class ToolController {
     // Transform securityLevel string to SecurityLevel enum
     if (transformed.securityLevel) {
       const securityMap: Record<string, SecurityLevel> = {
-        'safe': SecurityLevel.LOW,
-        'moderate': SecurityLevel.MEDIUM,
-        'restricted': SecurityLevel.HIGH,
-        'dangerous': SecurityLevel.CRITICAL
+        'low': SecurityLevel.LOW,
+        'medium': SecurityLevel.MEDIUM,
+        'high': SecurityLevel.HIGH,
+        'critical': SecurityLevel.CRITICAL
       };
       transformed.securityLevel = securityMap[transformed.securityLevel] || SecurityLevel.MEDIUM;
     }

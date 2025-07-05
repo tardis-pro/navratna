@@ -20,7 +20,7 @@ import { KnowledgePortal } from './portals/KnowledgePortal';
 import { DashboardPortal } from './portals/DashboardPortal';
 import { ArtifactsPortal } from './portals/ArtifactsPortal';
 import { DesktopWorkspace } from './DesktopWorkspace';
-import { Plus, Layout, Users, Brain, Settings, MessageSquare, MessageCircle, Activity, Zap, Terminal, Monitor, Menu, X, Bot, Server, Database, Wrench, Shield, Radio, BarChart3, Lightbulb, Eye, BookOpen, MapPin, Sun, Cloud, CloudRain, CloudSnow, CloudSun, Thermometer, Search, Store, Grid3X3, Layers, Home, Package } from 'lucide-react';
+import { Plus, Layout, Users, Brain, Settings, MessageSquare, MessageCircle, Activity, Zap, Terminal, Monitor, Menu, X, Bot, Server, Database, Wrench, Shield, Radio, BarChart3, Lightbulb, Eye, BookOpen, MapPin, Sun, Cloud, CloudRain, CloudSnow, CloudSun, Thermometer, Search, Store, Grid3X3, Layers, Home, Package, FileText, Globe } from 'lucide-react';
 import { uaipAPI } from '@/utils/uaip-api';
 import { PuzzlePieceIcon } from '@heroicons/react/24/outline';
 import MarketplaceHubWidget from '@/widgets/MarketplaceHubWidget';
@@ -28,7 +28,7 @@ import { ToolManagementPortal } from './portals/ToolManagementPortal';
 
 interface PortalInstance {
   id: string;
-  type: 'agent-hub' | 'discussion-hub' | 'intelligence-hub' | 'system-hub' | 'chat' | 'knowledge' | 'monitoring-hub' | 'tools' | 'tool-management' | 'provider' | 'marketplace-hub' | 'security-hub' | 'dashboard' | 'artifacts' | 'search' | 'tasks' | 'create';
+  type: keyof typeof PORTAL_CONFIGS;
   title: string;
   component: React.ComponentType<any>;
   position: { x: number; y: number };
@@ -214,6 +214,151 @@ const PORTAL_CONFIGS = {
     type: 'data' as const,
     icon: Package,
     description: 'Manage and organize digital artifacts'
+  },
+  // Additional portal types for RoleBasedDesktopConfig compatibility
+  'user-chat': {
+    title: 'User Chat',
+    component: (props: any) => <ChatPortal {...props} />,
+    defaultSize: {
+      desktop: { width: 600, height: 500 },
+      tablet: { width: 500, height: 450 },
+      mobile: { width: 400, height: 400 }
+    },
+    type: 'communication' as const,
+    icon: MessageCircle,
+    description: 'Direct messaging and communication'
+  },
+  'search': {
+    title: 'Global Search',
+    component: (props: any) => <div className="p-4 text-white"><p>Global Search Portal - Coming Soon</p></div>,
+    defaultSize: {
+      desktop: { width: 700, height: 500 },
+      tablet: { width: 600, height: 450 },
+      mobile: { width: 400, height: 400 }
+    },
+    type: 'tool' as const,
+    icon: Search,
+    description: 'Global search across all systems'
+  },
+  'tasks': {
+    title: 'Task Management',
+    component: (props: any) => <div className="p-4 text-white"><p>Task Management Portal - Coming Soon</p></div>,
+    defaultSize: {
+      desktop: { width: 800, height: 600 },
+      tablet: { width: 700, height: 550 },
+      mobile: { width: 400, height: 450 }
+    },
+    type: 'tool' as const,
+    icon: Activity,
+    description: 'Personal task and workflow management'
+  },
+  'documents': {
+    title: 'Document Management',
+    component: (props: any) => <div className="p-4 text-white"><p>Document Management Portal - Coming Soon</p></div>,
+    defaultSize: {
+      desktop: { width: 900, height: 700 },
+      tablet: { width: 750, height: 650 },
+      mobile: { width: 500, height: 550 }
+    },
+    type: 'data' as const,
+    icon: FileText,
+    description: 'Document management and collaboration'
+  },
+  'user-management': {
+    title: 'User Management',
+    component: (props: any) => <div className="p-4 text-white"><p>User Management Portal - Coming Soon</p></div>,
+    defaultSize: {
+      desktop: { width: 800, height: 650 },
+      tablet: { width: 700, height: 600 },
+      mobile: { width: 500, height: 500 }
+    },
+    type: 'system' as const,
+    icon: Users,
+    description: 'Basic user management'
+  },
+  'system-admin': {
+    title: 'System Administration',
+    component: (props: any) => <SystemConfigPortal {...props} mode="admin" />,
+    defaultSize: {
+      desktop: { width: 1000, height: 800 },
+      tablet: { width: 800, height: 700 },
+      mobile: { width: 500, height: 600 }
+    },
+    type: 'system' as const,
+    icon: Shield,
+    description: 'System administration and security'
+  },
+  'database-admin': {
+    title: 'Database Administration',
+    component: (props: any) => <div className="p-4 text-white"><p>Database Admin Portal - Coming Soon</p></div>,
+    defaultSize: {
+      desktop: { width: 900, height: 700 },
+      tablet: { width: 750, height: 650 },
+      mobile: { width: 500, height: 550 }
+    },
+    type: 'system' as const,
+    icon: Database,
+    description: 'Database administration'
+  },
+  'system-console': {
+    title: 'System Console',
+    component: (props: any) => <div className="p-4 text-white"><p>System Console Portal - Coming Soon</p></div>,
+    defaultSize: {
+      desktop: { width: 1000, height: 700 },
+      tablet: { width: 800, height: 650 },
+      mobile: { width: 500, height: 550 }
+    },
+    type: 'system' as const,
+    icon: Terminal,
+    description: 'System console and direct access'
+  },
+  'system-monitoring': {
+    title: 'System Monitoring',
+    component: (props: any) => <OperationsMonitor {...props} />,
+    defaultSize: {
+      desktop: { width: 900, height: 700 },
+      tablet: { width: 750, height: 650 },
+      mobile: { width: 500, height: 550 }
+    },
+    type: 'system' as const,
+    icon: Monitor,
+    description: 'System monitoring and health'
+  },
+  'api-management': {
+    title: 'API Management',
+    component: (props: any) => <div className="p-4 text-white"><p>API Management Portal - Coming Soon</p></div>,
+    defaultSize: {
+      desktop: { width: 900, height: 700 },
+      tablet: { width: 750, height: 650 },
+      mobile: { width: 500, height: 550 }
+    },
+    type: 'system' as const,
+    icon: Radio,
+    description: 'API management and testing'
+  },
+  'create-anything': {
+    title: 'Create Anything',
+    component: (props: any) => <div className="p-4 text-white"><p>Create Anything Portal - Coming Soon</p></div>,
+    defaultSize: {
+      desktop: { width: 800, height: 600 },
+      tablet: { width: 700, height: 550 },
+      mobile: { width: 500, height: 500 }
+    },
+    type: 'tool' as const,
+    icon: Plus,
+    description: 'Create any type of resource'
+  },
+  'mini-browser': {
+    title: 'Mini Browser',
+    component: (props: any) => <div className="p-4 text-white"><p>Mini Browser Portal - Coming Soon</p></div>,
+    defaultSize: {
+      desktop: { width: 1000, height: 700 },
+      tablet: { width: 800, height: 650 },
+      mobile: { width: 500, height: 550 }
+    },
+    type: 'tool' as const,
+    icon: Globe,
+    description: 'Web browser with screenshot capture'
   },
 };
 

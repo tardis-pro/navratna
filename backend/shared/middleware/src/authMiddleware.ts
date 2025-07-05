@@ -503,4 +503,61 @@ export const testJWTToken = (token: string): {
       diagnostics
     };
   }
+};
+
+// Standalone JWT validation function for WebSocket and other contexts
+export const validateJWTToken = async (token: string): Promise<{
+  valid: boolean;
+  userId?: string;
+  email?: string;
+  role?: string;
+  username?: string;
+  sessionId?: string;
+  securityLevel?: number;
+  complianceFlags?: string[];
+  reason?: string;
+}> => {
+  try {
+    const jwtSecret = validateJWTSecret();
+    
+    // Verify JWT token
+    const decoded = jwt.verify(token, jwtSecret) as JWTPayload;
+
+    // Validate token payload structure
+    if (!decoded.userId || !decoded.email || !decoded.role) {
+      return { 
+        valid: false, 
+        reason: 'Invalid token payload - missing required fields' 
+      };
+    }
+
+    // Check if token is expired (additional check beyond JWT verification)
+    if (decoded.exp && Date.now() >= decoded.exp * 1000) {
+      return { 
+        valid: false, 
+        reason: 'Token expired' 
+      };
+    }
+    
+    return {
+      valid: true,
+      userId: decoded.userId,
+      email: decoded.email,
+      role: decoded.role,
+      username: decoded.email.split('@')[0], // Extract username from email
+      sessionId: decoded.sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      securityLevel: 3, // Default security level
+      complianceFlags: [] // Default empty compliance flags
+    };
+
+  } catch (error) {
+    logger.warn('JWT token validation failed', { 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    });
+    
+    return { 
+      valid: false, 
+      reason: error instanceof Error ? error.message : 'Token validation failed'
+    };
+  }
 }; 

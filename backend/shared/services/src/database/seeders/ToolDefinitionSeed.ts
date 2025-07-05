@@ -1,8 +1,8 @@
 import { DataSource, DeepPartial } from 'typeorm';
 import { BaseSeed } from './BaseSeed.js';
-import { ToolDefinition, ToolSecurityLevel } from '../../entities/toolDefinition.entity.js';
+import { ToolDefinition } from '../../entities/toolDefinition.entity.js';
 import { UserEntity } from '../../entities/user.entity.js';
-import { ToolCategory } from '@uaip/types';
+import { ToolCategory, SecurityLevel } from '@uaip/types';
 
 /**
  * Tool Definition seeder
@@ -48,7 +48,7 @@ export class ToolDefinitionSeed extends BaseSeed<ToolDefinition> {
           type: 'string',
           description: 'File content or directory listing'
         },
-        securityLevel: ToolSecurityLevel.MODERATE,
+        securityLevel: SecurityLevel.MEDIUM,
         author: 'UAIP System',
         tags: ['filesystem', 'read', 'utility'],
         examples: [
@@ -109,7 +109,7 @@ export class ToolDefinitionSeed extends BaseSeed<ToolDefinition> {
             body: { type: 'any' }
           }
         },
-        securityLevel: ToolSecurityLevel.RESTRICTED,
+        securityLevel: SecurityLevel.HIGH,
         author: 'UAIP System',
         tags: ['http', 'api', 'network', 'request'],
         examples: [
@@ -161,7 +161,7 @@ export class ToolDefinitionSeed extends BaseSeed<ToolDefinition> {
           items: { type: 'object' },
           description: 'Query results as array of objects'
         },
-        securityLevel: ToolSecurityLevel.DANGEROUS,
+        securityLevel: SecurityLevel.CRITICAL,
         author: 'UAIP System',
         tags: ['database', 'sql', 'query'],
         examples: [
@@ -220,7 +220,7 @@ export class ToolDefinitionSeed extends BaseSeed<ToolDefinition> {
             exitCode: { type: 'number' }
           }
         },
-        securityLevel: ToolSecurityLevel.DANGEROUS,
+        securityLevel: SecurityLevel.CRITICAL,
         author: 'UAIP System',
         tags: ['code', 'execution', 'sandbox', 'development'],
         examples: [

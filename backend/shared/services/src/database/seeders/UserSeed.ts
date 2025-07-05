@@ -5,7 +5,7 @@ import { UserEntity } from '../../entities/user.entity.js';
 import { SecurityLevel } from '@uaip/types';
 
 /**
- * User seeder with different roles and security levels
+ * User seeder with roles matching frontend expectations
  */
 export class UserSeed extends BaseSeed<UserEntity> {
   constructor(dataSource: DataSource) {
@@ -17,7 +17,7 @@ export class UserSeed extends BaseSeed<UserEntity> {
   }
 
   async getSeedData(): Promise<DeepPartial<UserEntity>[]> {
-    // Hash passwords once to avoid rehashing on updates
+    // Hash passwords to match Login.tsx demo credentials
     const adminHash = await bcrypt.hash('admin123!', 12);
     const managerHash = await bcrypt.hash('manager123!', 12);
     const analystHash = await bcrypt.hash('analyst123!', 12);
@@ -25,17 +25,17 @@ export class UserSeed extends BaseSeed<UserEntity> {
     const guestHash = await bcrypt.hash('guest123!', 10);
     const viralHash = await bcrypt.hash('viral123!', 10);
     const createHash = await bcrypt.hash('create123!', 10);
-    const fightHash = await bcrypt.hash('fight123!', 10);
     const socialHash = await bcrypt.hash('social123!', 10);
     const geniusHash = await bcrypt.hash('genius123!', 10);
 
     return [
+      // System Accounts (Red category in Login.tsx)
       {
         email: 'admin1@uaip.dev',
         firstName: 'System',
         lastName: 'Administrator',
         department: 'IT Operations',
-        role: 'system_admin',
+        role: 'admin', // Maps to RoleBasedDesktopConfig admin level
         passwordHash: adminHash,
         securityClearance: SecurityLevel.CRITICAL,
         isActive: true,
@@ -48,7 +48,7 @@ export class UserSeed extends BaseSeed<UserEntity> {
         firstName: 'Operations',
         lastName: 'Manager',
         department: 'Operations',
-        role: 'operations_manager',
+        role: 'moderator', // Maps to RoleBasedDesktopConfig moderator level
         passwordHash: managerHash,
         securityClearance: SecurityLevel.HIGH,
         isActive: true,
@@ -56,12 +56,14 @@ export class UserSeed extends BaseSeed<UserEntity> {
         passwordChangedAt: new Date(),
         lastLoginAt: new Date()
       },
+
+      // Professional Roles (Blue category in Login.tsx)
       {
         email: 'analyst1@uaip.dev',
         firstName: 'Data',
         lastName: 'Analyst',
         department: 'Analytics',
-        role: 'data_analyst',
+        role: 'user', // Maps to RoleBasedDesktopConfig user level
         passwordHash: analystHash,
         securityClearance: SecurityLevel.MEDIUM,
         isActive: true,
@@ -74,7 +76,7 @@ export class UserSeed extends BaseSeed<UserEntity> {
         firstName: 'Software',
         lastName: 'Developer',
         department: 'Engineering',
-        role: 'developer',
+        role: 'user', // Maps to RoleBasedDesktopConfig user level
         passwordHash: devHash,
         securityClearance: SecurityLevel.MEDIUM,
         isActive: true,
@@ -82,26 +84,14 @@ export class UserSeed extends BaseSeed<UserEntity> {
         passwordChangedAt: new Date(),
         lastLoginAt: new Date()
       },
-      {
-        email: 'guest1@uaip.dev',
-        firstName: 'Guest',
-        lastName: 'User',
-        department: 'External',
-        role: 'guest',
-        passwordHash: guestHash,
-        securityClearance: SecurityLevel.LOW,
-        isActive: true,
-        failedLoginAttempts: 0,
-        passwordChangedAt: new Date(),
-        lastLoginAt: new Date()
-      },
-      // Viral Marketplace Power Users
+
+      // Specialized Users (Purple category in Login.tsx)
       {
         email: 'codemaster@uaip.dev',
         firstName: 'Elite',
         lastName: 'CodeMaster',
         department: 'AI Research',
-        role: 'ai_researcher',
+        role: 'user', // Maps to RoleBasedDesktopConfig user level
         passwordHash: viralHash,
         securityClearance: SecurityLevel.HIGH,
         isActive: true,
@@ -114,21 +104,8 @@ export class UserSeed extends BaseSeed<UserEntity> {
         firstName: 'Creative',
         lastName: 'ArtistAI',
         department: 'Content Creation',
-        role: 'content_creator',
+        role: 'user', // Maps to RoleBasedDesktopConfig user level
         passwordHash: createHash,
-        securityClearance: SecurityLevel.MEDIUM,
-        isActive: true,
-        failedLoginAttempts: 0,
-        passwordChangedAt: new Date(),
-        lastLoginAt: new Date()
-      },
-      {
-        email: 'battlemaster@uaip.dev',
-        firstName: 'Battle',
-        lastName: 'Champion',
-        department: 'Competition',
-        role: 'battle_coordinator',
-        passwordHash: fightHash,
         securityClearance: SecurityLevel.MEDIUM,
         isActive: true,
         failedLoginAttempts: 0,
@@ -140,9 +117,24 @@ export class UserSeed extends BaseSeed<UserEntity> {
         firstName: 'Social',
         lastName: 'Influencer',
         department: 'Community',
-        role: 'community_manager',
+        role: 'user', // Maps to RoleBasedDesktopConfig user level
         passwordHash: socialHash,
         securityClearance: SecurityLevel.MEDIUM,
+        isActive: true,
+        failedLoginAttempts: 0,
+        passwordChangedAt: new Date(),
+        lastLoginAt: new Date()
+      },
+
+      // Guest Access (Green category in Login.tsx)
+      {
+        email: 'guest1@uaip.dev',
+        firstName: 'Guest',
+        lastName: 'User',
+        department: 'External',
+        role: 'guest', // Maps to RoleBasedDesktopConfig guest level
+        passwordHash: guestHash,
+        securityClearance: SecurityLevel.LOW,
         isActive: true,
         failedLoginAttempts: 0,
         passwordChangedAt: new Date(),
@@ -153,7 +145,7 @@ export class UserSeed extends BaseSeed<UserEntity> {
         firstName: 'Dev',
         lastName: 'Genius',
         department: 'Engineering',
-        role: 'senior_developer',
+        role: 'user', // Maps to RoleBasedDesktopConfig user level
         passwordHash: geniusHash,
         securityClearance: SecurityLevel.HIGH,
         isActive: true,

@@ -16,6 +16,9 @@ import approvalRoutes from './routes/approvalRoutes.js';
 import auditRoutes from './routes/auditRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import knowledgeRoutes from './routes/knowledgeRoutes.js';
+import userLLMProviderRoutes from './routes/userLLMProviderRoutes.js';
+// import userManagementRoutes from './routes/userManagementRoutes.js';
+// import shortLinkRoutes from './routes/shortLinkRoutes.js';
 
 // Import services
 import { SecurityGatewayService } from './services/securityGatewayService.js';
@@ -198,6 +201,10 @@ class SecurityGatewayServer {
     this.app.use('/api/v1/audit', auditRoutes);
     this.app.use('/api/v1/users', userRoutes);
     this.app.use('/api/v1/knowledge', knowledgeRoutes);
+    this.app.use('/api/v1/llm', userLLMProviderRoutes);
+    // this.app.use('/api', userManagementRoutes);
+    // this.app.use('/s', shortLinkRoutes); // Short links at /s/{shortCode}
+    // this.app.use('/api/v1/links', shortLinkRoutes); // Full API at /api/v1/links
 
     // 404 handler
     this.app.use((req, res) => {

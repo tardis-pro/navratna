@@ -17,7 +17,9 @@ import {
   User,
   Menu,
   X,
-  Globe
+  Globe,
+  Shield,
+  Zap
 } from 'lucide-react';
 import { DesktopIcon } from './desktop/DesktopIcon';
 import { RecentItemsPanel } from './desktop/RecentItemsPanel';
@@ -29,7 +31,10 @@ import { usePortalManager } from './hooks/usePortalManager';
 import { useIconDragDrop } from './hooks/useDragAndDrop';
 import { useAgents } from './hooks/useAgents';
 import { getTheme, resolveTheme } from './desktop/DesktopThemes';
+import { RoleBasedDesktopConfig } from './desktop/RoleBasedDesktopConfig';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+import { PortalWorkspace } from './PortalWorkspace';
 
 interface ViewportSize {
   width: number;
@@ -215,6 +220,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
   );
 
   const [isLoading, setIsLoading] = useState(true);
+  const [showPortals, setShowPortals] = useState(false);
 
   const [showRecentPanel, setShowRecentPanel] = useState(true);
   const [selectedIconId, setSelectedIconId] = useState<string | null>(null);
@@ -244,6 +250,29 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
   // Fetch agents
   const { agents, loading: agentsLoading } = useAgents();
 
+  // Get user role and permissions for desktop configuration
+  const { user } = useAuth();
+  const userRole = user?.role || 'guest';
+  const userPermissions = user?.permissions || [];
+
+  // Get role-based desktop configuration
+  const desktopLayout = RoleBasedDesktopConfig.getDesktopLayout(userRole);
+  const quickActions = RoleBasedDesktopConfig.getQuickActions(userRole);
+  const notificationSettings = RoleBasedDesktopConfig.getNotificationSettings(userRole);
+  const availableThemes = RoleBasedDesktopConfig.getThemeOptions(userRole);
+
+  // Debug logging
+  console.log('🔍 Desktop Debug:', {
+    userRole,
+    user: user?.username,
+    primaryIcons: desktopLayout.primaryIcons.length,
+    secondaryIcons: desktopLayout.secondaryIcons.length,
+    adminIcons: desktopLayout.adminIcons.length,
+    restrictedIcons: desktopLayout.restrictedIcons.length,
+    primaryIconIds: desktopLayout.primaryIcons.map(i => i.id),
+    secondaryIconIds: desktopLayout.secondaryIcons.map(i => i.id)
+  });
+
   // Calculate activity stats
   const activityStats = getActivityStats();
   const trendingItems = getTrendingItems();
@@ -270,7 +299,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
 
     return () => window.removeEventListener('resize', updateViewport);
   }, []);
-  const primaryIcons = DESKTOP_ICONS.filter(icon => icon.category === 'primary');
+  const primaryIcons = desktopLayout.primaryIcons;
 
   // Keyboard navigation
   useEffect(() => {
@@ -338,9 +367,20 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
       icon: iconConfig.icon
     });
 
-    // Open corresponding portal
-    openPortalFn(iconConfig.portalType as any);
-  }, [addRecentItem, openPortalFn]);
+    // Switch to portal view and trigger portal opening
+    setShowPortals(true);
+    
+    // Dispatch custom event to open the specific portal
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('openPortal', { 
+        detail: { 
+          type: iconConfig.portalType,
+          title: iconConfig.title,
+          config: iconConfig
+        } 
+      }));
+    }, 100);
+  }, [addRecentItem]);
 
   // Handle icon double-click (same as single click for now)
   const handleIconDoubleClick = useCallback((iconConfig: DesktopIconConfig) => {
@@ -382,7 +422,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
   const gridConfig = getGridConfig();
 
   // Filter icons by category
-  const secondaryIcons = DESKTOP_ICONS.filter(icon => icon.category === 'secondary');
+  const secondaryIcons = desktopLayout.secondaryIcons;
 
   // Create agent icons
   const agentIcons = agents.map(agent => ({
@@ -408,6 +448,11 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
     description: agent.description || `${agent.type} agent`,
     agentData: agent
   }));
+
+  // Show PortalWorkspace when portals are active
+  if (showPortals) {
+    return <PortalWorkspace />;
+  }
 
   // Loading screen
   if (isLoading) {
@@ -469,7 +514,10 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
             <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-cyan-400 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">🏛️</span>
             </div>
-            <div className="text-white font-medium">Council of Nycea</div>
+            <div>
+              <div className="text-white font-medium">Council of Nycea</div>
+              <div className="text-xs text-white/60">Role: {userRole} | Icons: {Object.values(desktopLayout).flat().length}</div>
+            </div>
           </div>
 
           {/* Minimal Controls */}
@@ -657,6 +705,84 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
                         viewport={viewport}
                       />
                     </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+            {/* Admin Icons Section */}
+            {desktopLayout.adminIcons.length > 0 && (
+              <motion.div
+                className="mt-8"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 1.4, duration: 0.5 }}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-red-400/80 font-medium text-sm flex items-center space-x-2">
+                    <Shield className="w-4 h-4" />
+                    <span>Admin Tools</span>
+                    <span className="text-xs text-red-400/50">({userRole})</span>
+                  </h3>
+                </div>
+
+                <div
+                  className="grid"
+                  style={{
+                    gridTemplateColumns: `repeat(${Math.min(gridConfig.maxIconsPerRow, desktopLayout.adminIcons.length)}, 1fr)`,
+                    gap: gridConfig.gap
+                  }}
+                >
+                  {desktopLayout.adminIcons.map((iconConfig) => (
+                    <DesktopIcon
+                      key={iconConfig.id}
+                      config={iconConfig}
+                      size={gridConfig.iconSize}
+                      isSelected={selectedIconId === iconConfig.id}
+                      isActive={isPortalOpenFn(iconConfig.portalType as any)}
+                      onClick={() => handleIconClick(iconConfig)}
+                      onDoubleClick={() => handleIconDoubleClick(iconConfig)}
+                      viewport={viewport}
+                    />
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+            {/* Restricted/System Icons Section */}
+            {desktopLayout.restrictedIcons.length > 0 && (
+              <motion.div
+                className="mt-8"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 1.6, duration: 0.5 }}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-amber-400/80 font-medium text-sm flex items-center space-x-2">
+                    <Zap className="w-4 h-4" />
+                    <span>System Access</span>
+                    <span className="text-xs text-amber-400/50">(High Privilege)</span>
+                  </h3>
+                </div>
+
+                <div
+                  className="grid"
+                  style={{
+                    gridTemplateColumns: `repeat(${Math.min(gridConfig.maxIconsPerRow, desktopLayout.restrictedIcons.length)}, 1fr)`,
+                    gap: gridConfig.gap
+                  }}
+                >
+                  {desktopLayout.restrictedIcons.map((iconConfig) => (
+                    <DesktopIcon
+                      key={iconConfig.id}
+                      config={iconConfig}
+                      size={gridConfig.iconSize}
+                      isSelected={selectedIconId === iconConfig.id}
+                      isActive={isPortalOpenFn(iconConfig.portalType as any)}
+                      onClick={() => handleIconClick(iconConfig)}
+                      onDoubleClick={() => handleIconDoubleClick(iconConfig)}
+                      viewport={viewport}
+                    />
                   ))}
                 </div>
               </motion.div>

@@ -15,6 +15,13 @@ import { MCPClientService } from './services/mcpClientService.js';
 import { OAuthCapabilityDiscovery } from './services/oauthCapabilityDiscovery.js';
 import { ToolController } from './controllers/toolController.js';
 import { CapabilityController } from './controllers/capabilityController.js';
+import { UnifiedToolRegistry } from './services/unified-tool-registry.js';
+import { ProjectToolIntegrationService } from './services/project-tool-integration.service.js';
+import { EnterpriseToolRegistry } from './services/enterprise-tool-registry.js';
+import { ToolExecutionCoordinator } from './services/tool-execution-coordinator.service.js';
+import { ToolCacheService } from './services/tool-cache.service.js';
+import { ToolRecommendationService } from './services/tool-recommendation.service.js';
+import { SandboxExecutionService } from './services/sandbox-execution.service.js';
 import { createToolRoutes } from './routes/toolRoutes.js';
 import { healthRoutes } from './routes/healthRoutes.js';
 import { logger } from '@uaip/utils';
@@ -35,6 +42,13 @@ class CapabilityRegistryService {
   private oauthCapabilityDiscovery: OAuthCapabilityDiscovery;
   private toolController: ToolController;
   private capabilityController: CapabilityController;
+  private unifiedToolRegistry: UnifiedToolRegistry;
+  private projectToolIntegration: ProjectToolIntegrationService;
+  private enterpriseToolRegistry: EnterpriseToolRegistry;
+  private toolExecutionCoordinator: ToolExecutionCoordinator;
+  private toolCacheService: ToolCacheService;
+  private toolRecommendationService: ToolRecommendationService;
+  private sandboxExecutionService: SandboxExecutionService;
 
   constructor() {
     this.app = express();
@@ -187,6 +201,42 @@ class CapabilityRegistryService {
     this.integrationService.start();
     logger.info('Integration Service initialized - Starting 5-second sync cadence for PostgreSQL ↔ Neo4j ↔ Qdrant');
 
+    // Initialize unified services
+    this.unifiedToolRegistry = new UnifiedToolRegistry();
+    await this.unifiedToolRegistry.initialize();
+    logger.info('Unified Tool Registry initialized');
+
+    this.enterpriseToolRegistry = new EnterpriseToolRegistry({
+      eventBusService: this.eventBusService,
+      databaseService: this.databaseService,
+      serviceName: 'capability-registry'
+    });
+    await this.enterpriseToolRegistry.initialize();
+    logger.info('Enterprise Tool Registry initialized');
+
+    this.projectToolIntegration = new ProjectToolIntegrationService(
+      this.databaseService,
+      this.eventBusService
+    );
+    await this.projectToolIntegration.initialize();
+    logger.info('Project Tool Integration Service initialized');
+
+    // Initialize new tool services
+    this.toolExecutionCoordinator = ToolExecutionCoordinator.getInstance();
+    await this.toolExecutionCoordinator.initialize();
+    logger.info('Tool Execution Coordinator initialized');
+
+    this.toolCacheService = ToolCacheService.getInstance();
+    await this.toolCacheService.warmupCache();
+    logger.info('Tool Cache Service initialized and warmed up');
+
+    this.toolRecommendationService = ToolRecommendationService.getInstance();
+    logger.info('Tool Recommendation Service initialized');
+
+    this.sandboxExecutionService = SandboxExecutionService.getInstance();
+    await this.sandboxExecutionService.initialize();
+    logger.info('Sandbox Execution Service initialized');
+
     // Initialize controllers
     this.toolController = new ToolController(this.toolRegistry, this.toolExecutor);
     this.capabilityController = new CapabilityController(this.databaseService);
@@ -229,6 +279,15 @@ class CapabilityRegistryService {
         (total, provider) => total + provider.capabilities, 0
       );
 
+      // Get cache statistics
+      const cacheStats = await this.toolCacheService?.getCacheStats();
+
+      // Get sandbox metrics
+      const sandboxMetrics = await this.sandboxExecutionService?.getMetrics();
+
+      // Get execution metrics
+      const executionMetrics = await this.toolExecutionCoordinator?.getExecutionMetrics(60);
+
       res.json({
         status: 'healthy',
         service: 'capability-registry',
@@ -258,9 +317,30 @@ class CapabilityRegistryService {
           databases: ['PostgreSQL', 'Neo4j', 'Qdrant'],
           details: integrationStatus?.details || {}
         },
+        cache: {
+          memoryCacheSize: cacheStats?.memoryCacheSize || 0,
+          redisCacheSize: cacheStats?.redisCacheSize || 0,
+          hitRate: cacheStats?.hitRate || 0,
+          missRate: cacheStats?.missRate || 0
+        },
+        sandbox: {
+          activeExecutions: sandboxMetrics?.activeExecutions || 0,
+          totalExecutions: sandboxMetrics?.totalExecutions || 0,
+          averageExecutionTime: sandboxMetrics?.averageExecutionTime || 0,
+          failureRate: sandboxMetrics?.failureRate || 0
+        },
+        execution: {
+          total: executionMetrics?.total || 0,
+          successful: executionMetrics?.successful || 0,
+          failed: executionMetrics?.failed || 0,
+          averageExecutionTime: executionMetrics?.averageExecutionTime || 0
+        },
         features: {
           toolManagement: 'available',
           toolExecution: 'available',
+          toolCaching: 'available',
+          sandboxExecution: 'available',
+          toolRecommendations: neo4jStatus === 'connected' ? 'available' : 'degraded',
           mcpProtocol: mcpStatus?.runningServers > 0 ? 'available' : 'degraded',
           oauthIntegration: oauthStatus.connectedProviders > 0 ? 'available' : 'ready',
           graphRelationships: neo4jStatus === 'connected' ? 'available' : 'degraded',

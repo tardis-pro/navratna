@@ -62,8 +62,9 @@ export const Login: React.FC = () => {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
+    if (e) {
+      e.preventDefault();
+    }
     if (!validateForm()) {
       return;
     }
@@ -87,21 +88,54 @@ export const Login: React.FC = () => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const demoCredentials = [
-    { email: 'admin1@uaip.dev', password: 'admin123!', role: 'Admin' },
-    { email: 'manager1@uaip.dev', password: 'manager123!', role: 'User' },
-    { email: 'analyst1@uaip.dev', password: 'analyst123!', role: 'Demo' },
-    { email: 'developer1@uaip.dev', password: 'dev123!', role: 'Demo' },
-    { email: 'guest1@uaip.dev', password: 'guest123!', role: 'Demo' },
-    { email: 'codemaster@uaip.dev', password: 'viral123!', role: 'Demo' },
-    { email: 'creativeguru@uaip.dev', password: 'create123!', role: 'Demo' },
-    { email: 'battlemaster@uaip.dev', password: 'fight123!', role: 'Demo' },
-    { email: 'socialguru@uaip.dev', password: 'social123!', role: 'Demo' },
-    { email: 'devgenius@uaip.dev', password: 'genius123!', role: 'Demo' }
-  ];
+  const demoCredentials = {
+    'System Accounts': {
+      color: 'red',
+      accounts: [
+        { email: 'admin1@uaip.dev', password: 'admin123!', role: 'Admin', description: 'Full system access' },
+        { email: 'manager1@uaip.dev', password: 'manager123!', role: 'Manager', description: 'Management access' }
+      ]
+    },
+    'Professional Roles': {
+      color: 'blue',
+      accounts: [
+        { email: 'analyst1@uaip.dev', password: 'analyst123!', role: 'Analyst', description: 'Data analysis specialist' },
+        { email: 'developer1@uaip.dev', password: 'dev123!', role: 'Developer', description: 'Software development' }
+      ]
+    },
+    'Specialized Users': {
+      color: 'purple',
+      accounts: [
+        { email: 'codemaster@uaip.dev', password: 'viral123!', role: 'Code Expert', description: 'Programming specialist' },
+        { email: 'creativeguru@uaip.dev', password: 'create123!', role: 'Creative', description: 'Design & content creation' },
+        { email: 'socialguru@uaip.dev', password: 'social123!', role: 'Social Media', description: 'Social media management' }
+      ]
+    },
+    'Guest Access': {
+      color: 'green',
+      accounts: [
+        { email: 'guest1@uaip.dev', password: 'guest123!', role: 'Guest', description: 'Limited demo access' },
+        { email: 'devgenius@uaip.dev', password: 'genius123!', role: 'Demo User', description: 'General demonstration' }
+      ]
+    }
+  };
 
   const fillDemoCredentials = (email: string, password: string) => {
-    setFormData(prev => ({ ...prev, email, password }));
+    console.log('Filling demo credentials:', { email, password });
+    const newFormData = { ...formData, email, password };
+    setFormData(newFormData);
+    // Auto-submit after a brief delay to show the filled credentials
+    setTimeout(async () => {
+      console.log('Auto-submitting with credentials:', { email, password });
+      setIsSubmitting(true);
+      try {
+        await login(email, password, formData.rememberMe);
+      } catch (error) {
+        console.error('Auto-login failed:', error);
+      } finally {
+        setIsSubmitting(false);
+      }
+    }, 300);
   };
 
   return (
@@ -122,19 +156,80 @@ export const Login: React.FC = () => {
 
         {/* Demo Credentials */}
         <div className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-xl rounded-2xl p-4 border border-slate-200/60 dark:border-slate-700/60 shadow-xl">
-          <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Demo Credentials</h3>
-          <div className="space-y-2">
-            {demoCredentials.map((cred, index) => (
-              <button
-                key={index}
-                type="button"
-                onClick={() => fillDemoCredentials(cred.email, cred.password)}
-                className="w-full text-left p-2 rounded-lg bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors text-xs"
-              >
-                <div className="font-medium text-slate-700 dark:text-slate-300">{cred.email}</div>
-                <div className="text-slate-500 dark:text-slate-400">{cred.role} • {cred.password}</div>
-              </button>
-            ))}
+          <div className="flex items-center space-x-2 mb-4">
+            <LightBulbIcon className="w-4 h-4 text-blue-500" />
+            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Quick Demo Login</h3>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Object.entries(demoCredentials).map(([category, { color, accounts }]) => {
+              const colorClasses = {
+                red: {
+                  border: 'border-red-200 dark:border-red-800',
+                  bg: 'bg-red-50 dark:bg-red-900/20',
+                  hover: 'hover:bg-red-100 dark:hover:bg-red-900/30',
+                  text: 'text-red-700 dark:text-red-300',
+                  accent: 'bg-red-500'
+                },
+                blue: {
+                  border: 'border-blue-200 dark:border-blue-800',
+                  bg: 'bg-blue-50 dark:bg-blue-900/20',
+                  hover: 'hover:bg-blue-100 dark:hover:bg-blue-900/30',
+                  text: 'text-blue-700 dark:text-blue-300',
+                  accent: 'bg-blue-500'
+                },
+                purple: {
+                  border: 'border-purple-200 dark:border-purple-800',
+                  bg: 'bg-purple-50 dark:bg-purple-900/20',
+                  hover: 'hover:bg-purple-100 dark:hover:bg-purple-900/30',
+                  text: 'text-purple-700 dark:text-purple-300',
+                  accent: 'bg-purple-500'
+                },
+                green: {
+                  border: 'border-green-200 dark:border-green-800',
+                  bg: 'bg-green-50 dark:bg-green-900/20',
+                  hover: 'hover:bg-green-100 dark:hover:bg-green-900/30',
+                  text: 'text-green-700 dark:text-green-300',
+                  accent: 'bg-green-500'
+                }
+              };
+              
+              const colors = colorClasses[color as keyof typeof colorClasses];
+              
+              return (
+                <div key={category} className={`p-3 rounded-xl border ${colors.border} ${colors.bg}`}>
+                  <div className="flex items-center space-x-2 mb-3">
+                    <div className={`w-2 h-2 rounded-full ${colors.accent}`}></div>
+                    <h4 className={`text-xs font-semibold ${colors.text} uppercase tracking-wide`}>
+                      {category}
+                    </h4>
+                  </div>
+                  <div className="space-y-2">
+                    {accounts.map((cred, index) => (
+                      <button
+                        key={`${category}-${index}`}
+                        type="button"
+                        onClick={() => fillDemoCredentials(cred.email, cred.password)}
+                        className={`w-full text-left p-2 rounded-lg ${colors.bg} ${colors.hover} transition-all duration-200 border ${colors.border} group`}
+                      >
+                        <div className="font-medium text-slate-700 dark:text-slate-300 text-xs group-hover:${colors.text} transition-colors">
+                          {cred.role}
+                        </div>
+                        <div className="text-slate-500 dark:text-slate-400 text-xs">
+                          {cred.description}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          
+          <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-600">
+            <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
+              Click any account above to auto-login with demo credentials
+            </p>
           </div>
         </div>
 

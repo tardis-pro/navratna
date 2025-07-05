@@ -24,10 +24,12 @@ export {
 export { DatabaseService } from './DatabaseService.js';
 export { ToolDatabase } from './toolDatabase.js';
 export { ToolGraphDatabase } from './toolGraphDatabase.js';
+export { BaseRepository } from './base/BaseRepository.js';
 
 // Repositories
 export { LLMProviderRepository } from './repositories/LLMProviderRepository.js';
 export { UserLLMProviderRepository } from './repositories/UserLLMProviderRepository.js';
+export * from './repositories/index.js';
 
 // Entities
 export { LLMProvider } from '../entities/llmProvider.entity.js';

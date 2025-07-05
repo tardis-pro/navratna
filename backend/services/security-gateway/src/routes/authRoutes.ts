@@ -10,6 +10,7 @@ import { authMiddleware, requireAdmin, csrfProtection } from '@uaip/middleware';
 import { validateRequest } from '@uaip/middleware';
 import { AuditEventType } from '@uaip/types';
 import { AuditService } from '../services/auditService.js';
+// import { DefaultUserLLMProviderSeed } from '@uaip/shared-services/database/seeders/DefaultUserLLMProviderSeed.js';
 
 const router: Router = express.Router();
 
@@ -232,6 +233,18 @@ router.post('/login',
         ipAddress: req.ip,
         userAgent: req.headers['user-agent']
       });
+
+      // TODO: Create default LLM providers for new users (fire and forget)
+      // DefaultUserLLMProviderSeed.createDefaultProvidersForUser(
+      //   databaseService.dataSource,
+      //   user.id,
+      //   user.role
+      // ).catch(error => {
+      //   logger.warn('Failed to create default LLM providers for user', { 
+      //     error, 
+      //     userId: user.id 
+      //   });
+      // });
 
       res.json({
         success: true,

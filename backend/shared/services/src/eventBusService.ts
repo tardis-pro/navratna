@@ -36,6 +36,8 @@ interface EventBusConfig {
 }
 
 export class EventBusService {
+  private static instance: EventBusService | null = null;
+  
   private connection: amqp.ChannelModel | null = null;
   private channel: amqp.Channel | null = null;
   private subscribers: Map<string, EventHandler[]> = new Map();
@@ -795,6 +797,19 @@ export class EventBusService {
       // Return a default response structure for compatibility
       return { success: false, error: error.message, data: null };
     }
+  }
+
+  /**
+   * Get singleton instance of EventBusService
+   */
+  public static getInstance(config?: EventBusConfig, logger?: winston.Logger): EventBusService {
+    if (!EventBusService.instance) {
+      if (!config || !logger) {
+        throw new Error('EventBusService requires config and logger on first instantiation');
+      }
+      EventBusService.instance = new EventBusService(config, logger);
+    }
+    return EventBusService.instance;
   }
 }
 

@@ -28,6 +28,9 @@ import { GlobalUpload } from './GlobalUpload';
 import { KnowledgeShortcut } from './KnowledgeShortcut';
 import { AtomicKnowledgeViewer } from './futuristic/portals/AtomicKnowledgeViewer';
 import ChatHistoryManager from './ChatHistoryManager';
+import { RoleBasedDesktopConfig } from './futuristic/desktop/RoleBasedDesktopConfig';
+import { useAuth } from '../contexts/AuthContext';
+import { ProjectManagementPortal } from './futuristic/portals/ProjectManagementPortal';
 
 // Design System Tokens
 const DESIGN_TOKENS = {
@@ -68,6 +71,7 @@ interface Application {
   color: string;
   component: React.ComponentType<any>;
   category: 'core' | 'tools' | 'data' | 'security';
+  minimumRole?: 'guest' | 'user' | 'moderator' | 'admin' | 'system';
 }
 
 interface OpenWindow {
@@ -103,22 +107,40 @@ interface WeatherData {
   }>;
 }
 
-const APPLICATIONS: Application[] = [
-  { id: 'dashboard', title: 'Dashboard', icon: Home, color: 'text-blue-400', component: DashboardPortal, category: 'core' },
-  { id: 'agents', title: 'Agent Manager', icon: Bot, color: 'text-cyan-400', component: AgentManager, category: 'core' },
-  { id: 'chat', title: 'Chat Portal', icon: MessageSquare, color: 'text-green-400', component: ChatPortal, category: 'core' },
-  { id: 'user-chat', title: 'User Chat', icon: Users, color: 'text-emerald-400', component: UserChatPortal, category: 'core' },
-  { id: 'knowledge', title: 'Knowledge Graph', icon: Brain, color: 'text-orange-400', component: KnowledgePortal, category: 'data' },
-  { id: 'artifacts', title: 'Artifacts', icon: Package, color: 'text-purple-400', component: ArtifactsPortal, category: 'data' },
-  { id: 'intelligence', title: 'Intelligence', icon: BarChart3, color: 'text-pink-400', component: IntelligencePanelPortal, category: 'data' },
-  { id: 'settings', title: 'Settings', icon: Settings, color: 'text-gray-400', component: SettingsPortal, category: 'tools' },
-  { id: 'system', title: 'System Config', icon: Target, color: 'text-indigo-400', component: SystemConfigPortal, category: 'tools' },
-  { id: 'tools', title: 'Tool Manager', icon: Wrench, color: 'text-violet-400', component: ToolManagementPortal, category: 'tools' },
-  { id: 'providers', title: 'Providers', icon: Plus, color: 'text-yellow-400', component: ProviderSettingsPortal, category: 'tools' },
-  { id: 'integrations', title: 'Tools & Integrations', icon: Wrench, color: 'text-cyan-400', component: ToolsIntegrationsPortal, category: 'tools' },
-  { id: 'mini-browser', title: 'Mini Browser', icon: Globe, color: 'text-blue-400', component: MiniBrowserPortal, category: 'tools' },
-  { id: 'security', title: 'Security', icon: Shield, color: 'text-red-400', component: SecurityPortal, category: 'security' },
-  { id: 'discussion', title: 'Discussion Hub', icon: TrendingUp, color: 'text-teal-400', component: DiscussionControlsPortal, category: 'security' },
+// Project management portal is now imported
+
+const ALL_APPLICATIONS: Application[] = [
+  // Core applications - available to all users
+  { id: 'dashboard', title: 'Dashboard', icon: Home, color: 'text-blue-400', component: DashboardPortal, category: 'core', minimumRole: 'guest' },
+  { id: 'agents', title: 'Agent Manager', icon: Bot, color: 'text-cyan-400', component: AgentManager, category: 'core', minimumRole: 'user' },
+  { id: 'chat', title: 'Chat Portal', icon: MessageSquare, color: 'text-green-400', component: ChatPortal, category: 'core', minimumRole: 'user' },
+  { id: 'user-chat', title: 'User Chat', icon: Users, color: 'text-emerald-400', component: UserChatPortal, category: 'core', minimumRole: 'user' },
+  
+  // Data & Knowledge
+  { id: 'knowledge', title: 'Knowledge', icon: Brain, color: 'text-orange-400', component: KnowledgePortal, category: 'data', minimumRole: 'user' },
+  { id: 'artifacts', title: 'Artifacts', icon: Package, color: 'text-purple-400', component: ArtifactsPortal, category: 'data', minimumRole: 'user' },
+  { id: 'intelligence', title: 'Intelligence', icon: BarChart3, color: 'text-pink-400', component: IntelligencePanelPortal, category: 'data', minimumRole: 'moderator' },
+  
+  // Project Management - NEW
+  { id: 'projects', title: 'Projects', icon: Folder, color: 'text-green-500', component: ProjectManagementPortal, category: 'core', minimumRole: 'user' },
+  
+  // Tools & Utilities
+  { id: 'search', title: 'Search', icon: Search, color: 'text-cyan-300', component: () => <div className="p-4 text-white">Global Search Portal</div>, category: 'tools', minimumRole: 'user' },
+  { id: 'mini-browser', title: 'Browser', icon: Globe, color: 'text-blue-400', component: MiniBrowserPortal, category: 'tools', minimumRole: 'user' },
+  { id: 'tools', title: 'Tools', icon: Wrench, color: 'text-violet-400', component: ToolManagementPortal, category: 'tools', minimumRole: 'moderator' },
+  { id: 'integrations', title: 'Integrations', icon: Wrench, color: 'text-cyan-400', component: ToolsIntegrationsPortal, category: 'tools', minimumRole: 'moderator' },
+  
+  // Discussion & Communication
+  { id: 'discussion', title: 'Discussions', icon: TrendingUp, color: 'text-teal-400', component: DiscussionControlsPortal, category: 'core', minimumRole: 'moderator' },
+  
+  // Admin & Security
+  { id: 'settings', title: 'Settings', icon: Settings, color: 'text-gray-400', component: SettingsPortal, category: 'security', minimumRole: 'admin' },
+  { id: 'system', title: 'System', icon: Target, color: 'text-indigo-400', component: SystemConfigPortal, category: 'security', minimumRole: 'admin' },
+  { id: 'security', title: 'Security', icon: Shield, color: 'text-red-400', component: SecurityPortal, category: 'security', minimumRole: 'admin' },
+  { id: 'providers', title: 'Providers', icon: Plus, color: 'text-yellow-400', component: ProviderSettingsPortal, category: 'security', minimumRole: 'admin' },
+  
+  // System Level
+  { id: 'terminal', title: 'Terminal', icon: Terminal, color: 'text-red-500', component: () => <div className="p-4 text-white">System Terminal</div>, category: 'security', minimumRole: 'system' },
 ];
 
 const Button: React.FC<{
@@ -155,7 +177,7 @@ const Button: React.FC<{
   );
 };
 
-const DesktopIcon: React.FC<{ app: Application; onDoubleClick: () => void }> = ({ app, onDoubleClick }) => {
+const DesktopIcon: React.FC<{ app: Application; onClick: () => void }> = ({ app, onClick }) => {
   const Icon = app.icon;
   
   return (
@@ -163,7 +185,7 @@ const DesktopIcon: React.FC<{ app: Application; onDoubleClick: () => void }> = (
       className="w-16 h-18 flex flex-col items-center justify-start cursor-pointer group select-none mx-auto"
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
-      onDoubleClick={onDoubleClick}
+      onClick={onClick}
     >
       <div className={`
         w-12 h-12 ${DESIGN_TOKENS.radius.lg} ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.border} border
@@ -552,7 +574,8 @@ const ActionsMenu: React.FC<{
   onClose: () => void;
   onAppSelect: (app: Application) => void;
   applications: Application[];
-}> = ({ isOpen, onClose, onAppSelect, applications }) => {
+  onLogout: () => Promise<void>;
+}> = ({ isOpen, onClose, onAppSelect, applications, onLogout }) => {
   if (!isOpen) return null;
 
   const categories = {
@@ -656,9 +679,16 @@ const ActionsMenu: React.FC<{
               <Command className="w-4 h-4" />
               Close
             </Button>
-            <Button variant="danger" size="sm" onClick={() => { 
-              if (confirm('Sign out?')) console.log('Signing out...'); 
-              onClose(); 
+            <Button variant="danger" size="sm" onClick={async () => { 
+              if (confirm('Sign out?')) {
+                try {
+                  onClose(); 
+                  await onLogout();
+                } catch (error) {
+                  console.error('Logout failed:', error);
+                  window.location.reload();
+                }
+              }
             }}>
               <Power className="w-4 h-4" />
               Sign Out
@@ -766,7 +796,8 @@ const Taskbar: React.FC<{
   onActionsMenuToggle: () => void;
   onCustomizationToggle: () => void;
   time: string;
-}> = ({ windows, onWindowClick, onActionsMenuToggle, onCustomizationToggle, time }) => {
+  userRole: string;
+}> = ({ windows, onWindowClick, onActionsMenuToggle, onCustomizationToggle, time, userRole }) => {
   return (
     <div className={`
       fixed bottom-0 left-0 right-0 h-12 ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} 
@@ -777,7 +808,10 @@ const Taskbar: React.FC<{
         <div className={`w-8 h-8 bg-gradient-to-br ${DESIGN_TOKENS.colors.primary} ${DESIGN_TOKENS.radius.md} flex items-center justify-center`}>
           <span className="text-white font-bold text-sm">🏛️</span>
         </div>
-        <span className="hidden md:inline">Council of Nycea</span>
+        <div className="hidden md:flex flex-col">
+          <span className="text-sm">Council of Nycea</span>
+          <span className="text-xs text-slate-400 capitalize">{userRole}</span>
+        </div>
       </Button>
 
       {/* Window Buttons */}
@@ -821,6 +855,21 @@ export const Desktop: React.FC = () => {
   const [windows, setWindows] = useState<OpenWindow[]>([]);
   const [nextZIndex, setNextZIndex] = useState(100);
   const [activeWindowId, setActiveWindowId] = useState<string | null>(null);
+  
+  // Get user role for filtering
+  const { user, logout } = useAuth();
+  const userRole = user?.role || 'guest';
+  
+  // Role weight for comparison
+  const getRoleWeight = (role: string): number => {
+    const weights = { 'guest': 0, 'user': 1, 'moderator': 2, 'admin': 3, 'system': 4 };
+    return weights[role as keyof typeof weights] || 0;
+  };
+  
+  // Filter applications by user role
+  const APPLICATIONS = ALL_APPLICATIONS.filter(app => 
+    !app.minimumRole || getRoleWeight(userRole) >= getRoleWeight(app.minimumRole)
+  );
   const [showActionsMenu, setShowActionsMenu] = useState(false);
   const [showShortcutBar, setShowShortcutBar] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
@@ -1048,7 +1097,7 @@ export const Desktop: React.FC = () => {
             <DesktopIcon
               key={app.id}
               app={app}
-              onDoubleClick={() => openApplication(app)}
+              onClick={() => openApplication(app)}
             />
           ))}
         </div>
@@ -1090,6 +1139,7 @@ export const Desktop: React.FC = () => {
           onClose={() => setShowActionsMenu(false)}
           onAppSelect={openApplication}
           applications={APPLICATIONS}
+          onLogout={logout}
         />
       </AnimatePresence>
 
@@ -1185,6 +1235,7 @@ export const Desktop: React.FC = () => {
         onActionsMenuToggle={() => setShowActionsMenu(!showActionsMenu)}
         onCustomizationToggle={() => setShowCustomization(!showCustomization)}
         time={time}
+        userRole={userRole}
       />
     </div>
   );

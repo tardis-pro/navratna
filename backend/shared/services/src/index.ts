@@ -76,6 +76,18 @@ export {
 export { ToolManagementService } from './tool-management.service.js';
 export { ToolExecutionService } from './tool-execution.service.js';
 export { OperationManagementService } from './operation-management.service.js';
+export { ProjectManagementService } from './project-management.service.js';
+export { ProjectLifecycleService } from './project-lifecycle.service.js';
+
+// Project Management Entities
+export { 
+  Project, 
+  ProjectTask, 
+  ProjectToolUsage, 
+  ProjectAgent, 
+  ProjectWorkflow,
+  TaskExecution 
+} from './entities/Project.js';
 
 // TEI Embedding Services - NEW
 export { TEIEmbeddingService, RerankResult, TEIHealthStatus } from './knowledge-graph/tei-embedding.service.js';

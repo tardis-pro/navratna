@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 import './App.css';
 import './styles/agent-manager.css';
-import { CleanWorkspace } from './components/futuristic/CleanWorkspace';
+import { DesktopWorkspace } from './components/futuristic/DesktopWorkspace';
 
 type Mode = 'discussion' | 'uaip' | 'settings' | 'futuristic';
 
@@ -188,7 +188,7 @@ function App() {
                     ) : currentMode === 'futuristic' ? (
                       <div className="h-full">
                         <ErrorBoundary>
-                          <CleanWorkspace />
+                          <DesktopWorkspace />
                         </ErrorBoundary>
                       </div>
                     ) : (

@@ -1,6 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import { createLogger } from '@uaip/utils';
-import { validateJWTToken } from '@uaip/middleware/authMiddleware';
+import { validateJWTToken } from '@uaip/middleware';
 
 interface UserMessage {
   id: string;

@@ -7,7 +7,8 @@ export {
   validateJWTConfiguration,
   validateJWTSetup,
   diagnoseJWTSignatureError,
-  testJWTToken
+  testJWTToken,
+  validateJWTToken
 } from './authMiddleware.js';
 
 // Request validation middleware exports  

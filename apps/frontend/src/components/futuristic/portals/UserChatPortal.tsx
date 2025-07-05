@@ -93,32 +93,126 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
 
-  // Mock contacts for demo - in real implementation, fetch from API
+  // Load real contacts and online users from API
   useEffect(() => {
-    setContacts([
-      {
-        id: 'user1',
-        username: 'john_doe',
-        email: 'john@example.com',
-        displayName: 'John Doe',
-        status: 'online'
-      },
-      {
-        id: 'user2',
-        username: 'jane_smith',
-        email: 'jane@example.com',
-        displayName: 'Jane Smith',
-        status: 'busy'
-      },
-      {
-        id: 'user3',
-        username: 'mike_wilson',
-        email: 'mike@example.com',
-        displayName: 'Mike Wilson',
-        status: 'away'
+    if (!isAuthenticated || !user) return;
+
+    const loadContacts = async () => {
+      try {
+        // Load user's contacts
+        const contactsResponse = await fetch('/api/contacts', {
+          headers: {
+            'Authorization': `Bearer ${user.token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (contactsResponse.ok) {
+          const contactsData = await contactsResponse.json();
+          const userContacts = contactsData.data.contacts.map((contact: any) => ({
+            id: contact.user.id,
+            username: contact.user.email.split('@')[0],
+            email: contact.user.email,
+            displayName: contact.user.displayName,
+            status: 'offline' as const,
+            lastSeen: new Date(contact.acceptedAt)
+          }));
+
+          // Load online users to update status
+          const onlineResponse = await fetch('/api/presence/online', {
+            headers: {
+              'Authorization': `Bearer ${user.token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          if (onlineResponse.ok) {
+            const onlineData = await onlineResponse.json();
+            const onlineUserIds = new Set(onlineData.data.users.map((u: any) => u.user.id));
+
+            // Update contact status based on online users
+            const updatedContacts = userContacts.map((contact: UserContact) => ({
+              ...contact,
+              status: onlineUserIds.has(contact.id) ? 'online' as const : 'offline' as const
+            }));
+
+            setContacts(updatedContacts);
+          } else {
+            setContacts(userContacts);
+          }
+
+          // If no contacts, load some public users
+          if (userContacts.length === 0) {
+            const publicResponse = await fetch('/api/users/public?limit=10', {
+              headers: {
+                'Authorization': `Bearer ${user.token}`,
+                'Content-Type': 'application/json'
+              }
+            });
+
+            if (publicResponse.ok) {
+              const publicData = await publicResponse.json();
+              const publicUsers = publicData.data.users.map((user: any) => ({
+                id: user.id,
+                username: user.email.split('@')[0],
+                email: user.email,
+                displayName: user.displayName,
+                status: 'offline' as const,
+                lastSeen: new Date()
+              }));
+
+              setContacts(publicUsers);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error loading contacts:', error);
+        // Fallback to empty contacts
+        setContacts([]);
       }
-    ]);
-  }, []);
+    };
+
+    loadContacts();
+  }, [isAuthenticated, user]);
+
+  // Load conversation history when chat is opened
+  useEffect(() => {
+    if (!activeChat || !user) return;
+
+    const loadConversation = async () => {
+      try {
+        const response = await fetch(`/api/conversations/${activeChat}?limit=50`, {
+          headers: {
+            'Authorization': `Bearer ${user.token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const chatMessages = data.data.messages.map((msg: any) => ({
+            id: msg.id,
+            senderId: msg.senderId,
+            receiverId: msg.receiverId,
+            content: msg.content,
+            timestamp: new Date(msg.createdAt),
+            type: msg.type || 'text',
+            status: msg.status || 'delivered'
+          }));
+
+          setMessages(prev => ({
+            ...prev,
+            [activeChat]: chatMessages
+          }));
+        }
+      } catch (error) {
+        console.error('Error loading conversation:', error);
+      }
+    };
+
+    loadConversation();
+  }, [activeChat, user]);
+
 
   // WebSocket Event Handling
   useEffect(() => {
@@ -333,31 +427,88 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
   };
 
   // Send Message
-  const sendMessage = () => {
+  const sendMessage = async () => {
     if (!currentMessage.trim() || !activeChat || !user) return;
 
-    const message: UserMessage = {
+    const messageContent = currentMessage.trim();
+    const tempMessage: UserMessage = {
       id: `msg_${Date.now()}`,
       senderId: user.id,
       receiverId: activeChat,
-      content: currentMessage.trim(),
+      content: messageContent,
       timestamp: new Date(),
       type: 'text',
       status: 'sending'
     };
 
+    // Add temp message to UI immediately for better UX
     setMessages(prev => ({
       ...prev,
-      [activeChat]: [...(prev[activeChat] || []), message]
+      [activeChat]: [...(prev[activeChat] || []), tempMessage]
     }));
 
-    sendWebSocketMessage({
-      type: 'user_message',
-      targetUser: activeChat,
-      data: message
-    });
-
     setCurrentMessage('');
+
+    try {
+      // Send message via API
+      const response = await fetch('/api/messages', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${user.token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          receiverId: activeChat,
+          content: messageContent,
+          type: 'text'
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const actualMessage: UserMessage = {
+          id: data.data.id,
+          senderId: data.data.senderId,
+          receiverId: data.data.receiverId,
+          content: data.data.content,
+          timestamp: new Date(data.data.createdAt),
+          type: data.data.type || 'text',
+          status: 'sent'
+        };
+
+        // Replace temp message with actual message
+        setMessages(prev => ({
+          ...prev,
+          [activeChat]: prev[activeChat]?.map(msg => 
+            msg.id === tempMessage.id ? actualMessage : msg
+          ) || [actualMessage]
+        }));
+
+        // Also send via WebSocket for real-time delivery
+        sendWebSocketMessage({
+          type: 'user_message',
+          targetUser: activeChat,
+          data: actualMessage
+        });
+      } else {
+        // Update temp message to show error
+        setMessages(prev => ({
+          ...prev,
+          [activeChat]: prev[activeChat]?.map(msg => 
+            msg.id === tempMessage.id ? { ...msg, status: 'failed' as const } : msg
+          ) || []
+        }));
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      // Update temp message to show error
+      setMessages(prev => ({
+        ...prev,
+        [activeChat]: prev[activeChat]?.map(msg => 
+          msg.id === tempMessage.id ? { ...msg, status: 'failed' as const } : msg
+        ) || []
+      }));
+    }
   };
 
   // Filter contacts based on search

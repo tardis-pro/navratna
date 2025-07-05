@@ -60,7 +60,7 @@ export class CreateToolSystem1703006000000 implements MigrationInterface {
           {
             name: 'security_level',
             type: 'enum',
-            enum: ['safe', 'moderate', 'restricted', 'dangerous'],
+            enum: ['low', 'medium', 'high', 'critical'],
           },
           {
             name: 'cost_estimate',
