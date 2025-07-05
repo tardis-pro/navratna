@@ -7,6 +7,7 @@ import {
   Download, Share2, MessageSquare, FileText, Code, Image, Database
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
+import { ProjectOnboardingFlow } from './ProjectOnboardingFlow';
 
 interface Project {
   id: string;
@@ -329,6 +330,7 @@ export const ProjectManagementPortal: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showOnboardingFlow, setShowOnboardingFlow] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<Project['status'] | 'all'>('all');
@@ -511,12 +513,22 @@ export const ProjectManagementPortal: React.FC = () => {
           </div>
           Projects
         </h1>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl hover:from-blue-700 hover:to-cyan-700 transition-all duration-200 shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 hover:scale-105"
-        >
-          <Plus className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-800/50 text-slate-300 rounded-xl hover:bg-slate-700/50 transition-all duration-200 border border-slate-700/50"
+            title="Quick Create"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setShowOnboardingFlow(true)}
+            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl hover:from-blue-700 hover:to-cyan-700 transition-all duration-200 shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 hover:scale-105"
+          >
+            <Plus className="w-4 h-4" />
+            New Project
+          </button>
+        </div>
       </div>
       
       <div className="flex items-center gap-4 mb-8">
@@ -572,12 +584,20 @@ export const ProjectManagementPortal: React.FC = () => {
             {searchTerm || statusFilter !== 'all' ? 'Try adjusting your search or filters' : 'Create your first project to get started'}
           </p>
           {!searchTerm && statusFilter === 'all' && (
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl hover:from-blue-700 hover:to-cyan-700 transition-all duration-200 shadow-lg shadow-blue-500/20 font-medium"
-            >
-              Create Project
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="px-4 py-2 bg-slate-800/50 text-slate-300 rounded-xl hover:bg-slate-700/50 transition-all duration-200 border border-slate-700/50 font-medium"
+              >
+                Quick Create
+              </button>
+              <button
+                onClick={() => setShowOnboardingFlow(true)}
+                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl hover:from-blue-700 hover:to-cyan-700 transition-all duration-200 shadow-lg shadow-blue-500/20 font-medium"
+              >
+                Create Project with Setup
+              </button>
+            </div>
           )}
         </div>
       )}
@@ -590,6 +610,12 @@ export const ProjectManagementPortal: React.FC = () => {
         }}
         onSave={editingProject ? handleEditProject : handleCreateProject}
         editProject={editingProject}
+      />
+      
+      <ProjectOnboardingFlow
+        isOpen={showOnboardingFlow}
+        onClose={() => setShowOnboardingFlow(false)}
+        onProjectCreate={handleCreateProject}
       />
     </div>
   );

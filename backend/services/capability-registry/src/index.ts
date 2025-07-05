@@ -22,6 +22,7 @@ import { ToolExecutionCoordinator } from './services/tool-execution-coordinator.
 import { ToolCacheService } from './services/tool-cache.service.js';
 import { ToolRecommendationService } from './services/tool-recommendation.service.js';
 import { SandboxExecutionService } from './services/sandbox-execution.service.js';
+import { ToolAdapterService } from './services/tool-adapter.service.js';
 import { createToolRoutes } from './routes/toolRoutes.js';
 import { healthRoutes } from './routes/healthRoutes.js';
 import { logger } from '@uaip/utils';
@@ -49,6 +50,7 @@ class CapabilityRegistryService {
   private toolCacheService: ToolCacheService;
   private toolRecommendationService: ToolRecommendationService;
   private sandboxExecutionService: SandboxExecutionService;
+  private toolAdapterService: ToolAdapterService;
 
   constructor() {
     this.app = express();
@@ -236,6 +238,9 @@ class CapabilityRegistryService {
     this.sandboxExecutionService = SandboxExecutionService.getInstance();
     await this.sandboxExecutionService.initialize();
     logger.info('Sandbox Execution Service initialized');
+
+    this.toolAdapterService = new ToolAdapterService(config);
+    logger.info('Tool Adapter Service initialized (GitHub, Jira, Confluence, Slack)');
 
     // Initialize controllers
     this.toolController = new ToolController(this.toolRegistry, this.toolExecutor);
