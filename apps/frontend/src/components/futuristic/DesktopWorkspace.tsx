@@ -35,6 +35,8 @@ import { RoleBasedDesktopConfig } from './desktop/RoleBasedDesktopConfig';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { PortalWorkspace } from './PortalWorkspace';
+import { MapWallpaper } from './desktop/MapWallpaper';
+import { LocationService, LocationData } from '@/services/LocationService';
 
 interface ViewportSize {
   width: number;
@@ -226,6 +228,9 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
   const [selectedIconId, setSelectedIconId] = useState<string | null>(null);
   const [showAllActions, setShowAllActions] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  
+  // Map wallpaper state
+  const [userLocation, setUserLocation] = useState<LocationData | null>(null);
 
   const {
     iconPositions,
@@ -279,6 +284,14 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
 
   // Get current theme
   const currentTheme = resolveTheme(preferences.theme);
+
+  // Load user location on mount
+  useEffect(() => {
+    const savedLocation = LocationService.loadLocation();
+    if (savedLocation) {
+      setUserLocation(savedLocation);
+    }
+  }, []);
 
   // Update viewport on resize
   useEffect(() => {
@@ -490,8 +503,21 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
     >
+      {/* Map Wallpaper Background */}
+      {preferences.enableMapWallpaper !== false && userLocation && (
+        <MapWallpaper
+          userLocation={{
+            lat: userLocation.latitude,
+            lng: userLocation.longitude
+          }}
+          theme={preferences.theme === 'light' ? 'light' : 'dark'}
+          interactive={false}
+          className="opacity-20"
+        />
+      )}
+
       {/* AI Grid Background */}
-      <div className="absolute inset-0 opacity-[0.02]">
+      <div className="absolute inset-0 opacity-[0.02] z-[1]">
         <div className="absolute inset-0" style={{
           backgroundImage: `
             linear-gradient(rgba(59, 130, 246, 0.1) 1px, transparent 1px),

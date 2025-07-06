@@ -136,6 +136,13 @@ export class DatabaseService {
   public async getToolGraphDatabase(): Promise<ToolGraphDatabase> {
     if (!this._toolGraphDatabase) {
       this._toolGraphDatabase = new ToolGraphDatabase();
+      try {
+        await this._toolGraphDatabase.verifyConnectivity();
+        logger.info('Neo4j connection verified for ToolGraphDatabase');
+      } catch (error) {
+        logger.warn('Neo4j connection failed for ToolGraphDatabase:', error);
+        // Don't throw - let the service continue without Neo4j functionality
+      }
     }
     return this._toolGraphDatabase;
   }

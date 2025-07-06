@@ -13,7 +13,7 @@ class AgentIntelligenceService extends BaseService {
       port: 3001,
       version: '1.0.0',
       enableWebSocket: false,
-      enableNeo4j: false,
+      enableNeo4j: true,
       enableEnterpriseEventBus: true
     });
   }

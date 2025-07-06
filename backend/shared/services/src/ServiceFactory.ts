@@ -129,7 +129,15 @@ export class ServiceFactory {
 
   async getToolGraphDatabase(): Promise<ToolGraphDatabase> {
     return this.getOrCreateService('tool-graph-db', async () => {
-      return new ToolGraphDatabase();
+      const toolGraphDb = new ToolGraphDatabase();
+      try {
+        await toolGraphDb.verifyConnectivity();
+        this.logger.info('Neo4j connection verified for ToolGraphDatabase');
+      } catch (error) {
+        this.logger.warn('Neo4j connection failed for ToolGraphDatabase:', error);
+        // Don't throw - let the service continue without Neo4j functionality
+      }
+      return toolGraphDb;
     });
   }
 

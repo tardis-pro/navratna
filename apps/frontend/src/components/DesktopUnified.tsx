@@ -31,6 +31,8 @@ import ChatHistoryManager from './ChatHistoryManager';
 import { RoleBasedDesktopConfig } from './futuristic/desktop/RoleBasedDesktopConfig';
 import { useAuth } from '../contexts/AuthContext';
 import { ProjectManagementPortal } from './futuristic/portals/ProjectManagementPortal';
+import { MapWallpaper } from './futuristic/desktop/MapWallpaper';
+import { LocationService, LocationData } from '../services/LocationService';
 
 // Design System Tokens
 const DESIGN_TOKENS = {
@@ -462,9 +464,13 @@ const CustomizationPanel: React.FC<{
   wallpaper: string;
   wallpaperPresets: Array<{ name: string; url: string }>;
   onWallpaperChange: (url: string) => void;
+  useMapWallpaper: boolean;
+  onMapWallpaperToggle: (enabled: boolean) => void;
+  userLocation: LocationData | null;
+  onLocationRequest: () => void;
   onCreateNote: () => void;
   onClose: () => void;
-}> = ({ wallpaper, wallpaperPresets, onWallpaperChange, onCreateNote, onClose }) => {
+}> = ({ wallpaper, wallpaperPresets, onWallpaperChange, useMapWallpaper, onMapWallpaperToggle, userLocation, onLocationRequest, onCreateNote, onClose }) => {
   const [customUrl, setCustomUrl] = useState('');
 
   return (
@@ -537,6 +543,75 @@ const CustomizationPanel: React.FC<{
                 <Image className="w-4 h-4" />
                 Apply
               </Button>
+            </div>
+          </div>
+
+          {/* Map Wallpaper Section */}
+          <div className={`${DESIGN_TOKENS.padding.lg} ${DESIGN_TOKENS.colors.border} border-b`}>
+            <h3 className={`text-lg font-semibold ${DESIGN_TOKENS.colors.text} mb-4 flex items-center gap-2`}>
+              <Globe className="w-5 h-5 text-blue-400" />
+              Map Wallpaper
+            </h3>
+            
+            <div className="space-y-4">
+              {/* Map Toggle */}
+              <div className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg border border-slate-700/30">
+                <div>
+                  <p className="text-white font-medium">Enable Map Background</p>
+                  <p className="text-slate-400 text-sm">Use an interactive map as your desktop wallpaper</p>
+                </div>
+                <button
+                  onClick={() => onMapWallpaperToggle(!useMapWallpaper)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    useMapWallpaper ? 'bg-blue-600' : 'bg-slate-600'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      useMapWallpaper ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Location Status */}
+              {useMapWallpaper && (
+                <div className="space-y-3">
+                  {userLocation ? (
+                    <div className="p-3 bg-green-500/10 rounded-lg border border-green-500/20">
+                      <div className="flex items-center gap-2 mb-2">
+                        <MapPin className="w-4 h-4 text-green-400" />
+                        <span className="text-green-300 font-medium">Location Active</span>
+                      </div>
+                      <p className="text-green-400/80 text-sm">
+                        {userLocation.city && userLocation.country 
+                          ? `${userLocation.city}, ${userLocation.country}`
+                          : `Coordinates: ${userLocation.latitude.toFixed(2)}, ${userLocation.longitude.toFixed(2)}`
+                        }
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-orange-500/10 rounded-lg border border-orange-500/20">
+                      <div className="flex items-center gap-2 mb-2">
+                        <MapPin className="w-4 h-4 text-orange-400" />
+                        <span className="text-orange-300 font-medium">Location Required</span>
+                      </div>
+                      <p className="text-orange-400/80 text-sm mb-3">
+                        Allow location access to personalize your map wallpaper
+                      </p>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={onLocationRequest}
+                        className="w-full"
+                      >
+                        <MapPin className="w-4 h-4 mr-2" />
+                        Enable Location
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -893,6 +968,10 @@ export const Desktop: React.FC = () => {
   const [showChatHistory, setShowChatHistory] = useState(false);
   const [showKnowledgeShortcut, setShowKnowledgeShortcut] = useState(false);
   const [selectedKnowledgeItem, setSelectedKnowledgeItem] = useState<any>(null);
+  
+  // Map wallpaper state
+  const [useMapWallpaper, setUseMapWallpaper] = useState(false);
+  const [userLocation, setUserLocation] = useState<LocationData | null>(null);
 
   // Update time
   useEffect(() => {
@@ -909,16 +988,21 @@ export const Desktop: React.FC = () => {
   useEffect(() => {
     const savedWallpaper = localStorage.getItem('desktop-wallpaper');
     const savedNotes = localStorage.getItem('desktop-notes');
+    const savedMapWallpaper = localStorage.getItem('desktop-use-map');
+    const savedLocation = LocationService.loadLocation();
     
     if (savedWallpaper) setWallpaper(savedWallpaper);
     if (savedNotes) setNotes(JSON.parse(savedNotes));
+    if (savedMapWallpaper === 'true') setUseMapWallpaper(true);
+    if (savedLocation) setUserLocation(savedLocation);
   }, []);
 
   // Save customizations
   useEffect(() => {
     localStorage.setItem('desktop-wallpaper', wallpaper);
     localStorage.setItem('desktop-notes', JSON.stringify(notes));
-  }, [wallpaper, notes]);
+    localStorage.setItem('desktop-use-map', useMapWallpaper.toString());
+  }, [wallpaper, notes, useMapWallpaper]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -972,6 +1056,23 @@ export const Desktop: React.FC = () => {
 
   const deleteNote = (id: string) => {
     setNotes(prev => prev.filter(note => note.id !== id));
+  };
+
+  // Handle location request
+  const handleLocationRequest = async () => {
+    try {
+      const location = await LocationService.requestLocation();
+      if (location) {
+        // Try to get city/country info
+        const geocode = await LocationService.reverseGeocode(location.latitude, location.longitude);
+        const enhancedLocation = { ...location, ...geocode };
+        
+        setUserLocation(enhancedLocation);
+        LocationService.saveLocation(enhancedLocation);
+      }
+    } catch (error) {
+      console.error('Location request failed:', error);
+    }
   };
 
   // Handle knowledge creation from global upload
@@ -1073,11 +1174,26 @@ export const Desktop: React.FC = () => {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      {/* Desktop Wallpaper */}
-      <div 
-        className="desktop-wallpaper" 
-        style={{ backgroundImage: `url(${wallpaper})` }}
-      />
+      {/* Map Wallpaper */}
+      {useMapWallpaper && userLocation && (
+        <MapWallpaper
+          userLocation={{
+            lat: userLocation.latitude,
+            lng: userLocation.longitude
+          }}
+          theme="dark"
+          interactive={false}
+          className="opacity-30"
+        />
+      )}
+      
+      {/* Desktop Wallpaper (only if not using map) */}
+      {!useMapWallpaper && (
+        <div 
+          className="desktop-wallpaper" 
+          style={{ backgroundImage: `url(${wallpaper})` }}
+        />
+      )}
 
       {/* Shortcut Bar */}
       <AnimatePresence>
@@ -1150,6 +1266,10 @@ export const Desktop: React.FC = () => {
             wallpaper={wallpaper}
             wallpaperPresets={wallpaperPresets}
             onWallpaperChange={setWallpaper}
+            useMapWallpaper={useMapWallpaper}
+            onMapWallpaperToggle={setUseMapWallpaper}
+            userLocation={userLocation}
+            onLocationRequest={handleLocationRequest}
             onCreateNote={createNote}
             onClose={() => setShowCustomization(false)}
           />

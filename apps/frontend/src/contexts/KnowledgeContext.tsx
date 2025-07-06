@@ -167,6 +167,7 @@ export const KnowledgeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     dispatch({ type: 'SET_UPLOAD_PROGRESS', payload: 0 });
 
     try {
+      // Use the unified knowledge API
       const response = await uaipAPI.knowledge.uploadKnowledge(items);
       
       // Add uploaded items to state
@@ -251,9 +252,9 @@ export const KnowledgeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     dispatch({ type: 'SET_ERROR', payload: null });
 
     try {
-      const relatedItems = await uaipAPI.knowledge.getRelatedKnowledge(itemId);
-      dispatch({ type: 'ADD_KNOWLEDGE_ITEMS', payload: relatedItems });
-      return relatedItems;
+      const items = await uaipAPI.knowledge.getRelatedKnowledge(itemId);
+      dispatch({ type: 'ADD_KNOWLEDGE_ITEMS', payload: items });
+      return items;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to get related knowledge';
       dispatch({ type: 'SET_ERROR', payload: errorMessage });
@@ -286,6 +287,8 @@ export const KnowledgeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     try {
       const stats = await uaipAPI.knowledge.getKnowledgeStats();
+      
+      // Stats are already in the expected format from the unified API
       dispatch({ type: 'SET_STATS', payload: stats });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to refresh stats';

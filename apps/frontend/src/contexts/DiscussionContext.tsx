@@ -147,21 +147,23 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
             : `Automated discussion on ${discussionTopic}`,
           topic: discussionTopic,
           createdBy: user.id, // Use actual logged-in user ID (guaranteed to exist due to check above)
-          initialParticipants: selectedAgentIds.map(agentId => ({
-            agentId,
-            role: 'participant'
-          })),
+          initialParticipants: selectedAgentIds,
           settings: {
-            maxParticipants: 10,
-            allowAnonymous: false,
-            autoModeration: true,
-            requireApproval: true,
-            allowInvites: true,
-            allowFileSharing: true,
-            integrations: {
-              webhooks: [],
-              externalTools: []
-            }
+            maxTurns: maxRounds,
+            maxDuration: 3600, // 1 hour default
+            strategyConfig: {
+              type: 'round_robin' as const,
+              skipInactive: true,
+              maxSkips: 1
+            },
+            metadata: enhancedContext ? {
+              discussionPurpose: enhancedContext.purpose,
+              targetArtifact: enhancedContext.targetArtifact,
+              contextType: enhancedContext.contextType,
+              originalContext: enhancedContext.originalContext,
+              additionalContext: enhancedContext.additionalContext,
+              expectedOutcome: enhancedContext.expectedOutcome
+            } : undefined
           },
           turnStrategy: {
             strategy: TurnStrategy.ROUND_ROBIN,
@@ -170,15 +172,7 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
               skipInactive: true,
               maxSkips: 1
             }
-          },
-          metadata: enhancedContext ? {
-            discussionPurpose: enhancedContext.purpose,
-            targetArtifact: enhancedContext.targetArtifact,
-            contextType: enhancedContext.contextType,
-            originalContext: enhancedContext.originalContext,
-            additionalContext: enhancedContext.additionalContext,
-            expectedOutcome: enhancedContext.expectedOutcome
-          } : undefined
+          }
         };
         
         console.log('Creating discussion with request:', {
@@ -209,22 +203,16 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
       // Set discussion as active
       setIsActive(true);
       
-      // Trigger agent participation for each selected agent
+      // Add participants to the discussion
       for (const agentId of selectedAgentIds) {
         try {
-          // Call the agent intelligence service to participate using authenticated API
-          const response = await uaipAPI.client.agents.participate(agentId, {
-            discussionId: currentDiscussionId,
-            comment: `Joining discussion about ${discussionTopic}`
+          await uaipAPI.discussions.addParticipant(currentDiscussionId, {
+            agentId,
+            role: 'participant'
           });
-          
-          if (response.success) {
-            console.log(`Agent ${agentId} triggered to participate in discussion`);
-          } else {
-            console.error(`Failed to trigger agent ${agentId} participation:`, response.error?.message);
-          }
+          console.log(`Agent ${agentId} added to discussion`);
         } catch (error) {
-          console.error(`Failed to trigger agent ${agentId} participation:`, error);
+          console.error(`Failed to add agent ${agentId} to discussion:`, error);
         }
       }
 

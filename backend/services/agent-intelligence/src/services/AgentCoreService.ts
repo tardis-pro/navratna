@@ -4,11 +4,18 @@ import { Agent, AgentStatus, AgentRole, SecurityLevel } from '@uaip/types';
 
 export class AgentCoreService {
   private agentService: AgentService;
-  private eventBusService: EventBusService;
+  private eventBusService: EventBusService | null = null;
 
   constructor() {
     this.agentService = AgentService.getInstance();
-    this.eventBusService = EventBusService.getInstance();
+    // Don't initialize EventBusService in constructor - use lazy initialization
+  }
+
+  private getEventBusService(): EventBusService {
+    if (!this.eventBusService) {
+      this.eventBusService = EventBusService.getInstance();
+    }
+    return this.eventBusService;
   }
 
   async createAgent(agentData: {
@@ -35,7 +42,7 @@ export class AgentCoreService {
       });
 
       // Emit agent created event
-      await this.eventBusService.publish('agent.created', {
+      await this.getEventBusService().publish('agent.created', {
         agentId: agent.id,
         userId,
         agentData: agent,
@@ -60,7 +67,7 @@ export class AgentCoreService {
       }
 
       // Emit agent updated event
-      await this.eventBusService.publish('agent.updated', {
+      await this.getEventBusService().publish('agent.updated', {
         agentId,
         userId,
         updates,
@@ -96,7 +103,7 @@ export class AgentCoreService {
       }
 
       // Emit agent deleted event
-      await this.eventBusService.publish('agent.deleted', {
+      await this.getEventBusService().publish('agent.deleted', {
         agentId,
         userId,
         agent,
@@ -173,7 +180,7 @@ export class AgentCoreService {
       await this.agentService.assignCapabilityToAgent(agentId, capabilityId);
 
       // Emit capability assigned event
-      await this.eventBusService.publish('agent.capability.assigned', {
+      await this.getEventBusService().publish('agent.capability.assigned', {
         agentId,
         capabilityId,
         userId,
@@ -192,7 +199,7 @@ export class AgentCoreService {
       await this.agentService.removeCapabilityFromAgent(agentId, capabilityId);
 
       // Emit capability removed event
-      await this.eventBusService.publish('agent.capability.removed', {
+      await this.getEventBusService().publish('agent.capability.removed', {
         agentId,
         capabilityId,
         userId,

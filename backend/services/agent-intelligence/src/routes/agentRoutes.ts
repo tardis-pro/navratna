@@ -39,16 +39,33 @@ let agentDiscussion: AgentDiscussionService | null = null;
 
 function getServices() {
   if (!agentService) {
-    agentService = AgentService.getInstance();
-    toolService = ToolService.getInstance();
-    agentCore = new AgentCoreService();
-    agentContext = new AgentContextService();
-    agentPlanning = new AgentPlanningService();
-    agentLearning = new AgentLearningService();
-    agentDiscussion = new AgentDiscussionService();
+    try {
+      agentService = AgentService.getInstance();
+      toolService = ToolService.getInstance();
+      agentCore = new AgentCoreService();
+      agentContext = new AgentContextService();
+      agentPlanning = new AgentPlanningService();
+      agentLearning = new AgentLearningService();
+      agentDiscussion = new AgentDiscussionService();
+    } catch (error) {
+      logger.warn('Services not yet initialized, retrying...', error);
+      return null;
+    }
   }
   return { agentService, toolService, agentCore, agentContext, agentPlanning, agentLearning, agentDiscussion };
 }
+
+// Middleware to ensure services are ready
+const ensureServicesReady = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const services = getServices();
+  if (!services) {
+    return res.status(503).json({ 
+      error: 'Service temporarily unavailable', 
+      message: 'Services are still initializing' 
+    });
+  }
+  next();
+};
 
 // Create router
 export function createAgentRoutes(): Router {
@@ -62,6 +79,7 @@ export function createAgentRoutes(): Router {
   // List all agents
   router.get('/',
     authMiddleware,
+    ensureServicesReady,
     async (req, res, next) => {
       try {
         const { agentCore } = getServices();

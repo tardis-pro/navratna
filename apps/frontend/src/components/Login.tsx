@@ -8,6 +8,10 @@ import {
   LightBulbIcon,
   SparklesIcon
 } from '@heroicons/react/24/outline';
+import { Globe, MapPin } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { LocationService, LocationData } from '../services/LocationService';
+import { MapWallpaper } from './futuristic/desktop/MapWallpaper';
 
 interface LoginFormData {
   email: string;
@@ -31,13 +35,28 @@ export const Login: React.FC = () => {
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Location-related state
+  const [locationConsent, setLocationConsent] = useState<boolean | null>(null);
+  const [userLocation, setUserLocation] = useState<LocationData | null>(null);
+  const [isRequestingLocation, setIsRequestingLocation] = useState(false);
+
+  // Initialize location on component mount
+  useEffect(() => {
+    const savedLocation = LocationService.loadLocation();
+    if (savedLocation) {
+      setUserLocation(savedLocation);
+      setLocationConsent(true);
+    } else if (LocationService.hasLocationConsent()) {
+      setLocationConsent(true);
+    }
+  }, []);
 
   // Clear errors when form data changes
   useEffect(() => {
     if (Object.keys(formErrors).length > 0) {
       setFormErrors({});
     }
-    
   }, [formData, formErrors, error]);
 
   const validateForm = (): boolean => {
@@ -59,6 +78,29 @@ export const Login: React.FC = () => {
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
+  };
+
+  const handleLocationRequest = async () => {
+    setIsRequestingLocation(true);
+    try {
+      const location = await LocationService.requestLocation();
+      if (location) {
+        // Try to get city/country info
+        const geocode = await LocationService.reverseGeocode(location.latitude, location.longitude);
+        const enhancedLocation = { ...location, ...geocode };
+        
+        setUserLocation(enhancedLocation);
+        LocationService.saveLocation(enhancedLocation);
+        setLocationConsent(true);
+      } else {
+        setLocationConsent(false);
+      }
+    } catch (error) {
+      console.error('Location request failed:', error);
+      setLocationConsent(false);
+    } finally {
+      setIsRequestingLocation(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -139,8 +181,23 @@ export const Login: React.FC = () => {
   };
 
   return (
-    <div className="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center p-4">
-      <div className="max-w-4xl w-full space-y-8">
+    <div className="min-h-screen relative overflow-hidden">
+      {/* Map Wallpaper Background */}
+      <MapWallpaper 
+        userLocation={userLocation ? {
+          lat: userLocation.latitude,
+          lng: userLocation.longitude
+        } : undefined}
+        theme="dark"
+        interactive={false}
+        className="opacity-40"
+      />
+      
+      {/* Dark overlay for better contrast */}
+      <div className="absolute inset-0 bg-slate-900/70" />
+      
+      <div className="relative z-10 min-h-screen bg-gradient-to-br from-transparent via-slate-900/20 to-slate-900/40 flex items-center justify-center p-4">
+        <div className="max-w-4xl w-full space-y-8">
         {/* Header */}
         <div className="text-center">
           <div className="mx-auto w-20 h-20 bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-600 rounded-3xl flex items-center justify-center shadow-2xl shadow-blue-500/30 mb-6">
@@ -358,11 +415,97 @@ export const Login: React.FC = () => {
           </form>
         </div>
 
-        {/* Footer */}
-        <div className="text-center">
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Council of Nycea • AI Agent Collaboration Platform
-          </p>
+        {/* Location Consent Section */}
+        {locationConsent === null && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-blue-500/10 dark:bg-blue-500/20 backdrop-blur-xl rounded-2xl p-6 border border-blue-500/20 shadow-lg"
+          >
+            <div className="flex items-start space-x-4">
+              <div className="flex-shrink-0">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center">
+                  <Globe className="w-6 h-6 text-white" />
+                </div>
+              </div>
+              <div className="flex-1">
+                <h4 className="text-lg font-medium text-white mb-2">
+                  Enable Location Features
+                </h4>
+                <p className="text-slate-300 text-sm mb-4">
+                  Allow location access to enhance your experience with a personalized map wallpaper
+                  and location-based features. Your location data stays private and secure on your device.
+                </p>
+                
+                {userLocation && (
+                  <div className="flex items-center space-x-2 mb-4 p-3 bg-green-500/10 rounded-lg border border-green-500/20">
+                    <MapPin className="w-4 h-4 text-green-400" />
+                    <span className="text-green-300 text-sm">
+                      {userLocation.city && userLocation.country 
+                        ? `Located in ${userLocation.city}, ${userLocation.country}`
+                        : `Location detected (${userLocation.latitude.toFixed(2)}, ${userLocation.longitude.toFixed(2)})`
+                      }
+                    </span>
+                  </div>
+                )}
+                
+                <div className="flex space-x-3">
+                  <button
+                    onClick={handleLocationRequest}
+                    disabled={isRequestingLocation}
+                    className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition-colors"
+                  >
+                    {isRequestingLocation ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <MapPin className="w-4 h-4" />
+                    )}
+                    <span>{isRequestingLocation ? 'Getting Location...' : 'Allow Location'}</span>
+                  </button>
+                  <button
+                    onClick={() => setLocationConsent(false)}
+                    className="px-4 py-2 border border-slate-600 text-slate-300 hover:bg-slate-700 rounded-lg transition-colors"
+                  >
+                    Skip for Now
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Location Status Display (when granted) */}
+        {locationConsent === true && userLocation && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-green-500/10 dark:bg-green-500/20 backdrop-blur-xl rounded-2xl p-4 border border-green-500/20"
+          >
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
+                <MapPin className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <p className="text-green-300 font-medium text-sm">
+                  Location Enabled
+                </p>
+                <p className="text-green-400/80 text-xs">
+                  {userLocation.city && userLocation.country 
+                    ? `${userLocation.city}, ${userLocation.country}`
+                    : 'Map wallpaper activated'
+                  }
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+          {/* Footer */}
+          <div className="text-center">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Council of Nycea • AI Agent Collaboration Platform
+            </p>
+          </div>
         </div>
       </div>
     </div>
