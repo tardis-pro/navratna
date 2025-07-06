@@ -19,7 +19,7 @@ export { AgentDiscussionService } from './AgentDiscussionService.js';
 export { AgentMetricsService } from './agent-metrics.service';
 export { AgentIntentService } from './agent-intent.service';
 export { AgentInitializationService } from './agent-initialization.service';
-// export { AgentEventOrchestrator } from './agent-event-orchestrator.service'; // Temporarily disabled
+export { AgentEventOrchestrator } from './agent-event-orchestrator.service';
 export { ConversationIntelligenceService } from './conversation-intelligence.service';
 
 // Export types from updated implementations
@@ -37,7 +37,7 @@ export type { DiscussionMessage, DiscussionResponse } from './AgentDiscussionSer
 export type { AgentMetricsConfig } from './agent-metrics.service';
 export type { AgentIntentConfig } from './agent-intent.service';
 export type { AgentInitializationConfig } from './agent-initialization.service';
-// export type { AgentEventOrchestratorConfig, AgentOperationRequest } from './agent-event-orchestrator.service'; // Temporarily disabled
+export type { AgentEventOrchestratorConfig, AgentOperationRequest } from './agent-event-orchestrator.service';
 
 // Export additional types
 export type { IntentAnalysis, ActionRecommendation } from './agent-intent.service';

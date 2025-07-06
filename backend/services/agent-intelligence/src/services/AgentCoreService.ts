@@ -143,6 +143,17 @@ export class AgentCoreService {
     }
   }
 
+  async getAgent(agentId: string): Promise<Agent | null> {
+    try {
+      logger.debug('Getting agent', { agentId });
+      const agent = await this.agentService.findAgentById(agentId);
+      return agent as unknown as Agent;
+    } catch (error) {
+      logger.error('Failed to get agent', { error, agentId });
+      throw error;
+    }
+  }
+
   async getAgentCapabilities(agentId: string): Promise<string[]> {
     try {
       const agent = await this.agentService.findAgentById(agentId);

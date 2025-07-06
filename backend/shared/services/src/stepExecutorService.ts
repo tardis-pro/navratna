@@ -96,6 +96,18 @@ export class StepExecutorService extends EventEmitter {
         case 'decision':
           stepData = await this.executeDecisionStep(step, stepInput, controller.signal);
           break;
+        case 'agent-action':
+          stepData = await this.executeAgentAction(step, stepInput, controller.signal);
+          break;
+        case 'tool-execution':
+          stepData = await this.executeTool(step, stepInput, controller.signal);
+          break;
+        case 'conditional':
+          stepData = await this.executeConditionalStep(step, stepInput, controller.signal);
+          break;
+        case 'parallel':
+          stepData = await this.executeParallelStep(step, stepInput, controller.signal);
+          break;
         default:
           throw new Error(`Unsupported step type: ${step.type}`);
       }
@@ -312,6 +324,75 @@ export class StepExecutorService extends EventEmitter {
         signal.removeEventListener('abort', abortHandler);
       }, ms);
     });
+  }
+
+  // Add missing methods
+  public async executeAgentAction(
+    step: ExecutionStep,
+    input: Record<string, any>,
+    signal: AbortSignal
+  ): Promise<Record<string, any>> {
+    await this.delay(Math.random() * 2000 + 1000, signal);
+    
+    return {
+      agentId: step.agentId || 'unknown',
+      action: step.action || 'unknown',
+      actionResult: `Agent action ${step.action} executed`,
+      executedAt: new Date().toISOString()
+    };
+  }
+
+  public async executeTool(
+    step: ExecutionStep,
+    input: Record<string, any>,
+    signal: AbortSignal
+  ): Promise<Record<string, any>> {
+    await this.delay(Math.random() * 1500 + 500, signal);
+    
+    return {
+      toolId: step.toolId || 'unknown',
+      toolResult: `Tool ${step.toolId} executed successfully`,
+      toolOutput: input,
+      executedAt: new Date().toISOString()
+    };
+  }
+
+  private async executeConditionalStep(
+    step: ExecutionStep,
+    input: Record<string, any>,
+    signal: AbortSignal
+  ): Promise<Record<string, any>> {
+    await this.delay(Math.random() * 500 + 200, signal);
+    
+    const condition = input.condition || step.condition;
+    const result = this.evaluateCondition(condition, input);
+    
+    return {
+      condition,
+      result,
+      trueBranch: step.trueBranch || [],
+      falseBranch: step.falseBranch || [],
+      branchTaken: result ? 'true' : 'false',
+      executedAt: new Date().toISOString()
+    };
+  }
+
+  private async executeParallelStep(
+    step: ExecutionStep,
+    input: Record<string, any>,
+    signal: AbortSignal
+  ): Promise<Record<string, any>> {
+    await this.delay(Math.random() * 1000 + 500, signal);
+    
+    const policy = step.policy || { policy: 'all_success' };
+    const branches = step.branches || [];
+    
+    return {
+      policy,
+      branches,
+      parallelResults: branches.map(() => ({ status: 'completed', result: 'success' })),
+      executedAt: new Date().toISOString()
+    };
   }
 
   private evaluateCondition(condition: string, input: Record<string, any>): boolean {

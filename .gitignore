@@ -24,3 +24,5 @@ sprint/
 *.njsproj
 *.sln
 *.sw?
+*.js*
+*.d.ts*

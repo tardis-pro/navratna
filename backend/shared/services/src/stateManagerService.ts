@@ -99,6 +99,13 @@ export class StateManagerService {
   }
 
   /**
+   * Get operation state (alias for backward compatibility)
+   */
+  public async getState(operationId: string): Promise<OperationState | null> {
+    return this.getOperationState(operationId);
+  }
+
+  /**
    * Get operation state
    */
   public async getOperationState(operationId: string): Promise<OperationState | null> {
@@ -340,6 +347,16 @@ export class StateManagerService {
       });
       throw new ApiError(500, `Failed to list checkpoints: ${errorMessage}`);
     }
+  }
+
+  /**
+   * Load checkpoint (alias for getCheckpoint)
+   */
+  public async loadCheckpoint(
+    operationId: string,
+    checkpointId: string
+  ): Promise<Checkpoint | null> {
+    return this.getCheckpoint(operationId, checkpointId);
   }
 
   /**

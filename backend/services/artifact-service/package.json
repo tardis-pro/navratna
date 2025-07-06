@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@uaip/config": "workspace:*",
+    "@uaip/middleware": "workspace:*",
     "@uaip/shared-services": "workspace:*",
     "@uaip/types": "workspace:*",
     "@uaip/utils": "workspace:*",

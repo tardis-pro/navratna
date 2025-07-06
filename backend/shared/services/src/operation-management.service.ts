@@ -167,6 +167,24 @@ export class OperationManagementService {
     }
   }
 
+  async findStaleOperations(cutoffDate: Date): Promise<any[]> {
+    try {
+      const { Operation } = await import('./entities/index.js');
+      const { In, LessThan } = await import('typeorm');
+      const repository = typeormService.getRepository(Operation);
+      return await repository.find({
+        where: { 
+          status: In(['RUNNING', 'PENDING', 'PAUSED']) as any,
+          updatedAt: LessThan(cutoffDate)
+        },
+        order: { updatedAt: 'ASC' }
+      });
+    } catch (error) {
+      this.logger.error('Failed to find stale operations', { error: error.message, cutoffDate });
+      throw error;
+    }
+  }
+
   // Transaction support
   async executeInTransaction<T>(callback: (manager: any) => Promise<T>): Promise<T> {
     try {

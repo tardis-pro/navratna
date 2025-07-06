@@ -13,6 +13,11 @@ export class TemplateManager implements ITemplateManager {
     this.initializeDefaultTemplates();
   }
 
+  async initialize(): Promise<void> {
+    // Template manager is already initialized in constructor
+    logger.info(`TemplateManager initialized with ${this.templates.size} templates`);
+  }
+
   selectTemplate(context: GenerationContext): ArtifactTemplate | null {
     const { agent, persona, technical } = context;
     

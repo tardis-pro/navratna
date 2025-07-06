@@ -133,6 +133,16 @@ export interface EventHandler<T extends BaseEvent = BaseEvent> {
   handle(event: T): Promise<void>;
 }
 
+// Event message interface
+export interface EventMessage {
+  operationId?: string;
+  reason?: string;
+  checkpointId?: string;
+  compensate?: boolean;
+  force?: boolean;
+  [key: string]: any;
+}
+
 // Event bus interface
 export interface EventBus {
   publish(event: Event): Promise<void>;

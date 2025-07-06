@@ -97,7 +97,7 @@ export type ResourceRequirements = z.infer<typeof ResourceRequirementsSchema>;
 export const ExecutionStepSchema = z.object({
   id: IDSchema,
   name: z.string(),
-  type: z.enum(['tool', 'artifact', 'validation', 'approval', 'delay', 'decision']),
+  type: z.enum(['tool', 'artifact', 'validation', 'approval', 'delay', 'decision', 'agent-action', 'tool-execution', 'conditional', 'parallel']),
   status: z.nativeEnum(StepStatus).default(StepStatus.PENDING),
   input: z.record(z.any()).optional(),
   output: z.record(z.any()).optional(),
@@ -111,11 +111,24 @@ export const ExecutionStepSchema = z.object({
   outputMapping: z.record(z.string()).optional(), // Map outputs to variables
   required: z.boolean().default(true), // Whether step failure should fail operation
   metadata: z.record(z.any()).optional(),
+  // Add missing properties
+  dependsOn: z.array(IDSchema).optional(),
+  parameters: z.record(z.any()).optional(),
+  agentId: IDSchema.optional(),
+  action: z.string().optional(),
+  toolId: IDSchema.optional(),
+  trueBranch: z.array(z.any()).optional(),
+  falseBranch: z.array(z.any()).optional(),
+  policy: z.record(z.any()).optional(),
+  branches: z.array(z.any()).optional(),
   retryPolicy: z.object({
     maxAttempts: z.number().min(0).default(3),
+    maxRetries: z.number().min(0).default(3),
     backoffStrategy: z.enum(['fixed', 'exponential', 'linear']).default('exponential'),
-    retryDelay: z.number().min(0).default(1000)
-  }).optional()
+    retryDelay: z.number().min(0).default(1000),
+    backoffMultiplier: z.number().min(1).default(2).optional()
+  }).optional(),
+  resourceRequirements: ResourceRequirementsSchema.optional()
 });
 
 export type ExecutionStep = z.infer<typeof ExecutionStepSchema>;
@@ -153,6 +166,13 @@ export const ParallelExecutionPolicySchema = z.object({
 });
 
 export type ParallelExecutionPolicy = z.infer<typeof ParallelExecutionPolicySchema>;
+
+// ParallelExecutionPolicy enum for switch statements
+export const ParallelExecutionPolicy = {
+  ALL_SUCCESS: 'all_success' as const,
+  ANY_SUCCESS: 'any_success' as const, 
+  MAJORITY_SUCCESS: 'majority_success' as const
+} as const;
 
 // Parallel group
 export const ParallelGroupSchema = z.object({
@@ -213,7 +233,12 @@ export const StepResultSchema = z.object({
   data: z.record(z.any()).default({}),
   error: z.string().optional(),
   executionTime: z.number().min(0).optional(),
-  metadata: z.record(z.any()).optional()
+  metadata: z.record(z.any()).optional(),
+  // Add missing properties
+  output: z.record(z.any()).optional(),
+  metrics: z.record(z.any()).optional(),
+  completedAt: z.date().optional(),
+  startedAt: z.date().optional()
 });
 
 export type StepResult = z.infer<typeof StepResultSchema>;
@@ -232,7 +257,9 @@ export const OperationStateSchema = z.object({
   lastUpdated: z.date(),
   metadata: z.record(z.any()).optional(),
   error: z.string().optional(),
-  result: z.record(z.any()).optional()
+  result: z.record(z.any()).optional(),
+  // Add missing properties
+  workflowInstanceId: IDSchema.optional()
 });
 
 export type OperationState = z.infer<typeof OperationStateSchema>;
@@ -246,7 +273,15 @@ export const WorkflowInstanceSchema = z.object({
   executionContext: ExecutionContextSchema,
   state: OperationStateSchema,
   createdAt: z.date(),
-  updatedAt: z.date()
+  updatedAt: z.date(),
+  // Add missing properties
+  completedSteps: z.array(IDSchema).default([]),
+  stepResults: z.array(StepResultSchema).default([]),
+  context: z.record(z.any()).optional(),
+  startTime: z.number().optional(),
+  endTime: z.number().optional(),
+  retryCount: z.number().min(0).default(0),
+  error: z.string().optional()
 });
 
 export type WorkflowInstance = z.infer<typeof WorkflowInstanceSchema>;
@@ -301,7 +336,31 @@ export const OperationErrorSchema = z.object({
   resolved: z.boolean().default(false)
 });
 
-export type OperationError = z.infer<typeof OperationErrorSchema>;
+export type OperationErrorType = z.infer<typeof OperationErrorSchema>;
+
+// OperationError class implementation
+export class OperationError extends Error {
+  public readonly code: string;
+  public readonly details?: Record<string, any>;
+  public readonly timestamp: Date;
+  
+  constructor(
+    message: string,
+    code: string = 'OPERATION_ERROR',
+    details?: Record<string, any>
+  ) {
+    super(message);
+    this.name = 'OperationError';
+    this.code = code;
+    this.details = details;
+    this.timestamp = new Date();
+    
+    // Maintains proper stack trace for where our error was thrown (only available on V8)
+    if ((Error as any).captureStackTrace) {
+      (Error as any).captureStackTrace(this, OperationError);
+    }
+  }
+}
 
 // Resource usage
 export const ResourceUsageSchema = z.object({
@@ -329,7 +388,9 @@ export const OperationMetricsSchema = z.object({
   resourceUsage: ResourceUsageSchema,
   stepMetrics: z.array(StepMetricsSchema),
   throughput: z.number().min(0),
-  errorRate: z.number().min(0).max(1)
+  errorRate: z.number().min(0).max(1),
+  totalExecutionTime: z.number().min(0).optional(),
+  stepExecutionTime: z.number().min(0).optional()
 });
 
 export type OperationMetrics = z.infer<typeof OperationMetricsSchema>;
@@ -369,6 +430,9 @@ export const OperationSchema = BaseEntitySchema.extend({
   startedAt: z.date().optional(),
   completedAt: z.date().optional(),
   cancelledAt: z.date().optional(),
+  // Add missing properties that are referenced in orchestration engine
+  steps: z.array(ExecutionStepSchema).optional(),
+  timeout: z.number().min(0).optional(),
   metadata: z.object({
     priority: z.nativeEnum(OperationPriority).optional(),
     tags: z.array(z.string()).optional(),

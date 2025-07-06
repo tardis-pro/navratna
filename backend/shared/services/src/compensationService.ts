@@ -45,6 +45,17 @@ export class CompensationService extends EventEmitter {
   }
 
   /**
+   * Compensate (alias for runCompensation for backward compatibility)
+   */
+  public async compensate(
+    operationId: string,
+    completedStepIds: string[],
+    reason: string = 'Operation compensation'
+  ): Promise<CompensationResult[]> {
+    return this.runCompensation(operationId, completedStepIds, reason);
+  }
+
+  /**
    * Run compensation for completed steps of a failed operation
    */
   public async runCompensation(

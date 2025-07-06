@@ -73,7 +73,18 @@ export const API_ROUTES = {
   SYSTEM: '/api/v1/system',
 
   // Authentication routes
-  AUTH: '/api/v1/auth',
+  AUTH: {
+    BASE: '/api/v1/auth',
+    LOGIN: '/api/v1/auth/login',
+    LOGOUT: '/api/v1/auth/logout',
+    REFRESH: '/api/v1/auth/refresh',
+    ME: '/api/v1/auth/me',
+    REGISTER: '/api/v1/auth/register',
+    RESET_PASSWORD: '/api/v1/auth/forgot-password',
+    RESET_PASSWORD_CONFIRM: '/api/v1/auth/reset-password',
+    CHANGE_PASSWORD: '/api/v1/auth/change-password',
+    VALIDATE_TOKEN: '/api/v1/auth/validate-token'
+  },
 } as const;
 
 /**

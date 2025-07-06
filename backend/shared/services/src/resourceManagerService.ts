@@ -42,6 +42,22 @@ export class ResourceManagerService extends EventEmitter {
   }
 
   /**
+   * Check availability (alias for checkResourceAvailability)
+   */
+  public async checkAvailability(
+    requiredLimits: ResourceLimits
+  ): Promise<ResourceAvailabilityCheck> {
+    return this.checkResourceAvailability(requiredLimits);
+  }
+
+  /**
+   * Get usage (alias for getCurrentSystemUsage)
+   */
+  public getUsage(): ResourceUsage {
+    return this.getCurrentSystemUsage();
+  }
+
+  /**
    * Check if resources are available for allocation
    */
   public async checkResourceAvailability(

@@ -126,12 +126,7 @@ export class StepExecutionManager extends EventEmitter {
   ): Promise<StepResult> {
     const params = this.resolveParameters(step.parameters, context);
     
-    const result = await this.stepExecutorService.executeAgentAction({
-      agentId: step.agentId!,
-      action: step.action!,
-      parameters: params,
-      context: context.globalContext
-    });
+    const result = await this.stepExecutorService.executeAgentAction(step, params, new AbortController().signal);
 
     return {
       stepId: step.id,
@@ -147,11 +142,7 @@ export class StepExecutionManager extends EventEmitter {
   ): Promise<StepResult> {
     const input = this.resolveParameters(step.input, context);
     
-    const result = await this.stepExecutorService.executeTool({
-      toolId: step.toolId!,
-      input,
-      context: context.globalContext
-    });
+    const result = await this.stepExecutorService.executeTool(step, input, new AbortController().signal);
 
     return {
       stepId: step.id,
@@ -207,14 +198,18 @@ export class StepExecutionManager extends EventEmitter {
     ).length;
 
     let overallSuccess = false;
-    switch (policy) {
+    const policyValue = typeof policy === 'string' ? policy : policy.policy;
+    switch (policyValue) {
       case ParallelExecutionPolicy.ALL_SUCCESS:
         overallSuccess = successCount === branches.length;
         break;
       case ParallelExecutionPolicy.ANY_SUCCESS:
         overallSuccess = successCount > 0;
         break;
-      case ParallelExecutionPolicy.BEST_EFFORT:
+      case ParallelExecutionPolicy.MAJORITY_SUCCESS:
+        overallSuccess = successCount > branches.length / 2;
+        break;
+      default:
         overallSuccess = true;
         break;
     }
@@ -260,7 +255,7 @@ export class StepExecutionManager extends EventEmitter {
 
   private calculateBackoff(step: ExecutionStep): number {
     const baseDelay = 1000; // 1 second
-    const multiplier = step.retryPolicy?.backoffMultiplier || 2;
+    const multiplier = (step.retryPolicy?.backoffMultiplier as any) || 2;
     const attempt = step.retryCount || 1;
     return baseDelay * Math.pow(multiplier, attempt - 1);
   }
@@ -292,14 +287,21 @@ export class StepExecutionManager extends EventEmitter {
     const required = step.resourceRequirements;
     if (!required) return;
 
-    const available = await this.resourceManagerService.checkAvailability(required);
-    if (!available) {
+    // Convert to ResourceLimits format
+    const resourceLimits = {
+      maxMemory: required.memory || 1024 * 1024 * 1024, // 1GB default
+      maxCpu: required.cpu || 1, // 1 core default
+      maxDuration: required.estimatedDuration || 3600000 // 1 hour default
+    };
+
+    const available = await this.resourceManagerService.checkAvailability(resourceLimits);
+    if (!available.available) {
       throw new OperationError('Insufficient resources for step execution', 'RESOURCE_ERROR');
     }
   }
 
-  private async getResourceUsage(stepId: string): Promise<ResourceUsage> {
-    return this.resourceManagerService.getUsage(stepId);
+  private async getResourceUsage(stepId: string): Promise<import('@uaip/types').ResourceUsage> {
+    return this.resourceManagerService.getUsage();
   }
 
   private resolveParameters(params: any, context: StepExecutionContext): any {

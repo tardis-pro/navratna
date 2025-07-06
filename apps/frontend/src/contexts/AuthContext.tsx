@@ -83,7 +83,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     checkAuthStatus();
 
     // Listen for auth failures from the API client
-    const unsubscribe = uaipAPI.client.onAuthFailure(() => {
+    const handleAuthFailure = () => {
       console.log('Auth failure detected, clearing state');
       setState({
         user: null,
@@ -91,9 +91,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         isLoading: false,
         error: null
       });
-    });
+    };
 
-    return unsubscribe;
+    // Listen for the auth:unauthorized event from the API client
+    window.addEventListener('auth:unauthorized', handleAuthFailure);
+
+    return () => {
+      window.removeEventListener('auth:unauthorized', handleAuthFailure);
+    };
   }, []);
 
   // Generic flow execution handler
@@ -147,7 +152,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       case 'logout':
         return await uaipAPI.client.auth.logout();
       case 'refreshToken':
-        return await uaipAPI.client.auth.refreshToken();
+        // Get stored refresh token
+        const refreshToken = localStorage.getItem('refreshToken') || sessionStorage.getItem('refreshToken');
+        if (!refreshToken) throw new Error('No refresh token available');
+        return await uaipAPI.client.auth.refreshToken(refreshToken);
       case 'validatePermissions':
         // This would be a specialized security endpoint
         throw new Error(`Security flow '${flow}' is not yet implemented`);
@@ -243,21 +251,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       uaipAPI.client.setAuthToken(accessToken, refreshToken || undefined, isRemembered);
 
       // Try to get current user from backend
-      const response = await uaipAPI.client.auth.me();
+      const userData = await uaipAPI.client.auth.getCurrentUser();
 
-      if (response.success && response.data) {
+      if (userData) {
         // Set user context for security headers
-        uaipAPI.client.setUserContext(response.data.id, undefined, isRemembered);
+        uaipAPI.client.setUserContext(userData.id, userData.role, isRemembered);
 
         setState({
-          user: response.data,
+          user: {
+            id: userData.id,
+            email: userData.email,
+            firstName: userData.name?.split(' ')[0] || '',
+            lastName: userData.name?.split(' ').slice(1).join(' ') || '',
+            role: userData.role,
+            permissions: [] // Will be populated from role
+          },
           isAuthenticated: true,
           isLoading: false,
           error: null
         });
       } else {
         // Token is invalid, clear it
-        console.warn('Auth check failed:', response.error?.message || 'Unknown error');
+        console.warn('Auth check failed: No user data returned');
         uaipAPI.client.clearAuth();
         setState({
           user: null,
@@ -286,15 +301,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setState(prev => ({ ...prev, isLoading: true, error: null }));
 
-      const response = await uaipAPI.client.auth.login({ email, password });
+      const loginData = await uaipAPI.client.auth.login({ email, password });
 
-      if (response.success && response.data) {
-        const { user, tokens } = response.data;
-        const { accessToken, refreshToken } = tokens;
+      if (loginData && loginData.token && loginData.user) {
+        const { user, token, refreshToken } = loginData;
 
         // Set complete authentication context (this will store tokens AND set them on the client)
         uaipAPI.client.setAuthContext({
-          token: accessToken,
+          token,
           refreshToken,
           userId: user.id,
           rememberMe
@@ -304,7 +318,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         // Set authenticated user
         setState({
-          user,
+          user: {
+            id: user.id,
+            email: user.email,
+            firstName: user.name?.split(' ')[0] || '',
+            lastName: user.name?.split(' ').slice(1).join(' ') || '',
+            role: user.role,
+            permissions: [] // Will be populated from role
+          },
           isAuthenticated: true,
           isLoading: false,
           error: null
@@ -313,7 +334,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setState(prev => ({
           ...prev,
           isLoading: false,
-          error: response.error?.message || 'Login failed'
+          error: 'Login failed - invalid response'
         }));
       }
     } catch (error) {
@@ -366,12 +387,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (!state.isAuthenticated) return;
 
     try {
-      const response = await uaipAPI.client.auth.me();
+      const userData = await uaipAPI.client.auth.getCurrentUser();
 
-      if (response.success && response.data) {
+      if (userData) {
         setState(prev => ({
           ...prev,
-          user: response.data,
+          user: {
+            id: userData.id,
+            email: userData.email,
+            firstName: userData.name?.split(' ')[0] || '',
+            lastName: userData.name?.split(' ').slice(1).join(' ') || '',
+            role: userData.role,
+            permissions: [] // Will be populated from role
+          },
           error: null
         }));
       } else {

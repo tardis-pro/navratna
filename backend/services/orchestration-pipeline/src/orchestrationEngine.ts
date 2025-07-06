@@ -9,7 +9,8 @@ import {
   OperationStatus,
   WorkflowInstance,
   OperationState,
-  OperationError
+  OperationError,
+  EventMessage
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
@@ -357,16 +358,16 @@ export class OrchestrationEngine extends EventEmitter {
    */
   private async subscribeToExternalEvents(): Promise<void> {
     // Subscribe to operation commands
-    await this.eventBusService.subscribe('operation.command.pause', async (event) => {
-      await this.pauseOperation(event.operationId, event.reason);
+    await this.eventBusService.subscribe('operation.command.pause', async (event: EventMessage) => {
+      await this.pauseOperation(event.operationId!, event.reason);
     });
 
-    await this.eventBusService.subscribe('operation.command.resume', async (event) => {
-      await this.resumeOperation(event.operationId, event.checkpointId);
+    await this.eventBusService.subscribe('operation.command.resume', async (event: EventMessage) => {
+      await this.resumeOperation(event.operationId!, event.checkpointId);
     });
 
-    await this.eventBusService.subscribe('operation.command.cancel', async (event) => {
-      await this.cancelOperation(event.operationId, event.reason, event.compensate, event.force);
+    await this.eventBusService.subscribe('operation.command.cancel', async (event: EventMessage) => {
+      await this.cancelOperation(event.operationId!, event.reason, event.compensate, event.force);
     });
   }
 

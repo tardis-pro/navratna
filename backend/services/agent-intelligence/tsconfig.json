@@ -9,7 +9,7 @@
     "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"        // enables clean import paths within the package
   },
   "include": ["src/**/*"],
-  "exclude": ["src/**/*.test.ts", "src/__tests__/**/*", "src/**/*.old*.ts", "src/controllers/**/*", "src/routes/personaRoutes.ts", "src/routes/discussionRoutes.ts", "src/routes/knowledgeRoutes.ts", "src/services/agent-event-orchestrator.service.ts"],
+  "exclude": ["src/**/*.test.ts", "src/__tests__/**/*", "src/**/*.old*.ts"],
   "references": [
     { "path": "../../../packages/shared-types" },
     { "path": "../../../packages/shared-utils" },

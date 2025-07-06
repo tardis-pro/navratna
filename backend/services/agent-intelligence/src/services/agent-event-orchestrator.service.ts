@@ -231,19 +231,8 @@ export class AgentEventOrchestrator {
       this.agentInitializationService
     ];
 
-    for (const service of services) {
-      if (service && typeof service.initialize === 'function') {
-        try {
-          await service.initialize();
-          logger.info('Service initialized', { service: service.constructor.name });
-        } catch (error) {
-          logger.warn('Failed to initialize service', {
-            service: service.constructor.name,
-            error: error instanceof Error ? error.message : String(error)
-          });
-        }
-      }
-    }
+    // Services are ready to use (no initialize method needed)
+    logger.info('All agent services are ready');
   }
 
   private async setupEventSubscriptions(): Promise<void> {

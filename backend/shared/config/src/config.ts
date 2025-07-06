@@ -235,6 +235,13 @@ export interface NotificationsConfig {
   };
 }
 
+export interface OrchestrationConfig {
+  cleanupIntervalMs: number;
+  staleOperationThresholdMs: number;
+  maxWorkflowInstances: number;
+  workflowTimeoutMs: number;
+}
+
 export interface Config {
   database: DatabaseConfig;
   redis: RedisConfig;
@@ -251,6 +258,7 @@ export interface Config {
   email: EmailConfig;
   frontend: FrontendConfig;
   notifications: NotificationsConfig;
+  orchestration: OrchestrationConfig;
   port: number;
   environment: string;
   enterprise: {
@@ -543,6 +551,12 @@ const defaultConfig: Config = {
     sms: process.env.NOTIFICATIONS_SMS_PROVIDER ? {
       provider: process.env.NOTIFICATIONS_SMS_PROVIDER
     } : undefined
+  },
+  orchestration: {
+    cleanupIntervalMs: parseInt(process.env.ORCHESTRATION_CLEANUP_INTERVAL_MS || '300000'), // 5 minutes
+    staleOperationThresholdMs: parseInt(process.env.ORCHESTRATION_STALE_THRESHOLD_MS || '86400000'), // 24 hours
+    maxWorkflowInstances: parseInt(process.env.ORCHESTRATION_MAX_WORKFLOWS || '100'),
+    workflowTimeoutMs: parseInt(process.env.ORCHESTRATION_WORKFLOW_TIMEOUT_MS || '3600000') // 1 hour
   },
   port: parseInt(process.env.PORT || '3000'),
   environment: process.env.NODE_ENV || 'development',

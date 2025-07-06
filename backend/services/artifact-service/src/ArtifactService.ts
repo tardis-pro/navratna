@@ -27,6 +27,20 @@ export class ArtifactService implements IArtifactService {
     this.initializeGenerators();
   }
 
+  async initialize(): Promise<void> {
+    logger.info('Initializing ArtifactService...');
+    
+    // Initialize templates
+    await this.templateManager.initialize();
+    
+    // Validate generator initialization
+    if (this.generators.size === 0) {
+      throw new Error('No generators initialized');
+    }
+    
+    logger.info(`ArtifactService initialized with ${this.generators.size} generators and ${this.templateManager.listTemplates().length} templates`);
+  }
+
   async generateArtifact(request: ArtifactGenerationRequest): Promise<ArtifactGenerationResponse> {
     const startTime = Date.now();
     

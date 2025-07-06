@@ -337,7 +337,7 @@ export class OrchestrationEngine extends EventEmitter {
     errors: OperationError[];
   }> {
     try {
-      const operation = await this.databaseService.getOperation(operationId);
+      const operation = await this.databaseService.getOperationById(operationId);
       if (!operation) {
         throw new Error(`Operation ${operationId} not found`);
       }
@@ -562,7 +562,7 @@ export class OrchestrationEngine extends EventEmitter {
 
   private async continueOperationExecution(workflowInstance: WorkflowInstance): Promise<void> {
     try {
-      const operation = await this.databaseService.getOperation(workflowInstance.operationId);
+      const operation = await this.databaseService.getOperationById(workflowInstance.operationId);
       if (!operation) {
         throw new Error(`Operation ${workflowInstance.operationId} not found`);
       }
@@ -806,7 +806,7 @@ export class OrchestrationEngine extends EventEmitter {
               await this.operationManagementService.createStepResult(stepResultData);
 
       // Also save to legacy database service for backward compatibility
-      await this.databaseService.saveStepResult(workflowInstance.operationId, result);
+      await this.databaseService.updateOperationState(workflowInstance.operationId, {}, { stepResult: result });
 
       if (result.status === StepStatus.COMPLETED) {
         // Add to completed steps
@@ -1011,7 +1011,7 @@ export class OrchestrationEngine extends EventEmitter {
   }
 
   private async checkOperationCompletion(workflowInstance: WorkflowInstance): Promise<void> {
-    const operation = await this.databaseService.getOperation(workflowInstance.operationId);
+    const operation = await this.databaseService.getOperationById(workflowInstance.operationId);
     if (!operation) {
       throw new Error(`Operation ${workflowInstance.operationId} not found`);
     }
@@ -1025,7 +1025,7 @@ export class OrchestrationEngine extends EventEmitter {
       const operationResult = await this.generateOperationResult(workflowInstance);
 
       // Update operation status
-      await this.databaseService.updateOperationResult(workflowInstance.operationId, operationResult);
+      await this.databaseService.updateOperationState(workflowInstance.operationId, {}, operationResult);
 
       // Update state
       await this.stateManagerService.updateOperationState(workflowInstance.operationId, {
@@ -1272,7 +1272,7 @@ export class OrchestrationEngine extends EventEmitter {
         return;
       }
       
-      const operation = await this.databaseService.getOperation(operationId);
+      const operation = await this.databaseService.getOperationById(operationId);
       if (!operation) {
         logger.error('Cannot retry step: operation not found', { operationId, stepId: step.id });
         return;
@@ -1288,7 +1288,7 @@ export class OrchestrationEngine extends EventEmitter {
   }
 
   private async generateOperationResult(workflowInstance: WorkflowInstance): Promise<OperationResult> {
-    const operation = await this.databaseService.getOperation(workflowInstance.operationId);
+    const operation = await this.databaseService.getOperationById(workflowInstance.operationId);
     if (!operation) {
       throw new Error(`Operation ${workflowInstance.operationId} not found`);
     }

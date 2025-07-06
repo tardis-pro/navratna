@@ -8,7 +8,7 @@
 
 // Import the backend API client
 export * from './api';
-import { UAIPAPIClient, createAPIClient, APIConfig } from './api';
+import { APIClient, api } from '@/api';
 import { API_CONFIG, getEffectiveAPIBaseURL, getEnvironmentConfig, buildAPIURL, API_ROUTES } from '@/config/apiConfig';
 
 // Import shared types - using regular imports for enums and type imports for interfaces
@@ -101,18 +101,8 @@ export function generateUUID(): string {
 // API CLIENT CONFIGURATION
 // ============================================================================
 
-function getAPIConfig(): APIConfig {
-  return {
-    baseURL: getEffectiveAPIBaseURL(),
-    timeout: 30000,
-    headers: {
-      'Content-Type': 'application/json',
-    }
-  };
-}
-
-export function getAPIClient(): UAIPAPIClient {
-  return createAPIClient(getAPIConfig());
+export function getAPIClient() {
+  return APIClient;
 }
 
 // ============================================================================
@@ -122,7 +112,68 @@ export function getAPIClient(): UAIPAPIClient {
 // Enhanced API wrapper with production-ready error handling
 export const uaipAPI = {
   get client() {
-    return getAPIClient();
+    return {
+      // Expose all API modules
+      ...api,
+      
+      // Add auth management methods from APIClient
+      getAuthToken: () => APIClient.getAuthToken(),
+      setAuthToken: (token: string | null, refreshToken?: string, rememberMe?: boolean) => {
+        APIClient.setAuthToken(token);
+        if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
+        if (rememberMe) {
+          localStorage.setItem('accessToken', token || '');
+          if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
+        } else {
+          sessionStorage.setItem('accessToken', token || '');
+          if (refreshToken) sessionStorage.setItem('refreshToken', refreshToken);
+        }
+      },
+      clearAuth: () => {
+        APIClient.clearAuthToken();
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        sessionStorage.removeItem('accessToken');
+        sessionStorage.removeItem('refreshToken');
+      },
+      isAuthenticated: () => {
+        const token = APIClient.getAuthToken();
+        return !!token;
+      },
+      setUserContext: (userId: string, userRole?: string, rememberMe?: boolean) => {
+        // Store user context for API requests
+        if (rememberMe) {
+          localStorage.setItem('userId', userId);
+          if (userRole) localStorage.setItem('userRole', userRole);
+        } else {
+          sessionStorage.setItem('userId', userId);
+          if (userRole) sessionStorage.setItem('userRole', userRole);
+        }
+      },
+      setAuthContext: (context: {
+        token: string;
+        refreshToken?: string;
+        userId: string;
+        rememberMe?: boolean;
+      }) => {
+        APIClient.setAuthToken(context.token);
+        const storage = context.rememberMe ? localStorage : sessionStorage;
+        storage.setItem('accessToken', context.token);
+        storage.setItem('userId', context.userId);
+        if (context.refreshToken) {
+          storage.setItem('refreshToken', context.refreshToken);
+        }
+      },
+      // Add health check endpoint
+      health: async () => {
+        try {
+          const response = await APIClient.get('/health');
+          return { success: true, data: response };
+        } catch (error) {
+          return { success: false, error: { message: error instanceof Error ? error.message : 'Health check failed' } };
+        }
+      }
+    };
   },
 
   // Get current environment info

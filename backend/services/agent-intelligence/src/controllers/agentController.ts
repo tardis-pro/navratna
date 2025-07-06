@@ -51,27 +51,17 @@ export class AgentController {
     };
 
     // Initialize services
-    this.agentCore = new AgentCoreService(baseConfig);
-    this.agentContext = new AgentContextService(baseConfig);
-    this.agentPlanning = new AgentPlanningService(baseConfig);
-    this.agentLearning = new AgentLearningService(baseConfig);
-    this.agentDiscussion = new AgentDiscussionService({
-      ...baseConfig,
-      discussionService: this.discussionService
-    });
+    this.agentCore = new AgentCoreService();
+    this.agentContext = new AgentContextService();
+    this.agentPlanning = new AgentPlanningService();
+    this.agentLearning = new AgentLearningService();
+    this.agentDiscussion = new AgentDiscussionService();
     this.agentOrchestrator = new AgentEventOrchestrator({
       ...baseConfig,
       orchestrationPipelineUrl: process.env.ORCHESTRATION_PIPELINE_URL || 'http://localhost:3002'
     });
 
-    // Initialize all services
-    await Promise.all([
-      this.agentCore.initialize(),
-      this.agentContext.initialize(),
-      this.agentPlanning.initialize(),
-      this.agentLearning.initialize(),
-      this.agentDiscussion.initialize()
-    ]);
+    // Services are ready to use (no initialize method needed)
 
     this.initialized = true;
     logger.info('AgentController initialized successfully');
@@ -123,7 +113,7 @@ export class AgentController {
 
   async createAgent(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const agent = await this.agentCore.createAgent(req.body);
+      const agent = await this.agentCore.createAgent(req.body, req.user?.id || 'system');
       res.status(201).json(agent);
     } catch (error) {
       next(error);
@@ -132,7 +122,7 @@ export class AgentController {
 
   async updateAgent(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const agent = await this.agentCore.updateAgent(req.params.id, req.body);
+      const agent = await this.agentCore.updateAgent(req.params.id, req.body, req.user?.id || 'system');
       res.json(agent);
     } catch (error) {
       next(error);
@@ -141,7 +131,7 @@ export class AgentController {
 
   async deleteAgent(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      await this.agentCore.deleteAgent(req.params.id);
+      await this.agentCore.deleteAgent(req.params.id, req.user?.id || 'system');
       res.status(204).send();
     } catch (error) {
       next(error);
@@ -150,10 +140,12 @@ export class AgentController {
 
   async analyzeContext(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const result = await this.agentContext.analyzeContext({
-        agentId: req.params.id,
-        ...req.body
-      });
+      const result = await this.agentContext.analyzeContext(
+        req.params.id,
+        req.body.userRequest || '',
+        req.body.conversationContext || {},
+        req.body.constraints
+      );
       res.json(result);
     } catch (error) {
       next(error);
@@ -162,10 +154,12 @@ export class AgentController {
 
   async planExecution(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const plan = await this.agentPlanning.createExecutionPlan({
-        agentId: req.params.id,
-        ...req.body
-      });
+      const plan = await this.agentPlanning.generateExecutionPlan(
+        req.params.id,
+        req.body.analysis || {},
+        req.body.userPreferences,
+        req.body.securityContext
+      );
       res.json(plan);
     } catch (error) {
       next(error);
@@ -183,7 +177,7 @@ export class AgentController {
 
   async learnFromExecution(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const result = await this.agentLearning.learnFromExecution({
+      const result = await this.agentLearning.processLearningData({
         agentId: req.params.id,
         executionData: req.body
       });
@@ -195,7 +189,7 @@ export class AgentController {
 
   async participateInDiscussion(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const result = await this.agentDiscussion.participateInDiscussion({
+      const result = await this.agentDiscussion.processDiscussionMessage({
         agentId: req.params.id,
         ...req.body
       });
@@ -207,7 +201,7 @@ export class AgentController {
 
   async handleAgentChat(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const result = await this.agentDiscussion.handleChatRequest({
+      const result = await this.agentDiscussion.processDiscussionMessage({
         agentId: req.params.id,
         userId: req.user?.id,
         ...req.body
