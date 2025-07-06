@@ -1539,6 +1539,9 @@ importers:
       '@uaip/config':
         specifier: workspace:*
         version: link:../config
+      '@uaip/middleware':
+        specifier: workspace:*
+        version: link:../middleware
       '@uaip/types':
         specifier: workspace:*
         version: link:../../../packages/shared-types
@@ -1551,9 +1554,21 @@ importers:
       bcrypt:
         specifier: catalog:backend
         version: 6.0.0
+      compression:
+        specifier: catalog:backend
+        version: 1.8.0
+      express:
+        specifier: catalog:backend
+        version: 5.1.0
+      helmet:
+        specifier: catalog:backend
+        version: 8.1.0
       ioredis:
         specifier: ^5.6.1
         version: 5.6.1
+      morgan:
+        specifier: ^1.10.0
+        version: 1.10.0
       neo4j-driver:
         specifier: catalog:backend
         version: 5.28.1
@@ -1579,9 +1594,18 @@ importers:
       '@types/bcrypt':
         specifier: catalog:backend
         version: 5.0.2
+      '@types/compression':
+        specifier: catalog:backend
+        version: 1.8.1
+      '@types/express':
+        specifier: catalog:backend
+        version: 5.0.3
       '@types/jest':
         specifier: ^29.5.12
         version: 29.5.14
+      '@types/morgan':
+        specifier: ^1.9.9
+        version: 1.9.10
       '@types/node':
         specifier: catalog:backend
         version: 22.15.33

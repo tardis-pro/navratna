@@ -6,7 +6,7 @@ import {
 } from '@uaip/types';
 import {
   UserKnowledgeService,
-  getUserKnowledgeServiceForAPI,
+  getUserKnowledgeService,
   servicesHealthCheck
 } from '@uaip/shared-services';
 import { authMiddleware } from '@uaip/middleware';
@@ -19,7 +19,7 @@ async function getServices(): Promise<{
   initializationError: string | null;
 }> {
   try {
-    const userKnowledgeService = await getUserKnowledgeServiceForAPI();
+    const userKnowledgeService = await getUserKnowledgeService();
     return { userKnowledgeService, initializationError: null };
   } catch (error) {
     const initializationError = `Failed to initialize UserKnowledgeService: ${error instanceof Error ? error.message : 'Unknown error'}`;

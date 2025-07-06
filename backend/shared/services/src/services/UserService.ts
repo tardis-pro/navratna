@@ -172,6 +172,46 @@ export class UserService {
     }
   }
 
+  // User management methods
+  public async updateLoginTracking(userId: string, data: {
+    failedLoginAttempts?: number;
+    lockedUntil?: Date;
+    lastLoginAt?: Date;
+  }): Promise<void> {
+    const userRepo = this.getUserRepository();
+    await userRepo.updateUserLoginTracking(userId, data);
+  }
+
+  public async resetLoginAttempts(userId: string): Promise<void> {
+    const userRepo = this.getUserRepository();
+    await userRepo.resetUserLoginAttempts(userId);
+  }
+
+  public async getRefreshTokenWithUser(token: string): Promise<any | null> {
+    const refreshTokenRepo = this.getRefreshTokenRepository();
+    return await refreshTokenRepo.getRefreshTokenWithUser(token);
+  }
+
+  public async revokeAllRefreshTokens(userId: string): Promise<void> {
+    const refreshTokenRepo = this.getRefreshTokenRepository();
+    await refreshTokenRepo.revokeAllUserRefreshTokens(userId);
+  }
+
+  public async updatePassword(userId: string, newPassword: string): Promise<void> {
+    const userRepo = this.getUserRepository();
+    await userRepo.updateUserPassword(userId, await bcrypt.hash(newPassword, 12));
+  }
+
+  public async getPasswordResetTokenWithUser(token: string): Promise<any | null> {
+    const resetTokenRepo = this.getPasswordResetTokenRepository();
+    return await resetTokenRepo.getPasswordResetTokenWithUser(token);
+  }
+
+  public async markPasswordResetTokenAsUsed(token: string): Promise<void> {
+    const resetTokenRepo = this.getPasswordResetTokenRepository();
+    await resetTokenRepo.markPasswordResetTokenAsUsed(token);
+  }
+
   // Note: MFA and Session operations have been moved to dedicated services
   // These should be handled by SecurityService and SessionService respectively
 }

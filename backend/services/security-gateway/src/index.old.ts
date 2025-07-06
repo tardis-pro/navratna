@@ -70,7 +70,7 @@ class SecurityGatewayServer {
 
   private async initializeServices(): Promise<void> {
     // Initialize services that depend on database after database is ready
-    this.auditService = new AuditService(this.databaseService);
+    this.auditService = new AuditService();
     this.notificationService = new NotificationService();
     this.approvalWorkflowService = new ApprovalWorkflowService(
       this.databaseService,

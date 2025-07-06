@@ -5,7 +5,7 @@ import bcrypt from 'bcrypt';
 import { z } from 'zod';
 import { config } from '@uaip/config';
 import { logger } from '@uaip/utils';
-import { DatabaseService,  } from '@uaip/shared-services';
+import { UserService } from '@uaip/shared-services';
 import { authMiddleware, requireAdmin, csrfProtection } from '@uaip/middleware';
 import { validateRequest } from '@uaip/middleware';
 import { AuditEventType } from '@uaip/types';
@@ -15,16 +15,15 @@ import { AuditService } from '../services/auditService.js';
 const router: Router = express.Router();
 
 // Lazy initialization of services
-let databaseService: DatabaseService | null = null;
+let userService: UserService | null = null;
 let auditService: AuditService | null = null;
 
 async function getServices() {
-  if (!databaseService) {
-    databaseService = new DatabaseService();
-    await databaseService.initialize();
-    auditService = new AuditService(databaseService);
+  if (!userService) {
+    userService = UserService.getInstance();
+    auditService = new AuditService();
   }
-  return { databaseService, auditService: auditService! };
+  return { userService, auditService: auditService! };
 }
 
 // Validation schemas using Zod
@@ -114,8 +113,8 @@ router.post('/login',
       const { email, password, rememberMe } = req.body;
 
       // Find user in database using TypeORM
-      const { databaseService, auditService } = await getServices();
-      const user = await databaseService.getUserByEmail(email);
+      const { userService, auditService } = await getServices();
+      const user = await userService.findUserByEmail(email);
       
       if (!user) {
         await auditService.logSecurityEvent({
@@ -181,13 +180,13 @@ router.post('/login',
 
         if (failedAttempts >= maxAttempts) {
           // Lock account
-          await databaseService.updateUserLoginTracking(user.id, {
+          await userService.updateLoginTracking(user.id, {
             failedLoginAttempts: failedAttempts,
             lockedUntil: new Date(Date.now() + lockDuration)
           });
         } else {
           // Just increment failed attempts
-          await databaseService.updateUserLoginTracking(user.id, {
+          await userService.updateLoginTracking(user.id, {
             failedLoginAttempts: failedAttempts
           });
         }
@@ -214,17 +213,17 @@ router.post('/login',
       }
 
       // Successful login - reset failed attempts and update last login
-      await databaseService.resetUserLoginAttempts(user.id);
+      await userService.resetLoginAttempts(user.id);
 
       // Generate tokens
       const tokens = generateTokens(user.id, user.email, user.role);
 
       // Store refresh token in database using TypeORM
-      await databaseService.createRefreshToken({
-        userId: user.id,
-        token: tokens.refreshToken,
-        expiresAt: new Date(Date.now() + (rememberMe ? 30 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000)) // 30 days if remember me, 7 days otherwise
-      });
+      await userService.createRefreshToken(
+        user.id,
+        tokens.refreshToken,
+        new Date(Date.now() + (rememberMe ? 30 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000)) // 30 days if remember me, 7 days otherwise
+      );
 
       await auditService.logSecurityEvent({
         eventType: AuditEventType.LOGIN_SUCCESS,
@@ -306,8 +305,8 @@ router.post('/refresh',
       }
 
       // Check if refresh token exists in database using TypeORM
-      const { databaseService, auditService } = await getServices();
-      const tokenData = await databaseService.getRefreshTokenWithUser(refreshToken);
+      const { userService, auditService } = await getServices();
+      const tokenData = await userService.getRefreshTokenWithUser(refreshToken);
       
       if (!tokenData || tokenData.revokedAt || tokenData.expiresAt <= new Date()) {
         res.status(401).json({
@@ -377,15 +376,16 @@ router.post('/refresh',
  */
 router.post('/logout', authMiddleware, async (req, res) => {
   try {
+    const { userService, auditService } = await getServices();
     const { refreshToken } = req.body;
     const userId = (req as any).user.id;
 
     if (refreshToken) {
       // Revoke the specific refresh token using TypeORM
-      await databaseService.revokeRefreshToken(refreshToken);
+      await userService.revokeRefreshToken(refreshToken);
     } else {
       // Revoke all refresh tokens for the user using TypeORM
-      await databaseService.revokeAllUserRefreshTokens(userId);
+      await userService.revokeAllRefreshTokens(userId);
     }
 
     await auditService.logSecurityEvent({
@@ -431,8 +431,8 @@ router.post('/change-password',
       const userId = (req as any).user.id;
 
       // Get current user using TypeORM
-      const { databaseService, auditService } = await getServices();
-      const user = await databaseService.getUserById(userId);
+      const { userService, auditService } = await getServices();
+      const user = await userService.findUserById(userId);
       
       if (!user) {
         res.status(404).json({
@@ -466,10 +466,10 @@ router.post('/change-password',
       const newPasswordHash = await hashPassword(newPassword);
 
       // Update password using TypeORM
-      await databaseService.updateUserPassword(userId, newPasswordHash);
+      await userService.updatePassword(userId, newPassword);
 
       // Revoke all refresh tokens to force re-login using TypeORM
-      await databaseService.revokeAllUserRefreshTokens(userId);
+      await userService.revokeAllRefreshTokens(userId);
 
       await auditService.logSecurityEvent({
         eventType: AuditEventType.PASSWORD_CHANGED,
@@ -504,8 +504,8 @@ router.get('/me', authMiddleware, async (req, res) => {
     const userId = (req as any).user.id;
 
     // Get user using TypeORM
-    const { databaseService, auditService } = await getServices();
-    const user = await databaseService.getUserById(userId);
+    const { userService, auditService } = await getServices();
+    const user = await userService.findUserById(userId);
     
     if (!user) {
       res.status(404).json({
@@ -571,8 +571,8 @@ router.post('/forgot-password',
       const { email } = req.body;
 
       // Check if user exists using TypeORM
-      const { databaseService, auditService } = await getServices();
-      const user = await databaseService.getUserByEmail(email);
+      const { userService, auditService } = await getServices();
+      const user = await userService.findUserByEmail(email);
 
       // Always return success to prevent email enumeration
       res.json({
@@ -588,11 +588,7 @@ router.post('/forgot-password',
         );
 
         // Store reset token in database using TypeORM
-        await databaseService.createPasswordResetToken({
-          userId: user.id,
-          token: resetToken,
-          expiresAt: new Date(Date.now() + 60 * 60 * 1000) // 1 hour
-        });
+        await userService.createPasswordResetToken(user.id);
 
         await auditService.logSecurityEvent({
           eventType: AuditEventType.PASSWORD_RESET_REQUESTED,
@@ -643,8 +639,8 @@ router.post('/reset-password',
       }
 
       // Check if reset token exists in database using TypeORM
-      const { databaseService, auditService } = await getServices();
-      const resetTokenData = await databaseService.getPasswordResetTokenWithUser(token);
+      const { userService, auditService } = await getServices();
+      const resetTokenData = await userService.getPasswordResetTokenWithUser(token);
       
       if (!resetTokenData || resetTokenData.usedAt || resetTokenData.expiresAt <= new Date()) {
         res.status(401).json({
@@ -669,13 +665,13 @@ router.post('/reset-password',
       const newPasswordHash = await hashPassword(newPassword);
 
       // Update password using TypeORM
-      await databaseService.updateUserPassword(resetTokenData.userId, newPasswordHash);
+      await userService.updatePassword(resetTokenData.userId, newPassword);
 
       // Mark reset token as used using TypeORM
-      await databaseService.markPasswordResetTokenAsUsed(token);
+      await userService.markPasswordResetTokenAsUsed(token);
 
       // Revoke all refresh tokens to force re-login using TypeORM
-      await databaseService.revokeAllUserRefreshTokens(resetTokenData.userId);
+      await userService.revokeAllRefreshTokens(resetTokenData.userId);
 
       await auditService.logSecurityEvent({
         eventType: AuditEventType.PASSWORD_CHANGED,

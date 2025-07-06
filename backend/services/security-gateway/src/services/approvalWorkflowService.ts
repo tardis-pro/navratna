@@ -92,7 +92,7 @@ export class ApprovalWorkflowService {
       expiresAt.setHours(expiresAt.getHours() + expirationHours);
 
       // Create workflow using DatabaseService
-      const savedWorkflow = await this.databaseService.createApprovalWorkflow({
+      const savedWorkflow = await this.databaseService.security.getApprovalWorkflowRepository().createApprovalWorkflow({
         id: request.operationId,
         operationId: request.operationId,
         requiredApprovers: request.requiredApprovers,
@@ -181,7 +181,8 @@ export class ApprovalWorkflowService {
       this.validateApprovalDecision(workflow, decision);
 
       // Save decision using DatabaseService
-      await this.databaseService.createApprovalDecision({
+      const approvalDecisionRepo = this.databaseService.security.getApprovalDecisionRepository();
+      await approvalDecisionRepo.createApprovalDecision({
         id: `decision-${decision.workflowId}-${decision.approverId}`,
         workflowId: decision.workflowId,
         approverId: decision.approverId,
@@ -295,7 +296,7 @@ export class ApprovalWorkflowService {
    */
   public async getUserWorkflows(userId: string, status?: ApprovalStatus): Promise<ApprovalWorkflowType[]> {
     try {
-      const workflows = await this.databaseService.getUserApprovalWorkflows(userId, status);
+      const workflows = await this.databaseService.security.getApprovalWorkflowRepository().getUserApprovalWorkflows(userId, status);
 
       return workflows.map(this.mapEntityToWorkflow);
 
@@ -324,7 +325,7 @@ export class ApprovalWorkflowService {
       }
 
       // Update status using DatabaseService
-      await this.databaseService.updateApprovalWorkflow(workflowId, {
+      await this.databaseService.security.getApprovalWorkflowRepository().updateApprovalWorkflow(workflowId, {
         status: 'cancelled' as any
       });
 
@@ -380,7 +381,7 @@ export class ApprovalWorkflowService {
       const reminderThreshold = new Date();
       reminderThreshold.setHours(reminderThreshold.getHours() - this.config.reminderIntervalHours);
 
-      const workflows = await this.databaseService.getPendingWorkflowsForReminders(reminderThreshold);
+      const workflows = await this.databaseService.security.getApprovalWorkflowRepository().getPendingWorkflowsForReminders(reminderThreshold);
 
       for (const workflowEntity of workflows) {
         const workflow = this.mapEntityToWorkflow(workflowEntity);
@@ -400,7 +401,7 @@ export class ApprovalWorkflowService {
       const now = new Date();
       logger.debug('Starting workflow expiration check', { timestamp: now.toISOString() });
       
-      const workflows = await this.databaseService.getExpiredWorkflows();
+      const workflows = await this.databaseService.security.getApprovalWorkflowRepository().getExpiredWorkflows();
       logger.debug('Found expired workflows', { count: workflows.length });
 
       if (workflows.length === 0) {
@@ -445,7 +446,7 @@ export class ApprovalWorkflowService {
   private async expireWorkflow(workflowId: string): Promise<void> {
     try {
       // Update workflow status to expired
-      const updatedWorkflow = await this.databaseService.updateApprovalWorkflow(workflowId, {
+      const updatedWorkflow = await this.databaseService.security.getApprovalWorkflowRepository().updateApprovalWorkflow(workflowId, {
         status: 'expired' as any
       });
 
@@ -528,7 +529,7 @@ export class ApprovalWorkflowService {
       });
 
       // Update last reminder time
-      await this.databaseService.updateApprovalWorkflow(workflow.id, {
+      await this.databaseService.security.getApprovalWorkflowRepository().updateApprovalWorkflow(workflow.id, {
         lastReminderAt: new Date()
       });
     }
@@ -541,7 +542,7 @@ export class ApprovalWorkflowService {
     const newStatus = approved ? ApprovalStatus.APPROVED : ApprovalStatus.REJECTED;
     
     // Update workflow status
-    await this.databaseService.updateApprovalWorkflow(workflow.id, {
+    await this.databaseService.security.getApprovalWorkflowRepository().updateApprovalWorkflow(workflow.id, {
       status: newStatus as any
     });
 
@@ -577,7 +578,7 @@ export class ApprovalWorkflowService {
     }
 
     // Update in database
-    await this.databaseService.updateApprovalWorkflow(workflow.id, {
+    await this.databaseService.security.getApprovalWorkflowRepository().updateApprovalWorkflow(workflow.id, {
       currentApprovers: workflow.currentApprovers
     });
 
@@ -701,13 +702,13 @@ export class ApprovalWorkflowService {
    * Database operations using TypeORM
    */
   private async getWorkflow(workflowId: string): Promise<ApprovalWorkflowType | null> {
-    const workflowEntity = await this.databaseService.getApprovalWorkflow(workflowId);
+    const workflowEntity = await this.databaseService.security.getApprovalWorkflowRepository().findById(workflowId);
 
     return workflowEntity ? this.mapEntityToWorkflow(workflowEntity) : null;
   }
 
   private async getApprovalDecisions(workflowId: string): Promise<ApprovalDecision[]> {
-    const decisions = await this.databaseService.getApprovalDecisions(workflowId);
+    const decisions = await this.databaseService.security.getApprovalDecisionRepository().getApprovalDecisions(workflowId);
 
     return decisions.map(decision => ({
       workflowId: decision.workflowId,

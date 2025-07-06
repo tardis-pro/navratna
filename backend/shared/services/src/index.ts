@@ -39,6 +39,8 @@ export { ProjectService } from './services/ProjectService.js';
 export { SessionService } from './services/SessionService.js';
 export { MFAService } from './services/MFAService.js';
 export { OAuthService } from './services/OAuthService.js';
+export { AuditService } from './services/AuditService.js';
+export { SecurityService } from './services/SecurityService.js';
 
 // Agent Intelligence Services
 export { AgentIntelligenceService } from './agentIntelligenceService.js';

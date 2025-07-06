@@ -66,6 +66,29 @@ export class SecurityPolicyRepository extends BaseRepository<SecurityPolicy> {
   }
 
   /**
+   * Get security policy by ID
+   */
+  public async getSecurityPolicy(id: string): Promise<SecurityPolicy | null> {
+    return await this.repository.findOne({ where: { id } });
+  }
+
+  /**
+   * Update security policy
+   */
+  public async updateSecurityPolicy(id: string, updates: Partial<SecurityPolicy>): Promise<SecurityPolicy | null> {
+    await this.repository.update(id, updates);
+    return await this.repository.findOne({ where: { id } });
+  }
+
+  /**
+   * Delete security policy
+   */
+  public async deleteSecurityPolicy(id: string): Promise<boolean> {
+    const result = await this.repository.delete(id);
+    return result.affected > 0;
+  }
+
+  /**
    * Get security policy statistics
    */
   public async getSecurityPolicyStats(): Promise<{

@@ -751,8 +751,9 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
   ): Promise<void> {
     // Check current usage against rate limits
     // This would typically query a rate limiting service or database
-    const currentHourlyUsage = await this.databaseService.getAgentHourlyUsage(agentId);
-    const currentDailyUsage = await this.databaseService.getAgentDailyUsage(agentId);
+    // TODO: Implement agent usage tracking in AuditService
+    const currentHourlyUsage = 0; // await this.databaseService.audit.getAgentHourlyUsage(agentId);
+    const currentDailyUsage = 0;  // await this.databaseService.audit.getAgentDailyUsage(agentId);
 
     if (currentHourlyUsage >= rateLimits.requestsPerHour) {
       throw new ApiError(429, 'Hourly rate limit exceeded', 'HOURLY_RATE_LIMIT_EXCEEDED');

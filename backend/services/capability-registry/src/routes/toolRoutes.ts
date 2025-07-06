@@ -61,7 +61,7 @@ const mockToolGraphDatabase = {
   verifyConnectivity: async () => true
 } as any;
 
-const toolRegistry = new ToolRegistry(databaseService, mockToolGraphDatabase);
+const toolRegistry = new ToolRegistry(databaseService);
 
 const mockBaseExecutor = {
   execute: async () => ({ success: true, result: null })
@@ -69,7 +69,6 @@ const mockBaseExecutor = {
 
 const mockToolExecutor = new ToolExecutor(
   databaseService,
-  mockToolGraphDatabase,
   toolRegistry,
   mockBaseExecutor
 );

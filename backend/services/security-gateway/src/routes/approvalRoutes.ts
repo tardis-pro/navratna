@@ -28,7 +28,7 @@ async function getServices() {
   if (!databaseService) {
     databaseService = new DatabaseService();
     await databaseService.initialize();
-    auditService = new AuditService(databaseService);
+    auditService = new AuditService();
     notificationService = new NotificationService();
     
     // Initialize EventBusService and ApprovalWorkflowService

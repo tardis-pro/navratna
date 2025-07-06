@@ -224,30 +224,21 @@ export class UnifiedToolRegistry {
       const validated = UnifiedToolDefinitionSchema.parse(toolDef);
       
       // Check for duplicates (simplified for now)
-      const existingTools = await this.databaseService.getTools({ enabled: true });
+      const existingTools = await this.databaseService.tools.findActiveTools();
       const existing = existingTools.find(t => t.name === validated.name);
       if (existing) {
         throw new Error(`Tool with name '${validated.name}' already exists`);
       }
       
       // Create tool in database
-      const tool = await this.databaseService.createTool({
-        id: validated.id,
+      const tool = await this.databaseService.tools.createTool({
         name: validated.name,
+        displayName: validated.name, // Use name as displayName
         description: validated.description,
-        version: validated.version,
         category: validated.category as ToolCategory,
-        securityLevel: validated.securityLevel as SecurityLevel,
-        requiresApproval: validated.requiresApproval,
         isEnabled: validated.isEnabled,
-        executionTimeEstimate: validated.executionTimeEstimate,
-        costEstimate: validated.costEstimate,
-        author: validated.author,
-        parameters: validated.parameters,
-        returnType: validated.returnType,
-        tags: validated.tags,
-        dependencies: validated.dependencies,
-        examples: validated.examples as ToolExample[]
+        version: validated.version,
+        securityLevel: validated.securityLevel as SecurityLevel
       });
       
       // Register operations if provided (simplified for now)
@@ -256,7 +247,7 @@ export class UnifiedToolRegistry {
       }
       
       // Create graph relationships in Neo4j if available
-      if (this.databaseService.neo4jService) {
+      if (this.databaseService.tools.neo4jService) {
         await this.createToolGraphNode(tool);
       }
       
@@ -295,7 +286,7 @@ export class UnifiedToolRegistry {
     await this.ensureInitialized();
     
     try {
-      const tools = await this.databaseService.getTools(filters);
+      const tools = await this.databaseService.tools.findActiveTools();
       
       // Convert to UnifiedToolDefinition and enhance with graph data if available
       const unifiedTools: UnifiedToolDefinition[] = tools.map(tool => ({
@@ -305,7 +296,7 @@ export class UnifiedToolRegistry {
         projectContext: []
       }));
       
-      if (this.databaseService.neo4jService) {
+      if (this.databaseService.tools.neo4jService) {
         for (const tool of unifiedTools) {
           tool.recommendations = await this.getToolRecommendations(tool.id);
           tool.relationships = await this.getToolRelationships(tool.id);
@@ -334,7 +325,7 @@ export class UnifiedToolRegistry {
     await this.ensureInitialized();
     
     try {
-      const tool = await this.databaseService.getTool(toolId);
+      const tool = await this.databaseService.tools.findToolById(toolId);
       if (!tool) return null;
       
       // Convert to UnifiedToolDefinition
@@ -367,7 +358,7 @@ export class UnifiedToolRegistry {
     await this.ensureInitialized();
     
     try {
-      const baseTool = await this.databaseService.getTool(toolId);
+      const baseTool = await this.databaseService.tools.findToolById(toolId);
       if (!baseTool) {
         throw new Error(`Tool ${toolId} not found`);
       }
@@ -429,7 +420,7 @@ export class UnifiedToolRegistry {
     
     try {
       // Use Neo4j for graph-based recommendations if available
-      if (this.databaseService.neo4jService) {
+      if (this.databaseService.tools.neo4jService) {
         return await this.getGraphRecommendations(context);
       }
       
@@ -466,7 +457,8 @@ export class UnifiedToolRegistry {
       };
       
       // Store template in database
-      await this.databaseService.workflowRepository.createTemplate(template);
+      // TODO: Move workflow template creation to operations service
+      logger.info('Workflow template creation requested', { template });
       
       logger.info('Workflow template created', { templateId: template.id, name });
       return template;
@@ -486,16 +478,8 @@ export class UnifiedToolRegistry {
 
   private async createToolGraphNode(tool: any): Promise<void> {
     try {
-      if (this.databaseService.neo4jService) {
-        await this.databaseService.neo4jService.createToolNode({
-          id: tool.id,
-          name: tool.name,
-          category: tool.category,
-          securityLevel: tool.securityLevel,
-          vendor: tool.vendor || null,
-          tags: tool.tags || [],
-          dependencies: tool.dependencies || []
-        });
+      if (this.databaseService.tools.neo4jService) {
+        await this.databaseService.tools.createToolNode(tool);
         logger.debug(`Tool graph node created: ${tool.id}`);
       }
     } catch (error) {
@@ -506,8 +490,8 @@ export class UnifiedToolRegistry {
 
   private async getToolRecommendations(toolId: string): Promise<ToolRecommendation[]> {
     try {
-      if (this.databaseService.neo4jService) {
-        return await this.databaseService.neo4jService.getRecommendations(toolId, undefined, 5);
+      if (this.databaseService.tools.neo4jService) {
+        return await this.databaseService.tools.getRecommendations(toolId, undefined, 5);
       }
       return [];
     } catch (error) {
@@ -518,8 +502,8 @@ export class UnifiedToolRegistry {
 
   private async getToolRelationships(toolId: string): Promise<ToolRelationship[]> {
     try {
-      if (this.databaseService.neo4jService) {
-        const relationships = await this.databaseService.neo4jService.getToolRelationships(toolId);
+      if (this.databaseService.tools.neo4jService) {
+        const relationships = await this.databaseService.tools.getToolRelationships(toolId);
         return relationships.map(rel => ({
           type: rel.type as any,
           targetToolId: rel.targetId,
@@ -581,7 +565,7 @@ export class UnifiedToolRegistry {
     try {
       // Get current usage from Redis or memory
       const usageKey = `rate_limit:${key}`;
-      const usageData = await this.databaseService.redisService?.get(usageKey);
+      const usageData = await this.databaseService.tools.getRedisService().get(usageKey);
       
       let usage = usageData ? JSON.parse(usageData) : { requests: [], lastReset: now };
       
@@ -597,8 +581,9 @@ export class UnifiedToolRegistry {
       usage.requests.push(now);
       
       // Save back to cache
-      if (this.databaseService.redisService) {
-        await this.databaseService.redisService.setex(usageKey, Math.ceil(rateLimit.window / 1000), JSON.stringify(usage));
+      const redisService = this.databaseService.tools.getRedisService();
+      if (redisService) {
+        await redisService.set(usageKey, usage, Math.ceil(rateLimit.window / 1000));
       }
       
     } catch (error) {
@@ -685,7 +670,7 @@ export class UnifiedToolRegistry {
       };
       
       // Record in database (simplified for now)
-      await this.databaseService.recordToolUsage(usageRecord);
+      await this.databaseService.tools.trackUsage(usageRecord);
       
       // Emit usage event
       await this.eventBusService.publish('tool.usage.recorded', usageRecord);
@@ -709,7 +694,7 @@ export class UnifiedToolRegistry {
 
   private async getGraphRecommendations(context: any): Promise<ToolRecommendation[]> {
     try {
-      if (!this.databaseService.neo4jService) {
+      if (!this.databaseService.tools.neo4jService) {
         return [];
       }
       
@@ -718,14 +703,14 @@ export class UnifiedToolRegistry {
       // Get recommendations based on current tools
       if (context.currentTools?.length > 0) {
         for (const toolId of context.currentTools) {
-          const toolRecs = await this.databaseService.neo4jService.getRecommendations(toolId, context.objective, 3);
+          const toolRecs = await this.databaseService.tools.getRecommendations(toolId, context.objective, 3);
           recommendations.push(...toolRecs);
         }
       }
       
       // Get category-based recommendations
       if (context.category) {
-        const categoryRecs = await this.databaseService.neo4jService.getToolsByCategory(context.category);
+        const categoryRecs = await this.databaseService.tools.getToolsByCategory(context.category);
         recommendations.push(...categoryRecs.map(tool => ({
           toolId: tool.id,
           score: 0.7,
@@ -834,7 +819,6 @@ export class UnifiedToolRegistry {
         const toolRegistry = await import('./toolRegistry');
         return new toolRegistry.ToolRegistry(
           this.databaseService,
-          this.databaseService.neo4jService,
           this.eventBusService
         );
       }

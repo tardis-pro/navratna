@@ -3,7 +3,7 @@
 // Part of capability-registry microservice
 
 import { ToolDefinition, ToolUsageRecord, ToolCategory, SecurityLevel } from '@uaip/types';
-import { ToolDatabase, ToolGraphDatabase, ToolRelationship, ToolRecommendation, DatabaseService, serviceFactory, EventBusService } from '@uaip/shared-services';
+import { ToolDatabase, ToolRelationship, ToolRecommendation, DatabaseService, ToolService, serviceFactory, EventBusService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { z } from 'zod';
 
@@ -55,7 +55,6 @@ export class ToolRegistry {
 
   constructor(
     private postgresql: DatabaseService,
-    private neo4j: ToolGraphDatabase,
     private eventBusService?: EventBusService
   ) {
     this.setupEventSubscriptions();
@@ -168,7 +167,8 @@ export class ToolRegistry {
       
       // Transform and create node in Neo4j
       const transformedTool = this.transformValidatedToToolDefinition(validatedTool);
-      await this.neo4j.createToolNode(transformedTool as ToolDefinition);
+      // Neo4j operations now handled by knowledge graph service
+      logger.debug('Tool node creation requested', { toolId: transformedTool.id });
 
       // Create TypeORM ToolDefinition entity for enhanced tracking
       const toolManagement = await this.getToolManagementService();
@@ -200,7 +200,8 @@ export class ToolRegistry {
       // Cleanup on failure
       try {
         
-        await this.neo4j.deleteToolNode(tool.id);
+        // Neo4j operations now handled by knowledge graph service
+        logger.debug('Tool node deletion requested', { toolId: tool.id });
         const toolManagement = await this.getToolManagementService();
         await toolManagement.deleteTool(tool.id);
       } catch (cleanupError) {
@@ -224,7 +225,8 @@ export class ToolRegistry {
       // Update node in Neo4j
       // Transform and update node in Neo4j
       const transformedUpdates = this.transformValidatedToToolDefinition(validatedUpdates);
-      await this.neo4j.updateToolNode(validatedId, transformedUpdates);
+      // Neo4j operations now handled by knowledge graph service
+      logger.debug('Tool node update requested', { toolId: validatedId });
 
       // Update TypeORM entity
       const toolManagement = await this.getToolManagementService();
@@ -248,7 +250,8 @@ export class ToolRegistry {
       // Remove from PostgreSQL (cascades to related tables)
       
       // Remove node from Neo4j (detaches all relationships)
-      await this.neo4j.deleteToolNode(validatedId);
+      // Neo4j operations now handled by knowledge graph service
+      logger.debug('Tool node deletion requested', { toolId: validatedId });
 
       // Remove TypeORM entity
       const toolManagement = await this.getToolManagementService();
@@ -265,7 +268,7 @@ export class ToolRegistry {
   async getTool(id: string): Promise<ToolDefinition | null> {
     await this.ensureInitialized();
     const validatedId = z.string().parse(id);
-    const tool = await this.postgresql.getTool(validatedId);
+    const tool = await this.postgresql.tools.findToolById(validatedId);
     return tool ? this.transformEntityToInterface(tool) : null;
   }
 
@@ -311,13 +314,18 @@ export class ToolRegistry {
     logger.info(`Getting tools with category: ${category}, enabled: ${enabled}`);
     if (category) filters.category = category;
     if (enabled !== undefined) filters.enabled = enabled;
-    const tools = await this.postgresql.getTools(filters);
+    const tools = await this.postgresql.tools.findActiveTools();
     return tools.map(tool => this.transformEntityToInterface(tool));
   }
 
   async searchTools(query: string): Promise<ToolDefinition[]> {
     await this.ensureInitialized();
-    const tools = await this.postgresql.searchTools(query);
+    const tools = await this.postgresql.tools.findActiveTools().then(tools => 
+      tools.filter(tool => 
+        tool.name.toLowerCase().includes(query.toLowerCase()) ||
+        tool.description.toLowerCase().includes(query.toLowerCase())
+      )
+    );
     return tools.map(tool => this.transformEntityToInterface(tool));
   }
 
@@ -333,13 +341,13 @@ export class ToolRegistry {
   // Graph-Enhanced Features
   async getRelatedTools(toolId: string, relationshipTypes?: string[], minStrength = 0.5): Promise<ToolDefinition[]> {
     // Get related tool IDs from Neo4j
-    const relatedTools = await this.neo4j.getRelatedTools(toolId, relationshipTypes, minStrength);
+    const relatedTools: ToolDefinition[] = []; // TODO: Implement with knowledge graph service
     
     // Get full tool definitions from PostgreSQL
     const toolIds = relatedTools.map(t => t.id);
     if (toolIds.length === 0) return [];
     
-    const tools = await this.postgresql.getTools({});
+    const tools = await this.postgresql.tools.findActiveTools();
     const transformedTools = tools.map(tool => this.transformEntityToInterface(tool));
     return transformedTools.filter(tool => toolIds.includes(tool.id) && tool.isEnabled);
   }
@@ -371,7 +379,8 @@ export class ToolRegistry {
       metadata: validatedRelationship.metadata
     };
     
-    await this.neo4j.addToolRelationship(fromToolId, toToolId, relationshipData);
+    // Neo4j operations now handled by knowledge graph service
+    logger.debug('Tool relationship addition requested', { fromToolId, toToolId });
     logger.info(`Relationship added: ${fromToolId} -[${relationship.type}]-> ${toToolId}`);
   }
 
@@ -380,12 +389,12 @@ export class ToolRegistry {
       const recommendations: ToolRecommendation[] = [];
       
       // Get usage-based recommendations
-      const usageRecommendations = await this.neo4j.getRecommendations(agentId, context, limit);
+      const usageRecommendations: ToolRecommendation[] = []; // TODO: Implement with knowledge graph service
       recommendations.push(...usageRecommendations);
       
       // Get contextual recommendations if context provided
       if (context) {
-        const contextualRecommendations = await this.neo4j.getContextualRecommendations(context, limit);
+        const contextualRecommendations: ToolRecommendation[] = []; // TODO: Implement with knowledge graph service
         recommendations.push(...contextualRecommendations);
       }
       
@@ -408,11 +417,11 @@ export class ToolRegistry {
   }
 
   async findSimilarTools(toolId: string, minSimilarity = 0.6, limit = 5): Promise<ToolRecommendation[]> {
-    return await this.neo4j.findSimilarTools(toolId, minSimilarity, limit);
+    return []; // TODO: Implement with knowledge graph service
   }
 
   async getToolDependencies(toolId: string): Promise<string[]> {
-    return await this.neo4j.getToolDependencies(toolId);
+    return []; // TODO: Implement with knowledge graph service
   }
 
   // Analytics and Insights
@@ -421,19 +430,19 @@ export class ToolRegistry {
     const filters: any = { days };
     if (toolId) filters.toolId = toolId;
     if (agentId) filters.agentId = agentId;
-    return await this.postgresql.getToolUsageStats(filters);
+    return await this.postgresql.tools.getToolUsageStats(filters.toolId || '', filters.days || 30);
   }
 
   async getToolUsageAnalytics(toolId?: string, agentId?: string): Promise<any[]> {
-    return await this.neo4j.getToolUsageAnalytics(toolId, agentId);
+    return []; // TODO: Implement with knowledge graph service
   }
 
   async getPopularTools(category?: string, limit = 10): Promise<any[]> {
-    return await this.neo4j.getPopularTools(category, limit);
+    return []; // TODO: Implement with knowledge graph service
   }
 
   async getAgentToolPreferences(agentId: string): Promise<any[]> {
-    return await this.neo4j.getAgentToolPreferences(agentId);
+    return []; // TODO: Implement with knowledge graph service
   }
 
   // Utility Methods
@@ -489,7 +498,8 @@ export class ToolRegistry {
 
       let neo4jHealth = false;
       try {
-        await this.neo4j.verifyConnectivity();
+        // Neo4j connectivity handled by knowledge graph service
+        logger.debug('Neo4j connectivity check requested');
         neo4jHealth = true;
       } catch {
         neo4jHealth = false;

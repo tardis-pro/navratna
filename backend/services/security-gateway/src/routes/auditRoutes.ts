@@ -4,23 +4,22 @@ import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { authMiddleware, requireAdmin } from '@uaip/middleware';
 import { validateRequest } from '@uaip/middleware';
-import { DatabaseService } from '@uaip/shared-services';
+import { AuditService as DomainAuditService } from '@uaip/shared-services';
 import { AuditEventType } from '@uaip/types';
 import { AuditService } from '../services/auditService.js';
 
 const router: Router = express.Router();
 
 // Lazy initialization of services
-let databaseService: DatabaseService | null = null;
+let domainAuditService: DomainAuditService | null = null;
 let auditService: AuditService | null = null;
 
 async function getServices() {
-  if (!databaseService) {
-    databaseService = new DatabaseService();
-    await databaseService.initialize();
-    auditService = new AuditService(databaseService);
+  if (!domainAuditService) {
+    domainAuditService = DomainAuditService.getInstance();
+    auditService = new AuditService();
   }
-  return { databaseService, auditService: auditService! };
+  return { domainAuditService, auditService: auditService! };
 }
 
 // Validation schemas using Zod
@@ -81,14 +80,13 @@ const validateWithZod = (schema: z.ZodSchema, data: any) => {
  */
 router.get('/logs', authMiddleware, requireAdmin, async (req, res) => {
   try {
+    const { domainAuditService } = await getServices();
     const { error, value } = validateWithZod(auditQuerySchema, req.query);
     if (error) {
       res.status(400).json({
         error: 'Validation Error',
         details: error.details.map(d => d.message)
       });
-      return;
-        return;
       return;
     }
 
@@ -108,8 +106,9 @@ router.get('/logs', authMiddleware, requireAdmin, async (req, res) => {
     // Calculate offset for pagination
     const offset = (page - 1) * limit;
 
-    // Use DatabaseService method instead of raw SQL
-    const result = await databaseService.searchAuditLogs({
+    // Use AuditRepository method through domain service
+    const auditRepository = domainAuditService.getAuditRepository();
+    const result = await auditRepository.searchAuditLogs({
       eventType,
       userId,
       startDate,
@@ -159,10 +158,12 @@ router.get('/logs', authMiddleware, requireAdmin, async (req, res) => {
  */
 router.get('/logs/:logId', authMiddleware, requireAdmin, async (req, res) => {
   try {
+    const { domainAuditService } = await getServices();
     const { logId } = req.params;
 
-    // Use DatabaseService method instead of raw SQL
-    const log = await databaseService.getAuditLogById(logId);
+    // Use AuditRepository method through domain service
+    const auditRepository = domainAuditService.getAuditRepository();
+    const log = await auditRepository.getAuditLogById(logId);
 
     if (!log) {
       res.status(404).json({
@@ -197,8 +198,10 @@ router.get('/logs/:logId', authMiddleware, requireAdmin, async (req, res) => {
  */
 router.get('/events/types', authMiddleware, requireAdmin, async (req, res) => {
   try {
-    // Use DatabaseService method instead of raw SQL
-    const eventTypes = await databaseService.getAuditEventTypes();
+    const { domainAuditService } = await getServices();
+    // Use AuditRepository method through domain service
+    const auditRepository = domainAuditService.getAuditRepository();
+    const eventTypes = await auditRepository.getAuditEventTypes();
 
     res.json({
       message: 'Event types retrieved successfully',
@@ -223,6 +226,7 @@ router.get('/events/types', authMiddleware, requireAdmin, async (req, res) => {
  */
 router.get('/stats', authMiddleware, requireAdmin, async (req, res) => {
   try {
+    const { domainAuditService } = await getServices();
     const { timeframe = '24h' } = req.query;
 
     // Validate timeframe
@@ -231,8 +235,9 @@ router.get('/stats', authMiddleware, requireAdmin, async (req, res) => {
       ? (timeframe as '1h' | '24h' | '7d' | '30d') 
       : '24h';
 
-    // Use DatabaseService method instead of raw SQL
-    const statistics = await databaseService.getAuditStatistics(selectedTimeframe);
+    // Use AuditRepository method through domain service
+    const auditRepository = domainAuditService.getAuditRepository();
+    const statistics = await auditRepository.getAuditStatistics(selectedTimeframe);
 
     res.json({
       message: 'Audit statistics retrieved successfully',
@@ -400,25 +405,16 @@ router.post('/compliance-report', authMiddleware, requireAdmin, async (req, res)
  */
 router.get('/user-activity/:userId', authMiddleware, requireAdmin, async (req, res) => {
   try {
+    const { domainAuditService } = await getServices();
     const { userId } = req.params;
     const { page = 1, limit = 20, startDate, endDate, eventType } = req.query;
-
-    // Validate userId format
-    // const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    // if (!uuidRegex.test(userId)) {
-    //   res.status(400).json({
-    //     error: 'Invalid User ID',
-    //     message: 'User ID must be a valid UUID'
-    //   });
-      return;
-        return;
-    // }
 
     // Calculate offset for pagination
     const offset = (Number(page) - 1) * Number(limit);
 
-    // Use DatabaseService method instead of raw SQL
-    const result = await databaseService.getUserActivityAuditTrail({
+    // Use AuditRepository method through domain service
+    const auditRepository = domainAuditService.getAuditRepository();
+    const result = await auditRepository.getUserActivityAuditTrail({
       userId,
       startDate: startDate ? new Date(startDate as string) : undefined,
       endDate: endDate ? new Date(endDate as string) : undefined,

@@ -21,7 +21,7 @@ async function getServices() {
   if (!databaseService) {
     databaseService = new DatabaseService();
     await databaseService.initialize();
-    auditService = new AuditService(databaseService);
+    auditService = new AuditService();
   }
   return { databaseService, auditService: auditService! };
 }
@@ -152,8 +152,11 @@ router.get('/',
       const limitQuery = parseInt(limit as string) || 20;
       const offset = (pageQuery - 1) * limitQuery;
 
-      // Use DatabaseService searchUsers method for TypeORM-based search
-      const result = await databaseService.searchUsers({
+      const { databaseService } = await getServices();
+      
+      // Use UserRepository searchUsers method for TypeORM-based search
+      const userRepo = databaseService.users.getUserRepository();
+      const result = await userRepo.searchUsers({
         search: search as string,
         role: role as string,
         isActive: isActive !== undefined ? Boolean(isActive) : undefined,
@@ -196,9 +199,10 @@ router.get('/',
 router.get('/:userId', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { userId } = req.params;
+    const { databaseService } = await getServices();
 
     // Use DatabaseService getUserById method
-    const user = await databaseService.getUserById(userId);
+    const user = await databaseService.users.findUserById(userId);
 
     if (!user) {
       res.status(404).json({
@@ -246,9 +250,10 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
     }
 
     const adminUserId = (req as any).user.userId;
+    const { databaseService, auditService } = await getServices();
 
     // Check if user already exists using DatabaseService
-    const existingUser = await databaseService.getUserByEmail(value.email);
+    const existingUser = await databaseService.users.findUserByEmail(value.email);
 
     if (existingUser) {
       res.status(409).json({
@@ -263,15 +268,21 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
     const passwordHash = await hashPassword(value.password);
 
     // Create user using DatabaseService
-    const newUser = await databaseService.createUser({
+    const newUser = await databaseService.users.createUser({
       email: value.email,
-      passwordHash,
+      password: passwordHash,
       role: value.role,
       firstName: value.firstName,
       lastName: value.lastName,
-      department: value.department,
-      isActive: value.isActive
+      department: value.department
     });
+
+    // Set user activation status if specified
+    if (value.isActive === false) {
+      await databaseService.users.getUserRepository().deactivateUser(newUser.id);
+    } else if (value.isActive === true) {
+      await databaseService.users.getUserRepository().activateUser(newUser.id);
+    }
 
     // Send welcome email if requested
     if (value.sendWelcomeEmail) {
@@ -346,9 +357,10 @@ router.put('/:userId', authMiddleware, requireAdmin, async (req, res) => {
     }
 
     const adminUserId = (req as any).user.userId;
+    const { databaseService, auditService } = await getServices();
 
     // Check if user exists using DatabaseService
-    const currentUser = await databaseService.getUserById(userId);
+    const currentUser = await databaseService.users.findUserById(userId);
 
     if (!currentUser) {
       res.status(404).json({
@@ -361,7 +373,7 @@ router.put('/:userId', authMiddleware, requireAdmin, async (req, res) => {
 
     // Check if email is being changed and if it conflicts
     if (value.email && value.email !== currentUser.email) {
-      const emailCheck = await databaseService.getUserByEmail(value.email);
+      const emailCheck = await databaseService.users.findUserByEmail(value.email);
 
       if (emailCheck && emailCheck.id !== userId) {
         res.status(409).json({
@@ -385,7 +397,7 @@ router.put('/:userId', authMiddleware, requireAdmin, async (req, res) => {
     }
 
     // Update user using DatabaseService
-    const updatedUser = await databaseService.updateUserProfile(userId, {
+    const updatedUser = await databaseService.users.getUserRepository().updateUserProfile(userId, {
       firstName: value.firstName,
       lastName: value.lastName,
       department: value.department,
@@ -396,9 +408,9 @@ router.put('/:userId', authMiddleware, requireAdmin, async (req, res) => {
     // Handle email update separately if needed (not in updateUserProfile)
     if (value.email && value.email !== currentUser.email) {
       // Use the generic update method for email
-      await databaseService.updateUser(userId, { email: value.email });
+      await databaseService.users.updateUser(userId, { email: value.email });
       // Refresh the user data
-      const refreshedUser = await databaseService.getUserById(userId);
+      const refreshedUser = await databaseService.users.findUserById(userId);
       if (refreshedUser) {
         Object.assign(updatedUser, refreshedUser);
       }
@@ -457,6 +469,7 @@ router.delete('/:userId', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { userId } = req.params;
     const adminUserId = (req as any).user.userId;
+    const { databaseService, auditService } = await getServices();
 
     // Prevent self-deletion
     if (userId === adminUserId) {
@@ -469,7 +482,7 @@ router.delete('/:userId', authMiddleware, requireAdmin, async (req, res) => {
     }
 
     // Check if user exists using DatabaseService
-    const user = await databaseService.getUserById(userId);
+    const user = await databaseService.users.findUserById(userId);
 
     if (!user) {
       res.status(404).json({
@@ -481,7 +494,7 @@ router.delete('/:userId', authMiddleware, requireAdmin, async (req, res) => {
     }
 
     // Soft delete using DatabaseService (deactivates user)
-    const deleted = await databaseService.deleteUser(userId);
+    const deleted = await databaseService.users.deleteUser(userId);
 
     if (!deleted) {
       res.status(500).json({
@@ -493,7 +506,7 @@ router.delete('/:userId', authMiddleware, requireAdmin, async (req, res) => {
     }
 
     // Revoke all refresh tokens using DatabaseService
-    await databaseService.revokeAllUserRefreshTokens(userId);
+    await databaseService.users.revokeAllRefreshTokens(userId);
 
     await auditService.logSecurityEvent({
       eventType: AuditEventType.USER_DELETED,
@@ -541,9 +554,10 @@ router.post('/:userId/reset-password', authMiddleware, requireAdmin, async (req,
     }
 
     const adminUserId = (req as any).user.userId;
+    const { databaseService, auditService } = await getServices();
 
     // Check if user exists using DatabaseService
-    const user = await databaseService.getUserById(userId);
+    const user = await databaseService.users.findUserById(userId);
 
     if (!user) {
       res.status(404).json({
@@ -556,13 +570,12 @@ router.post('/:userId/reset-password', authMiddleware, requireAdmin, async (req,
 
     // Generate new password if not provided
     const newPassword = value.newPassword || generateRandomPassword();
-    const passwordHash = await hashPassword(newPassword);
 
     // Update password using DatabaseService
-    await databaseService.updateUserPassword(userId, passwordHash);
+    await databaseService.users.updatePassword(userId, newPassword);
 
     // Revoke all refresh tokens to force re-login using DatabaseService
-    await databaseService.revokeAllUserRefreshTokens(userId);
+    await databaseService.users.revokeAllRefreshTokens(userId);
 
     // Send notification if requested
     if (value.sendNotification) {
@@ -621,9 +634,10 @@ router.post('/:userId/unlock', authMiddleware, requireAdmin, async (req, res) =>
   try {
     const { userId } = req.params;
     const adminUserId = (req as any).user.userId;
+    const { databaseService, auditService } = await getServices();
 
     // Check if user exists using DatabaseService
-    const user = await databaseService.getUserById(userId);
+    const user = await databaseService.users.findUserById(userId);
 
     if (!user) {
       res.status(404).json({
@@ -635,7 +649,7 @@ router.post('/:userId/unlock', authMiddleware, requireAdmin, async (req, res) =>
     }
 
     // Unlock the account using DatabaseService
-    await databaseService.resetUserLoginAttempts(userId);
+    await databaseService.users.resetLoginAttempts(userId);
 
     await auditService.logSecurityEvent({
       eventType: AuditEventType.USER_UNLOCKED,
@@ -684,6 +698,7 @@ router.post('/bulk-action', authMiddleware, requireAdmin, async (req, res) => {
 
     const adminUserId = (req as any).user.userId;
     const { userIds, action, reason } = value;
+    const { databaseService, auditService } = await getServices();
 
     // Prevent admin from performing bulk actions on themselves
     if (userIds.includes(adminUserId)) {
@@ -706,7 +721,7 @@ router.post('/bulk-action', authMiddleware, requireAdmin, async (req, res) => {
     for (const userId of userIds) {
       try {
         // Check if user exists using DatabaseService
-        const user = await databaseService.getUserById(userId);
+        const user = await databaseService.users.findUserById(userId);
 
         if (!user) {
           results.failed.push({ userId, reason: 'User not found' });
@@ -715,27 +730,26 @@ router.post('/bulk-action', authMiddleware, requireAdmin, async (req, res) => {
 
         switch (action) {
           case 'activate':
-            await databaseService.activateUser(userId);
+            await databaseService.users.getUserRepository().activateUser(userId);
             break;
 
           case 'deactivate':
-            await databaseService.deactivateUser(userId);
+            await databaseService.users.getUserRepository().deactivateUser(userId);
             // Revoke refresh tokens using DatabaseService
-            await databaseService.revokeAllUserRefreshTokens(userId);
+            await databaseService.users.revokeAllRefreshTokens(userId);
             break;
 
           case 'delete':
-            await databaseService.deleteUser(userId);
+            await databaseService.users.deleteUser(userId);
             // Revoke refresh tokens using DatabaseService
-            await databaseService.revokeAllUserRefreshTokens(userId);
+            await databaseService.users.revokeAllRefreshTokens(userId);
             break;
 
           case 'reset_password':
             const newPassword = generateRandomPassword();
-            const passwordHash = await hashPassword(newPassword);
-            await databaseService.updateUserPassword(userId, passwordHash);
+            await databaseService.users.updatePassword(userId, newPassword);
             // Revoke refresh tokens using DatabaseService
-            await databaseService.revokeAllUserRefreshTokens(userId);
+            await databaseService.users.revokeAllRefreshTokens(userId);
             break;
 
           default:
@@ -788,8 +802,10 @@ router.post('/bulk-action', authMiddleware, requireAdmin, async (req, res) => {
  */
 router.get('/stats', authMiddleware, requireAdmin, async (req, res) => {
   try {
+    const { databaseService } = await getServices();
+    
     // Use DatabaseService getUserStats method for TypeORM-based statistics
-    const statistics = await databaseService.getUserStats();
+    const statistics = await databaseService.users.getUserRepository().getUserStats();
 
     res.json({
       message: 'User statistics retrieved successfully',

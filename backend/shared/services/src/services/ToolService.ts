@@ -11,10 +11,14 @@ import { ToolExecution } from '../entities/toolExecution.entity';
 import { ToolUsageRecord } from '../entities/toolUsageRecord.entity';
 import { ToolAssignment } from '../entities/toolAssignment.entity';
 import { SecurityLevel, ToolExecutionStatus, ToolCategory } from '@uaip/types';
+import { RedisCacheService } from '../redis-cache.service';
+import { KnowledgeGraphService } from '../knowledge-graph/knowledge-graph.service';
 
 export class ToolService {
   private static instance: ToolService;
   private typeormService: TypeOrmService;
+  private redisService: RedisCacheService;
+  private knowledgeGraphService: KnowledgeGraphService | null = null;
 
   // Repositories
   private toolRepository: ToolRepository | null = null;
@@ -24,6 +28,8 @@ export class ToolService {
 
   private constructor() {
     this.typeormService = TypeOrmService.getInstance();
+    this.redisService = RedisCacheService.getInstance();
+    // knowledgeGraphService is optional and initialized lazily
   }
 
   public static getInstance(): ToolService {
@@ -291,5 +297,80 @@ export class ToolService {
   public async updateToolExecution(executionId: string, updates: Partial<ToolExecution>): Promise<void> {
     const executionRepo = this.getToolExecutionRepository();
     await executionRepo.update(executionId, updates);
+  }
+
+  // Redis service access
+  public getRedisService(): RedisCacheService {
+    return this.redisService;
+  }
+
+  // Knowledge graph service access (optional)
+  public get neo4jService(): KnowledgeGraphService | null {
+    return this.knowledgeGraphService;
+  }
+
+  // Helper methods for capability-registry compatibility
+  public async getTool(toolId: string): Promise<ToolDefinition | null> {
+    return this.findToolById(toolId);
+  }
+
+  public async getTools(filters: { enabled?: boolean; category?: string }): Promise<ToolDefinition[]> {
+    if (filters.category) {
+      return this.findToolsByCategory(filters.category);
+    }
+    if (filters.enabled) {
+      return this.findActiveTools();
+    }
+    return this.findActiveTools();
+  }
+
+  public async searchTools(query: string): Promise<ToolDefinition[]> {
+    const tools = await this.findActiveTools();
+    return tools.filter(tool => 
+      tool.name.toLowerCase().includes(query.toLowerCase()) ||
+      tool.description.toLowerCase().includes(query.toLowerCase())
+    );
+  }
+
+  public async recordToolUsage(usage: any): Promise<void> {
+    await this.trackUsage(usage);
+  }
+
+  public async getToolExecutions(filters: { toolId?: string; agentId?: string; limit?: number }): Promise<ToolExecution[]> {
+    if (filters.toolId) {
+      return this.findExecutionsByTool(filters.toolId, filters.limit);
+    }
+    if (filters.agentId) {
+      return this.findExecutionsByAgent(filters.agentId, filters.limit);
+    }
+    return [];
+  }
+
+  // Neo4j-related methods for tool relationships (using knowledge graph if available)
+  public async createToolNode(tool: ToolDefinition): Promise<void> {
+    if (this.knowledgeGraphService) {
+      // Use knowledge graph for tool relationships
+      logger.info('Creating tool node in knowledge graph', { toolId: tool.id });
+    }
+  }
+
+  public async getRecommendations(toolId: string, context?: string, limit = 5): Promise<any[]> {
+    if (this.knowledgeGraphService) {
+      // Use knowledge graph for recommendations
+      logger.info('Getting tool recommendations from knowledge graph', { toolId, context });
+    }
+    return [];
+  }
+
+  public async getToolRelationships(toolId: string): Promise<any[]> {
+    if (this.knowledgeGraphService) {
+      // Use knowledge graph for tool relationships
+      logger.info('Getting tool relationships from knowledge graph', { toolId });
+    }
+    return [];
+  }
+
+  public async getToolsByCategory(category: string): Promise<ToolDefinition[]> {
+    return this.findToolsByCategory(category);
   }
 }

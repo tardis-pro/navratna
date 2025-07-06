@@ -5,7 +5,7 @@ import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
 import { authMiddleware, requireAdmin, requireOperator } from '@uaip/middleware';
 import { validateRequest } from '@uaip/middleware';
-import { DatabaseService, EventBusService } from '@uaip/shared-services';
+import { SecurityService, EventBusService, AuditService as DomainAuditService, DatabaseService } from '@uaip/shared-services';
 import { AuditService } from '../services/auditService.js';
 import { NotificationService } from '../services/notificationService.js';
 import { AuditEventType, SecurityLevel } from '@uaip/types';
@@ -16,16 +16,17 @@ import { config } from '@uaip/config';
 const router: Router = express.Router();
 
 // Lazy initialization of services
-let databaseService: DatabaseService | null = null;
+let securityService: SecurityService | null = null;
 let auditService: AuditService | null = null;
+let domainAuditService: DomainAuditService | null = null;
 
 async function getServices() {
-  if (!databaseService) {
-    databaseService = new DatabaseService();
-    await databaseService.initialize();
-    auditService = new AuditService(databaseService);
+  if (!securityService) {
+    securityService = SecurityService.getInstance();
+    auditService = new AuditService();
+    domainAuditService = DomainAuditService.getInstance();
   }
-  return { databaseService, auditService: auditService! };
+  return { securityService, auditService: auditService!, domainAuditService: domainAuditService! };
 }
 
 // Initialize services lazily to ensure proper initialization order
@@ -35,7 +36,10 @@ let approvalWorkflowService: ApprovalWorkflowService | null = null;
 let securityGatewayService: SecurityGatewayService | null = null;
 
 async function getSecurityServices() {
-  const { databaseService, auditService } = await getServices();
+  const { securityService, auditService, domainAuditService } = await getServices();
+  // Use a proper DatabaseService instance
+  const databaseService = DatabaseService.getInstance();
+  await databaseService.initialize();
   
   if (!notificationService) {
     notificationService = new NotificationService();
@@ -156,8 +160,8 @@ router.post('/assess-risk', authMiddleware, async (req, res) => {
         error: 'Validation Error',
         details: error.details.map(d => d.message)
       });
-      return;
-        return;
+
+  
     }
 
     const userId = (req as any).user.userId;
@@ -199,8 +203,8 @@ router.post('/assess-risk', authMiddleware, async (req, res) => {
       error: 'Internal Server Error',
       message: 'An error occurred during risk assessment'
     });
-      return;
-        return;
+
+  
   }
 });
 
@@ -217,8 +221,8 @@ router.post('/check-approval-required', authMiddleware, async (req, res) => {
         error: 'Validation Error',
         details: error.details.map(d => d.message)
       });
-      return;
-        return;
+
+  
     }
 
     const userId = (req as any).user.userId;
@@ -248,8 +252,8 @@ router.post('/check-approval-required', authMiddleware, async (req, res) => {
       error: 'Internal Server Error',
       message: 'An error occurred during approval requirement check'
     });
-      return;
-        return;
+
+  
   }
 });
 
@@ -260,6 +264,7 @@ router.post('/check-approval-required', authMiddleware, async (req, res) => {
  */
 router.get('/policies', authMiddleware, requireAdmin, async (req, res) => {
   try {
+    const { securityService } = await getServices();
     const { page = 1, limit = 20, active, search } = req.query;
     
     const filters: any = {};
@@ -275,7 +280,8 @@ router.get('/policies', authMiddleware, requireAdmin, async (req, res) => {
     filters.limit = Number(limit);
     filters.offset = (Number(page) - 1) * Number(limit);
 
-    const { policies, total } = await databaseService.querySecurityPolicies(filters);
+    const securityPolicyRepo = securityService.getSecurityPolicyRepository();
+    const { policies, total } = await securityPolicyRepo.querySecurityPolicies(filters);
 
     res.json({
       message: 'Security policies retrieved successfully',
@@ -294,8 +300,8 @@ router.get('/policies', authMiddleware, requireAdmin, async (req, res) => {
       error: 'Internal Server Error',
       message: 'An error occurred while retrieving security policies'
     });
-      return;
-        return;
+
+  
   }
 });
 
@@ -306,17 +312,19 @@ router.get('/policies', authMiddleware, requireAdmin, async (req, res) => {
  */
 router.get('/policies/:policyId', authMiddleware, requireAdmin, async (req, res) => {
   try {
+    const { securityService } = await getServices();
     const { policyId } = req.params;
 
-    const policy = await databaseService.getSecurityPolicy(policyId);
+    const securityPolicyRepo = securityService.getSecurityPolicyRepository();
+    const policy = await securityPolicyRepo.getSecurityPolicy(policyId);
     
     if (!policy) {
       res.status(404).json({
         error: 'Policy Not Found',
         message: 'Security policy not found'
       });
-      return;
-        return;
+
+  
     }
 
     res.json({
@@ -330,8 +338,8 @@ router.get('/policies/:policyId', authMiddleware, requireAdmin, async (req, res)
       error: 'Internal Server Error',
       message: 'An error occurred while retrieving the security policy'
     });
-      return;
-        return;
+
+  
   }
 });
 
@@ -342,20 +350,21 @@ router.get('/policies/:policyId', authMiddleware, requireAdmin, async (req, res)
  */
 router.post('/policies', authMiddleware, requireAdmin, async (req, res) => {
   try {
+    const { securityService } = await getServices();
     const { error, value } = validateWithZod(securityPolicySchema, req.body);
     if (error) {
       res.status(400).json({
         error: 'Validation Error',
         details: error.details.map(d => d.message)
       });
-      return;
-        return;
+
     }
 
     const userId = (req as any).user.userId;
 
-    // Create policy using DatabaseService
-    const newPolicy = await databaseService.createSecurityPolicy({
+    // Create policy using SecurityService
+    const securityPolicyRepo = securityService.getSecurityPolicyRepository();
+    const newPolicy = await securityPolicyRepo.createSecurityPolicy({
       name: value.name,
       description: value.description,
       priority: value.priority,
@@ -383,8 +392,8 @@ router.post('/policies', authMiddleware, requireAdmin, async (req, res) => {
       message: 'Security policy created successfully',
       policy: newPolicy
     });
-      return;
-        return;
+
+  
 
   } catch (error) {
     logger.error('Create policy error', { error, userId: (req as any).user?.userId });
@@ -392,8 +401,8 @@ router.post('/policies', authMiddleware, requireAdmin, async (req, res) => {
       error: 'Internal Server Error',
       message: 'An error occurred while creating the security policy'
     });
-      return;
-        return;
+
+  
   }
 });
 
@@ -404,6 +413,7 @@ router.post('/policies', authMiddleware, requireAdmin, async (req, res) => {
  */
 router.put('/policies/:policyId', authMiddleware, requireAdmin, async (req, res) => {
   try {
+    const { securityService } = await getServices();
     const { policyId } = req.params;
     const { error, value } = validateWithZod(updatePolicySchema, req.body);
     if (error) {
@@ -411,22 +421,23 @@ router.put('/policies/:policyId', authMiddleware, requireAdmin, async (req, res)
         error: 'Validation Error',
         details: error.details.map(d => d.message)
       });
-      return;
-        return;
+
+  
     }
 
     const userId = (req as any).user.userId;
 
     // Check if policy exists
-    const existingPolicy = await databaseService.getSecurityPolicy(policyId);
+    const securityPolicyRepo = securityService.getSecurityPolicyRepository();
+    const existingPolicy = await securityPolicyRepo.getSecurityPolicy(policyId);
 
     if (!existingPolicy) {
       res.status(404).json({
         error: 'Policy Not Found',
         message: 'Security policy not found'
       });
-      return;
-        return;
+
+  
     }
 
     if (Object.keys(value).length === 0) {
@@ -434,20 +445,20 @@ router.put('/policies/:policyId', authMiddleware, requireAdmin, async (req, res)
         error: 'No Updates',
         message: 'No valid fields provided for update'
       });
-      return;
-        return;
+
+  
     }
 
-    // Update policy using DatabaseService
-    const updatedPolicy = await databaseService.updateSecurityPolicy(policyId, value);
+    // Update policy using SecurityService
+    const updatedPolicy = await securityPolicyRepo.updateSecurityPolicy(policyId, value);
 
     if (!updatedPolicy) {
       res.status(500).json({
         error: 'Update Failed',
         message: 'Failed to update security policy'
       });
-      return;
-        return;
+
+  
     }
 
     const { auditService } = await getSecurityServices();
@@ -476,8 +487,8 @@ router.put('/policies/:policyId', authMiddleware, requireAdmin, async (req, res)
       error: 'Internal Server Error',
       message: 'An error occurred while updating the security policy'
     });
-      return;
-        return;
+
+  
   }
 });
 
@@ -488,31 +499,33 @@ router.put('/policies/:policyId', authMiddleware, requireAdmin, async (req, res)
  */
 router.delete('/policies/:policyId', authMiddleware, requireAdmin, async (req, res) => {
   try {
+    const { securityService } = await getServices();
     const { policyId } = req.params;
     const userId = (req as any).user.userId;
 
     // Check if policy exists
-    const existingPolicy = await databaseService.getSecurityPolicy(policyId);
+    const securityPolicyRepo = securityService.getSecurityPolicyRepository();
+    const existingPolicy = await securityPolicyRepo.getSecurityPolicy(policyId);
 
     if (!existingPolicy) {
       res.status(404).json({
         error: 'Policy Not Found',
         message: 'Security policy not found'
       });
-      return;
-        return;
+
+  
     }
 
-    // Delete policy using DatabaseService
-    const deleted = await databaseService.deleteSecurityPolicy(policyId);
+    // Delete policy using SecurityService
+    const deleted = await securityPolicyRepo.deleteSecurityPolicy(policyId);
 
     if (!deleted) {
       res.status(500).json({
         error: 'Delete Failed',
         message: 'Failed to delete security policy'
       });
-      return;
-        return;
+
+  
     }
 
     const { auditService } = await getSecurityServices();
@@ -539,8 +552,8 @@ router.delete('/policies/:policyId', authMiddleware, requireAdmin, async (req, r
       error: 'Internal Server Error',
       message: 'An error occurred while deleting the security policy'
     });
-      return;
-        return;
+
+  
   }
 });
 
@@ -573,8 +586,10 @@ router.get('/stats', authMiddleware, requireAdmin, async (req, res) => {
         startDate = new Date(endDate.getTime() - 24 * 60 * 60 * 1000);
     }
 
-    // Get security event statistics using DatabaseService
-    const eventStats = await databaseService.queryAuditEvents({
+    // Get security event statistics using AuditService
+    const { domainAuditService } = await getServices();
+    const auditRepo = domainAuditService.getAuditRepository();
+    const eventStats = await auditRepo.queryAuditEvents({
       startDate,
       endDate,
       limit: 1000
@@ -587,7 +602,7 @@ router.get('/stats', authMiddleware, requireAdmin, async (req, res) => {
     }, {} as Record<AuditEventType, number>);
 
     // Get risk assessment statistics
-    const riskAssessmentEvents = await databaseService.queryAuditEvents({
+    const riskAssessmentEvents = await auditRepo.queryAuditEvents({
       eventTypes: [AuditEventType.RISK_ASSESSMENT],
       startDate,
       endDate,
@@ -613,8 +628,10 @@ router.get('/stats', authMiddleware, requireAdmin, async (req, res) => {
       lowRiskCount: 0
     });
 
-    // Get active policies count using DatabaseService
-    const policyStats = await databaseService.getSecurityPolicyStats();
+    // Get active policies count using SecurityService
+    const { securityService } = await getServices();
+    const securityPolicyRepo = securityService.getSecurityPolicyRepository();
+    const policyStats = await securityPolicyRepo.getSecurityPolicyStats();
 
     res.json({
       message: 'Security statistics retrieved successfully',
@@ -647,8 +664,8 @@ router.get('/stats', authMiddleware, requireAdmin, async (req, res) => {
       error: 'Internal Server Error',
       message: 'An error occurred while retrieving security statistics'
     });
-      return;
-        return;
+
+  
   }
 });
 

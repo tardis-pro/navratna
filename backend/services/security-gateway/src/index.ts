@@ -35,8 +35,18 @@ class SecurityGatewayServer extends BaseService {
   }
 
   protected async initialize(): Promise<void> {
+    // Initialize JWT validator with configuration
+    JWTValidator.getInstance({
+      secret: config.jwt.secret,
+      algorithm: 'HS256',
+      issuer: config.jwt.issuer,
+      audience: config.jwt.audience,
+      expiresIn: config.jwt.expiresIn,
+      refreshExpiresIn: config.jwt.refreshExpiresIn
+    });
+
     // Initialize services that depend on database
-    this.auditService = new AuditService(this.databaseService);
+    this.auditService = new AuditService();
     this.notificationService = new NotificationService();
     this.approvalWorkflowService = new ApprovalWorkflowService(
       this.databaseService,
@@ -270,7 +280,8 @@ class SecurityGatewayServer extends BaseService {
 
   private async validateJWTToken(token: string): Promise<any> {
     try {
-      const decoded = JWTValidator.verify(token);
+      const jwtValidator = JWTValidator.getInstance();
+      const decoded = jwtValidator.verify(token);
       return { valid: true, ...decoded };
     } catch (error) {
       logger.warn('JWT token validation failed', { error: error instanceof Error ? error.message : 'Unknown error' });

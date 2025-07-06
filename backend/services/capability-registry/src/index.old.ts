@@ -177,12 +177,11 @@ class CapabilityRegistryService {
     this.baseExecutor = new BaseToolExecutor();
 
     // Initialize tool registry with TypeORM service and EventBusService
-    this.toolRegistry = new ToolRegistry(this.postgresql, this.neo4j, this.eventBusService);
+    this.toolRegistry = new ToolRegistry(this.postgresql, this.eventBusService);
 
     // Initialize tool executor
     this.toolExecutor = new ToolExecutor(
       this.postgresql,
-      this.neo4j,
       this.toolRegistry,
       this.baseExecutor
     );

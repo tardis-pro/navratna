@@ -1,4 +1,4 @@
-import { ToolGraphDatabase, DatabaseService, EventBusService } from '@uaip/shared-services';
+import { DatabaseService, EventBusService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import type { ToolDefinition } from '@uaip/types';
 
@@ -25,7 +25,7 @@ interface ToolRecommendation {
  */
 export class ToolRecommendationService {
   private static instance: ToolRecommendationService;
-  private graphDb: ToolGraphDatabase;
+  // Graph database operations handled by knowledge graph service
   private database: DatabaseService;
   private eventBus: EventBusService;
 

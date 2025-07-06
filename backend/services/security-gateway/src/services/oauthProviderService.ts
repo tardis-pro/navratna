@@ -1,8 +1,8 @@
 import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
-import { DatabaseService } from '@uaip/shared-services';
-import crypto from 'crypto';
-import jwt from 'jsonwebtoken';
+import { OAuthService } from '@uaip/shared-services';
+import * as crypto from 'crypto';
+import * as jwt from 'jsonwebtoken';
 import axios, { AxiosResponse } from 'axios';
 import {
   OAuthProviderConfig,
@@ -57,11 +57,12 @@ export interface AgentOperationValidation {
 export class OAuthProviderService {
   private providers: Map<string, OAuthProviderConfig> = new Map();
   private providerEndpoints: Map<OAuthProviderType, ProviderEndpoints> = new Map();
+  private oauthService: OAuthService;
 
   constructor(
-    private databaseService: DatabaseService,
     private auditService: AuditService
   ) {
+    this.oauthService = OAuthService.getInstance();
     this.initializeProviderEndpoints();
     this.loadProviders();
   }
@@ -125,7 +126,7 @@ export class OAuthProviderService {
    */
   private async loadProviders(): Promise<void> {
     try {
-      const providers = await this.databaseService.getOAuthProviders();
+      const providers = await this.oauthService.findEnabledOAuthProviders();
       for (const provider of providers) {
         this.providers.set(provider.id, provider as any);
       }
@@ -149,7 +150,19 @@ export class OAuthProviderService {
       }
 
       // Save to database
-      const savedProvider = await this.databaseService.createOAuthProvider(config);
+      const savedProvider = await this.oauthService.createOAuthProvider({
+        name: config.name || `${config.type}-provider`,
+        type: config.type,
+        clientId: config.clientId,
+        clientSecret: config.clientSecret,
+        redirectUri: config.redirectUri,
+        scope: config.scope,
+        authorizationUrl: config.authorizationUrl,
+        tokenUrl: config.tokenUrl,
+        userInfoUrl: config.userInfoUrl,
+        revokeUrl: (config as any).revokeUrl,
+        isEnabled: config.isEnabled || true
+      });
       this.providers.set(savedProvider.id, savedProvider as any);
 
       await this.auditService.logEvent({
@@ -234,7 +247,13 @@ export class OAuthProviderService {
         expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
       };
 
-      await this.databaseService.saveOAuthState(oauthState);
+      const stateEntity = await this.oauthService.createOAuthState({
+        providerId,
+        redirectUri,
+        userType,
+        agentCapabilities,
+        codeVerifier: codeVerifier
+      });
 
       // Build authorization URL with proper parameters
       const params = new URLSearchParams({
@@ -242,7 +261,7 @@ export class OAuthProviderService {
         redirect_uri: redirectUri,
         response_type: 'code',
         scope: provider.scope.join(' '),
-        state,
+        state: stateEntity.state,
         ...(provider.securityConfig?.requirePKCE && {
           code_challenge: codeChallenge,
           code_challenge_method: 'S256'
@@ -285,10 +304,23 @@ export class OAuthProviderService {
   }> {
     try {
       // Retrieve and validate state
-      const oauthState = await this.databaseService.getOAuthState(state);
-      if (!oauthState || oauthState.expiresAt < new Date()) {
+      const oauthStateEntity = await this.oauthService.verifyAndConsumeOAuthState(state);
+      if (!oauthStateEntity) {
         throw new ApiError(400, 'Invalid or expired OAuth state', 'INVALID_STATE');
       }
+      
+      // Map entity to expected format
+      const oauthState: OAuthState = {
+        state: oauthStateEntity.state,
+        providerId: oauthStateEntity.providerId,
+        redirectUri: oauthStateEntity.redirectUri,
+        codeVerifier: oauthStateEntity.codeVerifier,
+        scope: [], // This will be set from provider
+        userType: oauthStateEntity.userType,
+        agentCapabilities: oauthStateEntity.agentCapabilities,
+        createdAt: oauthStateEntity.createdAt,
+        expiresAt: oauthStateEntity.expiresAt
+      };
 
       const provider = this.providers.get(oauthState.providerId);
       if (!provider) {
@@ -312,8 +344,7 @@ export class OAuthProviderService {
       // Get user info from provider
       const userInfo = await this.getUserInfo(provider.type, tokens.access_token);
 
-      // Clean up OAuth state
-      await this.databaseService.deleteOAuthState(state);
+      // OAuth state already cleaned up by verifyAndConsumeOAuthState
 
       // Audit successful OAuth callback
       await this.auditService.logEvent({
@@ -391,7 +422,16 @@ export class OAuthProviderService {
         // updatedAt: new Date() // This will be set by the database
       };
 
-      const savedConnection = await this.databaseService.createAgentOAuthConnection(connection);
+      const savedConnection = await this.oauthService.createAgentOAuthConnection({
+        agentId,
+        providerId,
+        providerType: provider.type,
+        capabilities,
+        accessToken: encryptedAccessToken,
+        refreshToken: encryptedRefreshToken,
+        tokenExpiresAt: tokens.expires_in ? new Date(Date.now() + tokens.expires_in * 1000) : undefined,
+        scope: provider.scope
+      });
 
       await this.auditService.logEvent({
         eventType: AuditEventType.SECURITY_CONFIG_CHANGE,
@@ -526,7 +566,7 @@ export class OAuthProviderService {
 
   private async getAgentConnection(agentId: string, providerId: string): Promise<AgentOAuthConnection | null> {
     try {
-      const connection = await this.databaseService.getAgentOAuthConnection(agentId, providerId);
+      const connection = await this.oauthService.findAgentOAuthConnection(agentId, providerId);
       if (!connection || !connection.isActive) {
         return null;
       }
@@ -582,10 +622,11 @@ export class OAuthProviderService {
         updatedAt: new Date()
       };
 
-      await this.databaseService.updateAgentOAuthConnection({
-        ...updatedConnection,
-        id: connection.id!
-      } as any);
+      await this.oauthService.updateOAuthConnectionToken(connection.id, {
+        accessToken: await this.encryptSecret(tokens.access_token),
+        refreshToken: tokens.refresh_token ? await this.encryptSecret(tokens.refresh_token) : undefined,
+        tokenExpiresAt: tokens.expires_in ? new Date(Date.now() + tokens.expires_in * 1000) : undefined
+      });
 
       logger.info('Agent OAuth token refreshed', {
         agentId: connection.agentId,
@@ -699,13 +740,8 @@ export class OAuthProviderService {
         lastResetDate
       };
 
-      await this.databaseService.updateAgentOAuthConnection({
-        ...connection,
-        id: connection.id!,
-        usageStats: updatedStats,
-        lastUsedAt: now,
-        updatedAt: now
-      } as any);
+      // TODO: Implement usage stats update in domain service
+      // await this.oauthService.updateConnectionUsageStats(connection.id, updatedStats);
     } catch (error) {
       logger.error('Failed to update connection usage', {
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -773,7 +809,8 @@ export class OAuthProviderService {
 
   private async getProviderConfig(providerId: string): Promise<OAuthProviderConfig | null> {
     try {
-      return await this.databaseService.findById('oauth_providers', providerId);
+      const provider = await this.oauthService.findOAuthProvider(providerId);
+      return provider as any;
     } catch (error) {
       await this.auditService.logEvent({
         eventType: AuditEventType.SYSTEM_ERROR,
@@ -784,11 +821,9 @@ export class OAuthProviderService {
   }
 
   private async updateConnectionUsageStats(connectionId: string, stats: any): Promise<void> {
-    await this.databaseService.update('agent_oauth_connections', connectionId, {
-      usageStats: stats,
-      lastUsedAt: new Date(),
-      updatedAt: new Date()
-    });
+    // TODO: Implement usage stats update in OAuthService domain service
+    // For now, this is a placeholder
+    logger.info('Usage stats update requested', { connectionId, stats });
   }
 
   /**
@@ -806,7 +841,7 @@ export class OAuthProviderService {
    * Get agent connections
    */
   public async getAgentConnections(agentId: string): Promise<any[]> {
-    const result = await this.databaseService.getAgentOAuthConnection(agentId, '');
+    const result = await this.oauthService.findAgentOAuthConnections(agentId);
     return Array.isArray(result) ? result : [result].filter(Boolean);
   }
 
@@ -815,13 +850,9 @@ export class OAuthProviderService {
    */
   public async revokeAgentConnection(agentId: string, providerId: string): Promise<boolean> {
     try {
-      const connection = await this.databaseService.getAgentOAuthConnection(agentId, providerId);
+      const connection = await this.oauthService.findAgentOAuthConnection(agentId, providerId);
       if (connection) {
-        await this.databaseService.updateAgentOAuthConnection({
-          ...connection,
-          isActive: false,
-          updatedAt: new Date()
-        });
+        await this.oauthService.deactivateOAuthConnection(connection.id);
         return true;
       }
       return false;

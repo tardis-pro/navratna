@@ -3,7 +3,7 @@
 // Part of capability-registry microservice
 
 import { ToolExecution, ToolUsageRecord, ToolExecutionStatus } from '@uaip/types';
-import {  ToolGraphDatabase, UsagePattern, DatabaseService } from '@uaip/shared-services';
+import {  DatabaseService, ToolService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { ToolRegistry } from './toolRegistry.js';
 import { BaseToolExecutor } from './baseToolExecutor.js';
@@ -27,12 +27,15 @@ export interface ExecutionOptions {
 }
 
 export class ToolExecutor {
+  private toolService: ToolService;
+
   constructor(
     private postgresql: DatabaseService,
-    private neo4j: ToolGraphDatabase,
     private toolRegistry: ToolRegistry,
     private baseExecutor: BaseToolExecutor
-  ) {}
+  ) {
+    this.toolService = postgresql.tools;
+  }
 
   async executeTool(
     toolId: string,
@@ -81,12 +84,12 @@ export class ToolExecutor {
 
     try {
       // Store initial execution record
-      await this.postgresql.createToolExecution(execution);
+      await this.toolService.createToolExecution(execution);
 
       // Check if approval is required
       if (tool.requiresApproval) {
         execution.status = ToolExecutionStatus.APPROVAL_REQUIRED;
-        await this.postgresql.updateToolExecution(execution.id, { status: ToolExecutionStatus.APPROVAL_REQUIRED });
+        await this.toolService.updateToolExecution(execution.id, { status: ToolExecutionStatus.APPROVAL_REQUIRED });
         logger.info(`Tool execution requires approval: ${execution.id}`);
         return execution;
       }
@@ -104,7 +107,7 @@ export class ToolExecutor {
       };
       execution.endTime = new Date();
 
-      await this.postgresql.updateToolExecution(execution.id, execution);
+      await this.toolService.updateToolExecution(execution.id, execution);
       await this.recordUsage(execution, false);
       
       throw error;
@@ -117,7 +120,7 @@ export class ToolExecutor {
     try {
       // Update status to running
       execution.status = ToolExecutionStatus.RUNNING;
-      await this.postgresql.updateToolExecution(execution.id, { status: ToolExecutionStatus.RUNNING });
+      await this.toolService.updateToolExecution(execution.id, { status: ToolExecutionStatus.RUNNING });
 
       // Execute the tool logic
       const result = await this.executeToolLogic(
@@ -135,7 +138,7 @@ export class ToolExecutor {
       execution.executionTimeMs = executionTime;
       execution.cost = this.calculateCost(tool, executionTime);
 
-      await this.postgresql.updateToolExecution(execution.id, {
+      await this.toolService.updateToolExecution(execution.id, {
         status: ToolExecutionStatus.COMPLETED,
         result,
         endTime: execution.endTime,
@@ -146,7 +149,7 @@ export class ToolExecutor {
       // Record successful usage with enhanced TypeORM tracking
       await this.recordUsage(execution, true);
       await this.recordToolUsageWithTypeORM(execution, true, executionTime);
-      await this.updateUsagePattern(execution.agentId, execution.toolId, executionTime, true);
+      // Usage pattern tracking handled by knowledge graph service
 
       logger.info(`Tool execution completed: ${execution.id} (${executionTime}ms)`);
       return execution;
@@ -165,7 +168,7 @@ export class ToolExecutor {
       execution.endTime = new Date();
       execution.executionTimeMs = executionTime;
 
-      await this.postgresql.updateToolExecution(execution.id, {
+      await this.toolService.updateToolExecution(execution.id, {
         status: ToolExecutionStatus.FAILED,
         error: execution.error,
         endTime: execution.endTime,
@@ -175,7 +178,7 @@ export class ToolExecutor {
       // Record failed usage with enhanced TypeORM tracking
       await this.recordUsage(execution, false);
       await this.recordToolUsageWithTypeORM(execution, false, executionTime);
-      await this.updateUsagePattern(execution.agentId, execution.toolId, executionTime, false);
+      // Usage pattern tracking handled by knowledge graph service
 
       logger.error(`Tool execution failed: ${execution.id} (${executionTime}ms)`, error);
       
@@ -217,7 +220,7 @@ export class ToolExecutor {
   }
 
   async retryExecution(executionId: string): Promise<ToolExecution> {
-    const execution = await this.postgresql.getToolExecution(executionId);
+    const execution = await this.toolService.getToolExecution(executionId);
     if (!execution) {
       throw new Error(`Execution ${executionId} not found`);
     }
@@ -233,7 +236,7 @@ export class ToolExecutor {
     execution.endTime = undefined;
     execution.error = undefined;
 
-    await this.postgresql.updateToolExecution(executionId, {
+    await this.toolService.updateToolExecution(executionId, {
       retryCount: execution.retryCount,
       status: ToolExecutionStatus.PENDING,
       startTime: execution.startTime,
@@ -249,7 +252,7 @@ export class ToolExecutor {
 
   async cancelExecution(executionId: string): Promise<boolean> {
     try {
-      const execution = await this.postgresql.getToolExecution(executionId);
+      const execution = await this.toolService.getToolExecution(executionId);
       if (!execution) {
         return false;
       }
@@ -258,7 +261,7 @@ export class ToolExecutor {
         return false; // Cannot cancel already finished executions
       }
 
-      await this.postgresql.updateToolExecution(executionId, {
+      await this.toolService.updateToolExecution(executionId, {
         status: ToolExecutionStatus.CANCELLED,
         endTime: new Date()
       });
@@ -272,7 +275,7 @@ export class ToolExecutor {
   }
 
   async approveExecution(executionId: string, approvedBy: string): Promise<ToolExecution> {
-    const execution = await this.postgresql.getToolExecution(executionId);
+    const execution = await this.toolService.getToolExecution(executionId);
     if (!execution) {
       throw new Error(`Execution ${executionId} not found`);
     }
@@ -282,7 +285,7 @@ export class ToolExecutor {
     }
 
     // Update approval status
-    await this.postgresql.updateToolExecution(executionId, {
+    await this.toolService.updateToolExecution(executionId, {
       approvedBy,
       approvedAt: new Date(),
       status: ToolExecutionStatus.PENDING
@@ -301,7 +304,7 @@ export class ToolExecutor {
 
   // Execution Management
   async getExecution(executionId: string): Promise<ToolExecution | null> {
-    return await this.postgresql.getToolExecution(executionId);
+    return await this.toolService.getToolExecution(executionId);
   }
 
   async getExecutions(
@@ -314,13 +317,13 @@ export class ToolExecutor {
     if (toolId) filters.toolId = toolId;
     if (agentId) filters.agentId = agentId;
     if (status) filters.status = status;
-    return await this.postgresql.getToolExecutions(filters);
+    return await this.toolService.findExecutionsByTool(filters.toolId || '', filters.limit);
   }
 
   async getActiveExecutions(agentId?: string): Promise<ToolExecution[]> {
     const filters: any = { status: ToolExecutionStatus.RUNNING };
     if (agentId) filters.agentId = agentId;
-    return await this.postgresql.getToolExecutions(filters);
+    return await this.toolService.findExecutionsByTool(filters.toolId || '', filters.limit);
   }
 
   // Private Helper Methods
@@ -338,37 +341,21 @@ export class ToolExecutor {
 
   private async recordUsage(execution: ToolExecution, success: boolean): Promise<void> {
     try {
-      const usage: Partial<ToolUsageRecord> = {
+      const usage = {
         toolId: execution.toolId,
         agentId: execution.agentId,
-        startTime: execution.startTime,
-        endTime: execution.endTime || new Date(),
-        success,
-        duration: execution.executionTimeMs,
-        cost: execution.cost,
-        errorCode: execution.error?.type,
         executionId: execution.id,
-        metadata: execution.metadata
+        executionTime: execution.executionTimeMs,
+        success,
+        error: execution.error?.message
       };
 
-      await this.postgresql.recordToolUsage(usage);
+      await this.toolService.trackUsage(usage);
     } catch (error) {
       logger.error('Failed to record usage:', error);
     }
   }
 
-  private async updateUsagePattern(
-    agentId: string,
-    toolId: string,
-    executionTime: number,
-    success: boolean
-  ): Promise<void> {
-    try {
-      await this.neo4j.incrementUsage(agentId, toolId, executionTime, success);
-    } catch (error) {
-      logger.error('Failed to update usage pattern:', error);
-    }
-  }
 
   private calculateCost(tool: any, executionTime: number): number {
     // Simple cost calculation based on tool's cost estimate and execution time
@@ -398,7 +385,7 @@ export class ToolExecutor {
     const filters: any = { days };
     if (toolId) filters.toolId = toolId;
     if (agentId) filters.agentId = agentId;
-    const stats = await this.postgresql.getToolUsageStats(filters);
+    const stats = await this.toolService.getToolUsageStats(filters.toolId || '', filters.days || 30);
     
     return {
       totalExecutions: stats.reduce((sum, stat) => sum + parseInt(stat.total_uses), 0),

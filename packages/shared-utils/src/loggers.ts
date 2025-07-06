@@ -1,4 +1,4 @@
-import winston from 'winston';
+import * as winston from 'winston';
 
 // Define custom log levels with corresponding colors
 const logLevels = {

@@ -1,7 +1,7 @@
 
 import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
-import { DatabaseService } from '@uaip/shared-services';
+import { AuditService as DomainAuditService } from '@uaip/shared-services';
 import {
   AuditEvent,
   AuditEventType,
@@ -82,8 +82,10 @@ export class AuditService {
   private retentionDays: number = 365; // Default retention period
   private batchSize: number = 1000;
   private compressionThreshold: number = 90; // Days after which to compress logs
+  private auditService: DomainAuditService;
 
-  constructor(private databaseService: DatabaseService) {
+  constructor() {
+    this.auditService = DomainAuditService.getInstance();
     this.setupAuditTables();
   }
 
@@ -138,7 +140,8 @@ export class AuditService {
    */
   public async queryEvents(query: AuditQuery): Promise<AuditEvent[]> {
     try {
-      const events = await this.databaseService.queryAuditEvents({
+      const auditRepository = this.auditService.getAuditRepository();
+      const events = await auditRepository.queryAuditEvents({
         eventTypes: query.eventTypes,
         userId: query.userId,
         agentId: query.agentId,
@@ -298,10 +301,11 @@ export class AuditService {
       compressionDate.setDate(compressionDate.getDate() - this.compressionThreshold);
 
       // Archive logs older than compression threshold (mark as archived)
-      const archivedCount = await this.databaseService.archiveOldAuditEvents(compressionDate);
+      const auditRepository = this.auditService.getAuditRepository();
+      const archivedCount = await auditRepository.archiveOldAuditEvents(compressionDate);
 
       // Delete logs older than retention period (only archived ones)
-      const deletedCount = await this.databaseService.deleteOldArchivedAuditEvents(cutoffDate);
+      const deletedCount = await auditRepository.deleteOldArchivedAuditEvents(cutoffDate);
 
       logger.info('Audit log archival completed', {
         archived: archivedCount,
@@ -385,7 +389,8 @@ export class AuditService {
     minutesBack: number = 5,
     detailsFilter?: Record<string, any>
   ): Promise<number> {
-    return await this.databaseService.countRecentAuditEvents(
+    const auditRepository = this.auditService.getAuditRepository();
+    return await auditRepository.countRecentAuditEvents(
       eventType,
       userId,
       minutesBack,
@@ -662,7 +667,8 @@ export class AuditService {
    */
   private async saveAuditEvent(event: Omit<AuditEvent, 'id'>): Promise<AuditEvent> {
     // Let the database auto-generate the UUID for the ID
-    const savedEvent = await this.databaseService.createAuditEvent({
+    const auditRepository = this.auditService.getAuditRepository();
+    const savedEvent = await auditRepository.createAuditEvent({
       eventType: event.eventType,
       userId: event.userId,
       agentId: event.agentId,
