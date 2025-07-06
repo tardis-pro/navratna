@@ -349,7 +349,7 @@ export class DatabaseService {
 
   // Health check method
   public async healthCheck(): Promise<any> {
-    return await this.typeormService.isHealthy();
+    return await this.typeormService.healthCheck();
   }
 
   // Close method

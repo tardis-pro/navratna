@@ -46,7 +46,9 @@ export abstract class BaseService {
     this.config = config;
     this.app = express();
     this.databaseService = new DatabaseService();
-    this.eventBusService = new EventBusService({
+    
+    // Initialize EventBusService singleton for first time
+    this.eventBusService = EventBusService.getInstance({
       url: config.rabbitMQUrl || process.env.RABBITMQ_URL || 'amqp://localhost',
       serviceName: config.name
     }, logger);

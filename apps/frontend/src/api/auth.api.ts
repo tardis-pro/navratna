@@ -61,7 +61,35 @@ export interface RegisterResponse {
 
 export const authAPI = {
   async login(credentials: LoginCredentials): Promise<LoginResponse> {
-    return APIClient.post<LoginResponse>(API_ROUTES.AUTH.LOGIN, credentials);
+    const response = await APIClient.post<{
+      user: {
+        id: string;
+        email: string;
+        firstName?: string;
+        lastName?: string;
+        role: string;
+        department?: string;
+        permissions?: string[];
+        lastLoginAt?: string;
+      };
+      tokens: {
+        accessToken: string;
+        refreshToken: string;
+        expiresIn: string;
+      };
+    }>(API_ROUTES.AUTH.LOGIN, credentials);
+
+    // Transform backend response to frontend expected format
+    return {
+      token: response.tokens.accessToken,
+      refreshToken: response.tokens.refreshToken,
+      user: {
+        id: response.user.id,
+        email: response.user.email,
+        name: `${response.user.firstName || ''} ${response.user.lastName || ''}`.trim() || response.user.email,
+        role: response.user.role as UserRole,
+      }
+    };
   },
 
   async logout(): Promise<void> {
@@ -69,7 +97,19 @@ export const authAPI = {
   },
 
   async refreshToken(refreshToken: string): Promise<RefreshTokenResponse> {
-    return APIClient.post<RefreshTokenResponse>(API_ROUTES.AUTH.REFRESH, { refreshToken });
+    const response = await APIClient.post<{
+      tokens: {
+        accessToken: string;
+        refreshToken: string;
+        expiresIn: string;
+      };
+    }>(API_ROUTES.AUTH.REFRESH, { refreshToken });
+
+    // Transform backend response to frontend expected format
+    return {
+      token: response.tokens.accessToken,
+      refreshToken: response.tokens.refreshToken,
+    };
   },
 
   async resetPassword(request: ResetPasswordRequest): Promise<{ message: string }> {

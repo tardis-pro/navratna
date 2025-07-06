@@ -14,8 +14,7 @@ const isProduction = import.meta.env.PROD;
  * 
  * Uses environment variable or dynamically detects current origin
  */
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-  (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8081');
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081';
 
 /**
  * API Gateway Configuration
@@ -39,7 +38,21 @@ export const API_ROUTES = {
   HEALTH: '/health',
 
   // Agent Intelligence Service routes
-  AGENTS: '/api/v1/agents',
+  AGENTS: {
+    BASE: '/api/v1/agents',
+    LIST: '/api/v1/agents',
+    GET: '/api/v1/agents',
+    CREATE: '/api/v1/agents',
+    UPDATE: '/api/v1/agents',
+    DELETE: '/api/v1/agents',
+    ANALYZE: '/api/v1/agents',
+    PLAN: '/api/v1/agents',
+    CAPABILITIES: '/api/v1/agents',
+    LEARN: '/api/v1/agents',
+    PARTICIPATE: '/api/v1/agents',
+    CHAT: '/api/v1/agents',
+    HEALTH: '/api/v1/agents'
+  },
 
   // Orchestration Pipeline Service routes
   OPERATIONS: '/api/v1/operations',
@@ -48,7 +61,17 @@ export const API_ROUTES = {
   CAPABILITIES: '/api/v1/capabilities',
 
   // Tools routes (from capability registry service)
-  TOOLS: '/api/v1/tools',
+  TOOLS: {
+    BASE: '/api/v1/tools',
+    LIST: '/api/v1/tools',
+    GET: '/api/v1/tools',
+    REGISTER: '/api/v1/tools',
+    EXECUTE: '/api/v1/tools',
+    CATEGORIES: '/api/v1/tools/categories',
+    RECOMMENDATIONS: '/api/v1/tools/recommendations',
+    RELATIONS: '/api/v1/tools/relations',
+    ANALYTICS: '/api/v1/tools/analytics'
+  },
 
   // Persona Management Service routes
   PERSONAS: '/api/v1/personas',
@@ -57,14 +80,47 @@ export const API_ROUTES = {
   SECURITY: '/api/v1/security',
 
   // Approval Workflow Service routes
-  APPROVALS: '/api/v1/approvals',
+  APPROVALS: {
+    BASE: '/api/v1/approvals',
+    LIST: '/api/v1/approvals',
+    GET: '/api/v1/approvals',
+    CREATE: '/api/v1/approvals',
+    SUBMIT_DECISION: '/api/v1/approvals',
+    PENDING: '/api/v1/approvals/pending',
+    MY_PENDING: '/api/v1/approvals/my-pending',
+    MY_REQUESTS: '/api/v1/approvals/my-requests',
+    CANCEL: '/api/v1/approvals',
+    STATS: '/api/v1/approvals/stats',
+    HISTORY: '/api/v1/approvals/history',
+    BULK_APPROVE: '/api/v1/approvals/bulk-approve',
+    BULK_REJECT: '/api/v1/approvals/bulk-reject',
+    EXPORT: '/api/v1/approvals/export'
+  },
 
   // Discussion Orchestration Service routes
   DISCUSSIONS: '/api/v1/discussions',
 
   // LLM Service routes
-  LLM: '/api/v1/llm',
-  USER_LLM: '/api/v1/user/llm',
+  LLM: {
+    BASE: '/api/v1/llm',
+    LIST_MODELS: '/api/v1/llm/models',
+    GET_MODEL: '/api/v1/llm/models',
+    LIST_PROVIDERS: '/api/v1/llm/providers',
+    GET_PROVIDER: '/api/v1/llm/providers',
+    GENERATE: '/api/v1/llm/generate',
+    ANALYZE_CONTEXT: '/api/v1/llm/analyze'
+  },
+  USER_LLM: {
+    BASE: '/api/v1/user/llm',
+    LIST_PROVIDERS: '/api/v1/user/llm/providers',
+    GET_PROVIDER: '/api/v1/user/llm/providers',
+    CREATE_PROVIDER: '/api/v1/user/llm/providers',
+    UPDATE_PROVIDER: '/api/v1/user/llm/providers',
+    DELETE_PROVIDER: '/api/v1/user/llm/providers',
+    TEST_PROVIDER: '/api/v1/user/llm/providers',
+    SET_DEFAULT: '/api/v1/user/llm/providers',
+    GENERATE: '/api/v1/user/llm/generate'
+  },
 
   // Knowledge Graph Service routes
   KNOWLEDGE: '/api/v1/knowledge',
@@ -152,11 +208,11 @@ export const buildAPIURL = (route: string) => {
 };
 
 /**
- * WebSocket URL Configuration - PRODUCTION READY
+ * Socket.IO URL Configuration - PRODUCTION READY
+ * Socket.IO client should connect to HTTP URL, not WebSocket URL
  */
 export const getWebSocketURL = () => {
   const baseURL = getEffectiveAPIBaseURL();
-  // Convert http/https to ws/wss
-  const wsURL = baseURL.replace(/^http/, 'ws');
-  return `${wsURL}/socket.io`;
+  // Socket.IO client expects HTTP/HTTPS URL, not WS/WSS
+  return baseURL; // Returns http://localhost:8081
 }; 

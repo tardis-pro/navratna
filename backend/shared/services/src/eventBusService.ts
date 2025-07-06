@@ -132,7 +132,10 @@ export class EventBusService {
         this.isConnected = false;
         this.connectionPromise = null;
         this.activeConsumers.clear(); // Clear active consumers on connection error
-        this.scheduleReconnect();
+        // Only schedule reconnect if not closing
+        if (!this.isClosing) {
+          this.scheduleReconnect();
+        }
       });
 
       this.connection.on('close', () => {
@@ -140,7 +143,10 @@ export class EventBusService {
         this.isConnected = false;
         this.connectionPromise = null;
         this.activeConsumers.clear(); // Clear active consumers on connection close
-        this.scheduleReconnect();
+        // Only schedule reconnect if not closing
+        if (!this.isClosing) {
+          this.scheduleReconnect();
+        }
       });
 
       this.channel.on('error', (err: Error) => {
@@ -179,7 +185,12 @@ export class EventBusService {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error('Failed to connect to RabbitMQ', { error: errorMessage });
       this.connectionPromise = null;
-      this.scheduleReconnect();
+      
+      // Only schedule reconnect if not closing
+      if (!this.isClosing) {
+        this.scheduleReconnect();
+      }
+      
       throw new ApiError(500, 'Failed to connect to event bus', 'EVENT_BUS_ERROR');
     }
   }
@@ -215,25 +226,34 @@ export class EventBusService {
   }
 
   private scheduleReconnect(): void {
+    if (this.isClosing) {
+      this.logger.debug('Service is closing, skipping reconnection');
+      return;
+    }
+
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       this.logger.error('Max reconnection attempts reached, giving up');
       return;
     }
 
     this.reconnectAttempts++;
-    const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1); // Exponential backoff
+    const delay = Math.min(this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1), 30000); // Cap at 30 seconds
 
     this.logger.info(`Scheduling reconnection attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${delay}ms`);
 
     setTimeout(async () => {
+      if (this.isClosing) {
+        this.logger.debug('Service is closing, skipping delayed reconnection');
+        return;
+      }
+
       try {
         await this.connect();
-
-        // Re-establish all subscriptions after connection is established
-        await this.reestablishSubscriptions();
+        this.logger.info('RabbitMQ reconnection successful');
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         this.logger.error('Reconnection attempt failed', { error: errorMessage });
+        // Don't schedule another reconnect here - connect() will handle it via its error handler
       }
     }, delay);
   }
@@ -408,12 +428,22 @@ export class EventBusService {
         this.logger.warn('Connection lost during publish, will reconnect on next operation');
       }
 
-      // For WebSocket auth, we need to throw the error so the caller can handle it
-      // For other events, we could gracefully fail
-      throw new ApiError(500, 'Failed to publish event', 'EVENT_PUBLISH_ERROR', {
-        eventType,
-        messageId: message.id
-      });
+      // Only throw errors for critical events like auth validation
+      // For other events, log and gracefully fail to prevent service shutdown
+      if (eventType.includes('auth') || eventType.includes('security')) {
+        throw new ApiError(500, 'Failed to publish event', 'EVENT_PUBLISH_ERROR', {
+          eventType,
+          messageId: message.id
+        });
+      } else {
+        this.logger.warn('Event publish failed, continuing operation', {
+          eventType,
+          messageId: message.id,
+          error: errorMessage
+        });
+        // Gracefully fail for non-critical events
+        return;
+      }
     }
   }
 
@@ -734,17 +764,30 @@ export class EventBusService {
     this.logger.info(`Received ${signal}, shutting down event bus gracefully`);
 
     try {
+      // Set flags first to prevent reconnection attempts
+      this.isConnected = false;
+      this.connectionPromise = null;
+      this.activeConsumers.clear();
+
       if (this.channel) {
-        await this.channel.close();
+        try {
+          await this.channel.close();
+        } catch (error) {
+          this.logger.debug('Channel close error (expected during shutdown)', {
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+        }
       }
 
       if (this.connection) {
-        await this.connection.close();
+        try {
+          await this.connection.close();
+        } catch (error) {
+          this.logger.debug('Connection close error (expected during shutdown)', {
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+        }
       }
-
-      // Clear active consumers on shutdown
-      this.activeConsumers.clear();
-      this.isConnected = false;
 
       this.logger.info('Event bus shutdown completed');
     } catch (error) {

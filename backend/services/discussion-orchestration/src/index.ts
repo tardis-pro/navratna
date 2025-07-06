@@ -9,7 +9,7 @@ import { SERVICE_ACCESS_MATRIX, validateServiceAccess, getDatabaseConnectionStri
 
 import { config } from './config/index.js';
 import { DiscussionOrchestrationService } from './services/discussionOrchestrationService.js';
-import { EnterpriseWebSocketHandler } from './websocket/enterpriseWebSocketHandler.js';
+// Removed EnterpriseWebSocketHandler import - using Socket.IO only
 import { UserChatHandler } from './websocket/userChatHandler.js';
 import { ConversationIntelligenceHandler } from './websocket/conversationIntelligenceHandler.js';
 
@@ -19,9 +19,9 @@ class DiscussionOrchestrationServer extends BaseService {
   private orchestrationService: DiscussionOrchestrationService;
   private discussionService: DiscussionService;
   private personaService: PersonaService;
-  private webSocketHandler: EnterpriseWebSocketHandler;
-  private userChatHandler: UserChatHandler;
-  private conversationIntelligenceHandler: ConversationIntelligenceHandler;
+  // Removed webSocketHandler - using Socket.IO only
+  private userChatHandler?: UserChatHandler;
+  private conversationIntelligenceHandler?: ConversationIntelligenceHandler;
   private serviceName = 'discussion-orchestration';
 
   constructor() {
@@ -32,11 +32,8 @@ class DiscussionOrchestrationServer extends BaseService {
       enableWebSocket: true
     });
 
-    // Create HTTP server for WebSocket
-    this.server = createServer(this.app);
-    
-    // Initialize Socket.IO server
-    this.io = new SocketIOServer(this.server, {
+    // Initialize Socket.IO server - will be attached after server starts
+    this.io = new SocketIOServer({
       cors: {
         origin: "*", // Configure appropriately for production
         methods: ["GET", "POST"]
@@ -68,16 +65,6 @@ class DiscussionOrchestrationServer extends BaseService {
       enableAnalytics: false, // Analytics go through separate analytics-service
       auditMode: 'comprehensive'
     });
-
-    // Initialize handlers
-    this.webSocketHandler = new EnterpriseWebSocketHandler(
-      this.server,
-      this.eventBusService,
-      this.serviceName
-    );
-
-    this.userChatHandler = new UserChatHandler(this.io);
-    this.conversationIntelligenceHandler = new ConversationIntelligenceHandler(this.io, this.eventBusService);
 
     this.orchestrationService = new DiscussionOrchestrationService(
       this.discussionService,
@@ -192,6 +179,9 @@ class DiscussionOrchestrationServer extends BaseService {
 
   protected async getHealthInfo(): Promise<any> {
     const status = this.orchestrationService.getStatus();
+    const databaseHealthy = await this.checkDatabaseHealth();
+    const eventBusHealthy = await this.checkEventBusHealth();
+    
     return {
       ...status,
       websocket: {
@@ -199,16 +189,19 @@ class DiscussionOrchestrationServer extends BaseService {
         connected: this.io ? true : false
       },
       database: {
-        connected: true
+        connected: databaseHealthy
       },
       eventBus: {
-        connected: this.eventBusService ? true : false
+        connected: eventBusHealthy
       }
     };
   }
 
   protected async checkServiceHealth(): Promise<boolean> {
-    return true;
+    const databaseHealthy = await this.checkDatabaseHealth();
+    const eventBusHealthy = await this.checkEventBusHealth();
+    
+    return databaseHealthy && eventBusHealthy;
   }
 
   protected async setupEventSubscriptions(): Promise<void> {
@@ -273,11 +266,194 @@ class DiscussionOrchestrationServer extends BaseService {
     });
   }
 
+  public async start(): Promise<void> {
+    try {
+      // Call parent start method first to create the HTTP server
+      await super.start();
+      
+      logger.info('Attaching Socket.IO to HTTP server', {
+        serverExists: !!this.server,
+        port: this.config.port
+      });
+      
+      // Attach Socket.IO to the created HTTP server with proper error handling
+      try {
+        this.io.attach(this.server, {
+          cors: {
+            origin: "*",
+            methods: ["GET", "POST"]
+          },
+          transports: ['websocket', 'polling']
+        });
+        
+        // Socket.IO Authentication Middleware
+        this.io.use(async (socket, next) => {
+          try {
+            // Extract token from multiple sources (Socket.IO standard patterns)
+            const token = socket.handshake.auth?.token || 
+                         socket.handshake.headers?.authorization?.replace('Bearer ', '') ||
+                         socket.handshake.query?.token;
+            
+            logger.info('Socket.IO authentication attempt', { 
+              socketId: socket.id,
+              hasToken: !!token,
+              origin: socket.handshake.headers.origin,
+              userAgent: socket.handshake.headers['user-agent']
+            });
+            
+            if (!token) {
+              logger.warn('Socket.IO connection rejected - no token', { 
+                socketId: socket.id,
+                headers: Object.keys(socket.handshake.headers),
+                query: Object.keys(socket.handshake.query)
+              });
+              return next(new Error('Authentication token required'));
+            }
+            
+            // Validate token through Security Gateway
+            const authResponse = await this.validateSocketIOToken(token);
+            
+            if (!authResponse.valid) {
+              logger.warn('Socket.IO authentication failed', {
+                socketId: socket.id,
+                reason: authResponse.reason
+              });
+              return next(new Error(`Authentication failed: ${authResponse.reason}`));
+            }
+            
+            // Store user info in socket data
+            socket.data.user = {
+              userId: authResponse.userId,
+              sessionId: authResponse.sessionId,
+              securityLevel: authResponse.securityLevel || 3,
+              complianceFlags: authResponse.complianceFlags || []
+            };
+            
+            logger.info('✅ Socket.IO authentication successful', { 
+              socketId: socket.id,
+              userId: authResponse.userId,
+              securityLevel: authResponse.securityLevel
+            });
+            
+            next();
+          } catch (error) {
+            logger.error('Socket.IO authentication error', { 
+              socketId: socket.id, 
+              error: error.message 
+            });
+            return next(new Error('Authentication service unavailable'));
+          }
+        });
+        
+        logger.info('Socket.IO attached successfully', {
+          engine: this.io.engine ? 'initialized' : 'not initialized'
+        });
+        
+      } catch (socketError) {
+        logger.error('Failed to attach Socket.IO to server:', socketError);
+        throw socketError;
+      }
+      
+      // Initialize handlers after server is created
+      logger.info('Initializing WebSocket handlers', {
+        serverExists: !!this.server,
+        serverListening: this.server ? this.server.listening : false
+      });
+      
+      if (!this.server) {
+        throw new Error('HTTP server not available for WebSocket attachment');
+      }
+      
+      // NOTE: Removed EnterpriseWebSocketHandler - using Socket.IO only
+      logger.info('Using Socket.IO only - traditional WebSocket handler removed');
+
+      this.userChatHandler = new UserChatHandler(this.io);
+      
+      try {
+        this.conversationIntelligenceHandler = new ConversationIntelligenceHandler(this.io, this.eventBusService);
+        logger.info('ConversationIntelligenceHandler initialized successfully');
+      } catch (error) {
+        logger.error('Failed to initialize ConversationIntelligenceHandler:', error);
+        // Continue without conversation intelligence handler rather than crashing the service
+      }
+      
+      logger.info('Discussion Orchestration Service started with WebSocket support', {
+        port: this.config.port,
+        websocketEnabled: config.discussionOrchestration.websocket.enabled,
+        compression: config.discussionOrchestration.performance.enableCompression,
+        rateLimiting: config.discussionOrchestration.security.enableRateLimiting,
+        socketIoAttached: !!this.io.engine
+      });
+    } catch (error) {
+      logger.error('Failed to start Discussion Orchestration Service:', error);
+      throw error;
+    }
+  }
+
   protected onServerStarted(): void {
     logger.info('Discussion Orchestration Service features:', {
       websocketEnabled: config.discussionOrchestration.websocket.enabled,
       compression: config.discussionOrchestration.performance.enableCompression,
       rateLimiting: config.discussionOrchestration.security.enableRateLimiting
+    });
+  }
+
+  /**
+   * Validate Socket.IO authentication token through Security Gateway
+   */
+  private async validateSocketIOToken(token: string): Promise<{
+    valid: boolean;
+    userId?: string;
+    sessionId?: string;
+    securityLevel?: number;
+    complianceFlags?: string[];
+    reason?: string;
+  }> {
+    const correlationId = `socketio_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    return new Promise(async (resolve) => {
+      // Set up timeout for auth validation
+      const timeoutId = setTimeout(() => {
+        logger.warn('Socket.IO authentication timeout', { correlationId, token: token.substr(0, 10) + '...' });
+        resolve({ valid: false, reason: 'Authentication service timeout' });
+      }, 5000); // Increased timeout for reliability
+      
+      try {
+        // Set up one-time response handler
+        const unsubscribe = this.eventBusService.subscribe('security.auth.response', async (event) => {
+          if (event.data.correlationId === correlationId) {
+            clearTimeout(timeoutId);
+            unsubscribe(); // Clean up subscription
+            
+            logger.debug('Socket.IO auth response received', { 
+              correlationId, 
+              valid: event.data?.valid,
+              userId: event.data?.userId?.substr(0, 8) + '...' // Partial log for security
+            });
+            
+            resolve(event.data);
+          }
+        });
+        
+        // Publish auth validation request to Security Gateway
+        await this.eventBusService.publish('security.auth.validate', {
+          token,
+          service: this.serviceName,
+          operation: 'socketio_auth',
+          correlationId,
+          timestamp: new Date().toISOString()
+        });
+        
+        logger.debug('Socket.IO auth request sent to Security Gateway', { correlationId });
+        
+      } catch (error) {
+        clearTimeout(timeoutId);
+        logger.error('Socket.IO auth validation failed', { 
+          error: error.message, 
+          correlationId 
+        });
+        resolve({ valid: false, reason: 'Authentication service error' });
+      }
     });
   }
 
@@ -288,16 +464,32 @@ class DiscussionOrchestrationServer extends BaseService {
       timestamp: new Date().toISOString()
     });
 
-    // Shutdown Enterprise WebSocket handler
-    if (this.webSocketHandler) {
-      await this.webSocketHandler.shutdown();
-      logger.info('Enterprise WebSocket handler shut down');
-    }
+    // NOTE: No traditional WebSocket handler to shutdown - using Socket.IO only
 
     // Cleanup orchestration service
     if (this.orchestrationService) {
       await this.orchestrationService.cleanup();
       logger.info('Orchestration service cleaned up');
+    }
+  }
+
+  public async shutdown(): Promise<void> {
+    logger.info('Shutting down Discussion Orchestration Server...');
+    
+    try {
+      // Call parent cleanup
+      await this.cleanup();
+      
+      // Force exit if graceful shutdown takes too long
+      setTimeout(() => {
+        logger.warn('Forceful shutdown due to timeout');
+        process.exit(1);
+      }, 10000);
+      
+      logger.info('Discussion Orchestration Server shutdown completed');
+    } catch (error) {
+      logger.error('Error during shutdown:', error);
+      process.exit(1);
     }
   }
 
@@ -323,6 +515,9 @@ class DiscussionOrchestrationServer extends BaseService {
 
 // Create and start the server
 const server = new DiscussionOrchestrationServer();
+
+// NOTE: Removed custom uncaught exception handlers - using standard BaseService handling only
+// No more WebSocket frame errors since we're using Socket.IO only
 
 // Start the server
 server.start().catch((error) => {

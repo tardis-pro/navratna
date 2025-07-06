@@ -23,6 +23,7 @@ import { AuditEvent } from '../entities/auditEvent.entity.js';
 import { SecurityPolicy } from '../entities/securityPolicy.entity.js';
 import { ToolDefinition } from '../entities/toolDefinition.entity.js';
 import { ToolExecution } from '../entities/toolExecution.entity.js';
+import { ToolAssignment } from '../entities/toolAssignment.entity.js';
 import { Artifact } from '../entities/artifact.entity.js';
 import { ArtifactReview } from '../entities/artifactReview.entity.js';
 import { ArtifactDeployment } from '../entities/artifactDeployment.entity.js';
@@ -76,6 +77,7 @@ export const allEntities = [
   SecurityPolicy,
   ToolDefinition,
   ToolExecution,
+  ToolAssignment,
   Artifact,
   ArtifactReview,
   ArtifactDeployment,
@@ -541,16 +543,33 @@ export class TypeOrmDataSourceManager {
 
     try {
       if (!this.dataSource?.isInitialized) {
-        return {
-          status: 'unhealthy',
-          details: {
-            connected: false,
-            driver: 'postgres',
-            database: process.env.POSTGRES_DB || 'uaip',
-            cacheEnabled: false,
-            cacheHealthy: false,
-          },
-        };
+        // Try to initialize the DataSource if not already done
+        try {
+          await this.initialize();
+          if (!this.dataSource?.isInitialized) {
+            return {
+              status: 'unhealthy',
+              details: {
+                connected: false,
+                driver: 'postgres',
+                database: process.env.POSTGRES_DB || 'uaip',
+                cacheEnabled: false,
+                cacheHealthy: false,
+              },
+            };
+          }
+        } catch (error) {
+          return {
+            status: 'unhealthy',
+            details: {
+              connected: false,
+              driver: 'postgres',
+              database: process.env.POSTGRES_DB || 'uaip',
+              cacheEnabled: false,
+              cacheHealthy: false,
+            },
+          };
+        }
       }
 
       await this.dataSource.query('SELECT 1');

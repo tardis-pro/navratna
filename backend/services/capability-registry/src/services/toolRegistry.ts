@@ -3,7 +3,7 @@
 // Part of capability-registry microservice
 
 import { ToolDefinition, ToolUsageRecord, ToolCategory, SecurityLevel } from '@uaip/types';
-import { ToolDatabase, ToolRelationship, ToolRecommendation, DatabaseService, ToolService, serviceFactory, EventBusService } from '@uaip/shared-services';
+import { ToolDatabase, ToolRelationship, ToolRecommendation, ToolService, serviceFactory, EventBusService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { z } from 'zod';
 
@@ -51,12 +51,12 @@ const ToolRelationshipSchema = z.object({
 });
 
 export class ToolRegistry {
-  private toolManagementService: any;
+  private toolService: ToolService;
 
   constructor(
-    private postgresql: DatabaseService,
     private eventBusService?: EventBusService
   ) {
+    this.toolService = ToolService.getInstance();
     this.setupEventSubscriptions();
   }
 
@@ -136,25 +136,10 @@ export class ToolRegistry {
     }
   }
 
-  private async getToolManagementService() {
-    if (!this.toolManagementService) {
-      this.toolManagementService = await serviceFactory.getToolManagementService();
-    }
-    return this.toolManagementService;
-  }
-
   // Ensure database is initialized
   private async ensureInitialized(): Promise<void> {
-    // The DatabaseService should already be initialized by the app
-    // but we can add a check here if needed
-    try {
-      const healthCheck = await this.postgresql.healthCheck();
-      if (healthCheck.status !== 'healthy') {
-        throw new Error('Database is not healthy');
-      }
-    } catch (error) {
-      throw new Error(`Database not properly initialized: ${error.message}`);
-    }
+    // ToolService is always ready - no initialization needed
+    // Services use lazy initialization of repositories
   }
 
   // Tool Registration and Management
@@ -170,28 +155,8 @@ export class ToolRegistry {
       // Neo4j operations now handled by knowledge graph service
       logger.debug('Tool node creation requested', { toolId: transformedTool.id });
 
-      // Create TypeORM ToolDefinition entity for enhanced tracking
-      const toolManagement = await this.getToolManagementService();
-      await toolManagement.createTool({
-        id: validatedTool.id,
-        name: validatedTool.name,
-        description: validatedTool.description,
-        version: validatedTool.version,
-        category: validatedTool.category,
-        parameters: validatedTool.parameters,
-        returnType: validatedTool.returnType,
-        securityLevel: validatedTool.securityLevel,
-        requiresApproval: validatedTool.requiresApproval,
-        isEnabled: validatedTool.isEnabled,
-        executionTimeEstimate: validatedTool.executionTimeEstimate,
-        costEstimate: validatedTool.costEstimate,
-        author: validatedTool.author,
-        tags: validatedTool.tags,
-        dependencies: validatedTool.dependencies,
-        examples: validatedTool.examples,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      });
+      // Use ToolService for tool management
+      await this.toolService.createTool(validatedTool);
       
       logger.info(`Tool registered successfully: ${tool.id}`);
     } catch (error) {
@@ -268,8 +233,7 @@ export class ToolRegistry {
   async getTool(id: string): Promise<ToolDefinition | null> {
     await this.ensureInitialized();
     const validatedId = z.string().parse(id);
-    const tool = await this.postgresql.tools.findToolById(validatedId);
-    return tool ? this.transformEntityToInterface(tool) : null;
+    return await this.toolService.findToolById(validatedId);
   }
 
   async lookup(toolName: string): Promise<ToolDefinition | null> {
@@ -310,23 +274,33 @@ export class ToolRegistry {
 
   async getTools(category?: string, enabled?: boolean): Promise<ToolDefinition[]> {
     await this.ensureInitialized();
-    const filters: any = {};
     logger.info(`Getting tools with category: ${category}, enabled: ${enabled}`);
-    if (category) filters.category = category;
-    if (enabled !== undefined) filters.enabled = enabled;
-    const tools = await this.postgresql.tools.findActiveTools();
-    return tools.map(tool => this.transformEntityToInterface(tool));
+    
+    if (category) {
+      const tools = await this.toolService.findToolsByCategory(category);
+      if (enabled !== undefined) {
+        return tools.filter(tool => tool.isEnabled === enabled);
+      }
+      return tools;
+    }
+    
+    const tools = await this.toolService.findActiveTools();
+    if (enabled === false) {
+      // Need to get all tools (active and inactive) if enabled=false
+      // For now, just return active tools
+      return [];
+    }
+    return tools;
   }
 
   async searchTools(query: string): Promise<ToolDefinition[]> {
     await this.ensureInitialized();
-    const tools = await this.postgresql.tools.findActiveTools().then(tools => 
-      tools.filter(tool => 
-        tool.name.toLowerCase().includes(query.toLowerCase()) ||
-        tool.description.toLowerCase().includes(query.toLowerCase())
-      )
+    // ToolService doesn't have searchTools, so implement it here
+    const tools = await this.toolService.findActiveTools();
+    return tools.filter(tool => 
+      tool.name.toLowerCase().includes(query.toLowerCase()) ||
+      tool.description.toLowerCase().includes(query.toLowerCase())
     );
-    return tools.map(tool => this.transformEntityToInterface(tool));
   }
 
   async isEnabled(toolId: string): Promise<boolean> {
@@ -347,9 +321,8 @@ export class ToolRegistry {
     const toolIds = relatedTools.map(t => t.id);
     if (toolIds.length === 0) return [];
     
-    const tools = await this.postgresql.tools.findActiveTools();
-    const transformedTools = tools.map(tool => this.transformEntityToInterface(tool));
-    return transformedTools.filter(tool => toolIds.includes(tool.id) && tool.isEnabled);
+    const tools = await this.toolService.findActiveTools();
+    return tools.filter(tool => toolIds.includes(tool.id) && tool.isEnabled);
   }
 
   async addToolRelationship(

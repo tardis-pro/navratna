@@ -232,8 +232,26 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
 
     setCapabilities(prev => ({ ...prev, isLoading: true }));
     try {
-      const capabilitiesData = await capabilityRegistry.discoverTools({});
-      const uiCapabilities = capabilitiesData.map(transformCapabilityToUI);
+      const toolsResponse = await uaipAPI.tools.list();
+      // Handle different response formats - could be array or object with tools property
+      const toolsArray = Array.isArray(toolsResponse) ? toolsResponse : 
+                        (toolsResponse?.tools || toolsResponse?.data?.tools || []);
+      
+      const uiCapabilities = toolsArray.map((tool: any) => transformCapabilityToUI({
+        id: tool.id,
+        name: tool.name,
+        description: tool.description,
+        category: tool.category,
+        isEnabled: tool.isEnabled,
+        securityLevel: tool.securityLevel,
+        version: tool.version,
+        author: tool.author,
+        tags: tool.tags || [],
+        dependencies: tool.dependencies || [],
+        parameters: tool.parameters,
+        returnType: tool.returnType,
+        examples: tool.examples || []
+      }));
 
       setCapabilities({
         data: uiCapabilities,

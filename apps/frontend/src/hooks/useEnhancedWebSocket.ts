@@ -12,15 +12,12 @@ interface WebSocketEvent {
 
 interface ConnectionConfig {
   url?: string;
-  enableSocketIO?: boolean;
-  enableFallback?: boolean;
   reconnectAttempts?: number;
-  heartbeatInterval?: number;
 }
 
 interface WebSocketState {
   isConnected: boolean;
-  connectionType: 'socket.io' | 'websocket' | null;
+  connectionType: 'socket.io' | null;
   lastEvent: WebSocketEvent | null;
   error: string | null;
   isReconnecting: boolean;
@@ -28,15 +25,19 @@ interface WebSocketState {
   authStatus: 'authenticated' | 'unauthenticated' | 'pending';
 }
 
+/**
+ * Enhanced WebSocket Hook - Socket.IO Only
+ * 
+ * Clean implementation using ONLY Socket.IO for real-time communication.
+ * No WebSocket fallback to prevent protocol conflicts.
+ */
 export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
   const {
     url = getWebSocketURL(),
-    enableSocketIO = true,
-    enableFallback = true,
     reconnectAttempts: maxReconnectAttempts = 5,
-    heartbeatInterval = 30000
   } = config;
 
+  // State management
   const [state, setState] = useState<WebSocketState>({
     isConnected: false,
     connectionType: null,
@@ -44,46 +45,50 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
     error: null,
     isReconnecting: false,
     reconnectAttempts: 0,
-    authStatus: 'pending'
+    authStatus: 'unauthenticated'
   });
 
+  // Refs for managing connections and timeouts
   const socketRef = useRef<Socket | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const heartbeatTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const eventListeners = useRef<Map<string, ((event: WebSocketEvent) => void)[]>>(new Map());
 
-  // Get authentication token
-  const getAuthToken = useCallback(() => {
-    if (typeof window === 'undefined') return null;
-    return localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken');
-  }, []);
-
-  // Update state helper
+  // Helper to update state
   const updateState = useCallback((updates: Partial<WebSocketState>) => {
     setState(prev => ({ ...prev, ...updates }));
   }, []);
 
-  // Socket.IO connection
+  // Get auth token from localStorage
+  const getAuthToken = useCallback(() => {
+    return localStorage.getItem('authToken') || localStorage.getItem('auth_token');
+  }, []);
+
+  // Socket.IO connection function
   const connectSocketIO = useCallback(async (): Promise<boolean> => {
     const token = getAuthToken();
     if (!token) {
-      updateState({ error: 'Authentication required', authStatus: 'unauthenticated' });
+      updateState({ 
+        error: 'Authentication required - please log in', 
+        authStatus: 'unauthenticated' 
+      });
       return false;
     }
 
     try {
+      logger.info('[Socket.IO] Attempting connection', { url });
+
       const socket = io(url, {
         auth: { token },
-        transports: ['websocket', 'polling'],
+        query: { token }, // Backup token passing method
+        extraHeaders: {
+          'Authorization': `Bearer ${token}`
+        },
+        transports: ['websocket', 'polling'], // Socket.IO transports only
         upgrade: true,
         rememberUpgrade: true,
         timeout: 10000,
-        reconnection: true,
-        reconnectionAttempts: maxReconnectAttempts,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
-        maxReconnectionAttempts: maxReconnectAttempts
+        reconnection: false, // We'll handle reconnection manually
+        forceNew: false,
+        autoConnect: true
       });
 
       // Connection successful
@@ -96,41 +101,7 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
           reconnectAttempts: 0,
           authStatus: 'authenticated'
         });
-        logger.info('[Enhanced WebSocket] Socket.IO connected successfully');
-      });
-
-      // Handle authentication response
-      socket.on('auth_response', (data) => {
-        if (data.success) {
-          updateState({ authStatus: 'authenticated' });
-        } else {
-          updateState({ 
-            authStatus: 'unauthenticated', 
-            error: data.error || 'Authentication failed' 
-          });
-        }
-      });
-
-      // Handle all events
-      socket.onAny((eventName: string, ...args: any[]) => {
-        const event: WebSocketEvent = {
-          type: eventName,
-          payload: args[0] || {},
-          messageId: args[0]?.messageId,
-          timestamp: new Date().toISOString()
-        };
-
-        updateState({ lastEvent: event });
-
-        // Notify event listeners
-        const listeners = eventListeners.current.get(eventName) || [];
-        listeners.forEach(listener => {
-          try {
-            listener(event);
-          } catch (err) {
-            logger.error('[Enhanced WebSocket] Event listener error:', err);
-          }
-        });
+        logger.info('✅ Socket.IO connected successfully', { socketId: socket.id });
       });
 
       // Handle disconnection
@@ -140,152 +111,113 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
           connectionType: null,
           error: `Disconnected: ${reason}`
         });
-        logger.warn('[Enhanced WebSocket] Socket.IO disconnected:', reason);
+        logger.warn('[Socket.IO] Disconnected:', reason);
+
+        // Attempt reconnection for certain disconnect reasons
+        if (reason === 'io server disconnect' || reason === 'transport close') {
+          attemptReconnection();
+        }
       });
 
       // Handle connection errors
       socket.on('connect_error', (error) => {
-        updateState({
-          error: `Connection error: ${error.message}`,
-          isReconnecting: false
-        });
-        logger.error('[Enhanced WebSocket] Socket.IO connection error:', error);
+        logger.error('[Socket.IO] Connection error:', error);
+        
+        if (error.message.includes('Authentication') || error.message.includes('token')) {
+          updateState({ 
+            error: `Authentication failed: ${error.message}`,
+            authStatus: 'unauthenticated',
+            isReconnecting: false 
+          });
+        } else if (error.message.includes('timeout')) {
+          updateState({ 
+            error: 'Connection timeout - server may be unavailable',
+            isReconnecting: true 
+          });
+          attemptReconnection();
+        } else {
+          updateState({ 
+            error: `Connection failed: ${error.message}`,
+            isReconnecting: false 
+          });
+        }
       });
 
-      // Handle reconnection attempts
-      socket.on('reconnect_attempt', (attemptNumber) => {
-        updateState({
-          isReconnecting: true,
-          reconnectAttempts: attemptNumber
+      // Handle all Socket.IO events
+      socket.onAny((eventName: string, ...args: any[]) => {
+        const event: WebSocketEvent = {
+          type: eventName,
+          payload: args[0] || {},
+          messageId: args[0]?.messageId,
+          timestamp: new Date().toISOString()
+        };
+
+        updateState({ lastEvent: event });
+        logger.debug('[Socket.IO] Event received:', eventName, args[0]);
+      });
+
+      // Handle authentication events specifically
+      socket.on('auth_success', (data) => {
+        updateState({ authStatus: 'authenticated' });
+        logger.info('[Socket.IO] Authentication successful');
+      });
+
+      socket.on('auth_failure', (data) => {
+        updateState({ 
+          authStatus: 'unauthenticated', 
+          error: data.message || 'Authentication failed' 
         });
-        logger.info(`[Enhanced WebSocket] Reconnection attempt ${attemptNumber}`);
+        logger.error('[Socket.IO] Authentication failed:', data);
       });
 
       socketRef.current = socket;
       return true;
     } catch (error) {
-      logger.error('[Enhanced WebSocket] Failed to create Socket.IO connection:', error);
+      logger.error('[Socket.IO] Failed to create connection:', error);
+      updateState({ 
+        error: 'Failed to initialize Socket.IO connection',
+        authStatus: 'unauthenticated' 
+      });
       return false;
     }
-  }, [url, getAuthToken, maxReconnectAttempts, updateState]);
+  }, [url, getAuthToken, updateState]);
 
-  // Raw WebSocket connection (fallback)
-  const connectWebSocket = useCallback(async (): Promise<boolean> => {
-    const token = getAuthToken();
-    if (!token) {
-      updateState({ error: 'Authentication required', authStatus: 'unauthenticated' });
-      return false;
+  // Reconnection logic
+  const attemptReconnection = useCallback(() => {
+    if (state.reconnectAttempts >= maxReconnectAttempts) {
+      updateState({ 
+        error: `Max reconnection attempts (${maxReconnectAttempts}) reached`,
+        isReconnecting: false 
+      });
+      return;
     }
 
-    try {
-      const wsUrl = `${url.replace('http', 'ws')}/ws?token=${encodeURIComponent(token)}`;
-      const ws = new WebSocket(wsUrl);
+    const delay = Math.min(1000 * Math.pow(2, state.reconnectAttempts), 30000);
+    updateState({
+      isReconnecting: true,
+      reconnectAttempts: state.reconnectAttempts + 1
+    });
 
-      ws.onopen = () => {
-        updateState({
-          isConnected: true,
-          connectionType: 'websocket',
-          error: null,
-          isReconnecting: false,
-          reconnectAttempts: 0,
-          authStatus: 'authenticated'
-        });
-        logger.info('[Enhanced WebSocket] Raw WebSocket connected successfully');
+    logger.info(`[Socket.IO] Reconnecting in ${delay}ms (attempt ${state.reconnectAttempts + 1}/${maxReconnectAttempts})`);
 
-        // Start heartbeat
-        heartbeatTimeoutRef.current = setInterval(() => {
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'heartbeat', timestamp: Date.now() }));
-          }
-        }, heartbeatInterval);
-      };
+    reconnectTimeoutRef.current = setTimeout(() => {
+      connectSocketIO();
+    }, delay);
+  }, [state.reconnectAttempts, maxReconnectAttempts, connectSocketIO, updateState]);
 
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          const wsEvent: WebSocketEvent = {
-            type: data.type || 'message',
-            payload: data.payload || data,
-            messageId: data.messageId,
-            timestamp: data.timestamp || new Date().toISOString()
-          };
-
-          updateState({ lastEvent: wsEvent });
-
-          // Notify event listeners
-          const listeners = eventListeners.current.get(wsEvent.type) || [];
-          listeners.forEach(listener => {
-            try {
-              listener(wsEvent);
-            } catch (err) {
-              logger.error('[Enhanced WebSocket] Event listener error:', err);
-            }
-          });
-        } catch (err) {
-          logger.error('[Enhanced WebSocket] Failed to parse WebSocket message:', err);
-        }
-      };
-
-      ws.onclose = () => {
-        updateState({
-          isConnected: false,
-          connectionType: null,
-          error: 'WebSocket disconnected'
-        });
-
-        if (heartbeatTimeoutRef.current) {
-          clearInterval(heartbeatTimeoutRef.current);
-          heartbeatTimeoutRef.current = null;
-        }
-
-        logger.warn('[Enhanced WebSocket] Raw WebSocket disconnected');
-
-        // Attempt reconnection
-        if (state.reconnectAttempts < maxReconnectAttempts) {
-          const delay = Math.min(1000 * Math.pow(2, state.reconnectAttempts), 30000);
-          updateState({
-            isReconnecting: true,
-            reconnectAttempts: state.reconnectAttempts + 1
-          });
-
-          reconnectTimeoutRef.current = setTimeout(() => {
-            connectWebSocket();
-          }, delay);
-        }
-      };
-
-      ws.onerror = (error) => {
-        updateState({ error: 'WebSocket connection error' });
-        logger.error('[Enhanced WebSocket] Raw WebSocket error:', error);
-      };
-
-      wsRef.current = ws;
-      return true;
-    } catch (error) {
-      logger.error('[Enhanced WebSocket] Failed to create WebSocket connection:', error);
-      return false;
-    }
-  }, [url, getAuthToken, heartbeatInterval, maxReconnectAttempts, state.reconnectAttempts, updateState]);
-
-  // Main connection function with Socket.IO first, WebSocket fallback
+  // Main connect function
   const connect = useCallback(async () => {
     updateState({ error: null, isReconnecting: false });
-
-    // Try Socket.IO first if enabled
-    if (enableSocketIO) {
-      const socketIOSuccess = await connectSocketIO();
-      if (socketIOSuccess) return;
-
-      logger.warn('[Enhanced WebSocket] Socket.IO failed, falling back to WebSocket');
+    logger.info('[Enhanced WebSocket] Connecting via Socket.IO only');
+    
+    const success = await connectSocketIO();
+    if (!success) {
+      updateState({ 
+        error: 'Socket.IO connection failed - please check your authentication and network',
+        authStatus: 'unauthenticated'
+      });
     }
-
-    // Fallback to raw WebSocket if enabled
-    if (enableFallback) {
-      await connectWebSocket();
-    } else {
-      updateState({ error: 'Connection failed and fallback disabled' });
-    }
-  }, [enableSocketIO, enableFallback, connectSocketIO, connectWebSocket, updateState]);
+  }, [connectSocketIO, updateState]);
 
   // Disconnect function
   const disconnect = useCallback(() => {
@@ -294,74 +226,78 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
       reconnectTimeoutRef.current = null;
     }
 
-    if (heartbeatTimeoutRef.current) {
-      clearInterval(heartbeatTimeoutRef.current);
-      heartbeatTimeoutRef.current = null;
-    }
-
     if (socketRef.current) {
       socketRef.current.disconnect();
       socketRef.current = null;
     }
 
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
-    }
-
     updateState({
       isConnected: false,
       connectionType: null,
+      error: null,
       isReconnecting: false,
       reconnectAttempts: 0
     });
+
+    logger.info('[Socket.IO] Disconnected manually');
   }, [updateState]);
 
   // Send message function
-  const sendMessage = useCallback((message: any) => {
-    const messageWithId = {
-      ...message,
-      messageId: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      timestamp: new Date().toISOString()
-    };
-
-    if (socketRef.current?.connected) {
-      socketRef.current.emit(message.type, messageWithId);
-      return true;
-    } else if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify(messageWithId));
-      return true;
-    } else {
-      logger.warn('[Enhanced WebSocket] Cannot send message: not connected');
+  const sendMessage = useCallback((type: string, payload: any) => {
+    if (!socketRef.current || !state.isConnected) {
+      logger.warn('[Socket.IO] Cannot send message - not connected');
       return false;
     }
-  }, []);
 
-  // Event listener management
-  const addEventListener = useCallback((eventType: string, listener: (event: WebSocketEvent) => void) => {
-    const listeners = eventListeners.current.get(eventType) || [];
-    listeners.push(listener);
-    eventListeners.current.set(eventType, listeners);
+    try {
+      socketRef.current.emit(type, payload);
+      logger.debug('[Socket.IO] Message sent:', type, payload);
+      return true;
+    } catch (error) {
+      logger.error('[Socket.IO] Failed to send message:', error);
+      return false;
+    }
+  }, [state.isConnected]);
 
-    // Return cleanup function
+  // Auto-connect on mount
+  useEffect(() => {
+    connect();
+    
+    // Cleanup on unmount
     return () => {
-      const currentListeners = eventListeners.current.get(eventType) || [];
-      const index = currentListeners.indexOf(listener);
-      if (index > -1) {
-        currentListeners.splice(index, 1);
-        eventListeners.current.set(eventType, currentListeners);
+      disconnect();
+    };
+  }, [connect, disconnect]);
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
       }
     };
   }, []);
 
-  // Don't auto-connect - let components control when to connect
-  // This prevents premature connection attempts before authentication
-
   return {
-    ...state,
+    // Connection state
+    isConnected: state.isConnected,
+    connectionType: state.connectionType,
+    error: state.error,
+    isReconnecting: state.isReconnecting,
+    reconnectAttempts: state.reconnectAttempts,
+    authStatus: state.authStatus,
+    
+    // Last received event
+    lastEvent: state.lastEvent,
+    
+    // Connection methods
     connect,
     disconnect,
     sendMessage,
-    addEventListener
+    
+    // Socket.IO instance (for advanced usage)
+    socket: socketRef.current
   };
 };
+
+export default useEnhancedWebSocket;

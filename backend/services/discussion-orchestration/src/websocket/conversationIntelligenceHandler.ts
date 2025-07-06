@@ -39,16 +39,39 @@ export class ConversationIntelligenceHandler {
   }
 
   private setupEventHandlers() {
-    // Create a namespace for conversation intelligence
-    const ciNamespace = this.io.of('/conversation-intelligence');
+    // Create a namespace for conversation intelligence with proper error handling
+    let ciNamespace;
+    try {
+      ciNamespace = this.io.of('/conversation-intelligence');
+      if (!ciNamespace) {
+        throw new Error('Failed to create conversation intelligence namespace');
+      }
+    } catch (error) {
+      this.logger.error('Failed to create namespace:', error);
+      throw new Error('Namespace creation failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
 
     ciNamespace.on('connection', async (socket: Socket) => {
       try {
-        // Authenticate the connection
+        // Authenticate the connection with proper error handling
         const token = socket.handshake.auth.token;
-        const decoded = await validateJWTToken(token);
+        if (!token) {
+          this.logger.warn('No authentication token provided');
+          socket.disconnect();
+          return;
+        }
+        
+        let decoded;
+        try {
+          decoded = await validateJWTToken(token);
+        } catch (error) {
+          this.logger.error('Token validation failed:', error);
+          socket.disconnect();
+          return;
+        }
         
         if (!decoded || !decoded.userId) {
+          this.logger.warn('Invalid token or missing userId');
           socket.disconnect();
           return;
         }

@@ -28,16 +28,27 @@ import {
   AgentDiscussionService
 } from '../services/index.js';
 
-// Initialize services  
-const agentService = AgentService.getInstance();
-const toolService = ToolService.getInstance();
+// Lazy initialization of services to avoid singleton issues
+let agentService: AgentService | null = null;
+let toolService: ToolService | null = null;
+let agentCore: AgentCoreService | null = null;
+let agentContext: AgentContextService | null = null;
+let agentPlanning: AgentPlanningService | null = null;
+let agentLearning: AgentLearningService | null = null;
+let agentDiscussion: AgentDiscussionService | null = null;
 
-// Initialize intelligence services
-const agentCore = new AgentCoreService();
-const agentContext = new AgentContextService();
-const agentPlanning = new AgentPlanningService();
-const agentLearning = new AgentLearningService();
-const agentDiscussion = new AgentDiscussionService();
+function getServices() {
+  if (!agentService) {
+    agentService = AgentService.getInstance();
+    toolService = ToolService.getInstance();
+    agentCore = new AgentCoreService();
+    agentContext = new AgentContextService();
+    agentPlanning = new AgentPlanningService();
+    agentLearning = new AgentLearningService();
+    agentDiscussion = new AgentDiscussionService();
+  }
+  return { agentService, toolService, agentCore, agentContext, agentPlanning, agentLearning, agentDiscussion };
+}
 
 // Create router
 export function createAgentRoutes(): Router {
@@ -51,11 +62,10 @@ export function createAgentRoutes(): Router {
   // List all agents
   router.get('/',
     authMiddleware,
-    agentRateLimit(),
-    trackAgentOperation('list-agents'),
     async (req, res, next) => {
       try {
-        const agents = await agentCore.listAgents();
+        const { agentCore } = getServices();
+        const agents = await agentCore!.listAgents();
         res.json(agents);
       } catch (error) {
         next(error);
@@ -70,7 +80,8 @@ export function createAgentRoutes(): Router {
     trackAgentOperation('create-agent'),
     async (req, res, next) => {
       try {
-        const agent = await agentCore.createAgent(req.body, req.user?.id || 'system');
+        const { agentCore } = getServices();
+        const agent = await agentCore!.createAgent(req.body, req.user?.id || 'system');
         res.status(201).json(agent);
       } catch (error) {
         next(error);
@@ -85,7 +96,8 @@ export function createAgentRoutes(): Router {
     trackAgentOperation('get-agent'),
     async (req, res, next) => {
       try {
-        const agent = await agentService.findAgentById(req.agentContext!.agentId);
+        const { agentService } = getServices();
+        const agent = await agentService!.findAgentById(req.agentContext!.agentId);
         res.json(agent);
       } catch (error) {
         next(error);
@@ -114,7 +126,8 @@ export function createAgentRoutes(): Router {
           startedAt: new Date(),
           lastActivityAt: new Date()
         };
-        const result = await agentContext.analyzeContext(
+        const { agentContext } = getServices();
+        const result = await agentContext!.analyzeContext(
           req.agentContext.agentId,
           analysisRequest.userRequest,
           conversationContext,
@@ -148,15 +161,17 @@ export function createAgentRoutes(): Router {
           return;
         }
         const planRequest = req.body as AgentPlanRequest;
-        const plan = await agentPlanning.generateExecutionPlan(
+        const { agentPlanning } = getServices();
+        const plan = await agentPlanning!.generateExecutionPlan(
           req.agentContext.agentId,
           planRequest.analysis,
           planRequest.userPreferences,
           planRequest.securityContext
         );
         
-        // Update agent status
-        await agentService.updateAgentStatus(req.agentContext.agentId, AgentStatus.ACTIVE);
+        // Update agent status  
+        const { agentService } = getServices();
+        await agentService!.updateAgentStatus(req.agentContext.agentId, AgentStatus.ACTIVE);
         
         res.json({
           success: true,

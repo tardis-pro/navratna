@@ -50,6 +50,7 @@ export { SessionEntity } from './session.entity.js';
 // Tool System entities
 export { ToolDefinition } from './toolDefinition.entity.js';
 export { ToolExecution } from './toolExecution.entity.js';
+export { ToolAssignment } from './toolAssignment.entity.js';
 
 // Artifact System entities
 export { Artifact } from './artifact.entity.js';

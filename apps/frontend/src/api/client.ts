@@ -141,39 +141,54 @@ class APIClientClass {
 
   public getAuthToken(): string | null {
     if (!this.authToken) {
-      this.authToken = localStorage.getItem('authToken');
+      // Check both authToken and accessToken for backwards compatibility
+      this.authToken = localStorage.getItem('authToken') || 
+                      localStorage.getItem('accessToken') || 
+                      sessionStorage.getItem('accessToken');
     }
     return this.authToken;
   }
 
+  private transformResponse<T>(responseData: any): T {
+    // If response has the nested format { success: true, data: ... }, unwrap it
+    if (responseData && typeof responseData === 'object' && 
+        'success' in responseData && 'data' in responseData && 
+        responseData.success === true) {
+      return responseData.data as T;
+    }
+    
+    // Otherwise return the response as-is
+    return responseData as T;
+  }
+
   public async get<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
     const response = await this.client.get<T>(url, config);
-    return response.data;
+    return this.transformResponse<T>(response.data);
   }
 
   public async post<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
     const response = await this.client.post<T>(url, data, config);
-    return response.data;
+    return this.transformResponse<T>(response.data);
   }
 
   public async put<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
     const response = await this.client.put<T>(url, data, config);
-    return response.data;
+    return this.transformResponse<T>(response.data);
   }
 
   public async patch<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
     const response = await this.client.patch<T>(url, data, config);
-    return response.data;
+    return this.transformResponse<T>(response.data);
   }
 
   public async delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
     const response = await this.client.delete<T>(url, config);
-    return response.data;
+    return this.transformResponse<T>(response.data);
   }
 
   public async request<T = any>(config: AxiosRequestConfig): Promise<T> {
     const response = await this.client.request<T>(config);
-    return response.data;
+    return this.transformResponse<T>(response.data);
   }
 
   public getAxiosInstance(): AxiosInstance {

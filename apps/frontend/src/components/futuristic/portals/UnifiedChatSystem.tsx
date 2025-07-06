@@ -115,7 +115,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     authStatus,
     error: wsError,
     addEventListener,
-    connect: connectWebSocket
+    connect
   } = useEnhancedWebSocket();
 
   // State management
@@ -179,9 +179,9 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   useEffect(() => {
     if (isAuthenticated && !isWebSocketConnected) {
       console.log('User authenticated, connecting WebSocket...');
-      connectWebSocket();
+      connect();
     }
-  }, [isAuthenticated, isWebSocketConnected, connectWebSocket]);
+  }, [isAuthenticated, isWebSocketConnected, connect]);
 
   // Listen for WebSocket agent responses
   useEffect(() => {

@@ -34,11 +34,8 @@ class AgentIntelligenceService extends BaseService {
 
   async start(): Promise<void> {
     try {
-      await this.initialize();
-      
-      this.server = this.app.listen(this.config.port, () => {
-        console.log(`Agent Intelligence Service running on port ${this.config.port}`);
-      });
+      // Call parent start method which handles database initialization
+      await super.start();
     } catch (error) {
       console.error('Failed to start Agent Intelligence Service:', error);
       throw error;

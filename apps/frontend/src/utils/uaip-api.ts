@@ -448,55 +448,50 @@ export const uaipAPI = {
 
   agents: {
     async list(): Promise<any[]> {
-      const client = getAPIClient();
-      const response = await client.agents.list();
-
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to fetch agents');
+      try {
+        const agents = await api.agents.list();
+        return agents || [];
+      } catch (error) {
+        console.error('Failed to fetch agents:', error);
+        throw error;
       }
-
-      return response.data!;
     },
 
     async get(id: string): Promise<any> {
-      const client = getAPIClient();
-      const response = await client.agents.get(id);
-
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to fetch agent');
+      try {
+        const agent = await api.agents.get(id);
+        return agent;
+      } catch (error) {
+        console.error(`Failed to fetch agent ${id}:`, error);
+        throw error;
       }
-
-      return response.data!;
     },
 
     async create(agentData: any): Promise<any> {
-      const client = getAPIClient();
-      const response = await client.agents.create(agentData);
-
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to create agent');
+      try {
+        const agent = await api.agents.create(agentData);
+        return agent;
+      } catch (error) {
+        console.error('Failed to create agent:', error);
+        throw error;
       }
-
-      return response.data!;
     },
 
     async update(id: string, updates: any): Promise<any> {
-      const client = getAPIClient();
-      const response = await client.agents.update(id, updates);
-
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to update agent');
+      try {
+        const agent = await api.agents.update(id, updates);
+        return agent;
+      } catch (error) {
+        console.error(`Failed to update agent ${id}:`, error);
+        throw error;
       }
-
-      return response.data!;
     },
 
     async delete(id: string): Promise<void> {
-      const client = getAPIClient();
-      const response = await client.agents.delete(id);
-
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to delete agent');
+      try {
+        await api.agents.delete(id);
+      } catch (error) {
+        console.error(`Failed to delete agent ${id}:`, error);
       }
     },
 
@@ -592,119 +587,12 @@ export const uaipAPI = {
   tools: {
     async list(criteria?: any): Promise<any[]> {
       try {
-        const client = getAPIClient();
         // Use the proper tools API method
-        const response = await client.tools.list(criteria);
-
-        if (!response.success) {
-          // Check if it's an authentication error (403)
-          if (response.error?.details?.statusCode === 403) {
-            console.warn('Tools API requires authentication - user not logged in, returning mock data');
-          } else {
-            console.warn('Tools API not available, returning mock data:', response.error);
-          }
-
-          // Return mock capabilities when API is not available or user not authenticated
-          return [
-            {
-              id: 'mock-capability-1',
-              name: 'File System Access',
-              description: 'Basic file system operations',
-              category: 'System',
-              status: 'active',
-              version: '1.0.0',
-              type: 'tool',
-              agentId: 'system',
-              agentName: 'System',
-              permissions: ['read', 'write'],
-              lastUsed: new Date(Date.now() - 3600000),
-              usageCount: 45,
-              metadata: {
-                supportedOperations: ['read', 'write', 'list'],
-                securityLevel: 'medium'
-              }
-            },
-            {
-              id: 'mock-capability-2',
-              name: 'Web Search',
-              description: 'Search the internet for information',
-              category: 'External',
-              status: 'active',
-              version: '2.1.0',
-              type: 'api',
-              agentId: 'web-agent',
-              agentName: 'Web Search Agent',
-              permissions: ['search', 'fetch'],
-              lastUsed: new Date(Date.now() - 1800000),
-              usageCount: 123,
-              metadata: {
-                endpoint: 'https://api.search.com',
-                rateLimit: '100/hour',
-                securityLevel: 'low'
-              }
-            },
-            {
-              id: 'mock-capability-3',
-              name: 'Code Analysis',
-              description: 'Analyze and understand code structures',
-              category: 'Analysis',
-              status: 'active',
-              version: '1.5.0',
-              type: 'tool',
-              agentId: 'code-agent',
-              agentName: 'Code Analysis Agent',
-              permissions: ['analyze', 'suggest'],
-              lastUsed: new Date(Date.now() - 900000),
-              usageCount: 67,
-              metadata: {
-                supportedLanguages: ['typescript', 'javascript', 'python'],
-                securityLevel: 'high'
-              }
-            }
-          ];
-        }
-
-        // Transform backend response to frontend format
-        const tools = response.data.tools || [];
-        return tools.map((tool: any) => ({
-          id: tool.id || `tool-${Date.now()}`,
-          name: tool.name || 'Unknown Tool',
-          description: tool.description || 'No description available',
-          category: tool.category || 'Unknown',
-          status: tool.status || 'active',
-          version: tool.version || '1.0.0',
-          type: tool.type || 'tool',
-          agentId: tool.agentId || 'system',
-          agentName: tool.agentName || 'System',
-          permissions: tool.permissions || [],
-          lastUsed: tool.lastUsed ? new Date(tool.lastUsed) : null,
-          usageCount: tool.usageCount || 0,
-          metadata: tool.metadata || {}
-        }));
-
+        const tools = await api.tools.list(criteria);
+        return tools || [];
       } catch (error) {
-        console.warn('Tools API failed, returning mock data:', error);
-        // Return mock data on error to prevent infinite retries
-        return [
-          {
-            id: 'mock-capability-1',
-            name: 'File System Access',
-            description: 'Basic file system operations',
-            category: 'System',
-            status: 'active',
-            version: '1.0.0',
-            type: 'tool',
-            agentId: 'system',
-            agentName: 'System',
-            permissions: ['read', 'write'],
-            lastUsed: new Date(Date.now() - 3600000),
-            usageCount: 45,
-            metadata: {
-              supportedOperations: ['read', 'write', 'list'],
-              securityLevel: 'medium'
-            }
-          }
-        ];
+        console.warn('Tools API failed, returning empty array:', error);
+        return [];
       }
     },
 
@@ -792,15 +680,10 @@ export const uaipAPI = {
 
   llm: {
     async getModels(): Promise<Array<LLMModel>> {
-      const client = getAPIClient();
-      const response = await client.userLLM.getModels();
-
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to fetch models');
-      }
-
-      // Transform the response to match expected interface
-      return (response.data || []).map((model: any) => ({
+      const models = await api.llm.listModels();
+      
+      // Transform the response to match expected interface  
+      return models.map((model: any) => ({
         id: model.id || 'unknown',
         name: model.name || 'Unknown Model',
         description: model.description,
@@ -808,7 +691,7 @@ export const uaipAPI = {
         apiEndpoint: model.apiEndpoint || '',
         apiType: model.apiType || 'custom',
         provider: model.provider || 'unknown',
-        isAvailable: model.isAvailable || false
+        isAvailable: model.isActive || false
       }));
     },
 
@@ -831,15 +714,10 @@ export const uaipAPI = {
       createdAt: string;
       updatedAt: string;
     }>> {
-      const client = getAPIClient();
-      const response = await client.userLLM.getProviders();
-
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to fetch providers');
-      }
+      const providers = await api.llm.listProviders();
 
       // Transform the response to match expected interface
-      return (response.data || []).map((provider: any) => ({
+      return providers.map((provider: any) => ({
         id: provider.id || 'unknown',
         name: provider.name || 'Unknown Provider',
         description: provider.description,
@@ -861,14 +739,13 @@ export const uaipAPI = {
     },
 
     async createProvider(providerData: ModelProvider): Promise<any> {
-      const client = getAPIClient();
-      const response = await client.userLLM.createProvider(providerData);
-
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to create provider');
+      try {
+        const provider = await api.llm.userLLM.createProvider(providerData);
+        return provider;
+      } catch (error) {
+        console.error('Failed to create provider:', error);
+        throw error;
       }
-
-      return response.data!;
     },
 
     async updateProviderConfig(providerId: string, config: {
@@ -1022,18 +899,10 @@ export const uaipAPI = {
   approvals: {
     async approve(executionId: string, approvalData: { approverId: string }): Promise<void> {
       try {
-        const client = getAPIClient();
-        // Use the proper approvals API method
-        const response = await client.approvals.submitDecision(executionId, {
+        await api.approvals.submitDecision(executionId, {
           decision: 'approve',
-          feedback: `Approved by ${approvalData.approverId}`,
-          approverId: approvalData.approverId,
-          timestamp: new Date()
+          reason: `Approved by ${approvalData.approverId}`
         });
-
-        if (!response.success) {
-          throw new Error(response.error?.message || 'Failed to approve execution');
-        }
       } catch (error) {
         console.error('Approval API failed:', error);
         throw error; // Re-throw to let the UI handle the error
@@ -1042,18 +911,10 @@ export const uaipAPI = {
 
     async reject(executionId: string, rejectionData: { approverId: string; reason: string }): Promise<void> {
       try {
-        const client = getAPIClient();
-        // Use the proper approvals API method
-        const response = await client.approvals.submitDecision(executionId, {
+        await api.approvals.submitDecision(executionId, {
           decision: 'reject',
-          feedback: rejectionData.reason,
-          approverId: rejectionData.approverId,
-          timestamp: new Date()
+          reason: rejectionData.reason
         });
-
-        if (!response.success) {
-          throw new Error(response.error?.message || 'Failed to reject execution');
-        }
       } catch (error) {
         console.error('Rejection API failed:', error);
         throw error; // Re-throw to let the UI handle the error
@@ -1062,55 +923,16 @@ export const uaipAPI = {
 
     async getPending(): Promise<any[]> {
       try {
-        const client = getAPIClient();
-        const response = await client.approvals.getPendingApprovals();
-
-        if (!response.success) {
-          console.warn('Pending approvals API failed:', response.error);
-          // Return empty array when API fails
+        const response = await api.approvals.getPending();
+        // Handle the response format: {pendingApprovals: Array, count: number, summary: {...}}
+        if (response && typeof response === 'object' && Array.isArray(response.pendingApprovals)) {
+          return response.pendingApprovals;
+        } else if (Array.isArray(response)) {
+          return response;
+        } else {
+          console.warn('getPending() returned unexpected format:', response);
           return [];
         }
-
-        // Handle the actual backend response structure
-        // Backend returns: { data: { pendingApprovals: [...], count: number, summary: {...} } }
-        const responseData = response.data || {};
-        const approvals = responseData.pendingApprovals || responseData || [];
-
-        // Ensure approvals is an array
-        if (!Array.isArray(approvals)) {
-          console.warn('Expected approvals to be an array, got:', typeof approvals, approvals);
-          return [];
-        }
-
-        // Transform to frontend format
-        return approvals.map((item: any) => {
-          // Handle the nested structure from backend (workflow + status)
-          const approval = item.workflow || item;
-
-          return {
-            // Base ApprovalWorkflow properties
-            id: approval.id || `approval-${Date.now()}`,
-            operationId: approval.operationId || `operation-${Date.now()}`,
-            requiredApprovers: approval.requiredApprovers || ['admin'],
-            currentApprovers: approval.currentApprovers || [],
-            status: approval.status || 'pending',
-            expiresAt: approval.expiresAt ? new Date(approval.expiresAt) : new Date(Date.now() + 3600000),
-            createdAt: approval.createdAt ? new Date(approval.createdAt) : new Date(),
-            updatedAt: approval.updatedAt ? new Date(approval.updatedAt) : new Date(),
-            metadata: {
-              ...approval.metadata,
-              workflowId: approval.id,
-              urgency: item.urgency || 50,
-              isPendingForUser: item.isPendingForUser || true
-            },
-            // UI-specific extensions
-            operationType: approval.operationType || approval.metadata?.operationType || 'Unknown Operation',
-            description: approval.description || approval.metadata?.description || 'Approval required',
-            riskLevel: (approval.metadata?.securityLevel?.toLowerCase() || 'medium') as 'low' | 'medium' | 'high' | 'critical',
-            requestedBy: approval.metadata?.createdBy || approval.metadata?.requestedBy || 'system'
-          };
-        });
-
       } catch (error) {
         console.error('Failed to get pending approvals:', error);
         // Return empty array instead of throwing to prevent infinite retries
