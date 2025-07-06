@@ -77,18 +77,24 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
       logger.info('[Socket.IO] Attempting connection', { url });
 
       const socket = io(url, {
-        auth: { token },
-        query: { token }, // Backup token passing method
+        auth: { 
+          token: token
+        },
+        query: { 
+          token: token,
+          EIO: 4 // Ensure Engine.IO v4 protocol
+        },
         extraHeaders: {
           'Authorization': `Bearer ${token}`
         },
-        transports: ['websocket', 'polling'], // Socket.IO transports only
+        transports: ['polling', 'websocket'], // Start with polling, upgrade to websocket
         upgrade: true,
         rememberUpgrade: true,
-        timeout: 10000,
+        timeout: 15000, // Increased timeout
         reconnection: false, // We'll handle reconnection manually
-        forceNew: false,
-        autoConnect: true
+        forceNew: true, // Force new connection each time
+        autoConnect: true,
+        withCredentials: false // Don't send cookies
       });
 
       // Connection successful
@@ -122,8 +128,15 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
       // Handle connection errors
       socket.on('connect_error', (error) => {
         logger.error('[Socket.IO] Connection error:', error);
+        logger.error('[Socket.IO] Error details:', {
+          message: error.message,
+          description: error.description,
+          context: error.context,
+          type: error.type,
+          code: error.code
+        });
         
-        if (error.message.includes('Authentication') || error.message.includes('token')) {
+        if (error.message.includes('Authentication') || error.message.includes('token') || error.message.includes('Authentication token required')) {
           updateState({ 
             error: `Authentication failed: ${error.message}`,
             authStatus: 'unauthenticated',
@@ -261,13 +274,20 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
 
   // Auto-connect on mount
   useEffect(() => {
+    const token = getAuthToken();
+    logger.info('[Enhanced WebSocket] Initializing with auth status:', { 
+      hasToken: !!token, 
+      tokenLength: token?.length,
+      url 
+    });
+    
     connect();
     
     // Cleanup on unmount
     return () => {
       disconnect();
     };
-  }, [connect, disconnect]);
+  }, [connect, disconnect, url]);
 
   // Cleanup timeouts on unmount
   useEffect(() => {

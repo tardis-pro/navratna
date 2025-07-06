@@ -6,7 +6,7 @@ import { Router } from 'express';
 import { ToolController } from '../controllers/toolController.js';
 import { ToolRegistry } from '../services/toolRegistry.js';
 import { ToolExecutor } from '../services/toolExecutor.js';
-import { DatabaseService, ToolGraphDatabase } from '@uaip/shared-services';
+import { DatabaseService, EventBusService, ToolGraphDatabase } from '@uaip/shared-services';
 import { authMiddleware, createRateLimiter, rateLimiter } from '@uaip/middleware';
 
 // Rate limiting configurations using shared middleware
@@ -40,43 +40,46 @@ const registrationRateLimit = createRateLimiter({
   }
 });
 
-// Initialize services and create default controller
-const databaseService = DatabaseService.getInstance();
+// Initialize services and create default controller factory
+function createDefaultController(eventBusService?: EventBusService): ToolController {
+  const databaseService = DatabaseService.getInstance();
 
-// For now, create a mock ToolGraphDatabase and ToolExecutor
-// These should be properly configured in a real implementation
-const mockToolGraphDatabase = {
-  createToolNode: async () => {},
-  updateToolNode: async () => {},
-  deleteToolNode: async () => {},
-  getRelatedTools: async () => [],
-  addToolRelationship: async () => {},
-  getRecommendations: async () => [],
-  getContextualRecommendations: async () => [],
-  findSimilarTools: async () => [],
-  getToolDependencies: async () => [],
-  getToolUsageAnalytics: async () => [],
-  getPopularTools: async () => [],
-  getAgentToolPreferences: async () => [],
-  verifyConnectivity: async () => true
-} as any;
+  // For now, create a mock ToolGraphDatabase and ToolExecutor
+  // These should be properly configured in a real implementation
+  const mockToolGraphDatabase = {
+    createToolNode: async () => {},
+    updateToolNode: async () => {},
+    deleteToolNode: async () => {},
+    getRelatedTools: async () => [],
+    addToolRelationship: async () => {},
+    getRecommendations: async () => [],
+    getContextualRecommendations: async () => [],
+    findSimilarTools: async () => [],
+    getToolDependencies: async () => [],
+    getToolUsageAnalytics: async () => [],
+    getPopularTools: async () => [],
+    getAgentToolPreferences: async () => [],
+    verifyConnectivity: async () => true
+  } as any;
 
-const toolRegistry = new ToolRegistry(databaseService);
+  const toolRegistry = new ToolRegistry(eventBusService);
 
-const mockBaseExecutor = {
-  execute: async () => ({ success: true, result: null })
-} as any;
+  const mockBaseExecutor = {
+    execute: async () => ({ success: true, result: null })
+  } as any;
 
-const mockToolExecutor = new ToolExecutor(
-  databaseService,
-  toolRegistry,
-  mockBaseExecutor
-);
-const defaultToolController = new ToolController(toolRegistry, mockToolExecutor);
+  const mockToolExecutor = new ToolExecutor(
+    databaseService,
+    toolRegistry,
+    mockBaseExecutor
+  );
+  
+  return new ToolController(toolRegistry, mockToolExecutor);
+}
 
-export function createToolRoutes(toolController?: ToolController): Router {
+export function createToolRoutes(toolController?: ToolController, eventBusService?: EventBusService): Router {
   const router = Router();
-  const controller = toolController || defaultToolController;
+  const controller = toolController || createDefaultController(eventBusService);
 
   // Apply general rate limiting to all routes
   router.use(generalRateLimit);

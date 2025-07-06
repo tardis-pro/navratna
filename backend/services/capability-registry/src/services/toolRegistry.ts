@@ -5,6 +5,7 @@
 import { ToolDefinition, ToolUsageRecord, ToolCategory, SecurityLevel } from '@uaip/types';
 import { ToolDatabase, ToolRelationship, ToolRecommendation, ToolService, serviceFactory, EventBusService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
+import { config } from '@uaip/config';
 import { z } from 'zod';
 
 
@@ -57,7 +58,9 @@ export class ToolRegistry {
     private eventBusService?: EventBusService
   ) {
     this.toolService = ToolService.getInstance();
-    this.setupEventSubscriptions();
+    if (this.eventBusService) {
+      this.setupEventSubscriptions();
+    }
   }
 
   // Setup event subscriptions for dynamic tool registration
@@ -156,7 +159,17 @@ export class ToolRegistry {
       logger.debug('Tool node creation requested', { toolId: transformedTool.id });
 
       // Use ToolService for tool management
-      await this.toolService.createTool(validatedTool);
+      await this.toolService.createTool({
+        name: validatedTool.name,
+        displayName: validatedTool.name, // Use name as displayName
+        description: validatedTool.description,
+        category: validatedTool.category as any,
+        isEnabled: validatedTool.isEnabled,
+        version: validatedTool.version,
+        inputSchema: validatedTool.parameters,
+        outputSchema: validatedTool.returnType,
+        securityLevel: validatedTool.securityLevel as SecurityLevel
+      });
       
       logger.info(`Tool registered successfully: ${tool.id}`);
     } catch (error) {
@@ -167,8 +180,7 @@ export class ToolRegistry {
         
         // Neo4j operations now handled by knowledge graph service
         logger.debug('Tool node deletion requested', { toolId: tool.id });
-        const toolManagement = await this.getToolManagementService();
-        await toolManagement.deleteTool(tool.id);
+        // Tool cleanup handled by ToolService internally
       } catch (cleanupError) {
         logger.error(`Failed to cleanup after registration failure:`, cleanupError);
       }
@@ -193,12 +205,23 @@ export class ToolRegistry {
       // Neo4j operations now handled by knowledge graph service
       logger.debug('Tool node update requested', { toolId: validatedId });
 
-      // Update TypeORM entity
-      const toolManagement = await this.getToolManagementService();
-      await toolManagement.updateTool(validatedId, {
-        ...validatedUpdates,
+      // Update TypeORM entity using ToolService  
+      // Note: ToolService doesn't have updateTool method yet, using repository directly
+      const toolRepo = this.toolService.getToolRepository();
+      
+      // Transform the updates to match entity types
+      const entityUpdates: any = {
         updatedAt: new Date()
-      });
+      };
+      
+      if (validatedUpdates.name) entityUpdates.name = validatedUpdates.name;
+      if (validatedUpdates.description) entityUpdates.description = validatedUpdates.description;
+      if (validatedUpdates.version) entityUpdates.version = validatedUpdates.version;
+      if (validatedUpdates.category) entityUpdates.category = validatedUpdates.category as ToolCategory;
+      if (validatedUpdates.isEnabled !== undefined) entityUpdates.isEnabled = validatedUpdates.isEnabled;
+      if (validatedUpdates.securityLevel) entityUpdates.securityLevel = validatedUpdates.securityLevel as SecurityLevel;
+      
+      await toolRepo.update(validatedId, entityUpdates);
       
       logger.info(`Tool updated successfully: ${validatedId}`);
     } catch (error) {
@@ -218,9 +241,9 @@ export class ToolRegistry {
       // Neo4j operations now handled by knowledge graph service
       logger.debug('Tool node deletion requested', { toolId: validatedId });
 
-      // Remove TypeORM entity
-      const toolManagement = await this.getToolManagementService();
-      await toolManagement.deleteTool(validatedId);
+      // Remove TypeORM entity using ToolService
+      const toolRepo = this.toolService.getToolRepository();
+      await toolRepo.delete(validatedId);
       
       logger.info(`Tool unregistered successfully: ${validatedId}`);
     } catch (error) {
@@ -403,7 +426,9 @@ export class ToolRegistry {
     const filters: any = { days };
     if (toolId) filters.toolId = toolId;
     if (agentId) filters.agentId = agentId;
-    return await this.postgresql.tools.getToolUsageStats(filters.toolId || '', filters.days || 30);
+    // Use ToolService for usage stats
+    const usageRepo = this.toolService.getToolUsageRepository();
+    return await usageRepo.getToolUsageStats(filters);
   }
 
   async getToolUsageAnalytics(toolId?: string, agentId?: string): Promise<any[]> {
@@ -463,8 +488,9 @@ export class ToolRegistry {
       // Test PostgreSQL connection by attempting a simple query instead of looking for a specific tool
       let postgresqlHealth = false;
       try {
-        const result = await this.postgresql.healthCheck();
-        postgresqlHealth = result.status === 'healthy';
+        // Use ToolService for health check
+        const tools = await this.toolService.getToolRepository().findMany({});
+        postgresqlHealth = Array.isArray(tools);
       } catch {
         postgresqlHealth = false;
       }
@@ -512,22 +538,16 @@ export class ToolRegistry {
         metadata: metadata || {}
       };
 
-      const toolManagement = await this.getToolManagementService();
-      await toolManagement.recordToolUsage({
+      // Record tool usage through ToolService
+      const usageRepo = this.toolService.getToolUsageRepository();
+      await usageRepo.recordToolUsage({
         toolId,
         agentId,
-        executionTime,
+        executionTimeMs: executionTime,
         success,
         cost,
-        metadata
-      });
-      
-      // Update capability metrics
-      await toolManagement.updateCapabilityMetrics({
-        agentId,
-        toolId,
-        success,
-        executionTime
+        metadata: metadata || {},
+        usedAt: new Date()
       });
       
       logger.debug(`Tool usage recorded: ${toolId} by ${agentId}`);
@@ -544,12 +564,14 @@ export class ToolRegistry {
     executionTime: number
   ): Promise<void> {
     try {
-      const toolManagement = await this.getToolManagementService();
-      await toolManagement.updateCapabilityMetrics({
+      // Update capability metrics through ToolService - record as usage
+      const usageRepo = this.toolService.getToolUsageRepository();
+      await usageRepo.recordToolUsage({
         agentId,
         toolId,
         success,
-        executionTime
+        executionTimeMs: executionTime,
+        usedAt: new Date()
       });
     } catch (error) {
       logger.error(`Failed to update capability metrics:`, error);
@@ -559,8 +581,23 @@ export class ToolRegistry {
   // Enhanced Analytics with TypeORM
   async getAgentCapabilityMetrics(agentId: string): Promise<AgentCapabilityMetric[]> {
     try {
-      const toolManagement = await this.getToolManagementService();
-      return await toolManagement.getAgentCapabilityMetrics(agentId);
+      // Get capability metrics through ToolService
+      const usageRepo = this.toolService.getToolUsageRepository();
+      const stats = await usageRepo.getToolUsageStats({ agentId });
+      // Transform to expected format
+      return stats.map((stat: any) => ({
+        id: `${stat.agentId}_${stat.toolId}`,
+        agentId: stat.agentId,
+        toolId: stat.toolId,
+        totalExecutions: stat.totalUses || 0,
+        successfulExecutions: stat.successfulUses || 0,
+        totalExecutionTime: stat.avgExecutionTime * stat.totalUses || 0,
+        averageExecutionTime: stat.avgExecutionTime || 0,
+        successRate: stat.totalUses > 0 ? (stat.successfulUses || 0) / stat.totalUses : 0,
+        lastUsed: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }));
     } catch (error) {
       logger.error(`Failed to get capability metrics for agent ${agentId}:`, error);
       return [];
@@ -569,8 +606,9 @@ export class ToolRegistry {
 
   async getToolUsageStats(toolId: string, days = 30): Promise<any> {
     try {
-      const toolManagement = await this.getToolManagementService();
-      return await toolManagement.getToolUsageStats(toolId, days);
+      // Get tool usage stats through ToolService
+      const usageRepo = this.toolService.getToolUsageRepository();
+      return await usageRepo.getToolUsageStats({ toolId, days });
     } catch (error) {
       logger.error(`Failed to get tool usage stats for ${toolId}:`, error);
       return null;

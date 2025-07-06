@@ -39,6 +39,8 @@ class LLMServiceServer extends BaseService {
     // Subscribe to LLM request events
     await this.eventBusService.subscribe('llm.user.request', (event: any) => this.handleUserLLMRequest(event));
     await this.eventBusService.subscribe('llm.global.request', (event: any) => this.handleGlobalLLMRequest(event));
+    await this.eventBusService.subscribe('llm.agent.generate.request', (event: any) => this.handleAgentGenerateRequest(event));
+    await this.eventBusService.subscribe('llm.provider.changed', (event: any) => this.handleProviderChanged(event));
     logger.info('Event bus subscriptions configured');
   }
 
@@ -127,6 +129,167 @@ class LLMServiceServer extends BaseService {
       } catch (publishError) {
         logger.error('Failed to publish error response', { publishError });
       }
+    }
+  }
+
+  private async handleAgentGenerateRequest(event: any): Promise<void> {
+    try {
+      const { requestId, agentId, messages, systemPrompt, maxTokens, temperature, model, provider } = event.data || event;
+      
+      logger.info('Processing agent generate request', { 
+        requestId, 
+        agentId, 
+        messageCount: messages?.length,
+        model,
+        provider 
+      });
+
+      // Import and use LLMService
+      const { llmService } = await import('@uaip/llm-service');
+      
+      // Convert messages to the format expected by LLMService
+      const prompt = this.buildPromptFromMessages(messages);
+      
+      // Generate response using LLMService
+      const response = await llmService.generateResponse({
+        prompt,
+        systemPrompt,
+        maxTokens: maxTokens || 500,
+        temperature: temperature || 0.7,
+        model: model || 'llama2'
+      }, provider);
+
+      logger.info('LLM generation completed', { 
+        requestId,
+        hasContent: !!response.content,
+        model: response.model,
+        hasError: !!response.error,
+        finishReason: response.finishReason
+      });
+
+      // Publish response on the expected event channel
+      await this.eventBusService.publish('llm.agent.generate.response', {
+        requestId,
+        agentId,
+        content: response.content,
+        error: response.error,
+        confidence: this.calculateConfidence(response),
+        model: response.model || model || 'unknown',
+        finishReason: response.finishReason,
+        tokensUsed: response.tokensUsed,
+        timestamp: new Date().toISOString()
+      });
+
+      logger.info('Agent generate response published', { requestId, agentId });
+
+    } catch (error) {
+      logger.error('Failed to process agent generate request', { 
+        error: error.message, 
+        stack: error.stack,
+        requestId: event?.data?.requestId || event?.requestId,
+        agentId: event?.data?.agentId || event?.agentId
+      });
+      
+      // Publish error response
+      try {
+        await this.eventBusService.publish('llm.agent.generate.response', {
+          requestId: event?.data?.requestId || event?.requestId,
+          agentId: event?.data?.agentId || event?.agentId,
+          content: null,
+          error: error.message,
+          confidence: 0,
+          model: event?.data?.model || event?.model || 'unknown',
+          finishReason: 'error',
+          timestamp: new Date().toISOString()
+        });
+      } catch (publishError) {
+        logger.error('Failed to publish agent generate error response', { publishError });
+      }
+    }
+  }
+
+  private buildPromptFromMessages(messages: any[]): string {
+    if (!messages || messages.length === 0) {
+      return '';
+    }
+
+    // Build conversation format prompt
+    let prompt = '';
+    messages.forEach((message, index) => {
+      const sender = message.sender === 'user' ? 'User' : 'Assistant';
+      prompt += `${sender}: ${message.content}\n`;
+    });
+
+    // Add the assistant prompt at the end
+    prompt += 'Assistant:';
+    
+    return prompt;
+  }
+
+  private calculateConfidence(response: any): number {
+    // Calculate confidence based on response quality
+    if (response.error) {
+      return 0;
+    }
+    
+    if (!response.content || response.content.trim().length === 0) {
+      return 0.1;
+    }
+
+    // Base confidence
+    let confidence = 0.8;
+
+    // Adjust based on finish reason
+    switch (response.finishReason) {
+      case 'stop':
+        confidence = 0.9;
+        break;
+      case 'length':
+        confidence = 0.7;
+        break;
+      case 'error':
+        confidence = 0.1;
+        break;
+      default:
+        confidence = 0.8;
+    }
+
+    // Adjust based on content length (very short responses might be less reliable)
+    const contentLength = response.content.trim().length;
+    if (contentLength < 10) {
+      confidence *= 0.5;
+    } else if (contentLength < 50) {
+      confidence *= 0.8;
+    }
+
+    return Math.max(0, Math.min(1, confidence));
+  }
+
+  private async handleProviderChanged(event: any): Promise<void> {
+    try {
+      const { eventType, providerId, providerType } = event.data || event;
+      
+      logger.info('Provider change event received', { 
+        eventType, 
+        providerId, 
+        providerType 
+      });
+
+      // Import and refresh LLM service providers
+      const { llmService } = await import('@uaip/llm-service');
+      await llmService.refreshProviders();
+      
+      logger.info('LLM service providers refreshed due to provider change', { 
+        eventType, 
+        providerId, 
+        providerType 
+      });
+
+    } catch (error) {
+      logger.error('Failed to handle provider change event', { 
+        error: error.message,
+        event: event?.data || event
+      });
     }
   }
 

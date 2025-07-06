@@ -818,7 +818,6 @@ export class UnifiedToolRegistry {
         // Standard tool - use standard registry executor
         const toolRegistry = await import('./toolRegistry');
         return new toolRegistry.ToolRegistry(
-          this.databaseService,
           this.eventBusService
         );
       }

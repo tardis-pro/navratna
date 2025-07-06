@@ -10,6 +10,12 @@ router.get('/models', async (req: Request, res: Response) => {
   try {
     const models = await llmService.getAvailableModels();
 
+    // Set cache headers (1 hour)
+    res.set({
+      'Cache-Control': 'public, max-age=3600',
+      'ETag': `"models-${models.length}-${Date.now()}"`
+    });
+
     res.json({
       success: true,
       data: models
@@ -33,6 +39,12 @@ router.get('/models/:providerType', async (req: Request, res: Response) => {
   try {
     const { providerType } = req.params;
     const models = await llmService.getModelsFromProvider(providerType);
+
+    // Set cache headers (1 hour)
+    res.set({
+      'Cache-Control': 'public, max-age=3600',
+      'ETag': `"provider-${providerType}-${models.length}-${Date.now()}"`
+    });
 
     res.json({
       success: true,
@@ -215,6 +227,12 @@ router.get('/providers', async (req: Request, res: Response) => {
     const providers = await llmService.getConfiguredProviders();
     const healthResults = await llmService.checkProviderHealth();
 
+    // Set cache headers (1 hour)
+    res.set({
+      'Cache-Control': 'public, max-age=3600',
+      'ETag': `"providers-${providers.length}-${Date.now()}"`
+    });
+
     res.json({
       success: true,
       data: providers
@@ -251,6 +269,87 @@ router.get('/providers/health', async (req: Request, res: Response) => {
       success: false,
       error: 'Failed to check provider health',
       details: error instanceof Error ? error.message : 'Unknown error'
+    });
+      return;
+  }
+});
+
+// Test event-driven integration
+router.post('/test-events', async (req: Request, res: Response) => {
+  try {
+    logger.info('Testing event-driven LLM integration...');
+
+    // Import the test function dynamically
+    const { testLLMEventIntegration } = await import('../test-event-integration.js');
+    
+    // Run the test
+    const result = await testLLMEventIntegration();
+
+    res.json({
+      success: true,
+      data: result,
+      message: result.testSuccess ? 'Event integration test passed' : 'Event integration test failed'
+    });
+  } catch (error) {
+    logger.error('Error testing event integration', { 
+      error: error instanceof Error ? error.message : error,
+      stack: error instanceof Error ? error.stack : undefined 
+    });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to test event integration',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+      return;
+  }
+});
+
+// Cache management endpoints
+router.post('/cache/invalidate', async (req: Request, res: Response) => {
+  try {
+    const { type } = req.body;
+
+    switch (type) {
+      case 'models':
+        await llmService.invalidateModelsCache();
+        break;
+      case 'providers':
+        await llmService.invalidateProvidersCache();
+        break;
+      case 'all':
+        await llmService.invalidateAllCache();
+        break;
+      default:
+        await llmService.invalidateAllCache();
+    }
+
+    res.json({
+      success: true,
+      message: `Cache invalidated: ${type || 'all'}`
+    });
+  } catch (error) {
+    logger.error('Error invalidating cache', { error, body: req.body });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to invalidate cache'
+    });
+      return;
+  }
+});
+
+router.post('/cache/refresh', async (req: Request, res: Response) => {
+  try {
+    await llmService.refreshProviders();
+
+    res.json({
+      success: true,
+      message: 'Providers refreshed and cache cleared'
+    });
+  } catch (error) {
+    logger.error('Error refreshing providers', { error });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to refresh providers'
     });
       return;
   }

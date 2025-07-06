@@ -30,9 +30,15 @@ export interface DiscussionResponse {
 export class AgentDiscussionService {
   private eventBusService: EventBusService;
   private conversationCache: Map<string, DiscussionMessage[]> = new Map();
+  private pendingLLMRequests: Map<string, {
+    resolve: (response: any) => void;
+    reject: (error: any) => void;
+    timeout: NodeJS.Timeout;
+  }> = new Map();
 
   constructor() {
     this.eventBusService = EventBusService.getInstance();
+    this.setupLLMEventSubscriptions();
   }
 
   async processDiscussionMessage(params: {
@@ -265,51 +271,211 @@ export class AgentDiscussionService {
     confidence: number;
     type: 'direct' | 'clarification' | 'suggestion' | 'error';
   }> {
+    try {
+      // Use event-driven LLM request instead of direct service call
+      const llmResponse = await this.requestLLMGeneration(message, intent, strategy, history, agentId);
+
+      // Determine response type based on strategy
+      let type: 'direct' | 'clarification' | 'suggestion' | 'error' = 'direct';
+      switch (strategy) {
+        case 'explanatory':
+        case 'corrective':
+          type = 'clarification';
+          break;
+        case 'acknowledgment':
+        default:
+          type = 'suggestion';
+          break;
+        case 'informative':
+        case 'actionable':
+        case 'friendly':
+        case 'contextual':
+          type = 'direct';
+          break;
+      }
+
+      return {
+        content: llmResponse.content,
+        confidence: llmResponse.confidence || 0.9,
+        type
+      };
+
+    } catch (error) {
+      logger.error('Error with event-driven LLM request, falling back to template', { 
+        agentId, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
+      return this.generateFallbackResponse(message, intent, strategy, history, agentId);
+    }
+  }
+
+  private async requestLLMGeneration(
+    message: string,
+    intent: string,
+    strategy: string,
+    history: DiscussionMessage[],
+    agentId: string
+  ): Promise<{ content: string; confidence: number }> {
+    return new Promise(async (resolve, reject) => {
+      const requestId = `llm_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Set up timeout (10 seconds for LLM generation)
+      const timeout = setTimeout(() => {
+        this.pendingLLMRequests.delete(requestId);
+        logger.warn('LLM generation timeout', { requestId, agentId });
+        // Resolve with fallback instead of rejecting
+        resolve({
+          content: this.generateQuickFallbackResponse(message, agentId),
+          confidence: 0.5
+        });
+      }, 10000);
+
+      // Store the promise handlers
+      this.pendingLLMRequests.set(requestId, {
+        resolve: (response) => {
+          clearTimeout(timeout);
+          resolve(response);
+        },
+        reject: (error) => {
+          clearTimeout(timeout);
+          reject(error);
+        },
+        timeout
+      });
+
+      try {
+        // Build conversation history for LLM context
+        const messages = [
+          ...history.slice(-9).map(msg => ({
+            id: msg.id,
+            content: msg.content,
+            sender: msg.type === 'user' ? 'user' : 'assistant',
+            timestamp: msg.timestamp.toISOString(),
+            type: (msg.type === 'user' ? 'user' : 'assistant') as 'user' | 'assistant'
+          })),
+          {
+            id: `msg_${Date.now()}`,
+            content: message,
+            sender: 'user',
+            timestamp: new Date().toISOString(),
+            type: 'user' as const
+          }
+        ];
+
+        // Publish LLM generation request via event bus
+        await this.eventBusService.publish('llm.agent.generate.request', {
+          requestId,
+          agentId,
+          messages,
+          systemPrompt: this.buildSystemPrompt(intent, strategy, agentId),
+          maxTokens: 500,
+          temperature: 0.7,
+          model: 'llama2', // Could be agent-specific
+          provider: 'ollama' // Could be agent-specific
+        });
+
+        logger.debug('LLM generation request published', { requestId, agentId });
+
+      } catch (error) {
+        clearTimeout(timeout);
+        this.pendingLLMRequests.delete(requestId);
+        reject(error);
+      }
+    });
+  }
+
+  private setupLLMEventSubscriptions(): void {
+    // Subscribe to LLM generation responses
+    this.eventBusService.subscribe('llm.agent.generate.response', async (event) => {
+      const { requestId, content, error, confidence, model } = event.data;
+      
+      const pendingRequest = this.pendingLLMRequests.get(requestId);
+      if (!pendingRequest) {
+        logger.warn('Received LLM response for unknown request', { requestId });
+        return;
+      }
+
+      this.pendingLLMRequests.delete(requestId);
+
+      if (error) {
+        logger.warn('LLM generation failed', { requestId, error });
+        // Resolve with fallback instead of rejecting
+        pendingRequest.resolve({
+          content: 'I apologize, but I encountered an issue generating my response. Please try again.',
+          confidence: 0.3
+        });
+      } else {
+        logger.debug('LLM generation successful', { requestId, model, contentLength: content?.length });
+        pendingRequest.resolve({
+          content: content || 'I apologize, but I received an empty response. Please try again.',
+          confidence: confidence || 0.9
+        });
+      }
+    });
+
+    logger.info('LLM event subscriptions established');
+  }
+
+  private generateQuickFallbackResponse(message: string, agentId: string): string {
+    const responses = [
+      `I'm Agent ${agentId}. I'm processing your message but experiencing some delays. Could you please try again?`,
+      `Hello! I'm Agent ${agentId}. I'm having trouble generating a response right now. Please rephrase your question.`,
+      `I'm Agent ${agentId} and I want to help, but I'm currently having some technical difficulties. Please try again.`
+    ];
+    return responses[Math.floor(Math.random() * responses.length)];
+  }
+
+  private buildSystemPrompt(intent: string, strategy: string, agentId: string): string {
+    return `You are Agent ${agentId}, a helpful and knowledgeable AI assistant. 
+
+Current conversation context:
+- User intent: ${intent}
+- Response strategy: ${strategy}
+
+Guidelines:
+- Be helpful, accurate, and concise
+- Adapt your tone based on the strategy (${strategy})
+- If you don't know something, admit it honestly
+- Keep responses under 200 words unless more detail is specifically requested
+- Be conversational but professional
+
+Remember: You are Agent ${agentId} and should respond in character as a capable AI assistant.`;
+  }
+
+  private generateFallbackResponse(
+    message: string,
+    intent: string,
+    strategy: string,
+    history: DiscussionMessage[],
+    agentId: string
+  ): {
+    content: string;
+    confidence: number;
+    type: 'direct' | 'clarification' | 'suggestion' | 'error';
+  } {
+    // Fallback to template-based responses when LLM is unavailable
     let response = '';
-    let confidence = 0.8;
+    let confidence = 0.6; // Lower confidence for template responses
     let type: 'direct' | 'clarification' | 'suggestion' | 'error' = 'direct';
 
     switch (strategy) {
-      case 'informative':
-        response = this.generateInformativeResponse(message, history);
-        type = 'direct';
-        break;
-        
-      case 'actionable':
-        response = this.generateActionableResponse(message, history);
-        type = 'direct';
-        break;
-        
       case 'friendly':
-        response = this.generateFriendlyResponse(message, history, agentId);
-        type = 'direct';
+        const isFirstInteraction = history.length <= 1;
+        if (isFirstInteraction) {
+          response = `Hello! I'm Agent ${agentId}. I'd be happy to help you, though I should mention that my LLM capabilities are currently limited. How can I assist you today?`;
+        } else {
+          response = "Hello again! I'm here to help, though my responses may be limited right now. What can I do for you?";
+        }
         break;
-        
-      case 'acknowledgment':
-        response = this.generateAcknowledgmentResponse(message);
-        type = 'direct';
+      case 'informative':
+        response = "I'd be happy to help answer your question. While my full capabilities aren't available right now, I'll do my best to assist you.";
         break;
-        
-      case 'corrective':
-        response = this.generateCorrectiveResponse(message, history);
-        type = 'clarification';
-        confidence = 0.6;
+      case 'actionable':
+        response = "I understand you'd like help with something. Let me see what I can do to assist you with that request.";
         break;
-        
-      case 'explanatory':
-        response = this.generateExplanatoryResponse(message, history);
-        type = 'clarification';
-        break;
-        
-      case 'contextual':
-        response = this.generateContextualResponse(message, history);
-        type = 'direct';
-        break;
-        
       default:
-        response = this.generateConversationalResponse(message, history);
+        response = `I'm Agent ${agentId} and I'm here to help. My LLM capabilities are currently limited, but I'll do my best to assist you. Could you tell me more about what you need?`;
         type = 'suggestion';
-        confidence = 0.7;
     }
 
     return { content: response, confidence, type };

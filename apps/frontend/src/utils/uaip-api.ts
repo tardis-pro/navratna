@@ -102,7 +102,7 @@ export function generateUUID(): string {
 // ============================================================================
 
 export function getAPIClient() {
-  return APIClient;
+  return api;
 }
 
 // ============================================================================
@@ -302,18 +302,16 @@ export const uaipAPI = {
       const response = await client.discussions.create({
         title: discussion.title,
         description: discussion.description,
-        topic: discussion.topic,
-        createdBy: discussion.createdBy,
+        objective: discussion.topic, // Map topic to objective
+        participantIds: discussion.initialParticipants || [],
         turnStrategy: discussion.turnStrategy,
-        initialParticipants: discussion.initialParticipants,
-        settings: discussion.settings
+        strategyConfig: discussion.settings?.strategyConfig,
+        maxTurns: discussion.settings?.maxTurns,
+        maxDuration: discussion.settings?.maxDuration,
+        metadata: discussion.settings?.metadata
       });
 
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to create discussion');
-      }
-
-      return response.data!;
+      return response;
     },
 
     async update(id: string, updates: UpdateDiscussionRequest): Promise<Discussion> {

@@ -1,7 +1,8 @@
 import { 
   LLMProviderRepository, 
   LLMProvider, 
-  DatabaseService 
+  DatabaseService,
+  EventBusService
 } from '@uaip/shared-services';
 import { LLMProviderType, LLMProviderStatus } from '@uaip/types';
 import { logger } from '@uaip/utils';
@@ -68,6 +69,7 @@ export interface LLMProviderResponse {
 export class LLMProviderManagementService {
   private static instance: LLMProviderManagementService;
   private llmProviderRepository: LLMProviderRepository;
+  private eventBusService: EventBusService | null = null;
   private initialized = false;
 
   private constructor() {
@@ -79,6 +81,10 @@ export class LLMProviderManagementService {
       LLMProviderManagementService.instance = new LLMProviderManagementService();
     }
     return LLMProviderManagementService.instance;
+  }
+
+  public setEventBusService(eventBusService: EventBusService): void {
+    this.eventBusService = eventBusService;
   }
 
   private async initializeRepository(): Promise<void> {
@@ -187,6 +193,9 @@ export class LLMProviderManagementService {
       // Test the provider connection
       await this.testProviderConnection(provider.id);
 
+      // Notify LLM service to refresh providers and cache
+      await this.notifyProviderChange('provider.created', provider.id, provider.type);
+
       const stats = await this.llmProviderRepository.getProviderStats(provider.id);
       return this.mapToResponse(provider, stats);
     } catch (error) {
@@ -235,6 +244,9 @@ export class LLMProviderManagementService {
         await this.testProviderConnection(id);
       }
 
+      // Notify LLM service to refresh providers and cache
+      await this.notifyProviderChange('provider.updated', id, provider.type);
+
       const stats = await this.llmProviderRepository.getProviderStats(id);
       return this.mapToResponse(updatedProvider, stats);
     } catch (error) {
@@ -250,7 +262,11 @@ export class LLMProviderManagementService {
     try {
       await this.ensureInitialized();
       
+      const provider = await this.llmProviderRepository.findById(id);
       await this.llmProviderRepository.softDelete(id, deletedBy);
+      
+      // Notify LLM service to refresh providers and cache
+      await this.notifyProviderChange('provider.deleted', id, provider?.type);
       
       logger.info('LLM provider deleted', { id, deletedBy });
     } catch (error) {
@@ -476,6 +492,29 @@ export class LLMProviderManagementService {
     }
 
     return headers;
+  }
+
+  /**
+   * Notify other services about provider changes via event bus
+   */
+  private async notifyProviderChange(eventType: string, providerId: string, providerType?: string): Promise<void> {
+    if (!this.eventBusService) {
+      logger.warn('EventBusService not available, skipping provider change notification', { eventType, providerId });
+      return;
+    }
+
+    try {
+      await this.eventBusService.publish('llm.provider.changed', {
+        eventType,
+        providerId,
+        providerType,
+        timestamp: new Date().toISOString()
+      });
+      logger.debug(`Published provider change event`, { eventType, providerId, providerType });
+    } catch (error) {
+      logger.warn('Failed to publish provider change event', { error, eventType, providerId });
+      // Don't throw here as provider operation succeeded, event notification is secondary
+    }
   }
 }
 

@@ -3,7 +3,7 @@ import { config } from '@uaip/config';
 import { logger } from '@uaip/utils';
 import { initializeServices } from '@uaip/shared-services';
 import jwt from 'jsonwebtoken';
-import { JWTValidator } from '@uaip/middleware';
+import { validateJWTToken } from '@uaip/middleware';
 
 // Import routes
 import authRoutes from './routes/authRoutes.js';
@@ -19,6 +19,7 @@ import { SecurityGatewayService } from './services/securityGatewayService.js';
 import { ApprovalWorkflowService } from './services/approvalWorkflowService.js';
 import { AuditService } from './services/auditService.js';
 import { NotificationService } from './services/notificationService.js';
+import { LLMProviderManagementService } from './services/llmProviderManagementService.js';
 
 class SecurityGatewayServer extends BaseService {
   private securityGatewayService: SecurityGatewayService | null = null;
@@ -35,15 +36,7 @@ class SecurityGatewayServer extends BaseService {
   }
 
   protected async initialize(): Promise<void> {
-    // Initialize JWT validator with configuration
-    JWTValidator.getInstance({
-      secret: config.jwt.secret,
-      algorithm: 'HS256',
-      issuer: config.jwt.issuer,
-      audience: config.jwt.audience,
-      expiresIn: config.jwt.expiresIn,
-      refreshExpiresIn: config.jwt.refreshExpiresIn
-    });
+    // JWTValidator is already initialized statically - no getInstance needed
 
     // Initialize services that depend on database
     this.auditService = new AuditService();
@@ -60,14 +53,17 @@ class SecurityGatewayServer extends BaseService {
       this.auditService
     );
 
-    // Initialize knowledge services
-    try {
-      await initializeServices();
+    // Initialize LLM Provider Management Service and set EventBusService
+    const llmProviderManagementService = LLMProviderManagementService.getInstance();
+    llmProviderManagementService.setEventBusService(this.eventBusService);
+
+    // Initialize knowledge services (non-blocking)
+    initializeServices().then(() => {
       logger.info('Knowledge services initialized successfully');
-    } catch (error) {
-      logger.error('Failed to initialize knowledge services:', error);
-      // Don't fail the entire startup, but log the error
-    }
+    }).catch(error => {
+      logger.warn('Knowledge services failed to initialize - continuing without them:', error);
+      // This is non-critical for basic functionality
+    });
 
     // Start cron jobs after database is ready
     this.approvalWorkflowService.startCronJobs();
@@ -280,11 +276,30 @@ class SecurityGatewayServer extends BaseService {
 
   private async validateJWTToken(token: string): Promise<any> {
     try {
-      const jwtValidator = JWTValidator.getInstance();
-      const decoded = jwtValidator.verify(token);
-      return { valid: true, ...decoded };
+      // Use the validateJWTToken function from middleware
+      const result = await validateJWTToken(token);
+      
+      if (result.valid) {
+        return { 
+          valid: true, 
+          userId: result.userId,
+          email: result.email,
+          role: result.role,
+          sessionId: result.sessionId || `session_${Date.now()}`,
+          securityLevel: result.securityLevel || 3,
+          complianceFlags: result.complianceFlags || []
+        };
+      } else {
+        return {
+          valid: false,
+          reason: result.reason || 'Token validation failed'
+        };
+      }
     } catch (error) {
-      logger.warn('JWT token validation failed', { error: error instanceof Error ? error.message : 'Unknown error' });
+      logger.warn('JWT token validation failed', { 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        tokenPreview: token?.substring(0, 20) + '...'
+      });
       return { 
         valid: false, 
         reason: error instanceof Error ? error.message : 'Token validation failed'

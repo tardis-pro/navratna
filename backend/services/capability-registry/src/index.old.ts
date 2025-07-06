@@ -176,8 +176,8 @@ class CapabilityRegistryService {
     // Initialize base tool executor
     this.baseExecutor = new BaseToolExecutor();
 
-    // Initialize tool registry with TypeORM service and EventBusService
-    this.toolRegistry = new ToolRegistry(this.postgresql, this.eventBusService);
+    // Initialize tool registry with EventBusService only
+    this.toolRegistry = new ToolRegistry(this.eventBusService);
 
     // Initialize tool executor
     this.toolExecutor = new ToolExecutor(

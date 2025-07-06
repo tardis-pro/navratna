@@ -16,7 +16,7 @@ import { BaseProvider } from './providers/BaseProvider.js';
 import { OllamaProvider } from './providers/OllamaProvider.js';
 import { LLMStudioProvider } from './providers/LLMStudioProvider.js';
 import { OpenAIProvider } from './providers/OpenAIProvider.js';
-import { LLMProviderRepository, LLMProvider } from '@uaip/shared-services';
+import { LLMProviderRepository, LLMProvider, RedisCacheService } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { v4 as uuidv4 } from 'uuid';
@@ -26,9 +26,17 @@ export class LLMService {
   private providers: Map<string, BaseProvider> = new Map();
   private initialized = false;
   private llmProviderRepository: LLMProviderRepository | null = null;
+  private cacheService: RedisCacheService;
+
+  // Cache keys and TTL (1 hour = 3600 seconds)
+  private static readonly CACHE_TTL = 3600;
+  private static readonly MODELS_CACHE_KEY = 'llm:models:all';
+  private static readonly PROVIDERS_CACHE_KEY = 'llm:providers:configured';
+  private static readonly PROVIDER_MODELS_CACHE_PREFIX = 'llm:models:provider:';
 
   private constructor() {
     // Database-driven configuration will be loaded on first use
+    this.cacheService = RedisCacheService.getInstance();
   }
 
   public static getInstance(): LLMService {
@@ -381,6 +389,17 @@ export class LLMService {
     provider: string;
     isAvailable: boolean;
   }>> {
+    // Check cache first
+    try {
+      const cachedModels = await this.cacheService.get(LLMService.MODELS_CACHE_KEY);
+      if (cachedModels) {
+        logger.debug('Returning cached models', { modelCount: cachedModels.length });
+        return cachedModels;
+      }
+    } catch (error) {
+      logger.warn('Failed to get models from cache, proceeding with fresh fetch', { error });
+    }
+
     if (!this.initialized) {
       await this.initializeFromDatabase();
     }
@@ -416,6 +435,14 @@ export class LLMService {
       }
     }
 
+    // Cache the results for 1 hour
+    try {
+      await this.cacheService.set(LLMService.MODELS_CACHE_KEY, allModels, LLMService.CACHE_TTL);
+      logger.debug('Cached models successfully', { modelCount: allModels.length });
+    } catch (error) {
+      logger.warn('Failed to cache models', { error });
+    }
+
     logger.info(`Total models available: ${allModels.length}`);
     return allModels;
   }
@@ -427,6 +454,19 @@ export class LLMService {
     source: string;
     apiEndpoint: string;
   }>> {
+    const cacheKey = `${LLMService.PROVIDER_MODELS_CACHE_PREFIX}${providerType}`;
+    
+    // Check cache first
+    try {
+      const cachedModels = await this.cacheService.get(cacheKey);
+      if (cachedModels) {
+        logger.debug(`Returning cached models for provider ${providerType}`, { modelCount: cachedModels.length });
+        return cachedModels;
+      }
+    } catch (error) {
+      logger.warn(`Failed to get models from cache for provider ${providerType}, proceeding with fresh fetch`, { error });
+    }
+
     if (!this.initialized) {
       await this.initializeFromDatabase();
     }
@@ -437,7 +477,17 @@ export class LLMService {
     }
 
     try {
-      return await provider.getAvailableModels();
+      const models = await provider.getAvailableModels();
+      
+      // Cache the results for 1 hour
+      try {
+        await this.cacheService.set(cacheKey, models, LLMService.CACHE_TTL);
+        logger.debug(`Cached models for provider ${providerType}`, { modelCount: models.length });
+      } catch (cacheError) {
+        logger.warn(`Failed to cache models for provider ${providerType}`, { error: cacheError });
+      }
+      
+      return models;
     } catch (error) {
       logger.error(`Failed to get models from provider ${providerType}`, { error });
       throw error;
@@ -453,6 +503,17 @@ export class LLMService {
     modelCount: number;
     status: 'active' | 'inactive' | 'error';
   }>> {
+    // Check cache first
+    try {
+      const cachedProviders = await this.cacheService.get(LLMService.PROVIDERS_CACHE_KEY);
+      if (cachedProviders) {
+        logger.debug('Returning cached providers', { providerCount: cachedProviders.length });
+        return cachedProviders;
+      }
+    } catch (error) {
+      logger.warn('Failed to get providers from cache, proceeding with fresh fetch', { error });
+    }
+
     if (!this.initialized) {
       await this.initializeFromDatabase();
     }
@@ -517,6 +578,14 @@ export class LLMService {
           status: 'active'
         });
       }
+    }
+
+    // Cache the results for 1 hour
+    try {
+      await this.cacheService.set(LLMService.PROVIDERS_CACHE_KEY, providers, LLMService.CACHE_TTL);
+      logger.debug('Cached providers successfully', { providerCount: providers.length });
+    } catch (error) {
+      logger.warn('Failed to cache providers', { error });
     }
 
     return providers;
@@ -831,6 +900,56 @@ export class LLMService {
     }
     
     return [...new Set(deps)]; // Remove duplicates
+  }
+
+  // Cache management methods
+  async invalidateModelsCache(): Promise<void> {
+    try {
+      await this.cacheService.del(LLMService.MODELS_CACHE_KEY);
+      logger.info('Invalidated models cache');
+    } catch (error) {
+      logger.warn('Failed to invalidate models cache', { error });
+    }
+  }
+
+  async invalidateProvidersCache(): Promise<void> {
+    try {
+      await this.cacheService.del(LLMService.PROVIDERS_CACHE_KEY);
+      logger.info('Invalidated providers cache');
+    } catch (error) {
+      logger.warn('Failed to invalidate providers cache', { error });
+    }
+  }
+
+  async invalidateProviderModelsCache(providerType: string): Promise<void> {
+    try {
+      const cacheKey = `${LLMService.PROVIDER_MODELS_CACHE_PREFIX}${providerType}`;
+      await this.cacheService.del(cacheKey);
+      logger.info(`Invalidated models cache for provider ${providerType}`);
+    } catch (error) {
+      logger.warn(`Failed to invalidate models cache for provider ${providerType}`, { error });
+    }
+  }
+
+  async invalidateAllCache(): Promise<void> {
+    await Promise.all([
+      this.invalidateModelsCache(),
+      this.invalidateProvidersCache(),
+      // Invalidate all provider-specific model caches
+      ...Array.from(this.providers.keys()).map(providerType => 
+        this.invalidateProviderModelsCache(providerType)
+      )
+    ]);
+    logger.info('Invalidated all LLM service caches');
+  }
+
+  // Method to refresh provider initialization and clear cache
+  async refreshProviders(): Promise<void> {
+    this.initialized = false;
+    this.providers.clear();
+    await this.invalidateAllCache();
+    await this.initializeFromDatabase();
+    logger.info('Refreshed providers and cleared cache');
   }
 }
 

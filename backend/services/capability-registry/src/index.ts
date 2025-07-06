@@ -181,7 +181,7 @@ class CapabilityRegistryService extends BaseService {
     });
 
     // API routes
-    const toolRoutes = createToolRoutes(this.toolController);
+    const toolRoutes = createToolRoutes(this.toolController, this.eventBusService);
     this.app.use('/api/v1/tools', toolRoutes);
   }
 

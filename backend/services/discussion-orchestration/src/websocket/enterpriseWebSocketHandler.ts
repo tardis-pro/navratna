@@ -80,7 +80,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
                 const firstByte = data[0];
                 if ((firstByte & 0x80) && (firstByte & 0x0F) === 0x08) { // Close frame
                   const closeCode = data.readUInt16BE(2);
-                  if (!isValidCloseCode(closeCode)) {
+                  if (!this.isValidCloseCode(closeCode)) {
                     logger.warn('Blocking invalid WebSocket close code', { closeCode });
                     // Replace with valid close code
                     data.writeUInt16BE(1000, 2); // Normal closure
@@ -675,14 +675,24 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
       
       // Find and call the appropriate handler
       const handler = this.authResponseHandlers.get(correlationId);
-      if (handler) {
+      if (handler && typeof handler === 'function') {
         logger.info('Calling auth response handler', { correlationId });
-        handler(event);
-        // Clean up the handler after use
-        this.authResponseHandlers.delete(correlationId);
+        try {
+          handler(event);
+          // Clean up the handler after use
+          this.authResponseHandlers.delete(correlationId);
+        } catch (error) {
+          logger.error('Auth response handler execution failed', { 
+            correlationId, 
+            error: error instanceof Error ? error.message : 'Unknown error' 
+          });
+          // Still clean up the handler
+          this.authResponseHandlers.delete(correlationId);
+        }
       } else {
-        logger.warn('No handler found for auth response', { 
+        logger.warn('No valid handler found for auth response', { 
           correlationId,
+          handlerType: typeof handler,
           availableHandlers: Array.from(this.authResponseHandlers.keys())
         });
       }

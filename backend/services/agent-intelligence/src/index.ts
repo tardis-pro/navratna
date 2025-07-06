@@ -1,8 +1,12 @@
 import express from 'express';
 import { BaseService } from '@uaip/shared-services';
 import { createAgentRoutes } from './routes/agentRoutes.js';
+import { AgentDiscussionService } from './services/AgentDiscussionService.js';
+import { logger } from '@uaip/utils';
 
 class AgentIntelligenceService extends BaseService {
+  private agentDiscussionService: AgentDiscussionService;
+
   constructor() {
     super({
       name: 'agent-intelligence',
@@ -10,7 +14,7 @@ class AgentIntelligenceService extends BaseService {
       version: '1.0.0',
       enableWebSocket: false,
       enableNeo4j: false,
-      enableEnterpriseEventBus: false
+      enableEnterpriseEventBus: true
     });
   }
 
@@ -20,7 +24,80 @@ class AgentIntelligenceService extends BaseService {
   }
 
   protected async setupEventSubscriptions(): Promise<void> {
-    // Event subscriptions would go here
+    logger.info('Setting up event subscriptions for agent-intelligence service');
+
+    // Subscribe to WebSocket agent chat requests
+    await this.eventBusService.subscribe('agent.chat.request', async (event) => {
+      try {
+        const { userId, agentId, message, conversationHistory, context, socketId, messageId, timestamp } = event.data;
+        
+        logger.info('Processing WebSocket agent chat request', { 
+          agentId, 
+          userId, 
+          messageLength: message?.length,
+          messageId,
+          socketId: socketId?.substring(0, 10) + '...'
+        });
+
+        // Process the chat request using AgentDiscussionService
+        const result = await this.agentDiscussionService.processDiscussionMessage({
+          agentId,
+          userId, 
+          message,
+          conversationId: `websocket-chat-${Date.now()}`
+        });
+
+        // Prepare enhanced response with WebSocket metadata
+        const responsePayload = {
+          socketId,
+          agentId,
+          messageId,
+          response: result.response,
+          agentName: `Agent ${agentId}`, // TODO: Load actual agent name from config
+          confidence: result.metadata.confidence,
+          memoryEnhanced: false, // TODO: Implement memory enhancement
+          knowledgeUsed: 0, // TODO: Implement knowledge tracking  
+          toolsExecuted: [], // TODO: Implement tool execution
+          timestamp: new Date().toISOString(),
+          processingTime: result.metadata.processingTime,
+          responseType: result.metadata.responseType,
+          conversationId: result.metadata.conversationId
+        };
+
+        // Publish response back to discussion-orchestration for WebSocket delivery
+        await this.eventBusService.publish('agent.chat.response', responsePayload);
+
+        logger.info('WebSocket agent chat response published', { 
+          agentId, 
+          messageId,
+          responseLength: result.response.length,
+          confidence: result.metadata.confidence
+        });
+
+      } catch (error) {
+        logger.error('Failed to process WebSocket agent chat request', { 
+          error: error instanceof Error ? error.message : 'Unknown error',
+          agentId: event.data?.agentId,
+          messageId: event.data?.messageId
+        });
+
+        // Send error response back to client
+        if (event.data?.socketId && event.data?.messageId) {
+          await this.eventBusService.publish('agent.chat.response', {
+            socketId: event.data.socketId,
+            agentId: event.data.agentId,
+            messageId: event.data.messageId,
+            response: 'Sorry, I encountered an error processing your request. Please try again.',
+            agentName: `Agent ${event.data.agentId}`,
+            confidence: 0.0,
+            error: true,
+            timestamp: new Date().toISOString()
+          });
+        }
+      }
+    });
+
+    logger.info('Agent chat WebSocket event subscription established');
   }
 
   protected async checkServiceHealth(): Promise<boolean> {
@@ -28,6 +105,10 @@ class AgentIntelligenceService extends BaseService {
   }
 
   protected async initialize(): Promise<void> {
+    // Initialize AgentDiscussionService
+    this.agentDiscussionService = new AgentDiscussionService();
+    logger.info('AgentDiscussionService initialized for WebSocket chat processing');
+
     await this.setupRoutes();
     await this.setupEventSubscriptions();
   }

@@ -1,6 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import { createLogger } from '@uaip/utils';
 import { validateJWTToken } from '@uaip/middleware';
+import { EventBusService } from '@uaip/shared-services';
 
 interface UserMessage {
   id: string;
@@ -31,6 +32,7 @@ interface ConnectedUser {
 
 export class UserChatHandler {
   private io: Server;
+  private eventBusService: EventBusService;
   private connectedUsers: Map<string, ConnectedUser> = new Map();
   private userSockets: Map<string, string> = new Map(); // userId -> socketId
   private logger = createLogger({
@@ -39,15 +41,18 @@ export class UserChatHandler {
     logLevel: process.env.LOG_LEVEL || 'info'
   });
 
-  constructor(io: Server) {
+  constructor(io: Server, eventBusService: EventBusService) {
     this.io = io;
+    this.eventBusService = eventBusService;
     this.setupEventHandlers();
+    this.setupEventBusSubscriptions();
   }
 
   private setupEventHandlers() {
     this.io.on('connection', (socket: Socket) => {
       socket.on('user_connect', (data) => this.handleUserConnect(socket, data));
       socket.on('user_message', (data) => this.handleUserMessage(socket, data));
+      socket.on('agent_chat', (data) => this.handleAgentChat(socket, data));
       socket.on('call_offer', (data) => this.handleCallSignaling(socket, { ...data, type: 'call_offer' }));
       socket.on('call_answer', (data) => this.handleCallSignaling(socket, { ...data, type: 'call_answer' }));
       socket.on('ice_candidate', (data) => this.handleCallSignaling(socket, { ...data, type: 'ice_candidate' }));
@@ -270,6 +275,111 @@ export class UserChatHandler {
     } catch (error) {
       this.logger.error('Failed to store message:', error);
     }
+  }
+
+  private async handleAgentChat(socket: Socket, data: any) {
+    try {
+      // Get user info from socket.data (set by Socket.IO authentication middleware)
+      const socketUser = socket.data?.user;
+      if (!socketUser || !socketUser.userId) {
+        socket.emit('error', { error: 'User not authenticated' });
+        this.logger.warn('Agent chat attempted without authentication', { socketId: socket.id });
+        return;
+      }
+
+      const { agentId, message, conversationHistory, context, messageId } = data;
+
+      // Validate agent chat payload
+      if (!agentId || !message || typeof message !== 'string' || message.length === 0) {
+        socket.emit('error', { error: 'Invalid agent chat payload' });
+        return;
+      }
+
+      this.logger.info('Processing agent chat request via Socket.IO', { 
+        userId: socketUser.userId, 
+        agentId, 
+        messageLength: message.length,
+        socketId: socket.id
+      });
+
+      // Forward agent chat request to agent intelligence service via event bus
+      const chatRequest = {
+        userId: socketUser.userId,
+        agentId,
+        message,
+        conversationHistory: conversationHistory || [],
+        context: context || {},
+        messageId: messageId || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: new Date().toISOString(),
+        socketId: socket.id // Include socket ID for direct response
+      };
+
+      // Use event bus to forward to agent intelligence service
+      // This will be handled by the enterprise WebSocket handler's event bus subscriptions
+      await this.publishToEventBus('agent.chat.request', chatRequest);
+
+      // Send acknowledgment to client
+      socket.emit('agent_chat_received', {
+        messageId: chatRequest.messageId,
+        agentId,
+        timestamp: chatRequest.timestamp
+      });
+
+      this.logger.info('Agent chat request forwarded successfully', { 
+        agentId, 
+        messageId: chatRequest.messageId,
+        userId: socketUser.userId
+      });
+
+    } catch (error) {
+      this.logger.error('Agent chat handling error:', error);
+      socket.emit('error', { error: 'Agent chat processing failed' });
+    }
+  }
+
+  private async publishToEventBus(eventType: string, data: any): Promise<void> {
+    try {
+      await this.eventBusService.publish(eventType, data);
+      this.logger.debug(`Event published successfully: ${eventType}`, data);
+    } catch (error) {
+      this.logger.error(`Failed to publish event: ${eventType}`, { error, data });
+      throw error;
+    }
+  }
+
+  private setupEventBusSubscriptions(): void {
+    // Subscribe to agent chat responses to forward them back to Socket.IO clients
+    this.eventBusService.subscribe('agent.chat.response', async (event) => {
+      const { socketId, agentId, response, agentName, messageId, ...metadata } = event.data;
+      
+      // Find the socket by ID and send the response
+      const socket = this.io.sockets.sockets.get(socketId);
+      if (socket) {
+        socket.emit('agent_response', {
+          agentId,
+          response,
+          agentName,
+          messageId,
+          timestamp: new Date().toISOString(),
+          ...metadata
+        });
+        
+        this.logger.info('Agent response forwarded to Socket.IO client', { 
+          socketId, 
+          agentId, 
+          agentName,
+          messageId
+        });
+      } else {
+        this.logger.warn('Socket not found for agent response', { 
+          socketId, 
+          agentId,
+          messageId
+        });
+      }
+    });
+
+    this.logger.info('UserChatHandler event bus subscriptions established');
   }
 
   // Public methods for external access

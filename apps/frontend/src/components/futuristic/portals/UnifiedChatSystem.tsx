@@ -140,6 +140,9 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   const [contextualSuggestions, setContextualSuggestions] = useState<{ [windowId: string]: string[] }>({});
   const [isResizing, setIsResizing] = useState<{ [windowId: string]: boolean }>({});
   const [focusedWindow, setFocusedWindow] = useState<string | null>(null);
+  
+  // Track processed message IDs to prevent duplicates
+  const processedMessageIds = useRef<Set<string>>(new Set());
 
   // Track which agents have open windows to ensure uniqueness
   const openAgentWindows = useRef<Set<string>>(new Set());
@@ -186,7 +189,25 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   // Listen for WebSocket agent responses
   useEffect(() => {
     if (lastEvent && lastEvent.type === 'agent_response') {
-      const { agentId, response, agentName, confidence, memoryEnhanced, knowledgeUsed, toolsExecuted } = lastEvent.payload;
+      const { agentId, response, agentName, confidence, memoryEnhanced, knowledgeUsed, toolsExecuted, messageId } = lastEvent.payload;
+      
+      // Prevent duplicate processing of the same message
+      if (messageId && processedMessageIds.current.has(messageId)) {
+        console.log('🚫 Duplicate agent response ignored:', messageId);
+        return;
+      }
+      
+      console.log('🔥 WebSocket agent_response received:', lastEvent);
+      
+      // Mark message as processed
+      if (messageId) {
+        processedMessageIds.current.add(messageId);
+        // Clean up old message IDs to prevent memory leaks (keep last 100)
+        if (processedMessageIds.current.size > 100) {
+          const idsArray = Array.from(processedMessageIds.current);
+          processedMessageIds.current = new Set(idsArray.slice(-50));
+        }
+      }
 
       const agentMessage: ChatMessage = {
         id: `msg-${Date.now()}-agent`,
@@ -208,39 +229,48 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         }
       };
 
-      // Update floating windows
-      const targetWindow = chatWindows.find(w => w.agentId === agentId);
-      if (targetWindow) {
-        setChatWindows(prev =>
-          prev.map(w => w.id === targetWindow.id ? {
-            ...w,
-            messages: [...w.messages, agentMessage],
-            isLoading: false,
-            error: null
-          } : w)
-        );
-
-        // Persist agent message if session exists
-        if (targetWindow.sessionId) {
-          const persistentMessage: PersistentChatMessage = {
-            id: agentMessage.id,
-            content: agentMessage.content,
-            sender: agentMessage.sender,
-            senderName: agentMessage.senderName,
-            timestamp: agentMessage.timestamp,
-            agentId: agentMessage.agentId,
-            messageType: agentMessage.messageType,
-            confidence: agentMessage.confidence,
-            memoryEnhanced: agentMessage.memoryEnhanced,
-            knowledgeUsed: agentMessage.knowledgeUsed,
-            toolsExecuted: agentMessage.toolsExecuted,
-            metadata: agentMessage.metadata
-          };
-          
-          chatPersistenceService.addMessage(targetWindow.sessionId, persistentMessage).catch(error => {
-            console.error('Failed to persist agent message:', error);
-          });
+      // Update floating windows using functional state update to avoid stale closure
+      let targetWindowForPersistence: ChatWindow | null = null;
+      
+      setChatWindows(prev => {
+        const targetWindow = prev.find(w => w.agentId === agentId);
+        console.log('🎯 Looking for target window with agentId:', agentId, 'Found:', !!targetWindow, 'Chat windows:', prev.map(w => ({ id: w.id, agentId: w.agentId, agentName: w.agentName })));
+        
+        if (!targetWindow) {
+          return prev; // No window found, no update needed
         }
+
+        // Store reference for persistence outside of state update
+        targetWindowForPersistence = targetWindow;
+
+        return prev.map(w => w.id === targetWindow.id ? {
+          ...w,
+          messages: [...w.messages, agentMessage],
+          isLoading: false,
+          error: null
+        } : w);
+      });
+
+      // Persist agent message if session exists
+      if (targetWindowForPersistence?.sessionId) {
+        const persistentMessage: PersistentChatMessage = {
+          id: agentMessage.id,
+          content: agentMessage.content,
+          sender: agentMessage.sender,
+          senderName: agentMessage.senderName,
+          timestamp: agentMessage.timestamp,
+          agentId: agentMessage.agentId,
+          messageType: agentMessage.messageType,
+          confidence: agentMessage.confidence,
+          memoryEnhanced: agentMessage.memoryEnhanced,
+          knowledgeUsed: agentMessage.knowledgeUsed,
+          toolsExecuted: agentMessage.toolsExecuted,
+          metadata: agentMessage.metadata
+        };
+        
+        chatPersistenceService.addMessage(targetWindowForPersistence.sessionId, persistentMessage).catch(error => {
+          console.error('Failed to persist agent message:', error);
+        });
       }
 
       // Update portal mode if current agent
@@ -249,7 +279,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         setConversationHistory(prev => [...prev, { content: response, sender: agentName, timestamp: new Date().toISOString() }]);
       }
     }
-  }, [lastEvent, chatWindows, viewMode, selectedAgentId]);
+  }, [lastEvent, viewMode, selectedAgentId]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -460,25 +490,31 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     }
 
     try {
+      console.log('💭 Floating chat send status:', { 
+        isWebSocketConnected, 
+        connectionType, 
+        authStatus, 
+        wsError,
+        agentId: window.agentId 
+      });
+      
       if (isWebSocketConnected) {
         const chatMessage = {
-          type: 'agent_chat',
-          payload: {
-            agentId: window.agentId,
-            message: trimmedMessage,
-            conversationHistory: window.messages.slice(-10).map(m => ({
-              content: m.content,
-              sender: m.sender === 'user' ? 'user' : m.senderName,
-              timestamp: m.timestamp
-            })),
-            context: { intent },
-            messageId: `msg-${Date.now()}`,
-            timestamp: new Date().toISOString()
-          }
+          agentId: window.agentId,
+          message: trimmedMessage,
+          conversationHistory: window.messages.slice(-10).map(m => ({
+            content: m.content,
+            sender: m.sender === 'user' ? 'user' : m.senderName,
+            timestamp: m.timestamp
+          })),
+          context: { intent },
+          messageId: `msg-${Date.now()}`,
+          timestamp: new Date().toISOString()
         };
 
-        sendWebSocketMessage(chatMessage);
-        console.log('Floating chat message sent via WebSocket');
+        // Send directly as 'agent_chat' event instead of wrapped message
+        sendWebSocketMessage('agent_chat', chatMessage);
+        console.log('🚀 Floating chat message sent via WebSocket:', chatMessage);
       } else {
         console.log('WebSocket not connected, using direct API call for floating chat');
         
@@ -875,19 +911,16 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       if (isWebSocketConnected) {
         // Try WebSocket first
         const chatMessage = {
-          type: 'agent_chat',
-          payload: {
-            agentId: selectedAgentId,
-            message: messageText,
-            conversationHistory: conversationHistory.slice(-10),
-            context: {},
-            messageId: `msg-${Date.now()}`,
-            timestamp: new Date().toISOString()
-          }
+          agentId: selectedAgentId,
+          message: messageText,
+          conversationHistory: conversationHistory.slice(-10),
+          context: {},
+          messageId: `msg-${Date.now()}`,
+          timestamp: new Date().toISOString()
         };
         
-        sendWebSocketMessage(chatMessage);
-        console.log('Message sent via WebSocket');
+        sendWebSocketMessage('agent_chat', chatMessage);
+        console.log('🚀 Portal message sent via WebSocket:', chatMessage);
       } else {
         // Fallback to direct API call
         console.log('WebSocket not connected, using direct API call');

@@ -23,6 +23,8 @@ class DiscussionOrchestrationServer extends BaseService {
   private userChatHandler?: UserChatHandler;
   private conversationIntelligenceHandler?: ConversationIntelligenceHandler;
   private serviceName = 'discussion-orchestration';
+  private authResponseHandlers = new Map<string, (response: any) => void>();
+  private authSubscriptionInitialized = false;
 
   constructor() {
     super({
@@ -35,8 +37,7 @@ class DiscussionOrchestrationServer extends BaseService {
     // Initialize Socket.IO server - will be attached after server starts
     this.io = new SocketIOServer({
       cors: {
-        origin: "*", // Configure appropriately for production
-        methods: ["GET", "POST"]
+        origin: false
       }
     });
 
@@ -75,6 +76,8 @@ class DiscussionOrchestrationServer extends BaseService {
   }
 
   protected async initialize(): Promise<void> {
+    // Initialize shared auth subscription
+    await this.initializeAuthSubscription();
     logger.info('Discussion Orchestration Service initialized');
   }
 
@@ -228,6 +231,32 @@ class DiscussionOrchestrationServer extends BaseService {
     });
   }
 
+  private async initializeAuthSubscription(): Promise<void> {
+    if (this.authSubscriptionInitialized) return;
+    
+    try {
+      // Set up shared authentication response handler
+      const sharedAuthHandler = async (event: any) => {
+        const correlationId = event.data?.correlationId;
+        if (correlationId && this.authResponseHandlers.has(correlationId)) {
+          const handler = this.authResponseHandlers.get(correlationId);
+          if (handler) {
+            handler(event.data);
+            this.authResponseHandlers.delete(correlationId);
+          }
+        }
+      };
+      
+      await this.eventBusService.subscribe('security.auth.response', sharedAuthHandler);
+      this.authSubscriptionInitialized = true;
+      
+      logger.info('Shared authentication subscription initialized');
+    } catch (error) {
+      logger.error('Failed to initialize shared auth subscription', { error: error.message });
+      throw error;
+    }
+  }
+
   private auditServiceStartup(): void {
     // Comprehensive startup audit for compliance
     const startupAudit = {
@@ -280,8 +309,7 @@ class DiscussionOrchestrationServer extends BaseService {
       try {
         this.io.attach(this.server, {
           cors: {
-            origin: "*",
-            methods: ["GET", "POST"]
+            origin: false
           },
           transports: ['websocket', 'polling']
         });
@@ -367,7 +395,7 @@ class DiscussionOrchestrationServer extends BaseService {
       // NOTE: Removed EnterpriseWebSocketHandler - using Socket.IO only
       logger.info('Using Socket.IO only - traditional WebSocket handler removed');
 
-      this.userChatHandler = new UserChatHandler(this.io);
+      this.userChatHandler = new UserChatHandler(this.io, this.eventBusService);
       
       try {
         this.conversationIntelligenceHandler = new ConversationIntelligenceHandler(this.io, this.eventBusService);
@@ -415,24 +443,23 @@ class DiscussionOrchestrationServer extends BaseService {
       // Set up timeout for auth validation
       const timeoutId = setTimeout(() => {
         logger.warn('Socket.IO authentication timeout', { correlationId, token: token.substr(0, 10) + '...' });
+        // Clean up handler on timeout
+        this.authResponseHandlers.delete(correlationId);
         resolve({ valid: false, reason: 'Authentication service timeout' });
-      }, 5000); // Increased timeout for reliability
+      }, 10000); // Increased timeout from 5s to 10s for better reliability
       
       try {
-        // Set up one-time response handler
-        const unsubscribe = this.eventBusService.subscribe('security.auth.response', async (event) => {
-          if (event.data.correlationId === correlationId) {
-            clearTimeout(timeoutId);
-            unsubscribe(); // Clean up subscription
-            
-            logger.debug('Socket.IO auth response received', { 
-              correlationId, 
-              valid: event.data?.valid,
-              userId: event.data?.userId?.substr(0, 8) + '...' // Partial log for security
-            });
-            
-            resolve(event.data);
-          }
+        // Register response handler for this specific correlation ID
+        this.authResponseHandlers.set(correlationId, (response: any) => {
+          clearTimeout(timeoutId);
+          
+          logger.debug('Socket.IO auth response received', { 
+            correlationId, 
+            valid: response?.valid,
+            userId: response?.userId?.substr(0, 8) + '...' // Partial log for security
+          });
+          
+          resolve(response);
         });
         
         // Publish auth validation request to Security Gateway
@@ -448,6 +475,7 @@ class DiscussionOrchestrationServer extends BaseService {
         
       } catch (error) {
         clearTimeout(timeoutId);
+        this.authResponseHandlers.delete(correlationId);
         logger.error('Socket.IO auth validation failed', { 
           error: error.message, 
           correlationId 
