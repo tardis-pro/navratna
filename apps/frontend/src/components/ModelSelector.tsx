@@ -141,11 +141,12 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
 
   // Group models by API type and source
   const groupedModels = allModels.reduce((acc, model) => {
-    const key = `${model.apiType}-${model.source || 'unknown'}`;
+    const sourceId = model.source || `fallback-${model.id || Math.random().toString(36).substr(2, 9)}`;
+    const key = `${model.apiType}-${sourceId}`;
     if (!acc[key]) {
       acc[key] = {
         apiType: model.apiType,
-        source: model.source || 'unknown',
+        source: model.source || 'Unknown Source',
         models: []
       };
     }

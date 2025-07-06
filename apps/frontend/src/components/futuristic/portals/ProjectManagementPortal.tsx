@@ -222,7 +222,7 @@ const CreateProjectModal: React.FC<{
       team: editProject?.team || [],
       resources: editProject?.resources || [],
       tasks: editProject?.tasks || [],
-      createdBy: user?.id || 'unknown'
+      createdBy: user?.id || `anonymous-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     };
     onSave(projectData);
     onClose();

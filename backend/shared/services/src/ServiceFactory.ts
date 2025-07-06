@@ -21,6 +21,8 @@ import { ToolManagementService } from './tool-management.service.js';
 import { OperationManagementService } from './operation-management.service.js';
 import { KnowledgeItemEntity, KnowledgeRelationshipEntity } from './entities/index.js';
 import { seedDatabase } from './database/seeders/index.js';
+import { KnowledgeBootstrapService } from './knowledge-graph/bootstrap.service.js';
+import { ToolGraphDatabase } from './database/toolGraphDatabase.js';
 
 /**
  * Service Factory - Clean Dependency Injection Container
@@ -60,20 +62,7 @@ export class ServiceFactory {
       await typeormService.initialize();
       this.serviceInstances.set('typeorm', typeormService);
       const dataSource = typeormService.getDataSource();
-      if (process.env.TYPEORM_SYNC === 'true') {
-        try {
-          this.logger.info('Starting database seeding process...');
-          await seedDatabase(dataSource);
-          this.logger.info('Database seeded successfully');
-        } catch (seedError) {
-          this.logger.error('Database seeding failed, but continuing service initialization', {
-            error: seedError.message,
-            stack: seedError.stack
-          });
-          // Don't throw the error - allow service to continue without seeding
-          // This prevents the entire service from failing due to seeding issues
-        }
-      }
+     
 
       // Initialize standalone Redis cache service
       try {
@@ -136,6 +125,12 @@ export class ServiceFactory {
 
   async getQdrantService(): Promise<QdrantService> {
     return this.serviceInstances.get('qdrant');
+  }
+
+  async getToolGraphDatabase(): Promise<ToolGraphDatabase> {
+    return this.getOrCreateService('tool-graph-db', async () => {
+      return new ToolGraphDatabase();
+    });
   }
 
   // Repository Services

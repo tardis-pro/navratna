@@ -387,39 +387,42 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
     handleIconClick(iconConfig);
   }, [handleIconClick]);
 
-  // Get grid configuration based on viewport
+  // Get grid configuration based on viewport and orientation
   const getGridConfig = () => {
+    const isPortrait = viewport.height > viewport.width;
+    
     if (viewport.isMobile) {
       return {
-        columns: viewport.width < 400 ? 2 : 3,
-        iconSize: viewport.width < 400 ? 56 : 64,
-        gap: 16,
+        columns: 4,
+        iconSize: 56,
+        gap: 12,
         padding: 16,
-        maxIconsPerRow: 3,
-        showSecondaryRow: false
-      };
-    } else if (viewport.isTablet) {
-      return {
-        columns: viewport.width < 900 ? 4 : 5,
-        iconSize: viewport.width < 900 ? 64 : 72,
-        gap: 20,
-        padding: 20,
-        maxIconsPerRow: 5,
+        maxIconsPerRow: 4,
         showSecondaryRow: true
       };
     } else {
+      // iPad and above (tablet + desktop)
       return {
-        columns: viewport.width < 1200 ? 5 : 6,
-        iconSize: viewport.width < 1200 ? 72 : 80,
-        gap: 24,
+        columns: 8,
+        iconSize: 72,
+        gap: 20,
         padding: 24,
-        maxIconsPerRow: 6,
+        maxIconsPerRow: 8,
         showSecondaryRow: true
       };
     }
   };
 
   const gridConfig = getGridConfig();
+
+  // Helper function to chunk icons into rows
+  const chunkIcons = (icons: DesktopIconConfig[], chunkSize: number) => {
+    const chunks = [];
+    for (let i = 0; i < icons.length; i += chunkSize) {
+      chunks.push(icons.slice(i, i + chunkSize));
+    }
+    return chunks;
+  };
 
   // Filter icons by category
   const secondaryIcons = desktopLayout.secondaryIcons;
@@ -544,59 +547,65 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
         {/* Desktop Grid */}
         <div className="flex-1 overflow-auto custom-scrollbar">
           <div
-            className="p-6 min-h-full"
+            className="min-h-full"
             style={{
-              paddingLeft: gridConfig.padding,
-              paddingRight: showRecentPanel && viewport.isDesktop ? gridConfig.padding : gridConfig.padding,
+              padding: `${gridConfig.padding}px`,
+              paddingRight: showRecentPanel && viewport.isDesktop && !viewport.height > viewport.width ? gridConfig.padding : gridConfig.padding,
             }}
           >
-            {/* Primary Icons Row */}
-            <motion.div
-              className="grid mb-8"
-              style={{
-                gridTemplateColumns: `repeat(${Math.min(gridConfig.maxIconsPerRow, primaryIcons.length)}, 1fr)`,
-                gap: gridConfig.gap
-              }}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.6, duration: 0.5 }}
-            >
-              {primaryIcons.map((iconConfig, index) => (
-                <motion.div
-                  key={iconConfig.id}
-                  initial={{ opacity: 0, y: 20, scale: 0.8 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{
-                    delay: 0.7 + index * 0.1,
-                    duration: 0.4,
-                    type: "spring",
-                    stiffness: 300,
-                    damping: 25
-                  }}
-                >
-                  <DesktopIcon
-                    config={iconConfig}
-                    size={gridConfig.iconSize}
-                    isSelected={selectedIconId === iconConfig.id}
-                    isActive={isPortalOpenFn(iconConfig.portalType as any)}
-                    onClick={() => handleIconClick(iconConfig)}
-                    onDoubleClick={() => handleIconDoubleClick(iconConfig)}
-                    viewport={viewport}
-                  />
-                </motion.div>
-              ))}
-            </motion.div>
-
-            {/* Secondary Icons Row - Only show on larger screens */}
-            {gridConfig.showSecondaryRow && (
-              <div
-                className="grid"
+            {/* Primary Icons Rows */}
+            {chunkIcons(primaryIcons, gridConfig.maxIconsPerRow).map((iconChunk, chunkIndex) => (
+              <motion.div
+                key={`primary-chunk-${chunkIndex}`}
+                className="grid mb-8 w-full"
                 style={{
-                  gridTemplateColumns: `repeat(${Math.min(gridConfig.maxIconsPerRow, secondaryIcons.length)}, 1fr)`,
-                  gap: gridConfig.gap
+                  gridTemplateColumns: `repeat(${Math.min(gridConfig.maxIconsPerRow, iconChunk.length)}, 1fr)`,
+                  gap: gridConfig.gap,
+                  justifyItems: 'center'
+                }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.6 + chunkIndex * 0.1, duration: 0.5 }}
+              >
+                {iconChunk.map((iconConfig, index) => (
+                  <motion.div
+                    key={iconConfig.id}
+                    initial={{ opacity: 0, y: 20, scale: 0.8 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{
+                      delay: 0.7 + (chunkIndex * gridConfig.maxIconsPerRow + index) * 0.1,
+                      duration: 0.4,
+                      type: "spring",
+                      stiffness: 300,
+                      damping: 25
+                    }}
+                  >
+                    <DesktopIcon
+                      config={iconConfig}
+                      size={gridConfig.iconSize}
+                      isSelected={selectedIconId === iconConfig.id}
+                      isActive={isPortalOpenFn(iconConfig.portalType as any)}
+                      onClick={() => handleIconClick(iconConfig)}
+                      onDoubleClick={() => handleIconDoubleClick(iconConfig)}
+                      viewport={viewport}
+                    />
+                  </motion.div>
+                ))}
+              </motion.div>
+            ))}
+
+            {/* Secondary Icons Rows - Only show on larger screens */}
+            {gridConfig.showSecondaryRow && chunkIcons(secondaryIcons, gridConfig.maxIconsPerRow).map((iconChunk, chunkIndex) => (
+              <div
+                key={`secondary-chunk-${chunkIndex}`}
+                className="grid w-full mb-6"
+                style={{
+                  gridTemplateColumns: `repeat(${Math.min(gridConfig.maxIconsPerRow, iconChunk.length)}, 1fr)`,
+                  gap: gridConfig.gap,
+                  justifyItems: 'center'
                 }}
               >
-                {secondaryIcons.map((iconConfig) => (
+                {iconChunk.map((iconConfig) => (
                   <DesktopIcon
                     key={iconConfig.id}
                     config={iconConfig}
@@ -609,7 +618,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
                   />
                 ))}
               </div>
-            )}
+            ))}
 
             {/* Mobile Secondary Icons - Show as expandable section */}
             {!gridConfig.showSecondaryRow && secondaryIcons.length > 0 && (
@@ -636,10 +645,11 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
 
                 {showAllActions && (
                   <div
-                    className="grid"
+                    className="grid w-full"
                     style={{
                       gridTemplateColumns: `repeat(${gridConfig.maxIconsPerRow}, 1fr)`,
-                      gap: gridConfig.gap
+                      gap: gridConfig.gap,
+                      justifyItems: 'center'
                     }}
                   >
                     {secondaryIcons.map((iconConfig) => (
@@ -676,10 +686,11 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
                 </div>
 
                 <div
-                  className="grid"
+                  className="grid w-full"
                   style={{
-                    gridTemplateColumns: `repeat(${Math.min(gridConfig.maxIconsPerRow, agentIcons.length)}, 1fr)`,
-                    gap: gridConfig.gap
+                    gridTemplateColumns: `repeat(${gridConfig.maxIconsPerRow}, 1fr)`,
+                    gap: gridConfig.gap,
+                    justifyItems: 'center'
                   }}
                 >
                   {agentIcons.map((agentIcon, index) => (
@@ -727,10 +738,11 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
                 </div>
 
                 <div
-                  className="grid"
+                  className="grid w-full"
                   style={{
-                    gridTemplateColumns: `repeat(${Math.min(gridConfig.maxIconsPerRow, desktopLayout.adminIcons.length)}, 1fr)`,
-                    gap: gridConfig.gap
+                    gridTemplateColumns: `repeat(${gridConfig.maxIconsPerRow}, 1fr)`,
+                    gap: gridConfig.gap,
+                    justifyItems: 'center'
                   }}
                 >
                   {desktopLayout.adminIcons.map((iconConfig) => (
@@ -766,10 +778,11 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
                 </div>
 
                 <div
-                  className="grid"
+                  className="grid w-full"
                   style={{
-                    gridTemplateColumns: `repeat(${Math.min(gridConfig.maxIconsPerRow, desktopLayout.restrictedIcons.length)}, 1fr)`,
-                    gap: gridConfig.gap
+                    gridTemplateColumns: `repeat(${gridConfig.maxIconsPerRow}, 1fr)`,
+                    gap: gridConfig.gap,
+                    justifyItems: 'center'
                   }}
                 >
                   {desktopLayout.restrictedIcons.map((iconConfig) => (

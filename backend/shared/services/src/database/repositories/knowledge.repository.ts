@@ -232,6 +232,18 @@ export class KnowledgeRepository {
     return entities.map(entity => this.entityToModel(entity));
   }
 
+  async findAll(): Promise<KnowledgeItemEntity[]> {
+    return await this.knowledgeRepo.find({
+      order: { createdAt: 'DESC' }
+    });
+  }
+
+  async findAllRelationships(): Promise<KnowledgeRelationshipEntity[]> {
+    return await this.relationshipRepo.find({
+      order: { createdAt: 'DESC' }
+    });
+  }
+
   // Scoped search methods
   async findByScope(scope: KnowledgeScope, filters?: KnowledgeFilters, limit: number = 20): Promise<KnowledgeItem[]> {
     let query = this.knowledgeRepo.createQueryBuilder('ki');

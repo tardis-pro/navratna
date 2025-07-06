@@ -306,7 +306,7 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
       team: [],
       resources: [],
       tasks: generateInitialTasks(selectedTemplate),
-      createdBy: user?.id || 'unknown'
+      createdBy: user?.id || `anonymous-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     };
 
     onProjectCreate(completeProjectData);

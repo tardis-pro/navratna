@@ -35,6 +35,7 @@
     "@nestjs/jwt": "^11.0.0",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/typeorm": "^11.0.0",
+    "@types/uuid": "^10.0.0",
     "@uaip/config": "workspace:*",
     "@uaip/middleware": "workspace:*",
     "@uaip/types": "workspace:*",
@@ -49,6 +50,7 @@
     "neo4j-driver": "catalog:backend",
     "pg": "catalog:backend",
     "typeorm": "^0.3.25",
+    "uuid": "^11.1.0",
     "winston": "catalog:backend",
     "zod": "catalog:"
   },

@@ -13,6 +13,12 @@ import { ArtifactService } from './services/ArtifactService.js';
 import { SessionService } from './services/SessionService.js';
 import { MFAService } from './services/MFAService.js';
 import { OAuthService } from './services/OAuthService.js';
+import { KnowledgeBootstrapService } from './knowledge-graph/bootstrap.service.js';
+import { seedDatabase } from './database/seedDatabase.js';
+import { KnowledgeRepository } from './database/repositories/knowledge.repository.js';
+import { QdrantService } from './qdrant.service.js';
+import { ToolGraphDatabase } from './database/toolGraphDatabase.js';
+import { SmartEmbeddingService } from './knowledge-graph/smart-embedding.service.js';
 
 // Database error handling
 export class DatabaseError extends Error {
@@ -39,6 +45,7 @@ export class DatabaseService {
   private typeormService: TypeOrmService;
   private isClosing: boolean = false;
   private isInitialized: boolean = false;
+  private logger = logger;
 
   // Domain services
   private userService: UserService;
@@ -54,6 +61,12 @@ export class DatabaseService {
   private mfaService: MFAService;
   private oauthService: OAuthService;
 
+  // Knowledge graph services (lazy-loaded)
+  private _knowledgeRepository: KnowledgeRepository | null = null;
+  private _qdrantService: QdrantService | null = null;
+  private _toolGraphDatabase: ToolGraphDatabase | null = null;
+  private _smartEmbeddingService: SmartEmbeddingService | null = null;
+
   constructor() {
     this.typeormService = TypeOrmService.getInstance();
 
@@ -65,11 +78,12 @@ export class DatabaseService {
     this.operationService = OperationService.getInstance();
     this.securityService = SecurityService.getInstance();
     this.auditService = AuditService.getInstance();
-    // this.discussionService = DiscussionService.getInstance(); // DiscussionService has a different constructor
     this.artifactService = ArtifactService.getInstance();
     this.sessionService = SessionService.getInstance();
     this.mfaService = MFAService.getInstance();
     this.oauthService = OAuthService.getInstance();
+    
+    // Note: DiscussionService will be lazily initialized when accessed via getter
   }
 
   public static getInstance(): DatabaseService {
@@ -96,8 +110,89 @@ export class DatabaseService {
     }
   }
 
+  // Knowledge graph service getters (lazy initialization)
+  public async getKnowledgeRepository(): Promise<KnowledgeRepository> {
+    if (!this._knowledgeRepository) {
+      await this.ensureInitialized();
+      const dataSource = this.typeormService.getDataSource();
+      const { KnowledgeItemEntity } = await import('./entities/knowledge-item.entity.js');
+      const { KnowledgeRelationshipEntity } = await import('./entities/knowledge-relationship.entity.js');
+      
+      this._knowledgeRepository = new KnowledgeRepository(
+        dataSource.getRepository(KnowledgeItemEntity),
+        dataSource.getRepository(KnowledgeRelationshipEntity)
+      );
+    }
+    return this._knowledgeRepository;
+  }
+
+  public async getQdrantService(): Promise<QdrantService> {
+    if (!this._qdrantService) {
+      this._qdrantService = new QdrantService();
+    }
+    return this._qdrantService;
+  }
+
+  public async getToolGraphDatabase(): Promise<ToolGraphDatabase> {
+    if (!this._toolGraphDatabase) {
+      this._toolGraphDatabase = new ToolGraphDatabase();
+    }
+    return this._toolGraphDatabase;
+  }
+
+  public async getSmartEmbeddingService(): Promise<SmartEmbeddingService> {
+    if (!this._smartEmbeddingService) {
+      this._smartEmbeddingService = new SmartEmbeddingService();
+    }
+    return this._smartEmbeddingService;
+  }
+
   public async initialize(): Promise<void> {
     await this.ensureInitialized();
+    
+    // Run database seeding and knowledge sync if enabled
+    if (process.env.TYPEORM_SYNC === 'true') {
+      await this.runDatabaseSeedingAndSync();
+    }
+  }
+
+  private async runDatabaseSeedingAndSync(): Promise<void> {
+    try {
+      this.logger.info('Starting database seeding process...');
+      
+      // Run database seeding
+      const dataSource = this.typeormService.getDataSource();
+      await seedDatabase(dataSource);
+      
+      // Initialize knowledge graph services
+      const knowledgeRepository = await this.getKnowledgeRepository();
+      const qdrantService = await this.getQdrantService();
+      const toolGraphDatabase = await this.getToolGraphDatabase();
+      const smartEmbeddingService = await this.getSmartEmbeddingService();
+      
+      // Create and run knowledge bootstrap service
+      const bootstrapService = new KnowledgeBootstrapService(
+        knowledgeRepository,
+        qdrantService,
+        toolGraphDatabase,
+        smartEmbeddingService
+      );
+      
+      // This discovers data from any source and syncs bidirectionally
+      await bootstrapService.runPostSeedSync();
+      
+      // Get and log statistics
+      const stats = await bootstrapService.getSyncStatistics();
+      this.logger.info('Database seeded and knowledge synced successfully', { stats });
+      
+    } catch (seedError) {
+      this.logger.error('Database seeding failed, but continuing service initialization', {
+        error: seedError.message,
+        stack: seedError.stack
+      });
+      // Don't throw the error - allow service to continue without seeding
+      // This prevents the entire service from failing due to seeding issues
+    }
   }
 
   public async getDataSource() {
@@ -318,6 +413,21 @@ export class DatabaseService {
   }
 
   public get discussions(): DiscussionService {
+    if (!this.discussionService) {
+      // Lazy initialize DiscussionService with required dependencies
+      const { EventBusService } = require('./eventBusService.js');
+      const { PersonaService } = require('./personaService.js');
+      
+      this.discussionService = new DiscussionService({
+        databaseService: this,
+        eventBusService: EventBusService.getInstance(),
+        personaService: PersonaService.getInstance(),
+        enableRealTimeEvents: true,
+        enableAnalytics: true,
+        maxParticipants: 10,
+        defaultTurnTimeout: 30000
+      });
+    }
     return this.discussionService;
   }
 

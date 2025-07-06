@@ -371,6 +371,99 @@ export class QdrantService {
   }
 
   /**
+   * Upsert points with UUID support for knowledge sync
+   */
+  async upsertPoints(points: Array<{
+    id: string;
+    vector: number[];
+    payload: Record<string, any>;
+  }>): Promise<void> {
+    try {
+      const workingUrl = await this.ensureConnection();
+      
+      const response = await fetch(`${workingUrl}/collections/${this.collectionName}/points`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ points })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Qdrant upsert failed: ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error('Qdrant upsert error:', error);
+      throw new Error(`Vector upsert failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get points by IDs
+   */
+  async getPoints(ids: string[]): Promise<Array<{
+    id: string;
+    vector: number[];
+    payload: Record<string, any>;
+  }>> {
+    try {
+      const workingUrl = await this.ensureConnection();
+      
+      const response = await fetch(`${workingUrl}/collections/${this.collectionName}/points`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ids: ids,
+          with_payload: true,
+          with_vector: true
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Qdrant get points failed: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.result.map((item: any) => ({
+        id: item.id,
+        vector: item.vector,
+        payload: item.payload
+      }));
+    } catch (error) {
+      console.error('Qdrant get points error:', error);
+      throw new Error(`Vector get points failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Delete points by IDs
+   */
+  async deletePoints(ids: string[]): Promise<void> {
+    try {
+      const workingUrl = await this.ensureConnection();
+      
+      const response = await fetch(`${workingUrl}/collections/${this.collectionName}/points/delete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          points: ids
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Qdrant delete points failed: ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error('Qdrant delete points error:', error);
+      throw new Error(`Vector delete points failed: ${error.message}`);
+    }
+  }
+
+  /**
    * Get document by ID
    */
   async getById(documentId: string): Promise<any> {

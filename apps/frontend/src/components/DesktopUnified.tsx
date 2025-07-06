@@ -1092,7 +1092,7 @@ export const Desktop: React.FC = () => {
 
       {/* Desktop Icons */}
       <div className="p-6 pb-20" onMouseDown={() => setIsDragging(false)}>
-        <div className="grid grid-cols-8 md:grid-cols-10 lg:grid-cols-12 xl:grid-cols-16 2xl:grid-cols-20 3xl:grid-cols-24 4xl:grid-cols-28 gap-4 auto-rows-min justify-items-center">
+        <div className="grid grid-cols-4 md:grid-cols-8 gap-4 auto-rows-min justify-items-center">
           {APPLICATIONS.map((app) => (
             <DesktopIcon
               key={app.id}

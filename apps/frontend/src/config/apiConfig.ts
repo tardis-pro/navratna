@@ -111,15 +111,15 @@ export const API_ROUTES = {
     ANALYZE_CONTEXT: '/api/v1/llm/analyze'
   },
   USER_LLM: {
-    BASE: '/api/v1/user/llm',
-    LIST_PROVIDERS: '/api/v1/user/llm/providers',
-    GET_PROVIDER: '/api/v1/user/llm/providers',
-    CREATE_PROVIDER: '/api/v1/user/llm/providers',
-    UPDATE_PROVIDER: '/api/v1/user/llm/providers',
-    DELETE_PROVIDER: '/api/v1/user/llm/providers',
-    TEST_PROVIDER: '/api/v1/user/llm/providers',
-    SET_DEFAULT: '/api/v1/user/llm/providers',
-    GENERATE: '/api/v1/user/llm/generate'
+    BASE: '/api/v1/llm',
+    LIST_PROVIDERS: '/api/v1/llm/my-providers',
+    GET_PROVIDER: '/api/v1/llm/my-providers',
+    CREATE_PROVIDER: '/api/v1/llm/my-providers',
+    UPDATE_PROVIDER: '/api/v1/llm/my-providers',
+    DELETE_PROVIDER: '/api/v1/llm/my-providers',
+    TEST_PROVIDER: '/api/v1/llm/my-providers',
+    SET_DEFAULT: '/api/v1/llm/my-providers',
+    GENERATE: '/api/v1/llm/generate'
   },
 
   // Knowledge Graph Service routes

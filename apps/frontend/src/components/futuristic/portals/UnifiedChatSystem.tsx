@@ -1104,7 +1104,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                     </div>
                   ) : (
                     window.messages.map((msg, idx) => (
-                      <div key={idx} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div key={msg.id || `msg-${idx}-${msg.timestamp || Date.now()}`} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                         <div className={`max-w-[80%] p-2 rounded-lg text-sm ${
                           msg.sender === 'user' 
                             ? 'bg-cyan-600 text-white' 
@@ -1266,7 +1266,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
             <div className="flex flex-wrap gap-2 mb-3">
               {selectedAgent.capabilities?.slice(0, 6).map((capability, index) => (
                 <motion.span
-                  key={index}
+                  key={`${selectedAgent.id}-capability-${capability}-${index}`}
                   className="text-xs px-3 py-1 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 text-blue-300 rounded-lg border border-blue-500/30"
                   whileHover={{ scale: 1.05 }}
                 >
@@ -1406,7 +1406,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                             <div className="space-y-2">
                               {message.toolsExecuted.map((tool, toolIndex) => (
                                 <motion.div
-                                  key={toolIndex}
+                                  key={`${tool.name || 'tool'}-${toolIndex}-${tool.timestamp || Date.now()}`}
                                   className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg ${tool.success
                                     ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                                     : 'bg-red-500/10 text-red-400 border border-red-500/20'

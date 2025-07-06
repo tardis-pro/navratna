@@ -1,6 +1,10 @@
 // Main service
 export { KnowledgeGraphService } from './knowledge-graph.service.js';
 
+// Sync services
+export { KnowledgeSyncService } from './knowledge-sync.service.js';
+export { KnowledgeBootstrapService } from './bootstrap.service.js';
+
 // Supporting services
 export { QdrantService } from '../qdrant.service.js';
 export { KnowledgeRepository } from '../database/repositories/knowledge.repository.js';

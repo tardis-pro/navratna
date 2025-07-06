@@ -121,9 +121,29 @@ council-of-nycea/
 
 ### Database Architecture
 - **PostgreSQL** (port 5432) - Primary database with TypeORM entities
-- **Neo4j** (port 7474/7687) - Graph database for agent relationships and recommendations  
+- **Neo4j** (port 7474/7687) - Graph database for agent relationships and knowledge graph  
+- **Qdrant** (port 6333) - Vector database for semantic search and embeddings
 - **Redis** (port 6379) - Caching, sessions, pub/sub
 - **RabbitMQ** (port 5672) - Event-driven messaging between services
+
+### Knowledge Graph Architecture
+The platform implements a **triple-store knowledge architecture** where every knowledge item exists with the same UUID across three specialized systems:
+
+- **PostgreSQL**: Structured data, metadata, relationships, access control
+- **Neo4j**: Graph relationships, contextual connections, recommendation algorithms
+- **Qdrant**: Vector embeddings, semantic search, similarity matching
+
+**Universal Sync Process:**
+```typescript
+// Automatic bidirectional synchronization
+KnowledgeBootstrapService.runPostSeedSync() → {
+  1. Discovers existing data across all systems
+  2. Creates unified UUID mapping
+  3. Syncs missing items to other systems
+  4. Maintains relationship consistency
+  5. Generates vector embeddings
+}
+```
 
 ## Import Patterns (Critical)
 
@@ -199,10 +219,51 @@ For focused development, use minimal services: `cd backend && npm run dev:minima
 - **Modal-Based Editing**: Streamlined agent editing without navigation disruption using modal overlays
 - **Event-Driven Chat Communication**: Custom events for clear intent separation between new and resume chat actions
 - **Window Uniqueness**: Only one chat window per agent with proper focus management and duplicate prevention
+- **Universal Knowledge Graph Sync**: Bidirectional synchronization across PostgreSQL, Neo4j, and Qdrant with UUID consistency
 
-## Recent Session Achievements (2025-01-04)
+## Recent Session Achievements
 
-### ✅ Tool System Architecture Alignment
+### ✅ Universal Knowledge Graph Synchronization System (2025-01-06)
+
+Successfully implemented a comprehensive **bidirectional knowledge synchronization system** that ensures every knowledge item has a consistent UUID across PostgreSQL, Neo4j, and Qdrant:
+
+**🌟 Key Features:**
+- **Universal Discovery**: Automatically discovers existing knowledge items across all three systems
+- **Bidirectional Sync**: Handles data starting in PostgreSQL → Neo4j + Qdrant, Neo4j → PostgreSQL + Qdrant, or Qdrant → PostgreSQL + Neo4j
+- **UUID Consistency**: Every knowledge item maintains the same UUID across all systems
+- **Post-Seed Integration**: Runs after database seeding to sync any existing data
+- **Forward-Only Design**: No rollbacks - system continues forward and self-improves over time
+- **Resilient Architecture**: Continues even if individual systems fail, graceful degradation
+
+**📁 Implementation Files:**
+- `/backend/shared/services/src/knowledge-graph/knowledge-sync.service.ts` - Core synchronization logic
+- `/backend/shared/services/src/knowledge-graph/bootstrap.service.ts` - Startup and post-seed coordination
+- Enhanced `QdrantService` with UUID-based point operations
+- Extended `KnowledgeRepository` with bidirectional discovery methods
+
+**🔄 Sync Process:**
+1. **Discovery Phase**: Scans PostgreSQL, Neo4j, and Qdrant for existing knowledge items
+2. **Universal Mapping**: Creates unified view of which items exist where
+3. **Smart Sync**: Only syncs to missing systems (efficient, no duplicates)
+4. **Relationship Sync**: Maintains knowledge relationships in Neo4j graph
+5. **Vector Embedding**: Generates and stores embeddings in Qdrant with UUID metadata
+
+**🚀 Usage:**
+```typescript
+// Post-seed synchronization
+const bootstrapService = new KnowledgeBootstrapService(dependencies);
+await bootstrapService.runPostSeedSync();
+
+// Verify sync status
+const status = await bootstrapService.verifyItemSync(itemId);
+// Returns: { postgres: true, neo4j: true, qdrant: true, allSynced: true }
+
+// Get sync statistics
+const stats = await bootstrapService.getSyncStatistics();
+// Returns counts of items synced from each source
+```
+
+### ✅ Tool System Architecture Alignment (2025-01-04)
 Successfully resolved all build errors and aligned the tool system with the vision of **universal augments for both humans and agents**:
 
 **Key Improvements:**
@@ -217,29 +278,38 @@ Successfully resolved all build errors and aligned the tool system with the visi
 - Backend services: ✅ Full compilation success  
 - Frontend: ✅ Production build ready
 
-### 🎯 Next Steps: Tool System Evolution
+### 🎯 Next Steps: Knowledge Graph Evolution
 
 **Immediate Priorities:**
-1. **Tool Execution Engine**: Implement the simplified execution methods currently stubbed out
-2. **Neo4j Integration**: Connect tool relationship and recommendation systems
-3. **Redis Cache Layer**: Implement tool usage caching and performance optimization
-4. **Project Tool Integration**: Complete the project-tool association features
-5. **Enterprise Tool Adapters**: Expand Jira, Confluence, Slack integrations
+1. **Real-time Sync**: Implement real-time knowledge item sync during runtime operations
+2. **Conflict Resolution**: Add intelligent merge strategies for conflicting knowledge items
+3. **Performance Optimization**: Implement caching and batch processing for large knowledge graphs
+4. **Relationship Intelligence**: Enhance Neo4j relationship detection and scoring
+5. **Vector Search Enhancement**: Improve Qdrant similarity search with metadata filtering
 
 **Architecture Goals:**
-- **Human-Agent Parity**: Ensure tools work identically for human users and AI agents
-- **Security Consistency**: All tools follow the same security framework across the platform
-- **Performance Optimization**: Tool execution with proper caching and rate limiting
-- **Graph-Based Discovery**: Neo4j-powered tool recommendations and relationships
+- **Self-Healing System**: Automatic detection and repair of sync inconsistencies
+- **Intelligent Deduplication**: Smart merge of similar knowledge items across systems
+- **Graph Analytics**: Neo4j-powered knowledge relationship insights and recommendations
+- **Semantic Search**: Advanced vector search with contextual filtering and ranking
 
 ## Troubleshooting
 
-- **Port conflicts**: Check ports 3000-3005, 5432, 6379, 7474, 8081
+- **Port conflicts**: Check ports 3000-3005, 5432, 6379, 6333, 7474, 8081
 - **Database connection**: Ensure infrastructure started and ready (~30-60 seconds)
 - **Memory issues**: System requires minimum 8GB RAM (16GB recommended)
 - **Build failures**: Always build shared packages first with `npm run build:shared`
 - **Import errors**: Check monorepo import patterns, verify path mappings in tsconfig.json
 - **Test failures**: Middleware tests expect proper mock setup; check Jest configuration and workspace imports
+
+### Knowledge Graph Troubleshooting
+
+- **Sync issues**: Check `KnowledgeBootstrapService.getSyncStatistics()` for sync status across systems
+- **Qdrant connection**: Verify Qdrant is running on port 6333, check collection initialization
+- **Neo4j connection**: Test with `RETURN 1` query, verify port 7687 and authentication
+- **Embedding failures**: Check TEI/embedding service availability and dimensions match (default: 768)
+- **UUID mismatches**: Run `bootstrapService.verifyItemSync(itemId)` to check consistency
+- **Performance issues**: Monitor batch sizes in sync operations, adjust `batchSize` config
 Council of Nycea: Technical Debt Cleanup Plan
 
   Executive Summary

@@ -174,6 +174,17 @@ export class ToolGraphDatabase {
     }
   }
 
+  // General query execution method
+  async runQuery(cypher: string, params?: Record<string, any>): Promise<Result> {
+    if (!this.isConnected) {
+      throw new Error('Neo4j not connected');
+    }
+    
+    return this.executeWithRetry(async (session) => {
+      return session.run(cypher, params);
+    }, 'runQuery');
+  }
+
   // Helper method to check if Neo4j operations should be attempted
   private shouldSkipOperation(operationName: string): boolean {
     if (!this.isConnected) {
