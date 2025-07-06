@@ -66,9 +66,9 @@ export class ServiceFactory {
           await seedDatabase(dataSource);
           this.logger.info('Database seeded successfully');
         } catch (seedError) {
-          this.logger.error('Database seeding failed, but continuing service initialization', { 
+          this.logger.error('Database seeding failed, but continuing service initialization', {
             error: seedError.message,
-            stack: seedError.stack 
+            stack: seedError.stack
           });
           // Don't throw the error - allow service to continue without seeding
           // This prevents the entire service from failing due to seeding issues
@@ -463,4 +463,27 @@ export const serviceFactory = ServiceFactory.getInstance();
 export const getKnowledgeGraphService = () => serviceFactory.getKnowledgeGraphService();
 export const getUserKnowledgeService = () => serviceFactory.getUserKnowledgeService();
 export const getContextOrchestrationService = () => serviceFactory.getContextOrchestrationService();
-export const getAgentMemoryService = () => serviceFactory.getAgentMemoryService(); 
+export const getAgentMemoryService = () => serviceFactory.getAgentMemoryService();
+
+// API-friendly initialization functions (merged from ServiceInitializer)
+export const initializeServices = () => serviceFactory.initialize();
+export const servicesHealthCheck = async () => {
+  try {
+    const status = await serviceFactory.getHealthStatus();
+    const allHealthy = status.initialized && Object.values(status.services).every(healthy => healthy);
+
+    return {
+      healthy: allHealthy,
+      services: status.services
+    };
+  } catch (error) {
+    return {
+      healthy: false,
+      services: {},
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+};
+
+// Reset services (useful for testing)
+export const resetServices = () => serviceFactory.clearServices();

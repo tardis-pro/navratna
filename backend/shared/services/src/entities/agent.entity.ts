@@ -61,6 +61,13 @@ export class Agent extends BaseEntity {
   @Column({ name: 'last_active_at', type: 'timestamp', nullable: true })
   lastActiveAt?: Date;
 
+  @Column({ 
+    type: 'enum', 
+    enum: ['initializing', 'idle', 'active', 'busy', 'error', 'offline', 'shutting_down', 'inactive', 'deleted'], 
+    default: 'idle' 
+  })
+  status: string;
+
   // Enhanced capabilities tracking
   @Column({ type: 'jsonb', default: '[]' })
   capabilities: string[];
@@ -158,4 +165,7 @@ export class Agent extends BaseEntity {
 
   @OneToMany('ToolUsageRecord', 'agent')
   toolUsageRecords: any[];
+
+  @OneToMany('ToolAssignment', 'agent')
+  toolAssignments: any[];
 } 

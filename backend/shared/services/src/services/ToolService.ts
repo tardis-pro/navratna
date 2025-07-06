@@ -1,21 +1,21 @@
 import { Repository } from 'typeorm';
-import { logger } from '@uaip/utils/logger';
+import { logger } from '@uaip/utils';
 import { TypeOrmService } from '../typeormService';
-import { 
-  ToolRepository, 
-  ToolExecutionRepository, 
-  ToolUsageRepository 
+import {
+  ToolRepository,
+  ToolExecutionRepository,
+  ToolUsageRepository
 } from '../database/repositories/ToolRepository';
 import { ToolDefinition } from '../entities/toolDefinition.entity';
 import { ToolExecution } from '../entities/toolExecution.entity';
 import { ToolUsageRecord } from '../entities/toolUsageRecord.entity';
 import { ToolAssignment } from '../entities/toolAssignment.entity';
-import { SecurityLevel } from '@uaip/types';
+import { SecurityLevel, ToolExecutionStatus, ToolCategory } from '@uaip/types';
 
 export class ToolService {
   private static instance: ToolService;
   private typeormService: TypeOrmService;
-  
+
   // Repositories
   private toolRepository: ToolRepository | null = null;
   private toolExecutionRepository: ToolExecutionRepository | null = null;
@@ -36,28 +36,28 @@ export class ToolService {
   // Repository getters with lazy initialization
   public getToolRepository(): ToolRepository {
     if (!this.toolRepository) {
-      this.toolRepository = new ToolRepository(this.typeormService.dataSource, ToolDefinition);
+      this.toolRepository = new ToolRepository();
     }
     return this.toolRepository;
   }
 
   public getToolExecutionRepository(): ToolExecutionRepository {
     if (!this.toolExecutionRepository) {
-      this.toolExecutionRepository = new ToolExecutionRepository(this.typeormService.dataSource, ToolExecution);
+      this.toolExecutionRepository = new ToolExecutionRepository();
     }
     return this.toolExecutionRepository;
   }
 
   public getToolUsageRepository(): ToolUsageRepository {
     if (!this.toolUsageRepository) {
-      this.toolUsageRepository = new ToolUsageRepository(this.typeormService.dataSource, ToolUsageRecord);
+      this.toolUsageRepository = new ToolUsageRepository();
     }
     return this.toolUsageRepository;
   }
 
   public getToolAssignmentRepository(): Repository<ToolAssignment> {
     if (!this.toolAssignmentRepository) {
-      this.toolAssignmentRepository = this.typeormService.dataSource.getRepository(ToolAssignment);
+      this.toolAssignmentRepository = this.typeormService.getRepository(ToolAssignment);
     }
     return this.toolAssignmentRepository;
   }
@@ -67,8 +67,8 @@ export class ToolService {
     name: string;
     displayName: string;
     description: string;
-    category: string;
-    isActive?: boolean;
+    category: ToolCategory;
+    isEnabled?: boolean;
     version?: string;
     inputSchema?: any;
     outputSchema?: any;
@@ -79,32 +79,29 @@ export class ToolService {
     timeout?: number;
   }): Promise<ToolDefinition> {
     const toolRepo = this.getToolRepository();
-    const tool = toolRepo.create({
+    return await toolRepo.createTool({
       ...data,
-      isActive: data.isActive ?? true,
+      isEnabled: data.isEnabled ?? true,
       version: data.version || '1.0.0',
-      securityLevel: data.securityLevel || SecurityLevel.MEDIUM,
-      maxRetries: data.maxRetries || 3,
-      timeout: data.timeout || 30000
+      securityLevel: data.securityLevel || SecurityLevel.MEDIUM
     });
-
-    return await toolRepo.save(tool);
   }
 
   public async findToolByName(name: string): Promise<ToolDefinition | null> {
-    return await this.getToolRepository().findOne({ where: { name } });
+    const tools = await this.getToolRepository().findMany({ name });
+    return tools.length > 0 ? tools[0] : null;
   }
 
   public async findToolById(id: string): Promise<ToolDefinition | null> {
-    return await this.getToolRepository().findOne({ where: { id } });
+    return await this.getToolRepository().findById(id);
   }
 
   public async findActiveTools(): Promise<ToolDefinition[]> {
-    return await this.getToolRepository().find({ where: { isActive: true } });
+    return await this.getToolRepository().getTools({ enabled: true });
   }
 
   public async findToolsByCategory(category: string): Promise<ToolDefinition[]> {
-    return await this.getToolRepository().find({ where: { category } });
+    return await this.getToolRepository().getTools({ category });
   }
 
   public async updateTool(id: string, data: Partial<ToolDefinition>): Promise<ToolDefinition | null> {
@@ -113,8 +110,8 @@ export class ToolService {
   }
 
   public async deactivateTool(id: string): Promise<boolean> {
-    const result = await this.getToolRepository().update(id, { isActive: false });
-    return result.affected !== 0;
+    const result = await this.getToolRepository().update(id, { isEnabled: false });
+    return result !== null;
   }
 
   // Tool execution operations
@@ -127,59 +124,51 @@ export class ToolService {
     traceId?: string;
   }): Promise<ToolExecution> {
     const executionRepo = this.getToolExecutionRepository();
-    const execution = executionRepo.create({
-      tool: { id: data.toolId },
-      agent: data.agentId ? { id: data.agentId } : undefined,
-      user: data.userId ? { id: data.userId } : undefined,
-      input: data.input,
-      context: data.context,
-      traceId: data.traceId,
-      status: 'pending',
-      startedAt: new Date()
+    return await executionRepo.createToolExecution({
+      toolId: data.toolId,
+      agentId: data.agentId || '',
+      parameters: data.input,
+      status: ToolExecutionStatus.PENDING,
+      startTime: new Date(),
+      approvalRequired: false,
+      success: false,
+      retryCount: 0,
+      maxRetries: 3
     });
-
-    return await executionRepo.save(execution);
   }
 
   public async updateExecution(id: string, data: {
-    status?: string;
+    status?: ToolExecutionStatus;
     output?: any;
     error?: any;
     metadata?: any;
     duration?: number;
   }): Promise<ToolExecution | null> {
     const updates: any = { ...data };
-    
-    if (data.status === 'completed' || data.status === 'failed') {
-      updates.completedAt = new Date();
+
+    if (data.status === ToolExecutionStatus.COMPLETED || data.status === ToolExecutionStatus.FAILED) {
+      updates.endTime = new Date();
     }
 
     await this.getToolExecutionRepository().update(id, updates);
-    return await this.getToolExecutionRepository().findOne({ where: { id } });
+    return await this.getToolExecutionRepository().getToolExecution(id);
   }
 
   public async findExecutionById(id: string): Promise<ToolExecution | null> {
-    return await this.getToolExecutionRepository().findOne({
-      where: { id },
-      relations: ['tool', 'agent', 'user']
-    });
+    return await this.getToolExecutionRepository().getToolExecution(id);
   }
 
   public async findExecutionsByTool(toolId: string, limit?: number): Promise<ToolExecution[]> {
-    return await this.getToolExecutionRepository().find({
-      where: { tool: { id: toolId } },
-      order: { startedAt: 'DESC' },
-      take: limit || 100,
-      relations: ['agent', 'user']
+    return await this.getToolExecutionRepository().getToolExecutions({
+      toolId,
+      limit: limit || 100
     });
   }
 
   public async findExecutionsByAgent(agentId: string, limit?: number): Promise<ToolExecution[]> {
-    return await this.getToolExecutionRepository().find({
-      where: { agent: { id: agentId } },
-      order: { startedAt: 'DESC' },
-      take: limit || 100,
-      relations: ['tool']
+    return await this.getToolExecutionRepository().getToolExecutions({
+      agentId,
+      limit: limit || 100
     });
   }
 
@@ -196,19 +185,14 @@ export class ToolService {
     error?: string;
   }): Promise<ToolUsageRecord> {
     const usageRepo = this.getToolUsageRepository();
-    const usage = usageRepo.create({
-      tool: { id: data.toolId },
-      agent: data.agentId ? { id: data.agentId } : undefined,
-      user: data.userId ? { id: data.userId } : undefined,
-      execution: data.executionId ? { id: data.executionId } : undefined,
-      inputTokens: data.inputTokens || 0,
-      outputTokens: data.outputTokens || 0,
-      executionTime: data.executionTime || 0,
+    return await usageRepo.recordToolUsage({
+      toolId: data.toolId,
+      agentId: data.agentId || '',
+      executionTimeMs: data.executionTime || 0,
       success: data.success,
-      error: data.error
+      error: data.error,
+      usedAt: new Date()
     });
-
-    return await usageRepo.save(usage);
   }
 
   public async getToolUsageStats(toolId: string, days: number = 30): Promise<any> {
@@ -216,22 +200,10 @@ export class ToolService {
     startDate.setDate(startDate.getDate() - days);
 
     const usageRepo = this.getToolUsageRepository();
-    const stats = await usageRepo
-      .createQueryBuilder('usage')
-      .select('COUNT(*)', 'totalExecutions')
-      .addSelect('SUM(CASE WHEN usage.success = true THEN 1 ELSE 0 END)', 'successfulExecutions')
-      .addSelect('AVG(usage.executionTime)', 'avgExecutionTime')
-      .addSelect('SUM(usage.inputTokens)', 'totalInputTokens')
-      .addSelect('SUM(usage.outputTokens)', 'totalOutputTokens')
-      .where('usage.toolId = :toolId', { toolId })
-      .andWhere('usage.createdAt >= :startDate', { startDate })
-      .getRawOne();
-
-    return {
+    return await usageRepo.getToolUsageStats({
       toolId,
-      period: `${days} days`,
-      ...stats
-    };
+      days
+    });
   }
 
   // Tool assignment operations
@@ -241,7 +213,7 @@ export class ToolService {
     customConfig?: any;
   } = {}): Promise<ToolAssignment> {
     const assignmentRepo = this.getToolAssignmentRepository();
-    
+
     // Check if assignment already exists
     const existing = await assignmentRepo.findOne({
       where: { agent: { id: agentId }, tool: { id: toolId } }
@@ -287,15 +259,37 @@ export class ToolService {
   // Bulk operations
   public async createBulkTools(tools: Array<Partial<ToolDefinition>>): Promise<ToolDefinition[]> {
     const toolRepo = this.getToolRepository();
-    const entities = tools.map(tool => toolRepo.create(tool));
-    return await toolRepo.save(entities);
+    const results: ToolDefinition[] = [];
+    for (const tool of tools) {
+      const created = await toolRepo.createTool(tool);
+      results.push(created);
+    }
+    return results;
   }
 
   public async deactivateToolsByCategory(category: string): Promise<number> {
-    const result = await this.getToolRepository().update(
-      { category },
-      { isActive: false }
-    );
-    return result.affected || 0;
+    const tools = await this.getToolRepository().getTools({ category });
+    let count = 0;
+    for (const tool of tools) {
+      await this.getToolRepository().update(tool.id, { isEnabled: false });
+      count++;
+    }
+    return count;
+  }
+
+  // Tool execution operations
+  public async createToolExecution(execution: Partial<ToolExecution>): Promise<ToolExecution> {
+    const executionRepo = this.getToolExecutionRepository();
+    return await executionRepo.createToolExecution(execution);
+  }
+
+  public async getToolExecution(executionId: string): Promise<ToolExecution | null> {
+    const executionRepo = this.getToolExecutionRepository();
+    return await executionRepo.getToolExecution(executionId);
+  }
+
+  public async updateToolExecution(executionId: string, updates: Partial<ToolExecution>): Promise<void> {
+    const executionRepo = this.getToolExecutionRepository();
+    await executionRepo.update(executionId, updates);
   }
 }

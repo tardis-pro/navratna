@@ -573,6 +573,64 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
     });
   }
 
+  /**
+   * Process learning data from agent execution
+   * This is the public method called by routes
+   */
+  async processLearningData(params: {
+    agentId: string;
+    executionData: Record<string, unknown>;
+  }): Promise<LearningResult> {
+    try {
+      // Extract operation info from execution data
+      const operationId = params.executionData.operationId as string || 'unknown';
+      const outcome = params.executionData.outcome as Record<string, unknown> || {};
+      
+      // Create a simplified learning interaction
+      const interaction: AgentInteraction = {
+        agentId: params.agentId,
+        interactionType: 'operation_execution',
+        context: JSON.stringify(params.executionData),
+        outcome: outcome.success ? 'success' : 'failure',
+        learningPoints: [],
+        performanceMetrics: {
+          efficiency: outcome.efficiency as number || 0.5,
+          accuracy: outcome.accuracy as number || 0.5,
+          userSatisfaction: outcome.userSatisfaction as number || 0.5
+        },
+        timestamp: new Date()
+      };
+
+      // Process learning from this interaction
+      await this.learnFromInteraction(params.agentId, interaction);
+      
+      // Return a learning result
+      return {
+        learningApplied: true,
+        confidenceAdjustments: {
+          overallAdjustment: 0.05,
+          specificAdjustments: {
+            operationType: operationId,
+            outcome: interaction.outcome
+          }
+        },
+        newKnowledge: [`Learned from ${operationId} execution`],
+        improvedCapabilities: []
+      };
+    } catch (error) {
+      logger.error('Failed to process learning data', { error, agentId: params.agentId });
+      return {
+        learningApplied: false,
+        confidenceAdjustments: {
+          overallAdjustment: 0,
+          specificAdjustments: {}
+        },
+        newKnowledge: [],
+        improvedCapabilities: []
+      };
+    }
+  }
+
   private auditLog(event: string, data: any): void {
     logger.info(`AUDIT: ${event}`, {
       ...data,

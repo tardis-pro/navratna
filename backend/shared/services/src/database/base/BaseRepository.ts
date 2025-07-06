@@ -1,8 +1,20 @@
 import { Repository, EntityTarget, ObjectLiteral, EntityManager, QueryRunner } from 'typeorm';
-import { logger, DatabaseError } from '@uaip/utils';
+import { logger } from '@uaip/utils';
 import { TypeOrmService } from '../../typeormService.js';
+import { DatabaseError } from '../../databaseService.js';
 
-export abstract class BaseRepository<T extends ObjectLiteral> {
+// Repository interface for standardization
+export interface IRepository<T extends ObjectLiteral> {
+  findById(id: string): Promise<T | null>;
+  findMany(conditions?: Record<string, any>, options?: any): Promise<T[]>;
+  create(data: Partial<T>): Promise<T>;
+  update(id: string, data: Partial<T>): Promise<T | null>;
+  delete(id: string): Promise<boolean>;
+  count(conditions?: Record<string, any>): Promise<number>;
+  batchCreate(records: Partial<T>[]): Promise<T[]>;
+}
+
+export abstract class BaseRepository<T extends ObjectLiteral> implements IRepository<T> {
   protected repository: Repository<T>;
   protected typeormService: TypeOrmService;
 
@@ -12,6 +24,11 @@ export abstract class BaseRepository<T extends ObjectLiteral> {
   ) {
     this.typeormService = typeormService || TypeOrmService.getInstance();
     this.repository = this.typeormService.getRepository(entity);
+  }
+
+  // Repository factory method for dependency injection
+  protected getRepository<U extends ObjectLiteral>(entityClass: EntityTarget<U>): Repository<U> {
+    return this.typeormService.getRepository(entityClass);
   }
 
   // Get entity manager for complex operations
@@ -56,10 +73,10 @@ export abstract class BaseRepository<T extends ObjectLiteral> {
     try {
       return await this.repository.findOne({ where: { id } as any });
     } catch (error) {
-      logger.error('Failed to find by ID', { 
-        entity: this.entity.toString(), 
-        id, 
-        error: (error as Error).message 
+      logger.error('Failed to find by ID', {
+        entity: this.entity.toString(),
+        id,
+        error: (error as Error).message
       });
       throw error;
     }
@@ -110,10 +127,10 @@ export abstract class BaseRepository<T extends ObjectLiteral> {
 
       return await queryBuilder.getMany();
     } catch (error) {
-      logger.error('Failed to find many', { 
-        entity: this.entity.toString(), 
-        conditions, 
-        error: (error as Error).message 
+      logger.error('Failed to find many', {
+        entity: this.entity.toString(),
+        conditions,
+        error: (error as Error).message
       });
       throw error;
     }
@@ -124,10 +141,10 @@ export abstract class BaseRepository<T extends ObjectLiteral> {
       const newEntity = this.repository.create(data as any);
       return await this.repository.save(newEntity as any);
     } catch (error) {
-      logger.error('Failed to create', { 
-        entity: this.entity.toString(), 
-        data, 
-        error: (error as Error).message 
+      logger.error('Failed to create', {
+        entity: this.entity.toString(),
+        data,
+        error: (error as Error).message
       });
       throw error;
     }
@@ -138,11 +155,11 @@ export abstract class BaseRepository<T extends ObjectLiteral> {
       await this.repository.update(id, { ...data, updatedAt: new Date() } as any);
       return await this.repository.findOne({ where: { id } as any });
     } catch (error) {
-      logger.error('Failed to update', { 
-        entity: this.entity.toString(), 
-        id, 
-        data, 
-        error: (error as Error).message 
+      logger.error('Failed to update', {
+        entity: this.entity.toString(),
+        id,
+        data,
+        error: (error as Error).message
       });
       throw error;
     }
@@ -153,10 +170,10 @@ export abstract class BaseRepository<T extends ObjectLiteral> {
       const result = await this.repository.delete(id);
       return (result.affected) > 0;
     } catch (error) {
-      logger.error('Failed to delete', { 
-        entity: this.entity.toString(), 
-        id, 
-        error: (error as Error).message 
+      logger.error('Failed to delete', {
+        entity: this.entity.toString(),
+        id,
+        error: (error as Error).message
       });
       throw error;
     }
@@ -166,10 +183,10 @@ export abstract class BaseRepository<T extends ObjectLiteral> {
     try {
       return await this.repository.count({ where: conditions });
     } catch (error) {
-      logger.error('Failed to count', { 
-        entity: this.entity.toString(), 
-        conditions, 
-        error: (error as Error).message 
+      logger.error('Failed to count', {
+        entity: this.entity.toString(),
+        conditions,
+        error: (error as Error).message
       });
       throw error;
     }
@@ -184,10 +201,10 @@ export abstract class BaseRepository<T extends ObjectLiteral> {
       const entities = records.map(record => this.repository.create(record as any));
       return await this.repository.save(entities as any);
     } catch (error) {
-      logger.error('Failed to batch create', { 
-        entity: this.entity.toString(), 
-        recordCount: records.length, 
-        error: (error as Error).message 
+      logger.error('Failed to batch create', {
+        entity: this.entity.toString(),
+        recordCount: records.length,
+        error: (error as Error).message
       });
       throw error;
     }
@@ -201,7 +218,7 @@ export abstract class BaseRepository<T extends ObjectLiteral> {
     return await this.transaction(async (manager) => {
       const repository = manager.getRepository(this.entity);
       const results: T[] = [];
-      
+
       for (const update of updates) {
         await repository.update(update.id, { ...update.data, updatedAt: new Date() } as any);
         const result = await repository.findOne({ where: { id: update.id } as any });
@@ -228,7 +245,7 @@ export abstract class BaseRepository<T extends ObjectLiteral> {
     }
 
     const startTime = Date.now();
-    
+
     try {
       if (options?.onConflict === 'ignore') {
         await this.repository
@@ -244,14 +261,14 @@ export abstract class BaseRepository<T extends ObjectLiteral> {
           .insert()
           .into(this.entity)
           .values(records);
-          
+
         await queryBuilder
           .orUpdate(options.updateColumns, options.conflictColumns)
           .execute();
       } else {
         await this.repository.save(records as any[]);
       }
-      
+
       const duration = Date.now() - startTime;
       logger.info('Bulk insert completed', {
         entity: this.entity.toString(),
@@ -288,7 +305,7 @@ export abstract class BaseRepository<T extends ObjectLiteral> {
 
       while (hasMoreRows) {
         const queryBuilder = this.repository.createQueryBuilder();
-        
+
         // Add WHERE conditions
         if (conditions) {
           Object.keys(conditions).forEach((key, index) => {
@@ -304,7 +321,7 @@ export abstract class BaseRepository<T extends ObjectLiteral> {
           .limit(batchSize)
           .offset(offset)
           .getMany();
-        
+
         if (results.length === 0) {
           hasMoreRows = false;
         } else {
@@ -314,9 +331,9 @@ export abstract class BaseRepository<T extends ObjectLiteral> {
         }
       }
     } catch (error) {
-      logger.error('Streaming query failed', { 
-        entity: this.entity.toString(), 
-        error: (error as Error).message 
+      logger.error('Streaming query failed', {
+        entity: this.entity.toString(),
+        error: (error as Error).message
       });
       throw error;
     }

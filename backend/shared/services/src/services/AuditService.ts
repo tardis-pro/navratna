@@ -21,7 +21,7 @@ export class AuditService {
 
   public getAuditRepository(): AuditRepository {
     if (!this._auditRepository) {
-      this._auditRepository = new AuditRepository(this.typeormService.dataSource, AuditEvent);
+      this._auditRepository = new AuditRepository();
     }
     return this._auditRepository;
   }

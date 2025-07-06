@@ -7,6 +7,15 @@ import { errorHandler, rateLimiter, metricsMiddleware, metricsEndpoint } from '@
 import { DatabaseService } from './databaseService.js';
 import { EventBusService } from './eventBusService.js';
 
+// Extend Request interface to include id property
+declare global {
+  namespace Express {
+    interface Request {
+      id?: string;
+    }
+  }
+}
+
 export interface ServiceConfig {
   name: string;
   port: number;
@@ -168,7 +177,7 @@ export abstract class BaseService {
     try {
       await this.eventBusService.connect();
       logger.info(`${this.config.name}: Event bus connected successfully`);
-      
+
       if (this.enterpriseEventBusService) {
         await this.enterpriseEventBusService.connect();
         logger.info(`${this.config.name}: Enterprise event bus connected successfully`);
@@ -194,11 +203,8 @@ export abstract class BaseService {
 
   protected async checkEventBusHealth(): Promise<boolean> {
     try {
-      // Check if eventBusService has isConnected method, otherwise assume connected
-      if (typeof this.eventBusService.isConnected === 'function') {
-        return this.eventBusService.isConnected();
-      }
-      return true; // Assume connected if method doesn't exist
+      // Check if eventBusService has isConnected property
+      return this.eventBusService.isConnected || false;
     } catch {
       return false;
     }

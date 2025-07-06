@@ -14,7 +14,7 @@ export class TypeOrmService {
     logLevel: process.env.LOG_LEVEL || 'info'
   });
 
-  private constructor() {}
+  private constructor() { }
 
   /**
    * Get singleton instance
@@ -51,6 +51,13 @@ export class TypeOrmService {
    */
   public getDataSource(): DataSource {
     return dataSourceManager.getDataSource();
+  }
+
+  /**
+   * Get the DataSource instance (property getter for compatibility)
+   */
+  public get dataSource(): DataSource {
+    return this.getDataSource();
   }
 
   /**
@@ -98,6 +105,32 @@ export class TypeOrmService {
     runInTransaction: (manager: any) => Promise<T>
   ): Promise<T> {
     return this.getDataSource().transaction(runInTransaction);
+  }
+
+  /**
+   * Check if database connection is healthy
+   */
+  public async isHealthy(): Promise<boolean> {
+    try {
+      const dataSource = this.getDataSource();
+      if (!dataSource.isInitialized) {
+        return false;
+      }
+
+      // Simple query to test connection
+      await dataSource.query('SELECT 1');
+      return true;
+    } catch (error) {
+      this.logger.error('Database health check failed', { error: error.message });
+      return false;
+    }
+  }
+
+  /**
+   * Get entity manager
+   */
+  public getEntityManager() {
+    return this.getDataSource().manager;
   }
 
   /**
@@ -211,7 +244,7 @@ export class TypeOrmService {
     try {
       const { page = 1, limit = 10, where, order, relations } = options;
       const repository = this.getRepository(entityClass);
-      
+
       const [data, total] = await repository.findAndCount({
         where,
         order,

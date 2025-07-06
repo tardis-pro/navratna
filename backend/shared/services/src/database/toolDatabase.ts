@@ -11,7 +11,7 @@ import { ToolExecution as ToolExecutionEntity } from '../entities/toolExecution.
 export class ToolDatabase {
   private databaseService: DatabaseService;
 
-  constructor(dbConfig?: any) {
+  constructor(_dbConfig?: any) {
     // Ignore the dbConfig parameter for backward compatibility
     // TypeORM connection is managed by DatabaseService
     this.databaseService = DatabaseService.getInstance();
@@ -26,8 +26,20 @@ export class ToolDatabase {
   // Tool CRUD Operations
   async createTool(tool: ToolDefinition): Promise<void> {
     try {
-      const entityData = this.convertToolToEntity(tool);
-      await this.databaseService.createTool(entityData);
+      // Convert ToolDefinition to the format expected by ToolService.createTool
+      const toolData = {
+        name: tool.name,
+        displayName: tool.name, // Use name as displayName if not provided
+        description: tool.description,
+        category: tool.category,
+        version: tool.version,
+        inputSchema: tool.parameters,
+        outputSchema: tool.returnType,
+        securityLevel: tool.securityLevel,
+        maxRetries: 3,
+        timeout: 30000
+      };
+      await this.databaseService.tools.createTool(toolData);
       logger.info(`Tool created: ${tool.id}`);
     } catch (error) {
       logger.error('Error creating tool', { tool, error: (error as Error).message });
@@ -37,8 +49,8 @@ export class ToolDatabase {
 
   async getTool(id: string): Promise<ToolDefinition | null> {
     try {
-      
-      const entity = await this.databaseService.getTool(id);
+
+      const entity = await this.databaseService.tools.findToolById(id);
       return entity ? this.convertEntityToTool(entity) : null;
     } catch (error) {
       logger.error('Error getting tool', { id, error: (error as Error).message });
@@ -48,22 +60,19 @@ export class ToolDatabase {
 
   async getTools(category?: string, enabled?: boolean): Promise<ToolDefinition[]> {
     try {
-      const entities = await this.databaseService.getTools({
-        category,
-        enabled
-      });
+      const entities = await this.databaseService.tools.findActiveTools();
       return entities.map(entity => this.convertEntityToTool(entity));
     } catch (error) {
       logger.error('Error getting tools', { category, enabled, error: (error as Error).message });
       throw error;
     }
-  } 
+  }
 
   async updateTool(id: string, updates: Partial<ToolDefinition>): Promise<void> {
     try {
 
       const entityUpdates = this.convertToolToEntity(updates);
-      const result = await this.databaseService.updateTool(id, entityUpdates);
+      const result = await this.databaseService.tools.updateTool(id, entityUpdates);
       if (!result) {
         throw new Error(`Tool not found: ${id}`);
       }
@@ -76,8 +85,8 @@ export class ToolDatabase {
 
   async deleteTool(id: string): Promise<void> {
     try {
-      
-      const deleted = await this.databaseService.deleteTool(id);
+
+      const deleted = await this.databaseService.tools.deactivateTool(id);
       if (!deleted) {
         throw new Error(`Tool not found: ${id}`);
       }
@@ -90,7 +99,7 @@ export class ToolDatabase {
 
   async searchTools(query: string): Promise<ToolDefinition[]> {
     try {
-      const entities = await this.databaseService.searchTools(query);
+      const entities = await this.databaseService.tools.findToolsByCategory(query);
       return entities.map(entity => this.convertEntityToTool(entity));
     } catch (error) {
       logger.error('Error searching tools', { query, error: (error as Error).message });
@@ -101,8 +110,15 @@ export class ToolDatabase {
   // Tool Execution Operations
   async createExecution(execution: ToolExecution): Promise<void> {
     try {
-      const entityData = this.convertExecutionToEntity(execution);
-      await this.databaseService.createToolExecution(entityData);
+      // Convert ToolExecution to the format expected by ToolService.createExecution
+      const executionData = {
+        toolId: execution.toolId,
+        agentId: execution.agentId,
+        input: execution.parameters || {},
+        context: execution.metadata,
+        traceId: execution.id
+      };
+      await this.databaseService.tools.createExecution(executionData);
       logger.debug(`Tool execution created`);
     } catch (error) {
       logger.error('Error creating tool execution', { execution, error: (error as Error).message });
@@ -113,7 +129,7 @@ export class ToolDatabase {
   async updateExecution(id: string, updates: Partial<ToolExecution>): Promise<void> {
     try {
       const entityUpdates = this.convertExecutionToEntity(updates);
-      const result = await this.databaseService.updateToolExecution(id, entityUpdates);
+      const result = await this.databaseService.tools.updateExecution(id, entityUpdates);
       if (!result) {
         throw new Error(`Tool execution not found: ${id}`);
       }
@@ -126,7 +142,7 @@ export class ToolDatabase {
 
   async getExecution(id: string): Promise<ToolExecution | null> {
     try {
-      return await this.databaseService.getToolExecution(id);
+      return await this.databaseService.tools.findExecutionById(id);
     } catch (error) {
       logger.error('Error getting tool execution', { id, error: (error as Error).message });
       throw error;
@@ -135,12 +151,19 @@ export class ToolDatabase {
 
   async getExecutions(toolId?: string, agentId?: string, status?: string, limit = 100): Promise<ToolExecution[]> {
     try {
-      return await this.databaseService.getToolExecutions({
-        toolId: toolId,
-        agentId,
-        status,
-        limit
-      });
+      if (toolId) {
+        return await this.databaseService.tools.findExecutionsByTool(toolId, limit);
+      } else if (agentId) {
+        return await this.databaseService.tools.findExecutionsByAgent(agentId, limit);
+      } else {
+        // For general queries, use the repository's getToolExecutions method
+        return await this.databaseService.tools.getToolExecutionRepository().getToolExecutions({
+          toolId,
+          agentId,
+          status,
+          limit
+        });
+      }
     } catch (error) {
       logger.error('Error getting tool executions', { toolId, agentId, status, limit, error: (error as Error).message });
       throw error;
@@ -150,19 +173,17 @@ export class ToolDatabase {
   // Usage Analytics
   async recordUsage(usage: ToolUsageRecord): Promise<void> {
     try {
-      await this.databaseService.recordToolUsage({
+      await this.databaseService.tools.trackUsage({
         toolId: usage.toolId,
         agentId: usage.agentId,
-        usedAt: usage.startTime,
+        executionTime: usage.duration,
         success: usage.success,
-        executionTimeMs: usage.duration,
-        cost: usage.cost,
         error: usage.errorCode
       });
 
       // Update tool success metrics if execution was successful
       if (usage.success && usage.duration) {
-        await this.databaseService.updateToolSuccessMetrics(
+        await this.databaseService.tools.getToolRepository().updateToolSuccessMetrics(
           usage.toolId,
           true,
           usage.duration
@@ -176,13 +197,19 @@ export class ToolDatabase {
     }
   }
 
-    async getUsageStats(toolId?: string, agentId?: string, days = 30): Promise<any[]> {
+  async getUsageStats(toolId?: string, agentId?: string, days = 30): Promise<any[]> {
     try {
-      return await this.databaseService.getToolUsageStats({
-        toolId,
-        agentId,
-        days
-      });
+      if (toolId) {
+        const stats = await this.databaseService.tools.getToolUsageStats(toolId, days);
+        return [stats]; // Return as array for consistency
+      } else {
+        // For general stats without specific toolId, use the repository's getToolUsageStats method
+        return await this.databaseService.tools.getToolUsageRepository().getToolUsageStats({
+          toolId,
+          agentId,
+          days
+        });
+      }
     } catch (error) {
       logger.error('Error getting tool usage stats', { toolId, agentId, days, error: (error as Error).message });
       throw error;
@@ -192,7 +219,7 @@ export class ToolDatabase {
   // Type conversion methods to handle differences between entity and interface types
   private convertToolToEntity(tool: Partial<ToolDefinition>): Partial<ToolDefinitionEntity> {
     const result: Partial<ToolDefinitionEntity> = {};
-    
+
     // Copy all fields that don't need conversion
     Object.keys(tool).forEach(key => {
       if (key !== 'category' && key !== 'securityLevel') {
@@ -235,7 +262,7 @@ export class ToolDatabase {
 
   private convertExecutionToEntity(execution: Partial<ToolExecution>): Partial<ToolExecutionEntity> {
     const result: Partial<ToolExecutionEntity> = {};
-    
+
     // Copy all fields that don't need conversion
     Object.keys(execution).forEach(key => {
       if (key !== 'status') {
@@ -249,13 +276,6 @@ export class ToolDatabase {
     }
 
     return result;
-  }
-
-  private convertEntityToExecution(entity: ToolExecutionEntity): ToolExecution {
-    return {
-      ...entity,
-      status: entity.status as any
-    };
   }
 
   private mapCategoryToEnum(category: string): ToolCategory {
@@ -288,25 +308,8 @@ export class ToolDatabase {
     return statusMap[status] || ToolExecutionStatus.PENDING;
   }
 
-  private mapSecurityLevelToEnum(level: string): any {
+  private mapSecurityLevelToEnum(level: string): string {
     // Return the level directly as we now use consistent enum values
     return level;
-  }
-
-  // Helper methods for compatibility (keeping for interface compatibility)
-  private mapRowToTool(row: any): ToolDefinition {
-    return row as ToolDefinition;
-  }
-
-  private mapRowToExecution(row: any): ToolExecution {
-    return row as ToolExecution;
-  }
-
-  private mapFieldToColumn(field: string): string | null {
-    return field;
-  }
-
-  private serializeValue(field: string, value: any): any {
-    return value;
   }
 } 

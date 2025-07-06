@@ -113,4 +113,7 @@ export class ToolDefinition extends BaseEntity {
 
   @OneToMany('ToolUsageRecord', 'tool')
   usageRecords: any[];
+
+  @OneToMany('ToolAssignment', 'tool')
+  assignments: any[];
 } 

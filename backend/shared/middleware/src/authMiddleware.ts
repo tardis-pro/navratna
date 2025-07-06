@@ -1,22 +1,20 @@
 import { Request, Response, NextFunction } from 'express';
-import { logger } from '@uaip/utils';
-import { ApiError } from '@uaip/utils';
+import jwt from 'jsonwebtoken';
+import { logger, ApiError } from '@uaip/utils';
+import { config } from '@uaip/config';
 import { JWTValidator } from './JWTValidator.js';
+import './types.js';
 
-// Extend Express Request interface
-declare global {
-  namespace Express {
-    interface Request {
-      id?: string;
-      user?: {
-        id: string;
-        email: string;
-        role: string;
-        sessionId?: string;
-      };
-      startTime?: number;
-    }
-  }
+// JWT Payload interface
+interface JWTPayload {
+  userId: string;
+  email: string;
+  role: string;
+  sessionId?: string;
+  iat: number;
+  exp: number;
+  iss?: string;
+  aud?: string;
 }
 
 export const authMiddleware = async (
@@ -129,20 +127,20 @@ export const optionalAuth = (
 ): void => {
   try {
     const authHeader = req.headers.authorization;
-    
+
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
-      
+
       try {
-        const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
-        
+        const decoded = JWTValidator.verify(token);
+
         req.user = {
           id: decoded.userId,
           email: decoded.email,
           role: decoded.role,
           sessionId: decoded.sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
         };
-        
+
         logger.debug('Optional auth successful', {
           userId: decoded.userId,
           role: decoded.role,
@@ -151,7 +149,7 @@ export const optionalAuth = (
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Optional auth failed';
         // Ignore JWT errors for optional auth but log for debugging
-        logger.debug('Optional auth failed, continuing without authentication', { 
+        logger.debug('Optional auth failed, continuing without authentication', {
           error: errorMessage,
           path: req.path,
           method: req.method
@@ -182,7 +180,7 @@ export const validateJWTConfiguration = (): { isValid: boolean; warnings: string
     if (config.jwt.secret === 'uaip_dev_jwt_secret_key_change_in_production') {
       warnings.push('Using default JWT secret - change in production');
     }
-    
+
     if (config.jwt.secret.length < 32) {
       warnings.push('JWT secret is shorter than recommended 32 characters');
     }
@@ -192,11 +190,11 @@ export const validateJWTConfiguration = (): { isValid: boolean; warnings: string
   if (!config.jwt.issuer) {
     warnings.push('JWT issuer is not configured');
   }
-  
+
   if (!config.jwt.audience) {
     warnings.push('JWT audience is not configured');
   }
-  
+
   if (!config.jwt.expiresIn) {
     warnings.push('JWT expiration time is not configured');
   }
@@ -205,9 +203,9 @@ export const validateJWTConfiguration = (): { isValid: boolean; warnings: string
 };
 
 // Utility function to help diagnose JWT signature issues
-export const diagnoseJWTSignatureError = (token: string): { 
-  tokenInfo: any; 
-  possibleCauses: string[]; 
+export const diagnoseJWTSignatureError = (token: string): {
+  tokenInfo: any;
+  possibleCauses: string[];
   recommendations: string[];
   configInfo: any;
 } => {
@@ -230,7 +228,7 @@ export const diagnoseJWTSignatureError = (token: string): {
   ];
 
   let tokenInfo: any = {};
-  
+
   try {
     // Decode without verification to inspect token structure
     const decoded = jwt.decode(token, { complete: true });
@@ -262,7 +260,7 @@ export const diagnoseJWTSignatureError = (token: string): {
 // Function to validate JWT configuration at service startup
 export const validateJWTSetup = (): void => {
   const validation = validateJWTConfiguration();
-  
+
   if (!validation.isValid) {
     logger.error('JWT configuration is invalid', {
       warnings: validation.warnings,
@@ -270,14 +268,14 @@ export const validateJWTSetup = (): void => {
     });
     throw new Error('JWT configuration is invalid - service cannot start');
   }
-  
+
   if (validation.warnings.length > 0) {
     logger.warn('JWT configuration warnings', {
       warnings: validation.warnings,
       environment: config.environment
     });
   }
-  
+
   logger.info('JWT configuration validated successfully', {
     secretLength: config.jwt.secret.length,
     secretPrefix: config.jwt.secret.substring(0, 8) + '...',
@@ -296,7 +294,7 @@ export const testJWTToken = (token: string): {
   diagnostics?: any;
 } => {
   try {
-    const decoded = jwt.verify(token, config.jwt.secret) as JWTPayload;
+    const decoded = JWTValidator.verify(token);
     return {
       isValid: true,
       payload: {
@@ -333,27 +331,25 @@ export const validateJWTToken = async (token: string): Promise<{
   reason?: string;
 }> => {
   try {
-    const jwtSecret = validateJWTSecret();
-    
-    // Verify JWT token
-    const decoded = jwt.verify(token, jwtSecret) as JWTPayload;
+    // Verify JWT token using JWTValidator
+    const decoded = JWTValidator.verify(token);
 
     // Validate token payload structure
     if (!decoded.userId || !decoded.email || !decoded.role) {
-      return { 
-        valid: false, 
-        reason: 'Invalid token payload - missing required fields' 
+      return {
+        valid: false,
+        reason: 'Invalid token payload - missing required fields'
       };
     }
 
     // Check if token is expired (additional check beyond JWT verification)
     if (decoded.exp && Date.now() >= decoded.exp * 1000) {
-      return { 
-        valid: false, 
-        reason: 'Token expired' 
+      return {
+        valid: false,
+        reason: 'Token expired'
       };
     }
-    
+
     return {
       valid: true,
       userId: decoded.userId,
@@ -366,12 +362,12 @@ export const validateJWTToken = async (token: string): Promise<{
     };
 
   } catch (error) {
-    logger.warn('JWT token validation failed', { 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+    logger.warn('JWT token validation failed', {
+      error: error instanceof Error ? error.message : 'Unknown error'
     });
-    
-    return { 
-      valid: false, 
+
+    return {
+      valid: false,
       reason: error instanceof Error ? error.message : 'Token validation failed'
     };
   }

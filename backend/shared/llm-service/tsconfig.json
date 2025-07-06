@@ -12,6 +12,7 @@
     "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
+    "downlevelIteration": true,
     "skipLibCheck": true,
     "strict": false,
     "baseUrl": ".",

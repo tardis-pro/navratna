@@ -18,17 +18,6 @@ import {
 import { Persona } from '@uaip/types';
 import { DiscussionRepository } from './database/repositories/DiscussionRepository.js';
 import { Discussion } from './entities/discussion.entity.js';
-
-// ... (rest of the file)
-
-export class DiscussionService {
-  // ... (rest of the class)
-
-  public getDiscussionRepository(): DiscussionRepository {
-    return this.databaseService.getDiscussionRepository();
-  }
-}
-
 import { DiscussionParticipant } from './entities/discussionParticipant.entity.js';
 import { DatabaseService } from './databaseService.js';
 import { EventBusService } from './eventBusService.js';

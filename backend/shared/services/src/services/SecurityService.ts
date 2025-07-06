@@ -25,21 +25,21 @@ export class SecurityService {
 
   public getSecurityPolicyRepository(): SecurityPolicyRepository {
     if (!this._securityPolicyRepository) {
-      this._securityPolicyRepository = new SecurityPolicyRepository(this.typeormService.dataSource, SecurityPolicy);
+      this._securityPolicyRepository = new SecurityPolicyRepository();
     }
     return this._securityPolicyRepository;
   }
 
   public getApprovalWorkflowRepository(): ApprovalWorkflowRepository {
     if (!this._approvalWorkflowRepository) {
-      this._approvalWorkflowRepository = new ApprovalWorkflowRepository(this.typeormService.dataSource, ApprovalWorkflow);
+      this._approvalWorkflowRepository = new ApprovalWorkflowRepository();
     }
     return this._approvalWorkflowRepository;
   }
 
   public getApprovalDecisionRepository(): ApprovalDecisionRepository {
     if (!this._approvalDecisionRepository) {
-      this._approvalDecisionRepository = new ApprovalDecisionRepository(this.typeormService.dataSource, ApprovalDecision);
+      this._approvalDecisionRepository = new ApprovalDecisionRepository();
     }
     return this._approvalDecisionRepository;
   }

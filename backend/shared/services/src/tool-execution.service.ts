@@ -1,6 +1,7 @@
-import { ToolExecution, ToolExecutionStatus } from '@uaip/types';
+import { ToolExecution as ToolExecutionType, ToolExecutionStatus } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { DatabaseService } from './databaseService.js';
+import { ToolExecution } from './entities/toolExecution.entity.js';
 
 export interface ToolExecutionOptions {
   timeout?: number;
@@ -36,7 +37,7 @@ export class ToolExecutionService {
     agentId?: string,
     parameters?: Record<string, any>,
     options: ToolExecutionOptions = {}
-  ): Promise<ToolExecution> {
+  ): Promise<ToolExecutionType> {
     // Handle object-style call (agent compatibility)
     let toolId: string;
     let actualAgentId: string;
@@ -56,7 +57,7 @@ export class ToolExecutionService {
       actualParameters = parameters || {};
     }
     // Create execution record
-    const execution: ToolExecution = {
+    const execution: ToolExecutionType = {
       id: `execution_${Date.now()}_${toolId}_${actualAgentId}`,
       toolId,
       agentId: actualAgentId,
@@ -77,7 +78,7 @@ export class ToolExecutionService {
 
     try {
       // Store initial execution record
-      await this.databaseService.createToolExecution(execution);
+      await this.databaseService.tools.createToolExecution(execution as any);
       
       logger.info(`Tool execution initiated: ${execution.id}`, {
         toolId,
@@ -105,9 +106,9 @@ export class ToolExecutionService {
   /**
    * Get tool execution status
    */
-  async getExecution(executionId: string): Promise<ToolExecution | null> {
+  async getExecution(executionId: string): Promise<ToolExecutionType | null> {
     try {
-      return await this.databaseService.getToolExecution(executionId);
+      return await this.databaseService.tools.getToolExecution(executionId) as any;
     } catch (error) {
       logger.error(`Failed to get tool execution ${executionId}:`, error);
       return null;
@@ -122,7 +123,7 @@ export class ToolExecutionService {
     updates: Partial<ToolExecution>
   ): Promise<void> {
     try {
-      await this.databaseService.updateToolExecution(executionId, updates);
+      await this.databaseService.tools.updateToolExecution(executionId, updates);
       logger.debug(`Tool execution updated: ${executionId}`, updates);
     } catch (error) {
       logger.error(`Failed to update tool execution ${executionId}:`, error);

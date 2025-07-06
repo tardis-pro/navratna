@@ -1,9 +1,9 @@
 import { DatabaseService } from './databaseService.js';
 import { logger, ApiError } from '@uaip/utils';
-import { 
-  Capability, 
-  CapabilitySearchQuery, 
-  CapabilitySearchResult 
+import {
+  Capability,
+  CapabilitySearchQuery,
+  CapabilitySearchResult
 } from '@uaip/types';
 
 export class CapabilityDiscoveryService {
@@ -25,7 +25,7 @@ export class CapabilityDiscoveryService {
 
   public async searchCapabilities(query: CapabilitySearchQuery): Promise<Capability[]> {
     await this.ensureInitialized();
-    
+
     try {
       logger.info('Searching capabilities', { query: query.query, type: query.type });
 
@@ -39,7 +39,8 @@ export class CapabilityDiscoveryService {
         limit: query.limit
       };
 
-      const result = await this.databaseService.searchCapabilities(searchFilters);
+      const repo = this.databaseService.agents.getCapabilityRepository();
+      const result = await repo.searchCapabilities(searchFilters);
       const capabilities = result.map(row => this.mapCapabilityFromDB(row));
 
       // If we have agent context, rank capabilities by relevance
@@ -48,10 +49,10 @@ export class CapabilityDiscoveryService {
       }
 
       const searchTime = Date.now() - startTime;
-      logger.info('Capability search completed', { 
-        resultCount: capabilities.length, 
+      logger.info('Capability search completed', {
+        resultCount: capabilities.length,
         searchTime,
-        query: query.query 
+        query: query.query
       });
 
       return capabilities;
@@ -63,19 +64,19 @@ export class CapabilityDiscoveryService {
 
   public async getAgentCapabilities(agentId: string): Promise<Capability[]> {
     await this.ensureInitialized();
-    
+
     try {
       logger.info('Getting agent capabilities', { agentId });
 
-      // Use DatabaseService getAgentCapabilitiesConfig method instead of raw SQL
-      const agentConfig = await this.databaseService.getAgentCapabilitiesConfig(agentId);
-      
+      // Get agent configuration through domain service
+      const agentConfig = await this.databaseService.agents.findAgentById(agentId);
+
       if (!agentConfig) {
         throw new ApiError(404, 'Agent not found', 'AGENT_NOT_FOUND');
       }
 
-      const configuredCapabilities = agentConfig.intelligenceConfig?.capabilities || {};
-      
+      const configuredCapabilities = (agentConfig.metadata?.intelligenceConfig as any)?.capabilities || (agentConfig.intelligenceConfig as any)?.capabilities || {};
+
       // Get capabilities from database
       const capabilityIds = [
         ...(configuredCapabilities.tools || []),
@@ -87,9 +88,10 @@ export class CapabilityDiscoveryService {
         return [];
       }
 
-      // Use DatabaseService getCapabilitiesByIds method instead of raw SQL
-      const capabilityResult = await this.databaseService.getCapabilitiesByIds(capabilityIds);
-      
+      // Get capabilities through domain service
+      const repo = this.databaseService.agents.getCapabilityRepository();
+      const capabilityResult = await repo.getCapabilitiesByIds(capabilityIds);
+
       return capabilityResult.map(row => this.mapCapabilityFromDB(row));
     } catch (error: any) {
       logger.error('Error getting agent capabilities', { agentId, error: error.message });
@@ -99,11 +101,12 @@ export class CapabilityDiscoveryService {
 
   public async getCapabilityById(capabilityId: string): Promise<Capability | null> {
     await this.ensureInitialized();
-    
+
     try {
-      // Use DatabaseService getCapabilityById method instead of raw SQL
-      const result = await this.databaseService.getCapabilityById(capabilityId);
-      
+      // Get capability through domain service
+      const repo = this.databaseService.agents.getCapabilityRepository();
+      const result = await repo.getCapabilityById(capabilityId);
+
       if (!result) {
         return null;
       }
@@ -120,7 +123,7 @@ export class CapabilityDiscoveryService {
     dependents: Capability[];
   }> {
     await this.ensureInitialized();
-    
+
     try {
       logger.info('Getting capability dependencies', { capabilityId });
 
@@ -133,13 +136,15 @@ export class CapabilityDiscoveryService {
       // Get direct dependencies
       const dependencies: Capability[] = [];
       if (capability.dependencies && capability.dependencies.length > 0) {
-        // Use DatabaseService getCapabilityDependencies method instead of raw SQL
-        const depResult = await this.databaseService.getCapabilityDependencies(capability.dependencies);
+        // Get dependencies through domain service
+        const repo = this.databaseService.agents.getCapabilityRepository();
+        const depResult = await repo.getCapabilityDependencies(capability.dependencies);
         dependencies.push(...depResult.map(row => this.mapCapabilityFromDB(row)));
       }
 
       // Get dependents (capabilities that depend on this one)
-      const dependentsResult = await this.databaseService.getCapabilityDependents(capabilityId);
+      const repo2 = this.databaseService.agents.getCapabilityRepository();
+      const dependentsResult = await repo2.getCapabilityDependents(capabilityId);
       const dependents = dependentsResult.map(row => this.mapCapabilityFromDB(row));
 
       return { dependencies, dependents };
@@ -150,12 +155,12 @@ export class CapabilityDiscoveryService {
   }
 
   public async discoverCapabilitiesByIntent(
-    intent: string, 
+    intent: string,
     context: any,
     securityContext: any
   ): Promise<Capability[]> {
     await this.ensureInitialized();
-    
+
     try {
       logger.info('Discovering capabilities by intent', { intent });
 
@@ -171,7 +176,7 @@ export class CapabilityDiscoveryService {
       };
 
       const relevantTypes = intentMapping[intent] || ['tool', 'artifact', 'hybrid'];
-      
+
       // Search for capabilities matching the intent
       const searchResults = await this.searchCapabilities({
         query: intent,
@@ -186,7 +191,7 @@ export class CapabilityDiscoveryService {
         .filter(cap => cap.type && relevantTypes.includes(cap.type))
         .sort((a, b) => this.calculateIntentRelevance(b, intent) - this.calculateIntentRelevance(a, intent))
         .slice(0, 10);
-        
+
     } catch (error: any) {
       logger.error('Error discovering capabilities by intent', { intent, error: error.message });
       throw new ApiError(500, 'Failed to discover capabilities', 'DISCOVERY_ERROR');
@@ -227,7 +232,7 @@ export class CapabilityDiscoveryService {
         auditRequired: false
       };
     }
-    
+
     if (typeof requirements === 'string') {
       try {
         const parsed = JSON.parse(requirements);
@@ -246,7 +251,7 @@ export class CapabilityDiscoveryService {
         };
       }
     }
-    
+
     if (typeof requirements === 'object') {
       return {
         minimumSecurityLevel: requirements.minimumSecurityLevel || 'medium',
@@ -255,7 +260,7 @@ export class CapabilityDiscoveryService {
         auditRequired: Boolean(requirements.auditRequired)
       };
     }
-    
+
     return {
       minimumSecurityLevel: 'medium',
       requiredPermissions: [],
@@ -265,7 +270,7 @@ export class CapabilityDiscoveryService {
   }
 
   private rankCapabilitiesByRelevance(
-    capabilities: Capability[], 
+    capabilities: Capability[],
     query: CapabilitySearchQuery
   ): Capability[] {
     return capabilities
@@ -299,11 +304,11 @@ export class CapabilityDiscoveryService {
     if (query.agentContext) {
       const agentSpecializations = query.agentContext.specializations || [];
       const capabilityTags = capability.metadata?.tags || [];
-      
-      const commonTags = agentSpecializations.filter((spec: string) => 
+
+      const commonTags = agentSpecializations.filter((spec: string) =>
         capabilityTags.some((tag: string) => tag.toLowerCase().includes(spec.toLowerCase()))
       );
-      
+
       score += commonTags.length * 3;
     }
 
@@ -348,8 +353,8 @@ export class CapabilityDiscoveryService {
   }
 
   public async assignCapabilityToAgent(
-    agentId: string, 
-    capabilityId: string, 
+    agentId: string,
+    capabilityId: string,
     options?: {
       permissions?: string[];
       category?: string;
@@ -357,13 +362,13 @@ export class CapabilityDiscoveryService {
     }
   ): Promise<void> {
     await this.ensureInitialized();
-    
+
     try {
       logger.info('Assigning capability to agent', { agentId, capabilityId, options });
-      
-      // Use DatabaseService to assign capability to agent
-      await this.databaseService.assignCapabilityToAgent(agentId, capabilityId, options);
-      
+
+      // Assign capability through domain service
+      await this.databaseService.agents.assignCapabilityToAgent(agentId, capabilityId);
+
       logger.info('Capability assigned to agent successfully', { agentId, capabilityId });
     } catch (error: any) {
       logger.error('Failed to assign capability to agent', { agentId, capabilityId, error: error.message });
@@ -382,19 +387,25 @@ export class CapabilityDiscoveryService {
     }
   ): Promise<any> {
     await this.ensureInitialized();
-    
+
     try {
       logger.info('Executing tool', { toolId, context });
-      
+
       // Get the tool/capability
       const capability = await this.getCapabilityById(toolId);
       if (!capability) {
         throw new ApiError(404, 'Tool not found', 'TOOL_NOT_FOUND');
       }
-      
-      // Execute through database service
-      const result = await this.databaseService.executeTool(toolId, parameters, context);
-      
+
+      // Execute through tool service
+      const result = await this.databaseService.tools.createExecution({
+        toolId,
+        input: parameters,
+        context,
+        agentId: context?.agentId,
+        userId: context?.userId
+      });
+
       logger.info('Tool executed successfully', { toolId, result });
       return result;
     } catch (error: any) {
@@ -415,9 +426,10 @@ export class CapabilityDiscoveryService {
   }): Promise<CapabilitySearchResult> {
     try {
       const startTime = Date.now();
-      
-      // Use DatabaseService searchCapabilitiesAdvanced method instead of raw SQL
-      const result = await this.databaseService.searchCapabilitiesAdvanced(searchParams);
+
+      // Use capability repository for advanced search
+      const repo = this.databaseService.agents.getCapabilityRepository();
+      const result = await repo.searchCapabilitiesAdvanced(searchParams);
       const capabilities = result.capabilities.map(row => this.mapCapabilityFromDB(row));
 
       const searchTime = Date.now() - startTime;

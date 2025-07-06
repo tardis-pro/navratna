@@ -21,10 +21,11 @@ export {
 } from './dataSource.js';
 
 // Database Services
-export { DatabaseService } from './DatabaseService.js';
+export { DatabaseService, DatabaseError } from '../databaseService.js';
 export { ToolDatabase } from './toolDatabase.js';
 export { ToolGraphDatabase } from './toolGraphDatabase.js';
-export { BaseRepository } from './base/BaseRepository.js';
+export { BaseRepository, IRepository } from './base/BaseRepository.js';
+export { RepositoryFactory, repositoryFactory } from './base/RepositoryFactory.js';
 
 // Repositories
 export { LLMProviderRepository } from './repositories/LLMProviderRepository.js';
@@ -36,7 +37,7 @@ export { LLMProvider } from '../entities/llmProvider.entity.js';
 export { UserLLMProvider, UserLLMProviderType, UserLLMProviderStatus } from '../entities/userLLMProvider.entity.js';
 
 // Types
-export type { 
+export type {
   ToolRelationship,
   ToolRecommendation,
   UsagePattern

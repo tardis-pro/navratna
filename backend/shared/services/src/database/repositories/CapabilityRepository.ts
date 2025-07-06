@@ -1,24 +1,10 @@
 import { logger } from '@uaip/utils';
 import { BaseRepository } from '../base/BaseRepository.js';
+import { Capability } from '../../entities/capability.entity.js';
 
-export class CapabilityRepository {
-  private getEntityManager() {
-    // Use TypeOrmService to get entity manager
-    const { TypeOrmService } = require('../typeormService.js');
-    const typeormService = TypeOrmService.getInstance();
-    
-    // Check if TypeORM service is initialized
-    try {
-      return typeormService.getDataSource().manager;
-    } catch (error) {
-      if (error.message.includes('TypeORM service not initialized')) {
-        throw new Error(
-          'CapabilityRepository: TypeORM service not initialized. ' +
-          'Ensure the service that uses this repository calls typeormService.initialize() before using repository methods.'
-        );
-      }
-      throw error;
-    }
+export class CapabilityRepository extends BaseRepository<Capability> {
+  constructor() {
+    super(Capability);
   }
 
   /**

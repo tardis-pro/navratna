@@ -1,8 +1,8 @@
 // Authentication middleware exports
-export { 
-  authMiddleware, 
-  requireAdmin, 
-  requireOperator, 
+export {
+  authMiddleware,
+  requireAdmin,
+  requireOperator,
   optionalAuth,
   validateJWTConfiguration,
   validateJWTSetup,
@@ -12,7 +12,7 @@ export {
 } from './authMiddleware.js';
 
 // Request validation middleware exports  
-export { 
+export {
   validateRequest,
   validateID,
   validateUUID,
@@ -30,17 +30,17 @@ export { errorHandler, AppError } from './errorHandler.js';
 export { rateLimiter, createRateLimiter } from './rateLimiter.js';
 
 // Metrics middleware exports
-export { 
-  metricsMiddleware, 
-  recordAgentAnalysis, 
-  metricsEndpoint 
+export {
+  metricsMiddleware,
+  recordAgentAnalysis,
+  metricsEndpoint
 } from './metrics.js';
 
 // Request logging middleware exports
 export { requestLogger, defaultRequestLogger } from './requestLogger.js';
 
 // CSRF protection middleware exports
-export { 
+export {
   CSRFProtection,
   csrfProtection,
   csrfMiddleware,
@@ -59,10 +59,10 @@ export {
 export type { APIKeyRequest, APIKey } from './apiKeyAuth.js';
 
 // Type extensions
-export {} from './types';
+export { } from './types';
 
 // Enhanced Validation Middleware for TypeORM Migration
-export { AgentValidationMiddleware } from './agentValidationMiddleware.js'; 
+export { AgentValidationMiddleware } from './agentValidationMiddleware.js';
 export { AgentTransformationService } from './agentTransformationService.js';
 
 // Agent middleware exports
@@ -80,14 +80,14 @@ export {
 } from './agentMiddleware.js';
 export type { AgentContext } from './agentMiddleware.js';
 
-// JWT validator exports
+// JWT middleware exports
 export {
   JWTValidator,
   createJWTMiddleware,
   requireRole,
   requirePermissions,
   refreshTokenMiddleware
-} from './jwtValidator.js';
-export type { JWTPayload, JWTConfig } from './jwtValidator.js';
+} from './jwtMiddleware.js';
+export type { JWTPayload, JWTConfig } from './jwtMiddleware.js';
 
 

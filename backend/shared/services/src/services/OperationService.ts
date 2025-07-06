@@ -27,28 +27,28 @@ export class OperationService {
 
   public getOperationRepository(): OperationRepository {
     if (!this._operationRepository) {
-      this._operationRepository = new OperationRepository(this.typeormService.dataSource, Operation);
+      this._operationRepository = new OperationRepository();
     }
     return this._operationRepository;
   }
 
   public getOperationStateRepository(): OperationStateRepository {
     if (!this._operationStateRepository) {
-      this._operationStateRepository = new OperationStateRepository(this.typeormService.dataSource, OperationState);
+      this._operationStateRepository = new OperationStateRepository();
     }
     return this._operationStateRepository;
   }
 
   public getOperationCheckpointRepository(): OperationCheckpointRepository {
     if (!this._operationCheckpointRepository) {
-      this._operationCheckpointRepository = new OperationCheckpointRepository(this.typeormService.dataSource, OperationCheckpoint);
+      this._operationCheckpointRepository = new OperationCheckpointRepository();
     }
     return this._operationCheckpointRepository;
   }
 
   public getStepResultRepository(): StepResultRepository {
     if (!this._stepResultRepository) {
-      this._stepResultRepository = new StepResultRepository(this.typeormService.dataSource, StepResult);
+      this._stepResultRepository = new StepResultRepository();
     }
     return this._stepResultRepository;
   }

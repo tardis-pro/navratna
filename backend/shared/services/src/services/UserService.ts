@@ -1,36 +1,28 @@
-import { Repository } from 'typeorm';
-import { logger } from '@uaip/utils/logger';
-import { TypeOrmService } from '../typeormService';
-import { 
-  UserRepository, 
-  RefreshTokenRepository, 
-  PasswordResetTokenRepository 
+import {
+  UserRepository,
+  RefreshTokenRepository,
+  PasswordResetTokenRepository
 } from '../database/repositories/UserRepository';
+import { LLMProviderRepository } from '../database/repositories/LLMProviderRepository';
+import { UserLLMProviderRepository } from '../database/repositories/UserLLMProviderRepository';
 import { UserEntity } from '../entities/user.entity';
 import { RefreshTokenEntity } from '../entities/refreshToken.entity';
 import { PasswordResetTokenEntity } from '../entities/passwordResetToken.entity';
-import { OAuthProviderEntity } from '../entities/oauthProvider.entity';
-import { OAuthStateEntity } from '../entities/oauthState.entity';
-import { MFAChallengeEntity } from '../entities/mfaChallenge.entity';
-import { SessionEntity } from '../entities/session.entity';
-import bcrypt from 'bcrypt';
-import crypto from 'crypto';
+import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 
 export class UserService {
   private static instance: UserService;
-  private typeormService: TypeOrmService;
-  
+
   // Repositories
   private userRepository: UserRepository | null = null;
   private refreshTokenRepository: RefreshTokenRepository | null = null;
   private passwordResetTokenRepository: PasswordResetTokenRepository | null = null;
-  private oauthProviderRepository: Repository<OAuthProviderEntity> | null = null;
-  private oauthStateRepository: Repository<OAuthStateEntity> | null = null;
-  private mfaChallengeRepository: Repository<MFAChallengeEntity> | null = null;
-  private sessionRepository: Repository<SessionEntity> | null = null;
+  private llmProviderRepository: LLMProviderRepository | null = null;
+  private userLLMProviderRepository: UserLLMProviderRepository | null = null;
 
   private constructor() {
-    this.typeormService = TypeOrmService.getInstance();
+    // Domain service - no direct TypeORM dependencies
   }
 
   public static getInstance(): UserService {
@@ -43,130 +35,113 @@ export class UserService {
   // Repository getters with lazy initialization
   public getUserRepository(): UserRepository {
     if (!this.userRepository) {
-      this.userRepository = new UserRepository(this.typeormService.dataSource, UserEntity);
+      this.userRepository = new UserRepository();
     }
     return this.userRepository;
   }
 
   public getRefreshTokenRepository(): RefreshTokenRepository {
     if (!this.refreshTokenRepository) {
-      this.refreshTokenRepository = new RefreshTokenRepository(this.typeormService.dataSource, RefreshTokenEntity);
+      this.refreshTokenRepository = new RefreshTokenRepository();
     }
     return this.refreshTokenRepository;
   }
 
   public getPasswordResetTokenRepository(): PasswordResetTokenRepository {
     if (!this.passwordResetTokenRepository) {
-      this.passwordResetTokenRepository = new PasswordResetTokenRepository(this.typeormService.dataSource, PasswordResetTokenEntity);
+      this.passwordResetTokenRepository = new PasswordResetTokenRepository();
     }
     return this.passwordResetTokenRepository;
   }
 
-  public getOAuthProviderRepository(): Repository<OAuthProviderEntity> {
-    if (!this.oauthProviderRepository) {
-      this.oauthProviderRepository = this.typeormService.dataSource.getRepository(OAuthProviderEntity);
+  public getLLMProviderRepository(): LLMProviderRepository {
+    if (!this.llmProviderRepository) {
+      this.llmProviderRepository = new LLMProviderRepository();
     }
-    return this.oauthProviderRepository;
+    return this.llmProviderRepository;
   }
 
-  public getOAuthStateRepository(): Repository<OAuthStateEntity> {
-    if (!this.oauthStateRepository) {
-      this.oauthStateRepository = this.typeormService.dataSource.getRepository(OAuthStateEntity);
+  public getUserLLMProviderRepository(): UserLLMProviderRepository {
+    if (!this.userLLMProviderRepository) {
+      this.userLLMProviderRepository = new UserLLMProviderRepository();
     }
-    return this.oauthStateRepository;
+    return this.userLLMProviderRepository;
   }
 
-  public getMFAChallengeRepository(): Repository<MFAChallengeEntity> {
-    if (!this.mfaChallengeRepository) {
-      this.mfaChallengeRepository = this.typeormService.dataSource.getRepository(MFAChallengeEntity);
-    }
-    return this.mfaChallengeRepository;
-  }
-
-  public getSessionRepository(): Repository<SessionEntity> {
-    if (!this.sessionRepository) {
-      this.sessionRepository = this.typeormService.dataSource.getRepository(SessionEntity);
-    }
-    return this.sessionRepository;
-  }
+  // Note: OAuth, MFA, and Session operations should be handled by dedicated services
+  // These methods are kept for backward compatibility but should be migrated
 
   // User operations
   public async createUser(data: {
     email: string;
     password?: string;
-    name?: string;
+    firstName?: string;
+    lastName?: string;
     role?: string;
+    department?: string;
     isOAuthUser?: boolean;
   }): Promise<UserEntity> {
     const userRepo = this.getUserRepository();
-    
-    const user = userRepo.create({
+
+    const userData = {
       email: data.email,
-      name: data.name,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      department: data.department,
       role: data.role || 'user',
-      isOAuthUser: data.isOAuthUser || false
-    });
+      passwordHash: data.password ? await bcrypt.hash(data.password, 10) : '',
+      isActive: true
+    };
 
-    if (data.password) {
-      user.password = await bcrypt.hash(data.password, 10);
-    }
-
-    return await userRepo.save(user);
+    return await userRepo.createUser(userData);
   }
 
   public async findUserByEmail(email: string): Promise<UserEntity | null> {
-    return await this.getUserRepository().findOne({ where: { email } });
+    return await this.getUserRepository().getUserByEmail(email);
   }
 
   public async findUserById(id: string): Promise<UserEntity | null> {
-    return await this.getUserRepository().findOne({ where: { id } });
+    return await this.getUserRepository().findById(id);
   }
 
   public async updateUser(id: string, data: Partial<UserEntity>): Promise<UserEntity | null> {
-    await this.getUserRepository().update(id, data);
-    return await this.findUserById(id);
+    return await this.getUserRepository().updateUser(id, data);
   }
 
   public async deleteUser(id: string): Promise<boolean> {
-    const result = await this.getUserRepository().delete(id);
-    return result.affected !== 0;
+    return await this.getUserRepository().delete(id);
   }
 
   public async verifyPassword(user: UserEntity, password: string): Promise<boolean> {
-    if (!user.password) return false;
-    return await bcrypt.compare(password, user.password);
+    if (!user.passwordHash) return false;
+    return await bcrypt.compare(password, user.passwordHash);
   }
 
   // Refresh token operations
   public async createRefreshToken(userId: string, token: string, expiresAt: Date): Promise<RefreshTokenEntity> {
     const refreshTokenRepo = this.getRefreshTokenRepository();
-    const refreshToken = refreshTokenRepo.create({
-      user: { id: userId },
+    return await refreshTokenRepo.createRefreshToken({
+      userId,
       token,
       expiresAt
     });
-    return await refreshTokenRepo.save(refreshToken);
   }
 
   public async findRefreshToken(token: string): Promise<RefreshTokenEntity | null> {
-    return await this.getRefreshTokenRepository().findOne({
-      where: { token },
-      relations: ['user']
-    });
+    return await this.getRefreshTokenRepository().getRefreshTokenWithUser(token);
   }
 
   public async revokeRefreshToken(token: string): Promise<boolean> {
-    const result = await this.getRefreshTokenRepository().update(
-      { token },
-      { revoked: true }
-    );
-    return result.affected !== 0;
+    try {
+      await this.getRefreshTokenRepository().revokeRefreshToken(token);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   public async cleanupExpiredTokens(): Promise<void> {
-    await this.getRefreshTokenRepository().delete({
-      expiresAt: LessThan(new Date())
-    });
+    await this.getRefreshTokenRepository().cleanupExpiredRefreshTokens();
   }
 
   // Password reset operations
@@ -175,8 +150,8 @@ export class UserService {
     const expiresAt = new Date(Date.now() + 3600000); // 1 hour
 
     const resetTokenRepo = this.getPasswordResetTokenRepository();
-    await resetTokenRepo.save({
-      user: { id: userId },
+    await resetTokenRepo.createPasswordResetToken({
+      userId,
       token,
       expiresAt
     });
@@ -185,80 +160,18 @@ export class UserService {
   }
 
   public async findPasswordResetToken(token: string): Promise<PasswordResetTokenEntity | null> {
-    return await this.getPasswordResetTokenRepository().findOne({
-      where: { token, used: false },
-      relations: ['user']
-    });
+    return await this.getPasswordResetTokenRepository().getPasswordResetTokenWithUser(token);
   }
 
   public async usePasswordResetToken(token: string): Promise<boolean> {
-    const result = await this.getPasswordResetTokenRepository().update(
-      { token },
-      { used: true }
-    );
-    return result.affected !== 0;
-  }
-
-  // MFA operations
-  public async createMFAChallenge(userId: string, method: string): Promise<MFAChallengeEntity> {
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 300000); // 5 minutes
-
-    const mfaRepo = this.getMFAChallengeRepository();
-    const challenge = mfaRepo.create({
-      user: { id: userId },
-      method,
-      code,
-      expiresAt
-    });
-
-    return await mfaRepo.save(challenge);
-  }
-
-  public async verifyMFAChallenge(userId: string, code: string): Promise<boolean> {
-    const mfaRepo = this.getMFAChallengeRepository();
-    const challenge = await mfaRepo.findOne({
-      where: {
-        user: { id: userId },
-        code,
-        verified: false
-      }
-    });
-
-    if (!challenge || challenge.expiresAt < new Date()) {
+    try {
+      await this.getPasswordResetTokenRepository().markPasswordResetTokenAsUsed(token);
+      return true;
+    } catch {
       return false;
     }
-
-    await mfaRepo.update(challenge.id, { verified: true });
-    return true;
   }
 
-  // Session management
-  public async createSession(userId: string, token: string, metadata?: any): Promise<SessionEntity> {
-    const sessionRepo = this.getSessionRepository();
-    const session = sessionRepo.create({
-      user: { id: userId },
-      token,
-      metadata,
-      expiresAt: new Date(Date.now() + 86400000) // 24 hours
-    });
-
-    return await sessionRepo.save(session);
-  }
-
-  public async findSession(token: string): Promise<SessionEntity | null> {
-    return await this.getSessionRepository().findOne({
-      where: { token },
-      relations: ['user']
-    });
-  }
-
-  public async invalidateSession(token: string): Promise<boolean> {
-    const result = await this.getSessionRepository().delete({ token });
-    return result.affected !== 0;
-  }
-
-  public async invalidateUserSessions(userId: string): Promise<void> {
-    await this.getSessionRepository().delete({ user: { id: userId } });
-  }
+  // Note: MFA and Session operations have been moved to dedicated services
+  // These should be handled by SecurityService and SessionService respectively
 }

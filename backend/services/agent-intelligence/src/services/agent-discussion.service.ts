@@ -1260,6 +1260,58 @@ Reasoning: ${reasoning.join('; ')}`,
     });
   }
 
+  /**
+   * Process discussion message from agent chat
+   * This is the public method called by routes
+   */
+  async processDiscussionMessage(params: {
+    agentId: string;
+    userId: string;
+    message: string;
+    conversationId: string;
+  }): Promise<{ response: string; metadata: Record<string, unknown> }> {
+    try {
+      // Create LLM request for agent response
+      const llmRequest: LLMRequest = {
+        prompt: params.message,
+        agentId: params.agentId,
+        userId: params.userId
+      };
+
+      // Get agent response via LLM service
+      const llmResponse = await this.llmService.generateResponse(llmRequest);
+
+      // Publish discussion event
+      await this.eventBusService.publish('agent.discussion.message', {
+        agentId: params.agentId,
+        userId: params.userId,
+        conversationId: params.conversationId,
+        message: params.message,
+        response: llmResponse.content,
+        timestamp: new Date().toISOString()
+      });
+
+      return {
+        response: llmResponse.content,
+        metadata: {
+          conversationId: params.conversationId,
+          processingTime: Date.now(),
+          agentId: params.agentId
+        }
+      };
+    } catch (error) {
+      logger.error('Failed to process discussion message', { error, agentId: params.agentId });
+      return {
+        response: 'I apologize, but I encountered an error processing your message. Please try again.',
+        metadata: {
+          error: true,
+          conversationId: params.conversationId,
+          agentId: params.agentId
+        }
+      };
+    }
+  }
+
   private auditLog(event: string, data: any): void {
     logger.info(`AUDIT: ${event}`, {
       ...data,

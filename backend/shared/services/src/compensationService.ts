@@ -54,7 +54,7 @@ export class CompensationService extends EventEmitter {
   ): Promise<CompensationResult[]> {
     const startTime = Date.now();
     const controller = new AbortController();
-    
+
     try {
       logger.info('Starting compensation', {
         operationId,
@@ -63,14 +63,15 @@ export class CompensationService extends EventEmitter {
       });
 
       // Get operation details
-      const operation = await this.databaseService.getOperation(operationId);
+      const repo = this.databaseService.operations.getOperationRepository();
+      const operation = await repo.getOperationById(operationId);
       if (!operation) {
         throw new Error(`Operation ${operationId} not found`);
       }
 
       // Get compensation steps for completed steps
       const compensationSteps = await this.getCompensationSteps(operation, completedStepIds);
-      
+
       if (compensationSteps.length === 0) {
         logger.info('No compensation steps required', { operationId });
         return [];
@@ -144,7 +145,7 @@ export class CompensationService extends EventEmitter {
    */
   public async cancelCompensation(operationId: string, reason: string): Promise<void> {
     const activeCompensation = this.activeCompensations.get(operationId);
-    
+
     if (activeCompensation) {
       logger.info('Cancelling compensation', { operationId, reason });
       activeCompensation.controller.abort();
@@ -167,7 +168,7 @@ export class CompensationService extends EventEmitter {
     steps: CompensationStep[];
   } {
     const activeCompensation = this.activeCompensations.get(operationId);
-    
+
     return {
       isActive: !!activeCompensation,
       stepsCount: activeCompensation?.steps.length,
@@ -186,7 +187,7 @@ export class CompensationService extends EventEmitter {
     const compensationSteps: CompensationStep[] = [];
 
     // Find completed steps that need compensation
-    const completedSteps = operation.executionPlan.steps.filter((step: ExecutionStep) => 
+    const completedSteps = operation.executionPlan.steps.filter((step: ExecutionStep) =>
       step.id && completedStepIds.includes(step.id)
     );
 
@@ -407,14 +408,14 @@ export class CompensationService extends EventEmitter {
   private async delay(ms: number, signal: AbortSignal): Promise<void> {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(resolve, ms);
-      
+
       const abortHandler = () => {
         clearTimeout(timeout);
         reject(new Error('Compensation step was cancelled'));
       };
-      
+
       signal.addEventListener('abort', abortHandler);
-      
+
       setTimeout(() => {
         signal.removeEventListener('abort', abortHandler);
       }, ms);

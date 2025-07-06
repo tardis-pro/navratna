@@ -1,15 +1,15 @@
 import { TypeOrmService } from '../typeormService.js';
 import { ArtifactRepository } from '../database/repositories/ArtifactRepository.js';
+import { ArtifactDeploymentRepository } from '../database/repositories/ArtifactDeploymentRepository.js';
 import { Artifact } from '../entities/artifact.entity.js';
 import { ArtifactDeployment } from '../entities/artifactDeployment.entity.js';
-import { Repository } from 'typeorm';
 
 export class ArtifactService {
   private static instance: ArtifactService;
   private typeormService: TypeOrmService;
 
   private _artifactRepository: ArtifactRepository | null = null;
-  private _artifactDeploymentRepository: Repository<ArtifactDeployment> | null = null;
+  private _artifactDeploymentRepository: ArtifactDeploymentRepository | null = null;
 
   private constructor() {
     this.typeormService = TypeOrmService.getInstance();
@@ -24,14 +24,14 @@ export class ArtifactService {
 
   public getArtifactRepository(): ArtifactRepository {
     if (!this._artifactRepository) {
-      this._artifactRepository = new ArtifactRepository(this.typeormService.dataSource, Artifact);
+      this._artifactRepository = new ArtifactRepository();
     }
     return this._artifactRepository;
   }
 
-  public getArtifactDeploymentRepository(): Repository<ArtifactDeployment> {
+  public getArtifactDeploymentRepository(): ArtifactDeploymentRepository {
     if (!this._artifactDeploymentRepository) {
-      this._artifactDeploymentRepository = this.typeormService.dataSource.getRepository(ArtifactDeployment);
+      this._artifactDeploymentRepository = new ArtifactDeploymentRepository();
     }
     return this._artifactDeploymentRepository;
   }

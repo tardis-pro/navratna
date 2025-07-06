@@ -81,12 +81,13 @@ export class AgentIntelligenceService {
     }
 
     try {
-      const agents = await this.databaseService.getActiveAgents(6);
-      if (agents.length === 0) {
+      const agents = await this.databaseService.agents.findActiveAgents();
+      const limitedAgents = agents.slice(0, 6);
+      if (limitedAgents.length === 0) {
         return null;
       }
 
-      const mappedAgents: Agent[] = agents.map(agent => ({
+      const mappedAgents: Agent[] = limitedAgents.map(agent => ({
         id: agent.id,
         name: agent.name,
         role: agent.role as AgentRole,
@@ -112,7 +113,7 @@ export class AgentIntelligenceService {
 
     try {
       const validatedId = this.validateIDParam(agentId, 'agentId');
-      const agent = await this.databaseService.getActiveAgentById(validatedId);
+      const agent = await this.databaseService.agents.findAgentById(validatedId);
 
       if (!agent) {
         return null;
@@ -311,7 +312,7 @@ export class AgentIntelligenceService {
         apiType: updatePayload.apiType
       });
 
-      const updatedAgent = await this.databaseService.updateAgent(validatedId, updatePayload);
+      const updatedAgent = await this.databaseService.agents.updateAgent(validatedId, updatePayload);
       if (!updatedAgent) {
         throw new ApiError(404, 'Agent not found', 'AGENT_NOT_FOUND');
       }
@@ -387,15 +388,25 @@ export class AgentIntelligenceService {
       const createPayload = {
         ...(agentId && { id: agentId }),
         name: agentData.name,
+        displayName: agentData.displayName || agentData.name,
+        description: agentData.description,
+        type: agentData.type || 'general',
         role: role,
-        persona: agentData.persona || {},
-        intelligenceConfig: intelligenceConfig,
-        securityContext: securityContext,
+        modelProvider: agentData.modelProvider || 'openai',
+        modelName: agentData.modelName || 'gpt-4',
+        temperature: agentData.temperature,
+        maxTokens: agentData.maxTokens,
+        systemPrompt: agentData.systemPrompt,
         configuration: configuration,
-        createdBy: createdBy
+        metadata: {
+          persona: agentData.persona || {},
+          intelligenceConfig: intelligenceConfig,
+          securityContext: securityContext,
+          createdBy: createdBy
+        }
       };
 
-      const savedAgent = await this.databaseService.createAgent(createPayload);
+      const savedAgent = await this.databaseService.agents.createAgent(createPayload);
 
       const agent: Agent = {
         id: savedAgent.id,
@@ -440,7 +451,8 @@ export class AgentIntelligenceService {
 
     try {
       const validatedId = this.validateIDParam(agentId, 'agentId');
-      const wasDeactivated = await this.databaseService.deactivateAgent(validatedId);
+      const { AgentStatus } = await import('@uaip/types');
+      const wasDeactivated = await this.databaseService.agents.updateAgentStatus(validatedId, AgentStatus.INACTIVE);
 
       if (!wasDeactivated) {
         throw new ApiError(404, 'Agent not found', 'AGENT_NOT_FOUND');
@@ -833,11 +845,12 @@ export class AgentIntelligenceService {
   }
 
   private async storePlan(plan: ExecutionPlan): Promise<void> {
-    await this.databaseService.storeExecutionPlan({
+    const repo = this.databaseService.operations.getOperationRepository();
+    await repo.createOperation({
       id: plan.id,
       type: plan.type,
       agentId: plan.agentId,
-      plan: plan,
+      executionPlan: plan,
       context: plan.metadata,
       createdAt: plan.created_at
     });
@@ -845,7 +858,8 @@ export class AgentIntelligenceService {
 
   private async getOperation(operationId: string): Promise<any> {
     const validatedId = this.validateIDParam(operationId, 'operationId');
-    return await this.databaseService.getOperationById(validatedId);
+    const repo = this.databaseService.operations.getOperationRepository();
+    return await repo.getOperationById(validatedId);
   }
 
   private extractLearning(operation: any, outcomes: any, feedback: any): any {

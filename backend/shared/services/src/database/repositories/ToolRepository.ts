@@ -143,7 +143,7 @@ export class ToolRepository extends BaseRepository<ToolDefinition> {
       await this.repository
         .createQueryBuilder()
         .update()
-        .set({ 
+        .set({
           totalExecutions: () => 'total_executions + 1',
           lastUsedAt: new Date(),
           updatedAt: new Date()
@@ -255,7 +255,7 @@ export class ToolExecutionRepository extends BaseRepository<ToolExecution> {
    * Get a tool execution by ID with relations
    */
   public async getToolExecutionWithRelations(id: string): Promise<ToolExecution | null> {
-    return await this.repository.findOne({ 
+    return await this.repository.findOne({
       where: { id },
       relations: ['tool', 'agent']
     });
@@ -274,9 +274,10 @@ export class ToolUsageRepository extends BaseRepository<ToolUsageRecord> {
     const usage = this.repository.create(usageData);
     const savedUsage = await this.repository.save(usage);
 
-    // Update tool usage count
+    // Update tool usage count using repository factory
     if (usageData.toolId) {
-      const toolRepo = new ToolRepository();
+      const { repositoryFactory } = await import('../base/RepositoryFactory.js');
+      const toolRepo = repositoryFactory.getToolRepository();
       await toolRepo.incrementToolUsageCount(usageData.toolId);
     }
 

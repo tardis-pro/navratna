@@ -90,5 +90,8 @@ export class ProjectEntity extends BaseEntity {
   @Column({ type: 'bigint', name: 'total_size_bytes', default: 0 })
   totalSizeBytes!: number;
 
+  @Column({ type: 'jsonb', nullable: true })
+  metadata?: Record<string, any>;
+
   // Relations will be added when we create ProjectMember and ProjectFile entities
 }

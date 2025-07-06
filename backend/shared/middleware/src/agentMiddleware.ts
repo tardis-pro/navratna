@@ -1,19 +1,17 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { logger } from '@uaip/utils/logger';
+import { logger } from '@uaip/utils';
 import { AgentRole, SecurityLevel, AgentStatus } from '@uaip/types';
-import { DatabaseService } from '@uaip/shared-services/databaseService';
-import { EventBusService } from '@uaip/shared-services/eventBusService';
-import { validateRequest } from './validation';
 
-// Agent context interface
+// Agent context interface - simplified for middleware use
 export interface AgentContext {
   agentId: string;
-  agent: any;
   userId: string;
   permissions: string[];
   securityLevel: SecurityLevel;
-  metadata?: Record<string, any>;
+  role: AgentRole;
+  status: AgentStatus;
+  metadata?: Record<string, unknown>;
 }
 
 // Extend Express Request
@@ -24,109 +22,102 @@ declare global {
       agentExecution?: {
         startTime: number;
         operations: string[];
-        results: any[];
+        results: Array<{
+          operation: string;
+          duration: number;
+          status: number;
+        }>;
       };
     }
   }
 }
 
 // Agent validation schemas
-const agentIdSchema = z.object({
-  agentId: z.string().uuid()
-});
+const agentIdSchema = z.string().uuid();
 
-const agentOperationSchema = z.object({
-  operation: z.string(),
-  parameters: z.record(z.any()).optional(),
-  context: z.record(z.any()).optional()
-});
+// Simple agent context loader - expects context to be set by calling service
+export const loadAgentContext = (req: Request, res: Response, next: NextFunction) => {
+  const { agentId } = req.params;
 
-// Load agent context middleware
-export const loadAgentContext = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { agentId } = req.params;
-    
-    if (!agentId) {
-      return res.status(400).json({ error: 'Agent ID required' });
-    }
-
-    const db = DatabaseService.getInstance();
-    const agent = await db.getAgentRepository().findOne({
-      where: { id: agentId },
-      relations: ['capabilities', 'toolAssignments', 'toolAssignments.tool']
-    });
-
-    if (!agent) {
-      return res.status(404).json({ error: 'Agent not found' });
-    }
-
-    // Build agent context
-    req.agentContext = {
-      agentId: agent.id,
-      agent,
-      userId: req.user?.id || 'system',
-      permissions: agent.capabilities?.map(cap => cap.name) || [],
-      securityLevel: agent.securityLevel as SecurityLevel,
-      metadata: {
-        role: agent.role,
-        status: agent.status,
-        modelProvider: agent.modelProvider,
-        temperature: agent.temperature
-      }
-    };
-
-    next();
-  } catch (error) {
-    logger.error('Failed to load agent context:', error);
-    res.status(500).json({ error: 'Failed to load agent context' });
+  if (!agentId) {
+    res.status(400).json({ error: 'Agent ID required' });
+    return;
   }
+
+  // Validate agent ID format
+  const validation = agentIdSchema.safeParse(agentId);
+  if (!validation.success) {
+    res.status(400).json({
+      error: 'Invalid agent ID format',
+      details: validation.error.errors
+    });
+    return;
+  }
+
+  // Set basic context - calling service should populate this with actual agent data
+  if (!req.agentContext) {
+    req.agentContext = {
+      agentId,
+      userId: req.user?.id || 'system',
+      permissions: [],
+      securityLevel: SecurityLevel.LOW,
+      role: AgentRole.ASSISTANT,
+      status: AgentStatus.ACTIVE,
+      metadata: {}
+    };
+  }
+
+  logger.debug('Agent context initialized', {
+    agentId,
+    userId: req.user?.id
+  });
+
+  next();
 };
 
 // Validate agent permissions middleware
 export const requireAgentPermission = (requiredPermission: string) => {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.agentContext) {
-      return res.status(401).json({ error: 'Agent context required' });
+      res.status(401).json({ error: 'Agent context required' });
+      return;
     }
 
     const hasPermission = req.agentContext.permissions.includes(requiredPermission);
-    
+
     if (!hasPermission) {
       logger.warn(`Agent ${req.agentContext.agentId} lacks permission: ${requiredPermission}`);
-      return res.status(403).json({ 
+      res.status(403).json({
         error: 'Insufficient permissions',
         required: requiredPermission,
         available: req.agentContext.permissions
       });
+      return;
     }
 
     next();
   };
 };
 
-// Validate agent security level middleware
+// Validate security level middleware
 export const requireSecurityLevel = (minLevel: SecurityLevel) => {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.agentContext) {
-      return res.status(401).json({ error: 'Agent context required' });
+      res.status(401).json({ error: 'Agent context required' });
+      return;
     }
 
-    const levelOrder = {
-      [SecurityLevel.LOW]: 1,
-      [SecurityLevel.MEDIUM]: 2,
-      [SecurityLevel.HIGH]: 3,
-      [SecurityLevel.CRITICAL]: 4
-    };
+    const currentLevel = req.agentContext.securityLevel;
+    const hasAccess = currentLevel >= minLevel;
 
-    const agentLevel = levelOrder[req.agentContext.securityLevel] || 0;
-    const requiredLevel = levelOrder[minLevel] || 0;
-
-    if (agentLevel < requiredLevel) {
-      return res.status(403).json({
+    if (!hasAccess) {
+      logger.warn(`Agent ${req.agentContext.agentId} security level ${currentLevel} insufficient for required ${minLevel}`);
+      res.status(403).json({
         error: 'Insufficient security level',
         required: minLevel,
-        current: req.agentContext.securityLevel
+        current: currentLevel
       });
+      return;
     }
 
     next();
@@ -146,9 +137,7 @@ export const trackAgentOperation = (operationName: string) => {
 
     req.agentExecution.operations.push(operationName);
 
-    // Track in event bus
-    const eventBus = EventBusService.getInstance();
-    eventBus.emit('agent.operation.started', {
+    logger.debug('Agent operation started', {
       agentId: req.agentContext?.agentId,
       operation: operationName,
       userId: req.user?.id,
@@ -157,19 +146,21 @@ export const trackAgentOperation = (operationName: string) => {
 
     // Track response
     const originalSend = res.send;
-    res.send = function(data: any) {
-      req.agentExecution!.results.push({
-        operation: operationName,
-        duration: Date.now() - req.agentExecution!.startTime,
-        status: res.statusCode
-      });
+    res.send = function (data: unknown) {
+      if (req.agentExecution) {
+        req.agentExecution.results.push({
+          operation: operationName,
+          duration: Date.now() - req.agentExecution.startTime,
+          status: res.statusCode
+        });
 
-      eventBus.emit('agent.operation.completed', {
-        agentId: req.agentContext?.agentId,
-        operation: operationName,
-        duration: Date.now() - req.agentExecution!.startTime,
-        status: res.statusCode
-      });
+        logger.debug('Agent operation completed', {
+          agentId: req.agentContext?.agentId,
+          operation: operationName,
+          duration: Date.now() - req.agentExecution.startTime,
+          status: res.statusCode
+        });
+      }
 
       return originalSend.call(this, data);
     };
@@ -178,54 +169,96 @@ export const trackAgentOperation = (operationName: string) => {
   };
 };
 
-// Agent rate limiting middleware
-export const agentRateLimit = (config?: {
-  windowMs?: number;
-  maxRequests?: number;
-  keyGenerator?: (req: Request) => string;
-}) => {
-  const requests = new Map<string, { count: number; resetTime: number }>();
-  const windowMs = config?.windowMs || 60000; // 1 minute
-  const maxRequests = config?.maxRequests || 100;
+// Simple rate limiting for agent operations
+export const agentRateLimit = (maxRequests = 100, windowMs = 60000) => {
+  const requestCounts = new Map<string, { count: number; resetTime: number }>();
 
   return (req: Request, res: Response, next: NextFunction) => {
-    const key = config?.keyGenerator 
-      ? config.keyGenerator(req)
-      : req.agentContext?.agentId || req.ip;
+    if (!req.agentContext) {
+      res.status(401).json({ error: 'Agent context required' });
+      return;
+    }
 
+    const key = `${req.agentContext.agentId}:${req.user?.id || 'anonymous'}`;
     const now = Date.now();
-    const record = requests.get(key);
+    const windowStart = now - windowMs;
 
-    if (!record || record.resetTime < now) {
-      requests.set(key, {
-        count: 1,
-        resetTime: now + windowMs
-      });
-      return next();
+    let requestData = requestCounts.get(key);
+
+    if (!requestData || requestData.resetTime < windowStart) {
+      requestData = { count: 0, resetTime: now + windowMs };
+      requestCounts.set(key, requestData);
     }
 
-    if (record.count >= maxRequests) {
-      const retryAfter = Math.ceil((record.resetTime - now) / 1000);
-      res.setHeader('Retry-After', retryAfter.toString());
-      return res.status(429).json({
-        error: 'Too many requests',
-        retryAfter
+    requestData.count++;
+
+    if (requestData.count > maxRequests) {
+      logger.warn(`Rate limit exceeded for agent ${req.agentContext.agentId}`);
+      res.status(429).json({
+        error: 'Rate limit exceeded',
+        retryAfter: Math.ceil((requestData.resetTime - now) / 1000)
       });
+      return;
     }
 
-    record.count++;
     next();
   };
 };
 
-// Agent execution middleware (replaces controller logic)
+// Agent status validation middleware
+export const requireAgentStatus = (...allowedStatuses: AgentStatus[]) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.agentContext) {
+      res.status(401).json({ error: 'Agent context required' });
+      return;
+    }
+
+    if (!allowedStatuses.includes(req.agentContext.status)) {
+      logger.warn(`Agent ${req.agentContext.agentId} has invalid status: ${req.agentContext.status}`);
+      res.status(403).json({
+        error: 'Agent status not allowed',
+        required: allowedStatuses,
+        current: req.agentContext.status
+      });
+      return;
+    }
+
+    next();
+  };
+};
+
+// Agent capability validation middleware
+export const requireAgentCapability = (requiredCapability: string) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.agentContext) {
+      res.status(401).json({ error: 'Agent context required' });
+      return;
+    }
+
+    const hasCapability = req.agentContext.permissions.includes(`capability:${requiredCapability}`);
+
+    if (!hasCapability) {
+      logger.warn(`Agent ${req.agentContext.agentId} lacks capability: ${requiredCapability}`);
+      res.status(403).json({
+        error: 'Required capability not available',
+        required: requiredCapability
+      });
+      return;
+    }
+
+    next();
+  };
+};
+
+// Generic agent operation executor
 export const executeAgentOperation = (
-  operationHandler: (context: AgentContext, params: any) => Promise<any>
+  operationHandler: (context: AgentContext, params: Record<string, unknown>) => Promise<unknown>
 ) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.agentContext) {
-        return res.status(401).json({ error: 'Agent context required' });
+        res.status(401).json({ error: 'Agent context required' });
+      return;
       }
 
       const result = await operationHandler(req.agentContext, {
@@ -250,101 +283,26 @@ export const executeAgentOperation = (
   };
 };
 
-// Agent capability check middleware
-export const requireAgentCapability = (capability: string) => {
-  return async (req: Request, res: Response, next: NextFunction) => {
-    if (!req.agentContext) {
-      return res.status(401).json({ error: 'Agent context required' });
-    }
-
-    const hasCapability = req.agentContext.agent.capabilities?.some(
-      (cap: any) => cap.name === capability || cap.category === capability
-    );
-
-    if (!hasCapability) {
-      return res.status(403).json({
-        error: 'Agent lacks required capability',
-        required: capability,
-        available: req.agentContext.agent.capabilities?.map((c: any) => c.name) || []
-      });
-    }
-
-    next();
-  };
-};
-
-// Agent status validation middleware
-export const requireAgentStatus = (...allowedStatuses: AgentStatus[]) => {
+// Tool execution setup middleware
+export const executeAgentTool = (toolName: string) => {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.agentContext) {
-      return res.status(401).json({ error: 'Agent context required' });
+      res.status(401).json({ error: 'Agent context required' });
+      return;
     }
 
-    const agentStatus = req.agentContext.agent.status as AgentStatus;
-    
-    if (!allowedStatuses.includes(agentStatus)) {
-      return res.status(400).json({
-        error: 'Invalid agent status',
-        current: agentStatus,
-        required: allowedStatuses
-      });
-    }
+    logger.debug('Agent tool execution started', {
+      agentId: req.agentContext.agentId,
+      toolName,
+      parameters: req.body
+    });
 
     next();
   };
 };
 
-// Agent tool execution middleware
-export const executeAgentTool = (toolName: string) => {
-  return async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      if (!req.agentContext) {
-        return res.status(401).json({ error: 'Agent context required' });
-      }
-
-      // Check if agent has access to tool
-      const hasTool = req.agentContext.agent.toolAssignments?.some(
-        (assignment: any) => assignment.tool.name === toolName && assignment.canExecute
-      );
-
-      if (!hasTool) {
-        return res.status(403).json({
-          error: 'Agent cannot execute this tool',
-          tool: toolName
-        });
-      }
-
-      // Emit tool execution event
-      const eventBus = EventBusService.getInstance();
-      const executionId = `${req.agentContext.agentId}-${toolName}-${Date.now()}`;
-
-      eventBus.emit('agent.tool.execution.started', {
-        executionId,
-        agentId: req.agentContext.agentId,
-        toolName,
-        parameters: req.body,
-        timestamp: new Date()
-      });
-
-      // Add execution tracking to request
-      req.agentExecution = {
-        ...req.agentExecution,
-        startTime: Date.now(),
-        operations: [...(req.agentExecution?.operations || []), `tool:${toolName}`],
-        results: req.agentExecution?.results || []
-      };
-
-      next();
-    } catch (error) {
-      logger.error('Agent tool execution setup failed:', error);
-      res.status(500).json({ error: 'Tool execution failed' });
-    }
-  };
-};
-
-// Composite middleware for common agent operations
+// Composite middleware chain builder
 export const agentOperationChain = (config: {
-  requireAuth?: boolean;
   requiredPermission?: string;
   requiredCapability?: string;
   minSecurityLevel?: SecurityLevel;
@@ -352,7 +310,7 @@ export const agentOperationChain = (config: {
   trackOperation?: string;
   rateLimit?: boolean;
 }) => {
-  const middlewares: any[] = [];
+  const middlewares: Array<(req: Request, res: Response, next: NextFunction) => void> = [];
 
   // Always load agent context first
   middlewares.push(loadAgentContext);
@@ -388,18 +346,4 @@ export const agentOperationChain = (config: {
   }
 
   return middlewares;
-};
-
-// Export all middleware
-export default {
-  loadAgentContext,
-  requireAgentPermission,
-  requireSecurityLevel,
-  trackAgentOperation,
-  agentRateLimit,
-  executeAgentOperation,
-  requireAgentCapability,
-  requireAgentStatus,
-  executeAgentTool,
-  agentOperationChain
 };

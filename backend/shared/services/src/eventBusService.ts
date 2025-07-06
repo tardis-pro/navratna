@@ -37,12 +37,14 @@ interface EventBusConfig {
 
 export class EventBusService {
   private static instance: EventBusService | null = null;
-  
+  private static defaultConfig: EventBusConfig | null = null;
+  private static defaultLogger: winston.Logger | null = null;
+
   private connection: amqp.ChannelModel | null = null;
   private channel: amqp.Channel | null = null;
   private subscribers: Map<string, EventHandler[]> = new Map();
   private activeConsumers: Set<string> = new Set();
-  private isConnected: boolean = false;
+  public isConnected: boolean = false;
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number;
   private reconnectDelay: number;
@@ -60,6 +62,24 @@ export class EventBusService {
 
     // Don't connect immediately - use lazy connection
     this.logger.info('EventBusService initialized (lazy connection mode)');
+  }
+
+  public static getInstance(config?: EventBusConfig, logger?: winston.Logger): EventBusService {
+    if (!EventBusService.instance) {
+      if (!config || !logger) {
+        if (!EventBusService.defaultConfig || !EventBusService.defaultLogger) {
+          throw new Error('EventBusService requires config and logger for initial creation');
+        }
+        config = EventBusService.defaultConfig;
+        logger = EventBusService.defaultLogger;
+      } else {
+        // Store as defaults for future getInstance calls
+        EventBusService.defaultConfig = config;
+        EventBusService.defaultLogger = logger;
+      }
+      EventBusService.instance = new EventBusService(config, logger);
+    }
+    return EventBusService.instance;
   }
 
   private setupEventHandlers(): void {
@@ -746,10 +766,10 @@ export class EventBusService {
    * Publish and wait for response (request-response pattern)
    */
   public async publishAndWait(eventType: string, data: any, timeoutMs: number = 30000): Promise<any> {
-    return new Promise((resolve, reject) => {
-      const correlationId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      const responseEventType = `${eventType}.response.${correlationId}`;
+    const correlationId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const responseEventType = `${eventType}.response.${correlationId}`;
 
+    return new Promise(async (resolve, reject) => {
       // Set up timeout
       const timeout = setTimeout(() => {
         this.unsubscribe(responseEventType, responseHandler);
@@ -771,7 +791,7 @@ export class EventBusService {
       // Subscribe to response
       try {
         await this.subscribe(responseEventType, responseHandler);
-        
+
         // Publish request with correlation ID
         const requestMessage = {
           ...data,
@@ -803,18 +823,6 @@ export class EventBusService {
     }
   }
 
-  /**
-   * Get singleton instance of EventBusService
-   */
-  public static getInstance(config?: EventBusConfig, logger?: winston.Logger): EventBusService {
-    if (!EventBusService.instance) {
-      if (!config || !logger) {
-        throw new Error('EventBusService requires config and logger on first instantiation');
-      }
-      EventBusService.instance = new EventBusService(config, logger);
-    }
-    return EventBusService.instance;
-  }
 }
 
 // Export types

@@ -366,12 +366,13 @@ export class WidgetService {
     department?: string;
     securityLevel: SecurityLevel;
   }> {
-    const user = await this.databaseService.getUserById(userId);
+    const user = await this.databaseService.users.findUserById(userId);
     if (!user) {
       throw new Error('User not found');
     }
 
-    const permissions = await this.databaseService.getUserPermissions(userId);
+    // TODO: Implement getUserPermissions in UserService
+    const permissions = { rolePermissions: [], directPermissions: [] };
     const allPermissions = [
       ...permissions.rolePermissions.flatMap(rp => rp.operations),
       ...permissions.directPermissions.flatMap(dp => dp.operations)

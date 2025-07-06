@@ -1,41 +1,67 @@
-// Re-export types needed by entities
+/**
+ * UAIP Shared Services - Clean Export Index
+ * Organized by functional categories with no duplicates
+ */
+
+// =============================================================================
+// TYPES AND INTERFACES
+// =============================================================================
 export { SecurityLevel } from '@uaip/types';
+
+// =============================================================================
+// CORE INFRASTRUCTURE
+// =============================================================================
 
 // Base Service Class for all microservices
 export { BaseService, ServiceConfig, createService } from './BaseService.js';
 
-// Database Services
-export { DatabaseService } from './databaseService.js';
-// Note: TypeOrmService is internal and not exported
-
-// Domain Services
-export { UserService } from './services/UserService.js';
-export { ToolService } from './services/ToolService.js';
-export { AgentService } from './services/AgentService.js';
-export { ProjectService } from './services/ProjectService.js';
-
-// All Database-related exports (TypeORM, services, types)
+// Database Services (consolidated - no duplicates)
 export * from './database/index.js';
-
-// TypeORM Entities
-
-// Agent Intelligence Services  
-export { AgentIntelligenceService } from './agentIntelligenceService.js';
-export { CapabilityDiscoveryService } from './capabilityDiscoveryService.js';
-export { SecurityValidationService } from './securityValidationService.js';
 
 // Communication Services
 export { EventBusService } from './eventBusService.js';
 
-// Vector Search Services - Aliases for compatibility
-export { QdrantService as VectorSearchService } from './qdrant.service.js';
+// Vector Search Services
 export { QdrantService } from './qdrant.service.js';
 
-// Enterprise Services
-export { SERVICE_ACCESS_MATRIX, validateServiceAccess, AccessLevel, getDatabaseConnectionString } from './enterprise/ServiceAccessMatrix.js';
+// Cache Services
+export { redisCacheService, RedisCacheService } from './redis-cache.service.js';
 
-// Widget Services - NEW
+// =============================================================================
+// DOMAIN SERVICES
+// =============================================================================
+
+// Core Domain Services
+export { UserService } from './services/UserService.js';
+export { ToolService } from './services/ToolService.js';
+export { AgentService } from './services/AgentService.js';
+export { ProjectService } from './services/ProjectService.js';
+export { SessionService } from './services/SessionService.js';
+export { MFAService } from './services/MFAService.js';
+export { OAuthService } from './services/OAuthService.js';
+
+// Agent Intelligence Services
+export { AgentIntelligenceService } from './agentIntelligenceService.js';
+export { CapabilityDiscoveryService } from './capabilityDiscoveryService.js';
+export { SecurityValidationService } from './securityValidationService.js';
+
+// Business Logic Services
+export { ToolManagementService } from './tool-management.service.js';
+export { ToolExecutionService } from './tool-execution.service.js';
+export { OperationManagementService } from './operation-management.service.js';
+export { ProjectManagementService } from './project-management.service.js';
+export { ProjectLifecycleService } from './project-lifecycle.service.js';
+
+// Persona and Discussion Services
+export { PersonaService } from './personaService.js';
+export { DiscussionService } from './discussionService.js';
+
+// Widget Services
 export { WidgetService, WidgetServiceOptions } from './widgetService.js';
+
+// =============================================================================
+// WORKFLOW AND STATE MANAGEMENT
+// =============================================================================
 
 // State Management Services
 export { StateManagerService } from './stateManagerService.js';
@@ -45,73 +71,62 @@ export { StepExecutorService } from './stepExecutorService.js';
 export { CompensationService } from './compensationService.js';
 export { ResourceManagerService } from './resourceManagerService.js';
 
-// Persona and Discussion Services - NEW
-export { PersonaService } from './personaService.js';
-export { DiscussionService } from './discussionService.js';
+// =============================================================================
+// ENTERPRISE AND SECURITY
+// =============================================================================
 
-// Tool Services - NEW
-export type {
-} from './database/toolDatabase.js';
-export type {
+// Enterprise Services
+export { SERVICE_ACCESS_MATRIX, validateServiceAccess, AccessLevel, getDatabaseConnectionString } from './enterprise/ServiceAccessMatrix.js';
 
+// =============================================================================
+// SPECIALIZED SERVICES
+// =============================================================================
+
+// Tool Graph Types
+export type {
   ToolRelationship,
   ToolRecommendation,
   UsagePattern
 } from './database/toolGraphDatabase.js';
 
-// Knowledge Graph Services - NEW
+// Knowledge Graph Services
 export * from './knowledge-graph/index.js';
 export { UserKnowledgeService } from './user-knowledge.service.js';
 export { ContextOrchestrationService } from './context-orchestration.service.js';
 
-// Agent Memory Services - NEW
+// Agent Memory Services
 export * from './agent-memory/index.js';
-// export { EnhancedAgentIntelligenceService } from './enhanced-agent-intelligence.service.js';
 
 // Integration Services - MCP + Neo4j Sync
 export * from './integration/index.js';
 
-// Service Factory - Dependency Injection
+// =============================================================================
+// ENTITIES
+// =============================================================================
+
+// Project Management Entities
+export {
+  Project,
+  ProjectTask,
+  ProjectToolUsage,
+  ProjectAgent,
+  ProjectWorkflow,
+  TaskExecution
+} from './entities/Project.js';
+
+// =============================================================================
+// SERVICE FACTORY AND DEPENDENCY INJECTION
+// =============================================================================
+
+// Service Factory - Dependency Injection Container
 export {
   ServiceFactory,
   serviceFactory,
   getKnowledgeGraphService,
   getUserKnowledgeService,
   getContextOrchestrationService,
-  getAgentMemoryService
-} from './ServiceFactory.js';
-
-// Domain Services
-export { ToolManagementService } from './tool-management.service.js';
-export { ToolExecutionService } from './tool-execution.service.js';
-export { OperationManagementService } from './operation-management.service.js';
-export { ProjectManagementService } from './project-management.service.js';
-export { ProjectLifecycleService } from './project-lifecycle.service.js';
-
-// Project Management Entities
-export { 
-  Project, 
-  ProjectTask, 
-  ProjectToolUsage, 
-  ProjectAgent, 
-  ProjectWorkflow,
-  TaskExecution 
-} from './entities/Project.js';
-
-// TEI Embedding Services - NEW
-export { TEIEmbeddingService, RerankResult, TEIHealthStatus } from './knowledge-graph/tei-embedding.service.js';
-export { SmartEmbeddingService, EmbeddingServiceConfig, SmartEmbeddingStatus } from './knowledge-graph/smart-embedding.service.js';
-export { EnhancedRAGService, SearchResult, EnhancedSearchResult, SearchOptions } from './knowledge-graph/enhanced-rag.service.js';
-
-// Service Initializer - Easy API Integration
-export {
-  ServiceInitializer,
+  getAgentMemoryService,
   initializeServices,
-  getUserKnowledgeService as getUserKnowledgeServiceForAPI,
-  getContextOrchestrationService as getContextOrchestrationServiceForAPI,
-  getAgentMemoryService as getAgentMemoryServiceForAPI,
-  servicesHealthCheck
-} from './ServiceInitializer.js';
-
-// Redis Cache Service
-export { redisCacheService, RedisCacheService } from './redis-cache.service.js';
+  servicesHealthCheck,
+  resetServices
+} from './ServiceFactory.js';
