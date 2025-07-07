@@ -9,6 +9,19 @@ import {
 import { useAuth } from '../../../contexts/AuthContext';
 import { ProjectOnboardingFlow } from './ProjectOnboardingFlow';
 
+interface ViewportSize {
+  width: number;
+  height: number;
+  isMobile: boolean;
+  isTablet: boolean;
+  isDesktop: boolean;
+}
+
+interface ProjectManagementPortalProps {
+  viewport?: ViewportSize;
+  className?: string;
+}
+
 interface Project {
   id: string;
   name: string;
@@ -125,18 +138,18 @@ const ProjectCard: React.FC<{
           </div>
           <h3 className="font-semibold text-white truncate text-lg">{project.name}</h3>
         </div>
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300">
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 relative z-10">
           <button
             onClick={(e) => { e.stopPropagation(); onEdit(project); }}
-            className="p-2 hover:bg-slate-700/50 rounded-lg transition-all duration-200 hover:scale-105"
+            className="p-2 hover:bg-slate-700/50 rounded-lg transition-all duration-200 hover:scale-105 relative z-20 bg-slate-800/80 backdrop-blur-sm"
           >
-            <Edit3 className="w-4 h-4 text-slate-400 hover:text-blue-400 transition-colors" />
+            <Edit3 className="w-4 h-4 text-slate-400 hover:text-blue-400 transition-colors pointer-events-none" />
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(project.id); }}
-            className="p-2 hover:bg-slate-700/50 rounded-lg transition-all duration-200 hover:scale-105"
+            className="p-2 hover:bg-slate-700/50 rounded-lg transition-all duration-200 hover:scale-105 relative z-20 bg-slate-800/80 backdrop-blur-sm"
           >
-            <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-400 transition-colors" />
+            <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-400 transition-colors pointer-events-none" />
           </button>
         </div>
       </div>
@@ -231,12 +244,12 @@ const CreateProjectModal: React.FC<{
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-xl z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-xl z-[100] flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="bg-slate-900/95 backdrop-blur-2xl rounded-2xl border border-slate-800/50 p-8 w-full max-w-lg shadow-2xl shadow-black/20"
+        className="bg-slate-900/95 backdrop-blur-2xl rounded-2xl border border-slate-800/50 p-6 md:p-8 w-full max-w-lg shadow-2xl shadow-black/20 max-h-[90vh] overflow-y-auto"
       >
         <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
           <div className="w-8 h-8 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-xl flex items-center justify-center border border-blue-500/20">
@@ -326,7 +339,10 @@ const CreateProjectModal: React.FC<{
   );
 };
 
-export const ProjectManagementPortal: React.FC = () => {
+export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = ({ 
+  viewport, 
+  className = '' 
+}) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -335,6 +351,12 @@ export const ProjectManagementPortal: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<Project['status'] | 'all'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+
+  // Responsive helpers
+  const isMobile = viewport?.isMobile ?? false;
+  const isTablet = viewport?.isTablet ?? false;
+  const isDesktop = viewport?.isDesktop ?? true;
+  const gridCols = isMobile ? 1 : isTablet ? 2 : 3;
 
   // Demo data
   useEffect(() => {
@@ -427,21 +449,33 @@ export const ProjectManagementPortal: React.FC = () => {
 
   if (selectedProject) {
     return (
-      <div className="h-full bg-slate-900 p-6">
-        <div className="flex items-center gap-4 mb-6">
+      <div className={`h-full bg-slate-900 p-${isMobile ? '4' : '6'} overflow-auto ${className}`}>
+        <div className={`flex items-center gap-${isMobile ? '2' : '4'} mb-${isMobile ? '4' : '6'} ${isMobile ? 'flex-wrap' : ''}`}>
           <button
             onClick={() => setSelectedProject(null)}
-            className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+            className="p-2 hover:bg-slate-800 rounded-lg transition-colors z-10"
           >
             ←
           </button>
-          <h1 className="text-2xl font-bold text-white">{selectedProject.name}</h1>
-          <StatusBadge status={selectedProject.status} />
-          <PriorityBadge priority={selectedProject.priority} />
+          <h1 className={`${isMobile ? 'text-xl' : 'text-2xl'} font-bold text-white ${isMobile ? 'w-full' : ''}`}>
+            {selectedProject.name}
+          </h1>
+          {!isMobile && (
+            <>
+              <StatusBadge status={selectedProject.status} />
+              <PriorityBadge priority={selectedProject.priority} />
+            </>
+          )}
+          {isMobile && (
+            <div className="flex gap-2 w-full">
+              <StatusBadge status={selectedProject.status} />
+              <PriorityBadge priority={selectedProject.priority} />
+            </div>
+          )}
         </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
+        <div className={`grid grid-cols-1 ${isDesktop ? 'lg:grid-cols-3' : ''} gap-${isMobile ? '4' : '6'}`}>
+          <div className={`${isDesktop ? 'lg:col-span-2' : ''} space-y-${isMobile ? '4' : '6'}`}>
             <div className="bg-slate-800/50 rounded-xl p-4">
               <h3 className="font-semibold text-white mb-2">Description</h3>
               <p className="text-slate-300">{selectedProject.description}</p>
@@ -505,35 +539,36 @@ export const ProjectManagementPortal: React.FC = () => {
   }
 
   return (
-    <div className="h-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-8">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-xl flex items-center justify-center border border-blue-500/20">
-            <Folder className="w-5 h-5 text-blue-400" />
+    <div className={`h-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-${isMobile ? '4' : '8'} overflow-auto ${className}`}>
+      <div className={`flex items-center justify-between mb-${isMobile ? '6' : '8'} ${isMobile ? 'flex-col gap-4' : ''}`}>
+        <h1 className={`${isMobile ? 'text-2xl' : 'text-3xl'} font-bold text-white flex items-center gap-3 ${isMobile ? 'w-full' : ''}`}>
+          <div className={`${isMobile ? 'w-8 h-8' : 'w-10 h-10'} bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-xl flex items-center justify-center border border-blue-500/20`}>
+            <Folder className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} text-blue-400`} />
           </div>
           Projects
         </h1>
-        <div className="flex items-center gap-3">
+        <div className={`flex items-center gap-3 ${isMobile ? 'w-full justify-end' : ''}`}>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-800/50 text-slate-300 rounded-xl hover:bg-slate-700/50 transition-all duration-200 border border-slate-700/50"
+            className="flex items-center gap-2 px-4 py-2 bg-slate-800/50 text-slate-300 rounded-xl hover:bg-slate-700/50 transition-all duration-200 border border-slate-700/50 z-10"
             title="Quick Create"
           >
             <Plus className="w-4 h-4" />
+            {!isMobile && 'Quick'}
           </button>
           <button
             onClick={() => setShowOnboardingFlow(true)}
-            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl hover:from-blue-700 hover:to-cyan-700 transition-all duration-200 shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 hover:scale-105"
+            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl hover:from-blue-700 hover:to-cyan-700 transition-all duration-200 shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 hover:scale-105 z-10"
           >
             <Plus className="w-4 h-4" />
-            New Project
+            {isMobile ? 'New' : 'New Project'}
           </button>
         </div>
       </div>
       
-      <div className="flex items-center gap-4 mb-8">
-        <div className="flex-1 relative">
-          <Search className="w-5 h-5 absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-500" />
+      <div className={`flex items-center gap-4 mb-${isMobile ? '6' : '8'} ${isMobile ? 'flex-col' : ''}`}>
+        <div className={`${isMobile ? 'w-full' : 'flex-1'} relative`}>
+          <Search className="w-5 h-5 absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-500 z-10" />
           <input
             type="text"
             placeholder="Search projects..."
@@ -546,7 +581,7 @@ export const ProjectManagementPortal: React.FC = () => {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as Project['status'] | 'all')}
-          className="px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 appearance-none backdrop-blur-sm"
+          className={`${isMobile ? 'w-full' : ''} px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 appearance-none backdrop-blur-sm`}
         >
           <option value="all">All</option>
           <option value="planning">Planning</option>
@@ -557,7 +592,7 @@ export const ProjectManagementPortal: React.FC = () => {
         </select>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className={`grid gap-${isMobile ? '4' : '6'}`} style={{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }}>
         <AnimatePresence>
           {filteredProjects.map(project => (
             <ProjectCard

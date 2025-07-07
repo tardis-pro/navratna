@@ -297,13 +297,22 @@ export class KnowledgeBootstrapService {
   }> {
     const stats = await this.knowledgeRepository.getStatistics();
     
-    // Check Neo4j sync status
-    const neo4jResult = await this.graphDb.runQuery(`
-      MATCH (k:KnowledgeItem) 
-      RETURN count(k) as count
-    `, {});
-    
-    const syncedToNeo4j = neo4jResult.records[0]?.get('count')?.toNumber() || 0;
+    // Check Neo4j sync status - handle disconnected state gracefully
+    let syncedToNeo4j = 0;
+    try {
+      const connectionStatus = this.graphDb.getConnectionStatus();
+      if (connectionStatus.isConnected) {
+        const neo4jResult = await this.graphDb.runQuery(`
+          MATCH (k:KnowledgeItem) 
+          RETURN count(k) as count
+        `, {});
+        syncedToNeo4j = neo4jResult.records[0]?.get('count')?.toNumber() || 0;
+      } else {
+        logger.warn('Neo4j not connected, skipping sync statistics for Neo4j');
+      }
+    } catch (error) {
+      logger.warn('Failed to get Neo4j sync statistics:', error.message);
+    }
     
     // Check Qdrant sync status
     const qdrantInfo = await this.qdrantService.getCollectionInfo();

@@ -20,7 +20,9 @@ import {
   MoreVertical,
   UserPlus,
   Volume2,
-  VolumeX
+  VolumeX,
+  X,
+  Loader
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useEnhancedWebSocket } from '../../../hooks/useEnhancedWebSocket';
@@ -80,6 +82,12 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
   const [currentMessage, setCurrentMessage] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
+  
+  // User Discovery Modal
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [availableUsers, setAvailableUsers] = useState<UserContact[]>([]);
+  const [userSearchTerm, setUserSearchTerm] = useState('');
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   
   // Call Management
   const [activeCall, setActiveCall] = useState<ActiveCall | null>(null);
@@ -174,6 +182,16 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
 
     loadContacts();
   }, [isAuthenticated, user]);
+
+  // Reload users when search term changes
+  useEffect(() => {
+    if (showAddModal && userSearchTerm.length > 2) {
+      const delayedSearch = setTimeout(() => {
+        loadAvailableUsers();
+      }, 300);
+      return () => clearTimeout(delayedSearch);
+    }
+  }, [userSearchTerm, showAddModal]);
 
   // Load conversation history when chat is opened
   useEffect(() => {
@@ -511,10 +529,91 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
     }
   };
 
+  // Load Available Users for Adding
+  const loadAvailableUsers = async () => {
+    if (!user) return;
+    
+    setIsLoadingUsers(true);
+    try {
+      const response = await fetch(`/api/users/public?limit=50&search=${userSearchTerm}`, {
+        headers: {
+          'Authorization': `Bearer ${user.token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const existingContactIds = new Set(contacts.map(c => c.id));
+        
+        // Filter out current user and existing contacts
+        const availableUsers = data.data.users
+          .filter((u: any) => u.id !== user.id && !existingContactIds.has(u.id))
+          .map((u: any) => ({
+            id: u.id,
+            username: u.email.split('@')[0],
+            email: u.email,
+            displayName: u.displayName,
+            status: 'offline' as const,
+            lastSeen: new Date()
+          }));
+        
+        setAvailableUsers(availableUsers);
+      }
+    } catch (error) {
+      console.error('Error loading available users:', error);
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  };
+
+  // Send Friend Request
+  const sendFriendRequest = async (targetUserId: string) => {
+    if (!user) return;
+    
+    try {
+      const response = await fetch('/api/contacts/request', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${user.token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          targetUserId: targetUserId
+        })
+      });
+
+      if (response.ok) {
+        // Remove user from available users list
+        setAvailableUsers(prev => prev.filter(u => u.id !== targetUserId));
+        
+        // Optionally show success message
+        console.log('Friend request sent successfully');
+      } else {
+        console.error('Failed to send friend request');
+      }
+    } catch (error) {
+      console.error('Error sending friend request:', error);
+    }
+  };
+
+  // Open Add Modal
+  const openAddModal = () => {
+    setShowAddModal(true);
+    setUserSearchTerm('');
+    loadAvailableUsers();
+  };
+
   // Filter contacts based on search
   const filteredContacts = contacts.filter(contact =>
     contact.displayName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     contact.username.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Filter available users based on search
+  const filteredAvailableUsers = availableUsers.filter(user =>
+    user.displayName.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+    user.username.toLowerCase().includes(userSearchTerm.toLowerCase())
   );
 
   const getStatusColor = (status: string) => {
@@ -616,6 +715,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
               <h3 className="text-lg font-semibold text-white">Contacts</h3>
               <Button
                 size="sm"
+                onClick={openAddModal}
                 className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700"
               >
                 <UserPlus className="w-4 h-4 mr-2" />
@@ -916,6 +1016,118 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
                 </motion.button>
               </div>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Add Friend Modal */}
+      <AnimatePresence>
+        {showAddModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[10001] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setShowAddModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.8, y: 20 }}
+              className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-slate-700 w-full max-w-2xl max-h-[80vh] overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="p-6 border-b border-slate-700">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center">
+                      <UserPlus className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-white">Add Friends</h3>
+                      <p className="text-sm text-slate-400">Find and connect with other users</p>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setShowAddModal(false)}
+                    className="text-slate-400 hover:text-white"
+                  >
+                    <X className="w-5 h-5" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Search Bar */}
+              <div className="p-6 border-b border-slate-700/50">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Input
+                    value={userSearchTerm}
+                    onChange={(e) => {
+                      setUserSearchTerm(e.target.value);
+                      if (e.target.value.length > 2) {
+                        loadAvailableUsers();
+                      }
+                    }}
+                    placeholder="Search for users..."
+                    className="pl-10 bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-cyan-500"
+                  />
+                </div>
+              </div>
+
+              {/* Available Users List */}
+              <div className="flex-1 overflow-y-auto max-h-96">
+                {isLoadingUsers ? (
+                  <div className="flex items-center justify-center p-8">
+                    <Loader className="w-6 h-6 animate-spin text-cyan-500" />
+                    <span className="ml-2 text-slate-400">Loading users...</span>
+                  </div>
+                ) : filteredAvailableUsers.length > 0 ? (
+                  <div className="p-4 space-y-2">
+                    {filteredAvailableUsers.map((user) => (
+                      <motion.div
+                        key={user.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="flex items-center justify-between p-3 bg-slate-800/50 rounded-xl hover:bg-slate-700/50 transition-all"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <Avatar className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600">
+                            <div className="w-full h-full flex items-center justify-center text-white font-semibold">
+                              {user.displayName.split(' ').map(n => n[0]).join('')}
+                            </div>
+                          </Avatar>
+                          <div>
+                            <p className="font-semibold text-white">{user.displayName}</p>
+                            <p className="text-sm text-slate-400">@{user.username}</p>
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={() => sendFriendRequest(user.id)}
+                          className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700"
+                        >
+                          <UserPlus className="w-4 h-4 mr-2" />
+                          Add
+                        </Button>
+                      </motion.div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center p-8">
+                    <div className="text-center">
+                      <Users className="w-12 h-12 mx-auto mb-4 text-slate-600" />
+                      <p className="text-slate-400">
+                        {userSearchTerm ? 'No users found matching your search' : 'Enter a search term to find users'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

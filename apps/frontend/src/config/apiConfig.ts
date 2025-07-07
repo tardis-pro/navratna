@@ -123,7 +123,22 @@ export const API_ROUTES = {
   },
 
   // Knowledge Graph Service routes
-  KNOWLEDGE: '/api/v1/knowledge',
+  KNOWLEDGE: {
+    BASE: '/api/v1/knowledge',
+    UPLOAD: '/api/v1/knowledge/upload',
+    SEARCH: '/api/v1/knowledge/search',
+    GET: '/api/v1/knowledge',
+    UPDATE: '/api/v1/knowledge',
+    DELETE: '/api/v1/knowledge',
+    STATS: '/api/v1/knowledge/stats',
+    RELATIONS: '/api/v1/knowledge',
+    GRAPH: '/api/v1/knowledge/graph',
+    CATEGORIES: '/api/v1/knowledge/categories',
+    TAGS: '/api/v1/knowledge/tags',
+    EXPORT: '/api/v1/knowledge/export',
+    IMPORT: '/api/v1/knowledge/import',
+    REINDEX: '/api/v1/knowledge/reindex'
+  },
 
   // System metrics and monitoring
   SYSTEM: '/api/v1/system',

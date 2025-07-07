@@ -339,7 +339,7 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
     if (analysisMode === 'predictive') {
       generatePredictions();
     }
-  }, [stableDecisionMetrics, stableInsights, analysisMode, calculateIntelligenceMetrics, generatePredictions]);
+  }, [stableDecisionMetrics, stableInsights, analysisMode]);
 
   // Auto-refresh and deep analysis
   useEffect(() => {
@@ -350,7 +350,7 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
       
       return () => clearInterval(interval);
     }
-  }, [analysisMode, performDeepAnalysis, refreshInterval, messageCount]);
+  }, [analysisMode, refreshInterval, messageCount]); // Remove performDeepAnalysis from deps
 
   const getConfidenceColor = (confidence: number) => {
     if (confidence >= 0.8) return 'text-emerald-400 bg-emerald-500/20 border-emerald-500/30';

@@ -513,10 +513,10 @@ export const Portal: React.FC<PortalProps> = ({
                     size: { ...prev.size, width: newWidth }
                   }));
                 }}
-                className="absolute top-4 right-0 bottom-4 w-3 cursor-ew-resize z-10 group"
+                className="absolute top-4 right-0 bottom-4 w-4 cursor-ew-resize z-10 group"
                 style={{ touchAction: 'none' }}
               >
-                <div className="w-full h-full bg-white/15 group-hover:bg-blue-500/40 transition-all duration-200 border-r-2 border-white/30 shadow-sm backdrop-blur-sm rounded-l-sm" />
+                <div className="w-full h-full bg-white/20 group-hover:bg-blue-500/60 transition-all duration-200 border-r-2 border-white/40 shadow-md backdrop-blur-sm rounded-l-sm" />
               </motion.div>
 
               {/* Bottom edge resize handle */}
@@ -536,10 +536,10 @@ export const Portal: React.FC<PortalProps> = ({
                     size: { ...prev.size, height: newHeight }
                   }));
                 }}
-                className="absolute bottom-0 left-4 right-4 h-3 cursor-ns-resize z-10 group"
+                className="absolute bottom-0 left-4 right-4 h-4 cursor-ns-resize z-10 group"
                 style={{ touchAction: 'none' }}
               >
-                <div className="w-full h-full bg-white/15 group-hover:bg-blue-500/40 transition-all duration-200 border-b-2 border-white/30 shadow-sm backdrop-blur-sm rounded-t-sm" />
+                <div className="w-full h-full bg-white/20 group-hover:bg-blue-500/60 transition-all duration-200 border-b-2 border-white/40 shadow-md backdrop-blur-sm rounded-t-sm" />
               </motion.div>
 
               {/* Additional corner resize handles */}

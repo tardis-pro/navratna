@@ -31,6 +31,7 @@ import ChatHistoryManager from './ChatHistoryManager';
 import { RoleBasedDesktopConfig } from './futuristic/desktop/RoleBasedDesktopConfig';
 import { useAuth } from '../contexts/AuthContext';
 import { ProjectManagementPortal } from './futuristic/portals/ProjectManagementPortal';
+import { ProjectOnboardingFlow } from './futuristic/portals/ProjectOnboardingFlow';
 import { MapWallpaper } from './futuristic/desktop/MapWallpaper';
 import { LocationService, LocationData } from '../services/LocationService';
 
@@ -184,19 +185,23 @@ const DesktopIcon: React.FC<{ app: Application; onClick: () => void }> = ({ app,
   
   return (
     <motion.div
-      className="w-16 h-18 flex flex-col items-center justify-start cursor-pointer group select-none mx-auto"
+      className="w-16 h-18 flex flex-col items-center justify-start cursor-pointer group select-none mx-auto relative z-20 pointer-events-auto"
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
-      onClick={onClick}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onClick();
+      }}
     >
       <div className={`
         w-12 h-12 ${DESIGN_TOKENS.radius.lg} ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.border} border
         flex items-center justify-center group-hover:bg-slate-700/60 group-hover:border-slate-600/60 
-        ${DESIGN_TOKENS.transition} shadow-lg mb-1
+        ${DESIGN_TOKENS.transition} shadow-lg mb-1 pointer-events-auto
       `}>
-        <Icon className={`w-6 h-6 ${app.color}`} />
+        <Icon className={`w-6 h-6 ${app.color} pointer-events-none`} />
       </div>
-      <span className={`text-xs ${app.color} font-medium text-center w-full truncate px-0.5 drop-shadow-sm leading-tight`}>
+      <span className={`text-xs ${app.color} font-medium text-center w-full truncate px-0.5 drop-shadow-sm leading-tight pointer-events-none`}>
         {app.title.replace('Manager', 'Man.').replace('Graph', '...')}
       </span>
     </motion.div>
@@ -208,17 +213,95 @@ const Window: React.FC<{
   onClose: () => void;
   onMinimize: () => void;
   onFocus: () => void;
+  onUpdate: (windowId: string, updates: Partial<OpenWindow>) => void;
   isActive: boolean;
-}> = ({ window, onClose, onMinimize, onFocus, isActive }) => {
+}> = ({ window, onClose, onMinimize, onFocus, onUpdate, isActive }) => {
   const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeHandle, setResizeHandle] = useState<string | null>(null);
+  const [startMousePos, setStartMousePos] = useState({ x: 0, y: 0 });
+  const [startWindowPos, setStartWindowPos] = useState({ x: 0, y: 0 });
+  const [startWindowSize, setStartWindowSize] = useState({ width: 0, height: 0 });
   const Component = window.app.component;
   const Icon = window.app.icon;
 
   if (window.isMinimized) return null;
 
+  // Handle resize start
+  const handleResizeStart = (e: React.MouseEvent, handle: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsResizing(true);
+    setResizeHandle(handle);
+    setStartMousePos({ x: e.clientX, y: e.clientY });
+    setStartWindowPos({ x: window.position.x, y: window.position.y });
+    setStartWindowSize({ width: window.size.width, height: window.size.height });
+  };
+
+  // Handle resize during mouse move
+  const handleResize = useCallback((e: MouseEvent) => {
+    if (!isResizing || !resizeHandle) return;
+
+    const deltaX = e.clientX - startMousePos.x;
+    const deltaY = e.clientY - startMousePos.y;
+    
+    let newWidth = startWindowSize.width;
+    let newHeight = startWindowSize.height;
+    let newX = startWindowPos.x;
+    let newY = startWindowPos.y;
+
+    // Handle different resize directions
+    if (resizeHandle.includes('right')) {
+      newWidth = Math.max(300, startWindowSize.width + deltaX);
+    }
+    if (resizeHandle.includes('left')) {
+      newWidth = Math.max(300, startWindowSize.width - deltaX);
+      newX = startWindowPos.x + deltaX;
+      // Adjust if minimum width is reached
+      if (newWidth === 300) {
+        newX = startWindowPos.x + startWindowSize.width - 300;
+      }
+    }
+    if (resizeHandle.includes('bottom')) {
+      newHeight = Math.max(200, startWindowSize.height + deltaY);
+    }
+    if (resizeHandle.includes('top')) {
+      newHeight = Math.max(200, startWindowSize.height - deltaY);
+      newY = startWindowPos.y + deltaY;
+      // Adjust if minimum height is reached
+      if (newHeight === 200) {
+        newY = startWindowPos.y + startWindowSize.height - 200;
+      }
+    }
+
+    // Update window size and position
+    onUpdate(window.id, {
+      size: { width: newWidth, height: newHeight },
+      position: { x: newX, y: newY }
+    });
+  }, [isResizing, resizeHandle, startMousePos, startWindowPos, startWindowSize, window, onUpdate]);
+
+  // Handle resize end
+  const handleResizeEnd = useCallback(() => {
+    setIsResizing(false);
+    setResizeHandle(null);
+  }, []);
+
+  // Add mouse event listeners for resize
+  useEffect(() => {
+    if (isResizing) {
+      document.addEventListener('mousemove', handleResize);
+      document.addEventListener('mouseup', handleResizeEnd);
+      return () => {
+        document.removeEventListener('mousemove', handleResize);
+        document.removeEventListener('mouseup', handleResizeEnd);
+      };
+    }
+  }, [isResizing, handleResize, handleResizeEnd]);
+
   return (
     <motion.div
-      drag
+      drag={!isResizing}
       dragMomentum={false}
       onDragStart={() => setIsDragging(true)}
       onDragEnd={() => setIsDragging(false)}
@@ -265,6 +348,47 @@ const Window: React.FC<{
       <div className="flex-1 overflow-auto bg-white/5">
         <Component viewport={{ width: window.size.width, height: window.size.height, isMobile: false, isTablet: false, isDesktop: true }} />
       </div>
+
+      {/* Resize Handles */}
+      {isActive && (
+        <>
+          {/* Corner Handles */}
+          <div
+            className="absolute top-0 left-0 w-3 h-3 cursor-nw-resize"
+            onMouseDown={(e) => handleResizeStart(e, 'top-left')}
+          />
+          <div
+            className="absolute top-0 right-0 w-3 h-3 cursor-ne-resize"
+            onMouseDown={(e) => handleResizeStart(e, 'top-right')}
+          />
+          <div
+            className="absolute bottom-0 left-0 w-3 h-3 cursor-sw-resize"
+            onMouseDown={(e) => handleResizeStart(e, 'bottom-left')}
+          />
+          <div
+            className="absolute bottom-0 right-0 w-3 h-3 cursor-se-resize"
+            onMouseDown={(e) => handleResizeStart(e, 'bottom-right')}
+          />
+          
+          {/* Edge Handles */}
+          <div
+            className="absolute top-0 left-3 right-3 h-1 cursor-n-resize"
+            onMouseDown={(e) => handleResizeStart(e, 'top')}
+          />
+          <div
+            className="absolute bottom-0 left-3 right-3 h-1 cursor-s-resize"
+            onMouseDown={(e) => handleResizeStart(e, 'bottom')}
+          />
+          <div
+            className="absolute left-0 top-3 bottom-3 w-1 cursor-w-resize"
+            onMouseDown={(e) => handleResizeStart(e, 'left')}
+          />
+          <div
+            className="absolute right-0 top-3 bottom-3 w-1 cursor-e-resize"
+            onMouseDown={(e) => handleResizeStart(e, 'right')}
+          />
+        </>
+      )}
     </motion.div>
   );
 };
@@ -369,7 +493,7 @@ const WeatherWidget: React.FC<{
     <motion.div
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="fixed top-4 right-4 z-weather"
+      className="fixed bottom-4 left-4 z-weather"
       onMouseEnter={() => {
         setIsHovered(true);
         setShowDetails(true);
@@ -405,7 +529,7 @@ const WeatherWidget: React.FC<{
             exit={{ opacity: 0, scale: 0.9, x: 20 }}
             transition={{ duration: 0.2 }}
             className={`
-              absolute top-0 right-0
+              absolute bottom-0 left-0
               ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.radius.lg} 
               ${DESIGN_TOKENS.colors.border} border ${DESIGN_TOKENS.shadow} p-3 min-w-[200px] max-w-[220px]
             `}
@@ -661,8 +785,8 @@ const ActionsMenu: React.FC<{
   };
 
   const quickActions = [
-    { icon: Terminal, label: 'Terminal', action: () => console.log('Opening terminal...') },
-    { icon: Folder, label: 'Files', action: () => console.log('Opening file manager...') },
+    { icon: Folder, label: 'New Project', action: () => setShowProjectOnboarding(true) },
+    { icon: Upload, label: 'Add Knowledge', action: () => setShowGlobalUpload(true) },
     { icon: Calculator, label: 'Calculator', action: () => console.log('Opening calculator...') },
     { icon: Globe, label: 'Browser', action: () => window.open('https://google.com', '_blank') },
   ];
@@ -738,6 +862,10 @@ const ActionsMenu: React.FC<{
               <div className="flex justify-between">
                 <span>Add Knowledge</span>
                 <kbd className="bg-slate-700 px-1 rounded">Ctrl+Shift+N</kbd>
+              </div>
+              <div className="flex justify-between">
+                <span>New Project</span>
+                <kbd className="bg-slate-700 px-1 rounded">Ctrl+Shift+P</kbd>
               </div>
               <div className="flex justify-between">
                 <span>Quick Actions</span>
@@ -830,7 +958,7 @@ const ShortcutBar: React.FC<{
       }}
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.3 }}
-      className="fixed top-4 left-1/2 -translate-x-1/2 max-w-[90vw] z-shortcuts"
+      className="fixed bottom-4 left-1/2 -translate-x-1/2 max-w-[90vw] z-shortcuts"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -875,7 +1003,7 @@ const Taskbar: React.FC<{
 }> = ({ windows, onWindowClick, onActionsMenuToggle, onCustomizationToggle, time, userRole }) => {
   return (
     <div className={`
-      fixed bottom-0 left-0 right-0 h-12 ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} 
+      fixed top-0 left-0 right-0 h-12 ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} 
       ${DESIGN_TOKENS.colors.border} border-t flex items-center justify-between px-4 max-w-full z-50
     `}>
       {/* Start Button */}
@@ -968,6 +1096,7 @@ export const Desktop: React.FC = () => {
   const [showChatHistory, setShowChatHistory] = useState(false);
   const [showKnowledgeShortcut, setShowKnowledgeShortcut] = useState(false);
   const [selectedKnowledgeItem, setSelectedKnowledgeItem] = useState<any>(null);
+  const [showProjectOnboarding, setShowProjectOnboarding] = useState(false);
   
   // Map wallpaper state
   const [useMapWallpaper, setUseMapWallpaper] = useState(false);
@@ -1015,6 +1144,10 @@ export const Desktop: React.FC = () => {
         e.preventDefault();
         setShowGlobalUpload(true);
       }
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'P') {
+        e.preventDefault();
+        setShowProjectOnboarding(true);
+      }
       if (e.altKey && e.code === 'Space') {
         e.preventDefault();
         setShowActionsMenu(!showActionsMenu);
@@ -1027,6 +1160,7 @@ export const Desktop: React.FC = () => {
         setShowActionsMenu(false);
         setShowGlobalUpload(false);
         setShowKnowledgeShortcut(false);
+        setShowProjectOnboarding(false);
         if (selectedKnowledgeItem) {
           setSelectedKnowledgeItem(null);
         }
@@ -1081,6 +1215,16 @@ export const Desktop: React.FC = () => {
     console.log('Knowledge created:', knowledgeId);
   };
 
+  // Handle project creation from onboarding
+  const handleProjectCreated = (projectData: any) => {
+    console.log('Project created:', projectData);
+    // Optionally open the project management portal
+    const projectApp = APPLICATIONS.find(app => app.id === 'projects');
+    if (projectApp) {
+      openApplication(projectApp);
+    }
+  };
+
   // Handle knowledge examination
   const handleKnowledgeExamine = (knowledgeItem: any) => {
     setSelectedKnowledgeItem(knowledgeItem);
@@ -1101,6 +1245,7 @@ export const Desktop: React.FC = () => {
     window.addEventListener('openKnowledgePortal', handleOpenKnowledgePortal as EventListener);
     return () => window.removeEventListener('openKnowledgePortal', handleOpenKnowledgePortal as EventListener);
   }, []);
+
 
   const wallpaperPresets = [
     { name: 'Space', url: 'https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2126&q=80' },
@@ -1172,6 +1317,14 @@ export const Desktop: React.FC = () => {
     setActiveWindowId(windowId);
   };
 
+  const updateWindow = (windowId: string, updates: Partial<OpenWindow>) => {
+    setWindows(prev => prev.map(w => 
+      w.id === windowId 
+        ? { ...w, ...updates }
+        : w
+    ));
+  };
+
   return (
     <div className="min-h-screen relative overflow-hidden">
       {/* Map Wallpaper */}
@@ -1183,7 +1336,7 @@ export const Desktop: React.FC = () => {
           }}
           theme="dark"
           interactive={false}
-          className="opacity-30"
+          className="opacity-30 pointer-events-none"
         />
       )}
       
@@ -1207,7 +1360,7 @@ export const Desktop: React.FC = () => {
       </AnimatePresence>
 
       {/* Desktop Icons */}
-      <div className="p-6 pb-20" onMouseDown={() => setIsDragging(false)}>
+      <div className="p-6 mt-10 pb-20 relative z-10" onMouseDown={() => setIsDragging(false)}>
         <div className="grid grid-cols-4 md:grid-cols-8 gap-4 auto-rows-min justify-items-center">
           {APPLICATIONS.map((app) => (
             <DesktopIcon
@@ -1243,6 +1396,7 @@ export const Desktop: React.FC = () => {
             onClose={() => closeWindow(window.id)}
             onMinimize={() => minimizeWindow(window.id)}
             onFocus={() => focusWindow(window.id)}
+            onUpdate={updateWindow}
             isActive={activeWindowId === window.id}
           />
         ))}
@@ -1286,6 +1440,13 @@ export const Desktop: React.FC = () => {
         onKnowledgeCreated={handleKnowledgeCreated}
       />
 
+      {/* Project Onboarding Flow */}
+      <ProjectOnboardingFlow
+        isOpen={showProjectOnboarding}
+        onClose={() => setShowProjectOnboarding(false)}
+        onProjectCreate={handleProjectCreated}
+      />
+
       {/* Knowledge Shortcut Dialog */}
       <KnowledgeShortcut
         isOpen={showKnowledgeShortcut}
@@ -1327,6 +1488,17 @@ export const Desktop: React.FC = () => {
         title="Chat History"
       >
         <History className="w-5 h-5" />
+      </motion.button>
+
+      {/* New Project Floating Button */}
+      <motion.button
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={() => setShowProjectOnboarding(true)}
+        className="fixed bottom-20 right-20 w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 z-40 flex items-center justify-center"
+        title="New Project (Ctrl+Shift+P)"
+      >
+        <Folder className="w-5 h-5" />
       </motion.button>
 
       {/* Chat History Modal */}

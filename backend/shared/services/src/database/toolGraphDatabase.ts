@@ -135,7 +135,9 @@ export class ToolGraphDatabase {
           await new Promise(resolve => setTimeout(resolve, delay));
         } else {
           this.isConnected = false;
-          throw new Error(`Failed to connect to Neo4j after ${maxRetries} attempts. Last error: ${errorMessage}`);
+          // Mark as disconnected but don't throw - allow graceful degradation
+          logger.warn(`⚠️ Neo4j unavailable after ${maxRetries} attempts. Service will continue with reduced functionality.`);
+          return; // Return gracefully instead of throwing
         }
       } finally {
         await session.close();

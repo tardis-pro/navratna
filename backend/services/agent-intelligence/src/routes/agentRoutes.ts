@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { 
   authMiddleware, 
   validateRequest,
@@ -56,13 +56,14 @@ function getServices() {
 }
 
 // Middleware to ensure services are ready
-const ensureServicesReady = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+const ensureServicesReady = (req: Request, res: Response, next: NextFunction) => {
   const services = getServices();
   if (!services) {
-    return res.status(503).json({ 
+    res.status(503).json({ 
       error: 'Service temporarily unavailable', 
       message: 'Services are still initializing' 
     });
+    return;
   }
   next();
 };

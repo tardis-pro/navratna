@@ -21,6 +21,54 @@ class AgentIntelligenceService extends BaseService {
   protected async setupRoutes(): Promise<void> {
     // API routes
     this.app.use('/api/v1/agents', createAgentRoutes());
+    
+    // Test endpoint for manual sync trigger
+    this.app.post('/test/sync', async (req, res) => {
+      try {
+        const databaseService = this.databaseService;
+        
+        // Force Neo4j connection verification
+        const graphDb = await databaseService.getToolGraphDatabase();
+        logger.info('Testing Neo4j connection...');
+        await graphDb.verifyConnectivity(5);
+        
+        const status = graphDb.getConnectionStatus();
+        logger.info('Neo4j connection status:', status);
+        
+        if (!status.isConnected) {
+          throw new Error('Neo4j connection verification failed');
+        }
+        
+        const { KnowledgeBootstrapService } = await import('@uaip/shared-services');
+        
+        const knowledgeRepo = await databaseService.getKnowledgeRepository();
+        const qdrantService = await databaseService.getQdrantService();
+        const embeddingService = await databaseService.getSmartEmbeddingService();
+        
+        logger.info('Service instances created:', {
+          knowledgeRepo: !!knowledgeRepo,
+          qdrantService: !!qdrantService,
+          graphDb: !!graphDb,
+          embeddingService: !!embeddingService
+        });
+        
+        const bootstrap = new KnowledgeBootstrapService(
+          knowledgeRepo,
+          qdrantService,
+          graphDb,
+          embeddingService
+        );
+        
+        const result = await bootstrap.runPostSeedSync();
+        res.json({ success: true, result, neo4jStatus: status });
+      } catch (error) {
+        res.status(500).json({ 
+          success: false, 
+          error: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined
+        });
+      }
+    });
   }
 
   protected async setupEventSubscriptions(): Promise<void> {

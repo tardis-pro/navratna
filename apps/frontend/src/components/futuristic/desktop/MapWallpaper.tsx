@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 
 declare global {
@@ -14,7 +14,7 @@ interface MapWallpaperProps {
   className?: string;
 }
 
-export const MapWallpaper: React.FC<MapWallpaperProps> = ({
+export const MapWallpaper: React.FC<MapWallpaperProps> = React.memo(({
   userLocation,
   theme = 'dark',
   interactive = false,
@@ -24,11 +24,8 @@ export const MapWallpaper: React.FC<MapWallpaperProps> = ({
   const map = useRef<any>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
 
-  useEffect(() => {
-    if (!mapContainer.current || !window.maplibregl) return;
-
-    // Dark OSM style URL
-   
+  const initializeMap = useCallback(() => {
+    if (!mapContainer.current || !window.maplibregl || map.current) return;
 
     // Initialize map
     map.current = new window.maplibregl.Map({
@@ -107,18 +104,18 @@ export const MapWallpaper: React.FC<MapWallpaperProps> = ({
         setMapLoaded(true);
       });
     }
+  }, [userLocation, interactive]);
 
-    // Smooth rotation animation
-    if (!interactive) {
-     
-    }
+  useEffect(() => {
+    initializeMap();
 
     return () => {
       if (map.current) {
         map.current.remove();
+        map.current = null;
       }
     };
-  }, [userLocation, interactive]);
+  }, [initializeMap]);
 
   if (!window.maplibregl) {
     return (
@@ -149,4 +146,4 @@ export const MapWallpaper: React.FC<MapWallpaperProps> = ({
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-slate-900/20 pointer-events-none" />
     </motion.div>
   );
-};
+});

@@ -74,7 +74,7 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
   // Load stats on mount
   useEffect(() => {
     refreshStats();
-  }, [refreshStats]);
+  }, []); // Empty dependency array - only run on mount
 
   // Handle search
   const handleSearch = useCallback(async () => {
