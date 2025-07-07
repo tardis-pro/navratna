@@ -13,7 +13,7 @@ const CLIDataSource = new DataSource({
   ...createTypeOrmConfig(undefined, true), // Disable cache for CLI operations
   
   // Override paths for CLI operations (use TypeScript source files)
-  entities: ['src/entities/**/*.ts'],
+  entities: ['src/entities/**/*.ts', 'src/knowledge-graph/entities/**/*.ts'],
   migrations: ['src/migrations/**/*.ts'],
   subscribers: ['src/subscribers/**/*.ts'],
   synchronize: false, // Never synchronize in CLI operations

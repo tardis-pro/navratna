@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { ProjectOnboardingFlow } from './ProjectOnboardingFlow';
+import { projectsAPI, type Project as APIProject } from '../../../api/projects.api';
 
 interface ViewportSize {
   width: number;
@@ -358,57 +359,40 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
   const isDesktop = viewport?.isDesktop ?? true;
   const gridCols = isMobile ? 1 : isTablet ? 2 : 3;
 
-  // Demo data
+  // Load projects from API
   useEffect(() => {
-    const demoProjects: Project[] = [
-      {
-        id: '1',
-        name: 'AI Agent Enhancement',
-        description: 'Improve the intelligence and capabilities of AI agents in the system',
-        status: 'active',
-        priority: 'high',
-        progress: 65,
-        startDate: new Date('2024-01-15'),
-        dueDate: new Date('2024-03-15'),
-        team: [
-          { id: '1', name: 'Alice Johnson', role: 'AI Engineer', status: 'online' },
-          { id: '2', name: 'Bob Smith', role: 'Backend Dev', status: 'offline' }
-        ],
-        tags: ['ai', 'agents', 'enhancement'],
-        resources: [],
-        tasks: [
-          { id: '1', title: 'Research AI capabilities', status: 'done', priority: 'medium', createdAt: new Date() },
-          { id: '2', title: 'Implement new features', status: 'in_progress', priority: 'high', createdAt: new Date() },
-          { id: '3', title: 'Testing and optimization', status: 'todo', priority: 'medium', createdAt: new Date() }
-        ],
-        createdBy: 'user1',
-        createdAt: new Date('2024-01-10'),
-        updatedAt: new Date()
-      },
-      {
-        id: '2',
-        name: 'Security Gateway Upgrade',
-        description: 'Enhance security protocols and implement new authentication methods',
-        status: 'planning',
-        priority: 'critical',
-        progress: 15,
-        startDate: new Date('2024-02-01'),
-        dueDate: new Date('2024-04-01'),
-        team: [
-          { id: '3', name: 'Carol Wilson', role: 'Security Expert', status: 'busy' }
-        ],
-        tags: ['security', 'authentication', 'upgrade'],
-        resources: [],
-        tasks: [
-          { id: '4', title: 'Security audit', status: 'in_progress', priority: 'critical', createdAt: new Date() },
-          { id: '5', title: 'Design new protocols', status: 'todo', priority: 'high', createdAt: new Date() }
-        ],
-        createdBy: 'user2',
-        createdAt: new Date('2024-01-20'),
-        updatedAt: new Date()
+    const loadProjects = async () => {
+      try {
+        const apiProjects = await projectsAPI.list();
+        
+        // Convert API projects to local Project interface
+        const convertedProjects: Project[] = apiProjects.map(apiProject => ({
+          id: apiProject.id,
+          name: apiProject.name,
+          description: apiProject.description || '',
+          status: apiProject.status,
+          priority: (apiProject.metadata?.priority as Project['priority']) || 'medium',
+          progress: apiProject.metadata?.progress || 0,
+          startDate: new Date(apiProject.createdAt),
+          dueDate: apiProject.metadata?.dueDate ? new Date(apiProject.metadata.dueDate) : undefined,
+          team: apiProject.metadata?.team || [],
+          tags: apiProject.metadata?.tags || [],
+          resources: apiProject.metadata?.resources || [],
+          tasks: apiProject.metadata?.tasks || [],
+          createdBy: apiProject.ownerId,
+          createdAt: new Date(apiProject.createdAt),
+          updatedAt: new Date(apiProject.updatedAt)
+        }));
+        
+        setProjects(convertedProjects);
+      } catch (error) {
+        console.error('Failed to load projects:', error);
+        // Fallback to empty array or could show error state
+        setProjects([]);
       }
-    ];
-    setProjects(demoProjects);
+    };
+    
+    loadProjects();
   }, []);
 
   const filteredProjects = projects.filter(project => {
@@ -418,14 +402,42 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
     return matchesSearch && matchesStatus;
   });
 
-  const handleCreateProject = (projectData: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newProject: Project = {
-      ...projectData,
-      id: Date.now().toString(),
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    setProjects(prev => [newProject, ...prev]);
+  const handleCreateProject = async (projectData: any) => {
+    try {
+      // If projectData is already an API project (from onboarding flow), just add it
+      if (projectData.id && projectData.ownerId) {
+        // Convert API project to local format
+        const convertedProject: Project = {
+          id: projectData.id,
+          name: projectData.name,
+          description: projectData.description || '',
+          status: projectData.status,
+          priority: (projectData.metadata?.priority as Project['priority']) || 'medium',
+          progress: projectData.metadata?.progress || 0,
+          startDate: new Date(projectData.createdAt),
+          dueDate: projectData.metadata?.dueDate ? new Date(projectData.metadata.dueDate) : undefined,
+          team: projectData.metadata?.team || [],
+          tags: projectData.metadata?.tags || [],
+          resources: projectData.metadata?.resources || [],
+          tasks: projectData.metadata?.tasks || [],
+          createdBy: projectData.ownerId,
+          createdAt: new Date(projectData.createdAt),
+          updatedAt: new Date(projectData.updatedAt)
+        };
+        setProjects(prev => [convertedProject, ...prev]);
+      } else {
+        // Handle legacy local project creation (from quick create modal)
+        const newProject: Project = {
+          ...projectData,
+          id: Date.now().toString(),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        setProjects(prev => [newProject, ...prev]);
+      }
+    } catch (error) {
+      console.error('Failed to handle project creation:', error);
+    }
   };
 
   const handleEditProject = (projectData: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => {

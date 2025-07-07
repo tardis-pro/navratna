@@ -510,27 +510,27 @@ const MCPConfigUpload: React.FC<MCPConfigUploadProps> = ({
           <FileText size={16} className="mr-2" />
           Example Configuration
         </h4>
-        <pre className="text-sm text-gray-300 overflow-x-auto">
-{`{
-  "mcpServers": {
-    "calculator": {
-      "command": "uvx",
-      "args": ["mcp-server-calculator"]
-    },
-    "filesystem": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
-    },
-    "custom-server": {
-      "command": "node",
-      "args": ["./my-server.js"],
-      "env": {
-        "API_KEY": "your-api-key"
-      },
-      "disabled": false
-    }
-  }
-}`}
+        <pre className=" text-left font-mono text-sm text-gray-300 overflow-x-auto">
+          {JSON.stringify({
+            mcpServers: {
+              calculator: {
+                command: 'uvx',
+                args: ['mcp-server-calculator']
+              },
+              filesystem: {
+                command: 'npx',
+                args: ['-y', '@modelcontextprotocol/server-filesystem', '/tmp']
+              },
+              'custom-server': {
+                command: 'node',
+                args: ['./my-server.js'],
+                env: {
+                  API_KEY: 'your-api-key'
+                },
+                disabled: false
+              }
+            }
+          }, null, 2)}
         </pre>
       </div>
     </div>

@@ -1,7 +1,9 @@
 import express from 'express';
 import { BaseService } from '@uaip/shared-services';
 import { createAgentRoutes } from './routes/agentRoutes.js';
+import knowledgeRoutes from './routes/knowledgeRoutes.js';
 import { AgentDiscussionService } from './services/AgentDiscussionService.js';
+import { initializeChatIngestionServices } from './controllers/chatIngestionController.js';
 import { logger } from '@uaip/utils';
 
 class AgentIntelligenceService extends BaseService {
@@ -19,8 +21,20 @@ class AgentIntelligenceService extends BaseService {
   }
 
   protected async setupRoutes(): Promise<void> {
+    // Get the KnowledgeGraphService instance from the ServiceFactory
+    const { getKnowledgeGraphService } = await import('@uaip/shared-services');
+    const knowledgeGraphService = await getKnowledgeGraphService();
+    
+    // Inject services into app.locals for controller access
+    this.app.locals.services = {
+      knowledgeGraphService: knowledgeGraphService,
+      batchProcessorService: null, // Will be set when available
+      databaseService: this.databaseService
+    };
+
     // API routes
     this.app.use('/api/v1/agents', createAgentRoutes());
+    this.app.use('/api/v1/knowledge', knowledgeRoutes);
     
     // Test endpoint for manual sync trigger
     this.app.post('/test/sync', async (req, res) => {
@@ -156,6 +170,14 @@ class AgentIntelligenceService extends BaseService {
     // Initialize AgentDiscussionService
     this.agentDiscussionService = new AgentDiscussionService();
     logger.info('AgentDiscussionService initialized for WebSocket chat processing');
+
+    // Initialize chat ingestion services
+    const chatServicesInitialized = await initializeChatIngestionServices();
+    if (chatServicesInitialized) {
+      logger.info('Chat ingestion services initialized successfully');
+    } else {
+      logger.warn('Chat ingestion services failed to initialize - will use fallback mode');
+    }
 
     await this.setupRoutes();
     await this.setupEventSubscriptions();

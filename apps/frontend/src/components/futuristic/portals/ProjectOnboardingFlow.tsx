@@ -7,6 +7,8 @@ import {
   Play, Pause, AlertCircle, CheckCircle, X, Plus
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
+import { projectsAPI, type ProjectCreate } from '../../../api/projects.api';
+import { toolsAPI } from '../../../api/tools.api';
 
 interface ProjectTemplate {
   id: string;
@@ -671,39 +673,76 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
     });
     setSetupProgress(progress);
 
-    // Simulate tool setup process
+    // Real tool setup process
     for (const toolId of selectedTools) {
       progress[toolId] = 'in_progress';
       setSetupProgress({ ...progress });
       
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 3000));
+      try {
+        // Get tool details and verify it exists
+        const tool = await toolsAPI.get(toolId);
+        
+        // For OAuth-based tools, initiate OAuth flow
+        if (tool.type === 'oauth') {
+          // Store configuration for OAuth completion
+          setToolConfigurations(prev => ({
+            ...prev,
+            [toolId]: { status: 'oauth_pending', tool }
+          }));
+        }
+        
+        progress[toolId] = 'completed';
+      } catch (error) {
+        console.error(`Failed to setup tool ${toolId}:`, error);
+        progress[toolId] = 'error';
+      }
       
-      // Simulate success (90% success rate)
-      progress[toolId] = Math.random() > 0.1 ? 'completed' : 'error';
       setSetupProgress({ ...progress });
     }
 
     setIsSetupInProgress(false);
   };
 
-  const handleProjectComplete = () => {
-    const completeProjectData = {
-      ...projectData,
-      template: selectedTemplate?.id,
-      tools: selectedTools,
-      toolConfigurations,
-      progress: 0,
-      startDate: new Date(),
-      team: [],
-      resources: [],
-      tasks: generateInitialTasks(selectedTemplate),
-      createdBy: user?.id || `anonymous-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-    };
+  const handleProjectComplete = async () => {
+    try {
+      // Prepare project data for API
+      const projectCreateData: ProjectCreate = {
+        name: projectData.name,
+        description: projectData.description,
+        type: selectedTemplate?.id || 'custom',
+        visibility: 'private',
+        settings: {
+          allowedTools: selectedTools,
+          enabledFeatures: [],
+          template: selectedTemplate?.id,
+          toolConfigurations,
+          priority: projectData.priority,
+          dueDate: projectData.dueDate || null
+        },
+        metadata: {
+          progress: 0,
+          tasks: generateInitialTasks(selectedTemplate),
+          onboardingCompleted: true,
+          template: selectedTemplate?.name || 'Custom'
+        }
+      };
 
-    onProjectCreate(completeProjectData);
-    resetOnboardingState();
-    onClose();
+      // Create project via API
+      const createdProject = await projectsAPI.create(projectCreateData);
+      
+      // Assign tools to the project if any were selected
+      if (selectedTools.length > 0) {
+        await projectsAPI.assignTools(createdProject.id, selectedTools);
+      }
+
+      // Call the parent callback with the created project
+      onProjectCreate(createdProject);
+      resetOnboardingState();
+      onClose();
+    } catch (error) {
+      console.error('Failed to create project:', error);
+      // You could add error state here to show user feedback
+    }
   };
 
   const generateInitialTasks = (template: ProjectTemplate | null) => {

@@ -301,60 +301,7 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
     <div className={`h-full flex flex-col bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white ${className}`}>
       {/* Header */}
       <div className="p-4 border-b border-slate-700/50 bg-black/20 backdrop-blur-sm">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-3">
-            <Globe className="w-8 h-8 text-blue-400" />
-            <div>
-              <h2 className="text-2xl font-bold text-white">Mini Browser</h2>
-              <p className="text-blue-300">Browse iframe-friendly sites, capture, and save to knowledge base</p>
-              <p className="text-yellow-400 text-xs">Note: Some sites (Google, Facebook, etc.) block iframe embedding</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            {/* Viewport Selector */}
-            <Select 
-              value={currentViewport.name} 
-              onValueChange={(name) => {
-                const viewport = VIEWPORT_SIZES.find(v => v.name === name);
-                if (viewport) setCurrentViewport(viewport);
-              }}
-            >
-              <SelectTrigger className="w-32 bg-slate-800/50 border-slate-600/50">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {VIEWPORT_SIZES.map((viewport) => (
-                  <SelectItem key={viewport.name} value={viewport.name}>
-                    <div className="flex items-center gap-2">
-                      {viewport.icon}
-                      <span>{viewport.name}</span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Screenshot Button */}
-            <Button
-              onClick={captureScreenshot}
-              disabled={isCapturing}
-              className="bg-purple-600 hover:bg-purple-700"
-            >
-              {isCapturing ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Capturing...
-                </>
-              ) : (
-                <>
-                  <Camera className="w-4 h-4 mr-2" />
-                  Screenshot
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
+        
 
         {/* Browser Controls */}
         <div className="space-y-3">
@@ -423,6 +370,16 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
               >
                 <RotateCcw className="w-4 h-4" />
               </Button>
+              <Button
+              onClick={captureScreenshot}
+              disabled={isCapturing}
+              className={`bg-${isCapturing? "purple" : "pink"}-600 hover:bg-purple-700`}
+            >
+              
+                  <Camera className="w-4 h-4 mr-2" />
+                  
+                
+            </Button>
             </div>
 
             <form onSubmit={handleUrlSubmit} className="flex-1">
@@ -448,9 +405,9 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
               { name: 'Example.com', url: 'https://example.com' },
               { name: 'Wikipedia', url: 'https://en.wikipedia.org' },
               { name: 'MDN Docs', url: 'https://developer.mozilla.org' },
-              { name: 'Stack Overflow', url: 'https://stackoverflow.com' },
-              { name: 'JSONPlaceholder', url: 'https://jsonplaceholder.typicode.com' },
-              { name: 'Lorem Ipsum', url: 'https://loremipsum.io' }
+              { name: 'Docs', url: 'https://devdocs.io' },
+              { name: 'Docs', url: 'https://devhint.io' },
+              { name: '3d kithen sink', url: 'https://tardis3d.netlify.app/' }
             ].map((site) => (
               <Button
                 key={site.name}
@@ -470,7 +427,7 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
       <div className="flex-1 flex overflow-hidden">
         {/* Main Browser */}
         <div className="flex-1 flex flex-col bg-white">
-          <div className="flex-1 relative">
+          <div className="flex-1 relative overflow-auto">
             {!activeTab?.hasError ? (
               <iframe
                 ref={iframeRef}
@@ -499,7 +456,8 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
                       {[
                         { name: 'Example.com', url: 'https://example.com' },
                         { name: 'Wikipedia', url: 'https://en.wikipedia.org' },
-                        { name: 'MDN Docs', url: 'https://developer.mozilla.org' }
+                        { name: 'MDN Docs', url: 'https://developer.mozilla.org' },
+                       
                       ].map((site) => (
                         <Button
                           key={site.name}
@@ -668,7 +626,7 @@ const SaveScreenshotDialog: React.FC<SaveScreenshotDialogProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl z-[60]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="w-5 h-5" />

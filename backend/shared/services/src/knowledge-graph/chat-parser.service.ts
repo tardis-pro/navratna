@@ -344,7 +344,8 @@ export class ChatParserService {
       });
     }
 
-    return this.createConversationFromMessages(messages, 'claude', filename, conversationId, data.title);
+    const conversations = this.createConversationFromMessages(messages, 'claude', filename, conversationId, data.title);
+    return conversations.length > 0 ? conversations[0] : this.createEmptyConversation('claude', filename, conversationId);
   }
 
   private convertGPTConversation(data: any, filename: string, index: number): ParsedConversation {
@@ -364,7 +365,8 @@ export class ChatParserService {
       });
     }
 
-    return this.createConversationFromMessages(messages, 'gpt', filename, conversationId, data.title);
+    const conversations = this.createConversationFromMessages(messages, 'gpt', filename, conversationId, data.title);
+    return conversations.length > 0 ? conversations[0] : this.createEmptyConversation('gpt', filename, conversationId);
   }
 
   private createMessage(sender: string, content: string, index: number): ParsedMessage {
@@ -410,6 +412,23 @@ export class ChatParserService {
         parsedAt: new Date()
       }
     }];
+  }
+
+  private createEmptyConversation(platform: string, filename: string, id?: string): ParsedConversation {
+    return {
+      id: id || uuidv4(),
+      platform: platform as any,
+      title: `Empty ${platform} conversation from ${filename}`,
+      participants: [],
+      messages: [],
+      metadata: {
+        totalMessages: 0,
+        dateRange: { start: new Date(), end: new Date() },
+        fileSize: 0,
+        originalFilename: filename,
+        parsedAt: new Date()
+      }
+    };
   }
 
   private parseWhatsAppTimestamp(dateStr: string, timeStr: string): Date {

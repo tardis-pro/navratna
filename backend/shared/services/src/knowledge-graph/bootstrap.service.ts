@@ -11,6 +11,9 @@ import { OntologyBuilderService } from './ontology-builder.service.js';
 import { TaxonomyGeneratorService } from './taxonomy-generator.service.js';
 import { ReconciliationService } from './reconciliation.service.js';
 import { QdrantHealthService } from './qdrant-health.service.js';
+import { ChatParserService } from './chat-parser.service.js';
+import { ChatKnowledgeExtractorService } from './chat-knowledge-extractor.service.js';
+import { BatchProcessorService } from './batch-processor.service.js';
 import { logger } from '@uaip/utils';
 
 export interface BootstrapConfig {
@@ -39,6 +42,9 @@ export class KnowledgeBootstrapService {
   private taxonomyGenerator: TaxonomyGeneratorService;
   private reconciliationService: ReconciliationService;
   private qdrantHealthService: QdrantHealthService;
+  private chatParser: ChatParserService;
+  private chatKnowledgeExtractor: ChatKnowledgeExtractorService;
+  private batchProcessor: BatchProcessorService;
   private isBootstrapped = false;
   private bootstrapPromise: Promise<void> | null = null;
 
@@ -89,6 +95,11 @@ export class KnowledgeBootstrapService {
     this.taxonomyGenerator = new TaxonomyGeneratorService(this.knowledgeRepository, this.contentClassifier);
     this.reconciliationService = new ReconciliationService(this.embeddingService, this.knowledgeRepository, this.syncService);
     this.qdrantHealthService = new QdrantHealthService(this.qdrantService, this.knowledgeRepository, this.embeddingService, this.graphDb);
+    
+    // Initialize chat services
+    this.chatParser = new ChatParserService();
+    this.chatKnowledgeExtractor = new ChatKnowledgeExtractorService(this.contentClassifier, this.embeddingService);
+    // Note: batchProcessor will be initialized after KnowledgeGraphService is available
   }
 
   /**
@@ -494,11 +505,11 @@ export class KnowledgeBootstrapService {
   }
 
   /**
-   * Run comprehensive knowledge reconciliation
+   * Run comprehensive knowledge reconciliation (deprecated - use overloaded version)
    */
-  async runKnowledgeReconciliation(): Promise<void> {
+  async runLegacyKnowledgeReconciliation(): Promise<void> {
     try {
-      logger.info('Running knowledge reconciliation...');
+      logger.info('Running legacy knowledge reconciliation...');
 
       // Detect conflicts across all knowledge
       const conflicts = await this.reconciliationService.detectConflicts(
@@ -724,5 +735,130 @@ export class KnowledgeBootstrapService {
   async forceSyncToQdrant(maxItems: number = 50): Promise<{ synced: number; errors: number }> {
     logger.info(`Force syncing up to ${maxItems} items to Qdrant...`);
     return await this.qdrantHealthService.syncKnowledgeIfNeeded(maxItems);
+  }
+
+  // ============================================
+  // Chat Ingestion Initialization
+  // ============================================
+
+  /**
+   * Initialize chat ingestion services
+   */
+  async initializeChatIngestion(): Promise<void> {
+    try {
+      logger.info('Initializing chat ingestion services...');
+      
+      // Services are already initialized in constructor
+      // Additional setup can be added here if needed
+      
+      logger.info('Chat ingestion services initialized successfully');
+    } catch (error) {
+      logger.error('Failed to initialize chat ingestion services:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Setup ontology services (already done in constructor)
+   */
+  async setupOntologyServices(): Promise<void> {
+    try {
+      logger.info('Setting up ontology services...');
+      
+      // Ontology services are already initialized in constructor
+      // Additional setup can be added here if needed
+      
+      logger.info('Ontology services setup completed');
+    } catch (error) {
+      logger.error('Failed to setup ontology services:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Run knowledge reconciliation process
+   */
+  async runKnowledgeReconciliation(domain?: string): Promise<any> {
+    try {
+      logger.info('Running knowledge reconciliation...', { domain });
+      
+      // Get knowledge items for the domain
+      const items = domain 
+        ? await this.knowledgeRepository.findByDomain(domain)
+        : await this.knowledgeRepository.findRecentItems(100);
+
+      logger.info(`Found ${items.length} knowledge items for reconciliation`);
+
+      // Detect conflicts
+      const conflicts = await this.reconciliationService.detectConflicts(items);
+      logger.info(`Detected ${conflicts.length} knowledge conflicts`);
+
+      // Resolve conflicts
+      const resolution = conflicts.length > 0 
+        ? await this.reconciliationService.resolveConflicts(conflicts, {
+            autoResolve: true,
+            preserveHistory: true,
+            generateSummaries: true
+          })
+        : null;
+
+      // Merge duplicates
+      const mergeResult = await this.reconciliationService.mergeDuplicates(items);
+      logger.info(`Merged ${Array.isArray(mergeResult) ? mergeResult.length : 0} duplicate knowledge items`);
+
+      // Generate summaries
+      const summaries = await this.reconciliationService.generateSummaries(items);
+      logger.info(`Generated ${summaries.length} knowledge summaries`);
+
+      const result = {
+        domain: domain || 'all',
+        itemsProcessed: items.length,
+        conflictsDetected: conflicts.length,
+        conflictsResolved: resolution?.resolved || 0,
+        duplicatesMerged: Array.isArray(mergeResult) ? mergeResult.length : 0,
+        summariesGenerated: summaries.length,
+        processingTime: Date.now()
+      };
+
+      logger.info('Knowledge reconciliation completed', result);
+      return result;
+
+    } catch (error) {
+      logger.error('Failed to run knowledge reconciliation:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Initialize batch processor with knowledge graph service
+   */
+  initializeBatchProcessor(knowledgeGraphService: any): void {
+    this.batchProcessor = new BatchProcessorService(
+      this.chatParser,
+      this.chatKnowledgeExtractor,
+      knowledgeGraphService
+    );
+    logger.info('Batch processor initialized');
+  }
+
+  /**
+   * Get chat parser service
+   */
+  getChatParser(): ChatParserService {
+    return this.chatParser;
+  }
+
+  /**
+   * Get chat knowledge extractor service
+   */
+  getChatKnowledgeExtractor(): ChatKnowledgeExtractorService {
+    return this.chatKnowledgeExtractor;
+  }
+
+  /**
+   * Get batch processor service
+   */
+  getBatchProcessor(): BatchProcessorService | null {
+    return this.batchProcessor || null;
   }
 }

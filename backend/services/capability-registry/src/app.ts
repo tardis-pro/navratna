@@ -79,7 +79,18 @@ export class CapabilityRegistryApp {
     
     this.app.use('/api/v1/tools', toolRoutes);
 
+    // TEST: Simple MCP route
+    this.app.get('/api/v1/mcp/test-direct', (req, res) => {
+      res.json({ success: true, message: 'Direct MCP route working' });
+    });
+
     // MCP configuration routes
+    logger.info('Mounting MCP routes...', { mcpRoutesType: typeof mcpRoutes });
+    if (!mcpRoutes) {
+      logger.error('mcpRoutes is undefined!');
+    } else {
+      logger.info('mcpRoutes is available, mounting at /api/v1/mcp');
+    }
     this.app.use('/api/v1/mcp', mcpRoutes);
 
     // 404 handler

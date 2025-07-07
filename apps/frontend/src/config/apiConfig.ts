@@ -137,7 +137,14 @@ export const API_ROUTES = {
     TAGS: '/api/v1/knowledge/tags',
     EXPORT: '/api/v1/knowledge/export',
     IMPORT: '/api/v1/knowledge/import',
-    REINDEX: '/api/v1/knowledge/reindex'
+    REINDEX: '/api/v1/knowledge/reindex',
+    // Chat ingestion endpoints
+    CHAT_IMPORT: '/api/v1/knowledge/chat-import',
+    CHAT_JOBS: '/api/v1/knowledge/chat-jobs',
+    GENERATE_QA: '/api/v1/knowledge/generate-qa',
+    EXTRACT_WORKFLOWS: '/api/v1/knowledge/extract-workflows',
+    EXPERTISE: '/api/v1/knowledge/expertise',
+    LEARNING_INSIGHTS: '/api/v1/knowledge/learning-insights'
   },
 
   // System metrics and monitoring

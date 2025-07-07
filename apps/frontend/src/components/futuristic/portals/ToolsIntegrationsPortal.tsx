@@ -325,9 +325,11 @@ export const ToolsIntegrationsPortal: React.FC = () => {
   };
 
   const renderToolsTab = () => {
-    const mcpTools = availableTools.filter(tool => tool.category === 'mcp');
-    const oauthTools = availableTools.filter(tool => tool.category === 'oauth');
-    const otherTools = availableTools.filter(tool => !['mcp', 'oauth'].includes(tool.category));
+    console.log(availableTools);
+    
+    const mcpTools = availableTools ?  availableTools.filter(tool => tool.category === 'mcp'): [];
+    const oauthTools = availableTools ? availableTools.filter(tool => tool.category === 'oauth') : [];
+    const otherTools = availableTools ?  availableTools.filter(tool => !['mcp', 'oauth'].includes(tool.category)) : [];
 
     return (
       <div className="space-y-6">
@@ -441,7 +443,7 @@ export const ToolsIntegrationsPortal: React.FC = () => {
         {[
           { id: 'mcp', label: 'MCP Servers', count: systemStatus?.mcp.totalServers },
           { id: 'oauth', label: 'OAuth Providers', count: systemStatus?.oauth.connectedProviders },
-          { id: 'tools', label: 'Available Tools', count: availableTools.length }
+          { id: 'tools', label: 'Available Tools', count: availableTools?.length }
         ].map((tab) => (
           <button
             key={tab.id}

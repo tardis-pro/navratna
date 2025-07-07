@@ -286,5 +286,123 @@ export const knowledgeAPI = {
     duration: number;
   }> {
     return APIClient.post(API_ROUTES.KNOWLEDGE.REINDEX);
+  },
+
+  // Chat ingestion methods
+  async importChatFile(file: File, options?: {
+    extractWorkflows?: boolean;
+    generateQA?: boolean;
+    analyzeExpertise?: boolean;
+    detectLearning?: boolean;
+  }): Promise<{
+    jobId: string;
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    message?: string;
+  }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (options) {
+      formData.append('options', JSON.stringify(options));
+    }
+    return APIClient.post(API_ROUTES.KNOWLEDGE.CHAT_IMPORT, formData);
+  },
+
+  async getChatJobStatus(jobId: string): Promise<{
+    id: string;
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    progress: number;
+    filesProcessed: number;
+    totalFiles: number;
+    extractedItems: number;
+    error?: string;
+    results?: {
+      knowledgeItems: number;
+      qaPairs: number;
+      workflows: number;
+      expertiseProfiles: number;
+      learningMoments: number;
+    };
+  }> {
+    return APIClient.get(`${API_ROUTES.KNOWLEDGE.CHAT_JOBS}/${jobId}`);
+  },
+
+  async generateQAFromKnowledge(domain?: string, limit?: number): Promise<{
+    qaPairs: Array<{
+      question: string;
+      answer: string;
+      source: string;
+      confidence: number;
+      topic: string;
+    }>;
+    generated: number;
+  }> {
+    const params = new URLSearchParams();
+    if (domain) params.append('domain', domain);
+    if (limit) params.append('limit', limit.toString());
+    
+    const url = `${API_ROUTES.KNOWLEDGE.GENERATE_QA}?${params.toString()}`;
+    return APIClient.post(url);
+  },
+
+  async extractWorkflows(conversationIds?: string[]): Promise<{
+    workflows: Array<{
+      name: string;
+      steps: Array<{
+        action: string;
+        description: string;
+        order: number;
+      }>;
+      prerequisites: string[];
+      outcomes: string[];
+      confidence: number;
+      source: string;
+    }>;
+    extracted: number;
+  }> {
+    const body = conversationIds ? { conversationIds } : {};
+    return APIClient.post(API_ROUTES.KNOWLEDGE.EXTRACT_WORKFLOWS, body);
+  },
+
+  async getExpertiseProfile(participant: string): Promise<{
+    participant: string;
+    domains: Array<{
+      domain: string;
+      confidence: number;
+      topics: string[];
+      evidenceCount: number;
+    }>;
+    overallConfidence: number;
+    totalInteractions: number;
+    knowledgeAreas: string[];
+  }> {
+    return APIClient.get(`${API_ROUTES.KNOWLEDGE.EXPERTISE}/${encodeURIComponent(participant)}`);
+  },
+
+  async getLearningInsights(participant?: string): Promise<{
+    insights: Array<{
+      learner: string;
+      teacher: string;
+      topic: string;
+      content: string;
+      timestamp: string;
+      confidence: number;
+    }>;
+    progressions: Array<{
+      learner: string;
+      topic: string;
+      progression: Array<{
+        timestamp: string;
+        level: string;
+        evidence: string;
+      }>;
+    }>;
+    totalLearningMoments: number;
+    activeTopics: string[];
+  }> {
+    const params = new URLSearchParams();
+    if (participant) params.append('participant', participant);
+    
+    const url = `${API_ROUTES.KNOWLEDGE.LEARNING_INSIGHTS}?${params.toString()}`;
+    return APIClient.get(url);
   }
 };

@@ -9,6 +9,7 @@ import {
   KnowledgeFilters,
   KnowledgeScope
 } from '@uaip/types';
+import { logger } from '@uaip/utils';
 import { QdrantService } from '../qdrant.service.js';
 import { KnowledgeRepository } from '../database/repositories/knowledge.repository.js';
 import { EmbeddingService } from './embedding.service.js';
@@ -19,12 +20,42 @@ import { OntologyBuilderService } from './ontology-builder.service.js';
 import { TaxonomyGeneratorService } from './taxonomy-generator.service.js';
 import { ReconciliationService } from './reconciliation.service.js';
 import { KnowledgeSyncService } from './knowledge-sync.service.js';
+import { ChatParserService } from './chat-parser.service.js';
+import { ChatKnowledgeExtractorService } from './chat-knowledge-extractor.service.js';
+import { BatchProcessorService, FileData, ProcessingOptions, BatchResult } from './batch-processor.service.js';
+import { QAGeneratorService, GeneratedQA, QAGenerationOptions } from './qa-generator.service.js';
+import { WorkflowExtractorService, ExtractedWorkflow, WorkflowExtractionOptions } from './workflow-extractor.service.js';
+import { ExpertiseAnalyzerService, ExpertiseProfile, ExpertiseAnalysisOptions } from './expertise-analyzer.service.js';
+import { LearningDetectorService, LearningMoment, LearningDetectionOptions } from './learning-detector.service.js';
+
+export interface IngestionOptions {
+  extractKnowledge?: boolean;
+  saveToGraph?: boolean;
+  generateEmbeddings?: boolean;
+  batchSize?: number;
+  concurrency?: number;
+}
+
+export interface IngestionResult {
+  conversationsFound: number;
+  knowledgeExtracted: number;
+  processingTime: number;
+  success: boolean;
+  errors?: string[];
+}
 
 export class KnowledgeGraphService {
   private readonly conceptExtractor: ConceptExtractorService;
   private readonly ontologyBuilder: OntologyBuilderService;
   private readonly taxonomyGenerator: TaxonomyGeneratorService;
   private readonly reconciliationService: ReconciliationService;
+  private readonly chatParser: ChatParserService;
+  private readonly chatKnowledgeExtractor: ChatKnowledgeExtractorService;
+  private readonly batchProcessor: BatchProcessorService;
+  private readonly qaGenerator: QAGeneratorService;
+  private readonly workflowExtractor: WorkflowExtractorService;
+  private readonly expertiseAnalyzer: ExpertiseAnalyzerService;
+  private readonly learningDetector: LearningDetectorService;
 
   constructor(
     private readonly vectorDb: QdrantService,
@@ -39,6 +70,17 @@ export class KnowledgeGraphService {
     this.ontologyBuilder = new OntologyBuilderService(this.conceptExtractor, this.repository, this.knowledgeSync);
     this.taxonomyGenerator = new TaxonomyGeneratorService(this.repository, this.classifier);
     this.reconciliationService = new ReconciliationService(this.embeddings, this.repository, this.knowledgeSync);
+    
+    // Initialize chat services
+    this.chatParser = new ChatParserService();
+    this.chatKnowledgeExtractor = new ChatKnowledgeExtractorService(this.classifier, this.embeddings);
+    this.batchProcessor = new BatchProcessorService(this.chatParser, this.chatKnowledgeExtractor, this);
+    
+    // Initialize Phase 2 services
+    this.qaGenerator = new QAGeneratorService(this.repository, this.classifier, this.embeddings);
+    this.workflowExtractor = new WorkflowExtractorService(this.classifier, this.embeddings);
+    this.expertiseAnalyzer = new ExpertiseAnalyzerService(this.classifier, this.embeddings);
+    this.learningDetector = new LearningDetectorService(this.classifier, this.embeddings);
   }
 
   /**
@@ -486,5 +528,315 @@ export class KnowledgeGraphService {
       results.processingTime = Date.now() - startTime;
       throw error;
     }
+  }
+
+  // ============================================
+  // Chat Ingestion Methods
+  // ============================================
+
+  /**
+   * Ingest a single chat file and extract knowledge
+   */
+  async ingestChatFile(file: FileData, options: IngestionOptions = {}): Promise<IngestionResult> {
+    const startTime = Date.now();
+    const result: IngestionResult = {
+      conversationsFound: 0,
+      knowledgeExtracted: 0,
+      processingTime: 0,
+      success: false,
+      errors: []
+    };
+
+    try {
+      // Parse conversations from file
+      const parseResult = await this.chatParser.parseFile(file.content, file.name);
+      const conversations = parseResult.conversations;
+
+      result.conversationsFound = conversations.length;
+
+      if (conversations.length === 0) {
+        result.errors = ['No conversations found in file'];
+        return result;
+      }
+
+      // Extract knowledge from conversations
+      if (options.extractKnowledge !== false) {
+        let totalKnowledgeExtracted = 0;
+
+        for (const conversation of conversations) {
+          const knowledge = await this.chatKnowledgeExtractor.extractKnowledgeFromConversations(
+            [conversation],
+            {
+              extractQA: true,
+              extractDecisions: true,
+              extractExpertise: true,
+              extractLearning: true
+            }
+          );
+
+          const knowledgeCount = knowledge.extractedKnowledge.length +
+            knowledge.qaPairs.length +
+            knowledge.decisionPoints.length +
+            knowledge.expertiseAreas.length +
+            knowledge.learningMoments.length;
+
+          totalKnowledgeExtracted += knowledgeCount;
+
+          // Save to knowledge graph if requested
+          if (options.saveToGraph !== false) {
+            await this.saveExtractedKnowledge(knowledge, file.userId);
+          }
+        }
+
+        result.knowledgeExtracted = totalKnowledgeExtracted;
+      }
+
+      result.success = true;
+      result.processingTime = Date.now() - startTime;
+      return result;
+
+    } catch (error) {
+      result.errors = [error.message];
+      result.processingTime = Date.now() - startTime;
+      return result;
+    }
+  }
+
+  /**
+   * Process multiple chat files in batch
+   */
+  async processBatchUpload(files: FileData[], options: ProcessingOptions = {}): Promise<string> {
+    return await this.batchProcessor.startBatchJob(files, options);
+  }
+
+  /**
+   * Get batch processing job status
+   */
+  getBatchJobStatus(jobId: string) {
+    return this.batchProcessor.getJobStatus(jobId);
+  }
+
+  /**
+   * Get batch processing statistics
+   */
+  getBatchProcessingStats() {
+    return this.batchProcessor.getJobStatistics();
+  }
+
+  /**
+   * Generate Q&A pairs from existing knowledge
+   */
+  async generateQAFromKnowledge(domain?: string, options?: QAGenerationOptions): Promise<GeneratedQA[]> {
+    try {
+      const items = domain 
+        ? await this.repository.findByDomain(domain)
+        : await this.repository.findRecentItems(options?.maxPairs || 100);
+
+      return await this.qaGenerator.generateFromKnowledge(items, options);
+    } catch (error) {
+      logger.error('Failed to generate Q&A from knowledge', { error: error.message, domain });
+      throw error;
+    }
+  }
+
+  /**
+   * Extract workflows from chat conversations
+   */
+  async extractWorkflowsFromChats(conversations: any[], options?: WorkflowExtractionOptions): Promise<ExtractedWorkflow[]> {
+    try {
+      return await this.workflowExtractor.extractWorkflows(conversations, options);
+    } catch (error) {
+      logger.error('Failed to extract workflows from chats', { error: error.message });
+      throw error;
+    }
+  }
+
+  /**
+   * Analyze participant expertise from conversations
+   */
+  async analyzeParticipantExpertise(conversations: any[], options?: ExpertiseAnalysisOptions): Promise<ExpertiseProfile[]> {
+    try {
+      return await this.expertiseAnalyzer.analyzeParticipantExpertise(conversations, options);
+    } catch (error) {
+      logger.error('Failed to analyze participant expertise', { error: error.message });
+      throw error;
+    }
+  }
+
+  /**
+   * Detect learning moments in conversations
+   */
+  async detectLearningMoments(conversations: any[], options?: LearningDetectionOptions): Promise<LearningMoment[]> {
+    try {
+      // Extract all messages from conversations
+      const allMessages = conversations.flatMap(conv => conv.messages || []);
+      return await this.learningDetector.detectLearningMoments(allMessages, options);
+    } catch (error) {
+      logger.error('Failed to detect learning moments', { error: error.message });
+      throw error;
+    }
+  }
+
+  /**
+   * Generate Q&A pairs from conversations
+   */
+  async generateQAFromConversations(conversations: any[], options?: QAGenerationOptions): Promise<GeneratedQA[]> {
+    try {
+      return await this.qaGenerator.generateFromConversations(conversations, options);
+    } catch (error) {
+      logger.error('Failed to generate Q&A from conversations', { error: error.message });
+      throw error;
+    }
+  }
+
+  /**
+   * Validate Q&A pairs
+   */
+  async validateQAPairs(pairs: GeneratedQA[]) {
+    try {
+      return await this.qaGenerator.validateQAPairs(pairs);
+    } catch (error) {
+      logger.error('Failed to validate Q&A pairs', { error: error.message });
+      throw error;
+    }
+  }
+
+  /**
+   * Validate workflows
+   */
+  async validateWorkflows(workflows: ExtractedWorkflow[]) {
+    try {
+      return await this.workflowExtractor.validateWorkflows(workflows);
+    } catch (error) {
+      logger.error('Failed to validate workflows', { error: error.message });
+      throw error;
+    }
+  }
+
+  /**
+   * Track learning progression for a participant
+   */
+  async trackLearningProgression(participant: string, timeWindow?: { start?: Date; end?: Date }) {
+    try {
+      // Get conversations for the time window
+      const conversations = []; // Would get from repository with time filter
+      const allMessages = conversations.flatMap(conv => conv.messages || []);
+      
+      const moments = await this.learningDetector.detectLearningMoments(allMessages, {
+        participants: [participant],
+        timeWindow
+      });
+      
+      return await this.learningDetector.trackLearningProgression(moments, participant);
+    } catch (error) {
+      logger.error('Failed to track learning progression', { error: error.message, participant });
+      throw error;
+    }
+  }
+
+  /**
+   * Generate learning insights
+   */
+  async generateLearningInsights(conversations: any[], options?: LearningDetectionOptions) {
+    try {
+      const allMessages = conversations.flatMap(conv => conv.messages || []);
+      const moments = await this.learningDetector.detectLearningMoments(allMessages, options);
+      const transfers = await this.learningDetector.identifyKnowledgeTransfer(conversations, options);
+      
+      return await this.learningDetector.generateLearningInsights(moments, [], transfers);
+    } catch (error) {
+      logger.error('Failed to generate learning insights', { error: error.message });
+      throw error;
+    }
+  }
+
+  /**
+   * Save extracted knowledge to the knowledge graph
+   */
+  private async saveExtractedKnowledge(knowledge: any, userId: string): Promise<void> {
+    const savePromises: Promise<any>[] = [];
+
+    // Save extracted knowledge (replaces facts and procedures)
+    if (knowledge.extractedKnowledge?.length > 0) {
+      savePromises.push(
+        ...knowledge.extractedKnowledge.map(item =>
+          this.ingest([{
+            content: item.content,
+            type: item.type,
+            confidence: item.confidence,
+            tags: item.tags,
+            source: {
+              type: 'AGENT_INTERACTION' as any,
+              identifier: 'chat-ingestion',
+              metadata: {
+                context: item.context,
+                extractedFrom: 'chat',
+                extractionMethod: item.metadata.extractionMethod,
+                sourceMessages: item.metadata.sourceMessages,
+                participants: item.metadata.participants,
+                domain: item.metadata.domain
+              }
+            },
+            createdBy: userId
+          }])
+        )
+      );
+    }
+
+
+    // Save Q&A pairs
+    if (knowledge.qaPairs?.length > 0) {
+      savePromises.push(
+        ...knowledge.qaPairs.map(qa =>
+          this.ingest([{
+            content: `Q: ${qa.question}\nA: ${qa.answer}`,
+            type: 'PROCEDURAL' as any,
+            confidence: qa.confidence,
+            tags: qa.tags,
+            source: {
+              type: 'AGENT_INTERACTION' as any,
+              identifier: 'chat-qa-extraction',
+              metadata: {
+                question: qa.question,
+                answer: qa.answer,
+                context: qa.context,
+                participants: qa.participants,
+                extractedFrom: 'chat'
+              }
+            },
+            createdBy: userId
+          }])
+        )
+      );
+    }
+
+    // Save decision points
+    if (knowledge.decisionPoints?.length > 0) {
+      savePromises.push(
+        ...knowledge.decisionPoints.map(decision =>
+          this.ingest([{
+            content: decision.decision,
+            type: 'EXPERIENTIAL' as any,
+            confidence: decision.confidence,
+            source: {
+              type: 'AGENT_INTERACTION' as any,
+              identifier: 'chat-decision-extraction',
+              metadata: {
+                reasoning: decision.reasoning,
+                alternatives: decision.alternatives,
+                outcome: decision.outcome,
+                context: decision.context,
+                participants: decision.participants,
+                extractedFrom: 'chat'
+              }
+            },
+            createdBy: userId
+          }])
+        )
+      );
+    }
+
+    // Execute all save operations
+    await Promise.allSettled(savePromises);
   }
 } 

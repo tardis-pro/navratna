@@ -27,6 +27,7 @@ import ToolsIntegrationsPortal from './futuristic/portals/ToolsIntegrationsPorta
 import { GlobalUpload } from './GlobalUpload';
 import { KnowledgeShortcut } from './KnowledgeShortcut';
 import { AtomicKnowledgeViewer } from './futuristic/portals/AtomicKnowledgeViewer';
+import { ChatKnowledgeUploader } from './ChatKnowledgeUploader';
 import ChatHistoryManager from './ChatHistoryManager';
 import { RoleBasedDesktopConfig } from './futuristic/desktop/RoleBasedDesktopConfig';
 import { useAuth } from '../contexts/AuthContext';
@@ -58,9 +59,9 @@ const DESIGN_TOKENS = {
     lg: 'rounded-2xl',
   },
   padding: {
-    sm: 'p-3',
-    md: 'p-4',
-    lg: 'p-6',
+    sm: 'p-1',
+    md: 'p-2',
+    lg: 'p-4',
   },
   backdrop: 'backdrop-blur-xl',
   transition: 'transition-all duration-200',
@@ -774,7 +775,10 @@ const ActionsMenu: React.FC<{
   onAppSelect: (app: Application) => void;
   applications: Application[];
   onLogout: () => Promise<void>;
-}> = ({ isOpen, onClose, onAppSelect, applications, onLogout }) => {
+  onShowGlobalUpload: () => void;
+  onShowChatIngestion: () => void;
+  onShowProjectOnboarding: () => void;
+}> = ({ isOpen, onClose, onAppSelect, applications, onLogout, onShowGlobalUpload, onShowChatIngestion, onShowProjectOnboarding }) => {
   if (!isOpen) return null;
 
   const categories = {
@@ -785,9 +789,9 @@ const ActionsMenu: React.FC<{
   };
 
   const quickActions = [
-    { icon: Folder, label: 'New Project', action: () => setShowProjectOnboarding(true) },
-    { icon: Upload, label: 'Add Knowledge', action: () => setShowGlobalUpload(true) },
-    { icon: Calculator, label: 'Calculator', action: () => console.log('Opening calculator...') },
+    { icon: Folder, label: 'New Project', action: () => onShowProjectOnboarding() },
+    { icon: Upload, label: 'Add Knowledge', action: () => onShowGlobalUpload() },
+    { icon: MessageSquare, label: 'Chat Import', action: () => onShowChatIngestion() },
     { icon: Globe, label: 'Browser', action: () => window.open('https://google.com', '_blank') },
   ];
 
@@ -862,6 +866,10 @@ const ActionsMenu: React.FC<{
               <div className="flex justify-between">
                 <span>Add Knowledge</span>
                 <kbd className="bg-slate-700 px-1 rounded">Ctrl+Shift+N</kbd>
+              </div>
+              <div className="flex justify-between">
+                <span>Chat Import</span>
+                <kbd className="bg-slate-700 px-1 rounded">Ctrl+Shift+C</kbd>
               </div>
               <div className="flex justify-between">
                 <span>New Project</span>
@@ -1095,6 +1103,7 @@ export const Desktop: React.FC = () => {
   const [showGlobalUpload, setShowGlobalUpload] = useState(false);
   const [showChatHistory, setShowChatHistory] = useState(false);
   const [showKnowledgeShortcut, setShowKnowledgeShortcut] = useState(false);
+  const [showChatIngestion, setShowChatIngestion] = useState(false);
   const [selectedKnowledgeItem, setSelectedKnowledgeItem] = useState<any>(null);
   const [showProjectOnboarding, setShowProjectOnboarding] = useState(false);
   
@@ -1144,6 +1153,10 @@ export const Desktop: React.FC = () => {
         e.preventDefault();
         setShowGlobalUpload(true);
       }
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'C') {
+        e.preventDefault();
+        setShowChatIngestion(true);
+      }
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'P') {
         e.preventDefault();
         setShowProjectOnboarding(true);
@@ -1159,6 +1172,7 @@ export const Desktop: React.FC = () => {
       if (e.key === 'Escape') {
         setShowActionsMenu(false);
         setShowGlobalUpload(false);
+        setShowChatIngestion(false);
         setShowKnowledgeShortcut(false);
         setShowProjectOnboarding(false);
         if (selectedKnowledgeItem) {
@@ -1410,6 +1424,9 @@ export const Desktop: React.FC = () => {
           onAppSelect={openApplication}
           applications={APPLICATIONS}
           onLogout={logout}
+          onShowGlobalUpload={() => setShowGlobalUpload(true)}
+          onShowChatIngestion={() => setShowChatIngestion(true)}
+          onShowProjectOnboarding={() => setShowProjectOnboarding(true)}
         />
       </AnimatePresence>
 
@@ -1439,6 +1456,51 @@ export const Desktop: React.FC = () => {
         onClose={() => setShowGlobalUpload(false)}
         onKnowledgeCreated={handleKnowledgeCreated}
       />
+
+      {/* Chat Ingestion Dialog */}
+      {showChatIngestion && (
+        <>
+          <style>
+            {`
+              .chat-ingestion-container [data-radix-popper-content-wrapper],
+              .chat-ingestion-container [data-radix-select-content],
+              .chat-ingestion-container [data-radix-dropdown-menu-content],
+              .chat-ingestion-container [data-radix-popover-content] {
+                z-index: 10003 !important;
+              }
+            `}
+          </style>
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+            <div className="bg-slate-900 rounded-2xl border border-slate-700/50 w-full max-w-4xl max-h-[90vh] overflow-hidden relative z-[10000]">
+            <div className="flex items-center justify-between p-4 border-b border-slate-700/50">
+              <h2 className="text-xl font-bold text-white flex items-center">
+                <MessageSquare className="w-6 h-6 mr-2 text-blue-400" />
+                Chat Ingestion & Knowledge Extraction
+              </h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowChatIngestion(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)] relative z-[10001]">
+              <div className="chat-ingestion-container relative z-[10002]" style={{ zIndex: 10002 }}>
+                <ChatKnowledgeUploader
+                  onUploadComplete={() => {
+                    console.log('Chat ingestion completed');
+                    // Optionally refresh knowledge data or show notification
+                  }}
+                  className="max-w-none"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+        </>
+      )}
 
       {/* Project Onboarding Flow */}
       <ProjectOnboardingFlow
@@ -1490,12 +1552,23 @@ export const Desktop: React.FC = () => {
         <History className="w-5 h-5" />
       </motion.button>
 
+      {/* Chat Ingestion Floating Button */}
+      <motion.button
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={() => setShowChatIngestion(true)}
+        className="fixed bottom-20 right-20 w-12 h-12 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 z-40 flex items-center justify-center"
+        title="Chat Ingestion (Ctrl+Shift+C)"
+      >
+        <MessageSquare className="w-5 h-5" />
+      </motion.button>
+
       {/* New Project Floating Button */}
       <motion.button
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setShowProjectOnboarding(true)}
-        className="fixed bottom-20 right-20 w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 z-40 flex items-center justify-center"
+        className="fixed bottom-20 right-36 w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 z-40 flex items-center justify-center"
         title="New Project (Ctrl+Shift+P)"
       >
         <Folder className="w-5 h-5" />
