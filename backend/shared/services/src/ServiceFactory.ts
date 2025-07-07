@@ -22,6 +22,7 @@ import { OperationManagementService } from './operation-management.service.js';
 import { KnowledgeItemEntity, KnowledgeRelationshipEntity } from './entities/index.js';
 import { seedDatabase } from './database/seeders/index.js';
 import { KnowledgeBootstrapService } from './knowledge-graph/bootstrap.service.js';
+import { KnowledgeSyncService } from './knowledge-graph/knowledge-sync.service.js';
 import { ToolGraphDatabase } from './database/toolGraphDatabase.js';
 
 /**
@@ -219,12 +220,21 @@ export class ServiceFactory {
         this.getRelationshipDetector()
       ]);
 
+      const toolGraphDatabase = await this.getToolGraphDatabase();
+      const knowledgeSync = new KnowledgeSyncService(
+        repository,
+        qdrantService,
+        toolGraphDatabase,
+        embeddingService
+      );
+
       return new KnowledgeGraphService(
         qdrantService,
         repository,
         embeddingService,
         classifier,
-        relationshipDetector
+        relationshipDetector,
+        knowledgeSync
       );
     });
   }

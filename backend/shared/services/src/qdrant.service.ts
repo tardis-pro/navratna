@@ -89,7 +89,15 @@ export class QdrantService {
       });
 
       if (!response.ok) {
-        throw new Error(`Qdrant search failed: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('Qdrant search error details:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText,
+          querySize: queryEmbedding?.length,
+          options
+        });
+        throw new Error(`Qdrant search failed: ${response.statusText} - ${errorText}`);
       }
 
       const data = await response.json();

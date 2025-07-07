@@ -5,6 +5,12 @@ import { QdrantService } from '../qdrant.service.js';
 import { ToolGraphDatabase } from '../database/toolGraphDatabase.js';
 import { EmbeddingService } from './embedding.service.js';
 import { SmartEmbeddingService } from './smart-embedding.service.js';
+import { ContentClassifier } from './content-classifier.service.js';
+import { ConceptExtractorService } from './concept-extractor.service.js';
+import { OntologyBuilderService } from './ontology-builder.service.js';
+import { TaxonomyGeneratorService } from './taxonomy-generator.service.js';
+import { ReconciliationService } from './reconciliation.service.js';
+import { QdrantHealthService } from './qdrant-health.service.js';
 import { logger } from '@uaip/utils';
 
 export interface BootstrapConfig {
@@ -27,6 +33,12 @@ export class KnowledgeBootstrapService {
   private syncService: KnowledgeSyncService;
   private simplifiedSyncService: SimplifiedSyncService;
   private smartEmbeddingService: SmartEmbeddingService;
+  private contentClassifier: ContentClassifier;
+  private conceptExtractor: ConceptExtractorService;
+  private ontologyBuilder: OntologyBuilderService;
+  private taxonomyGenerator: TaxonomyGeneratorService;
+  private reconciliationService: ReconciliationService;
+  private qdrantHealthService: QdrantHealthService;
   private isBootstrapped = false;
   private bootstrapPromise: Promise<void> | null = null;
 
@@ -69,6 +81,14 @@ export class KnowledgeBootstrapService {
       graphDb,
       this.smartEmbeddingService
     );
+
+    // Initialize ontology services
+    this.contentClassifier = new ContentClassifier();
+    this.conceptExtractor = new ConceptExtractorService(this.contentClassifier, this.embeddingService);
+    this.ontologyBuilder = new OntologyBuilderService(this.conceptExtractor, this.knowledgeRepository, this.syncService);
+    this.taxonomyGenerator = new TaxonomyGeneratorService(this.knowledgeRepository, this.contentClassifier);
+    this.reconciliationService = new ReconciliationService(this.embeddingService, this.knowledgeRepository, this.syncService);
+    this.qdrantHealthService = new QdrantHealthService(this.qdrantService, this.knowledgeRepository, this.embeddingService, this.graphDb);
   }
 
   /**
@@ -406,5 +426,303 @@ export class KnowledgeBootstrapService {
       fullySynced,
       partiallySync
     };
+  }
+
+  // =====================================================
+  // ONTOLOGY BOOTSTRAP METHODS
+  // =====================================================
+
+  /**
+   * Initialize ontology services and run initial knowledge processing
+   */
+  async initializeOntologyServices(): Promise<void> {
+    try {
+      logger.info('Initializing ontology services...');
+
+      // Run initial knowledge reconciliation to clean up any duplicates
+      await this.runKnowledgeReconciliation();
+
+      // Build ontologies for discovered domains
+      await this.setupDomainOntologies();
+
+      logger.info('Ontology services initialization completed');
+
+    } catch (error) {
+      logger.error('Error initializing ontology services:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Setup ontologies for all discovered domains
+   */
+  async setupDomainOntologies(): Promise<void> {
+    try {
+      // Discover domains from existing knowledge items
+      const domains = await this.discoverDomains();
+      
+      logger.info(`Setting up ontologies for ${domains.length} domains: ${domains.join(', ')}`);
+
+      for (const domain of domains) {
+        try {
+          // Check if ontology already exists
+          const existingOntology = await this.ontologyBuilder.getOntologyForDomain(domain);
+          
+          if (!existingOntology) {
+            logger.info(`Building ontology for domain: ${domain}`);
+            
+            // Build and save ontology
+            const result = await this.ontologyBuilder.buildDomainOntology(domain, undefined, {
+              saveToKnowledgeGraph: true,
+              minConfidence: 0.6,
+              maxConcepts: 50
+            });
+
+            logger.info(`Ontology built for ${domain}: ${result.ontology.metadata.totalConcepts} concepts, ${result.ontology.metadata.totalRelationships} relationships`);
+          } else {
+            logger.info(`Ontology already exists for domain: ${domain}`);
+          }
+        } catch (error) {
+          logger.warn(`Failed to build ontology for domain ${domain}:`, error);
+        }
+      }
+
+    } catch (error) {
+      logger.error('Error setting up domain ontologies:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Run comprehensive knowledge reconciliation
+   */
+  async runKnowledgeReconciliation(): Promise<void> {
+    try {
+      logger.info('Running knowledge reconciliation...');
+
+      // Detect conflicts across all knowledge
+      const conflicts = await this.reconciliationService.detectConflicts(
+        await this.knowledgeRepository.findRecentItems(200),
+        {
+          similarityThreshold: 0.85,
+          maxConflictsPerBatch: 50,
+          autoResolve: false
+        }
+      );
+
+      if (conflicts.length > 0) {
+        logger.info(`Found ${conflicts.length} knowledge conflicts`);
+
+        // Resolve conflicts automatically where possible
+        const resolution = await this.reconciliationService.resolveConflicts(conflicts, {
+          autoResolve: true,
+          preserveHistory: true,
+          generateSummaries: true
+        });
+
+        logger.info(`Knowledge reconciliation completed: ${resolution.statistics.conflictsResolved} resolved, ${resolution.statistics.itemsMerged} merged, ${resolution.statistics.itemsArchived} archived`);
+      } else {
+        logger.info('No knowledge conflicts detected');
+      }
+
+    } catch (error) {
+      logger.error('Error during knowledge reconciliation:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Generate taxonomies for discovered domains
+   */
+  async generateDomainTaxonomies(): Promise<void> {
+    try {
+      const domains = await this.discoverDomains();
+      
+      logger.info(`Generating taxonomies for ${domains.length} domains`);
+
+      for (const domain of domains) {
+        try {
+          const items = await this.knowledgeRepository.findByDomain(domain, 100);
+          
+          if (items.length >= 10) { // Minimum items for meaningful taxonomy
+            const result = await this.taxonomyGenerator.generateTaxonomy(items, domain, {
+              maxCategories: 15,
+              minCategorySize: 2,
+              autoClassify: true
+            });
+
+            logger.info(`Taxonomy generated for ${domain}: ${result.taxonomy.metadata.totalCategories} categories, ${result.taxonomy.metadata.coverage.toFixed(1)}% coverage`);
+          } else {
+            logger.info(`Skipping taxonomy for ${domain}: insufficient items (${items.length})`);
+          }
+        } catch (error) {
+          logger.warn(`Failed to generate taxonomy for domain ${domain}:`, error);
+        }
+      }
+
+    } catch (error) {
+      logger.error('Error generating domain taxonomies:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Discover domains from existing knowledge items
+   */
+  private async discoverDomains(): Promise<string[]> {
+    try {
+      const items = await this.knowledgeRepository.findRecentItems(500);
+      const domainCounts = new Map<string, number>();
+
+      // Count domain occurrences from tags and metadata
+      for (const item of items) {
+        // From metadata domain
+        if (item.metadata.domain) {
+          domainCounts.set(item.metadata.domain, (domainCounts.get(item.metadata.domain) || 0) + 1);
+        }
+
+        // From tags (exclude common system tags)
+        const systemTags = ['knowledge', 'ontology', 'concept', 'relationship'];
+        for (const tag of item.tags) {
+          if (!systemTags.includes(tag.toLowerCase()) && tag.length > 2) {
+            domainCounts.set(tag, (domainCounts.get(tag) || 0) + 1);
+          }
+        }
+      }
+
+      // Return domains with at least 5 items
+      const domains = Array.from(domainCounts.entries())
+        .filter(([_, count]) => count >= 5)
+        .sort((a, b) => b[1] - a[1])
+        .map(([domain, _]) => domain)
+        .slice(0, 10); // Top 10 domains
+
+      return domains;
+
+    } catch (error) {
+      logger.error('Error discovering domains:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get ontology statistics across all domains
+   */
+  async getOntologyStatistics(): Promise<{
+    totalDomains: number;
+    totalConcepts: number;
+    totalRelationships: number;
+    totalTaxonomies: number;
+    averageConceptsPerDomain: number;
+  }> {
+    try {
+      const domains = await this.discoverDomains();
+      let totalConcepts = 0;
+      let totalRelationships = 0;
+      let domainsWithOntologies = 0;
+
+      for (const domain of domains) {
+        const ontology = await this.ontologyBuilder.getOntologyForDomain(domain);
+        if (ontology) {
+          totalConcepts += ontology.metadata.totalConcepts;
+          totalRelationships += ontology.metadata.totalRelationships;
+          domainsWithOntologies++;
+        }
+      }
+
+      const averageConceptsPerDomain = domainsWithOntologies > 0 ? totalConcepts / domainsWithOntologies : 0;
+
+      return {
+        totalDomains: domains.length,
+        totalConcepts,
+        totalRelationships,
+        totalTaxonomies: domainsWithOntologies,
+        averageConceptsPerDomain
+      };
+
+    } catch (error) {
+      logger.error('Error getting ontology statistics:', error);
+      return {
+        totalDomains: 0,
+        totalConcepts: 0,
+        totalRelationships: 0,
+        totalTaxonomies: 0,
+        averageConceptsPerDomain: 0
+      };
+    }
+  }
+
+  /**
+   * Check and repair Qdrant health issues
+   */
+  async checkAndRepairQdrant(): Promise<{
+    healthBefore: any;
+    repairNeeded: boolean;
+    repairPerformed: boolean;
+    healthAfter: any;
+    syncResult?: { synced: number; errors: number };
+  }> {
+    try {
+      logger.info('Checking Qdrant health status...');
+
+      // Check initial health
+      const healthBefore = await this.qdrantHealthService.checkHealth();
+      
+      const repairNeeded = healthBefore.syncNeeded || !healthBefore.isConnected;
+      let repairPerformed = false;
+      let syncResult;
+
+      if (repairNeeded) {
+        logger.info('Qdrant repair needed, attempting automatic repair...');
+        
+        try {
+          if (!healthBefore.isConnected) {
+            // Try to repair collection
+            await this.qdrantHealthService.repairQdrantCollection();
+          } else if (healthBefore.syncNeeded) {
+            // Sync knowledge items
+            syncResult = await this.qdrantHealthService.syncKnowledgeIfNeeded(100);
+          }
+          
+          repairPerformed = true;
+          logger.info('Qdrant repair completed successfully');
+        } catch (repairError) {
+          logger.error('Qdrant repair failed:', repairError);
+          repairPerformed = false;
+        }
+      }
+
+      // Check health after repair
+      const healthAfter = repairPerformed 
+        ? await this.qdrantHealthService.checkHealth()
+        : healthBefore;
+
+      return {
+        healthBefore,
+        repairNeeded,
+        repairPerformed,
+        healthAfter,
+        syncResult
+      };
+
+    } catch (error) {
+      logger.error('Error during Qdrant health check and repair:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get comprehensive Qdrant diagnostics
+   */
+  async getQdrantDiagnostics() {
+    return await this.qdrantHealthService.getQdrantDiagnostics();
+  }
+
+  /**
+   * Force sync knowledge items to Qdrant
+   */
+  async forceSyncToQdrant(maxItems: number = 50): Promise<{ synced: number; errors: number }> {
+    logger.info(`Force syncing up to ${maxItems} items to Qdrant...`);
+    return await this.qdrantHealthService.syncKnowledgeIfNeeded(maxItems);
   }
 }

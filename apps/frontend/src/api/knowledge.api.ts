@@ -201,32 +201,46 @@ export const knowledgeAPI = {
     types?: string[];
     limit?: number;
   }): Promise<KnowledgeGraph> {
-    // Convert to query parameters to match backend GET /api/v1/knowledge/graph
-    const params = new URLSearchParams();
-    
-    if (options?.limit) params.append('limit', options.limit.toString());
-    if (options?.types && options.types.length > 0) params.append('types', options.types.join(','));
-    params.append('includeRelationships', 'true');
-    
-    const url = `${API_ROUTES.KNOWLEDGE.GRAPH}?${params.toString()}`;
-    
-    // Backend returns {success: true, data: {nodes: [], edges: [], metadata: {}}}
-    const response = await APIClient.get<{success: boolean; data: {nodes: any[], edges: any[]}}>(url);
-    
-    return {
-      nodes: response.data.nodes.map((node: any) => ({
-        id: node.id,
-        label: node.data?.label || node.id,
-        type: node.data?.knowledgeType || 'knowledge',
-        properties: node.data
-      })),
-      edges: response.data.edges.map((edge: any) => ({
-        source: edge.source,
-        target: edge.target,
-        type: edge.data?.relationshipType || 'related',
-        properties: edge.data
-      }))
-    };
+    try {
+      // Convert to query parameters to match backend GET /api/v1/knowledge/graph
+      const params = new URLSearchParams();
+      
+      if (options?.limit) params.append('limit', options.limit.toString());
+      if (options?.types && options.types.length > 0) params.append('types', options.types.join(','));
+      params.append('includeRelationships', 'true');
+      
+      const url = `${API_ROUTES.KNOWLEDGE.GRAPH}?${params.toString()}`;
+      
+      // Backend returns {success: true, data: {nodes: [], edges: [], metadata: {}}}
+      const response = await APIClient.get<{success: boolean; data: {nodes: any[], edges: any[], metadata?: any}}>(url);
+      
+      // Safely access nested properties with defaults
+      const graphData = response.data || {};
+      const nodes = graphData.nodes || [];
+      const edges = graphData.edges || [];
+      
+      return {
+        nodes: nodes.map((node: any) => ({
+          id: node.id,
+          label: node.data?.label || node.id,
+          type: node.data?.knowledgeType || 'knowledge',
+          properties: node.data
+        })),
+        edges: edges.map((edge: any) => ({
+          source: edge.source,
+          target: edge.target,
+          type: edge.data?.relationshipType || 'related',
+          properties: edge.data
+        }))
+      };
+    } catch (error) {
+      console.warn('Knowledge graph API error:', error);
+      // Return empty graph as fallback
+      return {
+        nodes: [],
+        edges: []
+      };
+    }
   },
 
   async findSimilar(id: string, limit: number = 10): Promise<KnowledgeSearchResult[]> {

@@ -14,15 +14,32 @@ import { KnowledgeRepository } from '../database/repositories/knowledge.reposito
 import { EmbeddingService } from './embedding.service.js';
 import { ContentClassifier } from './content-classifier.service.js';
 import { RelationshipDetector } from './relationship-detector.service.js';
+import { ConceptExtractorService } from './concept-extractor.service.js';
+import { OntologyBuilderService } from './ontology-builder.service.js';
+import { TaxonomyGeneratorService } from './taxonomy-generator.service.js';
+import { ReconciliationService } from './reconciliation.service.js';
+import { KnowledgeSyncService } from './knowledge-sync.service.js';
 
 export class KnowledgeGraphService {
+  private readonly conceptExtractor: ConceptExtractorService;
+  private readonly ontologyBuilder: OntologyBuilderService;
+  private readonly taxonomyGenerator: TaxonomyGeneratorService;
+  private readonly reconciliationService: ReconciliationService;
+
   constructor(
     private readonly vectorDb: QdrantService,
     private readonly repository: KnowledgeRepository,
     private readonly embeddings: EmbeddingService,
     private readonly classifier: ContentClassifier,
-    private readonly relationshipDetector: RelationshipDetector
-  ) { }
+    private readonly relationshipDetector: RelationshipDetector,
+    private readonly knowledgeSync: KnowledgeSyncService
+  ) {
+    // Initialize ontology services
+    this.conceptExtractor = new ConceptExtractorService(this.classifier, this.embeddings);
+    this.ontologyBuilder = new OntologyBuilderService(this.conceptExtractor, this.repository, this.knowledgeSync);
+    this.taxonomyGenerator = new TaxonomyGeneratorService(this.repository, this.classifier);
+    this.reconciliationService = new ReconciliationService(this.embeddings, this.repository, this.knowledgeSync);
+  }
 
   /**
    * Primary search interface - used by all UAIP services
@@ -35,15 +52,29 @@ export class KnowledgeGraphService {
     try {
       // Generate query embedding or get all items
       if (query && query.trim()) {
-        const queryEmbedding = await this.embeddings.generateEmbedding(query);
-        const vectorFilters = this.buildVectorFilters(filters, scope);
+        try {
+          const queryEmbedding = await this.embeddings.generateEmbedding(query);
+          const vectorFilters = this.buildVectorFilters(filters, scope);
 
-        vectorResults = await this.vectorDb.search(queryEmbedding, {
-          limit: options?.limit || 20,
-          threshold: options?.similarityThreshold || 0.7,
-          filters: vectorFilters
-        });
-        filteredResults = await this.repository.applyFilters(vectorResults, filters, scope);
+          // Check if collection has points before searching
+          const collectionInfo = await this.vectorDb.getCollectionInfo();
+          if (collectionInfo.result?.points_count === 0) {
+            // No embeddings available, fall back to repository search
+            console.warn('Vector collection is empty, falling back to repository search');
+            filteredResults = await this.repository.findByScope(scope || {}, filters, options?.limit || 20);
+          } else {
+            vectorResults = await this.vectorDb.search(queryEmbedding, {
+              limit: options?.limit || 20,
+              threshold: options?.similarityThreshold || 0.7,
+              filters: vectorFilters
+            });
+            filteredResults = await this.repository.applyFilters(vectorResults, filters, scope);
+          }
+        } catch (vectorError) {
+          // If vector search fails, fall back to repository search
+          console.warn('Vector search failed, falling back to repository search:', vectorError.message);
+          filteredResults = await this.repository.findByScope(scope || {}, filters, options?.limit || 20);
+        }
       } else {
         // When no query is provided, get all items with scope filtering
         filteredResults = await this.repository.findByScope(scope || {}, filters, options?.limit || 20);
@@ -291,5 +322,169 @@ export class KnowledgeGraphService {
     if (filters.sourceTypes?.length) applied.push('sourceTypes');
 
     return applied;
+  }
+
+  // =====================================================
+  // ONTOLOGY METHODS
+  // =====================================================
+
+  /**
+   * Extract concepts from knowledge items in a domain
+   */
+  async extractConcepts(domain?: string, options?: { minConfidence?: number; maxItems?: number }) {
+    let items: KnowledgeItem[];
+    if (domain) {
+      items = await this.repository.findByDomain(domain, options?.maxItems);
+    } else {
+      const allItems = await this.repository.findRecentItems(options?.maxItems || 100);
+      items = options?.minConfidence 
+        ? allItems.filter(item => item.confidence >= options.minConfidence!)
+        : allItems;
+    }
+
+    return await this.conceptExtractor.extractConcepts(items, domain);
+  }
+
+  /**
+   * Build domain ontology from knowledge items
+   */
+  async buildDomainOntology(domain: string, options?: {
+    includeInstances?: boolean;
+    minConfidence?: number;
+    maxConcepts?: number;
+    saveToKnowledgeGraph?: boolean;
+  }) {
+    return await this.ontologyBuilder.buildDomainOntology(domain, undefined, options);
+  }
+
+  /**
+   * Get existing ontology for a domain
+   */
+  async getDomainOntology(domain: string) {
+    return await this.ontologyBuilder.getOntologyForDomain(domain);
+  }
+
+  /**
+   * Generate taxonomy for knowledge classification
+   */
+  async generateTaxonomy(domain?: string, options?: {
+    maxCategories?: number;
+    minCategorySize?: number;
+    autoClassify?: boolean;
+  }) {
+    const items = domain 
+      ? await this.repository.findByDomain(domain)
+      : await this.repository.findRecentItems(100);
+
+    return await this.taxonomyGenerator.generateTaxonomy(items, domain, options);
+  }
+
+  /**
+   * Detect and resolve knowledge conflicts
+   */
+  async detectKnowledgeConflicts(domain?: string, options?: {
+    confidenceThreshold?: number;
+    similarityThreshold?: number;
+    maxConflictsPerBatch?: number;
+    autoResolve?: boolean;
+  }) {
+    const items = domain 
+      ? await this.repository.findByDomain(domain)
+      : await this.repository.findRecentItems(100);
+
+    return await this.reconciliationService.detectConflicts(items, {
+      domains: domain ? [domain] : undefined,
+      ...options
+    });
+  }
+
+  /**
+   * Resolve knowledge conflicts
+   */
+  async resolveKnowledgeConflicts(conflicts: any[], options?: {
+    autoResolve?: boolean;
+    preserveHistory?: boolean;
+    generateSummaries?: boolean;
+  }) {
+    return await this.reconciliationService.resolveConflicts(conflicts, options);
+  }
+
+  /**
+   * Merge duplicate knowledge items
+   */
+  async mergeDuplicates(domain?: string) {
+    const items = domain 
+      ? await this.repository.findByDomain(domain)
+      : await this.repository.findRecentItems(100);
+
+    return await this.reconciliationService.mergeDuplicates(items);
+  }
+
+  /**
+   * Generate knowledge summaries for clusters
+   */
+  async generateKnowledgeSummaries(domain?: string) {
+    const items = domain 
+      ? await this.repository.findByDomain(domain)
+      : await this.repository.findRecentItems(100);
+
+    return await this.reconciliationService.generateSummaries(items);
+  }
+
+  /**
+   * Run comprehensive knowledge reconciliation
+   */
+  async reconcileKnowledge(domain?: string, options?: {
+    includeOntologyBuilding?: boolean;
+    includeTaxonomyGeneration?: boolean;
+    autoResolveConflicts?: boolean;
+  }) {
+    const startTime = Date.now();
+    const results = {
+      domain: domain || 'all',
+      conceptExtraction: null as any,
+      ontologyBuilding: null as any,
+      taxonomyGeneration: null as any,
+      conflictDetection: null as any,
+      conflictResolution: null as any,
+      processingTime: 0
+    };
+
+    try {
+      // Step 1: Extract concepts
+      results.conceptExtraction = await this.extractConcepts(domain);
+
+      // Step 2: Build ontology if requested
+      if (options?.includeOntologyBuilding && domain) {
+        results.ontologyBuilding = await this.buildDomainOntology(domain, {
+          saveToKnowledgeGraph: true
+        });
+      }
+
+      // Step 3: Generate taxonomy if requested
+      if (options?.includeTaxonomyGeneration) {
+        results.taxonomyGeneration = await this.generateTaxonomy(domain, {
+          autoClassify: true
+        });
+      }
+
+      // Step 4: Detect conflicts
+      results.conflictDetection = await this.detectKnowledgeConflicts(domain);
+
+      // Step 5: Resolve conflicts if requested
+      if (options?.autoResolveConflicts && results.conflictDetection.length > 0) {
+        results.conflictResolution = await this.resolveKnowledgeConflicts(
+          results.conflictDetection,
+          { autoResolve: true, generateSummaries: true }
+        );
+      }
+
+      results.processingTime = Date.now() - startTime;
+      return results;
+
+    } catch (error) {
+      results.processingTime = Date.now() - startTime;
+      throw error;
+    }
   }
 } 

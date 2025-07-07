@@ -357,4 +357,18 @@ export class KnowledgeRepository {
     
     return query;
   }
+
+  async findByDomain(domain: string, limit?: number): Promise<KnowledgeItem[]> {
+    let query = this.knowledgeRepo.createQueryBuilder('ki')
+      .where('ki.tags @> :domain', { domain: [domain] })
+      .orWhere("ki.metadata->>'domain' = :domainValue", { domainValue: domain })
+      .orderBy('ki.createdAt', 'DESC');
+
+    if (limit) {
+      query = query.limit(limit);
+    }
+
+    const entities = await query.getMany();
+    return entities.map(entity => this.entityToModel(entity));
+  }
 } 
