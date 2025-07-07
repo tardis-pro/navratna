@@ -32,7 +32,7 @@
     "@types/node": "catalog:backend",
     "@types/jest": "^29.5.12",
     "jest": "^29.7.0",
-    "jest-environment-node": "^29.7.0",
+    "jest-environment-node": "^30.0.4",
     "ts-jest": "^29.2.5",
     "rimraf": "catalog:",
     "eslint": "catalog:",
