@@ -103,12 +103,16 @@ export class UserKnowledgeService {
       itemsThisWeek: number;
       itemsThisMonth: number;
     };
+    generalKnowledge: {
+      totalItems: number;
+      itemsByType: Record<string, number>;
+    };
   }> {
     const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const oneMonthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     
-    // Get all user knowledge
-    const allResults = await this.knowledgeGraphService.search({
+    // Get user-specific knowledge
+    const userResults = await this.knowledgeGraphService.search({
       query: '',
       filters: {},
       options: { limit: 1000 },
@@ -116,7 +120,16 @@ export class UserKnowledgeService {
       scope: { userId }
     });
     
-    // Get recent knowledge
+    // Get general knowledge (no userId scope - this includes your 370 synced nodes!)
+    const generalResults = await this.knowledgeGraphService.search({
+      query: '',
+      filters: {},
+      options: { limit: 2000 }, // Increased limit to capture all your synced nodes
+      timestamp: Date.now(),
+      scope: {} // No scope = general knowledge
+    });
+    
+    // Get recent user knowledge
     const recentWeek = await this.knowledgeGraphService.search({
       query: '',
       filters: { 
@@ -137,18 +150,28 @@ export class UserKnowledgeService {
       scope: { userId }
     });
     
-    // Calculate statistics
-    const itemsByType: Record<string, number> = {};
-    allResults.items.forEach(item => {
-      itemsByType[item.type] = (itemsByType[item.type] || 0) + 1;
+    // Calculate user knowledge statistics
+    const userItemsByType: Record<string, number> = {};
+    userResults.items.forEach(item => {
+      userItemsByType[item.type] = (userItemsByType[item.type] || 0) + 1;
+    });
+    
+    // Calculate general knowledge statistics  
+    const generalItemsByType: Record<string, number> = {};
+    generalResults.items.forEach(item => {
+      generalItemsByType[item.type] = (generalItemsByType[item.type] || 0) + 1;
     });
     
     return {
-      totalItems: allResults.items.length,
-      itemsByType,
+      totalItems: userResults.items.length,
+      itemsByType: userItemsByType,
       recentActivity: {
         itemsThisWeek: recentWeek.items.length,
         itemsThisMonth: recentMonth.items.length
+      },
+      generalKnowledge: {
+        totalItems: generalResults.items.length,
+        itemsByType: generalItemsByType
       }
     };
   }

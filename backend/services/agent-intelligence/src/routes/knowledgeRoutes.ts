@@ -16,17 +16,43 @@ async function searchKnowledgeForAgent(query: string, options: {
   userId?: string;
   agentContext?: string;
 }): Promise<any[]> {
-  // Mock implementation - replace with actual knowledge service integration
-  return [
-    {
-      id: 'kb_001',
-      title: 'Sample Knowledge Entry',
-      content: `Knowledge entry related to: ${query}`,
-      relevance: 0.85,
-      type: 'factual',
-      tags: ['sample', 'knowledge']
+  try {
+    // Import knowledge service
+    const { getUserKnowledgeService } = await import('@uaip/shared-services');
+    const userKnowledgeService = await getUserKnowledgeService();
+    
+    if (!userKnowledgeService || !options.userId) {
+      console.warn('Knowledge service not available or user not provided');
+      return [];
     }
-  ];
+
+    // Search user's knowledge
+    const searchResult = await userKnowledgeService.search(options.userId, {
+      query,
+      filters: {},
+      options: {
+        limit: options.limit || 20,
+        includeRelationships: false
+      },
+      timestamp: Date.now()
+    });
+
+    // Transform to expected format
+    return searchResult.items.map(item => ({
+      id: item.id,
+      title: item.content.substring(0, 100) + (item.content.length > 100 ? '...' : ''),
+      content: item.content,
+      relevance: item.confidence,
+      type: item.type.toLowerCase(),
+      tags: item.tags,
+      sourceType: item.sourceType,
+      createdAt: item.createdAt
+    }));
+
+  } catch (error) {
+    console.error('Knowledge search failed:', error);
+    return [];
+  }
 }
 
 // Mock results for development

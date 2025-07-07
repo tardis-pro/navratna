@@ -406,33 +406,64 @@ export class KnowledgeSyncService {
       logger.warn('Failed to discover PostgreSQL items:', error);
     }
 
-    // 2. Discover from Neo4j
+    // 2. Discover from Neo4j - find ALL nodes and convert to knowledge items
     try {
       const neo4jResult = await this.graphDb.runQuery(`
-        MATCH (k:KnowledgeItem) 
-        RETURN k.id as id, k.content as content, k.type as type, k.metadata as metadata
+        MATCH (n) 
+        RETURN 
+          COALESCE(n.id, toString(id(n))) as id,
+          COALESCE(n.content, n.name, n.title, 'Auto-generated content') as content,
+          COALESCE(n.type, head(labels(n)), 'GENERAL') as type,
+          n as node,
+          labels(n) as labels
+        LIMIT 500
       `, {});
       
       for (const record of neo4jResult.records) {
-        const id = record.get('id');
+        let id = record.get('id');
         const content = record.get('content');
         const type = record.get('type');
-        const metadata = record.get('metadata');
+        const labels = record.get('labels');
+        const node = record.get('node');
+        
+        // Generate UUID if needed
+        if (!id || typeof id !== 'string' || !id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+          id = uuidv4();
+        }
+        
+        // Extract meaningful content
+        let extractedContent = content;
+        if (!extractedContent || extractedContent === '[object Object]') {
+          // Try to extract meaningful content from node properties
+          const nodeProps = node?.properties || {};
+          extractedContent = nodeProps.description || nodeProps.summary || nodeProps.name || 
+                           nodeProps.title || `${labels?.join(', ') || type} node`;
+        }
         
         if (itemsMap.has(id)) {
           itemsMap.get(id)!.existsIn.neo4j = true;
         } else {
+          const originalType = type === 'Memory' && labels?.length > 1 ? labels[1] : type;
+          
           itemsMap.set(id, {
             id,
-            content,
-            type,
-            metadata: metadata ? JSON.parse(metadata) : {},
+            content: extractedContent,
+            type: this.mapToKnowledgeType(originalType),
+            metadata: {
+              originalType,           // Preserve exact original type
+              originalLabels: labels, // Preserve all Neo4j labels
+              sourceNode: 'neo4j-conversion',
+              originalProperties: node?.properties || {}, // Preserve all original properties
+              neo4jInternalId: node?.identity?.toString(),  // Preserve Neo4j internal ID
+              conversionTimestamp: new Date().toISOString()
+            },
             source: 'neo4j',
-            existsIn: { postgres: false, neo4j: true, qdrant: false }
+            existsIn: { postgres: false, neo4j: true, qdrant: false },
+            needsConversion: true // Flag to indicate this needs conversion to KnowledgeItem
           });
         }
       }
-      logger.info(`Found ${neo4jResult.records.length} items in Neo4j`);
+      logger.info(`Found ${neo4jResult.records.length} items in Neo4j (including non-KnowledgeItem nodes)`);
     } catch (error) {
       logger.warn('Failed to discover Neo4j items:', error);
     }
@@ -494,10 +525,14 @@ export class KnowledgeSyncService {
         result.postgresId = item.id;
       }
 
-      // 2. Sync to Neo4j if missing
+      // 2. Sync to Neo4j if missing or needs conversion
       if (!item.existsIn.neo4j) {
         const entity = item.pgEntity || await this.createKnowledgeEntityFromItem(item);
         await this.syncToNeo4j(entity);
+        result.neo4jSynced = true;
+      } else if (item.needsConversion) {
+        // Convert existing Neo4j node to KnowledgeItem format
+        await this.convertNeo4jNodeToKnowledgeItem(item);
         result.neo4jSynced = true;
       }
 
@@ -613,6 +648,254 @@ export class KnowledgeSyncService {
 
     return status;
   }
+
+  /**
+   * Convert an existing Neo4j node to KnowledgeItem format
+   */
+  private async convertNeo4jNodeToKnowledgeItem(item: UniversalKnowledgeItem): Promise<void> {
+    try {
+      // First, get the PostgreSQL entity to have the proper UUID
+      const pgEntity = await this.knowledgeRepository.findById(item.id);
+      if (!pgEntity) {
+        logger.warn(`No PostgreSQL entity found for ${item.id}, skipping Neo4j conversion`);
+        return;
+      }
+
+      // Add KnowledgeItem label to the existing node and update properties
+      const cypher = `
+        MATCH (n) 
+        WHERE n.name = $content OR n.title = $content OR n.content = $content 
+           OR (n.id IS NOT NULL AND n.id = $oldId)
+        SET n:KnowledgeItem,
+            n.id = $newId,
+            n.content = $content,
+            n.type = $type,
+            n.sourceType = $sourceType,
+            n.sourceIdentifier = $sourceIdentifier,
+            n.tags = $tags,
+            n.confidence = $confidence,
+            n.metadata = $metadata,
+            n.accessLevel = $accessLevel,
+            n.summary = $summary,
+            n.createdAt = $createdAt,
+            n.updatedAt = $updatedAt,
+            n.converted = true
+        RETURN n
+      `;
+
+      const params = {
+        oldId: item.metadata.originalProperties?.id || null,
+        newId: pgEntity.id,
+        content: pgEntity.content,
+        type: pgEntity.type,
+        sourceType: pgEntity.sourceType,
+        sourceIdentifier: pgEntity.sourceIdentifier,
+        tags: pgEntity.tags,
+        confidence: pgEntity.confidence,
+        metadata: JSON.stringify({
+          ...pgEntity.metadata,
+          converted: true,
+          originalLabels: item.metadata.originalLabels,
+          conversionDate: new Date().toISOString()
+        }),
+        accessLevel: pgEntity.accessLevel,
+        summary: pgEntity.summary,
+        createdAt: pgEntity.createdAt.toISOString(),
+        updatedAt: pgEntity.updatedAt.toISOString()
+      };
+
+      const result = await this.graphDb.runQuery(cypher, params);
+      
+      if (result.records.length > 0) {
+        logger.info(`Successfully converted Neo4j node to KnowledgeItem: ${pgEntity.id}`);
+        
+        // Create user/agent relationships if they exist
+        if (pgEntity.userId) {
+          await this.createUserKnowledgeRelationship(pgEntity.userId, pgEntity.id);
+        }
+        
+        if (pgEntity.agentId) {
+          await this.createAgentKnowledgeRelationship(pgEntity.agentId, pgEntity.id);
+        }
+      } else {
+        logger.warn(`No Neo4j node found to convert for item: ${item.content}`);
+      }
+
+    } catch (error) {
+      logger.error(`Failed to convert Neo4j node to KnowledgeItem for ${item.id}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Map Neo4j node types to valid KnowledgeType enum values
+   * Preserves all original information in metadata
+   */
+  private mapToKnowledgeType(originalType: string): KnowledgeType {
+    // Comprehensive mapping that doesn't lose any semantic meaning
+    const typeMap: Record<string, KnowledgeType> = {
+      // Project/Work concepts
+      'WorkItem': KnowledgeType.PROCEDURAL,
+      'Epic': KnowledgeType.CONCEPTUAL,
+      'Module': KnowledgeType.CONCEPTUAL,
+      'Component': KnowledgeType.CONCEPTUAL,
+      'Task': KnowledgeType.PROCEDURAL,
+      'Phase': KnowledgeType.PROCEDURAL,
+      'Sprint': KnowledgeType.PROCEDURAL,
+      'Milestone': KnowledgeType.PROCEDURAL,
+      'ActionItem': KnowledgeType.PROCEDURAL,
+      'ActionPhase': KnowledgeType.PROCEDURAL,
+      'ActionPlan': KnowledgeType.PROCEDURAL,
+      
+      // Technical concepts
+      'Microservice': KnowledgeType.CONCEPTUAL,
+      'Database': KnowledgeType.CONCEPTUAL,
+      'Technology': KnowledgeType.CONCEPTUAL,
+      'Platform': KnowledgeType.CONCEPTUAL,
+      'Infrastructure': KnowledgeType.CONCEPTUAL,
+      'ArchitectureComponent': KnowledgeType.CONCEPTUAL,
+      'ArchitecturalPattern': KnowledgeType.CONCEPTUAL,
+      'SystemComponent': KnowledgeType.CONCEPTUAL,
+      'DataSchema': KnowledgeType.CONCEPTUAL,
+      'DataFlow': KnowledgeType.CONCEPTUAL,
+      'DataConnector': KnowledgeType.CONCEPTUAL,
+      
+      // Documentation and information
+      'Document': KnowledgeType.FACTUAL,
+      'Metric': KnowledgeType.FACTUAL,
+      'Analysis': KnowledgeType.FACTUAL,
+      'ExecutiveSummary': KnowledgeType.FACTUAL,
+      'BudgetAnalysis': KnowledgeType.FACTUAL,
+      'Summary': KnowledgeType.FACTUAL,
+      
+      // Geographic and places
+      'city': KnowledgeType.FACTUAL,
+      'City': KnowledgeType.FACTUAL,
+      'Location': KnowledgeType.FACTUAL,
+      'Country': KnowledgeType.FACTUAL,
+      'State': KnowledgeType.FACTUAL,
+      'MountainRange': KnowledgeType.FACTUAL,
+      'River': KnowledgeType.FACTUAL,
+      
+      // People and organizations
+      'Person': KnowledgeType.FACTUAL,
+      'Stakeholder': KnowledgeType.FACTUAL,
+      'Company': KnowledgeType.FACTUAL,
+      'Organization': KnowledgeType.FACTUAL,
+      'Workplace': KnowledgeType.FACTUAL,
+      
+      // Cultural and historical
+      'Empire': KnowledgeType.FACTUAL,
+      'HistoricalEvent': KnowledgeType.FACTUAL,
+      'HistoricalCivilization': KnowledgeType.FACTUAL,
+      'HistoricalPeriod': KnowledgeType.FACTUAL,
+      'ColonialPeriod': KnowledgeType.FACTUAL,
+      'CulturalAspect': KnowledgeType.FACTUAL,
+      'Festival': KnowledgeType.FACTUAL,
+      'Religion': KnowledgeType.FACTUAL,
+      'TraditionalArt': KnowledgeType.FACTUAL,
+      
+      // Business concepts
+      'BusinessMetric': KnowledgeType.FACTUAL,
+      'BusinessProcess': KnowledgeType.PROCEDURAL,
+      'BusinessModel': KnowledgeType.CONCEPTUAL,
+      'BusinessStrategy': KnowledgeType.CONCEPTUAL,
+      'BusinessRisk': KnowledgeType.FACTUAL,
+      'Strategy': KnowledgeType.CONCEPTUAL,
+      'BrandStrategy': KnowledgeType.CONCEPTUAL,
+      'EconomicProfile': KnowledgeType.FACTUAL,
+      'EconomicSector': KnowledgeType.FACTUAL,
+      
+      // Risks and compliance
+      'Risk': KnowledgeType.FACTUAL,
+      'SecurityThreat': KnowledgeType.FACTUAL,
+      'OperationalRisk': KnowledgeType.FACTUAL,
+      'ComplianceRisk': KnowledgeType.FACTUAL,
+      'ComplianceRequirement': KnowledgeType.PROCEDURAL,
+      
+      // Tools and capabilities
+      'PersonalTool': KnowledgeType.PROCEDURAL,
+      'Capability': KnowledgeType.CONCEPTUAL,
+      'Feature': KnowledgeType.CONCEPTUAL,
+      'FeatureList': KnowledgeType.CONCEPTUAL,
+      'Enhancement': KnowledgeType.CONCEPTUAL,
+      'EnhancementSystem': KnowledgeType.CONCEPTUAL,
+      
+      // Processes and frameworks
+      'Guideline': KnowledgeType.PROCEDURAL,
+      'QualityFramework': KnowledgeType.CONCEPTUAL,
+      'PedagogicalFramework': KnowledgeType.CONCEPTUAL,
+      'TestingFramework': KnowledgeType.CONCEPTUAL,
+      
+      // Additional types from your Neo4j data
+      'Opportunity': KnowledgeType.CONCEPTUAL,
+      'CriticalTask': KnowledgeType.PROCEDURAL,
+      'Disruptor': KnowledgeType.FACTUAL,
+      'Project': KnowledgeType.CONCEPTUAL,
+      'UserPersona': KnowledgeType.FACTUAL,
+      'ValidationCheckpoint': KnowledgeType.PROCEDURAL,
+      'ResourceRequirement': KnowledgeType.PROCEDURAL,
+      'DecisionPoint': KnowledgeType.CONCEPTUAL,
+      'MagicService': KnowledgeType.CONCEPTUAL,
+      'Status': KnowledgeType.FACTUAL,
+      'Priority': KnowledgeType.FACTUAL,
+      'ImplementationPhase': KnowledgeType.PROCEDURAL,
+      'SuccessCriteria': KnowledgeType.CONCEPTUAL,
+      'InfrastructureComponent': KnowledgeType.CONCEPTUAL,
+      'ExternalIntegration': KnowledgeType.CONCEPTUAL,
+      'TechnicalSolution': KnowledgeType.CONCEPTUAL,
+      'MediaPlatform': KnowledgeType.FACTUAL,
+      'FuturePlan': KnowledgeType.CONCEPTUAL,
+      'AIPlatform': KnowledgeType.CONCEPTUAL,
+      'CinemaIndustry': KnowledgeType.FACTUAL,
+      'CollectionOfSymbols': KnowledgeType.FACTUAL,
+      'Policy': KnowledgeType.PROCEDURAL,
+      'AncientInstitution': KnowledgeType.FACTUAL,
+      'Scientist': KnowledgeType.FACTUAL,
+      'Software': KnowledgeType.CONCEPTUAL,
+      'LearningJourney': KnowledgeType.EXPERIENTIAL,
+      'LearningOutcome': KnowledgeType.CONCEPTUAL,
+      'QualityAssurance': KnowledgeType.PROCEDURAL,
+      'TechnicalPlan': KnowledgeType.PROCEDURAL,
+      'AIService': KnowledgeType.CONCEPTUAL,
+      'IntegrationLayer': KnowledgeType.CONCEPTUAL,
+      'CapabilitySystem': KnowledgeType.CONCEPTUAL,
+      'PersonaSystem': KnowledgeType.CONCEPTUAL,
+      'VectorDatabase': KnowledgeType.CONCEPTUAL,
+      'KnowledgeService': KnowledgeType.CONCEPTUAL,
+      'DataModel': KnowledgeType.CONCEPTUAL,
+      'DevelopmentTracker': KnowledgeType.PROCEDURAL,
+      'DevelopmentStandards': KnowledgeType.PROCEDURAL,
+      'DataArchitecture': KnowledgeType.CONCEPTUAL,
+      'SearchSystem': KnowledgeType.CONCEPTUAL,
+      'FutureFeature': KnowledgeType.CONCEPTUAL,
+      'Meta': KnowledgeType.FACTUAL,
+      'TechnicalComponent': KnowledgeType.CONCEPTUAL,
+      'TechnicalArchitecture': KnowledgeType.CONCEPTUAL,
+      'Service': KnowledgeType.CONCEPTUAL,
+      'Application': KnowledgeType.CONCEPTUAL,
+      'ProjectStatus': KnowledgeType.FACTUAL,
+      'DevelopmentPhase': KnowledgeType.PROCEDURAL,
+      'Movement': KnowledgeType.FACTUAL,
+      'TimelineAnalysis': KnowledgeType.FACTUAL,
+      
+      // Geographic compound labels
+      'mountain': KnowledgeType.FACTUAL,
+      'river': KnowledgeType.FACTUAL,
+      'person': KnowledgeType.FACTUAL,
+      'monument': KnowledgeType.FACTUAL,
+      'Building': KnowledgeType.FACTUAL,
+      'state': KnowledgeType.FACTUAL,
+      'country': KnowledgeType.FACTUAL,
+      
+      // Default mappings
+      'Memory': KnowledgeType.EPISODIC,
+      'GENERAL': KnowledgeType.FACTUAL
+    };
+
+    // Return mapped type or default to FACTUAL while preserving original type in metadata
+    return typeMap[originalType] || KnowledgeType.FACTUAL;
+  }
 }
 
 interface UniversalKnowledgeItem {
@@ -628,4 +911,5 @@ interface UniversalKnowledgeItem {
   };
   pgEntity?: KnowledgeItemEntity;
   qdrantPayload?: any;
+  needsConversion?: boolean; // Flag for nodes that need to be converted to KnowledgeItem
 }

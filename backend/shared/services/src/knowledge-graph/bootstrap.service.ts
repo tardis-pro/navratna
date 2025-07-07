@@ -1,8 +1,10 @@
 import { KnowledgeSyncService } from './knowledge-sync.service.js';
+import { SimplifiedSyncService, SimplifiedSyncResult } from './simplified-sync.service.js';
 import { KnowledgeRepository } from '../database/repositories/knowledge.repository.js';
 import { QdrantService } from '../qdrant.service.js';
 import { ToolGraphDatabase } from '../database/toolGraphDatabase.js';
 import { EmbeddingService } from './embedding.service.js';
+import { SmartEmbeddingService } from './smart-embedding.service.js';
 import { logger } from '@uaip/utils';
 
 export interface BootstrapConfig {
@@ -11,10 +13,20 @@ export interface BootstrapConfig {
   batchSize: number;
   retryAttempts: number;
   retryDelay: number;
+  useSimplifiedSync: boolean; // New flag for simplified sync
+}
+
+export interface BootstrapStatus {
+  syncResult: SimplifiedSyncResult;
+  clusteringEnabled: boolean;
+  totalReduction: number;
+  finalKnowledgeItems: number;
 }
 
 export class KnowledgeBootstrapService {
   private syncService: KnowledgeSyncService;
+  private simplifiedSyncService: SimplifiedSyncService;
+  private smartEmbeddingService: SmartEmbeddingService;
   private isBootstrapped = false;
   private bootstrapPromise: Promise<void> | null = null;
 
@@ -28,14 +40,34 @@ export class KnowledgeBootstrapService {
       syncOnStartup: true,
       batchSize: 10,
       retryAttempts: 3,
-      retryDelay: 1000
+      retryDelay: 1000,
+      useSimplifiedSync: true
     }
   ) {
+    // Initialize smart embedding service with TEI preference
+    this.smartEmbeddingService = new SmartEmbeddingService({
+      preferTEI: true,
+      fallbackToOpenAI: false, // Only use TEI
+      teiUrls: {
+        embedding: process.env.TEI_EMBEDDING_URL || 'http://localhost:8080',
+        reranker: process.env.TEI_RERANKER_URL || 'http://localhost:8083',
+        embeddingCPU: process.env.TEI_EMBEDDING_CPU_URL || 'http://localhost:8082'
+      }
+    });
+
+    // Initialize services
     this.syncService = new KnowledgeSyncService(
       knowledgeRepository,
       qdrantService,
       graphDb,
       embeddingService
+    );
+
+    this.simplifiedSyncService = new SimplifiedSyncService(
+      knowledgeRepository,
+      qdrantService,
+      graphDb,
+      this.smartEmbeddingService
     );
   }
 
@@ -246,31 +278,76 @@ export class KnowledgeBootstrapService {
    * Run after seeding process - discovers and syncs any new data
    * This is the main entry point for post-seed synchronization
    */
-  async runPostSeedSync(): Promise<void> {
+  async runPostSeedSync(): Promise<BootstrapStatus> {
     logger.info('🌱 Starting post-seed knowledge graph synchronization');
     
     try {
       // Wait a bit for seeding to settle
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Run the universal sync to catch any new data
-      const result = await this.syncService.universalSync();
-      
-      logger.info('🎉 Post-seed sync completed:', {
-        totalFound: result.totalFound,
-        totalSynced: result.totalSynced,
-        totalFailed: result.totalFailed,
-        syncedFromPostgres: result.syncedFromPostgres,
-        syncedFromNeo4j: result.syncedFromNeo4j,
-        syncedFromQdrant: result.syncedFromQdrant
-      });
+      if (this.config.useSimplifiedSync) {
+        // Use new simplified sync pipeline
+        const syncResult = await this.simplifiedSyncService.runSimplifiedSync();
+        
+        logger.info('🎉 Simplified post-seed sync completed:', {
+          totalFromNeo4j: syncResult.totalFromNeo4j,
+          totalToQdrant: syncResult.totalToQdrant,
+          clustersCreated: syncResult.clustersCreated,
+          totalToPostgres: syncResult.totalToPostgres,
+          reductionRatio: syncResult.reductionRatio
+        });
 
-      if (result.totalFailed > 0) {
-        logger.warn(`⚠️ ${result.totalFailed} items failed to sync during post-seed process`);
+        const totalReduction = syncResult.totalFromNeo4j - syncResult.totalToPostgres;
+        
+        // Mark as bootstrapped after successful post-seed sync
+        this.isBootstrapped = true;
+
+        return {
+          syncResult,
+          clusteringEnabled: true,
+          totalReduction,
+          finalKnowledgeItems: syncResult.totalToPostgres
+        };
+        
+      } else {
+        // Use legacy universal sync
+        const result = await this.syncService.universalSync();
+        
+        logger.info('🎉 Legacy post-seed sync completed:', {
+          totalFound: result.totalFound,
+          totalSynced: result.totalSynced,
+          totalFailed: result.totalFailed,
+          syncedFromPostgres: result.syncedFromPostgres,
+          syncedFromNeo4j: result.syncedFromNeo4j,
+          syncedFromQdrant: result.syncedFromQdrant
+        });
+
+        if (result.totalFailed > 0) {
+          logger.warn(`⚠️ ${result.totalFailed} items failed to sync during post-seed process`);
+        }
+
+        // Mark as bootstrapped after successful post-seed sync
+        this.isBootstrapped = true;
+        
+        // Convert legacy result to new format
+        const legacySyncResult: SimplifiedSyncResult = {
+          totalFromNeo4j: result.syncedFromNeo4j,
+          totalToQdrant: result.syncedFromNeo4j,
+          totalClustered: 0,
+          totalToPostgres: result.syncedFromPostgres,
+          clustersCreated: 0,
+          reductionRatio: 0,
+          errors: result.errors,
+          syncTimestamp: new Date()
+        };
+
+        return {
+          syncResult: legacySyncResult,
+          clusteringEnabled: false,
+          totalReduction: 0,
+          finalKnowledgeItems: result.syncedFromPostgres
+        };
       }
-
-      // Mark as bootstrapped after successful post-seed sync
-      this.isBootstrapped = true;
       
     } catch (error) {
       logger.error('❌ Post-seed sync failed:', error);

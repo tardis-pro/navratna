@@ -599,4 +599,74 @@ router.get('/health', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * POST /v1/knowledge/sync
+ * Manually trigger clustering sync process
+ */
+router.post('/sync', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ error: 'User not authenticated' });
+      return;
+    }
+
+    const { userKnowledgeService, initializationError } = await getServices();
+    if (initializationError) {
+      res.status(503).json({
+        error: 'Knowledge service not available',
+        details: initializationError
+      });
+      return;
+    }
+
+    // Import required services
+    const { 
+      KnowledgeBootstrapService,
+      DatabaseService,
+      QdrantService,
+      SmartEmbeddingService
+    } = await import('@uaip/shared-services');
+    
+    // Get service instances
+    const databaseService = DatabaseService.getInstance();
+    const qdrantService = new QdrantService();
+    
+    // Initialize database service if needed
+    await databaseService.initialize();
+
+    // Create embedding service
+    const embeddingService = new SmartEmbeddingService({
+      preferTEI: true,
+      fallbackToOpenAI: false
+    });
+
+    // Get required repositories
+    const knowledgeRepository = await databaseService.getKnowledgeRepository();
+    const toolGraphDatabase = await databaseService.getToolGraphDatabase();
+
+    // Create bootstrap service and run sync
+    const bootstrapService = new KnowledgeBootstrapService(
+      knowledgeRepository,
+      qdrantService,
+      toolGraphDatabase,
+      embeddingService
+    );
+
+    const result = await bootstrapService.runPostSeedSync();
+
+    res.json({
+      success: true,
+      data: result,
+      message: 'Knowledge clustering sync completed successfully'
+    });
+  } catch (error) {
+    console.error('Error running knowledge sync:', error);
+    res.status(500).json({
+      error: 'Failed to run knowledge sync',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 export default router;

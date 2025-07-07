@@ -225,7 +225,6 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
       let graphData: KnowledgeGraphData;
       try {
         const apiGraphData = await uaipAPI.knowledge.getKnowledgeGraph({
-          rootId: rootId || undefined,
           depth: 2,
           types: filterType ? [filterType] : undefined,
           limit: 100
@@ -248,6 +247,7 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
       // Apply knowledge type styling to nodes
       const styledNodes = graphData.nodes.map(node => ({
         ...node,
+        type: 'default', // Ensure all nodes use React Flow's default type
         style: {
           ...KNOWLEDGE_NODE_STYLES.common,
           ...KNOWLEDGE_NODE_STYLES[node.data.knowledgeType as keyof typeof KNOWLEDGE_NODE_STYLES] || KNOWLEDGE_NODE_STYLES.default,

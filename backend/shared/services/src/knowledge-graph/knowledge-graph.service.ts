@@ -33,8 +33,8 @@ export class KnowledgeGraphService {
     let filteredResults: KnowledgeItem[] = [];
     let vectorResults: any[] = [];
     try {
-      // Generate query embedding
-      if (query) {
+      // Generate query embedding or get all items
+      if (query && query.trim()) {
         const queryEmbedding = await this.embeddings.generateEmbedding(query);
         const vectorFilters = this.buildVectorFilters(filters, scope);
 
@@ -45,7 +45,8 @@ export class KnowledgeGraphService {
         });
         filteredResults = await this.repository.applyFilters(vectorResults, filters, scope);
       } else {
-        filteredResults = await this.repository.applyFilters([], filters, scope);
+        // When no query is provided, get all items with scope filtering
+        filteredResults = await this.repository.findByScope(scope || {}, filters, options?.limit || 20);
       }
 
       // Build vector filters including scope

@@ -1027,16 +1027,30 @@ export const uaipAPI = {
         const client = getAPIClient();
         const stats = await client.knowledge.getStats();
         
-        // Transform API stats to expected format
+        // Transform API stats to expected format (now including general knowledge!)
+        const totalItems = (stats.totalItems || 0) + (stats.generalKnowledge?.totalItems || 0);
+        const combinedItemsByType = { ...stats.itemsByType, ...stats.generalKnowledge?.itemsByType };
+        
         return {
-          totalItems: stats.totalItems || 0,
-          itemsByType: (stats.itemsByType || {}) as Record<KnowledgeType, number>,
+          totalItems,
+          itemsByType: combinedItemsByType as Record<KnowledgeType, number>,
           itemsBySource: (stats.itemsByCategory || {}) as Record<SourceType, number>,
           recentActivity: [{
             date: new Date().toISOString().split('T')[0],
-            uploads: stats.recentUploads || 0,
+            uploads: stats.recentActivity?.itemsThisWeek || 0,
             searches: 0 // API doesn't track searches
-          }]
+          }],
+          // Add general knowledge breakdown for debugging
+          debug: {
+            userKnowledge: {
+              totalItems: stats.totalItems || 0,
+              itemsByType: stats.itemsByType || {}
+            },
+            generalKnowledge: {
+              totalItems: stats.generalKnowledge?.totalItems || 0,
+              itemsByType: stats.generalKnowledge?.itemsByType || {}
+            }
+          }
         };
       } catch (error) {
         console.warn('Knowledge stats API failed, returning mock data:', error);
