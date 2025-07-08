@@ -109,11 +109,23 @@ export const knowledgeAPI = {
     
     const url = `${API_ROUTES.KNOWLEDGE.SEARCH}?${params.toString()}`;
     
-    // Backend returns {success: true, data: {items: [], ...}}
-    const response = await APIClient.get<{success: boolean; data: {items: any[]}}>(url);
+    // Backend returns {success: true, data: {items: [], ...}} OR {items: [], totalCount: number, searchMetadata: {}}
+    const response = await APIClient.get<any>(url);
+    
+    // Handle both wrapped and unwrapped response formats
+    let searchData = response;
+    if (response.success && response.data) {
+      searchData = response.data;
+    }
+    
+    // Validate response structure
+    if (!searchData || !searchData.items || !Array.isArray(searchData.items)) {
+      console.warn('Invalid search response structure:', response);
+      return [];
+    }
     
     // Transform backend response to expected format
-    return response.data.items.map((item: any) => ({
+    return searchData.items.map((item: any) => ({
       item: {
         id: item.id,
         title: item.content?.substring(0, 100) + '...' || 'Untitled',

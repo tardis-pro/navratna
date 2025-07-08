@@ -2,7 +2,7 @@ import express, { Router } from 'express';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import { logger } from '@uaip/utils';
-import { authMiddleware, requireAdmin } from '@uaip/middleware';
+import { authMiddleware, requireAdmin, optionalAuth } from '@uaip/middleware';
 import { validateRequest } from '@uaip/middleware';
 import { AuditService } from '../services/auditService.js';
 import { NotificationService } from '../services/notificationService.js';
@@ -61,6 +61,14 @@ const userQuerySchema = z.object({
   isActive: z.coerce.boolean().optional(),
   search: z.string().max(100).optional(),
   sortBy: z.enum(['created_at', 'email', 'role', 'last_login_at']).default('created_at'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc')
+});
+
+const publicUserQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  search: z.string().max(100).optional(),
+  sortBy: z.enum(['created_at', 'email']).default('created_at'),
   sortOrder: z.enum(['asc', 'desc']).default('desc')
 });
 
@@ -188,6 +196,79 @@ router.get('/',
       });
       return;
         return;
+    }
+  });
+
+/**
+ * @route GET /api/v1/users/public
+ * @desc Get public users (excluding admin/manager roles)
+ * @access Public with optional authentication
+ */
+router.get('/public', 
+  optionalAuth,
+  validateRequest({ query: publicUserQuerySchema }),
+  async (req, res) => {
+    try {
+      const {
+        page,
+        limit,
+        search,
+        sortBy,
+        sortOrder
+      } = req.query;
+
+      const pageQuery = parseInt(page as string) || 1;
+      const limitQuery = parseInt(limit as string) || 20;
+      const offset = (pageQuery - 1) * limitQuery;
+
+      const { databaseService } = await getServices();
+      
+      // Get current user ID to exclude from results
+      const currentUserId = (req as any).user?.userId;
+      
+      // Use UserRepository searchUsers method with role filtering
+      const userRepo = databaseService.users.getUserRepository();
+      const result = await userRepo.searchUsers({
+        search: search as string,
+        role: 'user', // Only include regular users (exclude admin, security_admin, auditor)
+        isActive: true, // Only show active users
+        limit: limitQuery,
+        offset: offset
+      });
+
+      // Filter out sensitive information for public response
+      const publicUsers = result.users.map(user => ({
+        id: user.id,
+        email: user.email,
+        displayName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email.split('@')[0],
+        firstName: user.firstName,
+        lastName: user.lastName,
+        department: user.department,
+        createdAt: user.createdAt,
+        lastLoginAt: user.lastLoginAt
+      }));
+
+      res.json({
+        success: true,
+        message: 'Public users retrieved successfully',
+        data: {
+          users: publicUsers,
+          pagination: {
+            page: pageQuery,
+            limit: limitQuery,
+            total: result.total,
+            pages: Math.ceil(result.total / limitQuery)
+          }
+        }
+      });
+
+    } catch (error) {
+      logger.error('Get public users error', { error, userId: (req as any).user?.userId });
+      res.status(500).json({
+        success: false,
+        error: 'Internal Server Error',
+        message: 'An error occurred while retrieving public users'
+      });
     }
   });
 

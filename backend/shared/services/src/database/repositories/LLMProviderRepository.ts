@@ -279,6 +279,53 @@ export class LLMProviderRepository extends BaseRepository<LLMProvider> {
   }
 
   /**
+   * Update provider configuration
+   */
+  async updateProvider(id: string, data: Partial<{
+    name: string;
+    description: string;
+    baseUrl: string;
+    defaultModel: string;
+    modelsList: string[];
+    configuration: any;
+    priority: number;
+    isActive: boolean;
+    status: LLMProviderStatus;
+    updatedBy: string;
+  }>): Promise<LLMProvider> {
+    try {
+      const provider = await this.repository.findOne({ where: { id } });
+      if (!provider) {
+        throw new Error(`LLM provider with id ${id} not found`);
+      }
+
+      // Update the provider with the new data
+      Object.assign(provider, data);
+      provider.updatedAt = new Date();
+      
+      const savedProvider = await this.repository.save(provider);
+      
+      logger.info('Updated LLM provider', { 
+        id: savedProvider.id, 
+        name: savedProvider.name,
+        updates: Object.keys(data)
+      });
+
+      return savedProvider;
+    } catch (error) {
+      logger.error('Error updating LLM provider', { id, data, error });
+      throw error;
+    }
+  }
+
+  /**
+   * Delete provider (alias for softDelete)
+   */
+  async deleteProvider(id: string, deletedBy?: string): Promise<void> {
+    return this.softDelete(id, deletedBy);
+  }
+
+  /**
    * Soft delete provider (mark as inactive)
    */
   async softDelete(id: string, deletedBy?: string): Promise<void> {

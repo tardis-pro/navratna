@@ -2,6 +2,9 @@ import { FindManyOptions, FindOneOptions } from 'typeorm';
 import { BaseRepository } from '../base/BaseRepository.js';
 import { UserContactEntity, ContactStatus, ContactType } from '../../entities/user-contact.entity.js';
 
+// Re-export types for convenience
+export { ContactStatus, ContactType };
+
 export class UserContactRepository extends BaseRepository<UserContactEntity> {
   constructor() {
     super(UserContactEntity);

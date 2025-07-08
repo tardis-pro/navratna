@@ -145,25 +145,22 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
 
           {/* List Tab */}
           <TabsContent value="browse" className="flex-1 overflow-hidden p-4">
-            {Object.values(items).length === 0 ? (
-              <div className="flex items-center justify-center h-full">
-                <p className="text-slate-400">No knowledge items found</p>
-              </div>
-            ) : (
+            {/* Show search results if available, otherwise show regular items */}
+            {searchResults.length > 0 ? (
               <ScrollArea className="h-full">
                 <div className="space-y-2">
-                  {Object.values(items).map((item) => (
+                  {searchResults.map((item) => (
                     <div
                       key={item.id}
                       className="flex items-center justify-between p-3 bg-black/20 border border-blue-500/20 rounded hover:bg-blue-500/10 transition-colors"
                     >
                       <div className="flex-1 min-w-0">
                         <p className="text-white text-sm truncate mb-1">
-                          {item.content}
+                          {item.content || 'No content'}
                         </p>
                         <div className="flex items-center gap-2 text-xs text-gray-400">
-                          <span>{new Date(item.createdAt).toLocaleDateString()}</span>
-                          {item.tags.slice(0, 2).map((tag) => (
+                          <span>{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'No date'}</span>
+                          {(item.tags || []).slice(0, 2).map((tag) => (
                             <Badge key={tag} variant="outline" className="text-xs">
                               {tag}
                             </Badge>
@@ -174,7 +171,7 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => navigator.clipboard.writeText(item.content)}
+                          onClick={() => navigator.clipboard.writeText(item.content || '')}
                           className="h-8 w-8 p-0 text-gray-400 hover:text-white"
                           title="Copy"
                         >
@@ -184,7 +181,7 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
                           size="sm"
                           variant="ghost"
                           onClick={() => {
-                            const blob = new Blob([item.content], { type: 'text/plain' });
+                            const blob = new Blob([item.content || ''], { type: 'text/plain' });
                             const url = URL.createObjectURL(blob);
                             const a = document.createElement('a');
                             a.href = url;
@@ -212,9 +209,9 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
                           contextData={{
                             knowledgeItem: {
                               id: item.id,
-                              content: item.content,
+                              content: item.content || '',
                               type: item.type,
-                              tags: item.tags
+                              tags: item.tags || []
                             }
                           }}
                         />
@@ -226,6 +223,58 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
                         >
                           <Edit3 className="w-4 h-4" />
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => deleteKnowledge(item.id)}
+                          className="h-8 w-8 p-0 text-gray-400 hover:text-red-400"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setSelectedItemForAtomic(item);
+                            setActiveTab('atomic');
+                          }}
+                          className="h-8 w-8 p-0 text-blue-400 hover:text-blue-300"
+                          title="Examine"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            ) : Object.values(items).length === 0 ? (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-slate-400">No knowledge items found</p>
+              </div>
+            ) : (
+              <ScrollArea className="h-full">
+                <div className="space-y-2">
+                  {Object.values(items).map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between p-3 bg-black/20 border border-blue-500/20 rounded hover:bg-blue-500/10 transition-colors"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white text-sm truncate mb-1">
+                          {item.content || 'No content'}
+                        </p>
+                        <div className="flex items-center gap-2 text-xs text-gray-400">
+                          <span>{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'No date'}</span>
+                          {(item.tags || []).slice(0, 2).map((tag) => (
+                            <Badge key={tag} variant="outline" className="text-xs">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
                         <Button
                           size="sm"
                           variant="ghost"
@@ -254,114 +303,6 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
               </ScrollArea>
             )}
           </TabsContent>
-
-          {/* Search Results (shown when there are results) */}
-          {searchResults.length > 0 && activeTab === 'browse' && (
-            <TabsContent value="browse" className="flex-1 overflow-hidden p-4">
-              <ScrollArea className="h-full">
-                <div className="space-y-2">
-                  {searchResults.map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between p-3 bg-black/20 border border-blue-500/20 rounded hover:bg-blue-500/10 transition-colors"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm truncate mb-1">
-                          {item.content}
-                        </p>
-                        <div className="flex items-center gap-2 text-xs text-gray-400">
-                          <span>{new Date(item.createdAt).toLocaleDateString()}</span>
-                          {item.tags.slice(0, 2).map((tag) => (
-                            <Badge key={tag} variant="outline" className="text-xs">
-                              {tag}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-1 ml-3">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => navigator.clipboard.writeText(item.content)}
-                          className="h-8 w-8 p-0 text-gray-400 hover:text-white"
-                          title="Copy"
-                        >
-                          <Copy className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            const blob = new Blob([item.content], { type: 'text/plain' });
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = `knowledge-${item.id}.txt`;
-                            a.click();
-                            URL.revokeObjectURL(url);
-                          }}
-                          className="h-8 w-8 p-0 text-gray-400 hover:text-white"
-                          title="Download"
-                        >
-                          <Download className="w-4 h-4" />
-                        </Button>
-                        <DiscussionTrigger
-                          trigger={
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-8 w-8 p-0 text-gray-400 hover:text-white"
-                              title="Discuss"
-                            >
-                              <MessageSquare className="w-4 h-4" />
-                            </Button>
-                          }
-                          contextType="knowledge"
-                          contextData={{
-                            knowledgeItem: {
-                              id: item.id,
-                              content: item.content,
-                              type: item.type,
-                              tags: item.tags
-                            }
-                          }}
-                        />
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 w-8 p-0 text-gray-400 hover:text-white"
-                          title="Edit"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => deleteKnowledge(item.id)}
-                          className="h-8 w-8 p-0 text-gray-400 hover:text-red-400"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            setSelectedItemForAtomic(item);
-                            setActiveTab('atomic');
-                          }}
-                          className="h-8 w-8 p-0 text-blue-400 hover:text-blue-300"
-                          title="Examine"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            </TabsContent>
-          )}
 
           {/* Graph View Tab */}
           <TabsContent value="graph" className="flex-1 overflow-hidden">

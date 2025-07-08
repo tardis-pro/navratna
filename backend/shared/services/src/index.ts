@@ -41,6 +41,7 @@ export { MFAService } from './services/MFAService.js';
 export { OAuthService } from './services/OAuthService.js';
 export { AuditService } from './services/AuditService.js';
 export { SecurityService } from './services/SecurityService.js';
+export { UserToolPreferencesService } from './services/UserToolPreferencesService.js';
 
 // Agent Intelligence Services
 export { AgentIntelligenceService } from './agentIntelligenceService.js';
@@ -115,6 +116,9 @@ export {
   ProjectWorkflow,
   TaskExecution
 } from './entities/Project.js';
+
+// Contact Management Entities
+export { ContactStatus, ContactType } from './database/repositories/UserContactRepository.js';
 
 // =============================================================================
 // SERVICE FACTORY AND DEPENDENCY INJECTION

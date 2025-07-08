@@ -217,16 +217,16 @@ export const AtomicKnowledgeViewer: React.FC<AtomicKnowledgeViewerProps> = ({
   };
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(item.content);
+    navigator.clipboard.writeText(item.content || '');
   };
 
   const handleExport = () => {
     const exportData = {
       id: item.id,
-      content: item.content,
+      content: item.content || '',
       type: item.type,
-      tags: item.tags,
-      confidence: item.confidence,
+      tags: item.tags || [],
+      confidence: item.confidence || 0,
       sourceType: item.sourceType,
       createdAt: item.createdAt,
       analysis: analysis
@@ -425,7 +425,7 @@ export const AtomicKnowledgeViewer: React.FC<AtomicKnowledgeViewerProps> = ({
                             {relatedItem.type}
                           </Badge>
                           <span className="text-xs text-slate-400">
-                            {(relatedItem.confidence * 100).toFixed(0)}% confidence
+                            {((relatedItem.confidence || 0) * 100).toFixed(0)}% confidence
                           </span>
                         </div>
                         <p className="text-slate-300 text-sm leading-relaxed mb-3">
@@ -481,7 +481,7 @@ export const AtomicKnowledgeViewer: React.FC<AtomicKnowledgeViewerProps> = ({
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">Confidence</span>
-                    <span className="text-white">{(item.confidence * 100).toFixed(1)}%</span>
+                    <span className="text-white">{((item.confidence || 0) * 100).toFixed(1)}%</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">Created</span>

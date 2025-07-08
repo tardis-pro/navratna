@@ -98,34 +98,76 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
   const [isInstalling, setIsInstalling] = useState(false);
 
   useEffect(() => {
-    // Extract tools from agent capabilities and tool integrations
-    const extractedTools: Tool[] = [];
+    // Build unified tool catalog from registry as single source of truth
+    const toolCatalog: Map<string, Tool> = new Map();
+    const toolAssignments: Map<string, string[]> = new Map(); // toolId -> agentIds
     
     try {
-      // Add tools from agent capabilities
+      // First: Load base tools from capabilities registry (single source of truth)
+      capabilities.data.forEach(capability => {
+        const toolId = capability.id;
+        toolCatalog.set(toolId, {
+          id: toolId,
+          name: capability.name,
+          status: capability.status === 'active' ? 'active' : 'inactive',
+          description: capability.description || `${capability.name} capability`,
+          lastUsed: capability.lastUsed ? new Date(capability.lastUsed) : undefined,
+          usageCount: capability.usageCount || 0,
+          agentId: capability.agentId || 'system',
+          agentName: capability.agentName || 'System',
+          category: capability.category || 'General',
+          version: capability.version || '1.0.0'
+        });
+      });
+
+      // Second: Map agent capabilities to existing tools (if they exist)
       agents.data.forEach(agent => {
         if (agent.capabilities && agent.capabilities.length > 0) {
-          agent.capabilities.forEach((capability, index) => {
-            extractedTools.push({
-              id: `${agent.id}-tool-${index}`,
-              name: capability.charAt(0).toUpperCase() + capability.slice(1).replace(/[-_]/g, ' '),
-              status: agent.status === 'active' ? 'active' : 'inactive',
-              description: `${capability} capability provided by ${agent.name}`,
-              lastUsed: agent.lastActivity ? new Date(agent.lastActivity) : undefined,
-              usageCount: agent.metrics?.totalOperations || 0,
-              agentId: agent.id,
-              agentName: agent.name,
-              category: 'Agent Capability',
-              version: '1.0.0'
-            });
+          agent.capabilities.forEach(capability => {
+            // Try to find existing tool by name (normalized)
+            const normalizedCapability = capability.toLowerCase().replace(/[-_\s]/g, '');
+            let toolId: string | undefined;
+            
+            // Find tool in catalog by normalized name comparison
+            for (const [id, tool] of toolCatalog) {
+              const normalizedToolName = tool.name.toLowerCase().replace(/[-_\s]/g, '');
+              if (normalizedToolName === normalizedCapability) {
+                toolId = id;
+                break;
+              }
+            }
+            
+            // If tool doesn't exist in catalog, create a minimal tool entry
+            if (!toolId) {
+              toolId = `agent-capability-${capability.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+              toolCatalog.set(toolId, {
+                id: toolId,
+                name: capability.charAt(0).toUpperCase() + capability.slice(1).replace(/[-_]/g, ' '),
+                status: agent.status === 'active' ? 'active' : 'inactive',
+                description: `${capability} capability`,
+                lastUsed: agent.lastActivity ? new Date(agent.lastActivity) : undefined,
+                usageCount: agent.metrics?.totalOperations || 0,
+                agentId: 'system',
+                agentName: 'System',
+                category: 'Agent Capability',
+                version: '1.0.0'
+              });
+            }
+            
+            // Track assignment relationship
+            if (!toolAssignments.has(toolId)) {
+              toolAssignments.set(toolId, []);
+            }
+            toolAssignments.get(toolId)!.push(agent.id);
           });
         }
       });
 
-      // Add tools from tool integrations
+      // Third: Add system integrations as separate tools
       toolIntegrations.data.forEach(integration => {
-        extractedTools.push({
-          id: integration.id,
+        const toolId = integration.id;
+        toolCatalog.set(toolId, {
+          id: toolId,
           name: integration.name,
           status: integration.status === 'connected' ? 'active' : 
                   integration.status === 'error' ? 'error' : 'inactive',
@@ -139,23 +181,8 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
         });
       });
 
-      // Add tools from capabilities registry with error handling
-      capabilities.data.forEach(capability => {
-        if (!extractedTools.find(tool => tool.name === capability.name)) {
-          extractedTools.push({
-            id: capability.id,
-            name: capability.name,
-            status: capability.status === 'active' ? 'active' : 'inactive',
-            description: capability.description || `${capability.name} capability`,
-            lastUsed: capability.lastUsed ? new Date(capability.lastUsed) : undefined,
-            usageCount: capability.usageCount || 0,
-            agentId: capability.agentId || 'system',
-            agentName: capability.agentName || 'System',
-            category: capability.category || 'General',
-            version: capability.version || '1.0.0'
-          });
-        }
-      });
+      // Convert to array for state
+      const extractedTools = Array.from(toolCatalog.values());
 
       setTools(extractedTools);
     } catch (error) {

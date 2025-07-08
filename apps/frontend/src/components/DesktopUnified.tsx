@@ -10,7 +10,6 @@ import {
 // Import portal components
 import { DashboardPortal } from './futuristic/portals/DashboardPortal';
 import { AgentManager } from './AgentManager';
-import { ChatPortal } from './futuristic/portals/ChatPortal';
 import { KnowledgePortal } from './futuristic/portals/KnowledgePortal';
 import { SettingsPortal } from './futuristic/portals/SettingsPortal';
 import { ArtifactsPortal } from './futuristic/portals/ArtifactsPortal';
@@ -20,9 +19,9 @@ import { SystemConfigPortal } from './futuristic/portals/SystemConfigPortal';
 import { ToolManagementPortal } from './futuristic/portals/ToolManagementPortal';
 import { DiscussionControlsPortal } from './futuristic/portals/DiscussionControlsPortal';
 import { ProviderSettingsPortal } from './futuristic/portals/ProviderSettingsPortal';
-import { MultiChatManager } from './futuristic/portals/MultiChatManager';
 import { MiniBrowserPortal } from './futuristic/portals/MiniBrowserPortal';
 import { UserChatPortal } from './futuristic/portals/UserChatPortal';
+import { MultiChatManager } from './futuristic/portals/MultiChatManager';
 import ToolsIntegrationsPortal from './futuristic/portals/ToolsIntegrationsPortal';
 import { GlobalUpload } from './GlobalUpload';
 import { KnowledgeShortcut } from './KnowledgeShortcut';
@@ -33,8 +32,10 @@ import { RoleBasedDesktopConfig } from './futuristic/desktop/RoleBasedDesktopCon
 import { useAuth } from '../contexts/AuthContext';
 import { ProjectManagementPortal } from './futuristic/portals/ProjectManagementPortal';
 import { ProjectOnboardingFlow } from './futuristic/portals/ProjectOnboardingFlow';
+import { UserPersonaOnboardingFlow } from './UserPersonaOnboardingFlow';
 import { MapWallpaper } from './futuristic/desktop/MapWallpaper';
 import { LocationService, LocationData } from '../services/LocationService';
+import { userPersonaAPI } from '../api/user-persona.api';
 
 // Design System Tokens
 const DESIGN_TOKENS = {
@@ -117,8 +118,7 @@ const ALL_APPLICATIONS: Application[] = [
   // Core applications - available to all users
   { id: 'dashboard', title: 'Dashboard', icon: Home, color: 'text-blue-400', component: DashboardPortal, category: 'core', minimumRole: 'guest' },
   { id: 'agents', title: 'Agent Manager', icon: Bot, color: 'text-cyan-400', component: AgentManager, category: 'core', minimumRole: 'user' },
-  { id: 'chat', title: 'Chat Portal', icon: MessageSquare, color: 'text-green-400', component: ChatPortal, category: 'core', minimumRole: 'user' },
-  { id: 'user-chat', title: 'User Chat', icon: Users, color: 'text-emerald-400', component: UserChatPortal, category: 'core', minimumRole: 'user' },
+  { id: 'chat', title: 'User Chat', icon: MessageSquare, color: 'text-green-400', component: UserChatPortal, category: 'core', minimumRole: 'user' },
   
   // Data & Knowledge
   { id: 'knowledge', title: 'Knowledge', icon: Brain, color: 'text-orange-400', component: KnowledgePortal, category: 'data', minimumRole: 'user' },
@@ -1106,6 +1106,7 @@ export const Desktop: React.FC = () => {
   const [showChatIngestion, setShowChatIngestion] = useState(false);
   const [selectedKnowledgeItem, setSelectedKnowledgeItem] = useState<any>(null);
   const [showProjectOnboarding, setShowProjectOnboarding] = useState(false);
+  const [showUserPersonaOnboarding, setShowUserPersonaOnboarding] = useState(false);
   
   // Map wallpaper state
   const [useMapWallpaper, setUseMapWallpaper] = useState(false);
@@ -1134,6 +1135,23 @@ export const Desktop: React.FC = () => {
     if (savedMapWallpaper === 'true') setUseMapWallpaper(true);
     if (savedLocation) setUserLocation(savedLocation);
   }, []);
+
+  // Check user persona onboarding status
+  useEffect(() => {
+    if (user) {
+      const checkPersonaOnboarding = async () => {
+        try {
+          const status = await userPersonaAPI.checkOnboardingStatus();
+          if (status.isRequired) {
+            setShowUserPersonaOnboarding(true);
+          }
+        } catch (error) {
+          console.error('Error checking persona onboarding status:', error);
+        }
+      };
+      checkPersonaOnboarding();
+    }
+  }, [user]);
 
   // Save customizations
   useEffect(() => {
@@ -1175,6 +1193,7 @@ export const Desktop: React.FC = () => {
         setShowChatIngestion(false);
         setShowKnowledgeShortcut(false);
         setShowProjectOnboarding(false);
+        setShowUserPersonaOnboarding(false);
         if (selectedKnowledgeItem) {
           setSelectedKnowledgeItem(null);
         }
@@ -1236,6 +1255,26 @@ export const Desktop: React.FC = () => {
     const projectApp = APPLICATIONS.find(app => app.id === 'projects');
     if (projectApp) {
       openApplication(projectApp);
+    }
+  };
+
+  // Handle persona onboarding completion
+  const handlePersonaCompleted = async (data: any) => {
+    try {
+      await userPersonaAPI.completeOnboarding(data);
+      setShowUserPersonaOnboarding(false);
+      
+      // Optionally show success notification or adapt UI immediately
+      console.log('User persona onboarding completed:', data);
+      
+      // Track the completion for behavioral learning
+      await userPersonaAPI.trackInteraction({
+        type: 'preference_change',
+        data: { action: 'onboarding_completed', personaData: data.personaData },
+        timestamp: new Date()
+      });
+    } catch (error) {
+      console.error('Error completing persona onboarding:', error);
     }
   };
 
@@ -1507,6 +1546,13 @@ export const Desktop: React.FC = () => {
         isOpen={showProjectOnboarding}
         onClose={() => setShowProjectOnboarding(false)}
         onProjectCreate={handleProjectCreated}
+      />
+
+      {/* User Persona Onboarding Flow */}
+      <UserPersonaOnboardingFlow
+        isOpen={showUserPersonaOnboarding}
+        onClose={() => setShowUserPersonaOnboarding(false)}
+        onComplete={handlePersonaCompleted}
       />
 
       {/* Knowledge Shortcut Dialog */}

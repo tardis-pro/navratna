@@ -47,26 +47,58 @@ export class LLMStudioProvider extends BaseProvider {
     source: string;
     apiEndpoint: string;
   }>> {
-    try {
-      const url = `${this.config.baseUrl}/v1/models`;
-      const data = await this.makeGetRequest(url);
-      console.log('LLM Studio data:', data);
-      if (!data.data || !Array.isArray(data.data)) {
-        return [];
-      }
+    // Try multiple common LLM Studio endpoints
+    const endpoints = [
+      '/v1/models',
+      '/api/models', 
+      '/models',
+      '/api/tags'
+    ];
 
-      return data.data.map((model: any) => ({
-        id: model.id,
-        name: model.id,
-        description: `LLM Studio model: ${model.id}${model.owned_by ? ` (${model.owned_by})` : ''}`,
-        source: this.config.baseUrl,
-        apiEndpoint: `${this.config.baseUrl}/v1/chat/completions`
-      }));
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error(`Failed to fetch models from LLM Studio at ${this.config.baseUrl}:`, errorMessage);
-      // Re-throw the error so it can be properly logged by BaseProvider
-      throw new Error(`LLM Studio connection failed: ${errorMessage}`);
+    for (const endpoint of endpoints) {
+      try {
+        const url = `${this.config.baseUrl}${endpoint}`;
+        console.log(`LLM Studio: Trying endpoint ${url}`);
+        const data = await this.makeGetRequest(url);
+        console.log('LLM Studio response:', data);
+        
+        // Handle different response formats
+        let models = [];
+        
+        if (data.data && Array.isArray(data.data)) {
+          // OpenAI/LM Studio format
+          models = data.data;
+        } else if (data.models && Array.isArray(data.models)) {
+          // Ollama models format
+          models = data.models.map((model: any) => ({
+            id: model.name || model.model || model.id,
+            owned_by: model.details?.families || 'ollama'
+          }));
+        } else if (Array.isArray(data)) {
+          // Direct array format
+          models = data.map((model: any) => ({
+            id: model.name || model.model || model.id || model,
+            owned_by: 'llmstudio'
+          }));
+        }
+
+        if (models.length > 0) {
+          console.log(`LLM Studio: Found ${models.length} models via ${endpoint}`);
+          return models.map((model: any) => ({
+            id: model.id,
+            name: model.id,
+            description: `LLM Studio model: ${model.id}${model.owned_by ? ` (${model.owned_by})` : ''}`,
+            source: this.config.baseUrl,
+            apiEndpoint: `${this.config.baseUrl}/v1/chat/completions`
+          }));
+        }
+      } catch (error) {
+        console.log(`LLM Studio: Endpoint ${endpoint} failed:`, error instanceof Error ? error.message : error);
+        // Continue to next endpoint
+      }
     }
+
+    // If all endpoints fail, throw error
+    throw new Error(`LLM Studio connection failed: No working endpoint found among ${endpoints.join(', ')}`);
   }
 } 

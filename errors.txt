@@ -1,0 +1,817 @@
+
+> council-of-nycea@1.0.0 build
+> pnpm build:shared && pnpm build:backend && pnpm build:frontend
+
+
+> council-of-nycea@1.0.0 build:shared /home/pronit/workspace/council-of-nycea
+> pnpm -r --filter="./packages/*" build
+
+Scope: 2 of 16 workspace projects
+packages/shared-types build$ tsc
+packages/shared-types build: Done
+packages/shared-utils build$ tsc
+packages/shared-utils build: Done
+
+> council-of-nycea@1.0.0 build:backend /home/pronit/workspace/council-of-nycea
+> cd backend && pnpm build-services
+
+
+> uaip-backend@1.0.0 build-services /home/pronit/workspace/council-of-nycea/backend
+> pnpm exec tsc -b tsconfig.build.json --clean && pnpm exec tsc -b tsconfig.build.json
+
+shared/middleware/src/agentMiddleware.ts(3,24): error TS2307: Cannot find module '@uaip/utils/logger' or its corresponding type declarations.
+shared/middleware/src/agentMiddleware.ts(5,33): error TS2307: Cannot find module '@uaip/shared-services/databaseService' or its corresponding type declarations.
+shared/middleware/src/agentMiddleware.ts(6,33): error TS2307: Cannot find module '@uaip/shared-services/eventBusService' or its corresponding type declarations.
+shared/middleware/src/agentMiddleware.ts(7,33): error TS2307: Cannot find module './validation' or its corresponding type declarations.
+shared/middleware/src/authMiddleware.ts(137,25): error TS2304: Cannot find name 'jwt'.
+shared/middleware/src/authMiddleware.ts(137,43): error TS2304: Cannot find name 'JWT_SECRET'.
+shared/middleware/src/authMiddleware.ts(137,58): error TS2304: Cannot find name 'JWTPayload'.
+shared/middleware/src/authMiddleware.ts(178,8): error TS2304: Cannot find name 'config'.
+shared/middleware/src/authMiddleware.ts(182,9): error TS2304: Cannot find name 'config'.
+shared/middleware/src/authMiddleware.ts(186,9): error TS2304: Cannot find name 'config'.
+shared/middleware/src/authMiddleware.ts(192,8): error TS2304: Cannot find name 'config'.
+shared/middleware/src/authMiddleware.ts(196,8): error TS2304: Cannot find name 'config'.
+shared/middleware/src/authMiddleware.ts(200,8): error TS2304: Cannot find name 'config'.
+shared/middleware/src/authMiddleware.ts(236,21): error TS2304: Cannot find name 'jwt'.
+shared/middleware/src/authMiddleware.ts(252,21): error TS2304: Cannot find name 'config'.
+shared/middleware/src/authMiddleware.ts(253,23): error TS2304: Cannot find name 'config'.
+shared/middleware/src/authMiddleware.ts(254,19): error TS2304: Cannot find name 'config'.
+shared/middleware/src/authMiddleware.ts(255,18): error TS2304: Cannot find name 'config'.
+shared/middleware/src/authMiddleware.ts(256,16): error TS2304: Cannot find name 'config'.
+shared/middleware/src/authMiddleware.ts(269,20): error TS2304: Cannot find name 'config'.
+shared/middleware/src/authMiddleware.ts(277,20): error TS2304: Cannot find name 'config'.
+shared/middleware/src/authMiddleware.ts(282,19): error TS2304: Cannot find name 'config'.
+shared/middleware/src/authMiddleware.ts(283,19): error TS2304: Cannot find name 'config'.
+shared/middleware/src/authMiddleware.ts(284,13): error TS2304: Cannot find name 'config'.
+shared/middleware/src/authMiddleware.ts(285,15): error TS2304: Cannot find name 'config'.
+shared/middleware/src/authMiddleware.ts(286,16): error TS2304: Cannot find name 'config'.
+shared/middleware/src/authMiddleware.ts(287,18): error TS2304: Cannot find name 'config'.
+shared/middleware/src/authMiddleware.ts(299,21): error TS2304: Cannot find name 'jwt'.
+shared/middleware/src/authMiddleware.ts(299,39): error TS2304: Cannot find name 'config'.
+shared/middleware/src/authMiddleware.ts(299,61): error TS2304: Cannot find name 'JWTPayload'.
+shared/middleware/src/authMiddleware.ts(336,23): error TS2304: Cannot find name 'validateJWTSecret'.
+shared/middleware/src/authMiddleware.ts(339,21): error TS2304: Cannot find name 'jwt'.
+shared/middleware/src/authMiddleware.ts(339,53): error TS2304: Cannot find name 'JWTPayload'.
+shared/middleware/src/index.ts(90,8): error TS1149: File name '/home/pronit/workspace/council-of-nycea/backend/shared/middleware/src/jwtValidator.ts' differs from already included file name '/home/pronit/workspace/council-of-nycea/backend/shared/middleware/src/JWTValidator.ts' only in casing.
+  The file is in the program because:
+    Matched by include pattern 'src/**/*' in '/home/pronit/workspace/council-of-nycea/backend/shared/middleware/tsconfig.json'
+    Imported via './JWTValidator.js' from file '/home/pronit/workspace/council-of-nycea/backend/shared/middleware/src/authMiddleware.ts'
+    Imported via './jwtValidator.js' from file '/home/pronit/workspace/council-of-nycea/backend/shared/middleware/src/index.ts'
+shared/middleware/src/jwtValidator.ts(3,24): error TS2307: Cannot find module '@uaip/utils/logger' or its corresponding type declarations.
+shared/middleware/src/jwtValidator.ts(86,7): error TS2322: Type 'string | number' is not assignable to type 'number | StringValue'.
+  Type 'string' is not assignable to type 'number | StringValue'.
+shared/middleware/src/jwtValidator.ts(206,11): error TS2353: Object literal may only specify known properties, and 'permissions' does not exist in type '{ id: string; email: string; role: string; sessionId?: string; }'.
+shared/middleware/src/jwtValidator.ts(246,38): error TS2339: Property 'permissions' does not exist on type '{ id: string; email: string; role: string; sessionId?: string; }'.
+shared/services/src/BaseService.ts(1,67): error TS2307: Cannot find module 'express' or its corresponding type declarations.
+shared/services/src/BaseService.ts(2,20): error TS2307: Cannot find module 'helmet' or its corresponding type declarations.
+shared/services/src/BaseService.ts(3,25): error TS2307: Cannot find module 'compression' or its corresponding type declarations.
+shared/services/src/BaseService.ts(4,20): error TS2307: Cannot find module 'morgan' or its corresponding type declarations.
+shared/services/src/BaseService.ts(6,79): error TS2307: Cannot find module '@uaip/middleware' or its corresponding type declarations.
+shared/services/src/BaseService.ts(188,54): error TS2339: Property 'healthCheck' does not exist on type 'DatabaseService'.
+shared/services/src/BaseService.ts(198,39): error TS2341: Property 'isConnected' is private and only accessible within class 'EventBusService'.
+shared/services/src/BaseService.ts(199,37): error TS2341: Property 'isConnected' is private and only accessible within class 'EventBusService'.
+shared/services/src/BaseService.ts(199,37): error TS2349: This expression is not callable.
+  Type 'never' has no call signatures.
+shared/services/src/BaseService.ts(241,36): error TS2339: Property 'close' does not exist on type 'DatabaseService'.
+shared/services/src/agentIntelligenceService.ts(84,49): error TS2339: Property 'getActiveAgents' does not exist on type 'DatabaseService'.
+shared/services/src/agentIntelligenceService.ts(115,48): error TS2339: Property 'getActiveAgentById' does not exist on type 'DatabaseService'.
+shared/services/src/agentIntelligenceService.ts(314,55): error TS2339: Property 'updateAgent' does not exist on type 'DatabaseService'.
+shared/services/src/agentIntelligenceService.ts(398,53): error TS2339: Property 'createAgent' does not exist on type 'DatabaseService'.
+shared/services/src/agentIntelligenceService.ts(443,57): error TS2339: Property 'deactivateAgent' does not exist on type 'DatabaseService'.
+shared/services/src/agentIntelligenceService.ts(836,32): error TS2339: Property 'storeExecutionPlan' does not exist on type 'DatabaseService'.
+shared/services/src/agentIntelligenceService.ts(848,39): error TS2339: Property 'getOperationById' does not exist on type 'DatabaseService'.
+shared/services/src/capabilityDiscoveryService.ts(42,49): error TS2339: Property 'searchCapabilities' does not exist on type 'DatabaseService'.
+shared/services/src/capabilityDiscoveryService.ts(71,54): error TS2339: Property 'getAgentCapabilitiesConfig' does not exist on type 'DatabaseService'.
+shared/services/src/capabilityDiscoveryService.ts(91,59): error TS2339: Property 'getCapabilitiesByIds' does not exist on type 'DatabaseService'.
+shared/services/src/capabilityDiscoveryService.ts(105,49): error TS2339: Property 'getCapabilityById' does not exist on type 'DatabaseService'.
+shared/services/src/capabilityDiscoveryService.ts(137,54): error TS2339: Property 'getCapabilityDependencies' does not exist on type 'DatabaseService'.
+shared/services/src/capabilityDiscoveryService.ts(142,59): error TS2339: Property 'getCapabilityDependents' does not exist on type 'DatabaseService'.
+shared/services/src/capabilityDiscoveryService.ts(365,34): error TS2339: Property 'assignCapabilityToAgent' does not exist on type 'DatabaseService'.
+shared/services/src/capabilityDiscoveryService.ts(396,49): error TS2339: Property 'executeTool' does not exist on type 'DatabaseService'.
+shared/services/src/capabilityDiscoveryService.ts(420,49): error TS2339: Property 'searchCapabilitiesAdvanced' does not exist on type 'DatabaseService'.
+shared/services/src/compensationService.ts(66,52): error TS2551: Property 'getOperation' does not exist on type 'DatabaseService'. Did you mean 'operations'?
+shared/services/src/database/toolDatabase.ts(30,34): error TS2339: Property 'createTool' does not exist on type 'DatabaseService'.
+shared/services/src/database/toolDatabase.ts(41,49): error TS2339: Property 'getTool' does not exist on type 'DatabaseService'.
+shared/services/src/database/toolDatabase.ts(51,51): error TS2339: Property 'getTools' does not exist on type 'DatabaseService'.
+shared/services/src/database/toolDatabase.ts(66,49): error TS2339: Property 'updateTool' does not exist on type 'DatabaseService'.
+shared/services/src/database/toolDatabase.ts(80,50): error TS2339: Property 'deleteTool' does not exist on type 'DatabaseService'.
+shared/services/src/database/toolDatabase.ts(93,51): error TS2339: Property 'searchTools' does not exist on type 'DatabaseService'.
+shared/services/src/database/toolDatabase.ts(105,34): error TS2339: Property 'createToolExecution' does not exist on type 'DatabaseService'.
+shared/services/src/database/toolDatabase.ts(116,49): error TS2339: Property 'updateToolExecution' does not exist on type 'DatabaseService'.
+shared/services/src/database/toolDatabase.ts(129,41): error TS2339: Property 'getToolExecution' does not exist on type 'DatabaseService'.
+shared/services/src/database/toolDatabase.ts(138,41): error TS2339: Property 'getToolExecutions' does not exist on type 'DatabaseService'.
+shared/services/src/database/toolDatabase.ts(153,34): error TS2339: Property 'recordToolUsage' does not exist on type 'DatabaseService'.
+shared/services/src/database/toolDatabase.ts(165,36): error TS2339: Property 'updateToolSuccessMetrics' does not exist on type 'DatabaseService'.
+shared/services/src/database/toolDatabase.ts(181,41): error TS2339: Property 'getToolUsageStats' does not exist on type 'DatabaseService'.
+shared/services/src/databaseService.ts(78,40): error TS2339: Property 'isHealthy' does not exist on type 'TypeOrmService'.
+shared/services/src/databaseService.ts(282,32): error TS2551: Property 'dataSource' does not exist on type 'TypeOrmService'. Did you mean 'getDataSource'?
+shared/services/src/databaseService.ts(286,32): error TS2551: Property 'dataSource' does not exist on type 'TypeOrmService'. Did you mean 'getDataSource'?
+shared/services/src/discussionService.ts(24,14): error TS2300: Duplicate identifier 'DiscussionService'.
+shared/services/src/discussionService.ts(28,17): error TS2339: Property 'databaseService' does not exist on type 'DiscussionService'.
+shared/services/src/discussionService.ts(49,14): error TS2300: Duplicate identifier 'DiscussionService'.
+shared/services/src/discussionService.ts(135,53): error TS2339: Property 'create' does not exist on type 'DatabaseService'.
+shared/services/src/discussionService.ts(185,53): error TS2339: Property 'findById' does not exist on type 'DatabaseService'.
+shared/services/src/discussionService.ts(210,53): error TS2339: Property 'update' does not exist on type 'DatabaseService'.
+shared/services/src/discussionService.ts(402,48): error TS2339: Property 'findById' does not exist on type 'DatabaseService'.
+shared/services/src/discussionService.ts(408,54): error TS2339: Property 'create' does not exist on type 'DatabaseService'.
+shared/services/src/discussionService.ts(451,54): error TS2339: Property 'findById' does not exist on type 'DatabaseService'.
+shared/services/src/discussionService.ts(457,34): error TS2339: Property 'update' does not exist on type 'DatabaseService'.
+shared/services/src/discussionService.ts(508,54): error TS2339: Property 'findById' does not exist on type 'DatabaseService'.
+shared/services/src/discussionService.ts(523,50): error TS2339: Property 'create' does not exist on type 'DatabaseService'.
+shared/services/src/discussionService.ts(544,34): error TS2339: Property 'update' does not exist on type 'DatabaseService'.
+shared/services/src/discussionService.ts(592,51): error TS2339: Property 'findMany' does not exist on type 'DatabaseService'.
+shared/services/src/discussionService.ts(601,48): error TS2339: Property 'count' does not exist on type 'DatabaseService'.
+shared/services/src/discussionService.ts(685,49): error TS2339: Property 'searchDiscussions' does not exist on type 'DatabaseService'.
+shared/services/src/discussionService.ts(782,50): error TS2339: Property 'findById' does not exist on type 'DatabaseService'.
+shared/services/src/enterprise/EnterpriseDatabase.ts(220,17): error TS2339: Property 'getEntityManager' does not exist on type 'EnterpriseDatabase'.
+shared/services/src/eventBusService.ts(773,9): error TS1308: 'await' expressions are only allowed within async functions and at the top levels of modules.
+shared/services/src/eventBusService.ts(782,9): error TS1308: 'await' expressions are only allowed within async functions and at the top levels of modules.
+shared/services/src/project-management.service.ts(93,51): error TS2551: Property 'getDataSource' does not exist on type 'DatabaseService'. Did you mean 'dataSource'?
+shared/services/src/securityValidationService.ts(233,34): error TS2339: Property 'createApprovalWorkflow' does not exist on type 'DatabaseService'.
+shared/services/src/securityValidationService.ts(253,47): error TS2339: Property 'getUserAuthDetails' does not exist on type 'DatabaseService'.
+shared/services/src/securityValidationService.ts(280,54): error TS2339: Property 'getUserPermissions' does not exist on type 'DatabaseService'.
+shared/services/src/securityValidationService.ts(357,51): error TS2339: Property 'getUserRiskData' does not exist on type 'DatabaseService'.
+shared/services/src/securityValidationService.ts(675,51): error TS2339: Property 'getUserHighestRole' does not exist on type 'DatabaseService'.
+shared/services/src/services/AgentService.ts(2,24): error TS2307: Cannot find module '@uaip/utils/logger' or its corresponding type declarations.
+shared/services/src/services/AgentService.ts(12,33): error TS2307: Cannot find module '../entities/agentCapability.entity' or its corresponding type declarations.
+shared/services/src/services/AgentService.ts(42,50): error TS2554: Expected 0 arguments, but got 2.
+shared/services/src/services/AgentService.ts(42,70): error TS2551: Property 'dataSource' does not exist on type 'TypeOrmService'. Did you mean 'getDataSource'?
+shared/services/src/services/AgentService.ts(49,52): error TS2551: Property 'dataSource' does not exist on type 'TypeOrmService'. Did you mean 'getDataSource'?
+shared/services/src/services/AgentService.ts(56,60): error TS2554: Expected 0 arguments, but got 2.
+shared/services/src/services/AgentService.ts(56,80): error TS2551: Property 'dataSource' does not exist on type 'TypeOrmService'. Did you mean 'getDataSource'?
+shared/services/src/services/AgentService.ts(63,66): error TS2551: Property 'dataSource' does not exist on type 'TypeOrmService'. Did you mean 'getDataSource'?
+shared/services/src/services/AgentService.ts(70,61): error TS2551: Property 'dataSource' does not exist on type 'TypeOrmService'. Did you mean 'getDataSource'?
+shared/services/src/services/AgentService.ts(77,65): error TS2551: Property 'dataSource' does not exist on type 'TypeOrmService'. Did you mean 'getDataSource'?
+shared/services/src/services/AgentService.ts(84,64): error TS2551: Property 'dataSource' does not exist on type 'TypeOrmService'. Did you mean 'getDataSource'?
+shared/services/src/services/AgentService.ts(113,7): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type 'Partial<Agent>'.
+shared/services/src/services/AgentService.ts(113,42): error TS2339: Property 'READY' does not exist on type 'typeof AgentStatus'.
+shared/services/src/services/AgentService.ts(117,28): error TS2339: Property 'save' does not exist on type 'AgentRepository'.
+shared/services/src/services/AgentService.ts(121,44): error TS2339: Property 'findOne' does not exist on type 'AgentRepository'.
+shared/services/src/services/AgentService.ts(128,44): error TS2339: Property 'findOne' does not exist on type 'AgentRepository'.
+shared/services/src/services/AgentService.ts(135,44): error TS2339: Property 'find' does not exist on type 'AgentRepository'.
+shared/services/src/services/AgentService.ts(136,40): error TS2339: Property 'READY' does not exist on type 'typeof AgentStatus'.
+shared/services/src/services/AgentService.ts(142,44): error TS2339: Property 'find' does not exist on type 'AgentRepository'.
+shared/services/src/services/AgentService.ts(154,65): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type 'Partial<Agent>'.
+shared/services/src/services/AgentService.ts(155,19): error TS2339: Property 'affected' does not exist on type 'Agent'.
+shared/services/src/services/AgentService.ts(160,19): error TS2339: Property 'affected' does not exist on type 'boolean'.
+shared/services/src/services/AgentService.ts(173,39): error TS2339: Property 'create' does not exist on type 'CapabilityRepository'.
+shared/services/src/services/AgentService.ts(178,33): error TS2339: Property 'save' does not exist on type 'CapabilityRepository'.
+shared/services/src/services/AgentService.ts(185,61): error TS2339: Property 'findOne' does not exist on type 'CapabilityRepository'.
+shared/services/src/services/AgentService.ts(193,59): error TS2339: Property 'id' does not exist on type 'string'.
+shared/services/src/services/AgentService.ts(196,39): error TS2339: Property 'save' does not exist on type 'AgentRepository'.
+shared/services/src/services/AgentService.ts(205,65): error TS2339: Property 'id' does not exist on type 'string'.
+shared/services/src/services/AgentService.ts(206,39): error TS2339: Property 'save' does not exist on type 'AgentRepository'.
+shared/services/src/services/AgentService.ts(222,7): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(entityLikeArray: DeepPartial<Persona>[]): Persona[]', gave the following error.
+    Object literal may only specify known properties, and 'isActive' does not exist in type 'DeepPartial<Persona>[]'.
+  Overload 2 of 3, '(entityLike: DeepPartial<Persona>): Persona', gave the following error.
+    Object literal may only specify known properties, and 'isActive' does not exist in type 'DeepPartial<Persona>'.
+shared/services/src/services/AgentService.ts(225,5): error TS2740: Type 'Persona[]' is missing the following properties from type 'Persona': name, role, description, background, and 16 more.
+shared/services/src/services/AgentService.ts(245,33): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(entityLikeArray: DeepPartial<ConversationContext>[]): ConversationContext[]', gave the following error.
+    Object literal may only specify known properties, and 'agent' does not exist in type 'DeepPartial<ConversationContext>[]'.
+  Overload 2 of 3, '(entityLike: DeepPartial<ConversationContext>): ConversationContext', gave the following error.
+    Object literal may only specify known properties, and 'conversationId' does not exist in type 'DeepPartial<ConversationContext>'.
+shared/services/src/services/AgentService.ts(252,5): error TS2740: Type 'ConversationContext[]' is missing the following properties from type 'ConversationContext': agentId, userId, sessionId, status, and 9 more.
+shared/services/src/services/AgentService.ts(257,40): error TS2353: Object literal may only specify known properties, and 'conversationId' does not exist in type 'FindOptionsWhere<ConversationContext> | FindOptionsWhere<ConversationContext>[]'.
+shared/services/src/services/AgentService.ts(277,31): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(entityLikeArray: DeepPartial<AgentCapabilityMetric>[]): AgentCapabilityMetric[]', gave the following error.
+    Object literal may only specify known properties, and 'agent' does not exist in type 'DeepPartial<AgentCapabilityMetric>[]'.
+  Overload 2 of 3, '(entityLike: DeepPartial<AgentCapabilityMetric>): AgentCapabilityMetric', gave the following error.
+    Type '{ id: string; }' is not assignable to type 'string'.
+shared/services/src/services/AgentService.ts(285,5): error TS2740: Type 'AgentCapabilityMetric[]' is missing the following properties from type 'AgentCapabilityMetric': agentId, capability, metricType, score, and 6 more.
+shared/services/src/services/AgentService.ts(323,39): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(entityLikeArray: DeepPartial<AgentOAuthConnectionEntity>[]): AgentOAuthConnectionEntity[]', gave the following error.
+    Object literal may only specify known properties, and 'agent' does not exist in type 'DeepPartial<AgentOAuthConnectionEntity>[]'.
+  Overload 2 of 3, '(entityLike: DeepPartial<AgentOAuthConnectionEntity>): AgentOAuthConnectionEntity', gave the following error.
+    Type 'string' is not assignable to type 'DeepPartial<string[]>'.
+shared/services/src/services/AgentService.ts(333,5): error TS2740: Type 'AgentOAuthConnectionEntity[]' is missing the following properties from type 'AgentOAuthConnectionEntity': id, agentId, providerId, providerType, and 6 more.
+shared/services/src/services/AgentService.ts(338,16): error TS2353: Object literal may only specify known properties, and 'agent' does not exist in type 'FindOptionsWhere<AgentOAuthConnectionEntity> | FindOptionsWhere<AgentOAuthConnectionEntity>[]'.
+shared/services/src/services/AgentService.ts(347,28): error TS2339: Property 'save' does not exist on type 'AgentRepository'.
+shared/services/src/services/AgentService.ts(352,7): error TS2345: Argument of type '{ role: AgentRole; status: AgentStatus; }' is not assignable to parameter of type 'string'.
+shared/services/src/services/AgentService.ts(353,29): error TS2339: Property 'READY' does not exist on type 'typeof AgentStatus'.
+shared/services/src/services/AgentService.ts(355,19): error TS2339: Property 'affected' does not exist on type 'Agent'.
+shared/services/src/services/ArtifactService.ts(2,36): error TS2307: Cannot find module '../database/repositories/ArtifactRepository.js' or its corresponding type declarations.
+shared/services/src/services/ArtifactService.ts(27,77): error TS2551: Property 'dataSource' does not exist on type 'TypeOrmService'. Did you mean 'getDataSource'?
+shared/services/src/services/ArtifactService.ts(34,64): error TS2551: Property 'dataSource' does not exist on type 'TypeOrmService'. Did you mean 'getDataSource'?
+shared/services/src/services/AuditService.ts(24,51): error TS2554: Expected 0 arguments, but got 2.
+shared/services/src/services/AuditService.ts(24,71): error TS2551: Property 'dataSource' does not exist on type 'TypeOrmService'. Did you mean 'getDataSource'?
+shared/services/src/services/OperationService.ts(30,59): error TS2554: Expected 0 arguments, but got 2.
+shared/services/src/services/OperationService.ts(30,79): error TS2551: Property 'dataSource' does not exist on type 'TypeOrmService'. Did you mean 'getDataSource'?
+shared/services/src/services/OperationService.ts(37,69): error TS2554: Expected 0 arguments, but got 2.
+shared/services/src/services/OperationService.ts(37,89): error TS2551: Property 'dataSource' does not exist on type 'TypeOrmService'. Did you mean 'getDataSource'?
+shared/services/src/services/OperationService.ts(44,79): error TS2554: Expected 0 arguments, but got 2.
+shared/services/src/services/OperationService.ts(44,99): error TS2551: Property 'dataSource' does not exist on type 'TypeOrmService'. Did you mean 'getDataSource'?
+shared/services/src/services/OperationService.ts(51,61): error TS2554: Expected 0 arguments, but got 2.
+shared/services/src/services/OperationService.ts(51,81): error TS2551: Property 'dataSource' does not exist on type 'TypeOrmService'. Did you mean 'getDataSource'?
+shared/services/src/services/ProjectService.ts(2,24): error TS2307: Cannot find module '@uaip/utils/logger' or its corresponding type declarations.
+shared/services/src/services/ProjectService.ts(4,10): error TS2305: Module '"../entities/project.entity"' has no exported member 'Project'.
+shared/services/src/services/ProjectService.ts(5,10): error TS2305: Module '"../entities/project-member.entity"' has no exported member 'ProjectMember'.
+shared/services/src/services/ProjectService.ts(6,10): error TS2305: Module '"../entities/project-file.entity"' has no exported member 'ProjectFile'.
+shared/services/src/services/ProjectService.ts(7,50): error TS2307: Cannot find module '@uaip/types/project' or its corresponding type declarations.
+  There are types at '/home/pronit/workspace/council-of-nycea/backend/shared/services/node_modules/@uaip/types/dist/project.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+shared/services/src/services/ProjectService.ts(32,52): error TS2551: Property 'dataSource' does not exist on type 'TypeOrmService'. Did you mean 'getDataSource'?
+shared/services/src/services/ProjectService.ts(39,58): error TS2551: Property 'dataSource' does not exist on type 'TypeOrmService'. Did you mean 'getDataSource'?
+shared/services/src/services/ProjectService.ts(46,56): error TS2551: Property 'dataSource' does not exist on type 'TypeOrmService'. Did you mean 'getDataSource'?
+shared/services/src/services/SecurityService.ts(28,69): error TS2554: Expected 0 arguments, but got 2.
+shared/services/src/services/SecurityService.ts(28,89): error TS2551: Property 'dataSource' does not exist on type 'TypeOrmService'. Did you mean 'getDataSource'?
+shared/services/src/services/SecurityService.ts(35,73): error TS2554: Expected 0 arguments, but got 2.
+shared/services/src/services/SecurityService.ts(35,93): error TS2551: Property 'dataSource' does not exist on type 'TypeOrmService'. Did you mean 'getDataSource'?
+shared/services/src/services/SecurityService.ts(42,73): error TS2554: Expected 0 arguments, but got 2.
+shared/services/src/services/SecurityService.ts(42,93): error TS2551: Property 'dataSource' does not exist on type 'TypeOrmService'. Did you mean 'getDataSource'?
+shared/services/src/services/ToolService.ts(2,24): error TS2307: Cannot find module '@uaip/utils/logger' or its corresponding type declarations.
+shared/services/src/services/ToolService.ts(12,32): error TS2307: Cannot find module '../entities/toolAssignment.entity' or its corresponding type declarations.
+shared/services/src/services/ToolService.ts(39,48): error TS2554: Expected 0 arguments, but got 2.
+shared/services/src/services/ToolService.ts(39,68): error TS2551: Property 'dataSource' does not exist on type 'TypeOrmService'. Did you mean 'getDataSource'?
+shared/services/src/services/ToolService.ts(46,66): error TS2554: Expected 0 arguments, but got 2.
+shared/services/src/services/ToolService.ts(46,86): error TS2551: Property 'dataSource' does not exist on type 'TypeOrmService'. Did you mean 'getDataSource'?
+shared/services/src/services/ToolService.ts(53,58): error TS2554: Expected 0 arguments, but got 2.
+shared/services/src/services/ToolService.ts(53,78): error TS2551: Property 'dataSource' does not exist on type 'TypeOrmService'. Did you mean 'getDataSource'?
+shared/services/src/services/ToolService.ts(60,59): error TS2551: Property 'dataSource' does not exist on type 'TypeOrmService'. Did you mean 'getDataSource'?
+shared/services/src/services/ToolService.ts(84,7): error TS2353: Object literal may only specify known properties, and 'isActive' does not exist in type 'Partial<ToolDefinition>'.
+shared/services/src/services/ToolService.ts(91,27): error TS2339: Property 'save' does not exist on type 'ToolRepository'.
+shared/services/src/services/ToolService.ts(95,43): error TS2339: Property 'findOne' does not exist on type 'ToolRepository'.
+shared/services/src/services/ToolService.ts(99,43): error TS2339: Property 'findOne' does not exist on type 'ToolRepository'.
+shared/services/src/services/ToolService.ts(103,43): error TS2339: Property 'find' does not exist on type 'ToolRepository'.
+shared/services/src/services/ToolService.ts(107,43): error TS2339: Property 'find' does not exist on type 'ToolRepository'.
+shared/services/src/services/ToolService.ts(116,64): error TS2353: Object literal may only specify known properties, and 'isActive' does not exist in type 'Partial<ToolDefinition>'.
+shared/services/src/services/ToolService.ts(117,19): error TS2339: Property 'affected' does not exist on type 'ToolDefinition'.
+shared/services/src/services/ToolService.ts(137,7): error TS2322: Type '"pending"' is not assignable to type 'ToolExecutionStatus'.
+shared/services/src/services/ToolService.ts(141,32): error TS2339: Property 'save' does not exist on type 'ToolExecutionRepository'.
+shared/services/src/services/ToolService.ts(158,52): error TS2339: Property 'findOne' does not exist on type 'ToolExecutionRepository'.
+shared/services/src/services/ToolService.ts(162,52): error TS2339: Property 'findOne' does not exist on type 'ToolExecutionRepository'.
+shared/services/src/services/ToolService.ts(169,52): error TS2339: Property 'find' does not exist on type 'ToolExecutionRepository'.
+shared/services/src/services/ToolService.ts(178,52): error TS2339: Property 'find' does not exist on type 'ToolExecutionRepository'.
+shared/services/src/services/ToolService.ts(202,7): error TS2353: Object literal may only specify known properties, and 'user' does not exist in type 'Partial<ToolUsageRecord>'.
+shared/services/src/services/ToolService.ts(211,28): error TS2339: Property 'save' does not exist on type 'ToolUsageRepository'.
+shared/services/src/services/ToolService.ts(220,8): error TS2339: Property 'createQueryBuilder' does not exist on type 'ToolUsageRepository'.
+shared/services/src/services/ToolService.ts(291,27): error TS2339: Property 'save' does not exist on type 'ToolRepository'.
+shared/services/src/services/ToolService.ts(296,7): error TS2345: Argument of type '{ category: string; }' is not assignable to parameter of type 'string'.
+shared/services/src/services/ToolService.ts(299,19): error TS2339: Property 'affected' does not exist on type 'ToolDefinition'.
+shared/services/src/services/UserService.ts(2,24): error TS2307: Cannot find module '@uaip/utils/logger' or its corresponding type declarations.
+shared/services/src/services/UserService.ts(46,48): error TS2554: Expected 0 arguments, but got 2.
+shared/services/src/services/UserService.ts(46,68): error TS2551: Property 'dataSource' does not exist on type 'TypeOrmService'. Did you mean 'getDataSource'?
+shared/services/src/services/UserService.ts(53,64): error TS2554: Expected 0 arguments, but got 2.
+shared/services/src/services/UserService.ts(53,84): error TS2551: Property 'dataSource' does not exist on type 'TypeOrmService'. Did you mean 'getDataSource'?
+shared/services/src/services/UserService.ts(60,76): error TS2554: Expected 0 arguments, but got 2.
+shared/services/src/services/UserService.ts(60,96): error TS2551: Property 'dataSource' does not exist on type 'TypeOrmService'. Did you mean 'getDataSource'?
+shared/services/src/services/UserService.ts(67,58): error TS2551: Property 'dataSource' does not exist on type 'TypeOrmService'. Did you mean 'getDataSource'?
+shared/services/src/services/UserService.ts(74,55): error TS2551: Property 'dataSource' does not exist on type 'TypeOrmService'. Did you mean 'getDataSource'?
+shared/services/src/services/UserService.ts(81,57): error TS2551: Property 'dataSource' does not exist on type 'TypeOrmService'. Did you mean 'getDataSource'?
+shared/services/src/services/UserService.ts(88,52): error TS2551: Property 'dataSource' does not exist on type 'TypeOrmService'. Did you mean 'getDataSource'?
+shared/services/src/services/UserService.ts(105,7): error TS2353: Object literal may only specify known properties, and 'name' does not exist in type 'Partial<UserEntity>'.
+shared/services/src/services/UserService.ts(111,12): error TS2339: Property 'password' does not exist on type 'Promise<UserEntity>'.
+shared/services/src/services/UserService.ts(114,27): error TS2339: Property 'save' does not exist on type 'UserRepository'.
+shared/services/src/services/UserService.ts(118,43): error TS2339: Property 'findOne' does not exist on type 'UserRepository'.
+shared/services/src/services/UserService.ts(122,43): error TS2339: Property 'findOne' does not exist on type 'UserRepository'.
+shared/services/src/services/UserService.ts(132,19): error TS2339: Property 'affected' does not exist on type 'boolean'.
+shared/services/src/services/UserService.ts(136,15): error TS2339: Property 'password' does not exist on type 'UserEntity'.
+shared/services/src/services/UserService.ts(137,48): error TS2339: Property 'password' does not exist on type 'UserEntity'.
+shared/services/src/services/UserService.ts(144,7): error TS2740: Type '{ id: string; }' is missing the following properties from type 'UserEntity': email, role, passwordHash, securityClearance, and 4 more.
+shared/services/src/services/UserService.ts(148,35): error TS2339: Property 'save' does not exist on type 'RefreshTokenRepository'.
+shared/services/src/services/UserService.ts(152,51): error TS2339: Property 'findOne' does not exist on type 'RefreshTokenRepository'.
+shared/services/src/services/UserService.ts(160,7): error TS2345: Argument of type '{ token: string; }' is not assignable to parameter of type 'string'.
+shared/services/src/services/UserService.ts(163,19): error TS2339: Property 'affected' does not exist on type 'RefreshTokenEntity'.
+shared/services/src/services/UserService.ts(167,51): error TS2345: Argument of type '{ expiresAt: any; }' is not assignable to parameter of type 'string'.
+shared/services/src/services/UserService.ts(168,18): error TS2304: Cannot find name 'LessThan'.
+shared/services/src/services/UserService.ts(178,26): error TS2339: Property 'save' does not exist on type 'PasswordResetTokenRepository'.
+shared/services/src/services/UserService.ts(188,57): error TS2339: Property 'findOne' does not exist on type 'PasswordResetTokenRepository'.
+shared/services/src/services/UserService.ts(196,7): error TS2345: Argument of type '{ token: string; }' is not assignable to parameter of type 'string'.
+shared/services/src/services/UserService.ts(199,19): error TS2339: Property 'affected' does not exist on type 'PasswordResetTokenEntity'.
+shared/services/src/services/UserService.ts(208,31): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(entityLikeArray: DeepPartial<MFAChallengeEntity>[]): MFAChallengeEntity[]', gave the following error.
+    Object literal may only specify known properties, and 'user' does not exist in type 'DeepPartial<MFAChallengeEntity>[]'.
+  Overload 2 of 3, '(entityLike: DeepPartial<MFAChallengeEntity>): MFAChallengeEntity', gave the following error.
+    Type 'string' is not assignable to type 'MFAMethod'.
+shared/services/src/services/UserService.ts(215,5): error TS2740: Type 'MFAChallengeEntity[]' is missing the following properties from type 'MFAChallengeEntity': id, userId, sessionId, method, and 7 more.
+shared/services/src/services/UserService.ts(222,9): error TS2353: Object literal may only specify known properties, and 'user' does not exist in type 'FindOptionsWhere<MFAChallengeEntity> | FindOptionsWhere<MFAChallengeEntity>[]'.
+shared/services/src/services/UserService.ts(232,42): error TS2561: Object literal may only specify known properties, but 'verified' does not exist in type '_QueryDeepPartialEntity<MFAChallengeEntity>'. Did you mean to write 'verifiedAt'?
+shared/services/src/services/UserService.ts(240,7): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(entityLikeArray: DeepPartial<SessionEntity>[]): SessionEntity[]', gave the following error.
+    Object literal may only specify known properties, and 'user' does not exist in type 'DeepPartial<SessionEntity>[]'.
+  Overload 2 of 3, '(entityLike: DeepPartial<SessionEntity>): SessionEntity', gave the following error.
+    Object literal may only specify known properties, and 'user' does not exist in type 'DeepPartial<SessionEntity>'.
+shared/services/src/services/UserService.ts(246,5): error TS2740: Type 'SessionEntity[]' is missing the following properties from type 'SessionEntity': id, userId, sessionToken, status, and 8 more.
+shared/services/src/services/UserService.ts(251,16): error TS2353: Object literal may only specify known properties, and 'token' does not exist in type 'FindOptionsWhere<SessionEntity> | FindOptionsWhere<SessionEntity>[]'.
+shared/services/src/services/UserService.ts(257,63): error TS2353: Object literal may only specify known properties, and 'token' does not exist in type 'Date | string[] | number[] | ObjectId | Date[] | ObjectId[] | FindOptionsWhere<SessionEntity> | FindOptionsWhere<SessionEntity>[]'.
+shared/services/src/services/UserService.ts(262,48): error TS2353: Object literal may only specify known properties, and 'user' does not exist in type 'Date | string[] | number[] | ObjectId | Date[] | ObjectId[] | FindOptionsWhere<SessionEntity> | FindOptionsWhere<SessionEntity>[]'.
+shared/services/src/stateManagerService.ts(84,34): error TS2339: Property 'saveOperationState' does not exist on type 'DatabaseService'.
+shared/services/src/stateManagerService.ts(115,42): error TS2339: Property 'getOperationState' does not exist on type 'DatabaseService'.
+shared/services/src/stateManagerService.ts(170,34): error TS2339: Property 'updateOperationState' does not exist on type 'DatabaseService'.
+shared/services/src/stateManagerService.ts(230,34): error TS2339: Property 'saveCheckpoint' does not exist on type 'DatabaseService'.
+shared/services/src/stateManagerService.ts(289,53): error TS2339: Property 'getCheckpoint' does not exist on type 'DatabaseService'.
+shared/services/src/stateManagerService.ts(323,54): error TS2339: Property 'listCheckpoints' does not exist on type 'DatabaseService'.
+shared/services/src/stateManagerService.ts(371,34): error TS2339: Property 'updateOperationState' does not exist on type 'DatabaseService'.
+shared/services/src/stateManagerService.ts(408,55): error TS2339: Property 'deleteOldOperationStates' does not exist on type 'DatabaseService'.
+shared/services/src/stateManagerService.ts(447,48): error TS2339: Property 'getStateStatistics' does not exist on type 'DatabaseService'.
+shared/services/src/stateManagerService.ts(652,61): error TS2339: Property 'healthCheck' does not exist on type 'DatabaseService'.
+shared/services/src/tool-execution.service.ts(80,34): error TS2339: Property 'createToolExecution' does not exist on type 'DatabaseService'.
+shared/services/src/tool-execution.service.ts(110,41): error TS2339: Property 'getToolExecution' does not exist on type 'DatabaseService'.
+shared/services/src/tool-execution.service.ts(125,34): error TS2339: Property 'updateToolExecution' does not exist on type 'DatabaseService'.
+shared/services/src/widgetService.ts(369,45): error TS2339: Property 'getUserById' does not exist on type 'DatabaseService'.
+shared/services/src/widgetService.ts(374,52): error TS2339: Property 'getUserPermissions' does not exist on type 'DatabaseService'.
+shared/llm-service/src/LLMService.ts(48,54): error TS2339: Property 'llmProviderRepository' does not exist on type 'DatabaseService'.
+shared/llm-service/src/UserLLMService.ts(32,56): error TS2339: Property 'userLLMProviderRepository' does not exist on type 'DatabaseService'.
+services/agent-intelligence/src/__tests__/integration/service.test.ts(66,32): error TS2339: Property 'generatePlan' does not exist on type 'AgentController'.
+services/agent-intelligence/src/__tests__/integration/service.test.ts(69,32): error TS2339: Property 'getAgentWithPersona' does not exist on type 'AgentController'.
+services/agent-intelligence/src/__tests__/integration/service.test.ts(70,32): error TS2551: Property 'getAgents' does not exist on type 'AgentController'. Did you mean 'getAgent'?
+services/agent-intelligence/src/__tests__/integration/service.test.ts(73,32): error TS2551: Property 'getAgentCapabilities' does not exist on type 'AgentController'. Did you mean 'getCapabilities'?
+services/agent-intelligence/src/__tests__/integration/service.test.ts(74,32): error TS2339: Property 'learnFromOperation' does not exist on type 'AgentController'.
+services/agent-intelligence/src/__tests__/integration/service.test.ts(76,32): error TS2339: Property 'chatWithAgent' does not exist on type 'AgentController'.
+services/agent-intelligence/src/__tests__/unit/agentController.test.ts(322,24): error TS2339: Property 'generatePlan' does not exist on type 'AgentController'.
+services/agent-intelligence/src/__tests__/unit/agentController.test.ts(355,24): error TS2339: Property 'generatePlan' does not exist on type 'AgentController'.
+services/agent-intelligence/src/__tests__/unit/agentController.test.ts(400,24): error TS2339: Property 'generatePlan' does not exist on type 'AgentController'.
+services/agent-intelligence/src/__tests__/unit/agentController.test.ts(452,24): error TS2339: Property 'chatWithAgent' does not exist on type 'AgentController'.
+services/agent-intelligence/src/__tests__/unit/agentController.test.ts(486,24): error TS2339: Property 'chatWithAgent' does not exist on type 'AgentController'.
+services/agent-intelligence/src/__tests__/unit/agentController.test.ts(507,24): error TS2339: Property 'chatWithAgent' does not exist on type 'AgentController'.
+services/agent-intelligence/src/__tests__/unit/agentController.test.ts(536,24): error TS2339: Property 'chatWithAgent' does not exist on type 'AgentController'.
+services/agent-intelligence/src/__tests__/unit/agentController.test.ts(707,24): error TS2551: Property 'getAgents' does not exist on type 'AgentController'. Did you mean 'getAgent'?
+services/agent-intelligence/src/__tests__/unit/agentController.test.ts(745,24): error TS2551: Property 'getAgentCapabilities' does not exist on type 'AgentController'. Did you mean 'getCapabilities'?
+services/agent-intelligence/src/__tests__/unit/agentController.test.ts(780,24): error TS2551: Property 'getAgentCapabilities' does not exist on type 'AgentController'. Did you mean 'getCapabilities'?
+services/agent-intelligence/src/__tests__/unit/agentController.test.ts(910,24): error TS2339: Property 'chatWithAgent' does not exist on type 'AgentController'.
+services/agent-intelligence/src/controllers/agentController.ts(58,55): error TS2345: Argument of type '{ discussionService: any; databaseService: DatabaseService; eventBusService: EventBusService; knowledgeGraphService: any; llmService: any; serviceName: string; securityLevel: number; }' is not assignable to parameter of type 'AgentDiscussionConfig'.
+  Property 'userLLMService' is missing in type '{ discussionService: any; databaseService: DatabaseService; eventBusService: EventBusService; knowledgeGraphService: any; llmService: any; serviceName: string; securityLevel: number; }' but required in type 'AgentDiscussionConfig'.
+services/agent-intelligence/src/controllers/agentController.ts(108,43): error TS2339: Property 'listAgents' does not exist on type 'AgentCoreService'.
+services/agent-intelligence/src/controllers/agentController.ts(126,42): error TS2554: Expected 2 arguments, but got 1.
+services/agent-intelligence/src/controllers/agentController.ts(135,42): error TS2554: Expected 3 arguments, but got 2.
+services/agent-intelligence/src/controllers/agentController.ts(144,28): error TS2554: Expected 2 arguments, but got 1.
+services/agent-intelligence/src/controllers/agentController.ts(153,46): error TS2554: Expected 3-4 arguments, but got 1.
+services/agent-intelligence/src/controllers/agentController.ts(165,45): error TS2551: Property 'createExecutionPlan' does not exist on type 'AgentPlanningService'. Did you mean 'generateExecutionPlan'?
+services/agent-intelligence/src/controllers/agentController.ts(177,49): error TS2339: Property 'getAgentCapabilities' does not exist on type 'AgentCoreService'.
+services/agent-intelligence/src/controllers/agentController.ts(186,47): error TS2339: Property 'learnFromExecution' does not exist on type 'AgentLearningService'.
+services/agent-intelligence/src/controllers/agentController.ts(210,49): error TS2339: Property 'handleChatRequest' does not exist on type 'AgentDiscussionService'.
+services/agent-intelligence/src/controllers/discussionController.ts(32,55): error TS2339: Property 'createDiscussion' does not exist on type 'DiscussionService'.
+services/agent-intelligence/src/controllers/discussionController.ts(63,55): error TS2339: Property 'getDiscussion' does not exist on type 'DiscussionService'.
+services/agent-intelligence/src/controllers/discussionController.ts(96,55): error TS2339: Property 'updateDiscussion' does not exist on type 'DiscussionService'.
+services/agent-intelligence/src/controllers/discussionController.ts(128,55): error TS2339: Property 'startDiscussion' does not exist on type 'DiscussionService'.
+services/agent-intelligence/src/controllers/discussionController.ts(160,55): error TS2339: Property 'endDiscussion' does not exist on type 'DiscussionService'.
+services/agent-intelligence/src/controllers/discussionController.ts(196,56): error TS2339: Property 'addParticipant' does not exist on type 'DiscussionService'.
+services/agent-intelligence/src/controllers/discussionController.ts(232,36): error TS2339: Property 'removeParticipant' does not exist on type 'DiscussionService'.
+services/agent-intelligence/src/controllers/discussionController.ts(263,52): error TS2339: Property 'sendMessage' does not exist on type 'DiscussionService'.
+services/agent-intelligence/src/controllers/discussionController.ts(306,51): error TS2339: Property 'getMessages' does not exist on type 'DiscussionService'.
+services/agent-intelligence/src/controllers/discussionController.ts(339,36): error TS2339: Property 'advanceTurn' does not exist on type 'DiscussionService'.
+services/agent-intelligence/src/controllers/discussionController.ts(387,51): error TS2339: Property 'searchDiscussions' does not exist on type 'DiscussionService'.
+services/agent-intelligence/src/controllers/discussionController.ts(423,54): error TS2339: Property 'getDiscussionAnalytics' does not exist on type 'DiscussionService'.
+services/agent-intelligence/src/index.old.ts(86,52): error TS2554: Expected 0 arguments, but got 1.
+services/agent-intelligence/src/index.old.ts(233,54): error TS2554: Expected 0 arguments, but got 1.
+services/agent-intelligence/src/index.old.ts(402,54): error TS2339: Property 'healthCheck' does not exist on type 'DatabaseService'.
+services/agent-intelligence/src/index.old.ts(549,63): error TS2339: Property 'close' does not exist on type 'DatabaseService'.
+services/agent-intelligence/src/index.old.ts(550,36): error TS2339: Property 'close' does not exist on type 'DatabaseService'.
+services/agent-intelligence/src/index.ts(318,54): error TS2554: Expected 0 arguments, but got 1.
+services/agent-intelligence/src/routes/agentRoutes.old.ts(30,74): error TS2551: Property 'getAgents' does not exist on type 'AgentController'. Did you mean 'getAgent'?
+services/agent-intelligence/src/routes/agentRoutes.old.ts(46,21): error TS2339: Property 'generatePlan' does not exist on type 'AgentController'.
+services/agent-intelligence/src/routes/agentRoutes.old.ts(60,21): error TS2339: Property 'getAgentWithPersona' does not exist on type 'AgentController'.
+services/agent-intelligence/src/routes/agentRoutes.old.ts(82,21): error TS2551: Property 'getAgentCapabilities' does not exist on type 'AgentController'. Did you mean 'getCapabilities'?
+services/agent-intelligence/src/routes/agentRoutes.old.ts(89,21): error TS2339: Property 'learnFromOperation' does not exist on type 'AgentController'.
+services/agent-intelligence/src/routes/agentRoutes.old.ts(103,21): error TS2339: Property 'chatWithAgent' does not exist on type 'AgentController'.
+services/agent-intelligence/src/routes/agentRoutes.ts(25,24): error TS2307: Cannot find module '@uaip/utils/logger' or its corresponding type declarations.
+services/agent-intelligence/src/routes/agentRoutes.ts(26,30): error TS2307: Cannot find module '@uaip/shared-services/services/AgentService' or its corresponding type declarations.
+services/agent-intelligence/src/routes/agentRoutes.ts(27,29): error TS2307: Cannot find module '@uaip/shared-services/services/ToolService' or its corresponding type declarations.
+services/agent-intelligence/src/routes/agentRoutes.ts(64,48): error TS2345: Argument of type '{ knowledgeGraphService: any; eventBusService: any; serviceName: string; securityLevel: number; }' is not assignable to parameter of type 'AgentLearningConfig'.
+  Property 'databaseService' is missing in type '{ knowledgeGraphService: any; eventBusService: any; serviceName: string; securityLevel: number; }' but required in type 'AgentLearningConfig'.
+services/agent-intelligence/src/routes/agentRoutes.ts(71,52): error TS2345: Argument of type '{ discussionService: any; eventBusService: any; serviceName: string; securityLevel: number; }' is not assignable to parameter of type 'AgentDiscussionConfig'.
+  Type '{ discussionService: any; eventBusService: any; serviceName: string; securityLevel: number; }' is missing the following properties from type 'AgentDiscussionConfig': databaseService, llmService, userLLMService
+services/agent-intelligence/src/routes/agentRoutes.ts(85,5): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>, next: NextFunction) => void | Response<...>' is not assignable to parameter of type 'RequestHandlerParams<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+      Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>, next: NextFunction) => void | Response<...>' is not assignable to type 'RequestHandler<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+        Type 'void | Response<any, Record<string, any>>' is not assignable to type 'void | Promise<void>'.
+          Type 'Response<any, Record<string, any>>' is not assignable to type 'void | Promise<void>'.
+services/agent-intelligence/src/routes/agentRoutes.ts(101,21): error TS2559: Type 'ZodEffects<ZodObject<{ name: ZodString; description: ZodString; capabilities: ZodArray<ZodString, "many">; role: ZodDefault<ZodOptional<ZodNativeEnum<typeof AgentRole>>>; ... 8 more ...; isActive: ZodDefault<...>; }, "strip", ZodTypeAny, { ...; }, { ...; }>, { ...; }, { ...; }>' has no properties in common with type 'ValidationSchemas'.
+services/agent-intelligence/src/routes/agentRoutes.ts(105,39): error TS2554: Expected 2 arguments, but got 1.
+services/agent-intelligence/src/routes/agentRoutes.ts(134,21): error TS2559: Type 'ZodObject<{ name: ZodOptional<ZodString>; description: ZodOptional<ZodString>; capabilities: ZodOptional<ZodArray<ZodString, "many">>; ... 7 more ...; isActive: ZodOptional<...>; }, "strip", ZodTypeAny, { ...; }, { ...; }>' has no properties in common with type 'ValidationSchemas'.
+services/agent-intelligence/src/routes/agentRoutes.ts(137,37): error TS2339: Property 'READY' does not exist on type 'typeof AgentStatus'.
+services/agent-intelligence/src/routes/agentRoutes.ts(139,5): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>, next: NextFunction) => Promise<...>' is not assignable to parameter of type 'RequestHandlerParams<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+      Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>, next: NextFunction) => Promise<...>' is not assignable to type 'RequestHandler<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+        Type 'Promise<Response<any, Record<string, any>>>' is not assignable to type 'void | Promise<void>'.
+          Type 'Promise<Response<any, Record<string, any>>>' is not assignable to type 'Promise<void>'.
+            Type 'Response<any, Record<string, any>>' is not assignable to type 'void'.
+services/agent-intelligence/src/routes/agentRoutes.ts(140,30): error TS2554: Expected 3 arguments, but got 2.
+services/agent-intelligence/src/routes/agentRoutes.ts(152,5): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>, next: NextFunction) => Promise<...>' is not assignable to parameter of type 'RequestHandlerParams<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+      Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>, next: NextFunction) => Promise<...>' is not assignable to type 'RequestHandler<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+        Type 'Promise<Response<any, Record<string, any>>>' is not assignable to type 'void | Promise<void>'.
+          Type 'Promise<Response<any, Record<string, any>>>' is not assignable to type 'Promise<void>'.
+            Type 'Response<any, Record<string, any>>' is not assignable to type 'void'.
+services/agent-intelligence/src/routes/agentRoutes.ts(153,30): error TS2554: Expected 2 arguments, but got 1.
+services/agent-intelligence/src/routes/agentRoutes.ts(160,21): error TS2559: Type 'ZodObject<{ conversationContext: ZodAny; userRequest: ZodString; constraints: ZodOptional<ZodRecord<ZodString, ZodAny>>; }, "strip", ZodTypeAny, { ...; }, { ...; }>' has no properties in common with type 'ValidationSchemas'.
+services/agent-intelligence/src/routes/agentRoutes.ts(164,37): error TS2339: Property 'READY' does not exist on type 'typeof AgentStatus'.
+services/agent-intelligence/src/routes/agentRoutes.ts(168,5): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>, next: NextFunction) => Promise<...>' is not assignable to parameter of type 'RequestHandlerParams<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+      Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>, next: NextFunction) => Promise<...>' is not assignable to type 'RequestHandler<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+        Type 'Promise<Response<any, Record<string, any>>>' is not assignable to type 'void | Promise<void>'.
+          Type 'Promise<Response<any, Record<string, any>>>' is not assignable to type 'Promise<void>'.
+            Type 'Response<any, Record<string, any>>' is not assignable to type 'void'.
+services/agent-intelligence/src/routes/agentRoutes.ts(169,33): error TS2554: Expected 3-4 arguments, but got 1.
+services/agent-intelligence/src/routes/agentRoutes.ts(179,21): error TS2559: Type 'ZodObject<{ analysis: ZodAny; userPreferences: ZodOptional<ZodRecord<ZodString, ZodAny>>; securityContext: ZodOptional<ZodRecord<ZodString, ZodAny>>; }, "strip", ZodTypeAny, { ...; }, { ...; }>' has no properties in common with type 'ValidationSchemas'.
+services/agent-intelligence/src/routes/agentRoutes.ts(183,37): error TS2339: Property 'READY' does not exist on type 'typeof AgentStatus'.
+services/agent-intelligence/src/routes/agentRoutes.ts(187,5): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>, next: NextFunction) => Promise<...>' is not assignable to parameter of type 'RequestHandlerParams<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+      Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>, next: NextFunction) => Promise<...>' is not assignable to type 'RequestHandler<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+        Type 'Promise<Response<any, Record<string, any>>>' is not assignable to type 'void | Promise<void>'.
+          Type 'Promise<Response<any, Record<string, any>>>' is not assignable to type 'Promise<void>'.
+            Type 'Response<any, Record<string, any>>' is not assignable to type 'void'.
+services/agent-intelligence/src/routes/agentRoutes.ts(188,40): error TS2551: Property 'createExecutionPlan' does not exist on type 'AgentPlanningService'. Did you mean 'generateExecutionPlan'?
+services/agent-intelligence/src/routes/agentRoutes.ts(206,37): error TS2339: Property 'READY' does not exist on type 'typeof AgentStatus'.
+services/agent-intelligence/src/routes/agentRoutes.ts(210,5): error TS2304: Cannot find name 'executeAgentTool'.
+services/agent-intelligence/src/routes/agentRoutes.ts(211,5): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>, next: NextFunction) => Promise<...>' is not assignable to parameter of type 'RequestHandlerParams<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+      Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>, next: NextFunction) => Promise<...>' is not assignable to type 'RequestHandler<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+        Type 'Promise<Response<any, Record<string, any>>>' is not assignable to type 'void | Promise<void>'.
+          Type 'Promise<Response<any, Record<string, any>>>' is not assignable to type 'Promise<void>'.
+            Type 'Response<any, Record<string, any>>' is not assignable to type 'void'.
+services/agent-intelligence/src/routes/agentRoutes.ts(290,37): error TS2339: Property 'READY' does not exist on type 'typeof AgentStatus'.
+services/agent-intelligence/src/routes/agentRoutes.ts(292,5): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>, next: NextFunction) => Promise<...>' is not assignable to parameter of type 'RequestHandlerParams<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+      Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>, next: NextFunction) => Promise<...>' is not assignable to type 'RequestHandler<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+        Type 'Promise<Response<any, Record<string, any>>>' is not assignable to type 'void | Promise<void>'.
+          Type 'Promise<Response<any, Record<string, any>>>' is not assignable to type 'Promise<void>'.
+            Type 'Response<any, Record<string, any>>' is not assignable to type 'void'.
+services/agent-intelligence/src/routes/agentRoutes.ts(321,37): error TS2339: Property 'READY' does not exist on type 'typeof AgentStatus'.
+services/agent-intelligence/src/routes/agentRoutes.ts(323,5): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>, next: NextFunction) => Promise<...>' is not assignable to parameter of type 'RequestHandlerParams<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+      Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>, next: NextFunction) => Promise<...>' is not assignable to type 'RequestHandler<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+        Type 'Promise<Response<any, Record<string, any>>>' is not assignable to type 'void | Promise<void>'.
+          Type 'Promise<Response<any, Record<string, any>>>' is not assignable to type 'Promise<void>'.
+            Type 'Response<any, Record<string, any>>' is not assignable to type 'void'.
+services/agent-intelligence/src/routes/agentRoutes.ts(340,5): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>, next: NextFunction) => Promise<...>' is not assignable to parameter of type 'RequestHandlerParams<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+      Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>, next: NextFunction) => Promise<...>' is not assignable to type 'RequestHandler<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+        Type 'Promise<Response<any, Record<string, any>>>' is not assignable to type 'void | Promise<void>'.
+          Type 'Promise<Response<any, Record<string, any>>>' is not assignable to type 'Promise<void>'.
+            Type 'Response<any, Record<string, any>>' is not assignable to type 'void'.
+services/agent-intelligence/src/routes/agentRoutes.ts(352,37): error TS2339: Property 'READY' does not exist on type 'typeof AgentStatus'.
+services/agent-intelligence/src/routes/agentRoutes.ts(355,5): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>, next: NextFunction) => Promise<...>' is not assignable to parameter of type 'RequestHandlerParams<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+      Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>, next: NextFunction) => Promise<...>' is not assignable to type 'RequestHandler<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+        Type 'Promise<Response<any, Record<string, any>>>' is not assignable to type 'void | Promise<void>'.
+          Type 'Promise<Response<any, Record<string, any>>>' is not assignable to type 'Promise<void>'.
+            Type 'Response<any, Record<string, any>>' is not assignable to type 'void'.
+services/agent-intelligence/src/routes/agentRoutes.ts(356,34): error TS2339: Property 'learnFromExecution' does not exist on type 'AgentLearningService'.
+services/agent-intelligence/src/routes/agentRoutes.ts(368,37): error TS2339: Property 'READY' does not exist on type 'typeof AgentStatus'.
+services/agent-intelligence/src/routes/agentRoutes.ts(372,5): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>, next: NextFunction) => Promise<...>' is not assignable to parameter of type 'RequestHandlerParams<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+      Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>, next: NextFunction) => Promise<...>' is not assignable to type 'RequestHandler<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+        Type 'Promise<Response<any, Record<string, any>>>' is not assignable to type 'void | Promise<void>'.
+          Type 'Promise<Response<any, Record<string, any>>>' is not assignable to type 'Promise<void>'.
+            Type 'Response<any, Record<string, any>>' is not assignable to type 'void'.
+services/agent-intelligence/src/routes/agentRoutes.ts(373,36): error TS2339: Property 'handleChatMessage' does not exist on type 'AgentDiscussionService'.
+services/agent-intelligence/src/services/agent-discussion.service.ts(1109,43): error TS2339: Property 'getDiscussion' does not exist on type 'DiscussionService'.
+services/agent-intelligence/src/services/agent-initialization.service.ts(411,34): error TS2339: Property 'storeAgentState' does not exist on type 'DatabaseService'.
+services/agent-intelligence/src/services/agent-initialization.service.ts(425,34): error TS2339: Property 'storeAgentCapabilities' does not exist on type 'DatabaseService'.
+services/agent-intelligence/src/services/agent-learning.service.ts(499,34): error TS2339: Property 'storeLearningRecord' does not exist on type 'DatabaseService'.
+services/agent-intelligence/src/services/agent-learning.service.ts(512,39): error TS2339: Property 'getOperationById' does not exist on type 'DatabaseService'.
+services/agent-intelligence/src/services/agent-metrics.service.ts(253,34): error TS2339: Property 'storeAgentActivity' does not exist on type 'DatabaseService'.
+services/agent-intelligence/src/services/agent-metrics.service.ts(329,51): error TS2339: Property 'getAgentActivities' does not exist on type 'DatabaseService'.
+services/agent-intelligence/src/services/agent-metrics.service.ts(403,51): error TS2339: Property 'getAgentActivities' does not exist on type 'DatabaseService'.
+services/agent-intelligence/src/services/agent-metrics.service.ts(454,51): error TS2339: Property 'getAgentActivities' does not exist on type 'DatabaseService'.
+services/agent-intelligence/src/services/agent-metrics.service.ts(469,51): error TS2339: Property 'getAgentActivities' does not exist on type 'DatabaseService'.
+services/agent-intelligence/src/services/agent-metrics.service.ts(586,51): error TS2339: Property 'getAgentActivities' does not exist on type 'DatabaseService'.
+services/agent-intelligence/src/services/agent-metrics.service.ts(636,56): error TS2339: Property 'getLearningRecords' does not exist on type 'DatabaseService'.
+services/agent-intelligence/src/services/agent-metrics.service.ts(647,51): error TS2339: Property 'getAgentActivities' does not exist on type 'DatabaseService'.
+services/agent-intelligence/src/services/agent-planning.service.ts(398,34): error TS2339: Property 'storeExecutionPlan' does not exist on type 'DatabaseService'.
+services/capability-registry/src/app.ts(113,54): error TS2339: Property 'healthCheck' does not exist on type 'DatabaseService'.
+services/capability-registry/src/app.ts(148,63): error TS2339: Property 'close' does not exist on type 'DatabaseService'.
+services/capability-registry/src/app.ts(149,36): error TS2339: Property 'close' does not exist on type 'DatabaseService'.
+services/capability-registry/src/index.old.ts(127,54): error TS2339: Property 'healthCheck' does not exist on type 'DatabaseService'.
+services/capability-registry/src/index.old.ts(484,31): error TS2339: Property 'close' does not exist on type 'DatabaseService'.
+services/capability-registry/src/index.old.ts(495,36): error TS2339: Property 'close' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/toolExecutor.ts(84,29): error TS2339: Property 'createToolExecution' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/toolExecutor.ts(89,31): error TS2339: Property 'updateToolExecution' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/toolExecutor.ts(107,29): error TS2339: Property 'updateToolExecution' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/toolExecutor.ts(120,29): error TS2339: Property 'updateToolExecution' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/toolExecutor.ts(138,29): error TS2339: Property 'updateToolExecution' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/toolExecutor.ts(168,29): error TS2339: Property 'updateToolExecution' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/toolExecutor.ts(220,45): error TS2339: Property 'getToolExecution' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/toolExecutor.ts(236,27): error TS2339: Property 'updateToolExecution' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/toolExecutor.ts(252,47): error TS2339: Property 'getToolExecution' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/toolExecutor.ts(261,29): error TS2339: Property 'updateToolExecution' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/toolExecutor.ts(275,45): error TS2339: Property 'getToolExecution' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/toolExecutor.ts(285,27): error TS2339: Property 'updateToolExecution' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/toolExecutor.ts(304,34): error TS2339: Property 'getToolExecution' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/toolExecutor.ts(317,34): error TS2339: Property 'getToolExecutions' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/toolExecutor.ts(323,34): error TS2339: Property 'getToolExecutions' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/toolExecutor.ts(354,29): error TS2339: Property 'recordToolUsage' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/toolExecutor.ts(401,41): error TS2339: Property 'getToolUsageStats' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/toolRegistry.ts(152,49): error TS2339: Property 'healthCheck' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/toolRegistry.ts(268,40): error TS2339: Property 'getTool' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/toolRegistry.ts(314,41): error TS2339: Property 'getTools' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/toolRegistry.ts(320,41): error TS2339: Property 'searchTools' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/toolRegistry.ts(342,41): error TS2339: Property 'getTools' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/toolRegistry.ts(424,34): error TS2339: Property 'getToolUsageStats' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/toolRegistry.ts(484,46): error TS2339: Property 'healthCheck' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/unified-tool-registry.ts(227,56): error TS2339: Property 'getTools' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/unified-tool-registry.ts(234,47): error TS2339: Property 'createTool' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/unified-tool-registry.ts(259,32): error TS2339: Property 'neo4jService' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/unified-tool-registry.ts(298,48): error TS2339: Property 'getTools' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/unified-tool-registry.ts(308,32): error TS2339: Property 'neo4jService' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/unified-tool-registry.ts(337,47): error TS2339: Property 'getTool' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/unified-tool-registry.ts(370,51): error TS2339: Property 'getTool' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/unified-tool-registry.ts(432,32): error TS2339: Property 'neo4jService' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/unified-tool-registry.ts(469,34): error TS2339: Property 'workflowRepository' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/unified-tool-registry.ts(489,32): error TS2339: Property 'neo4jService' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/unified-tool-registry.ts(490,36): error TS2339: Property 'neo4jService' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/unified-tool-registry.ts(509,32): error TS2339: Property 'neo4jService' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/unified-tool-registry.ts(510,43): error TS2339: Property 'neo4jService' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/unified-tool-registry.ts(521,32): error TS2339: Property 'neo4jService' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/unified-tool-registry.ts(522,58): error TS2339: Property 'neo4jService' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/unified-tool-registry.ts(584,52): error TS2339: Property 'redisService' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/unified-tool-registry.ts(600,32): error TS2339: Property 'redisService' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/unified-tool-registry.ts(601,36): error TS2339: Property 'redisService' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/unified-tool-registry.ts(688,34): error TS2339: Property 'recordToolUsage' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/unified-tool-registry.ts(712,33): error TS2339: Property 'neo4jService' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/unified-tool-registry.ts(721,55): error TS2339: Property 'neo4jService' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/unified-tool-registry.ts(728,57): error TS2339: Property 'neo4jService' does not exist on type 'DatabaseService'.
+services/capability-registry/src/services/unified-tool-registry.ts(837,32): error TS2339: Property 'neo4jService' does not exist on type 'DatabaseService'.
+services/artifact-service/src/index.ts(4,32): error TS2307: Cannot find module '@uaip/middleware' or its corresponding type declarations.
+services/artifact-service/src/index.ts(34,32): error TS2339: Property 'initialize' does not exist on type 'ArtifactService'.
+services/orchestration-pipeline/src/engine/OperationValidator.ts(19,17): error TS2693: 'OperationError' only refers to a type, but is being used as a value here.
+services/orchestration-pipeline/src/engine/OperationValidator.ts(23,17): error TS2693: 'OperationError' only refers to a type, but is being used as a value here.
+services/orchestration-pipeline/src/engine/OperationValidator.ts(27,17): error TS2693: 'OperationError' only refers to a type, but is being used as a value here.
+services/orchestration-pipeline/src/engine/OperationValidator.ts(30,20): error TS2339: Property 'steps' does not exist on type '{ type?: OperationType; status?: OperationStatus; error?: string; id?: string; createdAt?: Date; updatedAt?: Date; metadata?: { priority?: OperationPriority; tags?: string[]; environment?: string; }; ... 12 more ...; cancelledAt?: Date; }'.
+services/orchestration-pipeline/src/engine/OperationValidator.ts(30,39): error TS2339: Property 'steps' does not exist on type '{ type?: OperationType; status?: OperationStatus; error?: string; id?: string; createdAt?: Date; updatedAt?: Date; metadata?: { priority?: OperationPriority; tags?: string[]; environment?: string; }; ... 12 more ...; cancelledAt?: Date; }'.
+services/orchestration-pipeline/src/engine/OperationValidator.ts(31,17): error TS2693: 'OperationError' only refers to a type, but is being used as a value here.
+services/orchestration-pipeline/src/engine/OperationValidator.ts(34,19): error TS2339: Property 'steps' does not exist on type '{ type?: OperationType; status?: OperationStatus; error?: string; id?: string; createdAt?: Date; updatedAt?: Date; metadata?: { priority?: OperationPriority; tags?: string[]; environment?: string; }; ... 12 more ...; cancelledAt?: Date; }'.
+services/orchestration-pipeline/src/engine/OperationValidator.ts(35,17): error TS2693: 'OperationError' only refers to a type, but is being used as a value here.
+services/orchestration-pipeline/src/engine/OperationValidator.ts(42,19): error TS2339: Property 'timeout' does not exist on type '{ type?: OperationType; status?: OperationStatus; error?: string; id?: string; createdAt?: Date; updatedAt?: Date; metadata?: { priority?: OperationPriority; tags?: string[]; environment?: string; }; ... 12 more ...; cancelledAt?: Date; }'.
+services/orchestration-pipeline/src/engine/OperationValidator.ts(42,40): error TS2339: Property 'timeout' does not exist on type '{ type?: OperationType; status?: OperationStatus; error?: string; id?: string; createdAt?: Date; updatedAt?: Date; metadata?: { priority?: OperationPriority; tags?: string[]; environment?: string; }; ... 12 more ...; cancelledAt?: Date; }'.
+services/orchestration-pipeline/src/engine/OperationValidator.ts(43,17): error TS2693: 'OperationError' only refers to a type, but is being used as a value here.
+services/orchestration-pipeline/src/engine/OperationValidator.ts(50,34): error TS2339: Property 'steps' does not exist on type '{ type?: OperationType; status?: OperationStatus; error?: string; id?: string; createdAt?: Date; updatedAt?: Date; metadata?: { priority?: OperationPriority; tags?: string[]; environment?: string; }; ... 12 more ...; cancelledAt?: Date; }'.
+services/orchestration-pipeline/src/engine/OperationValidator.ts(60,17): error TS2693: 'OperationError' only refers to a type, but is being used as a value here.
+services/orchestration-pipeline/src/engine/OperationValidator.ts(64,17): error TS2693: 'OperationError' only refers to a type, but is being used as a value here.
+services/orchestration-pipeline/src/engine/OperationValidator.ts(68,17): error TS2693: 'OperationError' only refers to a type, but is being used as a value here.
+services/orchestration-pipeline/src/engine/OperationValidator.ts(121,19): error TS2693: 'OperationError' only refers to a type, but is being used as a value here.
+services/orchestration-pipeline/src/engine/OperationValidator.ts(130,39): error TS2339: Property 'steps' does not exist on type '{ type?: OperationType; status?: OperationStatus; error?: string; id?: string; createdAt?: Date; updatedAt?: Date; metadata?: { priority?: OperationPriority; tags?: string[]; environment?: string; }; ... 12 more ...; cancelledAt?: Date; }'.
+services/orchestration-pipeline/src/engine/OperationValidator.ts(135,34): error TS2339: Property 'steps' does not exist on type '{ type?: OperationType; status?: OperationStatus; error?: string; id?: string; createdAt?: Date; updatedAt?: Date; metadata?: { priority?: OperationPriority; tags?: string[]; environment?: string; }; ... 12 more ...; cancelledAt?: Date; }'.
+services/orchestration-pipeline/src/engine/OperationValidator.ts(137,56): error TS2339: Property 'steps' does not exist on type '{ type?: OperationType; status?: OperationStatus; error?: string; id?: string; createdAt?: Date; updatedAt?: Date; metadata?: { priority?: OperationPriority; tags?: string[]; environment?: string; }; ... 12 more ...; cancelledAt?: Date; }'.
+services/orchestration-pipeline/src/engine/OperationValidator.ts(142,34): error TS2339: Property 'steps' does not exist on type '{ type?: OperationType; status?: OperationStatus; error?: string; id?: string; createdAt?: Date; updatedAt?: Date; metadata?: { priority?: OperationPriority; tags?: string[]; environment?: string; }; ... 12 more ...; cancelledAt?: Date; }'.
+services/orchestration-pipeline/src/engine/OperationValidator.ts(146,23): error TS2693: 'OperationError' only refers to a type, but is being used as a value here.
+services/orchestration-pipeline/src/engine/OperationValidator.ts(163,17): error TS2693: 'OperationError' only refers to a type, but is being used as a value here.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(62,14): error TS2678: Type '"agent-action"' is not comparable to type '"validation" | "decision" | "tool" | "artifact" | "approval" | "delay"'.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(65,14): error TS2678: Type '"tool-execution"' is not comparable to type '"validation" | "decision" | "tool" | "artifact" | "approval" | "delay"'.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(68,14): error TS2678: Type '"conditional"' is not comparable to type '"validation" | "decision" | "tool" | "artifact" | "approval" | "delay"'.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(71,14): error TS2678: Type '"parallel"' is not comparable to type '"validation" | "decision" | "tool" | "artifact" | "approval" | "delay"'.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(75,21): error TS2693: 'OperationError' only refers to a type, but is being used as a value here.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(89,14): error TS2339: Property 'metrics' does not exist on type '{ status?: StepStatus; error?: string; data?: Record<string, any>; metadata?: Record<string, any>; stepId?: string; executionTime?: number; }'.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(90,14): error TS2339: Property 'completedAt' does not exist on type '{ status?: StepStatus; error?: string; data?: Record<string, any>; metadata?: Record<string, any>; stepId?: string; executionTime?: number; }'.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(105,73): error TS2339: Property 'maxRetries' does not exist on type '{ backoffStrategy?: "fixed" | "exponential" | "linear"; maxAttempts?: number; retryDelay?: number; }'.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(127,48): error TS2339: Property 'parameters' does not exist on type '{ type?: "validation" | "decision" | "tool" | "artifact" | "approval" | "delay"; status?: StepStatus; error?: string; id?: string; name?: string; metadata?: Record<string, any>; ... 10 more ...; outputMapping?: Record<...>; }'.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(129,51): error TS2339: Property 'executeAgentAction' does not exist on type 'StepExecutorService'.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(130,21): error TS2339: Property 'agentId' does not exist on type '{ type?: "validation" | "decision" | "tool" | "artifact" | "approval" | "delay"; status?: StepStatus; error?: string; id?: string; name?: string; metadata?: Record<string, any>; ... 10 more ...; outputMapping?: Record<...>; }'.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(131,20): error TS2339: Property 'action' does not exist on type '{ type?: "validation" | "decision" | "tool" | "artifact" | "approval" | "delay"; status?: StepStatus; error?: string; id?: string; name?: string; metadata?: Record<string, any>; ... 10 more ...; outputMapping?: Record<...>; }'.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(139,7): error TS2353: Object literal may only specify known properties, and 'output' does not exist in type '{ status?: StepStatus; error?: string; data?: Record<string, any>; metadata?: Record<string, any>; stepId?: string; executionTime?: number; }'.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(150,51): error TS2339: Property 'executeTool' does not exist on type 'StepExecutorService'.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(151,20): error TS2339: Property 'toolId' does not exist on type '{ type?: "validation" | "decision" | "tool" | "artifact" | "approval" | "delay"; status?: StepStatus; error?: string; id?: string; name?: string; metadata?: Record<string, any>; ... 10 more ...; outputMapping?: Record<...>; }'.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(159,7): error TS2353: Object literal may only specify known properties, and 'output' does not exist in type '{ status?: StepStatus; error?: string; data?: Record<string, any>; metadata?: Record<string, any>; stepId?: string; executionTime?: number; }'.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(169,37): error TS2339: Property 'trueBranch' does not exist on type '{ type?: "validation" | "decision" | "tool" | "artifact" | "approval" | "delay"; status?: StepStatus; error?: string; id?: string; name?: string; metadata?: Record<string, any>; ... 10 more ...; outputMapping?: Record<...>; }'.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(169,55): error TS2339: Property 'falseBranch' does not exist on type '{ type?: "validation" | "decision" | "tool" | "artifact" | "approval" | "delay"; status?: StepStatus; error?: string; id?: string; name?: string; metadata?: Record<string, any>; ... 10 more ...; outputMapping?: Record<...>; }'.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(174,7): error TS2353: Object literal may only specify known properties, and 'output' does not exist in type '{ status?: StepStatus; error?: string; data?: Record<string, any>; metadata?: Record<string, any>; stepId?: string; executionTime?: number; }'.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(187,25): error TS2339: Property 'policy' does not exist on type '{ type?: "validation" | "decision" | "tool" | "artifact" | "approval" | "delay"; status?: StepStatus; error?: string; id?: string; name?: string; metadata?: Record<string, any>; ... 10 more ...; outputMapping?: Record<...>; }'.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(187,35): error TS2693: 'ParallelExecutionPolicy' only refers to a type, but is being used as a value here.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(188,27): error TS2339: Property 'branches' does not exist on type '{ type?: "validation" | "decision" | "tool" | "artifact" | "approval" | "delay"; status?: StepStatus; error?: string; id?: string; name?: string; metadata?: Record<string, any>; ... 10 more ...; outputMapping?: Record<...>; }'.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(211,12): error TS2693: 'ParallelExecutionPolicy' only refers to a type, but is being used as a value here.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(214,12): error TS2693: 'ParallelExecutionPolicy' only refers to a type, but is being used as a value here.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(217,12): error TS2693: 'ParallelExecutionPolicy' only refers to a type, but is being used as a value here.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(223,17): error TS2693: 'OperationError' only refers to a type, but is being used as a value here.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(229,7): error TS2353: Object literal may only specify known properties, and 'output' does not exist in type '{ status?: StepStatus; error?: string; data?: Record<string, any>; metadata?: Record<string, any>; stepId?: string; executionTime?: number; }'.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(249,37): error TS2339: Property 'maxRetries' does not exist on type '{ backoffStrategy?: "fixed" | "exponential" | "linear"; maxAttempts?: number; retryDelay?: number; }'.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(263,42): error TS2339: Property 'backoffMultiplier' does not exist on type '{ backoffStrategy?: "fixed" | "exponential" | "linear"; maxAttempts?: number; retryDelay?: number; }'.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(292,27): error TS2339: Property 'resourceRequirements' does not exist on type '{ type?: "validation" | "decision" | "tool" | "artifact" | "approval" | "delay"; status?: StepStatus; error?: string; id?: string; name?: string; metadata?: Record<string, any>; ... 10 more ...; outputMapping?: Record<...>; }'.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(295,57): error TS2339: Property 'checkAvailability' does not exist on type 'ResourceManagerService'.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(297,17): error TS2693: 'OperationError' only refers to a type, but is being used as a value here.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(301,59): error TS2304: Cannot find name 'ResourceUsage'.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(302,40): error TS2339: Property 'getUsage' does not exist on type 'ResourceManagerService'.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(314,23): error TS2339: Property 'output' does not exist on type '{ status?: StepStatus; error?: string; data?: Record<string, any>; metadata?: Record<string, any>; stepId?: string; executionTime?: number; }'.
+services/orchestration-pipeline/src/engine/StepExecutionManager.ts(315,50): error TS2339: Property 'output' does not exist on type '{ status?: StepStatus; error?: string; data?: Record<string, any>; metadata?: Record<string, any>; stepId?: string; executionTime?: number; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(47,7): error TS2353: Object literal may only specify known properties, and 'startTime' does not exist in type '{ status?: OperationStatus; id?: string; createdAt?: Date; updatedAt?: Date; operationId?: string; state?: { status?: OperationStatus; error?: string; ... 10 more ...; lastUpdated?: Date; }; currentStepIndex?: number; executionContext?: { ...; }; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(59,21): error TS2339: Property 'timeout' does not exist on type '{ type?: OperationType; status?: OperationStatus; error?: string; id?: string; createdAt?: Date; updatedAt?: Date; metadata?: { priority?: OperationPriority; tags?: string[]; environment?: string; }; ... 12 more ...; cancelledAt?: Date; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(60,53): error TS2339: Property 'timeout' does not exist on type '{ type?: OperationType; status?: OperationStatus; error?: string; id?: string; createdAt?: Date; updatedAt?: Date; metadata?: { priority?: OperationPriority; tags?: string[]; environment?: string; }; ... 12 more ...; cancelledAt?: Date; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(72,16): error TS2339: Property 'endTime' does not exist on type '{ status?: OperationStatus; id?: string; createdAt?: Date; updatedAt?: Date; operationId?: string; state?: { status?: OperationStatus; error?: string; ... 10 more ...; lastUpdated?: Date; }; currentStepIndex?: number; executionContext?: { ...; }; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(73,16): error TS2339: Property 'result' does not exist on type '{ status?: OperationStatus; id?: string; createdAt?: Date; updatedAt?: Date; operationId?: string; state?: { status?: OperationStatus; error?: string; ... 10 more ...; lastUpdated?: Date; }; currentStepIndex?: number; executionContext?: { ...; }; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(81,16): error TS2339: Property 'endTime' does not exist on type '{ status?: OperationStatus; id?: string; createdAt?: Date; updatedAt?: Date; operationId?: string; state?: { status?: OperationStatus; error?: string; ... 10 more ...; lastUpdated?: Date; }; currentStepIndex?: number; executionContext?: { ...; }; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(82,16): error TS2339: Property 'error' does not exist on type '{ status?: OperationStatus; id?: string; createdAt?: Date; updatedAt?: Date; operationId?: string; state?: { status?: OperationStatus; error?: string; ... 10 more ...; lastUpdated?: Date; }; currentStepIndex?: number; executionContext?: { ...; }; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(97,67): error TS2339: Property 'steps' does not exist on type '{ type?: OperationType; status?: OperationStatus; error?: string; id?: string; createdAt?: Date; updatedAt?: Date; metadata?: { priority?: OperationPriority; tags?: string[]; environment?: string; }; ... 12 more ...; cancelledAt?: Date; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(110,44): error TS2339: Property 'failurePolicy' does not exist on type '{ type?: OperationType; status?: OperationStatus; error?: string; id?: string; createdAt?: Date; updatedAt?: Date; metadata?: { priority?: OperationPriority; tags?: string[]; environment?: string; }; ... 12 more ...; cancelledAt?: Date; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(119,20): error TS2339: Property 'completedSteps' does not exist on type '{ status?: OperationStatus; id?: string; createdAt?: Date; updatedAt?: Date; operationId?: string; state?: { status?: OperationStatus; error?: string; ... 10 more ...; lastUpdated?: Date; }; currentStepIndex?: number; executionContext?: { ...; }; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(120,20): error TS2339: Property 'stepResults' does not exist on type '{ status?: OperationStatus; id?: string; createdAt?: Date; updatedAt?: Date; operationId?: string; state?: { status?: OperationStatus; error?: string; ... 10 more ...; lastUpdated?: Date; }; currentStepIndex?: number; executionContext?: { ...; }; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(131,7): error TS2353: Object literal may only specify known properties, and 'output' does not exist in type '{ status?: OperationStatus; metrics?: { errorRate?: number; executionTime?: number; resourceUsage?: { cpu?: number; memory?: number; network?: number; }; stepMetrics?: { stepId?: string; retryCount?: number; executionTime?: number; resourceUsage?: { ...; }; errorCount?: number; }[]; throughput?: number; }; operation...'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(144,16): error TS2339: Property 'currentStep' does not exist on type '{ status?: OperationStatus; id?: string; createdAt?: Date; updatedAt?: Date; operationId?: string; state?: { status?: OperationStatus; error?: string; ... 10 more ...; lastUpdated?: Date; }; currentStepIndex?: number; executionContext?: { ...; }; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(151,33): error TS2339: Property 'context' does not exist on type '{ status?: OperationStatus; id?: string; createdAt?: Date; updatedAt?: Date; operationId?: string; state?: { status?: OperationStatus; error?: string; ... 10 more ...; lastUpdated?: Date; }; currentStepIndex?: number; executionContext?: { ...; }; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(188,34): error TS2339: Property 'dependsOn' does not exist on type '{ type?: "validation" | "decision" | "tool" | "artifact" | "approval" | "delay"; status?: StepStatus; error?: string; id?: string; name?: string; metadata?: Record<string, any>; ... 10 more ...; outputMapping?: Record<...>; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(189,16): error TS2339: Property 'dependsOn' does not exist on type '{ type?: "validation" | "decision" | "tool" | "artifact" | "approval" | "delay"; status?: StepStatus; error?: string; id?: string; name?: string; metadata?: Record<string, any>; ... 10 more ...; outputMapping?: Record<...>; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(218,7): error TS2353: Object literal may only specify known properties, and 'operationId' does not exist in type '{ type?: CheckpointType; id?: string; data?: { timestamp?: Date; version?: string; operationState?: { status?: OperationStatus; error?: string; metadata?: Record<string, any>; ... 9 more ...; lastUpdated?: Date; }; }; timestamp?: Date; stepId?: string; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(220,28): error TS2339: Property 'PROGRESS' does not exist on type 'typeof CheckpointType'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(222,38): error TS2339: Property 'completedSteps' does not exist on type '{ status?: OperationStatus; id?: string; createdAt?: Date; updatedAt?: Date; operationId?: string; state?: { status?: OperationStatus; error?: string; ... 10 more ...; lastUpdated?: Date; }; currentStepIndex?: number; executionContext?: { ...; }; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(223,50): error TS2339: Property 'stepResults' does not exist on type '{ status?: OperationStatus; id?: string; createdAt?: Date; updatedAt?: Date; operationId?: string; state?: { status?: OperationStatus; error?: string; ... 10 more ...; lastUpdated?: Date; }; currentStepIndex?: number; executionContext?: { ...; }; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(224,32): error TS2339: Property 'context' does not exist on type '{ status?: OperationStatus; id?: string; createdAt?: Date; updatedAt?: Date; operationId?: string; state?: { status?: OperationStatus; error?: string; ... 10 more ...; lastUpdated?: Date; }; currentStepIndex?: number; executionContext?: { ...; }; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(229,36): error TS2554: Expected 2 arguments, but got 1.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(235,7): error TS2353: Object literal may only specify known properties, and 'workflowInstanceId' does not exist in type '{ status?: OperationStatus; error?: string; metadata?: Record<string, any>; startedAt?: Date; variables?: Record<string, any>; operationId?: string; ... 6 more ...; lastUpdated?: Date; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(237,29): error TS2339: Property 'currentStep' does not exist on type '{ status?: OperationStatus; id?: string; createdAt?: Date; updatedAt?: Date; operationId?: string; state?: { status?: OperationStatus; error?: string; ... 10 more ...; lastUpdated?: Date; }; currentStepIndex?: number; executionContext?: { ...; }; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(238,32): error TS2339: Property 'completedSteps' does not exist on type '{ status?: OperationStatus; id?: string; createdAt?: Date; updatedAt?: Date; operationId?: string; state?: { status?: OperationStatus; error?: string; ... 10 more ...; lastUpdated?: Date; }; currentStepIndex?: number; executionContext?: { ...; }; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(239,25): error TS2339: Property 'context' does not exist on type '{ status?: OperationStatus; id?: string; createdAt?: Date; updatedAt?: Date; operationId?: string; state?: { status?: OperationStatus; error?: string; ... 10 more ...; lastUpdated?: Date; }; currentStepIndex?: number; executionContext?: { ...; }; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(240,23): error TS2339: Property 'error' does not exist on type '{ status?: OperationStatus; id?: string; createdAt?: Date; updatedAt?: Date; operationId?: string; state?: { status?: OperationStatus; error?: string; ... 10 more ...; lastUpdated?: Date; }; currentStepIndex?: number; executionContext?: { ...; }; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(241,27): error TS2339: Property 'startTime' does not exist on type '{ status?: OperationStatus; id?: string; createdAt?: Date; updatedAt?: Date; operationId?: string; state?: { status?: OperationStatus; error?: string; ... 10 more ...; lastUpdated?: Date; }; currentStepIndex?: number; executionContext?: { ...; }; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(242,29): error TS2339: Property 'endTime' does not exist on type '{ status?: OperationStatus; id?: string; createdAt?: Date; updatedAt?: Date; operationId?: string; state?: { status?: OperationStatus; error?: string; ... 10 more ...; lastUpdated?: Date; }; currentStepIndex?: number; executionContext?: { ...; }; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(246,36): error TS2339: Property 'saveState' does not exist on type 'StateManagerService'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(266,16): error TS2339: Property 'error' does not exist on type '{ status?: OperationStatus; id?: string; createdAt?: Date; updatedAt?: Date; operationId?: string; state?: { status?: OperationStatus; error?: string; ... 10 more ...; lastUpdated?: Date; }; currentStepIndex?: number; executionContext?: { ...; }; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(289,30): error TS2339: Property 'steps' does not exist on type '{ type?: OperationType; status?: OperationStatus; error?: string; id?: string; createdAt?: Date; updatedAt?: Date; metadata?: { priority?: OperationPriority; tags?: string[]; environment?: string; }; ... 12 more ...; cancelledAt?: Date; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(290,26): error TS2339: Property 'output' does not exist on type '{ status?: StepStatus; error?: string; data?: Record<string, any>; metadata?: Record<string, any>; stepId?: string; executionTime?: number; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(291,37): error TS2339: Property 'output' does not exist on type '{ status?: StepStatus; error?: string; data?: Record<string, any>; metadata?: Record<string, any>; stepId?: string; executionTime?: number; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(299,31): error TS2339: Property 'endTime' does not exist on type '{ status?: OperationStatus; id?: string; createdAt?: Date; updatedAt?: Date; operationId?: string; state?: { status?: OperationStatus; error?: string; ... 10 more ...; lastUpdated?: Date; }; currentStepIndex?: number; executionContext?: { ...; }; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(300,18): error TS2339: Property 'endTime' does not exist on type '{ status?: OperationStatus; id?: string; createdAt?: Date; updatedAt?: Date; operationId?: string; state?: { status?: OperationStatus; error?: string; ... 10 more ...; lastUpdated?: Date; }; currentStepIndex?: number; executionContext?: { ...; }; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(300,47): error TS2339: Property 'startTime' does not exist on type '{ status?: OperationStatus; id?: string; createdAt?: Date; updatedAt?: Date; operationId?: string; state?: { status?: OperationStatus; error?: string; ... 10 more ...; lastUpdated?: Date; }; currentStepIndex?: number; executionContext?: { ...; }; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(301,31): error TS2339: Property 'startTime' does not exist on type '{ status?: OperationStatus; id?: string; createdAt?: Date; updatedAt?: Date; operationId?: string; state?: { status?: OperationStatus; error?: string; ... 10 more ...; lastUpdated?: Date; }; currentStepIndex?: number; executionContext?: { ...; }; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(306,35): error TS2339: Property 'stepResults' does not exist on type '{ status?: OperationStatus; id?: string; createdAt?: Date; updatedAt?: Date; operationId?: string; state?: { status?: OperationStatus; error?: string; ... 10 more ...; lastUpdated?: Date; }; currentStepIndex?: number; executionContext?: { ...; }; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(317,7): error TS2561: Object literal may only specify known properties, but 'totalExecutionTime' does not exist in type '{ errorRate?: number; executionTime?: number; resourceUsage?: { cpu?: number; memory?: number; network?: number; }; stepMetrics?: { stepId?: string; retryCount?: number; executionTime?: number; resourceUsage?: { ...; }; errorCount?: number; }[]; throughput?: number; }'. Did you mean to write 'executionTime'?
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(321,28): error TS2339: Property 'retryCount' does not exist on type '{ status?: OperationStatus; id?: string; createdAt?: Date; updatedAt?: Date; operationId?: string; state?: { status?: OperationStatus; error?: string; ... 10 more ...; lastUpdated?: Date; }; currentStepIndex?: number; executionContext?: { ...; }; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(363,57): error TS2339: Property 'loadCheckpoint' does not exist on type 'StateManagerService'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(365,18): error TS2339: Property 'completedSteps' does not exist on type '{ status?: OperationStatus; id?: string; createdAt?: Date; updatedAt?: Date; operationId?: string; state?: { status?: OperationStatus; error?: string; ... 10 more ...; lastUpdated?: Date; }; currentStepIndex?: number; executionContext?: { ...; }; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(366,18): error TS2339: Property 'stepResults' does not exist on type '{ status?: OperationStatus; id?: string; createdAt?: Date; updatedAt?: Date; operationId?: string; state?: { status?: OperationStatus; error?: string; ... 10 more ...; lastUpdated?: Date; }; currentStepIndex?: number; executionContext?: { ...; }; }'.
+services/orchestration-pipeline/src/engine/WorkflowOrchestrator.ts(367,18): error TS2339: Property 'context' does not exist on type '{ status?: OperationStatus; id?: string; createdAt?: Date; updatedAt?: Date; operationId?: string; state?: { status?: OperationStatus; error?: string; ... 10 more ...; lastUpdated?: Date; }; currentStepIndex?: number; executionContext?: { ...; }; }'.
+services/orchestration-pipeline/src/index.old.ts(269,58): error TS2339: Property 'healthCheck' does not exist on type 'DatabaseService'.
+services/orchestration-pipeline/src/index.old.ts(307,63): error TS2339: Property 'close' does not exist on type 'DatabaseService'.
+services/orchestration-pipeline/src/index.old.ts(308,36): error TS2339: Property 'close' does not exist on type 'DatabaseService'.
+services/orchestration-pipeline/src/orchestrationEngine.old.ts(340,52): error TS2551: Property 'getOperation' does not exist on type 'DatabaseService'. Did you mean 'operations'?
+services/orchestration-pipeline/src/orchestrationEngine.old.ts(565,52): error TS2551: Property 'getOperation' does not exist on type 'DatabaseService'. Did you mean 'operations'?
+services/orchestration-pipeline/src/orchestrationEngine.old.ts(809,34): error TS2339: Property 'saveStepResult' does not exist on type 'DatabaseService'.
+services/orchestration-pipeline/src/orchestrationEngine.old.ts(1014,50): error TS2551: Property 'getOperation' does not exist on type 'DatabaseService'. Did you mean 'operations'?
+services/orchestration-pipeline/src/orchestrationEngine.old.ts(1028,34): error TS2339: Property 'updateOperationResult' does not exist on type 'DatabaseService'.
+services/orchestration-pipeline/src/orchestrationEngine.old.ts(1275,52): error TS2551: Property 'getOperation' does not exist on type 'DatabaseService'. Did you mean 'operations'?
+services/orchestration-pipeline/src/orchestrationEngine.old.ts(1291,50): error TS2551: Property 'getOperation' does not exist on type 'DatabaseService'. Did you mean 'operations'?
+services/orchestration-pipeline/src/orchestrationEngine.ts(154,19): error TS2693: 'OperationError' only refers to a type, but is being used as a value here.
+services/orchestration-pipeline/src/orchestrationEngine.ts(157,52): error TS2339: Property 'getState' does not exist on type 'StateManagerService'.
+services/orchestration-pipeline/src/orchestrationEngine.ts(189,19): error TS2693: 'OperationError' only refers to a type, but is being used as a value here.
+services/orchestration-pipeline/src/orchestrationEngine.ts(193,19): error TS2693: 'OperationError' only refers to a type, but is being used as a value here.
+services/orchestration-pipeline/src/orchestrationEngine.ts(200,52): error TS2339: Property 'getState' does not exist on type 'StateManagerService'.
+services/orchestration-pipeline/src/orchestrationEngine.ts(235,19): error TS2693: 'OperationError' only refers to a type, but is being used as a value here.
+services/orchestration-pipeline/src/orchestrationEngine.ts(239,19): error TS2693: 'OperationError' only refers to a type, but is being used as a value here.
+services/orchestration-pipeline/src/orchestrationEngine.ts(246,52): error TS2339: Property 'getState' does not exist on type 'StateManagerService'.
+services/orchestration-pipeline/src/orchestrationEngine.ts(293,19): error TS2693: 'OperationError' only refers to a type, but is being used as a value here.
+services/orchestration-pipeline/src/orchestrationEngine.ts(298,19): error TS2693: 'OperationError' only refers to a type, but is being used as a value here.
+services/orchestration-pipeline/src/orchestrationEngine.ts(306,54): error TS2339: Property 'getState' does not exist on type 'StateManagerService'.
+services/orchestration-pipeline/src/orchestrationEngine.ts(308,42): error TS2339: Property 'compensate' does not exist on type 'CompensationService'.
+services/orchestration-pipeline/src/orchestrationEngine.ts(361,39): error TS2339: Property 'operationId' does not exist on type 'EventMessage'.
+services/orchestration-pipeline/src/orchestrationEngine.ts(361,58): error TS2339: Property 'reason' does not exist on type 'EventMessage'.
+services/orchestration-pipeline/src/orchestrationEngine.ts(365,40): error TS2339: Property 'operationId' does not exist on type 'EventMessage'.
+services/orchestration-pipeline/src/orchestrationEngine.ts(365,59): error TS2339: Property 'checkpointId' does not exist on type 'EventMessage'.
+services/orchestration-pipeline/src/orchestrationEngine.ts(369,40): error TS2339: Property 'operationId' does not exist on type 'EventMessage'.
+services/orchestration-pipeline/src/orchestrationEngine.ts(369,59): error TS2339: Property 'reason' does not exist on type 'EventMessage'.
+services/orchestration-pipeline/src/orchestrationEngine.ts(369,73): error TS2339: Property 'compensate' does not exist on type 'EventMessage'.
+services/orchestration-pipeline/src/orchestrationEngine.ts(369,91): error TS2339: Property 'force' does not exist on type 'EventMessage'.
+services/orchestration-pipeline/src/orchestrationEngine.ts(407,15): error TS2339: Property 'orchestration' does not exist on type 'Config'.
+services/orchestration-pipeline/src/orchestrationEngine.ts(414,49): error TS2339: Property 'orchestration' does not exist on type 'Config'.
+services/orchestration-pipeline/src/orchestrationEngine.ts(416,67): error TS2339: Property 'findStaleOperations' does not exist on type 'OperationManagementService'.
+services/security-gateway/src/services/enhancedAuthService.ts(589,3): error TS1068: Unexpected token. A constructor, method, accessor, or property was expected.
+services/security-gateway/src/services/enhancedAuthService.ts(593,3): error TS1128: Declaration or statement expected.
+services/security-gateway/src/services/enhancedAuthService.ts(593,11): error TS1434: Unexpected keyword or identifier.
+services/security-gateway/src/services/enhancedAuthService.ts(594,9): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(595,12): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(596,4): error TS1005: ';' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(596,35): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(597,11): error TS1005: ':' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(605,6): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(607,11): error TS1005: ':' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(607,51): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(608,11): error TS1005: ':' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(608,76): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(610,12): error TS1005: ':' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(610,41): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(616,3): error TS1128: Declaration or statement expected.
+services/security-gateway/src/services/enhancedAuthService.ts(616,11): error TS1434: Unexpected keyword or identifier.
+services/security-gateway/src/services/enhancedAuthService.ts(617,9): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(618,12): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(619,4): error TS1005: ';' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(619,36): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(620,9): error TS1003: Identifier expected.
+services/security-gateway/src/services/enhancedAuthService.ts(620,14): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(620,57): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(620,59): error TS1136: Property assignment expected.
+services/security-gateway/src/services/enhancedAuthService.ts(636,3): error TS1128: Declaration or statement expected.
+services/security-gateway/src/services/enhancedAuthService.ts(638,3): error TS1128: Declaration or statement expected.
+services/security-gateway/src/services/enhancedAuthService.ts(638,11): error TS1434: Unexpected keyword or identifier.
+services/security-gateway/src/services/enhancedAuthService.ts(638,39): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(638,48): error TS1005: ';' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(639,9): error TS1005: ':' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(640,13): error TS1005: ':' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(640,66): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(641,13): error TS1005: ':' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(641,75): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(643,11): error TS1003: Identifier expected.
+services/security-gateway/src/services/enhancedAuthService.ts(643,18): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(643,83): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(643,85): error TS1136: Property assignment expected.
+services/security-gateway/src/services/enhancedAuthService.ts(648,5): error TS1128: Declaration or statement expected.
+services/security-gateway/src/services/enhancedAuthService.ts(648,7): error TS1005: 'try' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(651,3): error TS1128: Declaration or statement expected.
+services/security-gateway/src/services/enhancedAuthService.ts(653,3): error TS1128: Declaration or statement expected.
+services/security-gateway/src/services/enhancedAuthService.ts(653,42): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(653,79): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(653,97): error TS1011: An element access expression should take an argument.
+services/security-gateway/src/services/enhancedAuthService.ts(653,99): error TS1005: ';' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(653,101): error TS1434: Unexpected keyword or identifier.
+services/security-gateway/src/services/enhancedAuthService.ts(658,3): error TS1128: Declaration or statement expected.
+services/security-gateway/src/services/enhancedAuthService.ts(658,11): error TS1434: Unexpected keyword or identifier.
+services/security-gateway/src/services/enhancedAuthService.ts(658,52): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(658,74): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(658,94): error TS1005: ';' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(659,11): error TS1005: ':' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(659,106): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(660,12): error TS1005: ':' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(660,31): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(663,3): error TS1434: Unexpected keyword or identifier.
+services/security-gateway/src/services/enhancedAuthService.ts(663,33): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(663,56): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(663,66): error TS1005: ';' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(663,68): error TS1434: Unexpected keyword or identifier.
+services/security-gateway/src/services/enhancedAuthService.ts(667,3): error TS1128: Declaration or statement expected.
+services/security-gateway/src/services/enhancedAuthService.ts(667,11): error TS1434: Unexpected keyword or identifier.
+services/security-gateway/src/services/enhancedAuthService.ts(667,51): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(667,60): error TS1005: ';' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(667,74): error TS1011: An element access expression should take an argument.
+services/security-gateway/src/services/enhancedAuthService.ts(668,12): error TS1005: ':' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(668,14): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(671,3): error TS1128: Declaration or statement expected.
+services/security-gateway/src/services/enhancedAuthService.ts(671,33): error TS1005: ';' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(671,35): error TS1434: Unexpected keyword or identifier.
+services/security-gateway/src/services/enhancedAuthService.ts(675,3): error TS1128: Declaration or statement expected.
+services/security-gateway/src/services/enhancedAuthService.ts(675,38): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(675,57): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(675,66): error TS1005: ';' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(675,68): error TS1434: Unexpected keyword or identifier.
+services/security-gateway/src/services/enhancedAuthService.ts(680,3): error TS1128: Declaration or statement expected.
+services/security-gateway/src/services/enhancedAuthService.ts(680,11): error TS1434: Unexpected keyword or identifier.
+services/security-gateway/src/services/enhancedAuthService.ts(680,43): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(680,52): error TS1005: ';' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(681,11): error TS1005: ':' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(681,36): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(682,11): error TS1005: ':' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(682,104): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(683,11): error TS1005: ':' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(683,38): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(684,11): error TS1005: ':' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(684,61): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(686,9): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(686,60): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(687,15): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(687,24): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(687,37): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(689,12): error TS1005: ':' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(689,48): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(692,3): error TS1128: Declaration or statement expected.
+services/security-gateway/src/services/enhancedAuthService.ts(692,11): error TS1434: Unexpected keyword or identifier.
+services/security-gateway/src/services/enhancedAuthService.ts(692,52): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(692,61): error TS1005: ';' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(693,11): error TS1005: ':' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(693,36): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(694,11): error TS1005: ':' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(694,104): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(696,11): error TS1005: ':' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(696,61): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(697,11): error TS1005: ':' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(697,41): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(698,11): error TS1005: ':' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(698,65): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(700,9): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(700,62): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(701,15): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(701,26): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(701,40): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(703,12): error TS1005: ':' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(703,21): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(706,3): error TS1128: Declaration or statement expected.
+services/security-gateway/src/services/enhancedAuthService.ts(706,23): error TS1005: ';' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(706,25): error TS1434: Unexpected keyword or identifier.
+services/security-gateway/src/services/enhancedAuthService.ts(710,3): error TS1128: Declaration or statement expected.
+services/security-gateway/src/services/enhancedAuthService.ts(710,11): error TS1434: Unexpected keyword or identifier.
+services/security-gateway/src/services/enhancedAuthService.ts(710,38): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(710,63): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(710,83): error TS1005: ',' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(710,92): error TS1005: ';' expected.
+services/security-gateway/src/services/enhancedAuthService.ts(710,106): error TS1109: Expression expected.
+services/security-gateway/src/services/enhancedAuthService.ts(714,1): error TS1128: Declaration or statement expected.
+services/discussion-orchestration/src/index.old.ts(81,52): error TS2554: Expected 0 arguments, but got 1.
+services/discussion-orchestration/src/index.ts(63,52): error TS2554: Expected 0 arguments, but got 1.
+services/discussion-orchestration/src/services/discussionOrchestrationService.ts(86,55): error TS2339: Property 'createDiscussion' does not exist on type 'DiscussionService'.
+services/discussion-orchestration/src/services/discussionOrchestrationService.ts(171,62): error TS2339: Property 'updateDiscussion' does not exist on type 'DiscussionService'.
+services/discussion-orchestration/src/services/discussionOrchestrationService.ts(286,59): error TS2339: Property 'addParticipant' does not exist on type 'DiscussionService'.
+services/discussion-orchestration/src/services/discussionOrchestrationService.ts(380,52): error TS2339: Property 'sendMessage' does not exist on type 'DiscussionService'.
+services/discussion-orchestration/src/services/discussionOrchestrationService.ts(388,36): error TS2339: Property 'updateDiscussion' does not exist on type 'DiscussionService'.
+services/discussion-orchestration/src/services/discussionOrchestrationService.ts(468,62): error TS2339: Property 'updateDiscussion' does not exist on type 'DiscussionService'.
+services/discussion-orchestration/src/services/discussionOrchestrationService.ts(563,62): error TS2339: Property 'updateDiscussion' does not exist on type 'DiscussionService'.
+services/discussion-orchestration/src/services/discussionOrchestrationService.ts(634,62): error TS2339: Property 'updateDiscussion' does not exist on type 'DiscussionService'.
+services/discussion-orchestration/src/services/discussionOrchestrationService.ts(721,62): error TS2339: Property 'updateDiscussion' does not exist on type 'DiscussionService'.
+services/discussion-orchestration/src/services/discussionOrchestrationService.ts(792,55): error TS2339: Property 'getDiscussion' does not exist on type 'DiscussionService'.
+ ELIFECYCLE  Command failed with exit code 2.
+ WARN   Local package.json exists, but node_modules missing, did you mean to install?
+ ELIFECYCLE  Command failed with exit code 2.

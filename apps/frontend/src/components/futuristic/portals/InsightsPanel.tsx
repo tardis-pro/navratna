@@ -341,7 +341,7 @@ export const InsightsPanel: React.FC<InsightsPanelPortalProps> = ({ className, v
                       </div>
                       <p className="text-gray-600 dark:text-gray-400 text-sm mb-3">{insight.description}</p>
                       <div className="flex items-center space-x-4 text-sm">
-                        <span className="text-green-600">Confidence: {(insight.confidence * 100).toFixed(0)}%</span>
+                        <span className="text-green-600">Confidence: {((insight.confidence || 0) * 100).toFixed(0)}%</span>
                         <span className={getImpactColor(insight.impact)}>Impact: {insight.impact}</span>
                         <span className="text-blue-600">Category: {insight.category}</span>
                       </div>
@@ -392,7 +392,7 @@ export const InsightsPanel: React.FC<InsightsPanelPortalProps> = ({ className, v
                   </div>
                   <div>
                     <span className="text-gray-600 dark:text-gray-400">Confidence:</span>
-                    <span className="ml-2 text-gray-900 dark:text-white">{(selectedInsightData.confidence * 100).toFixed(0)}%</span>
+                    <span className="ml-2 text-gray-900 dark:text-white">{((selectedInsightData.confidence || 0) * 100).toFixed(0)}%</span>
                   </div>
                   <div>
                     <span className="text-gray-600 dark:text-gray-400">Status:</span>

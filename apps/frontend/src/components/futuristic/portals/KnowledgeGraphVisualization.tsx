@@ -464,7 +464,7 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
 
                 <div>
                   <span className="text-gray-400">Confidence:</span>
-                  <span className="text-white ml-2">{(selectedNode.data.confidence * 100).toFixed(1)}%</span>
+                  <span className="text-white ml-2">{((selectedNode.data.confidence || 0) * 100).toFixed(1)}%</span>
                 </div>
 
                 <div>

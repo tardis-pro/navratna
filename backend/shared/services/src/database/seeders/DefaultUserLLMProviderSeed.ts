@@ -36,7 +36,6 @@ export class DefaultUserLLMProviderSeed {
         provider.type = providerConfig.type;
         provider.baseUrl = providerConfig.baseUrl;
         provider.defaultModel = providerConfig.defaultModel;
-        provider.modelsList = providerConfig.modelsList;
         provider.configuration = providerConfig.configuration;
         provider.priority = providerConfig.priority;
         provider.status = providerConfig.status;
@@ -76,7 +75,6 @@ export class DefaultUserLLMProviderSeed {
     baseUrl?: string;
     apiKey?: string;
     defaultModel?: string;
-    modelsList?: string[];
     configuration?: any;
     priority: number;
     status: 'active' | 'inactive' | 'error' | 'testing';
@@ -92,7 +90,6 @@ export class DefaultUserLLMProviderSeed {
       type: 'openai' as const,
       baseUrl: 'https://api.openai.com',
       defaultModel: 'gpt-4o-mini',
-      modelsList: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'],
       configuration: {
         timeout: 30000,
         retries: 3,
@@ -113,7 +110,6 @@ export class DefaultUserLLMProviderSeed {
       type: 'anthropic' as const,
       baseUrl: 'https://api.anthropic.com',
       defaultModel: 'claude-3-5-sonnet-20241022',
-      modelsList: ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
       configuration: {
         timeout: 30000,
         retries: 3,
@@ -135,7 +131,6 @@ export class DefaultUserLLMProviderSeed {
       type: 'ollama' as const,
       baseUrl: 'http://localhost:11434',
       defaultModel: 'llama3.2',
-      modelsList: ['llama3.2', 'llama3.2:1b', 'mistral', 'codellama'],
       configuration: {
         timeout: 60000,
         retries: 2,
@@ -232,8 +227,7 @@ export class DefaultUserLLMProviderSeed {
       await userLLMProviderRepo.update(
         { type: 'openai', name: 'OpenAI' },
         { 
-          modelsList: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'],
-          defaultModel: 'gpt-4o-mini'
+              defaultModel: 'gpt-4o-mini'
         }
       );
       
@@ -241,8 +235,7 @@ export class DefaultUserLLMProviderSeed {
       await userLLMProviderRepo.update(
         { type: 'anthropic', name: 'Anthropic Claude' },
         { 
-          modelsList: ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
-          defaultModel: 'claude-3-5-sonnet-20241022'
+              defaultModel: 'claude-3-5-sonnet-20241022'
         }
       );
       

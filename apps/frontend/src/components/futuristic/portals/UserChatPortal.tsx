@@ -72,7 +72,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
     isConnected: isWebSocketConnected, 
     sendMessage: sendWebSocketMessage,
     lastEvent,
-    addEventListener
+    socket
   } = useEnhancedWebSocket();
 
   // State Management
@@ -108,7 +108,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
     const loadContacts = async () => {
       try {
         // Load user's contacts
-        const contactsResponse = await fetch('/api/contacts', {
+        const contactsResponse = await fetch('/api/v1/contacts?status=ACCEPTED', {
           headers: {
             'Authorization': `Bearer ${user.token}`,
             'Content-Type': 'application/json'
@@ -121,37 +121,42 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
             id: contact.user.id,
             username: contact.user.email.split('@')[0],
             email: contact.user.email,
-            displayName: contact.user.displayName,
+            displayName: contact.user.displayName || `${contact.user.firstName || ''} ${contact.user.lastName || ''}`.trim() || contact.user.email.split('@')[0],
             status: 'offline' as const,
-            lastSeen: new Date(contact.acceptedAt)
+            lastSeen: new Date(contact.acceptedAt || contact.createdAt)
           }));
 
-          // Load online users to update status
-          const onlineResponse = await fetch('/api/presence/online', {
-            headers: {
-              'Authorization': `Bearer ${user.token}`,
-              'Content-Type': 'application/json'
+          // Load online users to update status (if endpoint exists)
+          try {
+            const onlineResponse = await fetch('/api/v1/presence/online', {
+              headers: {
+                'Authorization': `Bearer ${user.token}`,
+                'Content-Type': 'application/json'
+              }
+            });
+
+            if (onlineResponse.ok) {
+              const onlineData = await onlineResponse.json();
+              const onlineUserIds = new Set(onlineData.data.users.map((u: any) => u.user.id));
+
+              // Update contact status based on online users
+              const updatedContacts = userContacts.map((contact: UserContact) => ({
+                ...contact,
+                status: onlineUserIds.has(contact.id) ? 'online' as const : 'offline' as const
+              }));
+
+              setContacts(updatedContacts);
+            } else {
+              setContacts(userContacts);
             }
-          });
-
-          if (onlineResponse.ok) {
-            const onlineData = await onlineResponse.json();
-            const onlineUserIds = new Set(onlineData.data.users.map((u: any) => u.user.id));
-
-            // Update contact status based on online users
-            const updatedContacts = userContacts.map((contact: UserContact) => ({
-              ...contact,
-              status: onlineUserIds.has(contact.id) ? 'online' as const : 'offline' as const
-            }));
-
-            setContacts(updatedContacts);
-          } else {
+          } catch (onlineError) {
+            // If presence endpoint doesn't exist, just use contacts without online status
             setContacts(userContacts);
           }
 
-          // If no contacts, load some public users
+          // If no contacts, load some public users for demo
           if (userContacts.length === 0) {
-            const publicResponse = await fetch('/api/users/public?limit=10', {
+            const publicResponse = await fetch('/api/v1/users/public?limit=10', {
               headers: {
                 'Authorization': `Bearer ${user.token}`,
                 'Content-Type': 'application/json'
@@ -234,31 +239,42 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
 
   // WebSocket Event Handling
   useEffect(() => {
-    if (!isWebSocketConnected) return;
+    if (!isWebSocketConnected || !socket) return;
 
-    const handleUserMessage = (event: any) => {
-      if (event.type === 'user_message') {
-        const message: UserMessage = event.data;
-        setMessages(prev => ({
-          ...prev,
-          [message.senderId]: [...(prev[message.senderId] || []), message]
-        }));
-      }
+    const handleUserMessage = (data: any) => {
+      const message: UserMessage = data;
+      setMessages(prev => ({
+        ...prev,
+        [message.senderId]: [...(prev[message.senderId] || []), message]
+      }));
     };
 
-    const handleCallSignaling = (event: any) => {
-      if (event.type === 'call_offer' || event.type === 'call_answer' || event.type === 'ice_candidate') {
-        handleWebRTCSignaling(event);
-      }
+    const handleCallOffer = (data: any) => {
+      handleWebRTCSignaling({ type: 'call_offer', data });
     };
 
-    addEventListener('user_message', handleUserMessage);
-    addEventListener('call_signaling', handleCallSignaling);
+    const handleCallAnswer = (data: any) => {
+      handleWebRTCSignaling({ type: 'call_answer', data });
+    };
+
+    const handleIceCandidate = (data: any) => {
+      handleWebRTCSignaling({ type: 'ice_candidate', data });
+    };
+
+    // Set up Socket.IO event listeners
+    socket.on('user_message', handleUserMessage);
+    socket.on('call_offer', handleCallOffer);
+    socket.on('call_answer', handleCallAnswer);
+    socket.on('ice_candidate', handleIceCandidate);
 
     return () => {
       // Cleanup event listeners
+      socket.off('user_message', handleUserMessage);
+      socket.off('call_offer', handleCallOffer);
+      socket.off('call_answer', handleCallAnswer);
+      socket.off('ice_candidate', handleIceCandidate);
     };
-  }, [isWebSocketConnected, addEventListener]);
+  }, [isWebSocketConnected, socket]);
 
   // WebRTC Signaling Handler
   const handleWebRTCSignaling = async (event: any) => {
@@ -275,10 +291,9 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
         await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
-        sendWebSocketMessage({
-          type: 'call_answer',
+        sendWebSocketMessage('call_answer', {
           targetUser: data.callerId,
-          data: { answer }
+          answer
         });
         break;
         
@@ -306,10 +321,9 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
 
     pc.onicecandidate = (event) => {
       if (event.candidate && activeCall) {
-        sendWebSocketMessage({
-          type: 'ice_candidate',
+        sendWebSocketMessage('ice_candidate', {
           targetUser: activeCall.participants.find(p => p !== user?.id),
-          data: { candidate: event.candidate }
+          candidate: event.candidate
         });
       }
     };
@@ -347,10 +361,10 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
 
       setActiveCall(call);
 
-      sendWebSocketMessage({
-        type: 'call_offer',
+      sendWebSocketMessage('call_offer', {
         targetUser: contactId,
-        data: { offer, callType: 'voice' }
+        offer,
+        callType: 'voice'
       });
     } catch (error) {
       console.error('Failed to start voice call:', error);
@@ -387,10 +401,10 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
 
       setActiveCall(call);
 
-      sendWebSocketMessage({
-        type: 'call_offer',
+      sendWebSocketMessage('call_offer', {
         targetUser: contactId,
-        data: { offer, callType: 'video' }
+        offer,
+        callType: 'video'
       });
     } catch (error) {
       console.error('Failed to start video call:', error);
@@ -410,10 +424,9 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
     }
 
     if (activeCall) {
-      sendWebSocketMessage({
-        type: 'call_end',
+      sendWebSocketMessage('call_end', {
         targetUser: activeCall.participants.find(p => p !== user?.id),
-        data: { callId: activeCall.id }
+        callId: activeCall.id
       });
     }
 
@@ -503,10 +516,9 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
         }));
 
         // Also send via WebSocket for real-time delivery
-        sendWebSocketMessage({
-          type: 'user_message',
+        sendWebSocketMessage('user_message', {
           targetUser: activeChat,
-          data: actualMessage
+          message: actualMessage
         });
       } else {
         // Update temp message to show error
@@ -535,7 +547,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
     
     setIsLoadingUsers(true);
     try {
-      const response = await fetch(`/api/users/public?limit=50&search=${userSearchTerm}`, {
+      const response = await fetch(`/api/v1/users/public?limit=50&search=${userSearchTerm}`, {
         headers: {
           'Authorization': `Bearer ${user.token}`,
           'Content-Type': 'application/json'
@@ -546,7 +558,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
         const data = await response.json();
         const existingContactIds = new Set(contacts.map(c => c.id));
         
-        // Filter out current user and existing contacts
+        // Filter out current user and existing contacts - users are now pre-filtered to exclude admin/manager roles
         const availableUsers = data.data.users
           .filter((u: any) => u.id !== user.id && !existingContactIds.has(u.id))
           .map((u: any) => ({
@@ -567,19 +579,21 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
     }
   };
 
-  // Send Friend Request
+  // Send Agent Connection Request
   const sendFriendRequest = async (targetUserId: string) => {
     if (!user) return;
     
     try {
-      const response = await fetch('/api/contacts/request', {
+      const response = await fetch('/api/v1/contacts/request', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${user.token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          targetUserId: targetUserId
+          targetUserId: targetUserId,
+          type: 'FRIEND',
+          message: 'Would like to add you as an agent connection'
         })
       });
 
@@ -588,12 +602,13 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
         setAvailableUsers(prev => prev.filter(u => u.id !== targetUserId));
         
         // Optionally show success message
-        console.log('Friend request sent successfully');
+        console.log('Agent connection request sent successfully');
       } else {
-        console.error('Failed to send friend request');
+        const errorData = await response.json();
+        console.error('Failed to send agent connection request:', errorData.message);
       }
     } catch (error) {
-      console.error('Error sending friend request:', error);
+      console.error('Error sending agent connection request:', error);
     }
   };
 
@@ -712,14 +727,14 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
         >
           <div className="p-4 border-b border-slate-700/50">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-white">Contacts</h3>
+              <h3 className="text-lg font-semibold text-white">Agent Connections</h3>
               <Button
                 size="sm"
                 onClick={openAddModal}
                 className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700"
               >
                 <UserPlus className="w-4 h-4 mr-2" />
-                Add
+                Add Agent
               </Button>
             </div>
           </div>
@@ -911,10 +926,10 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
               <div className="text-center">
                 <MessageSquare className="w-16 h-16 mx-auto mb-4 text-slate-600" />
                 <h3 className="text-xl font-semibold text-white mb-2">
-                  Select a Contact
+                  Select an Agent
                 </h3>
                 <p className="text-slate-400">
-                  Choose a contact from the list to start chatting
+                  Choose an agent connection from the list to start chatting
                 </p>
               </div>
             </div>
@@ -1045,8 +1060,8 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
                       <UserPlus className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-bold text-white">Add Friends</h3>
-                      <p className="text-sm text-slate-400">Find and connect with other users</p>
+                      <h3 className="text-xl font-bold text-white">Add Agent Connections</h3>
+                      <p className="text-sm text-slate-400">Find and connect with other users as agents</p>
                     </div>
                   </div>
                   <Button
@@ -1111,7 +1126,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
                           className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700"
                         >
                           <UserPlus className="w-4 h-4 mr-2" />
-                          Add
+                          Add Agent
                         </Button>
                       </motion.div>
                     ))}
@@ -1121,7 +1136,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
                     <div className="text-center">
                       <Users className="w-12 h-12 mx-auto mb-4 text-slate-600" />
                       <p className="text-slate-400">
-                        {userSearchTerm ? 'No users found matching your search' : 'Enter a search term to find users'}
+                        {userSearchTerm ? 'No users found matching your search' : 'Enter a search term to find users to add as agents'}
                       </p>
                     </div>
                   </div>

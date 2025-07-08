@@ -1,9 +1,22 @@
 import { Router, Request, Response } from 'express';
-import { LLMService } from '@uaip/llm-service';
+import { LLMService, UserLLMService } from '@uaip/llm-service';
+import { authMiddleware } from '@uaip/middleware';
 import { logger } from '@uaip/utils';
+
+// Interface for authenticated requests
+interface AuthenticatedRequest extends Request {
+  user?: {
+    id: string;
+    email: string;
+    role: string;
+    permissions?: string[];
+    sessionId?: string;
+  };
+}
 
 const router: Router = Router();
 const llmService = LLMService.getInstance();
+const userLLMService = new UserLLMService();
 
 // Get available models from all providers
 router.get('/models', async (req: Request, res: Response) => {
@@ -30,7 +43,6 @@ router.get('/models', async (req: Request, res: Response) => {
       error: 'Failed to get available models',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
-      return;
   }
 });
 

@@ -50,4 +50,39 @@ export class UserEntity extends BaseEntity {
 
   @Column({ type: 'json', nullable: true })
   permissions?: string[];
+
+  @Column({ type: 'json', nullable: true, name: 'user_persona' })
+  userPersona?: {
+    workStyle: 'collaborative' | 'independent' | 'hybrid';
+    communicationPreference: 'brief' | 'detailed' | 'visual';
+    domainExpertise: string[];
+    toolPreferences: string[];
+    workflowStyle: 'structured' | 'flexible' | 'experimental';
+    problemSolvingApproach: 'analytical' | 'creative' | 'pragmatic';
+    decisionMaking: 'quick' | 'deliberate' | 'consensus';
+    learningStyle: 'hands-on' | 'theoretical' | 'collaborative';
+    timeManagement: 'deadline-driven' | 'flexible' | 'time-blocked';
+    riskTolerance: 'conservative' | 'moderate' | 'aggressive';
+  };
+
+  @Column({ type: 'json', nullable: true, name: 'onboarding_progress' })
+  onboardingProgress?: {
+    isCompleted: boolean;
+    currentStep: number;
+    completedSteps: string[];
+    startedAt?: Date;
+    completedAt?: Date;
+    responses: Record<string, any>;
+  };
+
+  @Column({ type: 'json', nullable: true, name: 'behavioral_patterns' })
+  behavioralPatterns?: {
+    sessionDuration: number;
+    activeHours: string[];
+    frequentlyUsedTools: string[];
+    preferredAgents: string[];
+    workflowPatterns: string[];
+    interactionStyle: 'direct' | 'exploratory' | 'methodical';
+    feedbackPreference: 'immediate' | 'summary' | 'detailed';
+  };
 } 

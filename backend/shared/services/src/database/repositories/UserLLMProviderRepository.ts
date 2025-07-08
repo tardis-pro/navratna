@@ -1,6 +1,7 @@
 import { Repository } from 'typeorm';
 import { BaseRepository } from '../base/BaseRepository.js';
 import { UserLLMProvider, UserLLMProviderType, UserLLMProviderStatus } from '../../entities/userLLMProvider.entity.js';
+import { Agent } from '../../entities/agent.entity.js';
 import { logger } from '@uaip/utils';
 
 export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
@@ -323,6 +324,35 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
    */
   async deleteUserProvider(id: string, userId: string): Promise<void> {
     try {
+      // First, get the provider to check its type
+      const provider = await this.repository.findOne({
+        where: { id, userId }
+      });
+
+      if (!provider) {
+        throw new Error(`User LLM provider with id ${id} not found for user ${userId}`);
+      }
+
+      // If provider is already inactive, return success
+      if (!provider.isActive) {
+        logger.info('User LLM provider already deleted', { id, userId, providerType: provider.type });
+        return;
+      }
+
+      // Check if any agents are using this provider type
+      const agentRepository = this.getRepository(Agent);
+      const agentsUsingProvider = await agentRepository.createQueryBuilder('agent')
+        .where('agent.apiType = :apiType', { apiType: provider.type })
+        .andWhere('agent.isActive = :isActive', { isActive: true })
+        .select(['agent.id', 'agent.name', 'agent.modelId'])
+        .getMany();
+
+      if (agentsUsingProvider.length > 0) {
+        const agentNames = agentsUsingProvider.map(agent => agent.name).join(', ');
+        throw new Error(`Cannot delete provider "${provider.name}" because it is being used by ${agentsUsingProvider.length} agent(s): ${agentNames}. Please update or deactivate these agents first.`);
+      }
+
+      // Proceed with soft delete if no agents are using this provider
       const result = await this.repository.update(
         { id, userId },
         { 
@@ -336,9 +366,15 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
         throw new Error(`User LLM provider with id ${id} not found for user ${userId}`);
       }
       
-      logger.info('Soft deleted user LLM provider', { id, userId });
+      logger.info('Soft deleted user LLM provider', { id, userId, providerType: provider.type });
     } catch (error) {
-      logger.error('Error deleting user LLM provider', { id, userId, error });
+      logger.error('Error deleting user LLM provider', { 
+        id, 
+        userId, 
+        error: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+        errorName: error instanceof Error ? error.name : undefined
+      });
       throw error;
     }
   }

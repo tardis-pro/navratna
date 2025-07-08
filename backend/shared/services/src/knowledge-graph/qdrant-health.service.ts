@@ -4,6 +4,7 @@ import { KnowledgeRepository } from '../database/repositories/knowledge.reposito
 import { KnowledgeSyncService } from './knowledge-sync.service.js';
 import { EmbeddingService } from './embedding.service.js';
 import { ToolGraphDatabase } from '../database/toolGraphDatabase.js';
+import { DatabaseService } from '../databaseService.js';
 
 export interface QdrantHealthStatus {
   isConnected: boolean;
@@ -70,11 +71,14 @@ export class QdrantHealthService {
 
       logger.info(`Starting Qdrant sync for ${Math.min(maxItems, health.postgresItemsCount)} items`);
 
+      const databaseService = DatabaseService.getInstance();
+      const userRepository = databaseService.getUserRepository();
       const syncService = new KnowledgeSyncService(
         this.knowledgeRepository,
         this.qdrantService,
         this.graphDatabase,
-        this.embeddingService
+        this.embeddingService,
+        userRepository
       );
 
       // Get items to sync

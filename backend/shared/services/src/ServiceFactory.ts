@@ -221,11 +221,13 @@ export class ServiceFactory {
       ]);
 
       const toolGraphDatabase = await this.getToolGraphDatabase();
+      // TODO: Add user persona sync later
       const knowledgeSync = new KnowledgeSyncService(
         repository,
         qdrantService,
         toolGraphDatabase,
-        embeddingService
+        embeddingService,
+        null // Temporarily disable user repository
       );
 
       return new KnowledgeGraphService(

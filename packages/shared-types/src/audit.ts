@@ -43,6 +43,7 @@ export enum AuditEventType {
   COMPLIANCE_REPORT_GENERATED = 'compliance_report_generated',
   AUDIT_CLEANUP = 'audit_cleanup',
   RISK_ASSESSMENT = 'risk_assessment',
+  USER_ACTION = 'user_action',
 
   // OAuth Events
   OAUTH_AUTHORIZE_INITIATED = 'oauth_authorize_initiated',

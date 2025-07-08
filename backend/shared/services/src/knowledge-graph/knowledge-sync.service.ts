@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { KnowledgeItem, KnowledgeRelationship, KnowledgeType, SourceType } from '@uaip/types';
 import { KnowledgeItemEntity } from '../entities/knowledge-item.entity.js';
 import { KnowledgeRelationshipEntity } from '../entities/knowledge-relationship.entity.js';
+import { UserEntity } from '../entities/user.entity.js';
 import { KnowledgeRepository } from '../database/repositories/knowledge.repository.js';
 import { QdrantService } from '../qdrant.service.js';
 import { ToolGraphDatabase } from '../database/toolGraphDatabase.js';
@@ -12,8 +13,8 @@ export interface KnowledgeSyncResult {
   success: boolean;
   knowledgeItemId: string;
   postgresId?: string;
-  neo4jSynced: boolean;
-  qdrantSynced: boolean;
+  neo4jSynced?: boolean;
+  qdrantSynced?: boolean;
   error?: string;
 }
 
@@ -39,8 +40,257 @@ export class KnowledgeSyncService {
     private readonly knowledgeRepository: KnowledgeRepository,
     private readonly qdrantService: QdrantService,
     private readonly graphDb: ToolGraphDatabase,
-    private readonly embeddingService: EmbeddingService
+    private readonly embeddingService: EmbeddingService,
+    private readonly userRepository: any // Will be properly typed later
   ) {}
+
+  /**
+   * Sync knowledge item with user persona context
+   * Enhances knowledge items with user behavioral patterns and preferences
+   */
+  async syncWithUserPersona(knowledgeItemId: string, userId: string): Promise<KnowledgeSyncResult> {
+    try {
+      // Get knowledge item and user data
+      const knowledgeItem = await this.knowledgeRepository.findById(knowledgeItemId);
+      const user = await this.userRepository.findById(userId);
+
+      if (!knowledgeItem || !user) {
+        return {
+          success: false,
+          knowledgeItemId,
+          error: 'Knowledge item or user not found'
+        };
+      }
+
+      // Enhance knowledge item with user persona context
+      const enhancedMetadata = {
+        ...knowledgeItem.metadata,
+        userPersona: {
+          workStyle: user.userPersona?.workStyle,
+          domainExpertise: user.userPersona?.domainExpertise,
+          communicationPreference: user.userPersona?.communicationPreference,
+          workflowStyle: user.userPersona?.workflowStyle,
+          learningStyle: user.userPersona?.learningStyle
+        },
+        userContext: {
+          userId: user.id,
+          userRole: user.role,
+          department: user.department,
+          activeHours: user.behavioralPatterns?.activeHours,
+          preferredTools: user.behavioralPatterns?.frequentlyUsedTools,
+          interactionStyle: user.behavioralPatterns?.interactionStyle
+        },
+        personaRelevance: this.calculatePersonaRelevance(knowledgeItem, user)
+      };
+
+      // Update knowledge item with enhanced metadata
+      await this.knowledgeRepository.update(knowledgeItemId, {
+        metadata: enhancedMetadata
+      });
+
+      // Sync to Neo4j with persona relationships
+      await this.syncToNeo4jWithPersona(knowledgeItem, user);
+
+      // Sync to Qdrant with persona-weighted embeddings
+      await this.syncToQdrantWithPersona(knowledgeItem, user);
+
+      logger.info('Knowledge item synced with user persona context', {
+        knowledgeItemId,
+        userId,
+        personaRelevance: enhancedMetadata.personaRelevance
+      });
+
+      return {
+        success: true,
+        knowledgeItemId,
+        neo4jSynced: true,
+        qdrantSynced: true
+      };
+
+    } catch (error) {
+      logger.error('Error syncing knowledge item with user persona', {
+        knowledgeItemId,
+        userId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+
+      return {
+        success: false,
+        knowledgeItemId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Calculate persona relevance score based on user characteristics
+   */
+  private calculatePersonaRelevance(knowledgeItem: KnowledgeItemEntity, user: UserEntity): number {
+    let relevanceScore = 0.5; // Base relevance
+
+    const persona = user.userPersona;
+    const behavioral = user.behavioralPatterns;
+
+    if (!persona) return relevanceScore;
+
+    // Domain expertise alignment
+    if (persona.domainExpertise && knowledgeItem.tags) {
+      const expertiseMatch = knowledgeItem.tags.some(tag => 
+        persona.domainExpertise.some(domain => 
+          tag.toLowerCase().includes(domain.toLowerCase()) || 
+          domain.toLowerCase().includes(tag.toLowerCase())
+        )
+      );
+      if (expertiseMatch) relevanceScore += 0.3;
+    }
+
+    // Communication preference alignment
+    if (persona.communicationPreference) {
+      const contentLength = knowledgeItem.content.length;
+      if (persona.communicationPreference === 'brief' && contentLength < 500) {
+        relevanceScore += 0.1;
+      } else if (persona.communicationPreference === 'detailed' && contentLength > 1000) {
+        relevanceScore += 0.1;
+      }
+    }
+
+    // Workflow style alignment
+    if (persona.workflowStyle === 'structured' && knowledgeItem.type === KnowledgeType.PROCEDURAL) {
+      relevanceScore += 0.1;
+    }
+
+    // Behavioral pattern alignment
+    if (behavioral?.frequentlyUsedTools && knowledgeItem.tags) {
+      const toolMatch = knowledgeItem.tags.some(tag => 
+        behavioral.frequentlyUsedTools.some(tool => 
+          tag.toLowerCase().includes(tool.toLowerCase())
+        )
+      );
+      if (toolMatch) relevanceScore += 0.2;
+    }
+
+    return Math.min(1.0, relevanceScore);
+  }
+
+  /**
+   * Sync knowledge item to Neo4j with persona-based relationships
+   */
+  private async syncToNeo4jWithPersona(knowledgeItem: KnowledgeItemEntity, user: UserEntity): Promise<void> {
+    try {
+      // Create or update knowledge node
+      await this.graphDb.runQuery(`
+        MERGE (k:Knowledge {id: $knowledgeId})
+        SET k.content = $content,
+            k.type = $type,
+            k.tags = $tags,
+            k.confidence = $confidence,
+            k.updatedAt = datetime(),
+            k.userId = $userId,
+            k.userRole = $userRole,
+            k.department = $department
+      `, {
+        knowledgeId: knowledgeItem.id,
+        content: knowledgeItem.content,
+        type: knowledgeItem.type,
+        tags: knowledgeItem.tags,
+        confidence: knowledgeItem.confidence,
+        userId: user.id,
+        userRole: user.role,
+        department: user.department
+      });
+
+      // Create persona-based relationships
+      if (user.userPersona?.domainExpertise) {
+        for (const domain of user.userPersona.domainExpertise) {
+          await this.graphDb.runQuery(`
+            MATCH (k:Knowledge {id: $knowledgeId})
+            MERGE (d:Domain {name: $domain})
+            MERGE (k)-[:RELEVANT_TO {relevance: $relevance}]->(d)
+          `, {
+            knowledgeId: knowledgeItem.id,
+            domain,
+            relevance: this.calculatePersonaRelevance(knowledgeItem, user)
+          });
+        }
+      }
+
+      // Create user-knowledge relationships
+      await this.graphDb.runQuery(`
+        MATCH (k:Knowledge {id: $knowledgeId})
+        MERGE (u:User {id: $userId})
+        SET u.workStyle = $workStyle,
+            u.communicationPreference = $communicationPreference,
+            u.role = $role
+        MERGE (u)-[:CREATED {timestamp: datetime()}]->(k)
+      `, {
+        knowledgeId: knowledgeItem.id,
+        userId: user.id,
+        workStyle: user.userPersona?.workStyle,
+        communicationPreference: user.userPersona?.communicationPreference,
+        role: user.role
+      });
+
+    } catch (error) {
+      logger.error('Error syncing to Neo4j with persona', {
+        knowledgeItemId: knowledgeItem.id,
+        userId: user.id,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Sync knowledge item to Qdrant with persona-weighted embeddings
+   */
+  private async syncToQdrantWithPersona(knowledgeItem: KnowledgeItemEntity, user: UserEntity): Promise<void> {
+    try {
+      // Create enhanced content for embedding that includes persona context
+      const enhancedContent = [
+        knowledgeItem.content,
+        user.userPersona?.domainExpertise?.join(' ') || '',
+        user.userPersona?.workStyle || '',
+        user.userPersona?.communicationPreference || '',
+        user.role,
+        user.department || ''
+      ].filter(Boolean).join(' ');
+
+      // Generate embedding with persona context
+      const embedding = await this.embeddingService.generateEmbedding(enhancedContent);
+
+      // Create metadata with persona information
+      const metadata = {
+        id: knowledgeItem.id,
+        type: knowledgeItem.type,
+        tags: knowledgeItem.tags,
+        confidence: knowledgeItem.confidence,
+        userId: user.id,
+        userRole: user.role,
+        department: user.department,
+        workStyle: user.userPersona?.workStyle,
+        domainExpertise: user.userPersona?.domainExpertise,
+        communicationPreference: user.userPersona?.communicationPreference,
+        personaRelevance: this.calculatePersonaRelevance(knowledgeItem, user),
+        createdAt: knowledgeItem.createdAt.toISOString(),
+        updatedAt: knowledgeItem.updatedAt.toISOString()
+      };
+
+      // Upsert to Qdrant
+      await this.qdrantService.upsertPoints([{
+        id: knowledgeItem.id,
+        vector: embedding,
+        payload: metadata
+      }]);
+
+    } catch (error) {
+      logger.error('Error syncing to Qdrant with persona', {
+        knowledgeItemId: knowledgeItem.id,
+        userId: user.id,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    }
+  }
 
   /**
    * Universal sync: Read data from all sources and sync bidirectionally

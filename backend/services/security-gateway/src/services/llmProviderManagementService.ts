@@ -225,7 +225,6 @@ export class LLMProviderManagementService {
       if (request.description !== undefined) provider.description = request.description;
       if (request.baseUrl !== undefined) provider.baseUrl = request.baseUrl;
       if (request.defaultModel !== undefined) provider.defaultModel = request.defaultModel;
-      if (request.modelsList !== undefined) provider.modelsList = request.modelsList;
       if (request.configuration !== undefined) provider.configuration = request.configuration;
       if (request.priority !== undefined) provider.priority = request.priority;
       if (request.status !== undefined) provider.status = request.status;
@@ -419,7 +418,6 @@ export class LLMProviderManagementService {
       baseUrl: provider.baseUrl,
       hasApiKey: provider.hasApiKey(),
       defaultModel: provider.defaultModel,
-      modelsList: provider.modelsList,
       configuration: provider.configuration,
       status: provider.status,
       isActive: provider.isActive,

@@ -32,8 +32,6 @@ export class LLMProvider extends BaseEntity {
   @Column({ type: 'varchar', length: 255, nullable: true })
   defaultModel?: string;
 
-  @Column({ type: 'json', nullable: true })
-  modelsList?: string[];
 
   @Column({ type: 'json', nullable: true })
   configuration?: {

@@ -197,7 +197,7 @@ export const DiscussionTrigger: React.FC<DiscussionTriggerProps> = ({
     let baseTopic = '';
     if (contextType === 'knowledge' && contextData?.knowledgeItem) {
       const item = contextData.knowledgeItem;
-      baseTopic = `${selectedPurposeData?.label} session on ${item.type}: ${item.content.substring(0, 100)}...`;
+      baseTopic = `${selectedPurposeData?.label} session on ${item.type}: ${(item.content || '').substring(0, 100)}...`;
     } else if (contextType === 'chat' && contextData?.topic) {
       baseTopic = `${selectedPurposeData?.label} discussion about: ${contextData.topic}`;
     } else {
@@ -414,8 +414,8 @@ export const DiscussionTrigger: React.FC<DiscussionTriggerProps> = ({
                       {contextData.knowledgeItem && (
                         <>
                           <div><strong className="text-white">Knowledge Type:</strong> {contextData.knowledgeItem.type}</div>
-                          <div><strong className="text-white">Tags:</strong> {contextData.knowledgeItem.tags.join(', ')}</div>
-                          <div><strong className="text-white">Content Preview:</strong> {contextData.knowledgeItem.content.substring(0, 150)}...</div>
+                          <div><strong className="text-white">Tags:</strong> {(contextData.knowledgeItem.tags || []).join(', ')}</div>
+                          <div><strong className="text-white">Content Preview:</strong> {(contextData.knowledgeItem.content || '').substring(0, 150)}...</div>
                         </>
                       )}
                       {contextData.topic && (

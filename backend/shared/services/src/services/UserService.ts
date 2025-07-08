@@ -5,6 +5,7 @@ import {
 } from '../database/repositories/UserRepository';
 import { LLMProviderRepository } from '../database/repositories/LLMProviderRepository';
 import { UserLLMProviderRepository } from '../database/repositories/UserLLMProviderRepository';
+import { UserContactRepository } from '../database/repositories/UserContactRepository';
 import { UserEntity } from '../entities/user.entity';
 import { RefreshTokenEntity } from '../entities/refreshToken.entity';
 import { PasswordResetTokenEntity } from '../entities/passwordResetToken.entity';
@@ -20,8 +21,9 @@ export class UserService {
   private passwordResetTokenRepository: PasswordResetTokenRepository | null = null;
   private llmProviderRepository: LLMProviderRepository | null = null;
   private userLLMProviderRepository: UserLLMProviderRepository | null = null;
+  private userContactRepository: UserContactRepository | null = null;
 
-  private constructor() {
+  protected constructor() {
     // Domain service - no direct TypeORM dependencies
   }
 
@@ -66,6 +68,13 @@ export class UserService {
       this.userLLMProviderRepository = new UserLLMProviderRepository();
     }
     return this.userLLMProviderRepository;
+  }
+
+  public getUserContactRepository(): UserContactRepository {
+    if (!this.userContactRepository) {
+      this.userContactRepository = new UserContactRepository();
+    }
+    return this.userContactRepository;
   }
 
   // Note: OAuth, MFA, and Session operations should be handled by dedicated services

@@ -307,8 +307,9 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
     }
 
     const selectedType = providerTypes.find(p => p.id === formData.type);
-    if (selectedType?.requiresApiKey && !formData.apiKey.trim()) {
-      errors.apiKey = 'API key is required for this provider type';
+    // API key is optional - only validate if provided
+    if (formData.apiKey.trim() && selectedType?.requiresApiKey) {
+      // Additional validation can be added here if needed
     }
 
     if (formData.priority < 0 || formData.priority > 1000) {
@@ -340,8 +341,10 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
         await onCreateProvider(providerData);
       } else {
         await uaipAPI.llm.createProvider(providerData);
-        await loadProviders(); // Refresh providers list
       }
+
+      // Always refresh the local provider list
+      await loadProviders();
 
       // Reset form and close modal
       resetForm();
@@ -421,10 +424,8 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
     } else {
       try { new URL(editFormData.baseUrl); } catch { errors.baseUrl = 'Invalid URL format'; }
     }
-    const selectedType = providerTypes.find(p => p.id === editFormData.type);
-    if (selectedType?.requiresApiKey && !editFormData.apiKey.trim()) {
-      errors.apiKey = 'API key is required for this provider type';
-    }
+    // For edit, API key is optional - if empty, we keep the existing one
+    // Only validate if user has entered a value
     if (editFormData.priority < 0 || editFormData.priority > 1000) {
       errors.priority = 'Priority must be between 0 and 1000';
     }
@@ -439,17 +440,24 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
       const config: any = {
         name: editFormData.name.trim(),
         description: editFormData.description.trim() || undefined,
+        type: editFormData.type,
         baseUrl: editFormData.baseUrl.trim(),
         defaultModel: editFormData.defaultModel.trim() || undefined,
         priority: editFormData.priority
       };
-      if (editFormData.apiKey) config.apiKey = editFormData.apiKey.trim();
+      // Only include API key if user has entered a value
+      if (editFormData.apiKey.trim()) {
+        config.apiKey = editFormData.apiKey.trim();
+      }
       if (onUpdateProvider) {
         await onUpdateProvider(editingProvider.id, config);
       } else {
         await uaipAPI.llm.updateProvider(editingProvider.id, config);
-        await loadProviders();
       }
+      
+      // Always refresh the local provider list
+      await loadProviders();
+      
       closeEditModal();
     } catch (error) {
       setEditFormErrors(prev => ({ ...prev, general: error instanceof Error ? error.message : 'Failed to update provider' }));
@@ -470,6 +478,9 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
         result = await uaipAPI.llm.testProvider(providerId);
       }
       setTestResult(prev => ({ ...prev, [providerId]: 'success' }));
+      
+      // Refresh providers list after testing (status might have changed)
+      await loadProviders();
     } catch (error) {
       setTestResult(prev => ({ ...prev, [providerId]: error instanceof Error ? error.message : 'Test failed' }));
     } finally {
@@ -485,12 +496,43 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
         await onUpdateProvider(provider.id, { isActive: !provider.isActive });
       } else {
         await uaipAPI.llm.updateProvider(provider.id, { isActive: !provider.isActive });
-        await loadProviders();
       }
+      
+      // Always refresh the local provider list
+      await loadProviders();
     } catch (error) {
       // Optionally show error feedback
     } finally {
       setUpdatingProvider(false);
+    }
+  };
+
+  // Delete Provider Handler
+  const handleDeleteProvider = async (providerId: string) => {
+    const confirmed = window.confirm('Are you sure you want to delete this provider? This action cannot be undone.');
+    if (!confirmed) return;
+
+    try {
+      if (onDeleteProvider) {
+        await onDeleteProvider(providerId);
+      } else {
+        await uaipAPI.llm.deleteProvider(providerId);
+      }
+      
+      // Always refresh the local provider list
+      await loadProviders();
+    } catch (error: any) {
+      console.error('Failed to delete provider:', error);
+      
+      // Check if this is a provider-in-use error
+      // APIClientError has code directly on the error object
+      if (error?.code === 'PROVIDER_IN_USE') {
+        alert(`Cannot delete provider: ${error.message}`);
+      } else if (error?.message) {
+        alert(`Failed to delete provider: ${error.message}`);
+      } else {
+        alert('Failed to delete provider. Please try again.');
+      }
     }
   };
 
@@ -546,9 +588,9 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
   };
 
   return (
-    <div className={`space-y-6 ${className}`}>
+    <div className={`h-full flex flex-col ${className}`}>
       {/* Action Buttons */}
-      <div className="flex items-center justify-end space-x-3">
+      <div className="flex-shrink-0 flex items-center justify-end space-x-3 mb-6">
         <button
           onClick={() => setShowAddModal(true)}
           className="group flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
@@ -566,8 +608,10 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
         </button>
       </div>
 
-      {/* Add Provider Form */}
-      {showAddModal && (
+      {/* Content Area */}
+      <div className="flex-1 overflow-y-auto space-y-6">
+        {/* Add Provider Form */}
+        {showAddModal && (
         <div className="bg-gradient-to-br from-blue-50/50 to-purple-50/50 dark:from-blue-900/20 dark:to-purple-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl overflow-hidden">
           {/* Form Header */}
           <div className="relative bg-gradient-to-r from-blue-600 to-purple-600 p-4 lg:p-6">
@@ -729,7 +773,7 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
               {providerTypes.find(p => p.id === formData.type)?.requiresApiKey && (
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
-                    API Key <span className="text-red-500">*</span>
+                    API Key <span className="text-slate-400 dark:text-slate-500">(Optional)</span>
                   </label>
                   <div className="relative">
                     <input
@@ -856,80 +900,259 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
         </div>
       )}
 
-      {/* Edit Provider Modal */}
+      {/* Edit Provider Inline Form */}
       {showEditModal && editingProvider && (
-        <div className="bg-gradient-to-br from-blue-50/50 to-purple-50/50 dark:from-blue-900/20 dark:to-purple-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl overflow-hidden z-50 fixed inset-0 flex items-center justify-center backdrop-blur-sm">
-          <div className="w-full max-w-xl mx-auto bg-white dark:bg-slate-900 rounded-2xl shadow-2xl p-6 relative">
-            <button
-              onClick={closeEditModal}
-              className="absolute top-4 right-4 p-2 hover:bg-white/20 rounded-xl transition-colors duration-200 text-slate-600 dark:text-white flex-shrink-0"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Edit Provider</h3>
-            <div className="space-y-4">
+        <div className="bg-gradient-to-br from-blue-50/50 to-purple-50/50 dark:from-blue-900/20 dark:to-purple-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl overflow-hidden mb-6">
+          {/* Form Header */}
+          <div className="relative bg-gradient-to-r from-blue-600 to-purple-600 p-4 lg:p-6">
+            <div className="flex items-center justify-between">
               <div>
-                <label className="block text-sm font-semibold mb-2">Provider Name</label>
+                <h3 className="text-lg lg:text-xl font-bold text-white">
+                  Edit Provider: {editingProvider.name}
+                </h3>
+                <p className="text-blue-100 text-sm mt-1">
+                  Update your provider configuration
+                </p>
+              </div>
+              <button
+                onClick={closeEditModal}
+                className="p-2 hover:bg-white/20 rounded-xl transition-colors duration-200 text-white flex-shrink-0"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Form Body */}
+          <div className="p-4 lg:p-6 space-y-6">
+            {/* Provider Configuration */}
+            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 lg:p-6 space-y-6">
+              <h4 className="text-base lg:text-lg font-semibold text-slate-900 dark:text-white flex items-center space-x-2">
+                <Settings className="w-5 h-5 text-blue-600" />
+                <span>Provider Configuration</span>
+              </h4>
+
+              {/* Provider Name */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
+                  Provider Name <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="text"
                   value={editFormData.name}
                   onChange={e => handleEditFormChange('name', e.target.value)}
-                  className="w-full px-4 py-2 border rounded-xl"
+                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 text-lg ${editFormErrors.name
+                      ? 'border-red-400 focus:border-red-500 focus:ring-red-500/20'
+                      : 'border-slate-300 dark:border-slate-600'
+                    } bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400`}
                 />
-                {editFormErrors.name && <div className="text-red-500 text-xs mt-1">{editFormErrors.name}</div>}
+                {editFormErrors.name && (
+                  <div className="flex items-center space-x-2 mt-2 text-red-600 dark:text-red-400">
+                    <AlertCircle className="w-4 h-4" />
+                    <span className="text-sm font-medium">{editFormErrors.name}</span>
+                  </div>
+                )}
               </div>
+
+              {/* Description */}
               <div>
-                <label className="block text-sm font-semibold mb-2">Description</label>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
+                  Description
+                </label>
                 <textarea
                   value={editFormData.description}
                   onChange={e => handleEditFormChange('description', e.target.value)}
-                  className="w-full px-4 py-2 border rounded-xl"
+                  placeholder="Optional description for this provider"
+                  rows={3}
+                  className="w-full px-4 py-3 border-2 border-slate-300 dark:border-slate-600 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 resize-none"
                 />
               </div>
+
+              {/* Provider Type Selection */}
               <div>
-                <label className="block text-sm font-semibold mb-2">Base URL</label>
-                <input
-                  type="url"
-                  value={editFormData.baseUrl}
-                  onChange={e => handleEditFormChange('baseUrl', e.target.value)}
-                  className="w-full px-4 py-2 border rounded-xl"
-                />
-                {editFormErrors.baseUrl && <div className="text-red-500 text-xs mt-1">{editFormErrors.baseUrl}</div>}
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
+                  Provider Type <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {providerTypes.map((type) => {
+                    const Icon = type.icon;
+                    const isSelected = editFormData.type === type.id;
+                    return (
+                      <button
+                        key={type.id}
+                        type="button"
+                        onClick={() => handleEditFormChange('type', type.id)}
+                        className={`group relative p-3 border-2 rounded-xl text-left transition-all duration-300 ${isSelected
+                            ? 'border-blue-500 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30'
+                            : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                          }`}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isSelected
+                              ? 'bg-gradient-to-br from-blue-500 to-purple-600 text-white'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                            }`}>
+                            <Icon className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <div className={`font-medium ${isSelected ? 'text-blue-700 dark:text-blue-300' : 'text-slate-900 dark:text-white'}`}>
+                              {type.name}
+                            </div>
+                            <div className="text-xs text-slate-500 dark:text-slate-400">
+                              {type.description}
+                            </div>
+                          </div>
+                        </div>
+                        {isSelected && (
+                          <div className="absolute top-2 right-2">
+                            <CheckCircle2 className="w-4 h-4 text-blue-600" />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                {editFormErrors.type && (
+                  <div className="flex items-center space-x-2 mt-2 text-red-600 dark:text-red-400">
+                    <AlertCircle className="w-4 h-4" />
+                    <span className="text-sm font-medium">{editFormErrors.type}</span>
+                  </div>
+                )}
               </div>
+
+              {/* Base URL */}
               <div>
-                <label className="block text-sm font-semibold mb-2">Default Model</label>
-                <input
-                  type="text"
-                  value={editFormData.defaultModel}
-                  onChange={e => handleEditFormChange('defaultModel', e.target.value)}
-                  className="w-full px-4 py-2 border rounded-xl"
-                />
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
+                  Base URL <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="url"
+                    value={editFormData.baseUrl}
+                    onChange={e => handleEditFormChange('baseUrl', e.target.value)}
+                    placeholder="https://api.example.com"
+                    className={`w-full px-4 py-3 pl-12 border-2 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 text-lg ${editFormErrors.baseUrl
+                        ? 'border-red-400 focus:border-red-500 focus:ring-red-500/20'
+                        : 'border-slate-300 dark:border-slate-600'
+                      } bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400`}
+                  />
+                  <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+                </div>
+                {editFormErrors.baseUrl && (
+                  <div className="flex items-center space-x-2 mt-2 text-red-600 dark:text-red-400">
+                    <AlertCircle className="w-4 h-4" />
+                    <span className="text-sm font-medium">{editFormErrors.baseUrl}</span>
+                  </div>
+                )}
               </div>
-              <div>
-                <label className="block text-sm font-semibold mb-2">Priority</label>
-                <input
-                  type="number"
-                  min="0"
-                  max="1000"
-                  value={editFormData.priority}
-                  onChange={e => handleEditFormChange('priority', parseInt(e.target.value) || 0)}
-                  className="w-full px-4 py-2 border rounded-xl"
-                />
-                {editFormErrors.priority && <div className="text-red-500 text-xs mt-1">{editFormErrors.priority}</div>}
+
+              {/* API Key */}
+              {providerTypes.find(p => p.id === editFormData.type)?.requiresApiKey && (
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
+                    API Key <span className="text-slate-400 dark:text-slate-500">(Leave empty to keep current)</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showApiKey ? 'text' : 'password'}
+                      value={editFormData.apiKey}
+                      onChange={e => handleEditFormChange('apiKey', e.target.value)}
+                      placeholder="Enter new API key or leave empty to keep current"
+                      className={`w-full px-4 py-3 pr-12 border-2 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 text-lg font-mono ${editFormErrors.apiKey
+                          ? 'border-red-400 focus:border-red-500 focus:ring-red-500/20'
+                          : 'border-slate-300 dark:border-slate-600'
+                        } bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors duration-200"
+                    >
+                      {showApiKey ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
+                  </div>
+                  {editFormErrors.apiKey && (
+                    <div className="flex items-center space-x-2 mt-2 text-red-600 dark:text-red-400">
+                      <AlertCircle className="w-4 h-4" />
+                      <span className="text-sm font-medium">{editFormErrors.apiKey}</span>
+                    </div>
+                  )}
+                  <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                    <div className="flex items-start space-x-2">
+                      <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                      <div className="text-sm text-amber-800 dark:text-amber-200">
+                        <strong>Security Notice:</strong> Leave empty to keep your existing API key. Your API key will be encrypted and stored securely.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Default Model and Priority */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
+                    Default Model
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.defaultModel}
+                    onChange={e => handleEditFormChange('defaultModel', e.target.value)}
+                    placeholder="e.g., gpt-4, claude-3-sonnet"
+                    className="w-full px-4 py-3 border-2 border-slate-300 dark:border-slate-600 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
+                    Priority (0-1000)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="1000"
+                    value={editFormData.priority}
+                    onChange={e => handleEditFormChange('priority', parseInt(e.target.value) || 0)}
+                    className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 ${editFormErrors.priority
+                        ? 'border-red-400 focus:border-red-500 focus:ring-red-500/20'
+                        : 'border-slate-300 dark:border-slate-600'
+                      } bg-white dark:bg-slate-900 text-slate-900 dark:text-white`}
+                  />
+                  {editFormErrors.priority && (
+                    <div className="flex items-center space-x-2 mt-2 text-red-600 dark:text-red-400">
+                      <AlertCircle className="w-4 h-4" />
+                      <span className="text-sm font-medium">{editFormErrors.priority}</span>
+                    </div>
+                  )}
+                </div>
               </div>
-              {editFormErrors.general && <div className="text-red-500 text-xs mt-2">{editFormErrors.general}</div>}
-              <div className="flex justify-end gap-2 mt-4">
-                <button
-                  onClick={closeEditModal}
-                  className="px-4 py-2 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-white"
-                  disabled={updatingProvider}
-                >Cancel</button>
-                <button
-                  onClick={handleUpdateProvider}
-                  className="px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold"
-                  disabled={updatingProvider}
-                >{updatingProvider ? 'Saving...' : 'Save'}</button>
-              </div>
+
+              {/* General Error Message */}
+              {editFormErrors.general && (
+                <div className="flex items-start space-x-3 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
+                  <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <div className="text-red-700 dark:text-red-300 text-sm">{editFormErrors.general}</div>
+                </div>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={closeEditModal}
+                className="px-6 py-3 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-white font-medium hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors duration-200"
+                disabled={updatingProvider}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUpdateProvider}
+                className="flex items-center space-x-2 px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
+                disabled={updatingProvider}
+              >
+                {updatingProvider && <RefreshCw className="w-4 h-4 animate-spin" />}
+                <span>{updatingProvider ? 'Saving...' : 'Save Changes'}</span>
+              </button>
             </div>
           </div>
         </div>
@@ -963,7 +1186,7 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
       {/* Providers List */}
       {!loading && providers.length > 0 && (
         <div className="space-y-4">
-          {providers.map((provider) => {
+          {providers.map((provider, providerIndex) => {
             const Icon = getProviderIcon(provider.type);
             const StatusIcon = getStatusIcon(provider.status);
             const isExpanded = expandedProvider === provider.name;
@@ -972,7 +1195,7 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
 
             return (
               <div
-                key={provider.id}
+                key={provider.id || `provider-${providerIndex}`}
                 className="bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group"
               >
                 {/* Provider Header */}
@@ -1049,7 +1272,7 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
                       >Edit</button>
                       {/* Delete Button */}
                       <button
-                        onClick={e => { e.stopPropagation(); if (onDeleteProvider) onDeleteProvider(provider.id); }}
+                        onClick={e => { e.stopPropagation(); handleDeleteProvider(provider.id); }}
                         className="px-3 py-1 rounded-lg bg-red-500 text-white text-xs font-semibold hover:bg-red-600 transition-all duration-200"
                       >Delete</button>
                       <ExternalLink className="w-5 h-5 text-slate-400 group-hover:text-blue-500 transition-colors duration-300" />
@@ -1123,13 +1346,13 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
                             <div className="space-y-3 max-h-48 overflow-y-auto pr-2">
                               {models.map((model, index) => (
                                 <div
-                                  key={model.id || index}
+                                  key={model.id || model.name || `model-${provider.id || providerIndex}-${index}`}
                                   className="flex items-center space-x-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200"
                                 >
                                   <div className="w-3 h-3 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex-shrink-0"></div>
                                   <div className="flex-1 min-w-0">
                                     <div className="text-sm font-semibold text-slate-900 dark:text-white truncate">
-                                      {model.name}
+                                      {model.name || 'Unknown Model'}
                                     </div>
                                     {model.description && (
                                       <div className="text-xs text-slate-500 dark:text-slate-400 truncate mt-1">
@@ -1164,54 +1387,55 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
         </div>
       )}
 
-      {/* Empty State */}
-      {!loading && providers.length === 0 && !error && (
-        <div className="text-center py-16">
-          <div className="relative mx-auto mb-8">
-            <div className="w-24 h-24 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 rounded-3xl flex items-center justify-center mx-auto shadow-xl">
-              <Server className="w-12 h-12 text-slate-400" />
+        {/* Empty State */}
+        {!loading && providers.length === 0 && !error && (
+          <div className="text-center py-16">
+            <div className="relative mx-auto mb-8">
+              <div className="w-24 h-24 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 rounded-3xl flex items-center justify-center mx-auto shadow-xl">
+                <Server className="w-12 h-12 text-slate-400" />
+              </div>
+              <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                <Plus className="w-4 h-4 text-white" />
+              </div>
             </div>
-            <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-              <Plus className="w-4 h-4 text-white" />
-            </div>
-          </div>
-          <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">
-            No providers configured
-          </h3>
-          <p className="text-slate-600 dark:text-slate-400 mb-8 max-w-md mx-auto leading-relaxed">
-            Get started by adding your first AI model provider. Connect to services like OpenAI, Ollama, or custom endpoints to unlock powerful AI capabilities.
-          </p>
-          <div className="space-y-4">
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="group flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-xl transition-all duration-300 mx-auto shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
-            >
-              <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
-              <span>Add Your First Provider</span>
-            </button>
-            <div className="flex items-center justify-center space-x-8 pt-6">
-              {[
-                { icon: Globe, name: 'Ollama', color: 'from-green-500 to-emerald-600' },
-                { icon: Zap, name: 'OpenAI', color: 'from-blue-500 to-cyan-600' },
-                { icon: Server, name: 'LLM Studio', color: 'from-purple-500 to-pink-600' },
-                { icon: Cpu, name: 'Custom', color: 'from-orange-500 to-red-600' }
-              ].map((provider, index) => {
-                const Icon = provider.icon;
-                return (
-                  <div key={index} className="text-center group cursor-pointer" onClick={() => setShowAddModal(true)}>
-                    <div className={`w-12 h-12 bg-gradient-to-br ${provider.color} rounded-xl flex items-center justify-center mb-2 shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-110`}>
-                      <Icon className="w-6 h-6 text-white" />
+            <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">
+              No providers configured
+            </h3>
+            <p className="text-slate-600 dark:text-slate-400 mb-8 max-w-md mx-auto leading-relaxed">
+              Get started by adding your first AI model provider. Connect to services like OpenAI, Ollama, or custom endpoints to unlock powerful AI capabilities.
+            </p>
+            <div className="space-y-4">
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="group flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-xl transition-all duration-300 mx-auto shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
+              >
+                <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
+                <span>Add Your First Provider</span>
+              </button>
+              <div className="flex items-center justify-center space-x-8 pt-6">
+                {[
+                  { icon: Globe, name: 'Ollama', color: 'from-green-500 to-emerald-600' },
+                  { icon: Zap, name: 'OpenAI', color: 'from-blue-500 to-cyan-600' },
+                  { icon: Server, name: 'LLM Studio', color: 'from-purple-500 to-pink-600' },
+                  { icon: Cpu, name: 'Custom', color: 'from-orange-500 to-red-600' }
+                ].map((provider, index) => {
+                  const Icon = provider.icon;
+                  return (
+                    <div key={index} className="text-center group cursor-pointer" onClick={() => setShowAddModal(true)}>
+                      <div className={`w-12 h-12 bg-gradient-to-br ${provider.color} rounded-xl flex items-center justify-center mb-2 shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-110`}>
+                        <Icon className="w-6 h-6 text-white" />
+                      </div>
+                      <span className="text-xs text-slate-500 dark:text-slate-400 font-medium group-hover:text-slate-700 dark:group-hover:text-slate-300 transition-colors duration-300">
+                        {provider.name}
+                      </span>
                     </div>
-                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium group-hover:text-slate-700 dark:group-hover:text-slate-300 transition-colors duration-300">
-                      {provider.name}
-                    </span>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }; 

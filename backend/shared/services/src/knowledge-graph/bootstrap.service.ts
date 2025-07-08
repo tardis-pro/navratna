@@ -14,6 +14,7 @@ import { QdrantHealthService } from './qdrant-health.service.js';
 import { ChatParserService } from './chat-parser.service.js';
 import { ChatKnowledgeExtractorService } from './chat-knowledge-extractor.service.js';
 import { BatchProcessorService } from './batch-processor.service.js';
+import { DatabaseService } from '../databaseService.js';
 import { logger } from '@uaip/utils';
 
 export interface BootstrapConfig {
@@ -74,11 +75,13 @@ export class KnowledgeBootstrapService {
     });
 
     // Initialize services
+    // TODO: Add user persona sync later
     this.syncService = new KnowledgeSyncService(
       knowledgeRepository,
       qdrantService,
       graphDb,
-      embeddingService
+      embeddingService,
+      null // Temporarily disable user repository
     );
 
     this.simplifiedSyncService = new SimplifiedSyncService(

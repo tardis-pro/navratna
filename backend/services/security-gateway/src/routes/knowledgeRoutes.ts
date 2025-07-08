@@ -51,13 +51,40 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
       return;
     }
 
-    const knowledgeItems: KnowledgeIngestRequest[] = Array.isArray(req.body) ? req.body : [req.body];
+    const requestData = Array.isArray(req.body) ? req.body : [req.body];
 
-    // Validate knowledge items
+    // Transform frontend data to backend format
+    const knowledgeItems: KnowledgeIngestRequest[] = requestData.map((item: any) => {
+      // Handle both frontend KnowledgeUploadRequest and backend KnowledgeIngestRequest formats
+      if (item.source) {
+        // Already in backend format
+        return item;
+      } else {
+        // Frontend format, transform it
+        return {
+          content: item.content,
+          type: item.type || 'document',
+          tags: item.tags || [],
+          source: {
+            type: 'USER_INPUT',
+            identifier: item.title || `upload-${Date.now()}`,
+            metadata: {
+              uploadedAt: new Date().toISOString(),
+              title: item.title,
+              category: item.category,
+              ...item.metadata
+            }
+          },
+          confidence: 0.8
+        };
+      }
+    });
+
+    // Validate transformed knowledge items
     for (const item of knowledgeItems) {
-      if (!item.content || !item.source) {
+      if (!item.content) {
         res.status(400).json({
-          error: 'Each knowledge item must have content and source'
+          error: 'Each knowledge item must have content'
         });
         return;
       }

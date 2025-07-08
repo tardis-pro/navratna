@@ -127,18 +127,29 @@ export const llmAPI = {
     },
 
     async createProvider(provider: {
-      provider: ModelProvider;
-      apiKey: string;
+      name: string;
+      description?: string;
+      type: string;
+      baseUrl?: string;
+      apiKey?: string;
+      defaultModel?: string;
+      modelsList?: string[];
       configuration?: Record<string, any>;
-      isDefault?: boolean;
+      priority?: number;
     }): Promise<UserLLMProvider> {
       return APIClient.post<UserLLMProvider>(API_ROUTES.USER_LLM.CREATE_PROVIDER, provider);
     },
 
     async updateProvider(id: string, updates: {
+      name?: string;
+      description?: string;
+      baseUrl?: string;
       apiKey?: string;
+      defaultModel?: string;
+      modelsList?: string[];
       configuration?: Record<string, any>;
-      isDefault?: boolean;
+      priority?: number;
+      status?: string;
       isActive?: boolean;
     }): Promise<UserLLMProvider> {
       return APIClient.put<UserLLMProvider>(`${API_ROUTES.USER_LLM.UPDATE_PROVIDER}/${id}`, updates);
@@ -153,7 +164,8 @@ export const llmAPI = {
       message?: string;
       models?: string[];
     }> {
-      return APIClient.post(`${API_ROUTES.USER_LLM.TEST_PROVIDER}/${id}/test`);
+      const response = await APIClient.post(`${API_ROUTES.USER_LLM.TEST_PROVIDER}/${id}/test`);
+      return response;
     },
 
     async setDefault(id: string): Promise<void> {
@@ -165,6 +177,32 @@ export const llmAPI = {
       model?: string;
     }): Promise<LLMGenerateResponse> {
       return APIClient.post<LLMGenerateResponse>(API_ROUTES.USER_LLM.GENERATE, request);
+    },
+
+    async listModels(): Promise<Array<{
+      id: string;
+      name: string;
+      description?: string;
+      source: string;
+      apiEndpoint: string;
+      apiType: string;
+      provider: string;
+      providerId: string;
+      isAvailable: boolean;
+      isDefault: boolean;
+    }>> {
+      return APIClient.get<Array<{
+        id: string;
+        name: string;
+        description?: string;
+        source: string;
+        apiEndpoint: string;
+        apiType: string;
+        provider: string;
+        providerId: string;
+        isAvailable: boolean;
+        isDefault: boolean;
+      }>>(API_ROUTES.USER_LLM.LIST_MODELS);
     }
   }
 };

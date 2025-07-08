@@ -137,27 +137,27 @@ export const KnowledgeShortcut: React.FC<KnowledgeShortcutProps> = ({
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 line-clamp-2 mb-2">
-                          {item.content.substring(0, 200)}
-                          {item.content.length > 200 && '...'}
+                          {item.content ? item.content.substring(0, 200) : 'No content available'}
+                          {item.content && item.content.length > 200 && '...'}
                         </p>
                         <div className="flex items-center gap-2 mb-2">
                           <Badge variant="outline" className="text-xs">
-                            {item.type}
+                            {item.type || 'Unknown'}
                           </Badge>
                           <span className="text-xs text-gray-500">
-                            {new Date(item.createdAt).toLocaleDateString()}
+                            {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'Unknown date'}
                           </span>
                           <span className="text-xs text-gray-500">
-                            {(item.confidence * 100).toFixed(0)}% confidence
+                            {item.confidence ? `${(item.confidence * 100).toFixed(0)}% confidence` : 'No confidence score'}
                           </span>
                         </div>
                         <div className="flex flex-wrap gap-1">
-                          {item.tags.slice(0, 4).map((tag) => (
+                          {item.tags && item.tags.slice(0, 4).map((tag) => (
                             <Badge key={tag} variant="secondary" className="text-xs">
                               {tag}
                             </Badge>
                           ))}
-                          {item.tags.length > 4 && (
+                          {item.tags && item.tags.length > 4 && (
                             <Badge variant="secondary" className="text-xs">
                               +{item.tags.length - 4} more
                             </Badge>

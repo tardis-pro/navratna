@@ -563,8 +563,8 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
                 </div>
                 
                 <div className="flex items-center justify-between">
-                  <span className={`px-2 py-1 rounded text-xs font-medium border ${getConfidenceColor(insight.confidence)}`}>
-                    {(insight.confidence * 100).toFixed(0)}% confidence
+                  <span className={`px-2 py-1 rounded text-xs font-medium border ${getConfidenceColor(insight.confidence || 0)}`}>
+                    {((insight.confidence || 0) * 100).toFixed(0)}% confidence
                   </span>
                   <span className="text-xs text-slate-500 capitalize">
                     {insight.type} prediction
@@ -694,11 +694,11 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
                   </div>
                   <div className="flex items-center space-x-2">
                     <motion.span
-                      className={`px-2 py-1 rounded-md text-xs font-medium border ${getConfidenceColor(analysis.confidence)}`}
+                      className={`px-2 py-1 rounded-md text-xs font-medium border ${getConfidenceColor(analysis.confidence || 0)}`}
                       animate={{ opacity: [0.8, 1, 0.8] }}
                       transition={{ duration: 2, repeat: Infinity, delay: index * 0.3 }}
                     >
-                      {(analysis.confidence * 100).toFixed(0)}%
+                      {((analysis.confidence || 0) * 100).toFixed(0)}%
                     </motion.span>
                     <span className={`px-2 py-1 rounded-md text-xs font-medium border ${getComplexityColor(analysis.complexity)}`}>
                       {analysis.complexity.toFixed(1)}
@@ -795,11 +795,11 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
                 
                 <div className="flex items-center justify-between">
                   <motion.span
-                    className={`px-2 py-1 rounded-md text-xs font-medium border ${getConfidenceColor(insight.confidence)}`}
+                    className={`px-2 py-1 rounded-md text-xs font-medium border ${getConfidenceColor(insight.confidence || 0)}`}
                     animate={{ opacity: [0.8, 1, 0.8] }}
                     transition={{ duration: 2, repeat: Infinity, delay: index * 0.4 }}
                   >
-                    {(insight.confidence * 100).toFixed(0)}% confidence
+                    {((insight.confidence || 0) * 100).toFixed(0)}% confidence
                   </motion.span>
                   <span className="text-xs text-slate-500">
                     {insight.timestamp.toLocaleTimeString()}

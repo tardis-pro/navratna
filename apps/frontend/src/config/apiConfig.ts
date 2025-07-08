@@ -119,13 +119,14 @@ export const API_ROUTES = {
     DELETE_PROVIDER: '/api/v1/llm/my-providers',
     TEST_PROVIDER: '/api/v1/llm/my-providers',
     SET_DEFAULT: '/api/v1/llm/my-providers',
-    GENERATE: '/api/v1/llm/generate'
+    GENERATE: '/api/v1/llm/generate',
+    LIST_MODELS: '/api/v1/llm/my-providers/models'
   },
 
   // Knowledge Graph Service routes
   KNOWLEDGE: {
     BASE: '/api/v1/knowledge',
-    UPLOAD: '/api/v1/knowledge/upload',
+    UPLOAD: '/api/v1/knowledge',
     SEARCH: '/api/v1/knowledge/search',
     GET: '/api/v1/knowledge',
     UPDATE: '/api/v1/knowledge',

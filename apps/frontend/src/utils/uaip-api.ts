@@ -678,19 +678,47 @@ export const uaipAPI = {
 
   llm: {
     async getModels(): Promise<Array<LLMModel>> {
-      const models = await api.llm.listModels();
+      try {
+        // First try to get models from user's providers
+        const userModels = await api.llm.userLLM.listModels();
+        
+        // Transform the response to match expected interface  
+        const transformedUserModels = userModels.map((model: any) => ({
+          id: model.id || 'unknown',
+          name: model.name || 'Unknown Model',
+          description: model.description,
+          source: model.source || 'unknown',
+          apiEndpoint: model.apiEndpoint || '',
+          apiType: model.apiType || 'custom',
+          provider: model.provider || 'unknown',
+          isAvailable: model.isAvailable || false
+        }));
+
+        // If user has models, return them
+        if (transformedUserModels.length > 0) {
+          return transformedUserModels;
+        }
+      } catch (error) {
+        console.warn('Failed to get user models, falling back to system models:', error);
+      }
       
-      // Transform the response to match expected interface  
-      return models.map((model: any) => ({
-        id: model.id || 'unknown',
-        name: model.name || 'Unknown Model',
-        description: model.description,
-        source: model.source || 'unknown',
-        apiEndpoint: model.apiEndpoint || '',
-        apiType: model.apiType || 'custom',
-        provider: model.provider || 'unknown',
-        isAvailable: model.isActive || false
-      }));
+      // Fallback to system models if user has no providers
+      try {
+        const systemModels = await api.llm.listModels();
+        return systemModels.map((model: any) => ({
+          id: model.id || 'unknown',
+          name: model.name || 'Unknown Model',
+          description: model.description,
+          source: model.source || 'unknown',
+          apiEndpoint: model.apiEndpoint || '',
+          apiType: model.apiType || 'custom',
+          provider: model.provider || 'unknown',
+          isAvailable: model.isActive || false
+        }));
+      } catch (error) {
+        console.error('Failed to get system models:', error);
+        return [];
+      }
     },
 
     async getProviders(): Promise<Array<{
@@ -712,7 +740,7 @@ export const uaipAPI = {
       createdAt: string;
       updatedAt: string;
     }>> {
-      const providers = await api.llm.listProviders();
+      const providers = await api.llm.userLLM.listProviders();
 
       // Transform the response to match expected interface
       return providers.map((provider: any) => ({
@@ -728,7 +756,7 @@ export const uaipAPI = {
         totalTokensUsed: provider.totalTokensUsed || 0,
         totalRequests: provider.totalRequests || 0,
         totalErrors: provider.totalErrors || 0,
-        lastUsedAt: provider.lastUsedAt?.toISOString(),
+        lastUsedAt: provider.lastUsedAt,
         healthCheckResult: provider.healthCheckResult,
         hasApiKey: provider.hasApiKey || false,
         createdAt: provider.createdAt || new Date().toISOString(),
@@ -755,40 +783,35 @@ export const uaipAPI = {
       configuration?: any;
     }): Promise<void> {
       const client = getAPIClient();
-      const response = await client.userLLM.updateProviderConfig(providerId, config);
-
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to update provider configuration');
-      }
+      await client.llm.userLLM.updateProvider(providerId, config);
     },
 
     async updateProviderApiKey(providerId: string, apiKey: string): Promise<void> {
       const client = getAPIClient();
-      const response = await client.userLLM.updateProviderApiKey(providerId, apiKey);
+      await client.llm.userLLM.updateProvider(providerId, { apiKey });
+    },
 
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to update API key');
-      }
+    async updateProvider(providerId: string, updates: {
+      name?: string;
+      description?: string;
+      baseUrl?: string;
+      apiKey?: string;
+      defaultModel?: string;
+      priority?: number;
+      configuration?: any;
+      isActive?: boolean;
+    }): Promise<void> {
+      const client = getAPIClient();
+      await client.llm.userLLM.updateProvider(providerId, updates);
     },
 
     async testProvider(providerId: string): Promise<any> {
-      const client = getAPIClient();
-      const response = await client.userLLM.testProvider(providerId);
-
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to test provider');
-      }
-
-      return response.data!;
+      const response = await api.llm.userLLM.testProvider(providerId);
+      return response;
     },
 
     async deleteProvider(providerId: string): Promise<void> {
-      const client = getAPIClient();
-      const response = await client.userLLM.deleteProvider(providerId);
-
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to delete provider');
-      }
+      await api.llm.userLLM.deleteProvider(providerId);
     },
 
     async generateResponse(request: {
@@ -972,14 +995,31 @@ export const uaipAPI = {
         const client = getAPIClient();
         const searchResults = await client.knowledge.search(query);
         
+        // Validate searchResults structure
+        if (!Array.isArray(searchResults)) {
+          console.warn('Search results is not an array:', searchResults);
+          return {
+            items: [],
+            totalCount: 0,
+            searchMetadata: {
+              query: query.query || '',
+              processingTime: 0,
+              similarityScores: [],
+              filtersApplied: []
+            }
+          };
+        }
+        
         // Transform search results to expected format
         const items = searchResults.map((result: any) => result.item || result);
         return {
           items,
           totalCount: items.length,
           searchMetadata: {
+            query: query.query || '',
             processingTime: 0,
-            totalResults: items.length
+            similarityScores: searchResults.map(r => r.score || 0),
+            filtersApplied: []
           }
         };
       } catch (error) {
@@ -988,8 +1028,10 @@ export const uaipAPI = {
           items: [],
           totalCount: 0,
           searchMetadata: {
+            query: query.query || '',
             processingTime: 0,
-            totalResults: 0
+            similarityScores: [],
+            filtersApplied: []
           }
         };
       }

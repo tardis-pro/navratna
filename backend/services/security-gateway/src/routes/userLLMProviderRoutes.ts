@@ -1,8 +1,11 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { DatabaseService } from '@uaip/shared-services';
+import { UserService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { authMiddleware } from '@uaip/middleware';
 import { z } from 'zod';
+import { LLMStudioProvider } from '../../../shared/llm-service/src/providers/LLMStudioProvider.js';
+import { OllamaProvider } from '../../../shared/llm-service/src/providers/OllamaProvider.js';
+import { OpenAIProvider } from '../../../shared/llm-service/src/providers/OpenAIProvider.js';
 
 // Request/Response schemas with Zod validation
 const createUserProviderSchema = z.object({
@@ -10,9 +13,8 @@ const createUserProviderSchema = z.object({
   description: z.string().max(500).optional(),
   type: z.enum(['openai', 'anthropic', 'google', 'ollama', 'llmstudio', 'custom']),
   baseUrl: z.string().url().optional(),
-  apiKey: z.string().min(1),
+  apiKey: z.string().optional(),
   defaultModel: z.string().max(255).optional(),
-  modelsList: z.array(z.string()).optional(),
   configuration: z.object({
     timeout: z.number().min(1000).optional(),
     retries: z.number().min(0).max(10).optional(),
@@ -31,9 +33,8 @@ const updateUserProviderSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   description: z.string().max(500).optional(),
   baseUrl: z.string().url().optional(),
-  apiKey: z.string().min(1).optional(),
+  apiKey: z.string().optional(),
   defaultModel: z.string().max(255).optional(),
-  modelsList: z.array(z.string()).optional(),
   configuration: z.object({
     timeout: z.number().min(1000).optional(),
     retries: z.number().min(0).max(10).optional(),
@@ -81,6 +82,16 @@ const PROVIDER_LIMITS = {
 
 const router: Router = Router();
 
+// Lazy initialization of services
+let userService: UserService | null = null;
+
+async function getServices() {
+  if (!userService) {
+    userService = UserService.getInstance();
+  }
+  return { userService };
+}
+
 // Apply authentication middleware to all routes
 router.use(authMiddleware);
 
@@ -117,7 +128,6 @@ const toSafeProvider = (provider: any) => ({
   type: provider.type,
   baseUrl: provider.baseUrl,
   defaultModel: provider.defaultModel,
-  modelsList: provider.modelsList,
   configuration: provider.configuration,
   status: provider.status,
   isActive: provider.isActive,
@@ -199,16 +209,15 @@ router.get('/my-providers/active', async (req: AuthenticatedRequest, res: Respon
     await databaseService.initialize();
     const providers = await databaseService.userLLMProviderRepository.findActiveProvidersByUser(req.user!.id);
     
-    // Filter to only active providers
-    const activeProviders = providers.filter(p => p.isActive && p.status === 'active');
+    // Filter to only active providers (allow testing and active status)
+    const activeProviders = providers.filter(p => p.isActive && (p.status === 'active' || p.status === 'testing'));
     
     const safeProviders = activeProviders.map(provider => ({
       id: provider.id,
       name: provider.name,
       type: provider.type,
       defaultModel: provider.defaultModel,
-      modelsList: provider.modelsList,
-      priority: provider.priority,
+          priority: provider.priority,
       hasApiKey: provider.hasApiKey()
     }));
     
@@ -225,16 +234,135 @@ router.get('/my-providers/active', async (req: AuthenticatedRequest, res: Respon
   }
 });
 
+// Get all available models from user's providers
+router.get('/my-providers/models', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { userService } = await getServices();
+    
+    // Get user's active providers
+    const providers = await userService.getUserLLMProviderRepository().findActiveProvidersByUser(req.user!.id);
+    const activeProviders = providers.filter(p => p.isActive && (p.status === 'active' || p.status === 'testing'));
+    
+    logger.info('Fetching models from active providers', {
+      userId: req.user!.id,
+      providerCount: activeProviders.length,
+      providers: activeProviders.map(p => `${p.name}(${p.type})`)
+    });
+    
+    const allModels = [];
+    
+    // Fetch models from each active provider
+    for (const provider of activeProviders) {
+      try {
+        let providerInstance;
+        
+        // Create provider instance based on type
+        switch (provider.type) {
+          case 'llmstudio':
+            providerInstance = new LLMStudioProvider({
+              type: provider.type,
+              baseUrl: provider.baseUrl,
+              defaultModel: provider.defaultModel || undefined,
+              timeout: provider.configuration?.timeout || 30000,
+              retries: provider.configuration?.retries || 3
+            }, provider.name);
+            break;
+            
+          case 'ollama':
+            providerInstance = new OllamaProvider({
+              type: provider.type,
+              baseUrl: provider.baseUrl,
+              defaultModel: provider.defaultModel || undefined,
+              timeout: provider.configuration?.timeout || 30000,
+              retries: provider.configuration?.retries || 3
+            }, provider.name);
+            break;
+            
+          case 'openai':
+            providerInstance = new OpenAIProvider({
+              type: provider.type,
+              baseUrl: provider.baseUrl,
+              apiKey: provider.getApiKey() || '',
+              defaultModel: provider.defaultModel || undefined,
+              timeout: provider.configuration?.timeout || 30000,
+              retries: provider.configuration?.retries || 3
+            }, provider.name);
+            break;
+            
+          default:
+            logger.warn(`Unsupported provider type: ${provider.type}`, { providerId: provider.id });
+            continue;
+        }
+        
+        // Fetch models from provider
+        const models = await providerInstance.getAvailableModels();
+        
+        // Add models to response
+        for (const model of models) {
+          allModels.push({
+            id: `${provider.id}-${model.name}`,
+            name: model.name,
+            description: model.description || `${model.name} from ${provider.name}`,
+            source: provider.name,
+            apiEndpoint: model.apiEndpoint || provider.baseUrl,
+            apiType: provider.type,
+            provider: provider.name,
+            providerId: provider.id,
+            isAvailable: true,
+            isDefault: provider.defaultModel === model.name
+          });
+        }
+        
+        logger.info(`Fetched ${models.length} models from ${provider.name}`, {
+          providerId: provider.id,
+          models: models.map(m => m.name)
+        });
+        
+      } catch (error) {
+        logger.error(`Failed to fetch models from provider ${provider.name}`, {
+          providerId: provider.id,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+        // Continue with other providers
+      }
+    }
+    
+    logger.info('Models fetched successfully', {
+      userId: req.user!.id,
+      totalModels: allModels.length,
+      providersProcessed: activeProviders.length
+    });
+    
+    res.json({
+      success: true,
+      data: allModels
+    });
+  } catch (error) {
+    logger.error('Error getting user LLM models', { error, userId: req.user?.id });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get LLM models'
+    });
+  }
+});
+
 // Get LLM provider by ID
 router.get('/my-providers/:id', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const databaseService = DatabaseService.getInstance();
-    await databaseService.initialize();
+    const { userService } = await getServices();
     
-    const provider = await databaseService.userLLMProviderRepository.findById(id);
+    const provider = await userService.getUserLLMProviderRepository().findById(id);
     
-    if (!provider || provider.userId !== req.user!.id) {
+    if (provider && provider.userId !== req.user!.id) {
+      res.status(404).json({
+        success: false,
+        error: 'LLM provider not found'
+      });
+      return;
+    }
+    
+    if (!provider) {
       res.status(404).json({
         success: false,
         error: 'LLM provider not found'
@@ -254,6 +382,7 @@ router.get('/my-providers/:id', async (req: AuthenticatedRequest, res: Response)
     });
   }
 });
+
 
 // Create new LLM provider for user  
 router.post('/my-providers', async (req: AuthenticatedRequest, res: Response) => {
@@ -293,7 +422,6 @@ router.post('/my-providers', async (req: AuthenticatedRequest, res: Response) =>
       baseUrl: providerData.baseUrl,
       apiKey: providerData.apiKey,
       defaultModel: providerData.defaultModel,
-      modelsList: providerData.modelsList,
       configuration: providerData.configuration,
       priority: providerData.priority || 100
     });
@@ -445,10 +573,19 @@ router.delete('/my-providers/:id', async (req: AuthenticatedRequest, res: Respon
       providerId: req.params.id
     });
     
-    res.status(500).json({
-      success: false,
-      error: 'Failed to delete LLM provider'
-    });
+    // Check if this is a validation error (agents using provider)
+    if (error instanceof Error && error.message.includes('Cannot delete provider')) {
+      res.status(400).json({
+        success: false,
+        error: error.message,
+        code: 'PROVIDER_IN_USE'
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to delete LLM provider'
+      });
+    }
   }
 });
 

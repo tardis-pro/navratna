@@ -417,4 +417,37 @@ export class AgentRepository extends BaseRepository<Agent> {
       throw error;
     }
   }
+
+  /**
+   * Check if any active agents are using a specific provider type
+   */
+  public async hasAgentsUsingProvider(apiType: string): Promise<boolean> {
+    try {
+      const count = await this.repository.createQueryBuilder('agent')
+        .where('agent.apiType = :apiType', { apiType })
+        .andWhere('agent.isActive = :isActive', { isActive: true })
+        .getCount();
+      
+      return count > 0;
+    } catch (error) {
+      logger.error('Error checking agents using provider', { apiType, error: (error as Error).message });
+      throw error;
+    }
+  }
+
+  /**
+   * Get agents using a specific provider type
+   */
+  public async getAgentsUsingProvider(apiType: string): Promise<Agent[]> {
+    try {
+      return await this.repository.createQueryBuilder('agent')
+        .where('agent.apiType = :apiType', { apiType })
+        .andWhere('agent.isActive = :isActive', { isActive: true })
+        .select(['agent.id', 'agent.name', 'agent.modelId', 'agent.apiType'])
+        .getMany();
+    } catch (error) {
+      logger.error('Error getting agents using provider', { apiType, error: (error as Error).message });
+      throw error;
+    }
+  }
 } 
