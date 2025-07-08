@@ -17,7 +17,7 @@
     "baseUrl": "."
   },
   "include": ["src/**/*"],
-  "exclude": ["dist", "node_modules"],
+  "exclude": ["dist", "node_modules", "src/integration-example.ts"],
   "references": [
     { "path": "../../../packages/shared-utils" },
     { "path": "../../../packages/shared-types" },

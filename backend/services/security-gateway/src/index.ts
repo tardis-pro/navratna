@@ -3,7 +3,8 @@ import { config } from '@uaip/config';
 import { logger } from '@uaip/utils';
 import { initializeServices } from '@uaip/shared-services';
 import jwt from 'jsonwebtoken';
-import { validateJWTToken } from '@uaip/middleware';
+import { validateJWTToken, errorTrackingMiddleware } from '@uaip/middleware';
+import { createErrorLogger } from '@uaip/middleware';
 
 // Import routes
 import authRoutes from './routes/authRoutes.js';
@@ -29,6 +30,7 @@ class SecurityGatewayServer extends BaseService {
   private approvalWorkflowService: ApprovalWorkflowService | null = null;
   private auditService: AuditService | null = null;
   private notificationService: NotificationService | null = null;
+  private errorLogger = createErrorLogger('security-gateway');
 
   constructor() {
     super({
@@ -120,6 +122,9 @@ class SecurityGatewayServer extends BaseService {
   }
 
   protected async setupRoutes(): Promise<void> {
+    // Add error tracking middleware before routes
+    this.app.use(errorTrackingMiddleware('security-gateway'));
+
     // API routes
     this.app.use('/api/v1/auth', authRoutes);
     this.app.use('/api/v1/security', securityRoutes);

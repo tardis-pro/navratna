@@ -1,0 +1,6 @@
+projectKey=council
+serverUrl=http://localhost:8893
+serverVersion=25.7.0.110598
+dashboardUrl=http://localhost:8893/dashboard?id=council
+ceTaskId=e7000859-5446-42c0-bfda-7d856e360b04
+ceTaskUrl=http://localhost:8893/api/ce/task?id=e7000859-5446-42c0-bfda-7d856e360b04

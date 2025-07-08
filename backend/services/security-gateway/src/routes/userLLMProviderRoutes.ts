@@ -3,9 +3,7 @@ import { UserService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { authMiddleware } from '@uaip/middleware';
 import { z } from 'zod';
-import { LLMStudioProvider } from '../../../shared/llm-service/src/providers/LLMStudioProvider.js';
-import { OllamaProvider } from '../../../shared/llm-service/src/providers/OllamaProvider.js';
-import { OpenAIProvider } from '../../../shared/llm-service/src/providers/OpenAIProvider.js';
+import { LLMStudioProvider, OllamaProvider, OpenAIProvider } from '@uaip/llm-service';
 
 // Request/Response schemas with Zod validation
 const createUserProviderSchema = z.object({
@@ -105,9 +103,8 @@ const canCreateProvider = async (req: AuthenticatedRequest): Promise<{ allowed: 
   }
   
   // Check current provider count using repository
-  const databaseService = DatabaseService.getInstance();
-  await databaseService.initialize();
-  const providers = await databaseService.userLLMProviderRepository.findAllProvidersByUser(req.user!.id);
+  const userService = UserService.getInstance();
+  const providers = await userService.getUserLLMProviderRepository().findAllProvidersByUser(req.user!.id);
   const currentCount = providers.length;
   
   if (currentCount >= limit) {
@@ -149,9 +146,8 @@ router.get('/my-providers/limits', async (req: AuthenticatedRequest, res: Respon
     const userRole = req.user!.role;
     const limit = PROVIDER_LIMITS[userRole as keyof typeof PROVIDER_LIMITS] || 0;
     
-    const databaseService = DatabaseService.getInstance();
-    await databaseService.initialize();
-    const providers = await databaseService.userLLMProviderRepository.findAllProvidersByUser(req.user!.id);
+    const userService = UserService.getInstance();
+    const providers = await userService.getUserLLMProviderRepository().findAllProvidersByUser(req.user!.id);
     const currentCount = providers.length;
     
     res.json({
@@ -183,9 +179,8 @@ router.get('/my-providers/limits', async (req: AuthenticatedRequest, res: Respon
 // Get user's LLM providers
 router.get('/my-providers', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const databaseService = DatabaseService.getInstance();
-    await databaseService.initialize();
-    const providers = await databaseService.userLLMProviderRepository.findAllProvidersByUser(req.user!.id);
+    const userService = UserService.getInstance();
+    const providers = await userService.getUserLLMProviderRepository().findAllProvidersByUser(req.user!.id);
     
     const safeProviders = providers.map(toSafeProvider);
     
@@ -205,9 +200,8 @@ router.get('/my-providers', async (req: AuthenticatedRequest, res: Response) => 
 // Get active LLM providers for current user
 router.get('/my-providers/active', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const databaseService = DatabaseService.getInstance();
-    await databaseService.initialize();
-    const providers = await databaseService.userLLMProviderRepository.findActiveProvidersByUser(req.user!.id);
+    const userService = UserService.getInstance();
+    const providers = await userService.getUserLLMProviderRepository().findActiveProvidersByUser(req.user!.id);
     
     // Filter to only active providers (allow testing and active status)
     const activeProviders = providers.filter(p => p.isActive && (p.status === 'active' || p.status === 'testing'));
@@ -410,11 +404,10 @@ router.post('/my-providers', async (req: AuthenticatedRequest, res: Response) =>
     }
     
     const providerData = validation.data;
-    const databaseService = DatabaseService.getInstance();
-    await databaseService.initialize();
+    const userService = UserService.getInstance();
     
     // Create new provider using repository method
-    const savedProvider = await databaseService.userLLMProviderRepository.createUserProvider({
+    const savedProvider = await userService.getUserLLMProviderRepository().createUserProvider({
       userId: req.user!.id,
       name: providerData.name,
       description: providerData.description,
@@ -473,11 +466,10 @@ router.put('/my-providers/:id', async (req: AuthenticatedRequest, res: Response)
   try {
     const { id } = req.params;
     const updateData = validation.data;
-    const databaseService = DatabaseService.getInstance();
-    await databaseService.initialize();
+    const userService = UserService.getInstance();
     
     // Find provider to ensure user ownership
-    const provider = await databaseService.userLLMProviderRepository.findById(id);
+    const provider = await userService.getUserLLMProviderRepository().findById(id);
     if (!provider || provider.userId !== req.user!.id) {
       res.status(404).json({
         success: false,
@@ -489,7 +481,7 @@ router.put('/my-providers/:id', async (req: AuthenticatedRequest, res: Response)
     // Update configuration
     if (updateData.name || updateData.description || updateData.baseUrl || 
         updateData.defaultModel || updateData.priority || updateData.configuration) {
-      await databaseService.userLLMProviderRepository.updateProviderConfig(id, req.user!.id, {
+      await userService.getUserLLMProviderRepository().updateProviderConfig(id, req.user!.id, {
         name: updateData.name,
         description: updateData.description,
         baseUrl: updateData.baseUrl,
@@ -501,16 +493,16 @@ router.put('/my-providers/:id', async (req: AuthenticatedRequest, res: Response)
     
     // Update API key if provided
     if (updateData.apiKey) {
-      await databaseService.userLLMProviderRepository.updateApiKey(id, updateData.apiKey, req.user!.id);
+      await userService.getUserLLMProviderRepository().updateApiKey(id, updateData.apiKey, req.user!.id);
     }
     
     // Update status if provided
     if (updateData.status) {
-      await databaseService.userLLMProviderRepository.updateStatus(id, updateData.status, req.user!.id);
+      await userService.getUserLLMProviderRepository().updateStatus(id, updateData.status, req.user!.id);
     }
     
     // Get updated provider
-    const updatedProvider = await databaseService.userLLMProviderRepository.findById(id);
+    const updatedProvider = await userService.getUserLLMProviderRepository().findById(id);
     
     logger.info('User LLM provider updated successfully', {
       userId: req.user!.id,
@@ -540,11 +532,10 @@ router.put('/my-providers/:id', async (req: AuthenticatedRequest, res: Response)
 router.delete('/my-providers/:id', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const databaseService = DatabaseService.getInstance();
-    await databaseService.initialize();
+    const userService = UserService.getInstance();
     
     // Find provider to ensure user ownership
-    const provider = await databaseService.userLLMProviderRepository.findById(id);
+    const provider = await userService.getUserLLMProviderRepository().findById(id);
     if (!provider || provider.userId !== req.user!.id) {
       res.status(404).json({
         success: false,
@@ -554,7 +545,7 @@ router.delete('/my-providers/:id', async (req: AuthenticatedRequest, res: Respon
     }
     
     // Soft delete using repository method
-    await databaseService.userLLMProviderRepository.deleteUserProvider(id, req.user!.id);
+    await userService.getUserLLMProviderRepository().deleteUserProvider(id, req.user!.id);
     
     logger.info('User LLM provider deleted successfully', {
       userId: req.user!.id,
@@ -593,11 +584,10 @@ router.delete('/my-providers/:id', async (req: AuthenticatedRequest, res: Respon
 router.post('/my-providers/:id/test', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const databaseService = DatabaseService.getInstance();
-    await databaseService.initialize();
+    const userService = UserService.getInstance();
     
     // Find provider to ensure user ownership
-    const provider = await databaseService.userLLMProviderRepository.findById(id);
+    const provider = await userService.getUserLLMProviderRepository().findById(id);
     if (!provider || provider.userId !== req.user!.id) {
       res.status(404).json({
         success: false,
@@ -703,7 +693,7 @@ router.post('/my-providers/:id/test', async (req: AuthenticatedRequest, res: Res
     }
     
     // Update provider health check using repository method
-    await databaseService.userLLMProviderRepository.updateHealthCheck(id, testResult);
+    await userService.getUserLLMProviderRepository().updateHealthCheck(id, testResult);
     
     logger.info('User LLM provider connection test completed', {
       userId: req.user!.id,
@@ -736,10 +726,9 @@ router.post('/my-providers/:id/test', async (req: AuthenticatedRequest, res: Res
 router.get('/my-providers/:id/stats', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const databaseService = DatabaseService.getInstance();
-    await databaseService.initialize();
+    const userService = UserService.getInstance();
     
-    const stats = await databaseService.userLLMProviderRepository.getProviderStats(id, req.user!.id);
+    const stats = await userService.getUserLLMProviderRepository().getProviderStats(id, req.user!.id);
     
     if (!stats) {
       res.status(404).json({

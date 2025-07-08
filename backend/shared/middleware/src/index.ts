@@ -33,6 +33,7 @@ export { rateLimiter, createRateLimiter } from './rateLimiter.js';
 export {
   metricsMiddleware,
   recordAgentAnalysis,
+  errorTrackingMiddleware,
   metricsEndpoint
 } from './metrics.js';
 
@@ -90,4 +91,6 @@ export {
 } from './jwtMiddleware.js';
 export type { JWTPayload, JWTConfig } from './jwtMiddleware.js';
 
-
+export {
+  createErrorLogger,
+} from './errorLogger.js'
