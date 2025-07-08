@@ -144,20 +144,45 @@ class LLMServiceServer extends BaseService {
         provider 
       });
 
+      // Get agent configuration from database
+      const { AgentService } = await import('@uaip/shared-services');
+      const agentService = AgentService.getInstance();
+      const agent = await agentService.findAgentById(agentId);
+      
+      if (!agent) {
+        throw new Error(`Agent ${agentId} not found`);
+      }
+
+      // Determine the best provider and model using fallback logic
+      const { effectiveProvider, effectiveModel } = await this.determineProviderAndModel(
+        agent, 
+        model, 
+        provider
+      );
+
+      logger.info('Determined effective provider and model', { 
+        requestId,
+        agentId,
+        effectiveProvider,
+        effectiveModel,
+        agentModel: agent.modelId,
+        agentProvider: agent.userLLMProviderId
+      });
+
       // Import and use LLMService
       const { llmService } = await import('@uaip/llm-service');
       
       // Convert messages to the format expected by LLMService
       const prompt = this.buildPromptFromMessages(messages);
       
-      // Generate response using LLMService
+      // Generate response using LLMService with determined provider
       const response = await llmService.generateResponse({
         prompt,
         systemPrompt,
-        maxTokens: maxTokens || 500,
-        temperature: temperature || 0.7,
-        model: model || 'llama2'
-      }, provider);
+        maxTokens: maxTokens || agent.maxTokens || 500,
+        temperature: temperature || agent.temperature || 0.7,
+        model: effectiveModel
+      }, effectiveProvider);
 
       logger.info('LLM generation completed', { 
         requestId,
@@ -263,6 +288,142 @@ class LLMServiceServer extends BaseService {
     }
 
     return Math.max(0, Math.min(1, confidence));
+  }
+
+  /**
+   * Determine the best provider and model using fallback logic:
+   * 1. Agent's specific provider and model
+   * 2. User's provider that supports the requested model
+   * 3. Global provider that supports the requested model
+   */
+  private async determineProviderAndModel(agent: any, requestedModel?: string, requestedProvider?: string): Promise<{
+    effectiveProvider?: string;
+    effectiveModel: string;
+  }> {
+    try {
+      const { UserLLMService } = await import('@uaip/llm-service');
+      const userLLMService = new UserLLMService();
+
+      // 1. Check if agent has specific provider configured
+      if (agent.userLLMProviderId) {
+        logger.info('Agent has specific provider configured', { 
+          agentId: agent.id,
+          userLLMProviderId: agent.userLLMProviderId,
+          agentModelId: agent.modelId
+        });
+
+        try {
+          const agentProvider = await userLLMService.getUserProviderById(agent.userLLMProviderId);
+          if (agentProvider && agentProvider.isActive) {
+            const effectiveModel = requestedModel || agent.modelId || agentProvider.defaultModel || 'llama2';
+            logger.info('Using agent-specific provider', { 
+              providerId: agentProvider.id,
+              providerType: agentProvider.type,
+              effectiveModel
+            });
+            return {
+              effectiveProvider: agentProvider.type,
+              effectiveModel
+            };
+          }
+        } catch (error) {
+          logger.warn('Failed to get agent-specific provider, falling back', { 
+            agentId: agent.id,
+            userLLMProviderId: agent.userLLMProviderId,
+            error: error.message
+          });
+        }
+      }
+
+      // 2. Check user's providers that support the requested model
+      if (agent.createdBy) {
+        logger.info('Checking user providers', { 
+          userId: agent.createdBy,
+          requestedModel,
+          agentModelId: agent.modelId
+        });
+
+        const userProviders = await userLLMService.getActiveUserProviders(agent.createdBy);
+        const effectiveModel = requestedModel || agent.modelId || 'llama2';
+        
+        // Try to find a provider that supports the model
+        for (const provider of userProviders) {
+          if (this.providerSupportsModel(provider.type, effectiveModel)) {
+            logger.info('Using user provider that supports model', { 
+              providerId: provider.id,
+              providerType: provider.type,
+              effectiveModel
+            });
+            return {
+              effectiveProvider: provider.type,
+              effectiveModel
+            };
+          }
+        }
+      }
+
+      // 3. Fall back to global provider
+      logger.info('Falling back to global provider', { 
+        requestedProvider,
+        requestedModel,
+        agentModelId: agent.modelId
+      });
+
+      const effectiveModel = requestedModel || agent.modelId || 'llama2';
+      const effectiveProvider = requestedProvider || this.getProviderTypeFromModel(effectiveModel);
+      
+      return {
+        effectiveProvider,
+        effectiveModel
+      };
+
+    } catch (error) {
+      logger.error('Error determining provider and model', { 
+        agentId: agent.id,
+        error: error.message
+      });
+      
+      // Final fallback
+      return {
+        effectiveProvider: requestedProvider,
+        effectiveModel: requestedModel || agent.modelId || 'llama2'
+      };
+    }
+  }
+
+  private providerSupportsModel(providerType: string, model: string): boolean {
+    // Simple model-to-provider mapping
+    if (model.includes('gpt') || model.includes('openai')) {
+      return providerType === 'openai';
+    }
+    
+    if (model.includes('llama') || model.includes('ollama')) {
+      return providerType === 'ollama';
+    }
+    
+    if (model.includes('claude') || model.includes('anthropic')) {
+      return providerType === 'anthropic';
+    }
+    
+    // Default: assume llmstudio can handle most models
+    return providerType === 'llmstudio';
+  }
+
+  private getProviderTypeFromModel(model: string): string | undefined {
+    if (model.includes('gpt') || model.includes('openai')) {
+      return 'openai';
+    }
+    
+    if (model.includes('llama') || model.includes('ollama')) {
+      return 'ollama';
+    }
+    
+    if (model.includes('claude') || model.includes('anthropic')) {
+      return 'anthropic';
+    }
+    
+    // Default fallback
+    return 'ollama';
   }
 
   private async handleProviderChanged(event: any): Promise<void> {

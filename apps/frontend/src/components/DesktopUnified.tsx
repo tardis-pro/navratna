@@ -1378,15 +1378,20 @@ export const Desktop: React.FC = () => {
     ));
   };
 
+  const memoizedMapLocation = React.useMemo(() => {
+    if (!userLocation) return null;
+    return {
+      lat: userLocation.latitude,
+      lng: userLocation.longitude
+    };
+  }, [userLocation?.latitude, userLocation?.longitude]);
+
   return (
     <div className="min-h-screen relative overflow-hidden">
       {/* Map Wallpaper */}
-      {useMapWallpaper && userLocation && (
+      {useMapWallpaper && memoizedMapLocation && (
         <MapWallpaper
-          userLocation={{
-            lat: userLocation.latitude,
-            lng: userLocation.longitude
-          }}
+          userLocation={memoizedMapLocation}
           theme="dark"
           interactive={false}
           className="opacity-30 pointer-events-none"

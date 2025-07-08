@@ -124,6 +124,39 @@ export function createAgentRoutes(): Router {
     }
   );
 
+  // Update agent
+  router.put('/:agentId',
+    authMiddleware,
+    validateRequest({ body: AgentUpdateRequestSchema }),
+    loadAgentContext,
+    trackAgentOperation('update-agent'),
+    async (req, res, next) => {
+      try {
+        const { agentService } = getServices();
+        const updateData = req.body as AgentUpdateRequest;
+        
+        // Filter out capabilities field as it's handled separately if needed
+        const { capabilities, ...agentUpdateData } = updateData;
+        
+        const updatedAgent = await agentService!.updateAgent(req.agentContext!.agentId, agentUpdateData);
+        
+        if (!updatedAgent) {
+          res.status(404).json({ error: 'Agent not found' });
+          return;
+        }
+        
+        // Update capabilities if provided
+        if (capabilities) {
+          await agentService!.updateAgent(req.agentContext!.agentId, { capabilities });
+        }
+        
+        res.json(updatedAgent);
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
   // Analyze context
   router.post('/:agentId/analyze',
     authMiddleware,

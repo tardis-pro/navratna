@@ -29,6 +29,9 @@ export class Agent extends BaseEntity {
   @Column({ length: 255, unique: true })
   name: string;
 
+  @Column({ type: 'text', nullable: true })
+  description: string;
+
   @Column({ type: 'enum', enum: AgentRole })
   role: AgentRole;
 
@@ -143,6 +146,10 @@ export class Agent extends BaseEntity {
 
   @Column({ name: 'api_type', type: 'enum', enum: ['ollama', 'llmstudio', 'openai', 'anthropic', 'custom'], nullable: true })
   apiType?: 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom';
+
+  // User LLM Provider Configuration - ties agent to user's specific provider
+  @Column({ name: 'user_llm_provider_id', type: 'uuid', nullable: true })
+  userLLMProviderId?: string;
 
   @Column({ type: 'decimal', precision: 3, scale: 2, nullable: true })
   temperature?: number;

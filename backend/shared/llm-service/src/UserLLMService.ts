@@ -113,6 +113,19 @@ export class UserLLMService {
   }
 
   /**
+   * Get a specific user provider by ID
+   */
+  async getUserProviderById(providerId: string): Promise<UserLLMProvider | null> {
+    try {
+      const repository = await this.getUserLLMProviderRepository();
+      return await repository.findById(providerId);
+    } catch (error) {
+      logger.error('Error getting user LLM provider by ID', { providerId, error });
+      throw error;
+    }
+  }
+
+  /**
    * Update a user's provider configuration
    */
   async updateUserProviderConfig(userId: string, providerId: string, config: {

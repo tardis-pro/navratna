@@ -79,6 +79,7 @@ export const AgentSchema = BaseEntitySchema.extend({
   // Model configuration fields (direct agent fields, not in configuration)
   modelId: z.string().optional(),
   apiType: z.enum(['ollama', 'llmstudio', 'openai', 'anthropic', 'custom']).optional(),
+  userLLMProviderId: IDSchema.optional(),
   temperature: z.number().min(0).max(2).optional(),
   maxTokens: z.number().positive().optional(),
   systemPrompt: z.string().optional()
@@ -151,6 +152,7 @@ export type AgentCreateRequest = z.infer<typeof AgentCreateRequestSchema>;
 // Agent Update Schema - for updating existing agents (all fields optional except constraints)
 export const AgentUpdateSchema = z.object({
   name: z.string().min(1).max(255).optional(),
+  description: z.string().optional(),
   role: z.nativeEnum(AgentRole).optional(),
   personaId: IDSchema.optional(),
   persona: AgentPersonaSchema.optional(),
@@ -172,6 +174,7 @@ export const AgentUpdateSchema = z.object({
   // Model configuration fields (direct agent fields, not in configuration)
   modelId: z.string().optional(),
   apiType: z.enum(['ollama', 'llmstudio', 'openai', 'anthropic', 'custom']).optional(),
+  userLLMProviderId: IDSchema.optional(),
   temperature: z.number().min(0).max(2).optional(),
   maxTokens: z.number().positive().optional(),
   systemPrompt: z.string().optional()
@@ -198,6 +201,7 @@ export const AgentUpdateRequestSchema = z.object({
   }).optional(),
   modelId: z.string().optional(),
   apiType: z.enum(['ollama', 'llmstudio', 'openai', 'anthropic', 'custom']).optional(),
+  userLLMProviderId: IDSchema.optional(),
   securityLevel: z.enum(['low', 'medium', 'high', 'critical']).optional(),
   isActive: z.boolean().optional()
 });
