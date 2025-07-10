@@ -67,6 +67,27 @@ export function createDiscussionRoutes(discussionController: DiscussionControlle
     discussionController.endDiscussion.bind(discussionController)
   );
 
+  // POST /api/v1/discussions/:discussionId/complete (alias for end)
+  router.post(
+    '/:discussionId/complete',
+    validateUUID('discussionId'),
+    discussionController.endDiscussion.bind(discussionController)
+  );
+
+  // POST /api/v1/discussions/:discussionId/pause
+  router.post(
+    '/:discussionId/pause',
+    validateUUID('discussionId'),
+    discussionController.pauseDiscussion.bind(discussionController)
+  );
+
+  // POST /api/v1/discussions/:discussionId/resume
+  router.post(
+    '/:discussionId/resume',
+    validateUUID('discussionId'),
+    discussionController.resumeDiscussion.bind(discussionController)
+  );
+
   // POST /api/v1/discussions/:discussionId/participants
   router.post(
     '/:discussionId/participants',

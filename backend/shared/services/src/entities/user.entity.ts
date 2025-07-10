@@ -85,4 +85,18 @@ export class UserEntity extends BaseEntity {
     interactionStyle: 'direct' | 'exploratory' | 'methodical';
     feedbackPreference: 'immediate' | 'summary' | 'detailed';
   };
+
+  // Computed properties
+  get name(): string {
+    if (this.firstName && this.lastName) {
+      return `${this.firstName} ${this.lastName}`;
+    }
+    if (this.firstName) {
+      return this.firstName;
+    }
+    if (this.lastName) {
+      return this.lastName;
+    }
+    return this.email;
+  }
 } 

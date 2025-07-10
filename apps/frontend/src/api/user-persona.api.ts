@@ -131,8 +131,27 @@ class UserPersonaAPI {
     isCompleted: boolean;
     currentStep?: number;
   }> {
-    const response = await APIClient.get('/api/v1/users/persona/onboarding-status');
-    return response.data;
+    try {
+      const response = await APIClient.get('/api/v1/users/persona/onboarding-status');
+      return response.data;
+    } catch (error: any) {
+      // Log the full error for debugging
+      console.error('User persona onboarding status check failed:', {
+        error,
+        status: error?.status,
+        statusCode: error?.statusCode,
+        message: error?.message,
+        response: error?.response,
+        config: error?.config
+      });
+      
+      // For now, default to requiring onboarding since we can't check status
+      return {
+        isRequired: true,
+        isCompleted: false,
+        currentStep: 1
+      };
+    }
   }
 
   // Reset persona data (admin or user choice)

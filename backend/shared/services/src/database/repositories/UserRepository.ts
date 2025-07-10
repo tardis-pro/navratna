@@ -595,7 +595,8 @@ export class PasswordResetTokenRepository extends BaseRepository<PasswordResetTo
       const userData = result[0];
 
       // Create a proper UserEntity object
-      const user: UserEntity = {
+      const user = new UserEntity();
+      Object.assign(user, {
         id: userData.id,
         email: userData.email,
         firstName: userData.first_name,
@@ -612,7 +613,7 @@ export class PasswordResetTokenRepository extends BaseRepository<PasswordResetTo
         permissions: userData.permissions,
         createdAt: userData.created_at,
         updatedAt: userData.updated_at
-      };
+      });
 
       return user;
     } catch (error) {

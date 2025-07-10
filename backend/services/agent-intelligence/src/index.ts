@@ -1,13 +1,19 @@
 import express from 'express';
-import { BaseService } from '@uaip/shared-services';
+import { BaseService, DiscussionService, PersonaService } from '@uaip/shared-services';
+import { DiscussionEventType } from '@uaip/types';
 import { createAgentRoutes } from './routes/agentRoutes.js';
 import knowledgeRoutes from './routes/knowledgeRoutes.js';
+import { createDiscussionRoutes } from './routes/discussionRoutes.js';
+import { DiscussionController } from './controllers/discussionController.js';
 import { AgentDiscussionService } from './services/AgentDiscussionService.js';
 import { initializeChatIngestionServices } from './controllers/chatIngestionController.js';
 import { logger } from '@uaip/utils';
 
 class AgentIntelligenceService extends BaseService {
   private agentDiscussionService: AgentDiscussionService;
+  private discussionService: DiscussionService;
+  private discussionController: DiscussionController;
+  private personaService: PersonaService;
 
   constructor() {
     super({
@@ -35,6 +41,7 @@ class AgentIntelligenceService extends BaseService {
     // API routes
     this.app.use('/api/v1/agents', createAgentRoutes());
     this.app.use('/api/v1/knowledge', knowledgeRoutes);
+    this.app.use('/api/v1/discussions', createDiscussionRoutes(this.discussionController));
     
     // Test endpoint for manual sync trigger
     this.app.post('/test/sync', async (req, res) => {
@@ -159,7 +166,43 @@ class AgentIntelligenceService extends BaseService {
       }
     });
 
+    // Subscribe to discussion events to trigger agent participation
+    await this.eventBusService.subscribe('discussion.events', async (event) => {
+      try {
+        if (event.type === DiscussionEventType.PARTICIPANT_JOINED) {
+          const { participantId, agentId, discussionId, role } = event.data;
+          
+          logger.info('Agent joined discussion - triggering participation', { 
+            agentId, 
+            discussionId, 
+            participantId,
+            role 
+          });
+
+          // Trigger agent to join the discussion and provide initial response
+          await this.agentDiscussionService.triggerAgentParticipation(
+            discussionId,
+            agentId,
+            participantId
+          );
+
+          logger.info('Agent participation triggered successfully', { 
+            agentId, 
+            discussionId 
+          });
+        }
+      } catch (error) {
+        logger.error('Failed to handle discussion event', { 
+          error: error instanceof Error ? error.message : 'Unknown error',
+          eventType: event.type,
+          agentId: event.data?.agentId,
+          discussionId: event.data?.discussionId
+        });
+      }
+    });
+
     logger.info('Agent chat WebSocket event subscription established');
+    logger.info('Discussion events subscription established');
   }
 
   protected async checkServiceHealth(): Promise<boolean> {
@@ -167,9 +210,31 @@ class AgentIntelligenceService extends BaseService {
   }
 
   protected async initialize(): Promise<void> {
+    // Initialize PersonaService
+    this.personaService = new PersonaService({
+      databaseService: this.databaseService,
+      eventBusService: this.eventBusService
+    });
+    logger.info('PersonaService initialized');
+
     // Initialize AgentDiscussionService
     this.agentDiscussionService = new AgentDiscussionService();
     logger.info('AgentDiscussionService initialized for WebSocket chat processing');
+
+    // Initialize DiscussionService for API routes
+    this.discussionService = new DiscussionService({
+      databaseService: this.databaseService,
+      eventBusService: this.eventBusService,
+      personaService: this.personaService,
+      enableRealTimeEvents: true,
+      enableAnalytics: false,
+      auditMode: 'comprehensive'
+    });
+    logger.info('DiscussionService initialized for REST API');
+
+    // Initialize DiscussionController
+    this.discussionController = new DiscussionController(this.discussionService);
+    logger.info('DiscussionController initialized');
 
     // Initialize chat ingestion services
     const chatServicesInitialized = await initializeChatIngestionServices();

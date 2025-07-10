@@ -9,6 +9,7 @@ declare global {
         role: string;
         sessionId?: string;
         permissions?: string[];
+        isAdmin?: boolean;
       };
       startTime?: number;
     }

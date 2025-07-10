@@ -14,7 +14,7 @@ import auditRoutes from './routes/auditRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import knowledgeRoutes from './routes/knowledgeRoutes.js';
 import userLLMProviderRoutes from './routes/userLLMProviderRoutes.js';
-// import userPersonaRoutes from './routes/userPersonaRoutes.js';
+import userPersonaRoutes from './routes/userPersonaRoutes.js';
 import contactRoutes from './routes/contactRoutes.js';
 import userToolPreferencesRoutes from './routes/userToolPreferencesRoutes.js';
 import projectRoutes from './routes/projectRoutes.js';
@@ -135,7 +135,7 @@ class SecurityGatewayServer extends BaseService {
     this.app.use('/api/v1/users', userToolPreferencesRoutes);
     this.app.use('/api/v1/knowledge', knowledgeRoutes);
     this.app.use('/api/v1/llm', userLLMProviderRoutes);
-    // this.app.use('/api/v1/users/persona', userPersonaRoutes);
+    this.app.use('/api/v1/users/persona', userPersonaRoutes);
     this.app.use('/api/v1/contacts', contactRoutes);
     this.app.use('/api/v1/projects', projectRoutes);
   }

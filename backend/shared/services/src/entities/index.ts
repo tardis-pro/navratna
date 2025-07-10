@@ -78,6 +78,7 @@ export { KnowledgeRelationshipEntity } from './knowledge-relationship.entity.js'
 export { ProjectEntity } from './project.entity.js';
 export { ProjectMemberEntity } from './project-member.entity.js';
 export { ProjectFileEntity } from './project-file.entity.js';
+export { TaskEntity } from './task.entity.js';
 
 // Project Management entities (from Project.ts)
 export { 

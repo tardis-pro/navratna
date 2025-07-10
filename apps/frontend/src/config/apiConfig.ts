@@ -98,7 +98,25 @@ export const API_ROUTES = {
   },
 
   // Discussion Orchestration Service routes
-  DISCUSSIONS: '/api/v1/discussions',
+  DISCUSSIONS: {
+    BASE: '/api/v1/discussions',
+    LIST: '/api/v1/discussions',
+    GET: '/api/v1/discussions',
+    CREATE: '/api/v1/discussions',
+    UPDATE: '/api/v1/discussions',
+    DELETE: '/api/v1/discussions',
+    START: '/api/v1/discussions',
+    PAUSE: '/api/v1/discussions',
+    RESUME: '/api/v1/discussions',
+    COMPLETE: '/api/v1/discussions',
+    SEARCH: '/api/v1/discussions/search',
+    ADD_PARTICIPANT: '/api/v1/discussions',
+    REMOVE_PARTICIPANT: '/api/v1/discussions',
+    SEND_MESSAGE: '/api/v1/discussions',
+    MESSAGES: '/api/v1/discussions',
+    MANAGE_TURN: '/api/v1/discussions',
+    ANALYTICS: '/api/v1/discussions'
+  },
 
   // LLM Service routes
   LLM: {

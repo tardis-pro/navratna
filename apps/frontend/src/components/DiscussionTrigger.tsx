@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { useDiscussion } from '@/contexts/DiscussionContext';
 import { useAgents } from '@/contexts/AgentContext';
+import { TurnStrategy, ParticipantRole, DiscussionVisibility } from '@uaip/types';
 import { 
   MessageSquare, 
   FileText, 
@@ -210,14 +211,37 @@ export const DiscussionTrigger: React.FC<DiscussionTriggerProps> = ({
   const handleStartDiscussion = async () => {
     const topic = generateTopic();
     
-    // Prepare enhanced context for discussion
-    const discussionContext = {
-      purpose: selectedPurpose,
-      targetArtifact: selectedArtifact,
-      contextType,
-      originalContext: contextData,
-      additionalContext: additionalContext.trim(),
-      expectedOutcome: `Generate ${ARTIFACT_TYPES[selectedArtifact].label} through ${selectedPurposeData?.label.toLowerCase()}`
+    // Prepare discussion data using shared types
+    const discussionData = {
+      title: topic,
+      topic,
+      description: additionalContext.trim() || `${selectedPurposeData?.description} session`,
+      createdBy: 'current-user-id', // TODO: Get from auth context
+      initialParticipants: selectedAgents.map(agentId => ({
+        agentId,
+        role: ParticipantRole.PARTICIPANT
+      })),
+      turnStrategy: {
+        strategy: TurnStrategy.ROUND_ROBIN,
+        config: {
+          type: 'round_robin' as const,
+          skipInactive: true,
+          maxSkips: 3
+        }
+      },
+      visibility: DiscussionVisibility.PRIVATE,
+      objectives: [
+        `Generate ${ARTIFACT_TYPES[selectedArtifact].label} through ${selectedPurposeData?.label.toLowerCase()}`,
+        ...(additionalContext.trim() ? [additionalContext.trim()] : [])
+      ],
+      tags: [selectedPurpose, selectedArtifact, contextType],
+      metadata: {
+        purpose: selectedPurpose,
+        targetArtifact: selectedArtifact,
+        contextType,
+        originalContext: contextData,
+        expectedOutcome: `Generate ${ARTIFACT_TYPES[selectedArtifact].label} through ${selectedPurposeData?.label.toLowerCase()}`
+      }
     };
 
     try {
@@ -225,7 +249,7 @@ export const DiscussionTrigger: React.FC<DiscussionTriggerProps> = ({
       await start(
         topic, 
         selectedAgents.length > 0 ? selectedAgents : undefined,
-        discussionContext
+        discussionData
       );
       
       setIsOpen(false);
@@ -366,6 +390,9 @@ export const DiscussionTrigger: React.FC<DiscussionTriggerProps> = ({
               <label className="text-sm font-medium text-white">
                 Select Agents ({selectedAgents.length} selected)
               </label>
+              <p className="text-xs text-slate-400 mt-1">
+                Leave empty to auto-select best agents for this discussion purpose
+              </p>
               <div className="grid grid-cols-1 gap-2 mt-2 max-h-60 overflow-y-auto">
                 {agentList.map((agent) => (
                   <Card

@@ -125,7 +125,27 @@ export const authAPI = {
   },
 
   async getCurrentUser(): Promise<LoginResponse['user']> {
-    return APIClient.get(API_ROUTES.AUTH.ME);
+    const response = await APIClient.get<{
+      id: string;
+      email: string;
+      firstName?: string;
+      lastName?: string;
+      role: string;
+      department?: string;
+      permissions?: string[];
+      isActive: boolean;
+      createdAt: string;
+      lastLoginAt?: string;
+      passwordChangedAt?: string;
+    }>(API_ROUTES.AUTH.ME);
+
+    // Transform backend response to frontend expected format (same as login method)
+    return {
+      id: response.id,
+      email: response.email,
+      name: `${response.firstName || ''} ${response.lastName || ''}`.trim() || response.email,
+      role: response.role as UserRole,
+    };
   },
 
   async register(request: RegisterRequest): Promise<RegisterResponse> {

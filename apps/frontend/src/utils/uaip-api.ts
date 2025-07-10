@@ -299,17 +299,8 @@ export const uaipAPI = {
 
     async create(discussion: CreateDiscussionRequest): Promise<Discussion> {
       const client = getAPIClient();
-      const response = await client.discussions.create({
-        title: discussion.title,
-        description: discussion.description,
-        objective: discussion.topic, // Map topic to objective
-        participantIds: discussion.initialParticipants || [],
-        turnStrategy: discussion.turnStrategy,
-        strategyConfig: discussion.settings?.strategyConfig,
-        maxTurns: discussion.settings?.maxTurns,
-        maxDuration: discussion.settings?.maxDuration,
-        metadata: discussion.settings?.metadata
-      });
+      // Pass the discussion data directly since types are now aligned
+      const response = await client.discussions.create(discussion);
 
       return response;
     },
@@ -325,13 +316,10 @@ export const uaipAPI = {
       return response.data!;
     },
 
-    async start(id: string): Promise<void> {
+    async start(id: string, startedBy?: string): Promise<void> {
       const client = getAPIClient();
-      const response = await client.discussions.start(id);
-
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to start discussion');
-      }
+      // The API returns a Discussion object directly, not a response wrapper
+      await client.discussions.start(id, startedBy);
     },
 
     async pause(id: string): Promise<void> {
@@ -354,14 +342,8 @@ export const uaipAPI = {
 
     async end(id: string): Promise<void> {
       const client = getAPIClient();
-      const response = await client.discussions.end(id, {
-        reason: 'Discussion ended by user',
-        summary: 'Discussion completed'
-      });
-
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to end discussion');
-      }
+      // Use the complete method which exists in the API
+      await client.discussions.complete(id, 'Discussion completed');
     },
 
     async addParticipant(id: string, participant: DiscussionParticipantCreate): Promise<DiscussionParticipant> {

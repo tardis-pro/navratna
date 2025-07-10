@@ -58,7 +58,7 @@ export const ChatHistoryManager: React.FC<ChatHistoryManagerProps> = ({
 
   const deleteSession = async (sessionId: string) => {
     try {
-      await chatPersistenceService.deleteSession(sessionId);
+      await chatPersistenceService.deleteChatSession(sessionId);
       setSessions(prev => prev.filter(s => s.id !== sessionId));
     } catch (error) {
       console.error('Failed to delete session:', error);

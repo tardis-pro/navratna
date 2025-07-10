@@ -6,7 +6,15 @@ export enum AgentRole {
   ASSISTANT = 'assistant',
   ANALYZER = 'analyzer',
   ORCHESTRATOR = 'orchestrator',
-  SPECIALIST = 'specialist'
+  SPECIALIST = 'specialist',
+  EXECUTOR = 'executor',
+  ADVISOR = 'advisor',
+  STRATEGIST = 'strategist',
+  COMMUNICATOR = 'communicator',
+  VALIDATOR = 'validator',
+  ARCHITECT = 'architect',
+  REVIEWER = 'reviewer',
+  DESIGNER = 'designer'
 }
 
 export enum AgentStatus {

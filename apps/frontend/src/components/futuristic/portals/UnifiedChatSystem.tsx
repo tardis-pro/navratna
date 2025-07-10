@@ -130,6 +130,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   
   // Enhanced AI Sidekick State
   const [windowPositions, setWindowPositions] = useState<{ [windowId: string]: { x: number; y: number } }>({});
+  const [windowSizes, setWindowSizes] = useState<{ [windowId: string]: { width: number; height: number } }>({});
   const [windowSnapMode, setWindowSnapMode] = useState<{ [windowId: string]: 'none' | 'edge' | 'corner' }>({});
   const [thinkingParticles, setThinkingParticles] = useState<{ [windowId: string]: boolean }>({});
   const [confidenceMetrics, setConfidenceMetrics] = useState<{ [windowId: string]: number }>({});
@@ -139,7 +140,10 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   const [quickActionsPanelOpen, setQuickActionsPanelOpen] = useState<{ [windowId: string]: boolean }>({});
   const [contextualSuggestions, setContextualSuggestions] = useState<{ [windowId: string]: string[] }>({});
   const [isResizing, setIsResizing] = useState<{ [windowId: string]: boolean }>({});
+  const [isDragging, setIsDragging] = useState<{ [windowId: string]: boolean }>({});
   const [focusedWindow, setFocusedWindow] = useState<string | null>(null);
+  const [loadingStates, setLoadingStates] = useState<{ [windowId: string]: { isLoading: boolean; loadingText?: string; progress?: number } }>({});
+  const [typingIndicators, setTypingIndicators] = useState<{ [windowId: string]: boolean }>({});
   
   // Track processed message IDs to prevent duplicates
   const processedMessageIds = useRef<Set<string>>(new Set());
@@ -154,8 +158,10 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   // Enhanced AI Sidekick Refs
   const windowRefs = useRef<{ [windowId: string]: HTMLDivElement | null }>({});
   const draggingRef = useRef<{ windowId: string; offset: { x: number; y: number } } | null>(null);
+  const resizingRef = useRef<{ windowId: string; startSize: { width: number; height: number }; startMouse: { x: number; y: number } } | null>(null);
   const keyboardShortcutsRef = useRef<{ [key: string]: () => void }>({});
   const contextualAnalysisRef = useRef<{ [windowId: string]: { sentiment: number; complexity: number; urgency: number } }>({});
+  const loadingTimeouts = useRef<{ [windowId: string]: NodeJS.Timeout }>({});
 
   // Conversation Intelligence for portal mode
   const portalConversationIntelligence = useConversationIntelligence({
@@ -243,6 +249,18 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         // Store reference for persistence outside of state update
         targetWindowForPersistence = targetWindow;
 
+        // Clear loading states for floating window
+        if (loadingTimeouts.current[targetWindow.id]) {
+          clearInterval(loadingTimeouts.current[targetWindow.id]);
+          delete loadingTimeouts.current[targetWindow.id];
+        }
+        setLoadingStates(prevLoadingStates => {
+          const newStates = { ...prevLoadingStates };
+          delete newStates[targetWindow.id];
+          return newStates;
+        });
+        setTypingIndicators(prevTyping => ({ ...prevTyping, [targetWindow.id]: false }));
+
         return prev.map(w => w.id === targetWindow.id ? {
           ...w,
           messages: [...w.messages, agentMessage],
@@ -277,6 +295,19 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       if (viewMode === 'portal' && agentId === selectedAgentId) {
         setPortalMessages(prev => [...prev, agentMessage]);
         setConversationHistory(prev => [...prev, { content: response, sender: agentName, timestamp: new Date().toISOString() }]);
+        
+        // Clear loading states for portal mode
+        const portalWindowId = 'portal';
+        if (loadingTimeouts.current[portalWindowId]) {
+          clearInterval(loadingTimeouts.current[portalWindowId]);
+          delete loadingTimeouts.current[portalWindowId];
+        }
+        setLoadingStates(prev => {
+          const newStates = { ...prev };
+          delete newStates[portalWindowId];
+          return newStates;
+        });
+        setTypingIndicators(prev => ({ ...prev, [portalWindowId]: false }));
       }
     }
   }, [lastEvent, viewMode, selectedAgentId]);
@@ -285,6 +316,90 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [portalMessages]);
+
+  // Define openChatWindowWithSession function for resuming specific sessions
+  const openChatWindowWithSession = useCallback(async (agentId: string, agentName: string, sessionId: string) => {
+    // Check if chat window already exists for this specific session
+    const existingWindow = chatWindows.find(w => w.sessionId === sessionId);
+    if (existingWindow) {
+      console.log(`Chat window for session ${sessionId} already exists - focusing existing window`);
+      // Focus/restore existing window
+      setChatWindows(prev =>
+        prev.map(w => w.sessionId === sessionId ? { ...w, isMinimized: false } : w)
+      );
+      return;
+    }
+
+    console.log(`Opening existing chat session ${sessionId} with agent ${agentName} (${agentId})`);
+
+    try {
+      // Get the existing session
+      const session = chatPersistenceService.getChatSession(sessionId);
+      if (!session) {
+        throw new Error(`Session ${sessionId} not found`);
+      }
+      
+      // Set up conversation ID for this window
+      const windowId = `chat-${Date.now()}-${agentId}`;
+      setConversationIds(prev => ({ ...prev, [windowId]: session.id }));
+      
+      // Load existing messages from the specific session
+      const existingMessages = await chatPersistenceService.getMessages(sessionId);
+      
+      // Convert persistent messages to chat messages
+      const chatMessages: ChatMessage[] = existingMessages.map(msg => ({
+        id: msg.id,
+        content: msg.content,
+        sender: msg.sender,
+        senderName: msg.senderName,
+        timestamp: msg.timestamp,
+        agentId: msg.agentId,
+        messageType: msg.messageType,
+        confidence: msg.confidence,
+        memoryEnhanced: msg.memoryEnhanced,
+        knowledgeUsed: msg.knowledgeUsed,
+        toolsExecuted: msg.toolsExecuted,
+        metadata: msg.metadata
+      }));
+
+      // Create new floating chat window with existing session data
+      const newWindow: ChatWindow = {
+        id: windowId,
+        agentId,
+        agentName,
+        sessionId: session.id,
+        discussionId: session.discussionId,
+        messages: chatMessages,
+        isMinimized: false,
+        isLoading: false,
+        error: null,
+        hasLoadedHistory: true,
+        totalMessages: session.messageCount,
+        canLoadMore: existingMessages.length >= 50,
+        mode: 'floating',
+        isPersistent: session.isPersistent
+      };
+
+      // Note: Not adding to agent tracking set since this is a specific session
+      
+      setChatWindows(prev => [...prev, newWindow]);
+      setCurrentMessage(prev => ({ ...prev, [newWindow.id]: '' }));
+      
+      // Set initial window size
+      setWindowSizes(prev => ({ 
+        ...prev, 
+        [newWindow.id]: { width: 320, height: 400 } 
+      }));
+
+      console.log(`Resumed ${session.isPersistent ? 'persistent' : 'temporary'} chat session with agent:`, agentName, `(${chatMessages.length} messages loaded)`);
+    } catch (error) {
+      console.error('Failed to open chat session:', error);
+      
+      // Fallback to creating a new chat window
+      console.log('Falling back to new chat window...');
+      openChatWindow(agentId, agentName);
+    }
+  }, [chatWindows]);
 
   // Define openChatWindow function before it's used
   const openChatWindow = useCallback(async (agentId: string, agentName: string) => {
@@ -350,6 +465,12 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       
       setChatWindows(prev => [...prev, newWindow]);
       setCurrentMessage(prev => ({ ...prev, [newWindow.id]: '' }));
+      
+      // Set initial window size
+      setWindowSizes(prev => ({ 
+        ...prev, 
+        [newWindow.id]: { width: 320, height: 400 } 
+      }));
 
       console.log(`Opened ${session.isPersistent ? 'persistent' : 'temporary'} chat with agent:`, agentName);
     } catch (error) {
@@ -376,6 +497,12 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       
       setChatWindows(prev => [...prev, newWindow]);
       setCurrentMessage(prev => ({ ...prev, [newWindow.id]: '' }));
+      
+      // Set initial window size
+      setWindowSizes(prev => ({ 
+        ...prev, 
+        [newWindow.id]: { width: 320, height: 400 } 
+      }));
     }
   }, []); // Remove chatWindows dependency to prevent stale closures
 
@@ -417,6 +544,12 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
 
       setChatWindows(prev => [...prev, newWindow]);
       setCurrentMessage(prev => ({ ...prev, [newWindow.id]: '' }));
+      
+      // Set initial window size
+      setWindowSizes(prev => ({ 
+        ...prev, 
+        [newWindow.id]: { width: 320, height: 400 } 
+      }));
 
       console.log(`Opened NEW ${session.isPersistent ? 'persistent' : 'temporary'} chat with agent:`, agentName);
     } catch (error) {
@@ -440,6 +573,12 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       
       setChatWindows(prev => [...prev, newWindow]);
       setCurrentMessage(prev => ({ ...prev, [newWindow.id]: '' }));
+      
+      // Set initial window size
+      setWindowSizes(prev => ({ 
+        ...prev, 
+        [newWindow.id]: { width: 320, height: 400 } 
+      }));
     }
   }, []);
 
@@ -469,6 +608,38 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         error: null
       } : w)
     );
+    
+    // Set loading state with typing indicator
+    setLoadingStates(prev => ({
+      ...prev,
+      [windowId]: { 
+        isLoading: true, 
+        loadingText: 'Agent is thinking...', 
+        progress: 0 
+      }
+    }));
+    setTypingIndicators(prev => ({ ...prev, [windowId]: true }));
+    
+    // Simulate progress updates
+    let progress = 0;
+    const progressInterval = setInterval(() => {
+      progress += Math.random() * 25;
+      if (progress < 90) {
+        setLoadingStates(prev => ({
+          ...prev,
+          [windowId]: { 
+            ...prev[windowId],
+            progress: Math.min(progress, 90)
+          }
+        }));
+      }
+    }, 200);
+    
+    // Store interval for cleanup
+    if (loadingTimeouts.current[windowId]) {
+      clearInterval(loadingTimeouts.current[windowId]);
+    }
+    loadingTimeouts.current[windowId] = progressInterval;
 
     // Persist user message if session exists
     if (window.sessionId) {
@@ -551,6 +722,18 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
               error: null
             } : w)
           );
+          
+          // Clear loading states
+          if (loadingTimeouts.current[windowId]) {
+            clearInterval(loadingTimeouts.current[windowId]);
+            delete loadingTimeouts.current[windowId];
+          }
+          setLoadingStates(prev => {
+            const newStates = { ...prev };
+            delete newStates[windowId];
+            return newStates;
+          });
+          setTypingIndicators(prev => ({ ...prev, [windowId]: false }));
 
           if (window.sessionId) {
             try {
@@ -584,6 +767,18 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           error: 'Failed to send message. Please try again.'
         } : w)
       );
+      
+      // Clear loading states on error
+      if (loadingTimeouts.current[windowId]) {
+        clearInterval(loadingTimeouts.current[windowId]);
+        delete loadingTimeouts.current[windowId];
+      }
+      setLoadingStates(prev => {
+        const newStates = { ...prev };
+        delete newStates[windowId];
+        return newStates;
+      });
+      setTypingIndicators(prev => ({ ...prev, [windowId]: false }));
     }
   }, [chatWindows, isWebSocketConnected, sendWebSocketMessage]);
 
@@ -603,6 +798,39 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
 
     setPortalMessages(prev => [...prev, userMessage]);
     setConversationHistory(prev => [...prev, { content: trimmedMessage, sender: 'user', timestamp: new Date().toISOString() }]);
+    
+    // Set loading state for portal mode
+    const portalWindowId = 'portal';
+    setLoadingStates(prev => ({
+      ...prev,
+      [portalWindowId]: { 
+        isLoading: true, 
+        loadingText: 'Agent is thinking...', 
+        progress: 0 
+      }
+    }));
+    setTypingIndicators(prev => ({ ...prev, [portalWindowId]: true }));
+    
+    // Simulate progress updates
+    let progress = 0;
+    const progressInterval = setInterval(() => {
+      progress += Math.random() * 25;
+      if (progress < 90) {
+        setLoadingStates(prev => ({
+          ...prev,
+          [portalWindowId]: { 
+            ...prev[portalWindowId],
+            progress: Math.min(progress, 90)
+          }
+        }));
+      }
+    }, 200);
+    
+    // Store interval for cleanup
+    if (loadingTimeouts.current[portalWindowId]) {
+      clearInterval(loadingTimeouts.current[portalWindowId]);
+    }
+    loadingTimeouts.current[portalWindowId] = progressInterval;
 
     try {
       if (isWebSocketConnected) {
@@ -649,10 +877,35 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
             sender: 'agent', 
             timestamp: new Date().toISOString() 
           }]);
+          
+          // Clear loading states for direct API response
+          if (loadingTimeouts.current[portalWindowId]) {
+            clearInterval(loadingTimeouts.current[portalWindowId]);
+            delete loadingTimeouts.current[portalWindowId];
+          }
+          setLoadingStates(prev => {
+            const newStates = { ...prev };
+            delete newStates[portalWindowId];
+            return newStates;
+          });
+          setTypingIndicators(prev => ({ ...prev, [portalWindowId]: false }));
         }
       }
     } catch (error) {
       console.error('Portal chat error:', error);
+      
+      // Clear loading states on error
+      if (loadingTimeouts.current[portalWindowId]) {
+        clearInterval(loadingTimeouts.current[portalWindowId]);
+        delete loadingTimeouts.current[portalWindowId];
+      }
+      setLoadingStates(prev => {
+        const newStates = { ...prev };
+        delete newStates[portalWindowId];
+        return newStates;
+      });
+      setTypingIndicators(prev => ({ ...prev, [portalWindowId]: false }));
+      
       const errorMessage: ChatMessage = {
         id: `msg-${Date.now()}-error`,
         content: 'Sorry, I encountered an error. Please try again.',
@@ -670,8 +923,8 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     const handleOpenAgentChat = (event: CustomEvent) => {
       const { agentId, agentName, sessionId } = event.detail;
       if (sessionId) {
-        // Resume specific session - TODO: Implement session resumption
-        openChatWindow(agentId, agentName);
+        // Resume specific session
+        openChatWindowWithSession(agentId, agentName, sessionId);
       } else {
         openChatWindow(agentId, agentName);
       }
@@ -693,7 +946,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       window.removeEventListener('openAgentChat', handleOpenAgentChat as EventListener);
       window.removeEventListener('openNewAgentChat', handleOpenNewAgentChat as EventListener);
     };
-  }, [openChatWindow, openNewChatWindow]);
+  }, [openChatWindow, openChatWindowWithSession, openNewChatWindow]);
 
   // Auto-select first agent for portal mode
   useEffect(() => {
@@ -728,6 +981,45 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       delete newMessages[windowId];
       return newMessages;
     });
+    
+    // Clean up window-specific state
+    setWindowPositions(prev => {
+      const newPositions = { ...prev };
+      delete newPositions[windowId];
+      return newPositions;
+    });
+    setWindowSizes(prev => {
+      const newSizes = { ...prev };
+      delete newSizes[windowId];
+      return newSizes;
+    });
+    setLoadingStates(prev => {
+      const newStates = { ...prev };
+      delete newStates[windowId];
+      return newStates;
+    });
+    setTypingIndicators(prev => {
+      const newIndicators = { ...prev };
+      delete newIndicators[windowId];
+      return newIndicators;
+    });
+    setIsDragging(prev => {
+      const newDragging = { ...prev };
+      delete newDragging[windowId];
+      return newDragging;
+    });
+    setIsResizing(prev => {
+      const newResizing = { ...prev };
+      delete newResizing[windowId];
+      return newResizing;
+    });
+    
+    // Clear any ongoing loading timeouts
+    if (loadingTimeouts.current[windowId]) {
+      clearInterval(loadingTimeouts.current[windowId]);
+      delete loadingTimeouts.current[windowId];
+    }
+    
     // Clean up conversation intelligence data
     setConversationTopics(prev => {
       const newTopics = { ...prev };
@@ -906,6 +1198,18 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     setPortalMessages(prev => [...prev, userMessage]);
     setCurrentMessage(prev => ({ ...prev, portal: '' }));
     setConversationHistory(prev => [...prev, { content: messageText, sender: 'user', timestamp: new Date().toISOString() }]);
+    
+    // Set loading state for portal mode
+    const portalWindowId = 'portal';
+    setLoadingStates(prev => ({
+      ...prev,
+      [portalWindowId]: { 
+        isLoading: true, 
+        loadingText: 'Agent is thinking...', 
+        progress: 0 
+      }
+    }));
+    setTypingIndicators(prev => ({ ...prev, [portalWindowId]: true }));
 
     try {
       if (isWebSocketConnected) {
@@ -951,10 +1255,27 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
             sender: 'agent', 
             timestamp: new Date().toISOString() 
           }]);
+          
+          // Clear loading states for direct API response
+          setLoadingStates(prev => {
+            const newStates = { ...prev };
+            delete newStates[portalWindowId];
+            return newStates;
+          });
+          setTypingIndicators(prev => ({ ...prev, [portalWindowId]: false }));
         }
       }
     } catch (error) {
       console.error('Portal chat error:', error);
+      
+      // Clear loading states on error
+      setLoadingStates(prev => {
+        const newStates = { ...prev };
+        delete newStates[portalWindowId];
+        return newStates;
+      });
+      setTypingIndicators(prev => ({ ...prev, [portalWindowId]: false }));
+      
       // Add error message to chat
       const errorMessage: ChatMessage = {
         id: `msg-${Date.now()}-error`,
@@ -1049,88 +1370,476 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     return { sentiment, complexity, urgency };
   }, []);
   
-  // Enhanced window positioning with snap-to-edge
+  // Enhanced window positioning with smart cascade and collision detection
   const calculateWindowPosition = useCallback((windowId: string, index: number) => {
-    const basePosition = { x: window.innerWidth - 350, y: window.innerHeight - 450 };
+    const windowWidth = windowSizes[windowId]?.width || 320;
+    const windowHeight = windowSizes[windowId]?.height || 400;
+    const padding = 20;
+    const titleBarHeight = 40;
+    
+    // If position already set, use it
+    if (windowPositions[windowId]) {
+      return windowPositions[windowId];
+    }
+    
     const snapMode = windowSnapMode[windowId] || 'none';
     
     if (snapMode === 'edge') {
-      return { x: window.innerWidth - 350, y: 50 + (index * 30) };
+      return { 
+        x: window.innerWidth - windowWidth - padding, 
+        y: 50 + (index * (titleBarHeight + 10)) 
+      };
     } else if (snapMode === 'corner') {
-      return { x: window.innerWidth - 350, y: window.innerHeight - 450 };
+      return { 
+        x: window.innerWidth - windowWidth - padding, 
+        y: window.innerHeight - windowHeight - padding 
+      };
     }
     
-    return windowPositions[windowId] || { x: basePosition.x - (index * 20), y: basePosition.y };
-  }, [windowPositions, windowSnapMode]);
+    // Smart cascade positioning to avoid overlap
+    const cascadeOffset = 30;
+    const baseX = window.innerWidth - windowWidth - padding;
+    const baseY = window.innerHeight - windowHeight - padding;
+    
+    // Calculate position based on existing windows to avoid collision
+    let proposedX = baseX - (index * cascadeOffset);
+    let proposedY = baseY - (index * cascadeOffset);
+    
+    // Ensure window stays within viewport
+    proposedX = Math.max(padding, Math.min(proposedX, window.innerWidth - windowWidth - padding));
+    proposedY = Math.max(padding + titleBarHeight, Math.min(proposedY, window.innerHeight - windowHeight - padding));
+    
+    return { x: proposedX, y: proposedY };
+  }, [windowPositions, windowSizes, windowSnapMode]);
   
+  // Mouse event handlers for dragging and resizing
+  const handleMouseDown = useCallback((e: React.MouseEvent, windowId: string, action: 'drag' | 'resize') => {
+    e.preventDefault();
+    const windowElement = windowRefs.current[windowId];
+    if (!windowElement) return;
+
+    const rect = windowElement.getBoundingClientRect();
+    
+    if (action === 'drag') {
+      setIsDragging(prev => ({ ...prev, [windowId]: true }));
+      draggingRef.current = {
+        windowId,
+        offset: { x: e.clientX - rect.left, y: e.clientY - rect.top }
+      };
+    } else if (action === 'resize') {
+      setIsResizing(prev => ({ ...prev, [windowId]: true }));
+      resizingRef.current = {
+        windowId,
+        startSize: { width: rect.width, height: rect.height },
+        startMouse: { x: e.clientX, y: e.clientY }
+      };
+    }
+    
+    setFocusedWindow(windowId);
+  }, []);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (draggingRef.current) {
+      const { windowId, offset } = draggingRef.current;
+      const newPosition = {
+        x: e.clientX - offset.x,
+        y: e.clientY - offset.y
+      };
+      
+      // Constrain to viewport
+      const windowWidth = windowSizes[windowId]?.width || 320;
+      const windowHeight = windowSizes[windowId]?.height || 400;
+      newPosition.x = Math.max(0, Math.min(newPosition.x, window.innerWidth - windowWidth));
+      newPosition.y = Math.max(0, Math.min(newPosition.y, window.innerHeight - windowHeight));
+      
+      setWindowPositions(prev => ({ ...prev, [windowId]: newPosition }));
+    }
+    
+    if (resizingRef.current) {
+      const { windowId, startSize, startMouse } = resizingRef.current;
+      const deltaX = e.clientX - startMouse.x;
+      const deltaY = e.clientY - startMouse.y;
+      
+      const newSize = {
+        width: Math.max(280, Math.min(startSize.width + deltaX, window.innerWidth * 0.8)),
+        height: Math.max(300, Math.min(startSize.height + deltaY, window.innerHeight * 0.8))
+      };
+      
+      setWindowSizes(prev => ({ ...prev, [windowId]: newSize }));
+    }
+  }, [windowSizes]);
+
+  const handleMouseUp = useCallback(() => {
+    if (draggingRef.current) {
+      const windowId = draggingRef.current.windowId;
+      setIsDragging(prev => ({ ...prev, [windowId]: false }));
+      draggingRef.current = null;
+    }
+    
+    if (resizingRef.current) {
+      const windowId = resizingRef.current.windowId;
+      setIsResizing(prev => ({ ...prev, [windowId]: false }));
+      resizingRef.current = null;
+    }
+  }, []);
+
+  // Add global mouse event listeners
+  useEffect(() => {
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [handleMouseMove, handleMouseUp]);
+
+  // Typing indicator component
+  const TypingIndicator: React.FC<{ windowId: string }> = ({ windowId }) => {
+    const isTyping = typingIndicators[windowId] || false;
+    const loadingState = loadingStates[windowId];
+    
+    if (!isTyping && !loadingState?.isLoading) return null;
+    
+    const handleCancel = () => {
+      // Clear loading states
+      if (loadingTimeouts.current[windowId]) {
+        clearInterval(loadingTimeouts.current[windowId]);
+        delete loadingTimeouts.current[windowId];
+      }
+      setLoadingStates(prev => {
+        const newStates = { ...prev };
+        delete newStates[windowId];
+        return newStates;
+      });
+      setTypingIndicators(prev => ({ ...prev, [windowId]: false }));
+    };
+    
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 10 }}
+        className="flex items-center gap-2 p-3 bg-slate-700/50 rounded-lg border border-slate-600/30 mb-2"
+      >
+        <div className="flex gap-1">
+          {[0, 1, 2].map((i) => (
+            <motion.div
+              key={i}
+              className="w-2 h-2 bg-cyan-400 rounded-full"
+              animate={{
+                y: [0, -8, 0],
+                opacity: [0.4, 1, 0.4]
+              }}
+              transition={{
+                duration: 1.2,
+                repeat: Infinity,
+                delay: i * 0.2,
+                ease: "easeInOut"
+              }}
+            />
+          ))}
+        </div>
+        <span className="text-xs text-slate-400 flex-1">
+          {loadingState?.loadingText || 'Agent is typing...'}
+        </span>
+        {loadingState?.progress && loadingState.progress > 0 && (
+          <div className="flex-1 bg-slate-600 rounded-full h-1 ml-2">
+            <motion.div
+              className="bg-cyan-400 h-1 rounded-full"
+              initial={{ width: 0 }}
+              animate={{ width: `${loadingState.progress}%` }}
+              transition={{ duration: 0.3 }}
+            />
+          </div>
+        )}
+        <button
+          onClick={handleCancel}
+          className="ml-2 p-1 hover:bg-slate-600/50 rounded text-slate-400 hover:text-white transition-colors"
+          title="Cancel"
+        >
+          <X className="w-3 h-3" />
+        </button>
+      </motion.div>
+    );
+  };
+
   // Render floating windows with ultimate AI sidekick features
   const renderFloatingWindows = () => (
     <div className="fixed inset-0 z-50 pointer-events-none">
       <AnimatePresence>
-        {sortedChatWindows.map((window, index) => (
-          <motion.div
-            key={window.id}
-            className="fixed bottom-4 right-4 w-80 h-96 bg-slate-800 rounded-lg p-4 text-white pointer-events-auto flex flex-col"
-            initial={{ opacity: 0, y: 100 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 100 }}
-          >
-            {/* Chat Header */}
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-cyan-400">{window.agentName}</h3>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => minimizeChatWindow(window.id)}
-                  className="p-1 hover:bg-slate-700 rounded"
-                >
-                  <Minimize2 className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => closeChatWindow(window.id)}
-                  className="p-1 hover:bg-slate-700 rounded"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            {!window.isMinimized && (
-              <>
-                {/* Messages Area */}
-                <div className="flex-1 overflow-y-auto mb-4 space-y-2">
-                  {window.messages.length === 0 ? (
-                    <div className="text-center text-slate-400 text-sm py-8">
-                      Start a conversation...
+        {sortedChatWindows.map((window, index) => {
+          const position = calculateWindowPosition(window.id, index);
+          const size = windowSizes[window.id] || { width: 320, height: 400 };
+          const isLoading = window.isLoading || loadingStates[window.id]?.isLoading;
+          const isDrag = isDragging[window.id];
+          const isResize = isResizing[window.id];
+          
+          return (
+            <motion.div
+              key={window.id}
+              ref={(el) => { windowRefs.current[window.id] = el; }}
+              className={`fixed bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-slate-800/95 
+                         backdrop-blur-xl rounded-xl border border-slate-600/30 text-white pointer-events-auto 
+                         flex flex-col shadow-2xl shadow-black/50 overflow-hidden
+                         ${focusedWindow === window.id ? 'ring-2 ring-cyan-500/50 z-10' : 'z-0'}
+                         ${isDrag ? 'cursor-grabbing scale-105' : 'cursor-default'}
+                         ${isResize ? 'select-none' : ''}`}
+              style={{
+                left: position.x,
+                top: position.y,
+                width: size.width,
+                height: window.isMinimized ? 'auto' : size.height,
+                zIndex: focusedWindow === window.id ? 60 : 50
+              }}
+              initial={{ 
+                opacity: 0, 
+                scale: 0.8,
+                y: 100,
+                rotateX: -15
+              }}
+              animate={{ 
+                opacity: 1, 
+                scale: isDrag ? 1.05 : isResize ? 1.02 : 1,
+                y: 0,
+                rotateX: 0
+              }}
+              exit={{ 
+                opacity: 0, 
+                scale: 0.8,
+                y: 100,
+                rotateX: 15
+              }}
+              transition={{
+                type: "spring",
+                stiffness: 300,
+                damping: 30
+              }}
+              whileHover={{ 
+                scale: isDrag || isResize ? undefined : 1.01,
+                boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)"
+              }}
+              onClick={() => setFocusedWindow(window.id)}
+            >
+              {/* Animated background gradient */}
+              <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 via-transparent to-purple-500/5 opacity-50" />
+              
+              {/* Chat Header */}
+              <div 
+                className="relative flex items-center justify-between p-4 bg-gradient-to-r from-slate-700/50 to-slate-800/50 border-b border-slate-600/30 cursor-grab active:cursor-grabbing"
+                onMouseDown={(e) => handleMouseDown(e, window.id, 'drag')}
+              >
+                <div className="flex items-center gap-3">
+                  <motion.div
+                    className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center"
+                    animate={{
+                      boxShadow: isLoading ? [
+                        '0 0 10px rgba(6, 182, 212, 0.5)',
+                        '0 0 20px rgba(6, 182, 212, 0.8)',
+                        '0 0 10px rgba(6, 182, 212, 0.5)'
+                      ] : '0 0 10px rgba(6, 182, 212, 0.3)'
+                    }}
+                    transition={{
+                      duration: 2,
+                      repeat: isLoading ? Infinity : 0
+                    }}
+                  >
+                    <Bot className="w-4 h-4 text-white" />
+                  </motion.div>
+                  <div>
+                    <h3 className="font-semibold text-white text-sm">{window.agentName}</h3>
+                    <div className="flex items-center gap-2 text-xs">
+                      <div className={`w-1.5 h-1.5 rounded-full ${window.isLoading ? 'bg-yellow-400 animate-pulse' : 'bg-green-400'}`} />
+                      <span className="text-slate-400">
+                        {window.isLoading ? 'Processing...' : 'Online'}
+                      </span>
                     </div>
-                  ) : (
-                    window.messages.map((msg, idx) => (
-                      <div key={msg.id || `msg-${idx}-${msg.timestamp || Date.now()}`} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[80%] p-2 rounded-lg text-sm ${
-                          msg.sender === 'user' 
-                            ? 'bg-cyan-600 text-white' 
-                            : 'bg-slate-700 text-slate-200'
-                        }`}>
-                          {msg.content}
-                        </div>
-                      </div>
-                    ))
-                  )}
+                  </div>
                 </div>
+                
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      minimizeChatWindow(window.id);
+                    }}
+                    className="p-1.5 hover:bg-slate-600/50 rounded-md transition-colors group"
+                    title="Minimize"
+                  >
+                    <Minimize2 className="w-3.5 h-3.5 text-slate-400 group-hover:text-white" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      closeChatWindow(window.id);
+                    }}
+                    className="p-1.5 hover:bg-red-500/20 rounded-md transition-colors group"
+                    title="Close"
+                  >
+                    <X className="w-3.5 h-3.5 text-slate-400 group-hover:text-red-400" />
+                  </button>
+                </div>
+              </div>
 
-                {/* Input Area */}
-                <SmartInputField
-                  agentId={window.agentId}
-                  conversationId={window.sessionId}
-                  placeholder="Type a message..."
-                  onSubmit={(text, intent) => {
-                    sendFloatingMessageWithText(window.id, text, intent);
-                  }}
-                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 text-sm"
-                />
-              </>
-            )}
-          </motion.div>
-        ))}
+              {!window.isMinimized && (
+                <>
+                  {/* Messages Area */}
+                  <div 
+                    id={`messages-${window.id}`}
+                    className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0"
+                    style={{ 
+                      scrollbarWidth: 'thin', 
+                      scrollbarColor: 'rgba(59, 130, 246, 0.3) transparent' 
+                    }}
+                  >
+                    <AnimatePresence>
+                      {window.messages.length === 0 ? (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className="text-center text-slate-400 text-sm py-8"
+                        >
+                          <motion.div
+                            className="w-12 h-12 mx-auto mb-3 bg-slate-700/50 rounded-full flex items-center justify-center"
+                            animate={{ 
+                              rotate: [0, 10, -10, 0],
+                              scale: [1, 1.1, 1]
+                            }}
+                            transition={{
+                              duration: 4,
+                              repeat: Infinity,
+                              ease: "easeInOut"
+                            }}
+                          >
+                            <MessageSquare className="w-6 h-6 text-slate-500" />
+                          </motion.div>
+                          <p>Start a conversation...</p>
+                        </motion.div>
+                      ) : (
+                        window.messages.map((msg, idx) => (
+                          <motion.div 
+                            key={msg.id || `msg-${idx}-${msg.timestamp || Date.now()}`}
+                            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            transition={{ 
+                              delay: idx * 0.03,
+                              type: "spring",
+                              stiffness: 400,
+                              damping: 25
+                            }}
+                            className={`flex items-start gap-2 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                          >
+                            {msg.sender !== 'user' && (
+                              <motion.div 
+                                className="w-6 h-6 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-full flex items-center justify-center flex-shrink-0 mt-1"
+                                whileHover={{ scale: 1.1, rotate: 5 }}
+                              >
+                                <Bot className="w-3 h-3 text-white" />
+                              </motion.div>
+                            )}
+                            
+                            <motion.div 
+                              className={`max-w-[75%] p-3 rounded-xl text-sm leading-relaxed ${
+                                msg.sender === 'user' 
+                                  ? 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white' 
+                                  : 'bg-slate-700/80 text-slate-100 border border-slate-600/50'
+                              }`}
+                              whileHover={{ 
+                                scale: 1.02,
+                                boxShadow: msg.sender === 'user' 
+                                  ? '0 8px 25px rgba(6, 182, 212, 0.3)'
+                                  : '0 8px 25px rgba(0, 0, 0, 0.3)'
+                              }}
+                            >
+                              <p>{msg.content}</p>
+                              
+                              {/* Message metadata for agent responses */}
+                              {msg.sender !== 'user' && (msg.confidence || msg.memoryEnhanced || msg.knowledgeUsed || msg.toolsExecuted?.length) && (
+                                <div className="flex items-center gap-3 mt-2 pt-2 border-t border-slate-600/30 text-xs">
+                                  {msg.confidence && (
+                                    <div className="flex items-center gap-1 text-emerald-400">
+                                      <CheckCircle2 className="w-3 h-3" />
+                                      <span>{Math.round(msg.confidence * 100)}%</span>
+                                    </div>
+                                  )}
+                                  {msg.memoryEnhanced && (
+                                    <div className="flex items-center gap-1 text-purple-400">
+                                      <Brain className="w-3 h-3" />
+                                      <span>Memory</span>
+                                    </div>
+                                  )}
+                                  {msg.knowledgeUsed && msg.knowledgeUsed > 0 && (
+                                    <div className="flex items-center gap-1 text-yellow-400">
+                                      <Sparkles className="w-3 h-3" />
+                                      <span>{msg.knowledgeUsed} KB</span>
+                                    </div>
+                                  )}
+                                  {msg.toolsExecuted && msg.toolsExecuted.length > 0 && (
+                                    <div className="flex items-center gap-1 text-cyan-400">
+                                      <Zap className="w-3 h-3" />
+                                      <span>{msg.toolsExecuted.length} tools</span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </motion.div>
+                            
+                            {msg.sender === 'user' && (
+                              <motion.div 
+                                className="w-6 h-6 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-full flex items-center justify-center flex-shrink-0 mt-1"
+                                whileHover={{ scale: 1.1, rotate: -5 }}
+                              >
+                                <User className="w-3 h-3 text-white" />
+                              </motion.div>
+                            )}
+                          </motion.div>
+                        ))
+                      )}
+                    </AnimatePresence>
+                    
+                    {/* Typing Indicator */}
+                    <TypingIndicator windowId={window.id} />
+                  </div>
+
+                  {/* Input Area */}
+                  <div className="p-4 border-t border-slate-600/30 bg-gradient-to-r from-slate-800/50 to-slate-700/50">
+                    <SmartInputField
+                      agentId={window.agentId}
+                      conversationId={window.sessionId}
+                      placeholder="Type a message..."
+                      onSubmit={(text, intent) => {
+                        sendFloatingMessageWithText(window.id, text, intent);
+                      }}
+                      disabled={isLoading}
+                      className="w-full bg-slate-700/50 border border-slate-600/50 rounded-lg px-3 py-2 text-white placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-400/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                    />
+                    
+                    {window.error && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mt-2 p-2 bg-red-500/20 border border-red-500/30 rounded-md text-red-400 text-xs"
+                      >
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="w-3 h-3" />
+                          {window.error}
+                        </div>
+                      </motion.div>
+                    )}
+                  </div>
+
+                  {/* Resize Handle */}
+                  <div
+                    className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize opacity-50 hover:opacity-100 transition-opacity"
+                    onMouseDown={(e) => handleMouseDown(e, window.id, 'resize')}
+                  >
+                    <div className="absolute bottom-1 right-1 w-2 h-2 border-r-2 border-b-2 border-slate-400" />
+                  </div>
+                </>
+              )}
+            </motion.div>
+          );
+        })}
       </AnimatePresence>
     </div>
   );
@@ -1444,6 +2153,9 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                 </motion.div>
               ))}
             </AnimatePresence>
+            
+            {/* Typing Indicator for Portal Mode */}
+            <TypingIndicator windowId="portal" />
 
             <div ref={messagesEndRef} />
           </div>

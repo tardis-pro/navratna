@@ -1,4 +1,5 @@
 import React from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
 import { AgentProvider } from './contexts/AgentContext';
 import { UAIPProvider } from './contexts/UAIPContext';
@@ -13,27 +14,43 @@ import { Desktop } from './components/DesktopUnified';
 import './App.css';
 import './styles/agent-manager.css';
 
+// Create QueryClient instance
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 3,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      refetchOnWindowFocus: false,
+    },
+    mutations: {
+      retry: 1,
+    },
+  },
+});
+
 function DesktopApp() {
   return (
     <UserPreferencesProvider>
       <AuthProvider>
-        <SecurityProvider>
-          <ProtectedRoute>
-            <AgentProvider>
-              <UAIPProvider>
-                <KnowledgeProvider>
-                  <DocumentProvider>
-                    <DiscussionProvider topic="Council of Nycea">
-                      <ErrorBoundary>
-                        <Desktop />
-                      </ErrorBoundary>
-                    </DiscussionProvider>
-                  </DocumentProvider>
-                </KnowledgeProvider>
-              </UAIPProvider>
-            </AgentProvider>
-          </ProtectedRoute>
-        </SecurityProvider>
+        <QueryClientProvider client={queryClient}>
+          <SecurityProvider>
+            <ProtectedRoute>
+              <AgentProvider>
+                <UAIPProvider>
+                  <KnowledgeProvider>
+                    <DocumentProvider>
+                      <DiscussionProvider topic="Council of Nycea">
+                        <ErrorBoundary>
+                          <Desktop />
+                        </ErrorBoundary>
+                      </DiscussionProvider>
+                    </DocumentProvider>
+                  </KnowledgeProvider>
+                </UAIPProvider>
+              </AgentProvider>
+            </ProtectedRoute>
+          </SecurityProvider>
+        </QueryClientProvider>
       </AuthProvider>
     </UserPreferencesProvider>
   );

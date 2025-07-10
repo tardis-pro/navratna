@@ -458,6 +458,67 @@ router.post('/track-interaction', authMiddleware, async (req: Request, res: Resp
   }
 });
 
+// Get persona-compatible agents
+router.get('/compatible-agents', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ error: 'User not authenticated' });
+      return;
+    }
+
+    const databaseService = DatabaseService.getInstance();
+    const userRepository = databaseService.getUserRepository();
+    const user = await userRepository.findById(userId);
+    
+    if (!user || !user.userPersona) {
+      res.status(400).json({ error: 'User persona not found. Please complete onboarding first.' });
+      return;
+    }
+
+    const persona = user.userPersona;
+    const compatibleAgents = await getCompatibleAgents(persona);
+
+    res.json(compatibleAgents);
+    return;
+  } catch (error) {
+    logger.error('Error getting compatible agents:', error);
+    res.status(500).json({ error: 'Internal server error' });
+    return;
+  }
+});
+
+// Get optimized workspace layout
+router.get('/optimized-workspace', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ error: 'User not authenticated' });
+      return;
+    }
+
+    const databaseService = DatabaseService.getInstance();
+    const userRepository = databaseService.getUserRepository();
+    const user = await userRepository.findById(userId);
+    
+    if (!user || !user.userPersona) {
+      res.status(400).json({ error: 'User persona not found. Please complete onboarding first.' });
+      return;
+    }
+
+    const persona = user.userPersona;
+    const behavioralPatterns = user.behavioralPatterns;
+    const optimizedWorkspace = await generateOptimizedWorkspace(persona, behavioralPatterns);
+
+    res.json(optimizedWorkspace);
+    return;
+  } catch (error) {
+    logger.error('Error getting optimized workspace:', error);
+    res.status(500).json({ error: 'Internal server error' });
+    return;
+  }
+});
+
 // Helper functions
 async function generatePersonaRecommendations(persona: any, behavioralPatterns: any) {
   const recommendations = {
@@ -563,6 +624,170 @@ async function processUserInteraction(userId: string, type: string, data: any, t
 
   const userRepository = databaseService.getUserRepository();
   await userRepository.update(userId, user);
+}
+
+async function getCompatibleAgents(persona: any) {
+  const databaseService = DatabaseService.getInstance();
+  const agentRepository = databaseService.getAgentRepository();
+  
+  // Get all active agents
+  const allAgents = await agentRepository.getActiveAgents();
+  
+  // Filter agents based on persona compatibility
+  const compatibleAgents = allAgents.filter(agent => {
+    // Match work style
+    if (persona.workStyle === 'collaborative' && agent.configuration?.workStyle === 'independent') {
+      return false;
+    }
+    
+    // Match communication preferences
+    if (persona.communicationPreference === 'brief' && agent.configuration?.responseStyle === 'detailed') {
+      return false;
+    }
+    
+    // Match domain expertise
+    if (persona.domainExpertise && agent.configuration?.domainExpertise) {
+      const hasOverlap = persona.domainExpertise.some((domain: string) => 
+        agent.configuration.domainExpertise.includes(domain)
+      );
+      if (!hasOverlap) {
+        return false;
+      }
+    }
+    
+    return true;
+  });
+  
+  return compatibleAgents.map(agent => ({
+    id: agent.id,
+    name: agent.name,
+    description: agent.description,
+    configuration: agent.configuration,
+    compatibilityScore: calculateCompatibilityScore(persona, agent),
+    matchReason: getMatchReason(persona, agent)
+  }));
+}
+
+async function generateOptimizedWorkspace(persona: any, behavioralPatterns: any) {
+  const workspace = {
+    layout: {
+      type: persona.workStyle === 'collaborative' ? 'dashboard' : 'focused',
+      density: persona.communicationPreference === 'brief' ? 'compact' : 'comfortable',
+      theme: persona.problemSolvingApproach === 'creative' ? 'creative' : 'professional'
+    },
+    recommendations: {
+      widgets: [],
+      shortcuts: [],
+      toolPlacements: [],
+      agentPlacements: []
+    },
+    personalization: {
+      notifications: persona.communicationPreference === 'brief' ? 'minimal' : 'standard',
+      updateFrequency: persona.timeManagement === 'deadline-driven' ? 'realtime' : 'periodic',
+      automationLevel: persona.workflowStyle === 'structured' ? 'high' : 'medium'
+    }
+  };
+
+  // Add widget recommendations based on persona
+  if (persona.workStyle === 'collaborative') {
+    workspace.recommendations.widgets.push('team-activity', 'shared-projects', 'communication-hub');
+  }
+  
+  if (persona.problemSolvingApproach === 'analytical') {
+    workspace.recommendations.widgets.push('analytics-dashboard', 'data-insights', 'performance-metrics');
+  }
+  
+  if (persona.workflowStyle === 'structured') {
+    workspace.recommendations.widgets.push('task-list', 'schedule-view', 'progress-tracker');
+  }
+
+  // Add shortcuts based on behavioral patterns
+  if (behavioralPatterns?.frequentlyUsedTools) {
+    workspace.recommendations.shortcuts = behavioralPatterns.frequentlyUsedTools.map((tool: string) => ({
+      tool,
+      priority: 'high',
+      placement: 'sidebar'
+    }));
+  }
+
+  // Add agent placements based on preferences
+  if (behavioralPatterns?.preferredAgents) {
+    workspace.recommendations.agentPlacements = behavioralPatterns.preferredAgents.map((agentId: string) => ({
+      agentId,
+      placement: 'quick-access',
+      priority: 'high'
+    }));
+  }
+
+  return workspace;
+}
+
+function calculateCompatibilityScore(persona: any, agent: any): number {
+  let score = 0;
+  let totalFactors = 0;
+
+  // Work style compatibility
+  if (persona.workStyle && agent.configuration?.workStyle) {
+    totalFactors++;
+    if (persona.workStyle === agent.configuration.workStyle) {
+      score += 30;
+    } else if (persona.workStyle === 'hybrid') {
+      score += 20;
+    }
+  }
+
+  // Communication preference compatibility
+  if (persona.communicationPreference && agent.configuration?.responseStyle) {
+    totalFactors++;
+    if (persona.communicationPreference === agent.configuration.responseStyle) {
+      score += 25;
+    } else if (persona.communicationPreference === 'detailed' && agent.configuration.responseStyle === 'comprehensive') {
+      score += 20;
+    }
+  }
+
+  // Domain expertise overlap
+  if (persona.domainExpertise && agent.configuration?.domainExpertise) {
+    totalFactors++;
+    const overlap = persona.domainExpertise.filter((domain: string) => 
+      agent.configuration.domainExpertise.includes(domain)
+    );
+    score += (overlap.length / persona.domainExpertise.length) * 25;
+  }
+
+  // Problem solving approach compatibility
+  if (persona.problemSolvingApproach && agent.configuration?.problemSolvingStyle) {
+    totalFactors++;
+    if (persona.problemSolvingApproach === agent.configuration.problemSolvingStyle) {
+      score += 20;
+    }
+  }
+
+  // Return normalized score (0-100)
+  return totalFactors > 0 ? Math.round(score / totalFactors * 4) : 50;
+}
+
+function getMatchReason(persona: any, agent: any): string {
+  const reasons = [];
+
+  if (persona.workStyle === agent.configuration?.workStyle) {
+    reasons.push(`Matches your ${persona.workStyle} work style`);
+  }
+
+  if (persona.communicationPreference === agent.configuration?.responseStyle) {
+    reasons.push(`Provides ${persona.communicationPreference} communication`);
+  }
+
+  if (persona.domainExpertise && agent.configuration?.domainExpertise) {
+    const overlap = persona.domainExpertise.filter((domain: string) => 
+      agent.configuration.domainExpertise.includes(domain)
+    );
+    if (overlap.length > 0) {
+      reasons.push(`Expertise in ${overlap.join(', ')}`);
+    }
+  }
+
+  return reasons.length > 0 ? reasons.join('; ') : 'General compatibility';
 }
 
 export default router;

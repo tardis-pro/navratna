@@ -648,4 +648,119 @@ Remember: You are Agent ${agentId} and should respond in character as a capable 
     const totalFeedback = positiveCount + negativeCount;
     return positiveCount / totalFeedback;
   }
+
+  /**
+   * Trigger agent participation in a discussion when they join
+   */
+  async triggerAgentParticipation(discussionId: string, agentId: string, participantId: string): Promise<void> {
+    try {
+      logger.info('Triggering agent participation in discussion', { 
+        discussionId, 
+        agentId, 
+        participantId 
+      });
+
+      // Get agent details
+      const agent = await this.agentService.findAgentById(agentId);
+      if (!agent) {
+        logger.error('Agent not found for participation trigger', { agentId, discussionId });
+        return;
+      }
+
+      // Generate initial participation message
+      const participationMessage = await this.generateParticipationMessage(agentId, discussionId);
+
+      // Send the message to the discussion via event bus
+      await this.eventBusService.publish('discussion.agent.message', {
+        discussionId,
+        participantId,
+        agentId,
+        content: participationMessage.content,
+        messageType: 'message',
+        metadata: {
+          source: 'agent-intelligence',
+          isInitialParticipation: true,
+          confidence: participationMessage.confidence,
+          timestamp: new Date()
+        }
+      });
+
+      logger.info('Agent participation triggered successfully', { 
+        discussionId, 
+        agentId, 
+        participantId,
+        contentLength: participationMessage.content.length
+      });
+
+    } catch (error) {
+      logger.error('Failed to trigger agent participation', { 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        discussionId, 
+        agentId, 
+        participantId 
+      });
+    }
+  }
+
+  /**
+   * Generate initial participation message for an agent joining a discussion
+   */
+  private async generateParticipationMessage(agentId: string, discussionId: string): Promise<{
+    content: string;
+    confidence: number;
+  }> {
+    try {
+      // Get agent details for personalized introduction
+      const agent = await this.agentService.findAgentById(agentId);
+      if (!agent) {
+        throw new Error(`Agent ${agentId} not found`);
+      }
+
+      // Generate introductory message using LLM
+      const introMessage = `Hello! I'm ${agent.name}, and I'm excited to join this discussion.`;
+      
+      // Try to use LLM for a more sophisticated introduction
+      try {
+        const llmResponse = await this.requestLLMGeneration(
+          introMessage,
+          'greeting',
+          'friendly',
+          [], // No previous messages for initial participation
+          agentId
+        );
+
+        return {
+          content: llmResponse.content,
+          confidence: llmResponse.confidence
+        };
+      } catch (llmError) {
+        logger.warn('LLM generation failed for participation message, using fallback', { 
+          agentId, 
+          discussionId,
+          error: llmError instanceof Error ? llmError.message : 'Unknown error'
+        });
+
+        // Fallback to template-based introduction
+        const capabilities = agent.capabilities ? ` I specialize in ${agent.capabilities.slice(0, 2).join(' and ')}.` : '';
+        const fallbackMessage = `Hello! I'm ${agent.name}, and I'm excited to join this discussion.${capabilities} I'm here to contribute and help with whatever we're working on. What's the current topic?`;
+
+        return {
+          content: fallbackMessage,
+          confidence: 0.7
+        };
+      }
+    } catch (error) {
+      logger.error('Error generating participation message', { 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        agentId, 
+        discussionId 
+      });
+
+      // Ultimate fallback
+      return {
+        content: `Hello! I'm Agent ${agentId} and I'm ready to participate in this discussion. How can I help?`,
+        confidence: 0.5
+      };
+    }
+  }
 }

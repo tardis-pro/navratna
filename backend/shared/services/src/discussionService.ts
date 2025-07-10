@@ -761,8 +761,8 @@ export class DiscussionService {
       throw new Error('Discussion topic is required');
     }
 
-    if (!request.initialParticipants || request.initialParticipants.length < 2) {
-      throw new Error('Discussion requires at least 2 initial participants');
+    if (!request.initialParticipants || request.initialParticipants.length < 1) {
+      throw new Error('Discussion requires at least 1 initial participant');
     }
 
     // Validate agents exist
@@ -869,6 +869,82 @@ export class DiscussionService {
   private async updateDiscussionAnalytics(discussionId: string, message: DiscussionMessage): Promise<void> {
     // Update real-time analytics based on new message
     // This would update various metrics and statistics
+  }
+
+  async pauseDiscussion(id: string, reason?: string): Promise<DiscussionType> {
+    try {
+      logger.info('Pausing discussion', { discussionId: id, reason });
+
+      const discussion = await this.getDiscussion(id);
+      if (!discussion) {
+        throw new Error(`Discussion not found: ${id}`);
+      }
+
+      if (discussion.status !== DiscussionStatus.ACTIVE) {
+        throw new Error(`Discussion cannot be paused from status: ${discussion.status}`);
+      }
+
+      // Update discussion status
+      const updatedDiscussion = await this.updateDiscussion(id, {
+        status: DiscussionStatus.PAUSED,
+        metadata: {
+          ...discussion.metadata,
+          pausedAt: new Date(),
+          pauseReason: reason
+        }
+      });
+
+      // Emit pause event
+      await this.emitDiscussionEvent(id, DiscussionEventType.STATUS_CHANGED, {
+        oldStatus: DiscussionStatus.ACTIVE,
+        newStatus: DiscussionStatus.PAUSED,
+        reason
+      });
+
+      logger.info('Discussion paused successfully', { discussionId: id });
+      return updatedDiscussion;
+
+    } catch (error) {
+      logger.error('Failed to pause discussion', { error: (error as Error).message, discussionId: id });
+      throw error;
+    }
+  }
+
+  async resumeDiscussion(id: string): Promise<DiscussionType> {
+    try {
+      logger.info('Resuming discussion', { discussionId: id });
+
+      const discussion = await this.getDiscussion(id);
+      if (!discussion) {
+        throw new Error(`Discussion not found: ${id}`);
+      }
+
+      if (discussion.status !== DiscussionStatus.PAUSED) {
+        throw new Error(`Discussion cannot be resumed from status: ${discussion.status}`);
+      }
+
+      // Update discussion status
+      const updatedDiscussion = await this.updateDiscussion(id, {
+        status: DiscussionStatus.ACTIVE,
+        state: {
+          ...discussion.state,
+          lastActivity: new Date()
+        }
+      });
+
+      // Emit resume event
+      await this.emitDiscussionEvent(id, DiscussionEventType.STATUS_CHANGED, {
+        oldStatus: DiscussionStatus.PAUSED,
+        newStatus: DiscussionStatus.ACTIVE
+      });
+
+      logger.info('Discussion resumed successfully', { discussionId: id });
+      return updatedDiscussion;
+
+    } catch (error) {
+      logger.error('Failed to resume discussion', { error: (error as Error).message, discussionId: id });
+      throw error;
+    }
   }
 
   private async calculateFinalAnalytics(discussionId: string): Promise<any> {

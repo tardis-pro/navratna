@@ -1133,6 +1133,16 @@ export class DiscussionOrchestrationService extends EventEmitter {
       this.cleanupExpiredTimers();
     }, 60000); // Every minute
 
+    // Check for discussions needing agent participation every 30 seconds
+    setInterval(() => {
+      this.checkActiveDiscussionsForParticipation();
+    }, 30000);
+
+    // Monitor discussion health every 2 minutes
+    setInterval(() => {
+      this.monitorDiscussionHealth();
+    }, 120000);
+
     logger.info('Discussion orchestration periodic tasks started');
   }
 
@@ -1141,6 +1151,205 @@ export class DiscussionOrchestrationService extends EventEmitter {
     const now = Date.now();
     for (const [discussionId, timer] of this.turnTimers) {
       // Additional cleanup logic could go here
+    }
+  }
+
+  /**
+   * Check active discussions for agent participation
+   */
+  private async checkActiveDiscussionsForParticipation(): Promise<void> {
+    try {
+      logger.debug('Checking active discussions for agent participation');
+      
+      // Get all active discussions from cache and database
+      const cachedDiscussions = Array.from(this.activeDiscussions.values());
+      
+      for (const discussion of cachedDiscussions) {
+        if (discussion.status === DiscussionStatus.ACTIVE || discussion.status === DiscussionStatus.DRAFT) {
+          await this.ensureAgentParticipation(discussion);
+        }
+      }
+
+      // Also check for recently created discussions that might not be in cache
+      await this.checkRecentDiscussions();
+      
+    } catch (error) {
+      logger.error('Error checking active discussions for participation', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
+  /**
+   * Monitor discussion health and activity
+   */
+  private async monitorDiscussionHealth(): Promise<void> {
+    try {
+      logger.debug('Monitoring discussion health');
+      
+      const stats = {
+        activeDiscussions: 0,
+        staleDiscussions: 0,
+        participationIssues: 0
+      };
+
+      for (const [discussionId, discussion] of this.activeDiscussions.entries()) {
+        stats.activeDiscussions++;
+
+        // Check if discussion has been inactive for too long
+        const lastActivity = discussion.state.lastActivity;
+        const timeSinceActivity = lastActivity ? Date.now() - lastActivity.getTime() : Infinity;
+        
+        if (timeSinceActivity > 600000) { // 10 minutes
+          stats.staleDiscussions++;
+          logger.warn('Stale discussion detected', { 
+            discussionId, 
+            timeSinceActivity: Math.round(timeSinceActivity / 1000) 
+          });
+        }
+
+        // Check for agent participation issues
+        const agentParticipants = discussion.participants.filter(p => p.agentId);
+        const hasRecentAgentActivity = agentParticipants.some(p => {
+          const timeSinceLastActive = p.lastMessageAt ? Date.now() - p.lastMessageAt.getTime() : Infinity;
+          return timeSinceLastActive < 300000; // 5 minutes
+        });
+
+        if (agentParticipants.length > 0 && !hasRecentAgentActivity) {
+          stats.participationIssues++;
+          logger.warn('Agent participation issue detected', { 
+            discussionId,
+            agentCount: agentParticipants.length
+          });
+          
+          // Trigger participation for all agent participants
+          for (const participant of agentParticipants) {
+            if (participant.agentId && participant.isActive) {
+              await this.triggerAgentParticipationEvent(discussionId, participant);
+            }
+          }
+        }
+      }
+
+      if (stats.activeDiscussions > 0) {
+        logger.info('Discussion health check completed', stats);
+      }
+      
+    } catch (error) {
+      logger.error('Error monitoring discussion health', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
+  /**
+   * Ensure agent participation in a discussion
+   */
+  private async ensureAgentParticipation(discussion: Discussion): Promise<void> {
+    try {
+      const agentParticipants = discussion.participants.filter(p => p.agentId && p.isActive);
+      
+      if (agentParticipants.length === 0) {
+        return; // No agents to participate
+      }
+
+      // Check if any agent has participated recently
+      const recentParticipation = agentParticipants.some(p => {
+        const timeSinceJoined = Date.now() - p.joinedAt.getTime();
+        const timeSinceLastActive = p.lastMessageAt ? Date.now() - p.lastMessageAt.getTime() : Infinity;
+        
+        // If agent joined recently but hasn't been active, they might need a participation trigger
+        return timeSinceJoined < 120000 && timeSinceLastActive > 60000; // Joined in last 2 min, inactive for 1 min
+      });
+
+      if (recentParticipation) {
+        logger.debug('Triggering participation for recently joined inactive agents', {
+          discussionId: discussion.id,
+          agentCount: agentParticipants.length
+        });
+
+        for (const participant of agentParticipants) {
+          if (participant.agentId) {
+            const timeSinceJoined = Date.now() - participant.joinedAt.getTime();
+            const timeSinceLastActive = participant.lastMessageAt ? Date.now() - participant.lastMessageAt.getTime() : Infinity;
+            
+            if (timeSinceJoined < 120000 && timeSinceLastActive > 60000) {
+              await this.triggerAgentParticipationEvent(discussion.id, participant);
+            }
+          }
+        }
+      }
+      
+    } catch (error) {
+      logger.error('Error ensuring agent participation', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        discussionId: discussion.id
+      });
+    }
+  }
+
+  /**
+   * Check for recently created discussions that might need attention
+   */
+  private async checkRecentDiscussions(): Promise<void> {
+    try {
+      // This would ideally query the database for discussions created in the last few minutes
+      // For now, we'll just ensure cached discussions are up to date
+      logger.debug('Checking for recent discussions');
+      
+    } catch (error) {
+      logger.error('Error checking recent discussions', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
+  /**
+   * Trigger agent participation event
+   */
+  private async triggerAgentParticipationEvent(discussionId: string, participant: DiscussionParticipant): Promise<void> {
+    try {
+      if (!participant.agentId) {
+        return;
+      }
+
+      logger.info('Triggering agent participation event via cron', {
+        discussionId,
+        participantId: participant.id,
+        agentId: participant.agentId
+      });
+
+      // Emit the PARTICIPANT_JOINED event to trigger agent response
+      const participationEvent: DiscussionEvent = {
+        id: this.generateEventId(),
+        type: DiscussionEventType.PARTICIPANT_JOINED,
+        discussionId,
+        data: {
+          participant,
+          addedBy: 'system',
+          trigger: 'cron-check'
+        },
+        timestamp: new Date(),
+        metadata: { 
+          source: 'orchestration-service-cron',
+          retrigger: true
+        }
+      };
+
+      await this.emitEvent(participationEvent);
+
+      logger.debug('Agent participation event emitted via cron', {
+        discussionId,
+        agentId: participant.agentId,
+        participantId: participant.id
+      });
+      
+    } catch (error) {
+      logger.error('Error triggering agent participation event', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        discussionId,
+        participantId: participant.id
+      });
     }
   }
 

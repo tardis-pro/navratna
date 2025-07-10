@@ -42,6 +42,13 @@ export { OAuthService } from './services/OAuthService.js';
 export { AuditService } from './services/AuditService.js';
 export { SecurityService } from './services/SecurityService.js';
 export { UserToolPreferencesService } from './services/UserToolPreferencesService.js';
+export { TaskService } from './services/task.service.js';
+export type {
+  CreateTaskRequest,
+  UpdateTaskRequest,
+  TaskAssignmentRequest,
+  TaskFilters
+} from './services/task.service.js';
 
 // Agent Intelligence Services
 export { AgentIntelligenceService } from './agentIntelligenceService.js';

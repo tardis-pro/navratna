@@ -182,6 +182,69 @@ export class DiscussionController {
     }
   }
 
+  public async pauseDiscussion(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { discussionId } = req.params;
+      const { reason } = req.body;
+
+      logger.info('Pausing discussion', { discussionId, reason });
+
+      const discussion = await this.discussionService.pauseDiscussion(discussionId, reason);
+
+      logger.info('Discussion paused successfully', { 
+        discussionId,
+        status: discussion.status
+      });
+
+      res.status(200).json({
+        success: true,
+        data: discussion,
+        meta: {
+          timestamp: new Date(),
+          version: '1.0.0'
+        }
+      });
+
+    } catch (error) {
+      logger.error('Error pausing discussion', { 
+        discussionId: req.params.discussionId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      next(error);
+    }
+  }
+
+  public async resumeDiscussion(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { discussionId } = req.params;
+
+      logger.info('Resuming discussion', { discussionId });
+
+      const discussion = await this.discussionService.resumeDiscussion(discussionId);
+
+      logger.info('Discussion resumed successfully', { 
+        discussionId,
+        status: discussion.status
+      });
+
+      res.status(200).json({
+        success: true,
+        data: discussion,
+        meta: {
+          timestamp: new Date(),
+          version: '1.0.0'
+        }
+      });
+
+    } catch (error) {
+      logger.error('Error resuming discussion', { 
+        discussionId: req.params.discussionId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      next(error);
+    }
+  }
+
   public async addParticipant(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { discussionId } = req.params;

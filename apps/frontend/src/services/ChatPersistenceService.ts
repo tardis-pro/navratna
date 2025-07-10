@@ -1,5 +1,6 @@
 import { uaipAPI } from '../utils/uaip-api';
-import { Discussion, CreateDiscussionRequest, DiscussionMessage, MessageType, DiscussionStatus, TurnStrategy } from '@uaip/types';
+import { Discussion, DiscussionMessage, MessageType, DiscussionStatus, TurnStrategy } from '@uaip/types';
+import { DiscussionCreate } from '../api/discussions.api';
 
 export interface ChatSession {
   id: string;
@@ -41,6 +42,7 @@ export class ChatPersistenceService {
 
   private constructor() {
     this.loadChatSessions();
+    this.loadMessageCache();
   }
 
   public static getInstance(): ChatPersistenceService {
@@ -77,35 +79,19 @@ export class ChatPersistenceService {
     if (makePersistent) {
       try {
         // Create discussion for persistent chat
-        const discussionRequest: CreateDiscussionRequest = {
+        const discussionRequest: DiscussionCreate = {
           title: `Chat with ${agentName}`,
           description: `Direct chat conversation with agent ${agentName}`,
-          topic: 'agent-chat',
-          createdBy: this.getCurrentUserId(),
-          turnStrategy: {
-            strategy: TurnStrategy.FREE_FORM,
-            config: {
-              type: 'free_form',
-              cooldownPeriod: 5
-            }
-          },
-          initialParticipants: [
-            {
-              agentId: agentId,
-              role: 'participant'
-            }
-          ],
-          settings: {
-            allowAnonymous: false,
-            requireModeration: false,
-            maxParticipants: 2,
-            allowGuestParticipants: false,
-            autoArchiveAfter: 86400000, // 24 hours
-            notificationSettings: {
-              emailNotifications: false,
-              pushNotifications: false,
-              webhookUrl: undefined
-            }
+          objective: 'agent-chat',
+          participantIds: [agentId],
+          turnStrategy: TurnStrategy.FREE_FORM,
+          maxTurns: 1000,
+          maxDuration: 86400000, // 24 hours
+          metadata: {
+            chatType: 'agent-chat',
+            agentId: agentId,
+            agentName: agentName,
+            createdBy: this.getCurrentUserId()
           }
         };
 
@@ -156,6 +142,13 @@ export class ChatPersistenceService {
   }
 
   /**
+   * Get all sessions (alias for getAllChatSessions for backward compatibility)
+   */
+  public getAllSessions(): ChatSession[] {
+    return this.getAllChatSessions();
+  }
+
+  /**
    * Add message to chat session
    */
   public async addMessage(sessionId: string, message: PersistentChatMessage): Promise<void> {
@@ -198,6 +191,7 @@ export class ChatPersistenceService {
     }
 
     this.saveChatSessions();
+    this.saveMessageCache();
   }
 
   /**
@@ -238,6 +232,7 @@ export class ChatPersistenceService {
 
         // Cache the messages
         this.messageCache.set(sessionId, chatMessages);
+        this.saveMessageCache();
         return chatMessages;
       } catch (error) {
         console.error('Failed to load messages from discussion service:', error);
@@ -270,6 +265,7 @@ export class ChatPersistenceService {
     this.chatSessions.delete(sessionId);
     this.messageCache.delete(sessionId);
     this.saveChatSessions();
+    this.saveMessageCache();
   }
 
   /**
@@ -285,35 +281,20 @@ export class ChatPersistenceService {
     
     try {
       // Create discussion
-      const discussionRequest: CreateDiscussionRequest = {
+      const discussionRequest: DiscussionCreate = {
         title: `Chat with ${session.agentName}`,
         description: `Direct chat conversation with agent ${session.agentName}`,
-        topic: 'agent-chat',
-        createdBy: this.getCurrentUserId(),
-        turnStrategy: {
-          strategy: 'FREE_FORM',
-          config: {
-            type: 'free_form',
-            cooldownPeriod: 5
-          }
-        },
-        initialParticipants: [
-          {
-            agentId: session.agentId,
-            role: 'participant'
-          }
-        ],
-        settings: {
-          allowAnonymous: false,
-          requireModeration: false,
-          maxParticipants: 2,
-          allowGuestParticipants: false,
-          autoArchiveAfter: 86400000,
-          notificationSettings: {
-            emailNotifications: false,
-            pushNotifications: false,
-            webhookUrl: undefined
-          }
+        objective: 'agent-chat',
+        participantIds: [session.agentId],
+        turnStrategy: TurnStrategy.FREE_FORM,
+        maxTurns: 1000,
+        maxDuration: 86400000,
+        metadata: {
+          chatType: 'agent-chat',
+          agentId: session.agentId,
+          agentName: session.agentName,
+          createdBy: this.getCurrentUserId(),
+          migrated: true
         }
       };
 
@@ -396,6 +377,39 @@ export class ChatPersistenceService {
         localStorage.setItem('uaip-chat-sessions', JSON.stringify(sessions));
       } catch (error) {
         console.error('Failed to save chat sessions:', error);
+      }
+    }
+  }
+
+  /**
+   * Load message cache from localStorage
+   */
+  private loadMessageCache(): void {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('uaip-message-cache');
+        if (stored) {
+          const cacheData = JSON.parse(stored);
+          for (const [sessionId, messages] of Object.entries(cacheData)) {
+            this.messageCache.set(sessionId, messages as PersistentChatMessage[]);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load message cache:', error);
+      }
+    }
+  }
+
+  /**
+   * Save message cache to localStorage
+   */
+  private saveMessageCache(): void {
+    if (typeof window !== 'undefined') {
+      try {
+        const cacheData = Object.fromEntries(this.messageCache.entries());
+        localStorage.setItem('uaip-message-cache', JSON.stringify(cacheData));
+      } catch (error) {
+        console.error('Failed to save message cache:', error);
       }
     }
   }

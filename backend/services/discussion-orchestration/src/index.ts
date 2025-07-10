@@ -12,6 +12,7 @@ import { DiscussionOrchestrationService } from './services/discussionOrchestrati
 // Removed EnterpriseWebSocketHandler import - using Socket.IO only
 import { UserChatHandler } from './websocket/userChatHandler.js';
 import { ConversationIntelligenceHandler } from './websocket/conversationIntelligenceHandler.js';
+import { TaskNotificationHandler } from './websocket/taskNotificationHandler.js';
 
 class DiscussionOrchestrationServer extends BaseService {
   private wss!: WebSocket.Server;
@@ -22,6 +23,7 @@ class DiscussionOrchestrationServer extends BaseService {
   // Removed webSocketHandler - using Socket.IO only
   private userChatHandler?: UserChatHandler;
   private conversationIntelligenceHandler?: ConversationIntelligenceHandler;
+  private taskNotificationHandler?: TaskNotificationHandler;
   private serviceName = 'discussion-orchestration';
   private authResponseHandlers = new Map<string, (response: any) => void>();
   private authSubscriptionInitialized = false;
@@ -403,6 +405,14 @@ class DiscussionOrchestrationServer extends BaseService {
       } catch (error) {
         logger.error('Failed to initialize ConversationIntelligenceHandler:', error);
         // Continue without conversation intelligence handler rather than crashing the service
+      }
+
+      try {
+        this.taskNotificationHandler = new TaskNotificationHandler(this.io, this.eventBusService);
+        logger.info('TaskNotificationHandler initialized successfully');
+      } catch (error) {
+        logger.error('Failed to initialize TaskNotificationHandler:', error);
+        // Continue without task notification handler rather than crashing the service
       }
       
       logger.info('Discussion Orchestration Service started with WebSocket support', {

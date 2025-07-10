@@ -147,7 +147,10 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
             : `Automated discussion on ${discussionTopic}`,
           topic: discussionTopic,
           createdBy: user.id, // Use actual logged-in user ID (guaranteed to exist due to check above)
-          initialParticipants: selectedAgentIds,
+          initialParticipants: selectedAgentIds.map(agentId => ({
+            agentId,
+            role: 'participant' as const
+          })),
           settings: {
             maxTurns: maxRounds,
             maxDuration: 3600, // 1 hour default
@@ -190,7 +193,7 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
 
       // Try to start the discussion, but handle the case where it's already active
       try {
-        await uaipAPI.discussions.start(currentDiscussionId);
+        await uaipAPI.discussions.start(currentDiscussionId, user?.id);
         console.log('Discussion started successfully');
       } catch (error: any) {
         if (error.message?.includes('cannot be started from status: active')) {
@@ -203,20 +206,7 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
       // Set discussion as active
       setIsActive(true);
       
-      // Add participants to the discussion
-      for (const agentId of selectedAgentIds) {
-        try {
-          await uaipAPI.discussions.addParticipant(currentDiscussionId, {
-            agentId,
-            role: 'participant'
-          });
-          console.log(`Agent ${agentId} added to discussion`);
-        } catch (error) {
-          console.error(`Failed to add agent ${agentId} to discussion:`, error);
-        }
-      }
-
-      console.log('Discussion setup completed');
+      console.log('Discussion setup completed - participants were added during creation');
 
     } catch (error) {
       console.error('Failed to start discussion:', error);

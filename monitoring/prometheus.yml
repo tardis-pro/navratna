@@ -102,6 +102,22 @@ scrape_configs:
     metrics_path: '/metrics'
     scrape_interval: 30s
     scrape_timeout: 10s
+    metric_relabel_configs:
+      # Remove duplicate filesystem metrics for WSL mount points
+      - source_labels: [mountpoint]
+        regex: '/mnt/wsl/.*'
+        action: drop
+      # Remove duplicate tmpfs entries
+      - source_labels: [mountpoint, fstype]
+        regex: '/run/user.*; tmpfs'
+        action: drop
+      # Keep only essential filesystem metrics
+      - source_labels: [__name__, fstype]
+        regex: 'node_filesystem_.*; (ext4|xfs|tmpfs|overlay)'
+        action: keep
+      # Standardize job labels to avoid conflicts
+      - target_label: instance
+        replacement: 'node-exporter'
 
   # Nginx Prometheus Exporter for API Gateway (Preferred method)
   - job_name: 'nginx-exporter'

@@ -32,6 +32,7 @@ import { RoleBasedDesktopConfig } from './futuristic/desktop/RoleBasedDesktopCon
 import { useAuth } from '../contexts/AuthContext';
 import { ProjectManagementPortal } from './futuristic/portals/ProjectManagementPortal';
 import { ProjectOnboardingFlow } from './futuristic/portals/ProjectOnboardingFlow';
+import { ProjectTaskManager } from './ProjectTaskManager';
 import { UserPersonaOnboardingFlow } from './UserPersonaOnboardingFlow';
 import { MapWallpaper } from './futuristic/desktop/MapWallpaper';
 import { LocationService, LocationData } from '../services/LocationService';
@@ -127,6 +128,7 @@ const ALL_APPLICATIONS: Application[] = [
   
   // Project Management - NEW
   { id: 'projects', title: 'Projects', icon: Folder, color: 'text-green-500', component: ProjectManagementPortal, category: 'core', minimumRole: 'user' },
+  { id: 'tasks', title: 'Task Manager', icon: Activity, color: 'text-emerald-500', component: ProjectTaskManager, category: 'core', minimumRole: 'user' },
   
   // Tools & Utilities
   { id: 'search', title: 'Search', icon: Search, color: 'text-cyan-300', component: () => <div className="p-4 text-white">Global Search Portal</div>, category: 'tools', minimumRole: 'user' },
@@ -1142,11 +1144,12 @@ export const Desktop: React.FC = () => {
       const checkPersonaOnboarding = async () => {
         try {
           const status = await userPersonaAPI.checkOnboardingStatus();
-          if (status.isRequired) {
+          if (status && status.isRequired) {
             setShowUserPersonaOnboarding(true);
           }
         } catch (error) {
           console.error('Error checking persona onboarding status:', error);
+          // Fail silently - onboarding is optional
         }
       };
       checkPersonaOnboarding();

@@ -11,31 +11,15 @@ import type {
   DiscussionMessage,
   DiscussionStatus,
   TurnStrategy,
-  TurnStrategyConfig
+  TurnStrategyConfig,
+  CreateDiscussionRequest,
+  UpdateDiscussionRequest,
+  DiscussionAnalytics as SharedDiscussionAnalytics
 } from '@uaip/types';
 
-export interface DiscussionCreate {
-  title: string;
-  description?: string;
-  objective?: string;
-  participantIds: string[];
-  turnStrategy: TurnStrategy;
-  strategyConfig?: TurnStrategyConfig;
-  maxTurns?: number;
-  maxDuration?: number;
-  metadata?: Record<string, any>;
-}
+export type DiscussionCreate = CreateDiscussionRequest;
 
-export interface DiscussionUpdate {
-  title?: string;
-  description?: string;
-  objective?: string;
-  turnStrategy?: TurnStrategy;
-  strategyConfig?: TurnStrategyConfig;
-  maxTurns?: number;
-  maxDuration?: number;
-  metadata?: Record<string, any>;
-}
+export type DiscussionUpdate = UpdateDiscussionRequest;
 
 export interface MessageRequest {
   content: string;
@@ -48,22 +32,7 @@ export interface TurnRequest {
   reason?: string;
 }
 
-export interface DiscussionAnalytics {
-  discussionId: string;
-  totalMessages: number;
-  totalTurns: number;
-  averageTurnDuration: number;
-  participantActivity: Record<string, {
-    messageCount: number;
-    turnCount: number;
-    averageResponseTime: number;
-  }>;
-  topicDistribution?: Record<string, number>;
-  sentimentTrend?: Array<{
-    timestamp: string;
-    sentiment: number;
-  }>;
-}
+export type DiscussionAnalytics = SharedDiscussionAnalytics;
 
 export interface DiscussionListOptions {
   page?: number;
@@ -96,8 +65,10 @@ export const discussionsAPI = {
     return APIClient.delete(`${API_ROUTES.DISCUSSIONS.DELETE}/${id}`);
   },
 
-  async start(id: string): Promise<Discussion> {
-    return APIClient.post<Discussion>(`${API_ROUTES.DISCUSSIONS.START}/${id}/start`);
+  async start(id: string, startedBy?: string): Promise<Discussion> {
+    return APIClient.post<Discussion>(`${API_ROUTES.DISCUSSIONS.START}/${id}/start`, { 
+      startedBy: startedBy || 'current-user' // TODO: Get from auth context
+    });
   },
 
   async pause(id: string, reason?: string): Promise<Discussion> {
@@ -150,8 +121,8 @@ export const discussionsAPI = {
     );
   },
 
-  async getAnalytics(discussionId: string): Promise<DiscussionAnalytics> {
-    return APIClient.get<DiscussionAnalytics>(
+  async getAnalytics(discussionId: string): Promise<SharedDiscussionAnalytics> {
+    return APIClient.get<SharedDiscussionAnalytics>(
       `${API_ROUTES.DISCUSSIONS.ANALYTICS}/${discussionId}/analytics`
     );
   },
