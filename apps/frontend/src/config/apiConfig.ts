@@ -148,6 +148,31 @@ export const API_ROUTES = {
     LEARNING_INSIGHTS: '/api/v1/knowledge/learning-insights'
   },
 
+  // Project Management Service routes
+  PROJECTS: {
+    BASE: '/api/v1/projects',
+    LIST: '/api/v1/projects',
+    GET: '/api/v1/projects',
+    CREATE: '/api/v1/projects',
+    UPDATE: '/api/v1/projects',
+    DELETE: '/api/v1/projects',
+    METRICS: '/api/v1/projects',
+    ANALYTICS: '/api/v1/projects/analytics',
+    // Task management
+    TASKS: '/api/v1/projects',
+    CREATE_TASK: '/api/v1/projects',
+    UPDATE_TASK: '/api/v1/projects',
+    DELETE_TASK: '/api/v1/projects',
+    // Agent management
+    AGENTS: '/api/v1/projects',
+    ADD_AGENT: '/api/v1/projects',
+    REMOVE_AGENT: '/api/v1/projects',
+    UPDATE_AGENT: '/api/v1/projects',
+    // Tool usage
+    TOOL_USAGE: '/api/v1/projects',
+    RECORD_USAGE: '/api/v1/projects'
+  },
+
   // System metrics and monitoring
   SYSTEM: '/api/v1/system',
 

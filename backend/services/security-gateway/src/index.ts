@@ -17,6 +17,7 @@ import userLLMProviderRoutes from './routes/userLLMProviderRoutes.js';
 // import userPersonaRoutes from './routes/userPersonaRoutes.js';
 import contactRoutes from './routes/contactRoutes.js';
 import userToolPreferencesRoutes from './routes/userToolPreferencesRoutes.js';
+import projectRoutes from './routes/projectRoutes.js';
 
 // Import services
 import { SecurityGatewayService } from './services/securityGatewayService.js';
@@ -136,6 +137,7 @@ class SecurityGatewayServer extends BaseService {
     this.app.use('/api/v1/llm', userLLMProviderRoutes);
     // this.app.use('/api/v1/users/persona', userPersonaRoutes);
     this.app.use('/api/v1/contacts', contactRoutes);
+    this.app.use('/api/v1/projects', projectRoutes);
   }
 
   protected async setupEventSubscriptions(): Promise<void> {

@@ -79,6 +79,16 @@ export { ProjectEntity } from './project.entity.js';
 export { ProjectMemberEntity } from './project-member.entity.js';
 export { ProjectFileEntity } from './project-file.entity.js';
 
+// Project Management entities (from Project.ts)
+export { 
+  Project, 
+  ProjectTask, 
+  ProjectToolUsage, 
+  ProjectAgent, 
+  ProjectWorkflow, 
+  TaskExecution 
+} from './Project.js';
+
 // Short Link System entities
 export { ShortLinkEntity } from './short-link.entity.js';
 

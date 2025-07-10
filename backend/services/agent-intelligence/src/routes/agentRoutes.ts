@@ -242,6 +242,7 @@ export function createAgentRoutes(): Router {
 
   // Agent learning endpoint
   router.post('/:agentId/learn',
+    ensureServicesReady,
     authMiddleware,
     loadAgentContext,
     trackAgentOperation('agent-learn'),
@@ -249,6 +250,10 @@ export function createAgentRoutes(): Router {
       try {
         if (!req.agentContext) {
           res.status(401).json({ error: 'Agent context required' });
+          return;
+        }
+        if (!agentLearning) {
+          res.status(503).json({ error: 'Learning service not available' });
           return;
         }
         const learningData = req.body as Record<string, unknown>;
@@ -273,6 +278,7 @@ export function createAgentRoutes(): Router {
 
   // Agent chat endpoint
   router.post('/:agentId/chat',
+    ensureServicesReady,
     authMiddleware,
     loadAgentContext,
     trackAgentOperation('agent-chat'),
@@ -280,6 +286,10 @@ export function createAgentRoutes(): Router {
       try {
         if (!req.agentContext) {
           res.status(401).json({ error: 'Agent context required' });
+          return;
+        }
+        if (!agentDiscussion) {
+          res.status(503).json({ error: 'Discussion service not available' });
           return;
         }
         const messageData = req.body as Record<string, unknown>;

@@ -249,18 +249,26 @@ export class UserLLMService {
   /**
    * Generate LLM response using user's providers
    */
-  async generateResponse(userId: string, request: LLMRequest, preferredType?: UserLLMProviderType): Promise<LLMResponse> {
+  async generateResponse(userId: string, request: LLMRequest, provider?: UserLLMProvider): Promise<LLMResponse> {
     const startTime = Date.now();
 
     try {
-      const provider = await this.getBestUserProvider(userId, preferredType);
+      // Get provider if not provided
       if (!provider) {
-        return {
-          content: 'I apologize, but you have no active LLM providers configured. Please add an API key for at least one provider in your settings.',
-          model: 'unavailable',
-          error: 'No active providers available for user',
-          finishReason: 'error'
-        };
+        const providers = await this.getUserProviders(userId);
+        if (providers.length === 0) {
+          throw new Error('No LLM providers configured for user');
+        }
+        provider = providers[0]; // Use first available provider
+      }
+
+      // Ensure we have a fresh entity instance if the provider might be a plain object
+      if (provider.id && typeof provider.getProviderConfig !== 'function') {
+        const repository = await this.getUserLLMProviderRepository();
+        const freshProvider = await repository.findById(provider.id);
+        if (freshProvider) {
+          provider = freshProvider;
+        }
       }
 
       logger.info('Generating LLM response for user', {
@@ -441,8 +449,62 @@ export class UserLLMService {
     return provider;
   }
 
+  /**
+   * Get provider configuration safely - handles both entity instances and plain objects
+   */
+  private getProviderConfig(userProvider: UserLLMProvider): {
+    type: UserLLMProviderType;
+    baseUrl?: string;
+    apiKey?: string;
+    defaultModel?: string;
+    timeout?: number;
+    retries?: number;
+  } {
+    // Check if this is a proper entity instance with the method
+    if (typeof userProvider.getProviderConfig === 'function') {
+      return userProvider.getProviderConfig();
+    }
+    
+    // Handle plain object case - reconstruct the config manually
+    const getDefaultBaseUrl = (type: UserLLMProviderType): string => {
+      switch (type) {
+        case 'openai':
+          return 'https://api.openai.com';
+        case 'anthropic':
+          return 'https://api.anthropic.com';
+        case 'google':
+          return 'https://generativelanguage.googleapis.com';
+        case 'ollama':
+          return 'http://localhost:11434';
+        case 'llmstudio':
+          return 'http://localhost:1234';
+        default:
+          return userProvider.baseUrl || '';
+      }
+    };
+
+    const getApiKey = (): string | undefined => {
+      if (!userProvider.apiKeyEncrypted) {
+        return undefined;
+      }
+      // For plain objects, we can't decrypt, so return undefined
+      // The provider will need to handle this case
+      return undefined;
+    };
+
+    return {
+      type: userProvider.type,
+      baseUrl: userProvider.baseUrl || getDefaultBaseUrl(userProvider.type),
+      apiKey: getApiKey(),
+      defaultModel: userProvider.defaultModel,
+      timeout: userProvider.configuration?.timeout,
+      retries: userProvider.configuration?.retries,
+    };
+  }
+
   private async createProviderInstance(userProvider: UserLLMProvider): Promise<BaseProvider> {
-    const config = userProvider.getProviderConfig();
+    // Get config safely - handle both entity instances and plain objects
+    const config = this.getProviderConfig(userProvider);
     
     switch (userProvider.type) {
       case 'ollama':

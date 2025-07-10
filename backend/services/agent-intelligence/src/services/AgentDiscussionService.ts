@@ -1,5 +1,5 @@
 import { logger } from '@uaip/utils';
-import { EventBusService } from '@uaip/shared-services';
+import { EventBusService, AgentService } from '@uaip/shared-services';
 
 export interface DiscussionMessage {
   id: string;
@@ -29,6 +29,7 @@ export interface DiscussionResponse {
 
 export class AgentDiscussionService {
   private eventBusService: EventBusService;
+  private agentService: AgentService;
   private conversationCache: Map<string, DiscussionMessage[]> = new Map();
   private pendingLLMRequests: Map<string, {
     resolve: (response: any) => void;
@@ -38,6 +39,7 @@ export class AgentDiscussionService {
 
   constructor() {
     this.eventBusService = EventBusService.getInstance();
+    this.agentService = AgentService.getInstance();
     this.setupLLMEventSubscriptions();
   }
 
@@ -362,16 +364,36 @@ export class AgentDiscussionService {
           }
         ];
 
+        // Get agent configuration for model/provider settings
+        const agent = await this.agentService.findAgentById(agentId);
+        if (!agent) {
+          throw new Error(`Agent ${agentId} not found`);
+        }
+
+        // Use agent's model/provider configuration
+        const effectiveModel = agent.modelId || 'llama2';
+        const effectiveProvider = agent.apiType || 'ollama';
+        const effectiveMaxTokens = agent.maxTokens || 500;
+        const effectiveTemperature = agent.temperature || 0.7;
+
+        logger.info('Using agent configuration for LLM request', {
+          agentId,
+          effectiveModel,
+          effectiveProvider,
+          effectiveMaxTokens,
+          effectiveTemperature
+        });
+
         // Publish LLM generation request via event bus
         await this.eventBusService.publish('llm.agent.generate.request', {
           requestId,
           agentId,
           messages,
           systemPrompt: this.buildSystemPrompt(intent, strategy, agentId),
-          maxTokens: 500,
-          temperature: 0.7,
-          model: 'llama2', // Could be agent-specific
-          provider: 'ollama' // Could be agent-specific
+          maxTokens: effectiveMaxTokens,
+          temperature: effectiveTemperature,
+          model: effectiveModel,
+          provider: effectiveProvider
         });
 
         logger.debug('LLM generation request published', { requestId, agentId });

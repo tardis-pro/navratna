@@ -5,6 +5,7 @@ import { CapabilityRepository } from '../database/repositories/CapabilityReposit
 import { Agent } from '../entities/agent.entity';
 import { Capability } from '../entities/capability.entity';
 import { AgentStatus, AgentRole, SecurityLevel } from '@uaip/types';
+import { EventBusService } from '../eventBusService';
 
 export class AgentService {
   private static instance: AgentService;
@@ -13,9 +14,17 @@ export class AgentService {
   // Core repositories
   private agentRepository: AgentRepository | null = null;
   private capabilityRepository: CapabilityRepository | null = null;
+  private eventBusService: EventBusService | null = null;
 
   private constructor() {
     this.typeormService = TypeOrmService.getInstance();
+  }
+
+  private getEventBusService(): EventBusService {
+    if (!this.eventBusService) {
+      this.eventBusService = EventBusService.getInstance();
+    }
+    return this.eventBusService;
   }
 
   public static getInstance(): AgentService {
@@ -81,7 +90,67 @@ export class AgentService {
   }
 
   public async updateAgent(id: string, data: Partial<Agent>): Promise<Agent | null> {
-    return await this.getAgentRepository().update(id, data);
+    const originalAgent = await this.getAgentRepository().findById(id);
+    if (!originalAgent) {
+      return null;
+    }
+
+    const updatedAgent = await this.getAgentRepository().update(id, data);
+    
+    // Check if model or provider configuration changed
+    if (updatedAgent && this.hasModelConfigChanged(originalAgent, updatedAgent)) {
+      try {
+        await this.publishAgentConfigChangeEvent(updatedAgent);
+      } catch (error) {
+        logger.error('Failed to publish agent config change event', { 
+          agentId: id, 
+          error: error.message 
+        });
+      }
+    }
+    
+    return updatedAgent;
+  }
+
+  private hasModelConfigChanged(original: Agent, updated: Agent): boolean {
+    return (
+      original.modelId !== updated.modelId ||
+      original.apiType !== updated.apiType ||
+      original.userLLMProviderId !== updated.userLLMProviderId ||
+      original.temperature !== updated.temperature ||
+      original.maxTokens !== updated.maxTokens
+    );
+  }
+
+  private async publishAgentConfigChangeEvent(agent: Agent): Promise<void> {
+    const eventBus = this.getEventBusService();
+    
+    logger.info('Publishing agent configuration change event', {
+      agentId: agent.id,
+      modelId: agent.modelId,
+      apiType: agent.apiType,
+      userLLMProviderId: agent.userLLMProviderId
+    });
+
+    await eventBus.publish('agent.config.changed', {
+      agentId: agent.id,
+      modelId: agent.modelId,
+      apiType: agent.apiType,
+      userLLMProviderId: agent.userLLMProviderId,
+      temperature: agent.temperature,
+      maxTokens: agent.maxTokens,
+      timestamp: new Date().toISOString()
+    });
+
+    // Also publish general provider change event for LLM service cache invalidation
+    await eventBus.publish('llm.provider.changed', {
+      eventType: 'agent-config-changed',
+      agentId: agent.id,
+      modelId: agent.modelId,
+      apiType: agent.apiType,
+      userLLMProviderId: agent.userLLMProviderId,
+      timestamp: new Date().toISOString()
+    });
   }
 
   public async updateAgentStatus(id: string, status: AgentStatus): Promise<boolean> {

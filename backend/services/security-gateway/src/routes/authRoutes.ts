@@ -82,7 +82,7 @@ async function verifyPassword(password: string, hash: string): Promise<boolean> 
 function generateTokens(userId: string, email: string, role: string) {
   const jwtSecret = config.jwt.secret as string;
   const refreshSecret = config.jwt.refreshSecret as string;
-  
+
   if (!jwtSecret || !refreshSecret) {
     throw new Error('JWT secrets not configured');
   }
@@ -106,7 +106,7 @@ function generateTokens(userId: string, email: string, role: string) {
  * @desc Authenticate user and return JWT tokens
  * @access Public
  */
-router.post('/login', 
+router.post('/login',
   validateRequest({ body: loginSchema }),
   async (req, res) => {
     try {
@@ -115,7 +115,7 @@ router.post('/login',
       // Find user in database using TypeORM
       const { userService, auditService } = await getServices();
       const user = await userService.findUserByEmail(email);
-      
+
       if (!user) {
         await auditService.logSecurityEvent({
           eventType: AuditEventType.LOGIN_FAILED,
@@ -129,7 +129,6 @@ router.post('/login',
           error: 'Authentication Failed',
           message: 'Invalid email or password'
         });
-      return;
         return;
       }
 
@@ -147,7 +146,6 @@ router.post('/login',
           error: 'Authentication Failed',
           message: 'Account is inactive'
         });
-      return;
         return;
       }
 
@@ -165,13 +163,12 @@ router.post('/login',
           error: 'Authentication Failed',
           message: 'Account is temporarily locked due to multiple failed login attempts'
         });
-      return;
         return;
       }
 
       // Verify password
       const isValidPassword = await verifyPassword(password, user.passwordHash);
-      
+
       if (!isValidPassword) {
         // Increment failed login attempts
         const failedAttempts = (user.failedLoginAttempts) + 1;
@@ -194,8 +191,8 @@ router.post('/login',
         await auditService.logSecurityEvent({
           eventType: AuditEventType.LOGIN_FAILED,
           userId: user.id,
-          details: { 
-            email, 
+          details: {
+            email,
             reason: 'Invalid password',
             failedAttempts,
             accountLocked: failedAttempts >= maxAttempts
@@ -208,7 +205,6 @@ router.post('/login',
           error: 'Authentication Failed',
           message: 'Invalid email or password'
         });
-      return;
         return;
       }
 
@@ -233,15 +229,17 @@ router.post('/login',
         userAgent: req.headers['user-agent']
       });
 
-      // TODO: Create default LLM providers for new users (fire and forget)
+      // Create default LLM providers for new users (fire and forget)
+      // const { DefaultUserLLMProviderSeed, DatabaseService } = await import('@uaip/shared-services');
+      // const databaseService = DatabaseService.getInstance();
       // DefaultUserLLMProviderSeed.createDefaultProvidersForUser(
       //   databaseService.dataSource,
       //   user.id,
       //   user.role
       // ).catch(error => {
-      //   logger.warn('Failed to create default LLM providers for user', { 
-      //     error, 
-      //     userId: user.id 
+      //   logger.warn('Failed to create default LLM providers for user', {
+      //     error,
+      //     userId: user.id
       //   });
       // });
 
@@ -276,7 +274,6 @@ router.post('/login',
         message: 'An error occurred during login'
       });
       return;
-        return;
     }
   });
 
@@ -285,7 +282,7 @@ router.post('/login',
  * @desc Refresh access token using refresh token
  * @access Public
  */
-router.post('/refresh', 
+router.post('/refresh',
   validateRequest({ body: refreshTokenSchema }),
   async (req, res) => {
     try {
@@ -300,20 +297,20 @@ router.post('/refresh',
           error: 'Invalid Token',
           message: 'Refresh token is invalid or expired'
         });
-      return;
+        return;
         return;
       }
 
       // Check if refresh token exists in database using TypeORM
       const { userService, auditService } = await getServices();
       const tokenData = await userService.getRefreshTokenWithUser(refreshToken);
-      
+
       if (!tokenData || tokenData.revokedAt || tokenData.expiresAt <= new Date()) {
         res.status(401).json({
           error: 'Invalid Token',
           message: 'Refresh token not found or expired'
         });
-      return;
+        return;
         return;
       }
 
@@ -323,7 +320,7 @@ router.post('/refresh',
           error: 'Account Inactive',
           message: 'User account is no longer active'
         });
-      return;
+        return;
         return;
       }
 
@@ -365,7 +362,7 @@ router.post('/refresh',
         message: 'An error occurred during token refresh'
       });
       return;
-        return;
+      return;
     }
   });
 
@@ -412,8 +409,8 @@ router.post('/logout', authMiddleware, async (req, res) => {
       error: 'Internal Server Error',
       message: 'An error occurred during logout'
     });
-      return;
-        return;
+    return;
+    return;
   }
 });
 
@@ -422,8 +419,8 @@ router.post('/logout', authMiddleware, async (req, res) => {
  * @desc Change user password
  * @access Private
  */
-router.post('/change-password', 
-  authMiddleware, 
+router.post('/change-password',
+  authMiddleware,
   validateRequest({ body: changePasswordSchema }),
   async (req, res) => {
     try {
@@ -433,13 +430,13 @@ router.post('/change-password',
       // Get current user using TypeORM
       const { userService, auditService } = await getServices();
       const user = await userService.findUserById(userId);
-      
+
       if (!user) {
         res.status(404).json({
           error: 'User Not Found',
           message: 'User account not found'
         });
-      return;
+        return;
         return;
       }
 
@@ -458,7 +455,7 @@ router.post('/change-password',
           error: 'Authentication Failed',
           message: 'Current password is incorrect'
         });
-      return;
+        return;
         return;
       }
 
@@ -490,7 +487,7 @@ router.post('/change-password',
         message: 'An error occurred while changing password'
       });
       return;
-        return;
+      return;
     }
   });
 
@@ -506,7 +503,7 @@ router.get('/me', authMiddleware, async (req, res) => {
     // Get user using TypeORM
     const { userService, auditService } = await getServices();
     const user = await userService.findUserById(userId);
-    
+
     if (!user) {
       res.status(404).json({
         success: false,
@@ -519,7 +516,7 @@ router.get('/me', authMiddleware, async (req, res) => {
         }
       });
       return;
-        return;
+      return;
     }
 
     res.json({
@@ -554,8 +551,8 @@ router.get('/me', authMiddleware, async (req, res) => {
         timestamp: new Date()
       }
     });
-      return;
-        return;
+    return;
+    return;
   }
 });
 
@@ -564,7 +561,7 @@ router.get('/me', authMiddleware, async (req, res) => {
  * @desc Send password reset email
  * @access Public
  */
-router.post('/forgot-password', 
+router.post('/forgot-password',
   validateRequest({ body: forgotPasswordSchema }),
   async (req, res) => {
     try {
@@ -610,7 +607,7 @@ router.post('/forgot-password',
         message: 'An error occurred while processing password reset request'
       });
       return;
-        return;
+      return;
     }
   });
 
@@ -619,7 +616,7 @@ router.post('/forgot-password',
  * @desc Reset password using reset token
  * @access Public
  */
-router.post('/reset-password', 
+router.post('/reset-password',
   validateRequest({ body: resetPasswordSchema }),
   async (req, res) => {
     try {
@@ -634,20 +631,20 @@ router.post('/reset-password',
           error: 'Invalid Token',
           message: 'Reset token is invalid or expired'
         });
-      return;
+        return;
         return;
       }
 
       // Check if reset token exists in database using TypeORM
       const { userService, auditService } = await getServices();
       const resetTokenData = await userService.getPasswordResetTokenWithUser(token);
-      
+
       if (!resetTokenData || resetTokenData.usedAt || resetTokenData.expiresAt <= new Date()) {
         res.status(401).json({
           error: 'Invalid Token',
           message: 'Reset token not found, expired, or already used'
         });
-      return;
+        return;
         return;
       }
 
@@ -657,7 +654,7 @@ router.post('/reset-password',
           error: 'Account Inactive',
           message: 'User account is no longer active'
         });
-      return;
+        return;
         return;
       }
 
@@ -692,7 +689,7 @@ router.post('/reset-password',
         message: 'An error occurred while resetting password'
       });
       return;
-        return;
+      return;
     }
   });
 

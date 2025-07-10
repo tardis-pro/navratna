@@ -49,14 +49,14 @@ class LLMServiceServer extends BaseService {
       logger.info('Raw event received', { event });
       const { requestId, agentRequest, userId } = event.data || event;
       logger.info('Processing user LLM request', { requestId, userId, hasAgentRequest: !!agentRequest });
-      
+
       // Import and use UserLLMService from shared package
       const { UserLLMService } = await import('@uaip/llm-service');
       const userLLMService = new UserLLMService();
-      
+
       // Add error handling and better logging
-      logger.info('Calling UserLLMService.generateAgentResponse', { 
-        userId, 
+      logger.info('Calling UserLLMService.generateAgentResponse', {
+        userId,
         hasAgentRequest: !!agentRequest,
         agentRequestKeys: agentRequest ? Object.keys(agentRequest) : [],
         hasAgent: agentRequest?.agent ? true : false,
@@ -64,27 +64,27 @@ class LLMServiceServer extends BaseService {
         hasContext: agentRequest?.context ? true : false
       });
       const response = await userLLMService.generateAgentResponse(userId, agentRequest);
-      logger.info('UserLLMService response received', { 
+      logger.info('UserLLMService response received', {
         hasResponse: !!response,
         responseContent: response?.content?.substring(0, 100),
         responseModel: response?.model,
         responseError: response?.error
       });
-      
+
       // Publish response
       const responseChannel = `llm.response.${requestId}`;
       logger.info('Publishing LLM response', { responseChannel, hasResponse: !!response });
       await this.eventBusService.publish(responseChannel, response);
-      
+
       logger.info('User LLM request processed', { requestId, userId });
     } catch (error) {
-      logger.error('Failed to process user LLM request', { 
-        error: error.message, 
+      logger.error('Failed to process user LLM request', {
+        error: error.message,
         stack: error.stack,
         requestId: event?.data?.requestId || event?.requestId,
-        userId: event?.data?.userId || event?.userId 
+        userId: event?.data?.userId || event?.userId
       });
-      
+
       // Publish error response
       try {
         await this.eventBusService.publish(`llm.response.${event?.data?.requestId || event?.requestId}`, {
@@ -101,25 +101,25 @@ class LLMServiceServer extends BaseService {
     try {
       const { requestId, agentRequest } = event.data || event;
       logger.info('Processing global LLM request', { requestId });
-      
+
       // Import and use LLMService
       const { llmService } = await import('@uaip/llm-service');
       // llmService is already a singleton instance
       logger.info('Calling llmService.generateAgentResponse', { hasAgentRequest: !!agentRequest });
       const response = await llmService.generateAgentResponse(agentRequest);
       logger.info('LLMService response received', { hasResponse: !!response });
-      
+
       // Publish response
       await this.eventBusService.publish(`llm.response.${requestId}`, response);
-      
+
       logger.info('Global LLM request processed', { requestId });
     } catch (error) {
-      logger.error('Failed to process global LLM request', { 
-        error: error.message, 
+      logger.error('Failed to process global LLM request', {
+        error: error.message,
         stack: error.stack,
-        requestId: event?.data?.requestId || event?.requestId 
+        requestId: event?.data?.requestId || event?.requestId
       });
-      
+
       // Publish error response
       try {
         await this.eventBusService.publish(`llm.response.${event?.data?.requestId || event?.requestId}`, {
@@ -135,56 +135,209 @@ class LLMServiceServer extends BaseService {
   private async handleAgentGenerateRequest(event: any): Promise<void> {
     try {
       const { requestId, agentId, messages, systemPrompt, maxTokens, temperature, model, provider } = event.data || event;
-      
-      logger.info('Processing agent generate request', { 
-        requestId, 
-        agentId, 
+
+      logger.info('Processing agent generate request', {
+        requestId,
+        agentId,
         messageCount: messages?.length,
         model,
-        provider 
+        provider
       });
 
       // Get agent configuration from database
       const { AgentService } = await import('@uaip/shared-services');
       const agentService = AgentService.getInstance();
       const agent = await agentService.findAgentById(agentId);
-      
+
       if (!agent) {
+        logger.error('Agent not found', { agentId });
         throw new Error(`Agent ${agentId} not found`);
       }
 
-      // Determine the best provider and model using fallback logic
-      const { effectiveProvider, effectiveModel } = await this.determineProviderAndModel(
-        agent, 
-        model, 
-        provider
-      );
+      logger.info('Agent found', {
+        agentId: agent.id,
+        agentModelId: agent.modelId,
+        agentApiType: agent.apiType,
+        userLLMProviderId: agent.userLLMProviderId,
+        createdBy: agent.createdBy
+      });
 
-      logger.info('Determined effective provider and model', { 
+      // Use agent's model if available, otherwise use requested model
+      const effectiveModel = agent.modelId || model || 'llama2';
+      let effectiveProvider = provider;
+
+      // If provider is explicitly provided in the request, use it first
+      if (provider) {
+        logger.info('Using explicitly provided provider', {
+          agentId,
+          providedProvider: provider,
+          effectiveModel
+        });
+        effectiveProvider = provider;
+      }
+      // If agent has specific provider configured, use that
+      else if (agent.userLLMProviderId) {
+        logger.info('Agent has specific provider configured', {
+          agentId,
+          userLLMProviderId: agent.userLLMProviderId
+        });
+
+        try {
+          const { UserLLMService } = await import('@uaip/llm-service');
+          const userLLMService = new UserLLMService();
+          const agentProvider = await userLLMService.getUserProviderById(agent.userLLMProviderId);
+
+          if (agentProvider && agentProvider.isActive) {
+            effectiveProvider = agentProvider.type;
+            logger.info('Using agent-specific provider', {
+              agentId,
+              providerId: agentProvider.id,
+              providerType: agentProvider.type,
+              effectiveModel
+            });
+          }
+        } catch (error) {
+          logger.error('Failed to get agent provider, using fallback', {
+            agentId,
+            error: error.message
+          });
+        }
+      }
+
+      // If no specific provider found yet, try to find user provider that supports the model
+      if (!effectiveProvider && agent.createdBy) {
+        logger.info('Looking for user provider that supports model', {
+          userId: agent.createdBy,
+          effectiveModel
+        });
+
+        try {
+          const { UserLLMService } = await import('@uaip/llm-service');
+          const userLLMService = new UserLLMService();
+          const userProviders = await userLLMService.getActiveUserProviders(agent.createdBy);
+
+          // Parse model ID to extract provider UUID if it's in format: {uuid}-{model-name}
+          const uuidRegex = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i;
+          const uuidMatch = effectiveModel.match(uuidRegex);
+
+          if (uuidMatch) {
+            const providerId = uuidMatch[1];
+            const matchingProvider = userProviders.find(p => p.id === providerId);
+            if (matchingProvider && matchingProvider.isActive) {
+              effectiveProvider = matchingProvider.type;
+              logger.info('Using provider from model ID', {
+                agentId,
+                effectiveModel,
+                providerId: matchingProvider.id,
+                providerType: matchingProvider.type,
+                extractedUuid: providerId
+              });
+            }
+          }
+
+          // Fallback to simple model-to-provider mapping if UUID extraction didn't work
+          if (!effectiveProvider) {
+            if (effectiveModel.includes('gpt') || effectiveModel.includes('openai')) {
+              const openaiProvider = userProviders.find(p => p.type === 'openai');
+              if (openaiProvider) {
+                effectiveProvider = 'openai';
+                logger.info('Using user OpenAI provider for GPT model', {
+                  agentId,
+                  effectiveModel,
+                  providerId: openaiProvider.id
+                });
+              }
+            } else if (effectiveModel.includes('claude') || effectiveModel.includes('anthropic')) {
+              const anthropicProvider = userProviders.find(p => p.type === 'anthropic');
+              if (anthropicProvider) {
+                effectiveProvider = 'anthropic';
+                logger.info('Using user Anthropic provider for Claude model', {
+                  agentId,
+                  effectiveModel,
+                  providerId: anthropicProvider.id
+                });
+              }
+            }
+          }
+        } catch (error) {
+          logger.error('Failed to get user providers, using fallback', {
+            agentId,
+            userId: agent.createdBy,
+            error: error.message
+          });
+        }
+      }
+
+      logger.info('Final provider and model selection', {
         requestId,
         agentId,
         effectiveProvider,
         effectiveModel,
-        agentModel: agent.modelId,
-        agentProvider: agent.userLLMProviderId
+        fallbackToGlobal: !effectiveProvider
       });
 
-      // Import and use LLMService
-      const { llmService } = await import('@uaip/llm-service');
-      
       // Convert messages to the format expected by LLMService
       const prompt = this.buildPromptFromMessages(messages);
-      
-      // Generate response using LLMService with determined provider
-      const response = await llmService.generateResponse({
-        prompt,
-        systemPrompt,
-        maxTokens: maxTokens || agent.maxTokens || 500,
-        temperature: temperature || agent.temperature || 0.7,
-        model: effectiveModel
-      }, effectiveProvider);
 
-      logger.info('LLM generation completed', { 
+      let response;
+
+      // Use UserLLMService if we have user context (agent.createdBy) to leverage user's configured providers
+      if (agent.createdBy) {
+        logger.info('Using UserLLMService for agent with user context', {
+          agentId,
+          userId: agent.createdBy,
+          effectiveProvider
+        });
+
+        try {
+          const { UserLLMService } = await import('@uaip/llm-service');
+          const userLLMService = new UserLLMService();
+
+          response = await userLLMService.generateResponse(agent.createdBy, {
+            prompt,
+            systemPrompt,
+            maxTokens: maxTokens || agent.maxTokens || 500,
+            temperature: temperature || agent.temperature || 0.7,
+            model: effectiveModel
+          });
+
+          logger.info('UserLLMService generation completed', {
+            agentId,
+            userId: agent.createdBy,
+            hasContent: !!response.content
+          });
+        } catch (userServiceError) {
+          logger.error('UserLLMService failed, falling back to global service', {
+            agentId,
+            userId: agent.createdBy,
+            error: userServiceError.message
+          });
+
+          // Fallback to global service if UserLLMService fails
+          const { llmService } = await import('@uaip/llm-service');
+          response = await llmService.generateResponse({
+            prompt,
+            systemPrompt,
+            maxTokens: maxTokens || agent.maxTokens || 500,
+            temperature: temperature || agent.temperature || 0.7,
+            model: effectiveModel
+          }, effectiveProvider);
+        }
+      } else {
+        // Use global LLMService for agents without user context
+        logger.info('Using global LLMService for agent without user context', { agentId });
+
+        const { llmService } = await import('@uaip/llm-service');
+        response = await llmService.generateResponse({
+          prompt,
+          systemPrompt,
+          maxTokens: maxTokens || agent.maxTokens || 500,
+          temperature: temperature || agent.temperature || 0.7,
+          model: effectiveModel
+        }, effectiveProvider);
+      }
+
+      logger.info('LLM generation completed', {
         requestId,
         hasContent: !!response.content,
         model: response.model,
@@ -208,13 +361,13 @@ class LLMServiceServer extends BaseService {
       logger.info('Agent generate response published', { requestId, agentId });
 
     } catch (error) {
-      logger.error('Failed to process agent generate request', { 
-        error: error.message, 
+      logger.error('Failed to process agent generate request', {
+        error: error.message,
         stack: error.stack,
         requestId: event?.data?.requestId || event?.requestId,
         agentId: event?.data?.agentId || event?.agentId
       });
-      
+
       // Publish error response
       try {
         await this.eventBusService.publish('llm.agent.generate.response', {
@@ -247,7 +400,7 @@ class LLMServiceServer extends BaseService {
 
     // Add the assistant prompt at the end
     prompt += 'Assistant:';
-    
+
     return prompt;
   }
 
@@ -256,7 +409,7 @@ class LLMServiceServer extends BaseService {
     if (response.error) {
       return 0;
     }
-    
+
     if (!response.content || response.content.trim().length === 0) {
       return 0.1;
     }
@@ -306,7 +459,7 @@ class LLMServiceServer extends BaseService {
 
       // 1. Check if agent has specific provider configured
       if (agent.userLLMProviderId) {
-        logger.info('Agent has specific provider configured', { 
+        logger.info('Agent has specific provider configured', {
           agentId: agent.id,
           userLLMProviderId: agent.userLLMProviderId,
           agentModelId: agent.modelId
@@ -316,7 +469,7 @@ class LLMServiceServer extends BaseService {
           const agentProvider = await userLLMService.getUserProviderById(agent.userLLMProviderId);
           if (agentProvider && agentProvider.isActive) {
             const effectiveModel = requestedModel || agent.modelId || agentProvider.defaultModel || 'llama2';
-            logger.info('Using agent-specific provider', { 
+            logger.info('Using agent-specific provider', {
               providerId: agentProvider.id,
               providerType: agentProvider.type,
               effectiveModel
@@ -327,7 +480,7 @@ class LLMServiceServer extends BaseService {
             };
           }
         } catch (error) {
-          logger.warn('Failed to get agent-specific provider, falling back', { 
+          logger.warn('Failed to get agent-specific provider, falling back', {
             agentId: agent.id,
             userLLMProviderId: agent.userLLMProviderId,
             error: error.message
@@ -337,7 +490,7 @@ class LLMServiceServer extends BaseService {
 
       // 2. Check user's providers that support the requested model
       if (agent.createdBy) {
-        logger.info('Checking user providers', { 
+        logger.info('Checking user providers', {
           userId: agent.createdBy,
           requestedModel,
           agentModelId: agent.modelId
@@ -345,11 +498,11 @@ class LLMServiceServer extends BaseService {
 
         const userProviders = await userLLMService.getActiveUserProviders(agent.createdBy);
         const effectiveModel = requestedModel || agent.modelId || 'llama2';
-        
+
         // Try to find a provider that supports the model
         for (const provider of userProviders) {
           if (this.providerSupportsModel(provider.type, effectiveModel)) {
-            logger.info('Using user provider that supports model', { 
+            logger.info('Using user provider that supports model', {
               providerId: provider.id,
               providerType: provider.type,
               effectiveModel
@@ -363,7 +516,7 @@ class LLMServiceServer extends BaseService {
       }
 
       // 3. Fall back to global provider
-      logger.info('Falling back to global provider', { 
+      logger.info('Falling back to global provider', {
         requestedProvider,
         requestedModel,
         agentModelId: agent.modelId
@@ -371,18 +524,18 @@ class LLMServiceServer extends BaseService {
 
       const effectiveModel = requestedModel || agent.modelId || 'llama2';
       const effectiveProvider = requestedProvider || this.getProviderTypeFromModel(effectiveModel);
-      
+
       return {
         effectiveProvider,
         effectiveModel
       };
 
     } catch (error) {
-      logger.error('Error determining provider and model', { 
+      logger.error('Error determining provider and model', {
         agentId: agent.id,
         error: error.message
       });
-      
+
       // Final fallback
       return {
         effectiveProvider: requestedProvider,
@@ -396,15 +549,15 @@ class LLMServiceServer extends BaseService {
     if (model.includes('gpt') || model.includes('openai')) {
       return providerType === 'openai';
     }
-    
+
     if (model.includes('llama') || model.includes('ollama')) {
       return providerType === 'ollama';
     }
-    
+
     if (model.includes('claude') || model.includes('anthropic')) {
       return providerType === 'anthropic';
     }
-    
+
     // Default: assume llmstudio can handle most models
     return providerType === 'llmstudio';
   }
@@ -413,41 +566,50 @@ class LLMServiceServer extends BaseService {
     if (model.includes('gpt') || model.includes('openai')) {
       return 'openai';
     }
-    
+
     if (model.includes('llama') || model.includes('ollama')) {
       return 'ollama';
     }
-    
+
     if (model.includes('claude') || model.includes('anthropic')) {
       return 'anthropic';
     }
-    
+
     // Default fallback
     return 'ollama';
   }
 
   private async handleProviderChanged(event: any): Promise<void> {
     try {
-      const { eventType, providerId, providerType } = event.data || event;
-      
-      logger.info('Provider change event received', { 
-        eventType, 
-        providerId, 
-        providerType 
+      const { eventType, providerId, providerType, agentId } = event.data || event;
+
+      logger.info('Provider change event received', {
+        eventType,
+        providerId,
+        providerType,
+        agentId
       });
 
       // Import and refresh LLM service providers
       const { llmService } = await import('@uaip/llm-service');
       await llmService.refreshProviders();
-      
-      logger.info('LLM service providers refreshed due to provider change', { 
-        eventType, 
-        providerId, 
-        providerType 
+
+      // If this is an agent config change, clear any cached agent configurations
+      if (eventType === 'agent-config-changed' && agentId) {
+        logger.info('Clearing agent configuration cache', { agentId });
+        // Clear any agent-specific caches if they exist
+        // For now, the provider refresh should handle this, but we could add specific agent cache clearing here
+      }
+
+      logger.info('LLM service providers refreshed due to provider change', {
+        eventType,
+        providerId,
+        providerType,
+        agentId
       });
 
     } catch (error) {
-      logger.error('Failed to handle provider change event', { 
+      logger.error('Failed to handle provider change event', {
         error: error.message,
         event: event?.data || event
       });

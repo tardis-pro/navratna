@@ -59,16 +59,16 @@ router.get('/providers', async (req: Request, res: Response) => {
       data: sanitizedProviders
     });
   } catch (error) {
-    logger.error('Error getting user providers', { 
+    logger.error('Error getting user providers', {
       userId: req.user?.id,
-      error: error instanceof Error ? error.message : error 
+      error: error instanceof Error ? error.message : error
     });
     res.status(500).json({
       success: false,
       error: 'Failed to get user providers',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
-      return;
+    return;
   }
 });
 
@@ -123,16 +123,16 @@ router.post('/providers', async (req: Request, res: Response) => {
       }
     });
   } catch (error) {
-    logger.error('Error creating user provider', { 
+    logger.error('Error creating user provider', {
       userId: req.user?.id,
-      error: error instanceof Error ? error.message : error 
+      error: error instanceof Error ? error.message : error
     });
     res.status(500).json({
       success: false,
       error: 'Failed to create user provider',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
-      return;
+    return;
   }
 });
 
@@ -165,17 +165,17 @@ router.put('/providers/:providerId', async (req: Request, res: Response) => {
       message: 'Provider configuration updated successfully'
     });
   } catch (error) {
-    logger.error('Error updating user provider configuration', { 
+    logger.error('Error updating user provider configuration', {
       userId: req.user?.id,
       providerId: req.params.providerId,
-      error: error instanceof Error ? error.message : error 
+      error: error instanceof Error ? error.message : error
     });
     res.status(500).json({
       success: false,
       error: 'Failed to update provider configuration',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
-      return;
+    return;
   }
 });
 
@@ -209,17 +209,17 @@ router.put('/providers/:providerId/api-key', async (req: Request, res: Response)
       message: 'API key updated successfully'
     });
   } catch (error) {
-    logger.error('Error updating user provider API key', { 
+    logger.error('Error updating user provider API key', {
       userId: req.user?.id,
       providerId: req.params.providerId,
-      error: error instanceof Error ? error.message : error 
+      error: error instanceof Error ? error.message : error
     });
     res.status(500).json({
       success: false,
       error: 'Failed to update API key',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
-      return;
+    return;
   }
 });
 
@@ -242,17 +242,17 @@ router.post('/providers/:providerId/test', async (req: Request, res: Response) =
       data: result
     });
   } catch (error) {
-    logger.error('Error testing user provider', { 
+    logger.error('Error testing user provider', {
       userId: req.user?.id,
       providerId: req.params.providerId,
-      error: error instanceof Error ? error.message : error 
+      error: error instanceof Error ? error.message : error
     });
     res.status(500).json({
       success: false,
       error: 'Failed to test provider',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
-      return;
+    return;
   }
 });
 
@@ -276,17 +276,17 @@ router.delete('/providers/:providerId', async (req: Request, res: Response) => {
       message: 'Provider deleted successfully'
     });
   } catch (error) {
-    logger.error('Error deleting user provider', { 
+    logger.error('Error deleting user provider', {
       userId: req.user?.id,
       providerId: req.params.providerId,
-      error: error instanceof Error ? error.message : error 
+      error: error instanceof Error ? error.message : error
     });
     res.status(500).json({
       success: false,
       error: 'Failed to delete provider',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
-      return;
+    return;
   }
 });
 
@@ -331,17 +331,17 @@ router.get('/providers/type/:type', async (req: Request, res: Response) => {
       data: sanitizedProviders
     });
   } catch (error) {
-    logger.error('Error getting user providers by type', { 
+    logger.error('Error getting user providers by type', {
       userId: req.user?.id,
       type: req.params.type,
-      error: error instanceof Error ? error.message : error 
+      error: error instanceof Error ? error.message : error
     });
     res.status(500).json({
       success: false,
       error: 'Failed to get user providers by type',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
-      return;
+    return;
   }
 });
 
@@ -367,16 +367,16 @@ router.get('/models', async (req: Request, res: Response) => {
       data: models
     });
   } catch (error) {
-    logger.error('Error getting available models for user', { 
+    logger.error('Error getting available models for user', {
       userId: req.user?.id,
-      error: error instanceof Error ? error.message : error 
+      error: error instanceof Error ? error.message : error
     });
     res.status(500).json({
       success: false,
       error: 'Failed to get available models',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
-      return;
+    return;
   }
 });
 
@@ -408,23 +408,23 @@ router.post('/generate', async (req: Request, res: Response) => {
       maxTokens,
       temperature,
       model
-    }, preferredType);
+    });
 
     res.json({
       success: true,
       data: response
     });
   } catch (error) {
-    logger.error('Error generating LLM response for user', { 
+    logger.error('Error generating LLM response for user', {
       userId: req.user?.id,
-      error: error instanceof Error ? error.message : error 
+      error: error instanceof Error ? error.message : error
     });
     res.status(500).json({
       success: false,
       error: 'Failed to generate response',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
-      return;
+    return;
   }
 });
 
@@ -462,16 +462,16 @@ router.post('/agent-response', async (req: Request, res: Response) => {
       data: response
     });
   } catch (error) {
-    logger.error('Error generating agent response for user', { 
+    logger.error('Error generating agent response for user', {
       userId: req.user?.id,
-      error: error instanceof Error ? error.message : error 
+      error: error instanceof Error ? error.message : error
     });
     res.status(500).json({
       success: false,
       error: 'Failed to generate agent response',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
-      return;
+    return;
   }
 });
 
