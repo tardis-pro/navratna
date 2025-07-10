@@ -4,7 +4,8 @@ import {
   Home, Bot, Package, MessageSquare, Brain, Settings, BarChart3, Search, Target, TrendingUp, 
   Wrench, Plus, User, Activity, Clock, X, Minimize2, Shield, Menu, Power, Monitor, Folder, 
   Terminal, Globe, Calculator, Command, Image, StickyNote, Cloud, Edit3, Save, Trash2,
-  Sun, CloudSun, CloudRain, CloudSnow, MapPin, Thermometer, Wind, Droplets, History, Users, Upload
+  Sun, CloudSun, CloudRain, CloudSnow, MapPin, Thermometer, Wind, Droplets, History, Users, Upload,
+  Map, Layers, ZoomIn, ZoomOut, Navigation, RotateCcw, Eye, EyeOff, Moon, Palette, RefreshCw
 } from 'lucide-react';
 
 // Import portal components
@@ -36,7 +37,9 @@ import { ProjectTaskManager } from './ProjectTaskManager';
 import { UserPersonaOnboardingFlow } from './UserPersonaOnboardingFlow';
 import { MapWallpaper } from './futuristic/desktop/MapWallpaper';
 import { LocationService, LocationData } from '../services/LocationService';
+import { WeatherService } from '../services/WeatherService';
 import { userPersonaAPI } from '../api/user-persona.api';
+import { useUserPreferences } from '../contexts/UserPreferencesContext';
 
 // Design System Tokens
 const DESIGN_TOKENS = {
@@ -467,6 +470,128 @@ const DesktopNote: React.FC<{
   );
 };
 
+const MapControlPanel: React.FC<{
+  isVisible: boolean;
+  onToggleInteractive: () => void;
+  isInteractive: boolean;
+}> = ({ isVisible, onToggleInteractive, isInteractive }) => {
+  const [showControls, setShowControls] = useState(false);
+  const { effectiveTheme, setTheme, preferences } = useUserPreferences();
+
+  if (!isVisible) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 20 }}
+      className="fixed top-20 right-4 z-50"
+      onMouseEnter={() => setShowControls(true)}
+      onMouseLeave={() => setShowControls(false)}
+    >
+      {/* Collapsed Map Control */}
+      <motion.div
+        animate={{
+          opacity: showControls ? 0 : 1,
+          scale: showControls ? 0.8 : 1
+        }}
+        transition={{ duration: 0.2 }}
+        className={`
+          ${showControls ? 'pointer-events-none' : 'cursor-pointer'}
+          ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} 
+          ${DESIGN_TOKENS.radius.lg} ${DESIGN_TOKENS.colors.border} border 
+          ${DESIGN_TOKENS.shadow} p-3 w-12 h-12 flex items-center justify-center
+        `}
+      >
+        <Map className="w-5 h-5 text-blue-400" />
+      </motion.div>
+
+      {/* Expanded Map Controls */}
+      <AnimatePresence>
+        {showControls && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, x: 20 }}
+            animate={{ opacity: 1, scale: 1, x: 0 }}
+            exit={{ opacity: 0, scale: 0.9, x: 20 }}
+            transition={{ duration: 0.2 }}
+            className={`
+              absolute top-0 right-0
+              ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.radius.lg} 
+              ${DESIGN_TOKENS.colors.border} border ${DESIGN_TOKENS.shadow} p-3 min-w-[180px]
+            `}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Map className="w-4 h-4 text-blue-400" />
+                <span className="text-sm font-medium text-white">Map Controls</span>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Button
+                variant={isInteractive ? "primary" : "secondary"}
+                size="sm"
+                onClick={onToggleInteractive}
+                className="w-full justify-start"
+              >
+                {isInteractive ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                <span className="ml-2">
+                  {isInteractive ? 'Interactive' : 'Static'}
+                </span>
+              </Button>
+
+              {/* Theme Controls */}
+              <div className="border-t border-slate-700/30 pt-2 mt-2">
+                <div className="text-xs font-medium text-slate-300 mb-2">Map Theme</div>
+                <div className="flex gap-1">
+                  <Button
+                    variant={effectiveTheme === 'light' ? "primary" : "secondary"}
+                    size="sm"
+                    onClick={() => setTheme('light')}
+                    className="flex-1"
+                    title="Light theme"
+                  >
+                    <Sun className="w-3 h-3" />
+                  </Button>
+                  <Button
+                    variant={effectiveTheme === 'dark' ? "primary" : "secondary"}
+                    size="sm"
+                    onClick={() => setTheme('dark')}
+                    className="flex-1"
+                    title="Dark theme"
+                  >
+                    <Moon className="w-3 h-3" />
+                  </Button>
+                  <Button
+                    variant={preferences.theme === 'auto' ? "primary" : "secondary"}
+                    size="sm"
+                    onClick={() => setTheme('auto')}
+                    className="flex-1"
+                    title="Auto (system)"
+                  >
+                    <Palette className="w-3 h-3" />
+                  </Button>
+                </div>
+                <div className="text-xs text-slate-400 px-1 mt-1">
+                  Current: {effectiveTheme === 'light' ? 'Light' : 'Dark'}
+                  {preferences.theme === 'auto' ? ' (Auto)' : ''}
+                </div>
+              </div>
+              
+              <div className="text-xs text-slate-400 px-2">
+                {isInteractive 
+                  ? 'Map is interactive - hover over map for more controls'
+                  : 'Map is display only - click to enable interaction'
+                }
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+};
+
 const WeatherWidget: React.FC<{
   weather: WeatherData;
 }> = ({ weather }) => {
@@ -596,8 +721,9 @@ const CustomizationPanel: React.FC<{
   userLocation: LocationData | null;
   onLocationRequest: () => void;
   onCreateNote: () => void;
+  onRefreshWeather: () => void;
   onClose: () => void;
-}> = ({ wallpaper, wallpaperPresets, onWallpaperChange, useMapWallpaper, onMapWallpaperToggle, userLocation, onLocationRequest, onCreateNote, onClose }) => {
+}> = ({ wallpaper, wallpaperPresets, onWallpaperChange, useMapWallpaper, onMapWallpaperToggle, userLocation, onLocationRequest, onCreateNote, onRefreshWeather, onClose }) => {
   const [customUrl, setCustomUrl] = useState('');
 
   return (
@@ -758,12 +884,30 @@ const CustomizationPanel: React.FC<{
               
               <Button
                 variant="secondary"
-                className="flex-col h-20 opacity-50 cursor-not-allowed"
+                onClick={() => { onRefreshWeather(); }}
+                className="flex-col h-20"
+                title="Refresh weather data"
               >
-                <Cloud className="w-6 h-6 mb-2 text-blue-400" />
-                <span>Weather (Active)</span>
+                <RefreshCw className="w-6 h-6 mb-2 text-blue-400" />
+                <span>Refresh Weather</span>
               </Button>
             </div>
+
+            {/* Weather Status */}
+            {userLocation && (
+              <div className="mt-3 p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                <div className="flex items-center gap-2 mb-1">
+                  <Cloud className="w-4 h-4 text-blue-400" />
+                  <span className="text-blue-300 font-medium text-sm">Weather Active</span>
+                </div>
+                <p className="text-blue-400/80 text-xs">
+                  Weather data for {userLocation.city && userLocation.country 
+                    ? `${userLocation.city}, ${userLocation.country}`
+                    : 'your location'
+                  }
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </motion.div>
@@ -878,12 +1022,16 @@ const ActionsMenu: React.FC<{
                 <kbd className="bg-slate-700 px-1 rounded">Ctrl+Shift+P</kbd>
               </div>
               <div className="flex justify-between">
+                <span>Quick Task</span>
+                <kbd className="bg-slate-700 px-1 rounded">Ctrl+Shift+T</kbd>
+              </div>
+              <div className="flex justify-between">
                 <span>Quick Actions</span>
                 <kbd className="bg-slate-700 px-1 rounded">Alt+Space</kbd>
               </div>
               <div className="flex justify-between">
                 <span>Toggle Shortcuts</span>
-                <kbd className="bg-slate-700 px-1 rounded">Ctrl+Shift+T</kbd>
+                <kbd className="bg-slate-700 px-1 rounded">Ctrl+Shift+S</kbd>
               </div>
             </div>
           </div>
@@ -1065,6 +1213,7 @@ const Taskbar: React.FC<{
 
 export const Desktop: React.FC = () => {
   const [time, setTime] = useState('');
+  const { effectiveTheme } = useUserPreferences();
   const [windows, setWindows] = useState<OpenWindow[]>([]);
   const [nextZIndex, setNextZIndex] = useState(100);
   const [activeWindowId, setActiveWindowId] = useState<string | null>(null);
@@ -1089,7 +1238,7 @@ export const Desktop: React.FC = () => {
   const [wallpaper, setWallpaper] = useState<string>('https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2126&q=80');
   const [notes, setNotes] = useState<DesktopNote[]>([]);
   const [weather, setWeather] = useState<WeatherData>({ 
-    location: 'New York', 
+    location: 'Loading...', 
     temperature: 22, 
     condition: 'Partly Cloudy', 
     icon: '⛅', 
@@ -1113,6 +1262,7 @@ export const Desktop: React.FC = () => {
   // Map wallpaper state
   const [useMapWallpaper, setUseMapWallpaper] = useState(false);
   const [userLocation, setUserLocation] = useState<LocationData | null>(null);
+  const [mapInteractive, setMapInteractive] = useState(false);
 
   // Update time
   useEffect(() => {
@@ -1130,12 +1280,18 @@ export const Desktop: React.FC = () => {
     const savedWallpaper = localStorage.getItem('desktop-wallpaper');
     const savedNotes = localStorage.getItem('desktop-notes');
     const savedMapWallpaper = localStorage.getItem('desktop-use-map');
+    const savedMapInteractive = localStorage.getItem('desktop-map-interactive');
     const savedLocation = LocationService.loadLocation();
     
     if (savedWallpaper) setWallpaper(savedWallpaper);
     if (savedNotes) setNotes(JSON.parse(savedNotes));
     if (savedMapWallpaper === 'true') setUseMapWallpaper(true);
-    if (savedLocation) setUserLocation(savedLocation);
+    if (savedMapInteractive === 'true') setMapInteractive(true);
+    if (savedLocation) {
+      setUserLocation(savedLocation);
+      // Fetch weather for saved location
+      fetchWeatherForLocation(savedLocation);
+    }
   }, []);
 
   // Check user persona onboarding status
@@ -1161,7 +1317,19 @@ export const Desktop: React.FC = () => {
     localStorage.setItem('desktop-wallpaper', wallpaper);
     localStorage.setItem('desktop-notes', JSON.stringify(notes));
     localStorage.setItem('desktop-use-map', useMapWallpaper.toString());
-  }, [wallpaper, notes, useMapWallpaper]);
+    localStorage.setItem('desktop-map-interactive', mapInteractive.toString());
+  }, [wallpaper, notes, useMapWallpaper, mapInteractive]);
+
+  // Periodic weather refresh (every 30 minutes)
+  useEffect(() => {
+    if (!userLocation) return;
+
+    const refreshInterval = setInterval(() => {
+      fetchWeatherForLocation(userLocation);
+    }, 30 * 60 * 1000); // 30 minutes
+
+    return () => clearInterval(refreshInterval);
+  }, [userLocation]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -1186,7 +1354,7 @@ export const Desktop: React.FC = () => {
         e.preventDefault();
         setShowActionsMenu(!showActionsMenu);
       }
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'T') {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'S') {
         e.preventDefault();
         setShowShortcutBar(!showShortcutBar);
       }
@@ -1228,6 +1396,27 @@ export const Desktop: React.FC = () => {
     setNotes(prev => prev.filter(note => note.id !== id));
   };
 
+  // Fetch weather based on location
+  const fetchWeatherForLocation = async (location: LocationData) => {
+    try {
+      const weatherData = await WeatherService.getWeatherByLocation(location);
+      if (weatherData) {
+        setWeather(weatherData);
+      }
+    } catch (error) {
+      console.error('Failed to fetch weather:', error);
+    }
+  };
+
+  // Refresh weather for current location
+  const refreshWeather = async () => {
+    if (userLocation) {
+      // Clear cache to force fresh data
+      WeatherService.clearWeatherCache();
+      await fetchWeatherForLocation(userLocation);
+    }
+  };
+
   // Handle location request
   const handleLocationRequest = async () => {
     try {
@@ -1239,6 +1428,9 @@ export const Desktop: React.FC = () => {
         
         setUserLocation(enhancedLocation);
         LocationService.saveLocation(enhancedLocation);
+        
+        // Fetch weather for the new location
+        await fetchWeatherForLocation(enhancedLocation);
       }
     } catch (error) {
       console.error('Location request failed:', error);
@@ -1395,9 +1587,9 @@ export const Desktop: React.FC = () => {
       {useMapWallpaper && memoizedMapLocation && (
         <MapWallpaper
           userLocation={memoizedMapLocation}
-          theme="dark"
-          interactive={false}
-          className="opacity-30 pointer-events-none"
+          theme={effectiveTheme}
+          interactive={mapInteractive}
+          className="opacity-30"
         />
       )}
       
@@ -1448,6 +1640,13 @@ export const Desktop: React.FC = () => {
       {/* Weather Widget */}
       <WeatherWidget weather={weather} />
 
+      {/* Map Control Panel */}
+      <MapControlPanel
+        isVisible={useMapWallpaper}
+        onToggleInteractive={() => setMapInteractive(!mapInteractive)}
+        isInteractive={mapInteractive}
+      />
+
       {/* Windows */}
       <AnimatePresence>
         {windows.map((window) => (
@@ -1489,6 +1688,7 @@ export const Desktop: React.FC = () => {
             userLocation={userLocation}
             onLocationRequest={handleLocationRequest}
             onCreateNote={createNote}
+            onRefreshWeather={refreshWeather}
             onClose={() => setShowCustomization(false)}
           />
         )}

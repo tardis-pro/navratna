@@ -1131,19 +1131,19 @@ export class DiscussionOrchestrationService extends EventEmitter {
     // Start periodic cleanup and maintenance tasks
     setInterval(() => {
       this.cleanupExpiredTimers();
-    }, 60000); // Every minute
+    }, 120000); // Every 2 minutes
 
-    // Check for discussions needing agent participation every 30 seconds
+    // Check for discussions needing agent participation every 5 minutes (reduced frequency)
     setInterval(() => {
       this.checkActiveDiscussionsForParticipation();
-    }, 30000);
+    }, 300000);
 
-    // Monitor discussion health every 2 minutes
+    // Monitor discussion health every 5 minutes (reduced frequency)
     setInterval(() => {
       this.monitorDiscussionHealth();
-    }, 120000);
+    }, 300000);
 
-    logger.info('Discussion orchestration periodic tasks started');
+    logger.info('Discussion orchestration periodic tasks started with reduced frequency');
   }
 
   private cleanupExpiredTimers(): void {
@@ -1159,19 +1159,23 @@ export class DiscussionOrchestrationService extends EventEmitter {
    */
   private async checkActiveDiscussionsForParticipation(): Promise<void> {
     try {
-      logger.debug('Checking active discussions for agent participation');
-      
-      // Get all active discussions from cache and database
       const cachedDiscussions = Array.from(this.activeDiscussions.values());
+      logger.debug('Checking active discussions for agent participation', {
+        cachedDiscussionCount: cachedDiscussions.length
+      });
       
+      // Only check discussions that are truly stale or have participation issues
       for (const discussion of cachedDiscussions) {
-        if (discussion.status === DiscussionStatus.ACTIVE || discussion.status === DiscussionStatus.DRAFT) {
-          await this.ensureAgentParticipation(discussion);
+        if (discussion.status === DiscussionStatus.ACTIVE) {
+          // Only trigger participation if discussion is stale (no activity for 10+ minutes)
+          const lastActivity = discussion.state.lastActivity;
+          const timeSinceActivity = lastActivity ? Date.now() - lastActivity.getTime() : Infinity;
+          
+          if (timeSinceActivity > 600000) { // 10 minutes
+            await this.ensureAgentParticipation(discussion);
+          }
         }
       }
-
-      // Also check for recently created discussions that might not be in cache
-      await this.checkRecentDiscussions();
       
     } catch (error) {
       logger.error('Error checking active discussions for participation', {
@@ -1253,31 +1257,22 @@ export class DiscussionOrchestrationService extends EventEmitter {
         return; // No agents to participate
       }
 
-      // Check if any agent has participated recently
-      const recentParticipation = agentParticipants.some(p => {
-        const timeSinceJoined = Date.now() - p.joinedAt.getTime();
-        const timeSinceLastActive = p.lastMessageAt ? Date.now() - p.lastMessageAt.getTime() : Infinity;
-        
-        // If agent joined recently but hasn't been active, they might need a participation trigger
-        return timeSinceJoined < 120000 && timeSinceLastActive > 60000; // Joined in last 2 min, inactive for 1 min
+      // Only trigger participation for agents that have NEVER participated in this discussion
+      const neverParticipatedAgents = agentParticipants.filter(p => {
+        // Check if agent has never sent a message
+        return !p.lastMessageAt && p.messageCount === 0;
       });
 
-      if (recentParticipation) {
-        logger.debug('Triggering participation for recently joined inactive agents', {
+      if (neverParticipatedAgents.length > 0) {
+        logger.info('Triggering participation for agents who have never participated', {
           discussionId: discussion.id,
-          agentCount: agentParticipants.length
+          agentCount: neverParticipatedAgents.length,
+          agentIds: neverParticipatedAgents.map(p => p.agentId)
         });
 
-        for (const participant of agentParticipants) {
-          if (participant.agentId) {
-            const timeSinceJoined = Date.now() - participant.joinedAt.getTime();
-            const timeSinceLastActive = participant.lastMessageAt ? Date.now() - participant.lastMessageAt.getTime() : Infinity;
-            
-            if (timeSinceJoined < 120000 && timeSinceLastActive > 60000) {
-              await this.triggerAgentParticipationEvent(discussion.id, participant);
-            }
-          }
-        }
+        // Only trigger for one agent at a time to avoid spam
+        const agentToTrigger = neverParticipatedAgents[0];
+        await this.triggerAgentParticipationEvent(discussion.id, agentToTrigger);
       }
       
     } catch (error) {
@@ -1313,32 +1308,36 @@ export class DiscussionOrchestrationService extends EventEmitter {
         return;
       }
 
-      logger.info('Triggering agent participation event via cron', {
+      const discussion = await this.getDiscussion(discussionId);
+      if (!discussion) {
+        logger.error('Cannot trigger participation - discussion not found', { discussionId });
+        return;
+      }
+
+      logger.info('Triggering agent participation for first-time participant', {
         discussionId,
         participantId: participant.id,
-        agentId: participant.agentId
+        agentId: participant.agentId,
+        discussionTitle: discussion.title
       });
 
-      // Emit the PARTICIPANT_JOINED event to trigger agent response
-      const participationEvent: DiscussionEvent = {
-        id: this.generateEventId(),
-        type: DiscussionEventType.PARTICIPANT_JOINED,
+      // Send direct participation request to agent intelligence service
+      await this.eventBusService.publish('agent.discussion.participate', {
         discussionId,
-        data: {
-          participant,
-          addedBy: 'system',
-          trigger: 'cron-check'
+        agentId: participant.agentId,
+        participantId: participant.id,
+        discussionContext: {
+          title: discussion.title,
+          description: discussion.description,
+          topic: discussion.topic,
+          phase: discussion.state.phase,
+          messageCount: discussion.state.messageCount,
+          participantCount: discussion.participants.length
         },
-        timestamp: new Date(),
-        metadata: { 
-          source: 'orchestration-service-cron',
-          retrigger: true
-        }
-      };
+        timestamp: new Date()
+      });
 
-      await this.emitEvent(participationEvent);
-
-      logger.debug('Agent participation event emitted via cron', {
+      logger.debug('Agent participation request sent', {
         discussionId,
         agentId: participant.agentId,
         participantId: participant.id

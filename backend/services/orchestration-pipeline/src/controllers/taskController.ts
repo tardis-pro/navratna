@@ -166,10 +166,20 @@ export class TaskController {
 
       // Ensure projectId matches route parameter
       const createRequest: CreateTaskRequest = {
-        ...validatedData,
+        title: validatedData.title,
+        description: validatedData.description,
         projectId,
-        createdBy: userId,
-        dueDate: validatedData.dueDate ? new Date(validatedData.dueDate) : undefined
+        priority: validatedData.priority as any,
+        type: validatedData.type as any,
+        assigneeType: validatedData.assigneeType as any,
+        assignedToUserId: validatedData.assignedToUserId,
+        assignedToAgentId: validatedData.assignedToAgentId,
+        dueDate: validatedData.dueDate ? new Date(validatedData.dueDate) : undefined,
+        tags: validatedData.tags,
+        labels: validatedData.labels,
+        epic: validatedData.epic,
+        sprint: validatedData.sprint,
+        createdBy: userId
       };
 
       const task = await this.taskService.createTask(createRequest);
@@ -218,9 +228,21 @@ export class TaskController {
       const validatedData = updateTaskSchema.parse(req.body);
 
       const updateRequest: UpdateTaskRequest = {
-        ...validatedData,
-        updatedBy: userId,
-        dueDate: validatedData.dueDate ? new Date(validatedData.dueDate) : undefined
+        title: validatedData.title,
+        description: validatedData.description,
+        status: validatedData.status as any,
+        priority: validatedData.priority as any,
+        type: validatedData.type as any,
+        assigneeType: validatedData.assigneeType as any,
+        assignedToUserId: validatedData.assignedToUserId,
+        assignedToAgentId: validatedData.assignedToAgentId,
+        dueDate: validatedData.dueDate ? new Date(validatedData.dueDate) : undefined,
+        tags: validatedData.tags,
+        labels: validatedData.labels,
+        epic: validatedData.epic,
+        sprint: validatedData.sprint,
+        customFields: validatedData.customFields,
+        updatedBy: userId
       };
 
       const task = await this.taskService.updateTask(taskId, updateRequest);
@@ -271,7 +293,10 @@ export class TaskController {
       const assignRequest: TaskAssignmentRequest = {
         taskId,
         assignedBy: userId,
-        ...validatedData
+        assigneeType: validatedData.assigneeType as any,
+        assignedToUserId: validatedData.assignedToUserId,
+        assignedToAgentId: validatedData.assignedToAgentId,
+        reason: validatedData.reason
       };
 
       const task = await this.taskService.assignTask(assignRequest);

@@ -30,7 +30,7 @@ const BASEMAP_OPTIONS: BasemapOption[] = [
   },
   {
     id: 'light',
-    name: 'Light', 
+    name: 'Light',
     style: 'https://tiles.olamaps.io/styles/default-light-standard/style.json'
   },
   {
@@ -57,6 +57,14 @@ export const MapWallpaper: React.FC<MapWallpaperProps> = React.memo(({
   const [isInteractive, setIsInteractive] = useState(interactive);
   const [showControls, setShowControls] = useState(false);
   const [currentBasemap, setCurrentBasemap] = useState(theme === 'dark' ? 'dark' : 'light');
+
+  // Update basemap when theme changes
+  useEffect(() => {
+    const themeBasemap = theme === 'dark' ? 'dark' : 'light';
+    if (currentBasemap !== themeBasemap) {
+      setCurrentBasemap(themeBasemap);
+    }
+  }, [theme, currentBasemap]);
   const [showBasemapSelector, setShowBasemapSelector] = useState(false);
 
   const initializeMap = useCallback(() => {
@@ -226,17 +234,17 @@ export const MapWallpaper: React.FC<MapWallpaperProps> = React.memo(({
         setShowBasemapSelector(false);
       }}
     >
-      <div 
-        ref={mapContainer} 
+      <div
+        ref={mapContainer}
         className="w-full h-full"
         style={{
           filter: theme === 'dark' ? 'brightness(0.7) contrast(1.2)' : 'none'
         }}
       />
-      
+
       {/* Overlay gradient for better text readability */}
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-slate-900/20 pointer-events-none" />
-      
+
       {/* Interactive Controls */}
       <AnimatePresence>
         {showControls && (
@@ -244,14 +252,14 @@ export const MapWallpaper: React.FC<MapWallpaperProps> = React.memo(({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="absolute top-4 right-4 flex flex-col gap-2 pointer-events-auto z-50"
+            className="absolute bottom-4 left-4 flex flex-col gap-2 pointer-events-auto z-50"
           >
             {/* Interactive Toggle */}
             <motion.button
               onClick={toggleInteractive}
               className={`p-2 rounded-lg backdrop-blur-md border transition-all
-                ${isInteractive 
-                  ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-400' 
+                ${isInteractive
+                  ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-400'
                   : 'bg-slate-700/50 border-slate-600/30 text-slate-400 hover:text-white'
                 }`}
               whileHover={{ scale: 1.05 }}
@@ -280,16 +288,16 @@ export const MapWallpaper: React.FC<MapWallpaperProps> = React.memo(({
                     initial={{ opacity: 0, scale: 0.95, y: -10 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                    className="absolute right-0 top-full mt-2 w-32 backdrop-blur-md bg-slate-800/90 
+                    className="absolute left-0 top-full mt-2 w-32 backdrop-blur-md bg-slate-800/90 
                               border border-slate-600/30 rounded-lg shadow-xl overflow-hidden"
                   >
                     {BASEMAP_OPTIONS.map((basemap) => (
                       <motion.button
                         key={basemap.id}
                         onClick={() => changeBasemap(basemap.id)}
-                        className={`w-full px-3 py-2 text-left text-sm transition-colors
-                          ${currentBasemap === basemap.id 
-                            ? 'bg-cyan-500/20 text-cyan-400' 
+                        className={`w-full px-3 py-2 text-right text-sm transition-colors
+                          ${currentBasemap === basemap.id
+                            ? 'bg-cyan-500/20 text-cyan-400'
                             : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
                           }`}
                         whileHover={{ backgroundColor: 'rgba(148, 163, 184, 0.1)' }}
@@ -361,7 +369,7 @@ export const MapWallpaper: React.FC<MapWallpaperProps> = React.memo(({
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            className="absolute bottom-4 left-4 pointer-events-auto z-50"
+            className="absolute bottom-4 left-20 pointer-events-auto z-50"
           >
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg backdrop-blur-md 
                           bg-slate-700/50 border border-slate-600/30 text-slate-300">

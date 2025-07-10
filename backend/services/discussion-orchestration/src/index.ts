@@ -210,7 +210,56 @@ class DiscussionOrchestrationServer extends BaseService {
   }
 
   protected async setupEventSubscriptions(): Promise<void> {
-    // Event subscriptions would be set up here if needed
+    // Subscribe to agent messages for discussions
+    await this.eventBusService.subscribe('discussion.agent.message', async (event) => {
+      try {
+        const { discussionId, participantId, agentId, content, messageType, metadata } = event.data || event;
+        
+        logger.info('Processing agent message for discussion', { 
+          discussionId, 
+          participantId, 
+          agentId,
+          messageType,
+          contentLength: content?.length,
+          isInitialParticipation: metadata?.isInitialParticipation
+        });
+
+        // Send the agent message to the discussion through orchestration service
+        const result = await this.orchestrationService.sendMessage(
+          discussionId,
+          participantId,
+          content,
+          messageType || 'message',
+          metadata
+        );
+
+        if (result.success) {
+          logger.info('Agent message sent to discussion successfully', {
+            discussionId,
+            agentId,
+            participantId,
+            messageId: result.data?.id
+          });
+        } else {
+          logger.error('Failed to send agent message to discussion', {
+            discussionId,
+            agentId,
+            participantId,
+            error: result.error
+          });
+        }
+
+      } catch (error) {
+        logger.error('Error processing agent message event', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          eventData: event?.data || event
+        });
+      }
+    });
+
+    logger.info('Discussion orchestration event subscriptions configured', {
+      subscriptions: ['discussion.agent.message']
+    });
   }
 
   private async publishOrchestrationEvent(eventType: string, discussionId: string, user: any): Promise<void> {

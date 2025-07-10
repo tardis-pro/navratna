@@ -24,8 +24,8 @@ const OnboardingProgressSchema = z.object({
   isCompleted: z.boolean(),
   currentStep: z.number(),
   completedSteps: z.array(z.string()),
-  startedAt: z.date().optional(),
-  completedAt: z.date().optional(),
+  startedAt: z.string().datetime().transform(str => new Date(str)).optional(),
+  completedAt: z.string().datetime().transform(str => new Date(str)).optional(),
   responses: z.record(z.any())
 });
 
@@ -53,7 +53,7 @@ const CompleteOnboardingSchema = z.object({
 const InteractionTrackingSchema = z.object({
   type: z.enum(['tool_usage', 'agent_interaction', 'workflow_completion', 'preference_change']),
   data: z.any(),
-  timestamp: z.date()
+  timestamp: z.string().datetime().transform(str => new Date(str))
 });
 
 // Get current user's persona data

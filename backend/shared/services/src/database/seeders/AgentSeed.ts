@@ -3,6 +3,7 @@ import { BaseSeed } from './BaseSeed.js';
 import { Agent } from '../../entities/agent.entity.js';
 import { UserEntity } from '../../entities/user.entity.js';
 import { Persona as PersonaEntity } from '../../entities/persona.entity.js';
+import { UserLLMProvider } from '../../entities/userLLMProvider.entity.js';
 import {
   AgentRole,
   AgentPersona,
@@ -16,11 +17,13 @@ import {
 export class AgentSeed extends BaseSeed<Agent> {
   private users: UserEntity[] = [];
   private personas: PersonaEntity[] = [];
+  private userLLMProviders: UserLLMProvider[] = [];
 
-  constructor(dataSource: DataSource, users: UserEntity[], personas: PersonaEntity[]) {
+  constructor(dataSource: DataSource, users: UserEntity[], personas: PersonaEntity[], userLLMProviders: UserLLMProvider[]) {
     super(dataSource, dataSource.getRepository(Agent), 'Agents');
     this.users = users;
     this.personas = personas;
+    this.userLLMProviders = userLLMProviders;
   }
 
   getUniqueField(): keyof Agent {
@@ -127,6 +130,72 @@ export class AgentSeed extends BaseSeed<Agent> {
     return persona?.id || this.personas[0].id; // Fallback to first persona if not found
   }
 
+  /**
+   * Get the best user LLM provider for an agent based on role and user
+   * Prioritizes active providers with good performance
+   */
+  private getUserLLMProvider(agentRole: AgentRole, createdBy: string): { userLLMProviderId?: string; apiType?: 'openai' | 'anthropic' | 'ollama' | 'llmstudio' | 'custom' } {
+    // Find providers for the user who created this agent
+    const userProviders = this.userLLMProviders.filter(p =>
+      p.userId === createdBy && p.isActive && p.status === 'active'
+    ).sort((a, b) => a.priority - b.priority); // Sort by priority (lower = higher priority)
+
+    if (userProviders.length === 0) {
+      // Fallback: find any active provider from any user (for demo purposes)
+      const fallbackProviders = this.userLLMProviders.filter(p =>
+        p.isActive && p.status === 'active'
+      ).sort((a, b) => a.priority - b.priority);
+
+      if (fallbackProviders.length > 0) {
+        console.log(`   ⚠️ Using fallback LLM provider for agent (role: ${agentRole})`);
+        return {
+          userLLMProviderId: fallbackProviders[0].id,
+          apiType: fallbackProviders[0].type as 'openai' | 'anthropic' | 'ollama' | 'llmstudio' | 'custom'
+        };
+      }
+
+      // Final fallback: use llmstudio without provider ID
+      console.log(`   ⚠️ No LLM providers found, using default llmstudio for agent (role: ${agentRole})`);
+      return { apiType: 'llmstudio' as const };
+    }
+
+    // Role-based provider selection preferences
+    const rolePreferences: Record<AgentRole, string[]> = {
+      [AgentRole.ASSISTANT]: ['llmstudio', 'anthropic', 'openai'], // General assistance
+      [AgentRole.ANALYZER]: ['llmstudio', 'anthropic', 'openai', 'google'], // Analysis needs reasoning
+      [AgentRole.ORCHESTRATOR]: ['llmstudio', 'openai', 'anthropic'], // Orchestration needs planning
+      [AgentRole.SPECIALIST]: ['llmstudio', 'anthropic', 'openai', 'google'], // Specialized needs depth
+      [AgentRole.EXECUTOR]: ['llmstudio', 'openai', 'anthropic'], // Execution needs speed
+      [AgentRole.ADVISOR]: ['llmstudio', 'anthropic', 'openai', 'google'], // Advisory needs depth
+      [AgentRole.STRATEGIST]: ['llmstudio', 'anthropic', 'openai', 'google'], // Strategy needs reasoning
+      [AgentRole.COMMUNICATOR]: ['llmstudio', 'openai', 'anthropic'], // Communication needs fluency
+      [AgentRole.VALIDATOR]: ['llmstudio', 'openai', 'anthropic'], // Validation needs precision
+      [AgentRole.ARCHITECT]: ['llmstudio', 'anthropic', 'openai', 'google'], // Architecture needs deep thinking
+      [AgentRole.REVIEWER]: ['llmstudio', 'anthropic', 'openai'], // Review needs thoroughness
+      [AgentRole.DESIGNER]: ['llmstudio', 'openai', 'anthropic'] // Design needs creativity
+    };
+
+    const preferredTypes = rolePreferences[agentRole] || ['openai', 'anthropic', 'llmstudio'];
+
+    // Find the best provider based on role preferences
+    for (const preferredType of preferredTypes) {
+      const provider = userProviders.find(p => p.type === preferredType);
+      if (provider) {
+        return {
+          userLLMProviderId: provider.id,
+          apiType: provider.type as 'openai' | 'anthropic' | 'ollama' | 'llmstudio' | 'custom'
+        };
+      }
+    }
+
+    // If no preferred provider found, use the highest priority provider
+    const bestProvider = userProviders[0];
+    return {
+      userLLMProviderId: bestProvider.id,
+      apiType: bestProvider.type as 'openai' | 'anthropic' | 'ollama' | 'llmstudio' | 'custom'
+    };
+  }
+
   async getSeedData(): Promise<DeepPartial<Agent>[]> {
     return [
       // Core Agent
@@ -183,7 +252,7 @@ export class AgentSeed extends BaseSeed<Agent> {
         successfulOperations: 1175,
         averageResponseTime: 2.5,
         modelId: 'gpt-4-turbo',
-        apiType: 'llmstudio' as any,
+        ...this.getUserLLMProvider(AgentRole.ANALYZER, this.users[0].id),
         temperature: 0.3,
         maxTokens: 4000,
         systemPrompt: 'You are Pro, an advanced data analysis agent. Provide thorough, accurate analysis with clear visualizations and actionable insights.',
@@ -241,7 +310,7 @@ export class AgentSeed extends BaseSeed<Agent> {
         successfulOperations: 3318,
         averageResponseTime: 1.8,
         modelId: 'gpt-4-turbo',
-        apiType: 'llmstudio' as any,
+        ...this.getUserLLMProvider(AgentRole.ORCHESTRATOR, this.users.find(u => u.role === 'operations_manager')?.id || this.users[0].id),
         temperature: 0.4,
         maxTokens: 3000,
         systemPrompt: 'You are Taniye, a master of workflow management and task coordination. Efficiently orchestrate complex processes and ensure smooth execution of multi-step operations.',
@@ -300,7 +369,7 @@ export class AgentSeed extends BaseSeed<Agent> {
         successfulOperations: 2630,
         averageResponseTime: 2.2,
         modelId: 'gpt-4-turbo',
-        apiType: 'llmstudio' as any,
+        ...this.getUserLLMProvider(AgentRole.EXECUTOR, this.users.find(u => u.role === 'developer')?.id || this.users[0].id),
         temperature: 0.4,
         maxTokens: 3500,
         systemPrompt: 'You are Prashis, a skilled full-stack engineer. Write clean, maintainable code with comprehensive tests. Focus on scalable solutions and best practices.',
@@ -358,7 +427,7 @@ export class AgentSeed extends BaseSeed<Agent> {
         successfulOperations: 1745,
         averageResponseTime: 1.9,
         modelId: 'gpt-4-turbo',
-        apiType: 'llmstudio' as any,
+        ...this.getUserLLMProvider(AgentRole.EXECUTOR, this.users.find(u => u.role === 'developer')?.id || this.users[0].id),
         temperature: 0.3,
         maxTokens: 4000,
         systemPrompt: 'You are Keegan, a backend systems expert. Design robust, scalable architectures with security and performance as top priorities. Think in terms of distributed systems and fault tolerance.',
@@ -416,7 +485,7 @@ export class AgentSeed extends BaseSeed<Agent> {
         successfulOperations: 2888,
         averageResponseTime: 2.1,
         modelId: 'gpt-4-turbo',
-        apiType: 'llmstudio' as any,
+        ...this.getUserLLMProvider(AgentRole.EXECUTOR, this.users.find(u => u.role === 'developer')?.id || this.users[0].id),
         temperature: 0.5,
         maxTokens: 3200,
         systemPrompt: 'You are Josh, a frontend developer focused on creating beautiful, accessible user experiences. Prioritize user needs, responsive design, and modern web standards.',
@@ -474,7 +543,7 @@ export class AgentSeed extends BaseSeed<Agent> {
         successfulOperations: 2070,
         averageResponseTime: 1.7,
         modelId: 'gpt-4-turbo',
-        apiType: 'llmstudio' as any,
+        ...this.getUserLLMProvider(AgentRole.EXECUTOR, this.users.find(u => u.role === 'operations_manager')?.id || this.users[0].id),
         temperature: 0.2,
         maxTokens: 3800,
         systemPrompt: 'You are Pankaj, a DevOps expert focused on reliability and automation. Build robust infrastructure, implement comprehensive monitoring, and ensure seamless deployments.',
@@ -533,7 +602,7 @@ export class AgentSeed extends BaseSeed<Agent> {
         successfulOperations: 1363,
         averageResponseTime: 3.2,
         modelId: 'gpt-4-turbo',
-        apiType: 'llmstudio' as any,
+        ...this.getUserLLMProvider(AgentRole.ADVISOR, this.users.find(u => u.role === 'creative_director')?.id || this.users[0].id),
         temperature: 0.8,
         maxTokens: 4200,
         systemPrompt: 'You are Maya, a visionary creative director. Think boldly about design, tell compelling stories through visuals, and create experiences that resonate deeply with users. Inspire creativity in others.',
@@ -592,7 +661,7 @@ export class AgentSeed extends BaseSeed<Agent> {
         successfulOperations: 908,
         averageResponseTime: 3.8,
         modelId: 'gpt-4-turbo',
-        apiType: 'llmstudio' as any,
+        ...this.getUserLLMProvider(AgentRole.ADVISOR, this.users.find(u => u.role === 'researcher')?.id || this.users[0].id),
         temperature: 0.6,
         maxTokens: 4500,
         systemPrompt: 'You are Zara, a behavioral psychologist who understands the human mind deeply. Provide insights into user behavior, team dynamics, and emotional intelligence. Always consider the human impact of decisions.',
@@ -650,7 +719,7 @@ export class AgentSeed extends BaseSeed<Agent> {
         successfulOperations: 575,
         averageResponseTime: 4.5,
         modelId: 'gpt-4-turbo',
-        apiType: 'llmstudio' as any,
+        ...this.getUserLLMProvider(AgentRole.ADVISOR, this.users.find(u => u.role === 'advisor')?.id || this.users[0].id),
         temperature: 0.7,
         maxTokens: 5000,
         systemPrompt: 'You are Viktor, a philosophical advisor who contemplates the deeper meaning and ethical implications of decisions. Ask probing questions, explore multiple perspectives, and guide others toward thoughtful conclusions.',
@@ -708,7 +777,7 @@ export class AgentSeed extends BaseSeed<Agent> {
         successfulOperations: 1538,
         averageResponseTime: 2.8,
         modelId: 'gpt-4-turbo',
-        apiType: 'llmstudio' as any,
+        ...this.getUserLLMProvider(AgentRole.STRATEGIST, this.users.find(u => u.role === 'business_analyst')?.id || this.users[0].id),
         temperature: 0.6,
         maxTokens: 3800,
         systemPrompt: 'You are Luna, an entrepreneurial strategist with a vision for the future. Identify opportunities, think big picture, and help scale ideas into successful ventures. Balance innovation with practical execution.',
@@ -766,7 +835,7 @@ export class AgentSeed extends BaseSeed<Agent> {
         successfulOperations: 4156,
         averageResponseTime: 1.5,
         modelId: 'gpt-4-turbo',
-        apiType: 'llmstudio' as any,
+        ...this.getUserLLMProvider(AgentRole.COMMUNICATOR, this.users.find(u => u.role === 'marketing_manager')?.id || this.users[0].id),
         temperature: 0.7,
         maxTokens: 3000,
         systemPrompt: 'You are Kai, a social media strategist who understands digital communities and viral content. Create engaging, authentic content that resonates with audiences and builds genuine connections.',
@@ -824,7 +893,7 @@ export class AgentSeed extends BaseSeed<Agent> {
         successfulOperations: 3318,
         averageResponseTime: 2.3,
         modelId: 'gpt-4-turbo',
-        apiType: 'llmstudio' as any,
+        ...this.getUserLLMProvider(AgentRole.VALIDATOR, this.users.find(u => u.role === 'qa_engineer')?.id || this.users[0].id),
         temperature: 0.2,
         maxTokens: 3600,
         systemPrompt: 'You are Aria, a meticulous QA engineer who ensures the highest quality standards. Find bugs before users do, create comprehensive test strategies, and maintain zero-defect quality.',
@@ -882,7 +951,7 @@ export class AgentSeed extends BaseSeed<Agent> {
         successfulOperations: 1123,
         averageResponseTime: 3.5,
         modelId: 'gpt-4-turbo',
-        apiType: 'llmstudio' as any,
+        ...this.getUserLLMProvider(AgentRole.ARCHITECT, this.users.find(u => u.role === 'architect')?.id || this.users[0].id),
         temperature: 0.3,
         maxTokens: 4500,
         systemPrompt: 'You are Neo, a software architect who designs the future of systems. Think in patterns, design for scale, and create architectures that stand the test of time and growth.',
@@ -940,7 +1009,7 @@ export class AgentSeed extends BaseSeed<Agent> {
         successfulOperations: 2732,
         averageResponseTime: 3.1,
         modelId: 'gpt-4-turbo',
-        apiType: 'llmstudio' as any,
+        ...this.getUserLLMProvider(AgentRole.REVIEWER, this.users.find(u => u.role === 'senior_developer')?.id || this.users[0].id),
         temperature: 0.4,
         maxTokens: 4200,
         systemPrompt: 'You are Sage, a wise code reviewer and mentor. Provide thorough, constructive feedback that helps developers grow. Focus on security, performance, and maintainability while being encouraging.',
@@ -998,7 +1067,7 @@ export class AgentSeed extends BaseSeed<Agent> {
         successfulOperations: 3867,
         averageResponseTime: 1.8,
         modelId: 'gpt-4-turbo',
-        apiType: 'llmstudio' as any,
+        ...this.getUserLLMProvider(AgentRole.EXECUTOR, this.users.find(u => u.role === 'devops_engineer')?.id || this.users[0].id),
         temperature: 0.3,
         maxTokens: 3700,
         systemPrompt: 'You are Phoenix, a DevOps engineer who rises from deployment failures stronger. Automate everything, monitor comprehensively, and ensure systems are resilient and self-healing.',
@@ -1056,7 +1125,7 @@ export class AgentSeed extends BaseSeed<Agent> {
         successfulOperations: 2111,
         averageResponseTime: 2.7,
         modelId: 'gpt-4-turbo',
-        apiType: 'llmstudio' as any,
+        ...this.getUserLLMProvider(AgentRole.DESIGNER, this.users.find(u => u.role === 'designer')?.id || this.users[0].id),
         temperature: 0.6,
         maxTokens: 3900,
         systemPrompt: 'You are Echo, a UX designer who amplifies user voices in design decisions. Create experiences that are not just usable, but delightful and accessible to all users.',

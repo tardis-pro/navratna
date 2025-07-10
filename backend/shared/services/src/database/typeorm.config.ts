@@ -3,6 +3,12 @@ import { config } from '@uaip/config';
 import { PostgresConnectionOptions } from 'typeorm/driver/postgres/PostgresConnectionOptions.js';
 import { createLogger } from '@uaip/utils';
 import IORedis from 'ioredis';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+// ES module equivalent of __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Import all entities directly
 import { Agent } from '../entities/agent.entity.js';
@@ -29,6 +35,7 @@ import { ArtifactReview } from '../entities/artifactReview.entity.js';
 import { ArtifactDeployment } from '../entities/artifactDeployment.entity.js';
 import { Discussion } from '../entities/discussion.entity.js';
 import { DiscussionParticipant } from '../entities/discussionParticipant.entity.js';
+import { DiscussionMessage } from '../entities/discussionMessage.entity.js';
 import { PersonaAnalytics } from '../entities/personaAnalytics.entity.js';
 import { MCPServer } from '../entities/mcpServer.entity.js';
 import { MCPToolCall } from '../entities/mcpToolCall.entity.js';
@@ -83,6 +90,7 @@ export const allEntities = [
   ArtifactDeployment,
   Discussion,
   DiscussionParticipant,
+  DiscussionMessage,
   PersonaAnalytics,
   MCPServer,
   MCPToolCall,
@@ -147,6 +155,8 @@ function createBaseConfig(): PostgresConnectionOptions {
     logging: process.env.NODE_ENV === 'development' || process.env.TYPEORM_LOGGING === 'true',
     entities: allEntities,
     subscribers: allSubscribers,
+    migrations: [join(__dirname, '..', 'migrations', '*{.ts,.js}')],
+    migrationsRun: false, // We'll run migrations manually in the service
     ssl: process.env.DB_SSL === 'true' || process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
     maxQueryExecutionTime: parseInt(process.env.DB_TIMEOUT || '30000'),
     extra: {

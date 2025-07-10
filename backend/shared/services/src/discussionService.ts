@@ -984,6 +984,13 @@ export class DiscussionService {
       };
 
       await this.eventBusService.publish('discussion.events', event);
+      
+      logger.info('Discussion event published successfully', {
+        discussionId,
+        type,
+        eventData: data,
+        hasEventBusService: !!this.eventBusService
+      });
 
     } catch (error) {
       logger.error('Failed to emit discussion event', {

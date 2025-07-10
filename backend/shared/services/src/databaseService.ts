@@ -166,10 +166,16 @@ export class DatabaseService {
 
   private async runDatabaseSeedingAndSync(): Promise<void> {
     try {
-      this.logger.info('Starting database seeding process...');
+      this.logger.info('Starting database migrations and seeding process...');
+      
+      // Run database migrations first
+      const dataSource = this.typeormService.getDataSource();
+      this.logger.info('Running database migrations...');
+      await dataSource.runMigrations();
+      this.logger.info('Database migrations completed successfully');
       
       // Run database seeding
-      const dataSource = this.typeormService.getDataSource();
+      this.logger.info('Starting database seeding...');
       await seedDatabase(dataSource);
       
       // Initialize knowledge graph services

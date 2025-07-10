@@ -2,13 +2,44 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, User, Bot, Clock, Calendar, AlertTriangle, CheckCircle, Circle, Pause, X, GripVertical } from 'lucide-react';
 import { format } from 'date-fns';
+
+// Design System Tokens - matching DesktopUnified
+const DESIGN_TOKENS = {
+  colors: {
+    primary: 'from-blue-400 to-cyan-400',
+    surface: 'bg-slate-900/90',
+    surfaceHover: 'hover:bg-slate-700/50',
+    border: 'border-slate-700/50',
+    text: 'text-white',
+    textSecondary: 'text-slate-300',
+    textMuted: 'text-slate-400',
+  },
+  spacing: {
+    xs: 'gap-2',
+    sm: 'gap-3', 
+    md: 'gap-4',
+    lg: 'gap-6',
+  },
+  radius: {
+    sm: 'rounded-lg',
+    md: 'rounded-xl', 
+    lg: 'rounded-2xl',
+  },
+  padding: {
+    sm: 'p-1',
+    md: 'p-2',
+    lg: 'p-4',
+  },
+  backdrop: 'backdrop-blur-xl',
+  transition: 'transition-all duration-200',
+  shadow: 'shadow-xl',
+};
 
 // Types
 interface Task {
@@ -49,15 +80,15 @@ interface TaskBoardProps {
 }
 
 const statusColumns = [
-  { id: 'todo', title: 'To Do', color: 'bg-gray-100' },
-  { id: 'in_progress', title: 'In Progress', color: 'bg-blue-100' },
-  { id: 'in_review', title: 'In Review', color: 'bg-yellow-100' },
-  { id: 'blocked', title: 'Blocked', color: 'bg-red-100' },
-  { id: 'completed', title: 'Completed', color: 'bg-green-100' }
+  { id: 'todo', title: 'To Do', color: 'bg-slate-800/60' },
+  { id: 'in_progress', title: 'In Progress', color: 'bg-blue-900/40' },
+  { id: 'in_review', title: 'In Review', color: 'bg-yellow-900/40' },
+  { id: 'blocked', title: 'Blocked', color: 'bg-red-900/40' },
+  { id: 'completed', title: 'Completed', color: 'bg-green-900/40' }
 ];
 
 const priorityColors = {
-  low: 'bg-gray-500',
+  low: 'bg-slate-500',
   medium: 'bg-blue-500',
   high: 'bg-orange-500',
   urgent: 'bg-red-500'
@@ -72,6 +103,42 @@ const typeIcons = {
   testing: '🧪',
   deployment: '🚀',
   maintenance: '⚙️'
+};
+
+const Button: React.FC<{
+  children: React.ReactNode;
+  onClick?: () => void;
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  size?: 'sm' | 'md' | 'lg';
+  className?: string;
+  type?: 'button' | 'submit' | 'reset';
+}> = ({ children, onClick, variant = 'ghost', size = 'md', className = '', type = 'button' }) => {
+  const variants = {
+    primary: `bg-gradient-to-r ${DESIGN_TOKENS.colors.primary} text-white hover:scale-105`,
+    secondary: `${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.surfaceHover} ${DESIGN_TOKENS.colors.text}`,
+    ghost: `${DESIGN_TOKENS.colors.surfaceHover} ${DESIGN_TOKENS.colors.textSecondary}`,
+    danger: 'bg-red-500/20 hover:bg-red-500/30 text-red-400',
+  };
+  
+  const sizes = {
+    sm: `${DESIGN_TOKENS.padding.sm} text-xs`,
+    md: `${DESIGN_TOKENS.padding.md} text-sm`, 
+    lg: `${DESIGN_TOKENS.padding.lg} text-base`,
+  };
+
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      className={`
+        ${variants[variant]} ${sizes[size]} ${DESIGN_TOKENS.radius.md} 
+        ${DESIGN_TOKENS.transition} flex items-center ${DESIGN_TOKENS.spacing.sm}
+        ${className}
+      `}
+    >
+      {children}
+    </button>
+  );
 };
 
 export const TaskBoard: React.FC<TaskBoardProps> = ({
@@ -146,37 +213,40 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
       className="mb-3"
     >
       <Card
-        className={`cursor-pointer transition-all hover:shadow-md ${
-          draggedTask?.id === task.id ? 'shadow-lg opacity-80' : ''
-        } ${task.isOverdue ? 'border-red-300' : ''}`}
+        className={`
+          cursor-pointer ${DESIGN_TOKENS.transition} hover:shadow-md 
+          ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.colors.border} border
+          ${draggedTask?.id === task.id ? 'shadow-lg opacity-80' : ''} 
+          ${task.isOverdue ? 'border-red-400/50' : ''}
+        `}
         onClick={() => setSelectedTask(task)}
       >
           <CardHeader className="pb-2">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-mono text-gray-500">{task.taskNumber}</span>
+                <span className={`text-sm font-mono ${DESIGN_TOKENS.colors.textMuted}`}>{task.taskNumber}</span>
                 <Badge variant="outline" className={`text-xs ${priorityColors[task.priority]} text-white`}>
                   {task.priority}
                 </Badge>
               </div>
               <span className="text-lg">{typeIcons[task.type]}</span>
             </div>
-            <CardTitle className="text-sm font-medium line-clamp-2">
+            <CardTitle className={`text-sm font-medium line-clamp-2 ${DESIGN_TOKENS.colors.text}`}>
               {task.title}
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
             {task.description && (
-              <p className="text-xs text-gray-600 mb-2 line-clamp-2">{task.description}</p>
+              <p className={`text-xs ${DESIGN_TOKENS.colors.textMuted} mb-2 line-clamp-2`}>{task.description}</p>
             )}
             
             <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-1 text-xs text-gray-500">
+              <div className={`flex items-center gap-1 text-xs ${DESIGN_TOKENS.colors.textMuted}`}>
                 {task.assigneeType === 'human' ? <User className="w-3 h-3" /> : <Bot className="w-3 h-3" />}
                 <span className="truncate max-w-20">{task.assigneeDisplayName}</span>
               </div>
               {task.dueDate && (
-                <div className={`flex items-center gap-1 text-xs ${task.isOverdue ? 'text-red-500' : 'text-gray-500'}`}>
+                <div className={`flex items-center gap-1 text-xs ${task.isOverdue ? 'text-red-400' : DESIGN_TOKENS.colors.textMuted}`}>
                   <Calendar className="w-3 h-3" />
                   <span>{format(new Date(task.dueDate), 'MMM d')}</span>
                 </div>
@@ -226,7 +296,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
   const StatusColumn: React.FC<{ column: typeof statusColumns[0]; tasks: Task[] }> = ({ column, tasks }) => (
     <div className="flex-1 min-w-72">
       <motion.div 
-        className={`rounded-lg p-4 ${column.color} min-h-screen`}
+        className={`${DESIGN_TOKENS.radius.lg} ${DESIGN_TOKENS.padding.lg} ${column.color} ${DESIGN_TOKENS.backdrop} min-h-screen ${DESIGN_TOKENS.colors.border} border`}
         data-column-id={column.id}
         animate={{
           backgroundColor: dragOverColumn === column.id ? 'rgba(255, 255, 255, 0.1)' : 'transparent'
@@ -244,14 +314,14 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
         }}
       >
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-gray-700">{column.title}</h3>
-          <Badge variant="secondary" className="text-xs">
+          <h3 className={`font-semibold ${DESIGN_TOKENS.colors.text}`}>{column.title}</h3>
+          <Badge variant="secondary" className={`text-xs ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.textSecondary}`}>
             {tasks.length}
           </Badge>
         </div>
         
-        <div className={`min-h-20 transition-colors ${
-          dragOverColumn === column.id ? 'bg-white bg-opacity-30 rounded-lg border-2 border-dashed border-white' : ''
+        <div className={`min-h-20 ${DESIGN_TOKENS.transition} ${
+          dragOverColumn === column.id ? `bg-white bg-opacity-20 ${DESIGN_TOKENS.radius.lg} border-2 border-dashed border-white/50` : ''
         }`}>
           <AnimatePresence>
             {tasks.map((task, index) => (
@@ -305,9 +375,9 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
             Create Task
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-md">
+        <DialogContent className={`max-w-md ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.colors.border} border`}>
           <DialogHeader>
-            <DialogTitle>Create New Task</DialogTitle>
+            <DialogTitle className={DESIGN_TOKENS.colors.text}>Create New Task</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input
@@ -372,10 +442,10 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
               onChange={(e) => setFormData(prev => ({ ...prev, tags: e.target.value }))}
             />
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+              <Button type="button" variant="secondary" onClick={() => setIsCreateDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit">Create Task</Button>
+              <Button type="submit" variant="primary">Create Task</Button>
             </div>
           </form>
         </DialogContent>
@@ -386,9 +456,9 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
   return (
     <div className="h-full flex flex-col">
       {/* Header with filters and create button */}
-      <div className="border-b bg-white p-4 space-y-4">
+      <div className={`${DESIGN_TOKENS.colors.border} border-b ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.padding.lg} space-y-4`}>
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Task Board</h2>
+          <h2 className={`text-xl font-semibold ${DESIGN_TOKENS.colors.text}`}>Task Board</h2>
           <CreateTaskDialog />
         </div>
         
@@ -442,13 +512,13 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
       </div>
 
       {/* Task board */}
-      <div className="flex-1 overflow-x-auto bg-gray-50">
+      <div className={`flex-1 overflow-x-auto ${DESIGN_TOKENS.colors.surface}/30`}>
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
-            <div className="text-gray-500">Loading tasks...</div>
+            <div className={DESIGN_TOKENS.colors.textMuted}>Loading tasks...</div>
           </div>
         ) : (
-          <div className="flex gap-4 p-4 min-w-max">
+          <div className={`flex ${DESIGN_TOKENS.spacing.md} ${DESIGN_TOKENS.padding.lg} min-w-max`}>
             {statusColumns.map(column => (
               <StatusColumn
                 key={column.id}
@@ -463,10 +533,10 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
       {/* Task detail dialog */}
       {selectedTask && (
         <Dialog open={!!selectedTask} onOpenChange={() => setSelectedTask(null)}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className={`max-w-2xl ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.colors.border} border`}>
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <span className="text-sm font-mono text-gray-500">{selectedTask.taskNumber}</span>
+              <DialogTitle className={`flex items-center gap-2 ${DESIGN_TOKENS.colors.text}`}>
+                <span className={`text-sm font-mono ${DESIGN_TOKENS.colors.textMuted}`}>{selectedTask.taskNumber}</span>
                 <span>{selectedTask.title}</span>
               </DialogTitle>
             </DialogHeader>
@@ -481,15 +551,15 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
               
               {selectedTask.description && (
                 <div>
-                  <h4 className="font-medium mb-2">Description</h4>
-                  <p className="text-gray-600">{selectedTask.description}</p>
+                  <h4 className={`font-medium mb-2 ${DESIGN_TOKENS.colors.text}`}>Description</h4>
+                  <p className={DESIGN_TOKENS.colors.textSecondary}>{selectedTask.description}</p>
                 </div>
               )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <h4 className="font-medium mb-2">Assignment</h4>
-                  <div className="flex items-center gap-2">
+                  <h4 className={`font-medium mb-2 ${DESIGN_TOKENS.colors.text}`}>Assignment</h4>
+                  <div className={`flex items-center gap-2 ${DESIGN_TOKENS.colors.textSecondary}`}>
                     {selectedTask.assigneeType === 'human' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
                     <span>{selectedTask.assigneeDisplayName}</span>
                   </div>
@@ -497,8 +567,8 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
                 
                 {selectedTask.dueDate && (
                   <div>
-                    <h4 className="font-medium mb-2">Due Date</h4>
-                    <div className={`flex items-center gap-2 ${selectedTask.isOverdue ? 'text-red-500' : ''}`}>
+                    <h4 className={`font-medium mb-2 ${DESIGN_TOKENS.colors.text}`}>Due Date</h4>
+                    <div className={`flex items-center gap-2 ${selectedTask.isOverdue ? 'text-red-400' : DESIGN_TOKENS.colors.textSecondary}`}>
                       <Calendar className="w-4 h-4" />
                       <span>{format(new Date(selectedTask.dueDate), 'PPP')}</span>
                     </div>
@@ -508,13 +578,13 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
 
               {selectedTask.metrics.completionPercentage > 0 && (
                 <div>
-                  <h4 className="font-medium mb-2">Progress</h4>
+                  <h4 className={`font-medium mb-2 ${DESIGN_TOKENS.colors.text}`}>Progress</h4>
                   <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
+                    <div className={`flex justify-between text-sm ${DESIGN_TOKENS.colors.textSecondary}`}>
                       <span>Completion</span>
                       <span>{selectedTask.metrics.completionPercentage}%</span>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div className="w-full bg-slate-700 rounded-full h-2">
                       <div
                         className="bg-blue-500 h-2 rounded-full transition-all"
                         style={{ width: `${selectedTask.metrics.completionPercentage}%` }}
@@ -526,10 +596,10 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
 
               {selectedTask.tags && selectedTask.tags.length > 0 && (
                 <div>
-                  <h4 className="font-medium mb-2">Tags</h4>
+                  <h4 className={`font-medium mb-2 ${DESIGN_TOKENS.colors.text}`}>Tags</h4>
                   <div className="flex gap-1 flex-wrap">
                     {selectedTask.tags.map(tag => (
-                      <Badge key={tag} variant="secondary">{tag}</Badge>
+                      <Badge key={tag} variant="secondary" className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.textSecondary}`}>{tag}</Badge>
                     ))}
                   </div>
                 </div>

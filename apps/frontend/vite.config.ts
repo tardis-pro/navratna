@@ -6,7 +6,7 @@ import path from "path";
 export default defineConfig(({ mode }) => {
   // Use environment variable for API target, fallback to localhost for local dev
   const apiTarget = process.env.VITE_API_TARGET || 'http://localhost:8081';
-  
+
   return {
     server: {
       host: "::",

@@ -41,6 +41,7 @@ export class AgentDiscussionService {
     this.eventBusService = EventBusService.getInstance();
     this.agentService = AgentService.getInstance();
     this.setupLLMEventSubscriptions();
+    this.setupDiscussionEventSubscriptions();
   }
 
   async processDiscussionMessage(params: {
@@ -438,6 +439,33 @@ export class AgentDiscussionService {
     logger.info('LLM event subscriptions established');
   }
 
+  private setupDiscussionEventSubscriptions(): void {
+    // Subscribe to agent participation requests
+    this.eventBusService.subscribe('agent.discussion.participate', async (event) => {
+      const { discussionId, agentId, participantId, discussionContext } = event.data;
+      
+      try {
+        logger.info('Received discussion participation request', {
+          discussionId,
+          agentId,
+          participantId,
+          discussionTitle: discussionContext?.title
+        });
+
+        await this.handleDiscussionParticipation(discussionId, agentId, participantId, discussionContext);
+      } catch (error) {
+        logger.error('Error handling discussion participation request', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          discussionId,
+          agentId,
+          participantId
+        });
+      }
+    });
+
+    logger.info('Discussion event subscriptions established');
+  }
+
   private generateQuickFallbackResponse(message: string, agentId: string): string {
     const responses = [
       `I'm Agent ${agentId}. I'm processing your message but experiencing some delays. Could you please try again?`,
@@ -650,6 +678,71 @@ Remember: You are Agent ${agentId} and should respond in character as a capable 
   }
 
   /**
+   * Handle agent participation request from discussion orchestration
+   */
+  private async handleDiscussionParticipation(
+    discussionId: string, 
+    agentId: string, 
+    participantId: string, 
+    discussionContext: any
+  ): Promise<void> {
+    try {
+      logger.info('Handling discussion participation', { 
+        discussionId, 
+        agentId, 
+        participantId,
+        topic: discussionContext?.topic,
+        title: discussionContext?.title
+      });
+
+      // Get agent details
+      const agent = await this.agentService.findAgentById(agentId);
+      if (!agent) {
+        logger.error('Agent not found for participation', { agentId, discussionId });
+        return;
+      }
+
+      // Generate context-aware participation message
+      const participationMessage = await this.generateContextualParticipationMessage(
+        agentId, 
+        discussionId, 
+        discussionContext
+      );
+
+      // Send the message to the discussion via event bus
+      await this.eventBusService.publish('discussion.agent.message', {
+        discussionId,
+        participantId,
+        agentId,
+        content: participationMessage.content,
+        messageType: 'message',
+        metadata: {
+          source: 'agent-intelligence',
+          isInitialParticipation: true,
+          confidence: participationMessage.confidence,
+          discussionTopic: discussionContext?.topic,
+          timestamp: new Date()
+        }
+      });
+
+      logger.info('Agent participation message sent successfully', { 
+        discussionId, 
+        agentId, 
+        participantId,
+        contentLength: participationMessage.content.length
+      });
+
+    } catch (error) {
+      logger.error('Failed to handle discussion participation', { 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        discussionId, 
+        agentId, 
+        participantId 
+      });
+    }
+  }
+
+  /**
    * Trigger agent participation in a discussion when they join
    */
   async triggerAgentParticipation(discussionId: string, agentId: string, participantId: string): Promise<void> {
@@ -699,6 +792,72 @@ Remember: You are Agent ${agentId} and should respond in character as a capable 
         agentId, 
         participantId 
       });
+    }
+  }
+
+  /**
+   * Generate context-aware participation message for an agent joining a discussion
+   */
+  private async generateContextualParticipationMessage(
+    agentId: string, 
+    discussionId: string, 
+    discussionContext: any
+  ): Promise<{
+    content: string;
+    confidence: number;
+  }> {
+    try {
+      // Get agent details for personalized introduction
+      const agent = await this.agentService.findAgentById(agentId);
+      if (!agent) {
+        throw new Error(`Agent ${agentId} not found`);
+      }
+
+      // Build context-aware system prompt
+      const contextPrompt = this.buildDiscussionSystemPrompt(agent, discussionContext);
+      const introMessage = this.buildDiscussionIntroMessage(agent, discussionContext);
+      
+      // Try to use LLM for a sophisticated, context-aware introduction
+      try {
+        const llmResponse = await this.requestLLMGeneration(
+          introMessage,
+          'greeting',
+          'friendly',
+          [], // No previous messages for initial participation
+          agentId
+        );
+
+        return {
+          content: llmResponse.content,
+          confidence: llmResponse.confidence
+        };
+      } catch (llmError) {
+        logger.warn('LLM generation failed for contextual participation message, using fallback', { 
+          agentId, 
+          discussionId,
+          error: llmError instanceof Error ? llmError.message : 'Unknown error'
+        });
+
+        // Fallback to template-based introduction with context
+        const fallbackMessage = this.buildContextualFallbackMessage(agent, discussionContext);
+
+        return {
+          content: fallbackMessage,
+          confidence: 0.7
+        };
+      }
+    } catch (error) {
+      logger.error('Error generating contextual participation message', { 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        agentId, 
+        discussionId 
+      });
+
+      // Ultimate fallback
+      return {
+        content: `Hello! I'm Agent ${agentId} and I'm ready to participate in this discussion. How can I help?`,
+        confidence: 0.5
+      };
     }
   }
 
@@ -762,5 +921,62 @@ Remember: You are Agent ${agentId} and should respond in character as a capable 
         confidence: 0.5
       };
     }
+  }
+
+  private buildDiscussionSystemPrompt(agent: any, discussionContext: any): string {
+    const topic = discussionContext?.topic || 'general discussion';
+    const title = discussionContext?.title || 'Untitled Discussion';
+    const description = discussionContext?.description || '';
+    
+    return `You are ${agent.name}, joining a discussion titled "${title}" about ${topic}.
+
+Discussion Context:
+- Topic: ${topic}
+- Description: ${description}
+- Current phase: ${discussionContext?.phase || 'discussion'}
+- Participants: ${discussionContext?.participantCount || 'multiple'} people
+
+Your role:
+- Be helpful and contribute meaningfully to the discussion
+- Stay on topic about ${topic}
+- Be professional but engaging
+- Share relevant insights based on your capabilities
+
+Introduce yourself briefly and show interest in the discussion topic.`;
+  }
+
+  private buildDiscussionIntroMessage(agent: any, discussionContext: any): string {
+    const topic = discussionContext?.topic || 'this topic';
+    return `I'm ${agent.name} and I'm joining this discussion about ${topic}. I'd like to contribute to our conversation.`;
+  }
+
+  private buildContextualFallbackMessage(agent: any, discussionContext: any): string {
+    const topic = discussionContext?.topic;
+    const title = discussionContext?.title;
+    
+    let message = `Hello! I'm ${agent.name}, and I'm excited to join this discussion`;
+    
+    if (title && title !== 'Untitled Discussion') {
+      message += ` about "${title}"`;
+    } else if (topic) {
+      message += ` about ${topic}`;
+    }
+    
+    message += `.`;
+    
+    if (agent.capabilities && agent.capabilities.length > 0) {
+      const capabilities = agent.capabilities.slice(0, 2).join(' and ');
+      message += ` I specialize in ${capabilities} and I'm here to contribute meaningfully to our conversation.`;
+    } else {
+      message += ` I'm here to contribute and help with whatever we're working on.`;
+    }
+    
+    if (topic) {
+      message += ` I'm particularly interested in discussing ${topic}. What aspects should we focus on?`;
+    } else {
+      message += ` What's the current focus of our discussion?`;
+    }
+    
+    return message;
   }
 }
