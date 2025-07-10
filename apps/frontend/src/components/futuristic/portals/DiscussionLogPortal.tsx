@@ -5,6 +5,7 @@ import { useAgents } from '../../../contexts/AgentContext';
 import { useDiscussion } from '../../../contexts/DiscussionContext';
 import type { Message } from '../../../types/agent';
 import { cn } from '../../../lib/utils';
+import uaipAPI from '../../../utils/uaip-api';
 import { 
   MessageSquare, 
   Brain, 
@@ -65,13 +66,17 @@ export const DiscussionLogPortal: React.FC<DiscussionLogPortalProps> = ({
     start, 
     lastError,
     isWebSocketConnected,
-    websocketError 
+    websocketError,
+    loadHistory 
   } = useDiscussion();
   
   const [isStarting, setIsStarting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterAgent, setFilterAgent] = useState('all');
   const [isExpanded, setIsExpanded] = useState(false);
+  const [availableDiscussions, setAvailableDiscussions] = useState<any[]>([]);
+  const [selectedDiscussionId, setSelectedDiscussionId] = useState<string>('');
+  const [loadingDiscussions, setLoadingDiscussions] = useState(false);
   const [initializationStatus, setInitializationStatus] = useState<{
     hasAgents: boolean;
     hasParticipants: boolean;
@@ -93,6 +98,41 @@ export const DiscussionLogPortal: React.FC<DiscussionLogPortalProps> = ({
       isConnected: isWebSocketConnected
     });
   }, [agents, participants, discussionId, isWebSocketConnected]);
+
+  // Load available discussions on mount
+  useEffect(() => {
+    const loadAvailableDiscussions = async () => {
+      try {
+        setLoadingDiscussions(true);
+        const response = await uaipAPI.discussions.list({ 
+          limit: 50, 
+          status: ['active', 'completed'] 
+        });
+        // Extract discussions array from the response
+        setAvailableDiscussions(response?.discussions || []);
+        
+        // Auto-select the current discussion if available
+        if (discussionId && response?.discussions) {
+          setSelectedDiscussionId(discussionId);
+        }
+      } catch (error) {
+        console.error('Failed to load available discussions:', error);
+      } finally {
+        setLoadingDiscussions(false);
+      }
+    };
+
+    loadAvailableDiscussions();
+  }, [discussionId]);
+
+  // Load historical messages when discussion ID becomes available
+  useEffect(() => {
+    const idToLoad = selectedDiscussionId || discussionId;
+    if (idToLoad && loadHistory) {
+      console.log('📜 Loading discussion history for:', idToLoad);
+      loadHistory(idToLoad);
+    }
+  }, [selectedDiscussionId, discussionId]); // Removed loadHistory from dependencies to prevent infinite loop
 
   // Auto-start discussion when conditions are met
   useEffect(() => {
@@ -456,6 +496,30 @@ export const DiscussionLogPortal: React.FC<DiscussionLogPortalProps> = ({
         {/* Controls */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
+            {/* Discussion Selector */}
+            <select
+              value={selectedDiscussionId}
+              onChange={(e) => setSelectedDiscussionId(e.target.value)}
+              className="px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:border-blue-500 focus:outline-none transition-colors min-w-48"
+              disabled={loadingDiscussions}
+            >
+              {loadingDiscussions ? (
+                <option value="">Loading discussions...</option>
+              ) : (
+                <>
+                  <option value="">Select a discussion</option>
+                  {discussionId && (
+                    <option value={discussionId}>Current Discussion</option>
+                  )}
+                  {availableDiscussions.map(discussion => (
+                    <option key={discussion.id} value={discussion.id}>
+                      {discussion.title} ({discussion.status}) - {format(new Date(discussion.createdAt), 'MMM dd, yyyy')}
+                    </option>
+                  ))}
+                </>
+              )}
+            </select>
+            
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />

@@ -1,5 +1,6 @@
 import { DataSource } from 'typeorm';
 import { UserSeed } from './UserSeed.js';
+import { UserLLMProviderSeed } from './UserLLMProviderSeed.js';
 import { SecurityPolicySeed } from './SecurityPolicySeed.js';
 import { PersonaSeed } from './PersonaSeed.js';
 import { AgentSeed } from './AgentSeed.js';
@@ -8,6 +9,7 @@ import { getViralAgentsData } from './data/viralAgents.js';
 
 // Import all entities
 import { UserEntity } from '../../entities/user.entity.js';
+import { UserLLMProvider } from '../../entities/userLLMProvider.entity.js';
 import { Agent } from '../../entities/agent.entity.js';
 import { Persona as PersonaEntity } from '../../entities/persona.entity.js';
 
@@ -29,6 +31,7 @@ export class DatabaseSeeder {
 
     const results = {
       users: false,
+      userLLMProviders: false,
       securityPolicies: false,
       personas: false,
       agents: false,
@@ -42,6 +45,15 @@ export class DatabaseSeeder {
       console.log('   ✅ Users seeded successfully');
     } catch (error) {
       console.error('   ❌ User seeding failed:', error.message);
+      console.warn('   ⚠️ Continuing with other seeders...');
+    }
+
+    try {
+      await this.seedUserLLMProviders();
+      results.userLLMProviders = true;
+      console.log('   ✅ User LLM providers seeded successfully');
+    } catch (error) {
+      console.error('   ❌ User LLM provider seeding failed:', error.message);
       console.warn('   ⚠️ Continuing with other seeders...');
     }
 
@@ -105,6 +117,18 @@ export class DatabaseSeeder {
   }
 
   /**
+   * Seed User LLM Providers based on user roles and security clearance
+   */
+  private async seedUserLLMProviders(): Promise<void> {
+    // Get users for LLM provider creation
+    const userRepository = this.dataSource.getRepository(UserEntity);
+    const users = await userRepository.find();
+
+    const userLLMProviderSeed = new UserLLMProviderSeed(this.dataSource, users);
+    await userLLMProviderSeed.seed();
+  }
+
+  /**
    * Seed Security Policies
    */
   private async seedSecurityPolicies(): Promise<void> {
@@ -138,7 +162,11 @@ export class DatabaseSeeder {
     const users = await userRepository.find();
     const personas = await personaRepository.find();
 
-    const agentSeed = new AgentSeed(this.dataSource, users, personas);
+    // Get user LLM providers for agent seeding
+    const userLLMProviderRepository = this.dataSource.getRepository(UserLLMProvider);
+    const userLLMProviders = await userLLMProviderRepository.find();
+
+    const agentSeed = new AgentSeed(this.dataSource, users, personas, userLLMProviders);
     await agentSeed.seed();
 
     // Add viral agents using simple upsert

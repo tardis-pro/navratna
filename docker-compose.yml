@@ -573,7 +573,7 @@ services:
     container_name: council-frontend
     environment:
       - NODE_ENV=development
-      - VITE_API_URL=http://localhost:8081
+      - VITE_API_URL=https://b3b3ed273803.ngrok-free.app
       - VITE_API_TARGET=http://api-gateway:80
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true

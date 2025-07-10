@@ -371,13 +371,12 @@ export const uaipAPI = {
 
     async getMessages(id: string, options?: MessageSearchOptions): Promise<DiscussionMessage[]> {
       const client = getAPIClient();
-      const response = await client.discussions.getMessages(id, options?.limit, options?.offset);
-
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to fetch messages');
-      }
-
-      return response.data!;
+      // Convert MessageSearchOptions to the format expected by discussions.api
+      const apiOptions = {
+        limit: options?.limit,
+        page: options?.offset ? Math.floor(options.offset / (options.limit || 50)) + 1 : undefined
+      };
+      return await client.discussions.getMessages(id, apiOptions);
     },
 
     async sendMessage(id: string, message: DiscussionMessageCreate): Promise<DiscussionMessage> {

@@ -10,6 +10,7 @@ import {
   AgentIntelligenceConfig,
   AgentSecurityContext
 } from '@uaip/types';
+import { logger } from '@uaip/utils';
 
 /**
  * Agent seeder with different roles and configurations
@@ -187,7 +188,8 @@ export class AgentSeed extends BaseSeed<Agent> {
         };
       }
     }
-
+    console.log('current best provider')
+    console.log(userProviders[0])
     // If no preferred provider found, use the highest priority provider
     const bestProvider = userProviders[0];
     return {

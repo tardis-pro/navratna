@@ -19,6 +19,7 @@ import { SecurityPortal } from './futuristic/portals/SecurityPortal';
 import { SystemConfigPortal } from './futuristic/portals/SystemConfigPortal';
 import { ToolManagementPortal } from './futuristic/portals/ToolManagementPortal';
 import { DiscussionControlsPortal } from './futuristic/portals/DiscussionControlsPortal';
+import { DiscussionLogPortal } from './futuristic/portals/DiscussionLogPortal';
 import { ProviderSettingsPortal } from './futuristic/portals/ProviderSettingsPortal';
 import { MiniBrowserPortal } from './futuristic/portals/MiniBrowserPortal';
 import { UserChatPortal } from './futuristic/portals/UserChatPortal';
@@ -141,6 +142,7 @@ const ALL_APPLICATIONS: Application[] = [
   
   // Discussion & Communication
   { id: 'discussion', title: 'Discussions', icon: TrendingUp, color: 'text-teal-400', component: DiscussionControlsPortal, category: 'core', minimumRole: 'moderator' },
+  { id: 'discussion-logs', title: 'Discussion Logs', icon: History, color: 'text-emerald-400', component: DiscussionLogPortal, category: 'core', minimumRole: 'user' },
   
   // Admin & Security
   { id: 'settings', title: 'Settings', icon: Settings, color: 'text-gray-400', component: SettingsPortal, category: 'security', minimumRole: 'admin' },
@@ -344,7 +346,7 @@ const Window: React.FC<{
           <Button variant="secondary" size="sm" onClick={(e) => { e.stopPropagation(); onMinimize(); }}>
             <Minimize2 className="w-3 h-3" />
           </Button>
-          <Button variant="danger" size="sm" onClick={(e) => { e.stopPropagation(); onClose(); }}>
+          <Button variant="destructive" size="sm" onClick={(e) => { e.stopPropagation(); onClose(); }}>
             <X className="w-3 h-3" />
           </Button>
         </div>
@@ -1023,7 +1025,7 @@ const ActionsMenu: React.FC<{
               </div>
               <div className="flex justify-between">
                 <span>Quick Task</span>
-                <kbd className="bg-slate-700 px-1 rounded">Ctrl+Shift+T</kbd>
+                <kbd className="bg-slate-700 px-1 rounded">Alt+T</kbd>
               </div>
               <div className="flex justify-between">
                 <span>Quick Actions</span>
@@ -1040,7 +1042,7 @@ const ActionsMenu: React.FC<{
               <Command className="w-4 h-4" />
               Close
             </Button>
-            <Button variant="danger" size="sm" onClick={async () => { 
+            <Button variant="destructive" size="sm" onClick={async () => { 
               if (confirm('Sign out?')) {
                 try {
                   onClose(); 

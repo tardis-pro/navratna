@@ -29,8 +29,8 @@ export interface CreateTaskRequest {
   sprint?: string;
   settings?: TaskSettings;
   estimatedHours?: number;
-  customFields?: Record<string, any>;
   createdBy: string;
+  customFields?: Record<string, any>;
 }
 
 export interface UpdateTaskRequest {

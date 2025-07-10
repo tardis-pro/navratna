@@ -85,7 +85,7 @@ const DesktopIcon: React.FC<{
   onDoubleClick: () => void;
 }> = ({ app, onDoubleClick }) => {
   const Icon = app.icon;
-  
+
   return (
     <motion.div
       className="w-20 h-24 flex flex-col items-center justify-center cursor-pointer group select-none"
@@ -133,23 +133,21 @@ const Window: React.FC<{
         height: window.size.height,
         zIndex: window.zIndex,
       }}
-      className={`bg-slate-900/95 backdrop-blur-xl rounded-xl border ${
-        isActive ? 'border-blue-500/50 shadow-2xl shadow-blue-500/20' : 'border-slate-700/50'
-      } overflow-hidden flex flex-col`}
+      className={`bg-slate-900/95 backdrop-blur-xl rounded-xl border ${isActive ? 'border-blue-500/50 shadow-2xl shadow-blue-500/20' : 'border-slate-700/50'
+        } overflow-hidden flex flex-col`}
       onClick={onFocus}
     >
       {/* Window Header */}
-      <div 
-        className={`h-12 bg-slate-800/50 border-b border-slate-700/50 flex items-center justify-between px-4 cursor-move select-none ${
-          isDragging ? 'cursor-grabbing' : 'cursor-grab'
-        }`}
+      <div
+        className={`h-12 bg-slate-800/50 border-b border-slate-700/50 flex items-center justify-between px-4 cursor-move select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'
+          }`}
         onMouseDown={onFocus}
       >
         <div className="flex items-center gap-3">
           <Icon className={`w-4 h-4 ${window.app.color}`} />
           <span className="text-white text-sm font-medium truncate">{window.app.title}</span>
         </div>
-        
+
         <div className="flex items-center gap-2">
           <button
             onClick={(e) => {
@@ -205,11 +203,11 @@ const ActionsMenu: React.FC<{
   return (
     <>
       {/* Backdrop */}
-      <div 
+      <div
         className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40"
         onClick={onClose}
       />
-      
+
       {/* Menu */}
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -339,7 +337,7 @@ const ShortcutBar: React.FC<{
             </button>
           );
         })}
-        
+
         {/* Search shortcut */}
         <div className="w-px h-6 bg-slate-700/50 mx-1" />
         <button
@@ -362,7 +360,7 @@ const Taskbar: React.FC<{
   return (
     <div className="fixed bottom-0 left-0 right-0 h-12 bg-slate-900/90 backdrop-blur-xl border-t border-slate-700/50 flex items-center justify-between px-4">
       {/* Start Button */}
-      <button 
+      <button
         onClick={onActionsMenuToggle}
         className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-700/50 transition-colors group"
       >
@@ -380,11 +378,10 @@ const Taskbar: React.FC<{
             <button
               key={window.id}
               onClick={() => onWindowClick(window.id)}
-              className={`h-8 px-3 rounded flex items-center gap-2 transition-colors ${
-                window.isMinimized 
-                  ? 'bg-slate-700/50 text-slate-400' 
+              className={`h-8 px-3 rounded flex items-center gap-2 transition-colors ${window.isMinimized
+                  ? 'bg-slate-700/50 text-slate-400'
                   : 'bg-slate-600/50 text-white'
-              }`}
+                }`}
             >
               <Icon className="w-4 h-4" />
               <span className="text-xs truncate max-w-20">{window.app.title}</span>
@@ -432,8 +429,8 @@ export const Desktop: React.FC = () => {
     const existingWindow = windows.find(w => w.app.id === app.id);
     if (existingWindow) {
       // Bring to front and unminimize
-      setWindows(prev => prev.map(w => 
-        w.id === existingWindow.id 
+      setWindows(prev => prev.map(w =>
+        w.id === existingWindow.id
           ? { ...w, isMinimized: false, zIndex: nextZIndex }
           : w
       ));
@@ -447,9 +444,9 @@ export const Desktop: React.FC = () => {
       id: `${app.id}-${Date.now()}`,
       app,
       isMinimized: false,
-      position: { 
-        x: 100 + (windows.length * 30), 
-        y: 100 + (windows.length * 30) 
+      position: {
+        x: 100 + (windows.length * 30),
+        y: 100 + (windows.length * 30)
       },
       size: { width: 800, height: 600 },
       zIndex: nextZIndex
@@ -468,7 +465,7 @@ export const Desktop: React.FC = () => {
   };
 
   const minimizeWindow = (windowId: string) => {
-    setWindows(prev => prev.map(w => 
+    setWindows(prev => prev.map(w =>
       w.id === windowId ? { ...w, isMinimized: true } : w
     ));
     if (activeWindowId === windowId) {
@@ -477,8 +474,8 @@ export const Desktop: React.FC = () => {
   };
 
   const focusWindow = (windowId: string) => {
-    setWindows(prev => prev.map(w => 
-      w.id === windowId 
+    setWindows(prev => prev.map(w =>
+      w.id === windowId
         ? { ...w, zIndex: nextZIndex, isMinimized: false }
         : w
     ));
@@ -494,19 +491,19 @@ export const Desktop: React.FC = () => {
         e.preventDefault();
         console.log('Global search triggered');
       }
-      
+
       // Alt+Space for actions menu
       if (e.altKey && e.code === 'Space') {
         e.preventDefault();
         setShowActionsMenu(!showActionsMenu);
       }
-      
+
       // Ctrl+Shift+T for shortcut bar toggle
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'T') {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'q') {
         e.preventDefault();
         setShowShortcutBar(!showShortcutBar);
       }
-      
+
       // Escape to close menu
       if (e.key === 'Escape') {
         setShowActionsMenu(false);

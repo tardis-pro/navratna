@@ -60,10 +60,12 @@ export async function seedDatabase(dataSource?: DataSource): Promise<void> {
 export { DatabaseSeeder } from './DatabaseSeeder.js';
 export { BaseSeed } from './BaseSeed.js';
 export { UserSeed } from './UserSeed.js';
+export { UserLLMProviderSeed } from './UserLLMProviderSeed.js';
 export { SecurityPolicySeed } from './SecurityPolicySeed.js';
 export { PersonaSeed } from './PersonaSeed.js';
 export { AgentSeed } from './AgentSeed.js';
 export { ToolDefinitionSeed } from './ToolDefinitionSeed.js';
+export { DefaultUserLLMProviderSeed } from './DefaultUserLLMProviderSeed.js';
 
 // Export data functions
 export { getViralAgentsData } from './data/viralAgents.js';

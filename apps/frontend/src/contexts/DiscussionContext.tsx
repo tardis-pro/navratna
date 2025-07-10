@@ -35,8 +35,10 @@ interface DiscussionContextType {
   // State
   isActive: boolean;
   isWebSocketConnected: boolean;
+  websocketError: string | null;
   participants: DiscussionParticipant[];
   messages: Message[];
+  history: Message[]; // Historical messages from database
   currentTurn: TurnInfo | null;
   discussionId: string | null;
   isLoading: boolean;
@@ -46,6 +48,7 @@ interface DiscussionContextType {
   start: (topic?: string, agentIds?: string[], enhancedContext?: any) => Promise<void>;
   stop: () => Promise<void>;
   addMessage: (content: string, agentId?: string) => Promise<void>;
+  loadHistory: (discussionId: string) => Promise<void>;
 }
 
 const DiscussionContext = createContext<DiscussionContextType | null>(null);
@@ -66,8 +69,10 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
 }) => {
   const [isActive, setIsActive] = useState<boolean>(false);
   const [isWebSocketConnected, setIsWebSocketConnected] = useState<boolean>(true); // Assume connected for now
+  const [websocketError, setWebsocketError] = useState<string | null>(null);
   const [participants, setParticipants] = useState<DiscussionParticipant[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [history, setHistory] = useState<Message[]>([]);
   const [currentTurn, setCurrentTurn] = useState<TurnInfo | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [lastError, setLastError] = useState<string | null>(null);
@@ -284,18 +289,61 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
     }
   };
 
+  const loadHistory = async (discussionId: string) => {
+    try {
+      setIsLoading(true);
+      setLastError(null);
+      
+      console.log('Loading discussion history for:', discussionId);
+      
+      // Fetch messages from the existing API endpoint
+      const response = await uaipAPI.discussions.getMessages(discussionId, { limit: 1000 });
+      console.log('API response for getMessages:', response);
+      
+      // Transform backend DiscussionMessage[] to frontend Message[]
+      const transformedHistory: Message[] = response.map(msg => ({
+        id: msg.id,
+        content: msg.content,
+        sender: msg.metadata?.agentName || msg.participant?.agentId || 'unknown',
+        timestamp: new Date(msg.createdAt),
+        type: msg.messageType === MessageType.MESSAGE ? 'response' : 'system',
+        agentId: msg.metadata?.agentId,
+        confidence: msg.metadata?.confidence,
+        metadata: msg.metadata
+      }));
+      
+      setHistory(transformedHistory);
+      console.log(`Loaded ${transformedHistory.length} historical messages`);
+      
+    } catch (error) {
+      console.error('Failed to load discussion history:', error);
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        discussionId
+      });
+      setLastError(`Failed to load discussion history: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setHistory([]); // Clear history on error
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const value: DiscussionContextType = {
     isActive,
     isWebSocketConnected,
+    websocketError,
     participants,
     messages,
+    history,
     currentTurn,
     discussionId,
     isLoading,
     lastError,
     start,
     stop,
-    addMessage
+    addMessage,
+    loadHistory
   };
 
   return (

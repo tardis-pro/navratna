@@ -449,7 +449,9 @@ export class AgentDiscussionService {
           discussionId,
           agentId,
           participantId,
-          discussionTitle: discussionContext?.title
+          discussionTitle: discussionContext?.title,
+          eventSource: 'agent.discussion.participate',
+          participantIdSource: 'from_event_data'
         });
 
         await this.handleDiscussionParticipation(discussionId, agentId, participantId, discussionContext);
@@ -710,6 +712,16 @@ Remember: You are Agent ${agentId} and should respond in character as a capable 
       );
 
       // Send the message to the discussion via event bus
+      logger.info('Publishing agent message to discussion', {
+        discussionId,
+        participantId,
+        agentId,
+        contentLength: participationMessage.content.length,
+        messageType: 'message',
+        source: 'agent-intelligence',
+        isInitialParticipation: true
+      });
+
       await this.eventBusService.publish('discussion.agent.message', {
         discussionId,
         participantId,

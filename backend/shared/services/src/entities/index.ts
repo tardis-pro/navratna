@@ -61,6 +61,7 @@ export { ArtifactDeployment } from './artifactDeployment.entity.js';
 // Persona System entities
 export { Discussion } from './discussion.entity.js';
 export { DiscussionParticipant } from './discussionParticipant.entity.js';
+export { DiscussionMessage } from './discussionMessage.entity.js';
 export { PersonaAnalytics } from './personaAnalytics.entity.js';
 
 // MCP Integration entities

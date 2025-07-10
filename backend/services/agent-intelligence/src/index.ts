@@ -166,124 +166,14 @@ class AgentIntelligenceService extends BaseService {
       }
     });
 
-    // Subscribe to discussion events to trigger agent participation
-    await this.eventBusService.subscribe('discussion.events', async (event) => {
-      try {
-        logger.info('Received discussion event', {
-          eventType: event.type,
-          eventDataType: event.data?.type,
-          statusChangedComparison: event.data?.type === DiscussionEventType.STATUS_CHANGED,
-          participantJoinedComparison: event.data?.type === DiscussionEventType.PARTICIPANT_JOINED,
-          discussionId: event.data?.discussionId,
-          eventData: event.data
-        });
-        
-        if (event.data?.type === DiscussionEventType.PARTICIPANT_JOINED) {
-          const { participantId, agentId, discussionId, role } = event.data.data;
-          
-          logger.info('Agent joined discussion - triggering participation', { 
-            agentId, 
-            discussionId, 
-            participantId,
-            role 
-          });
-
-          // Trigger agent to join the discussion and provide initial response
-          await this.agentDiscussionService.triggerAgentParticipation(
-            discussionId,
-            agentId,
-            participantId
-          );
-
-          logger.info('Agent participation triggered successfully', { 
-            agentId, 
-            discussionId 
-          });
-        }
-
-        // Handle discussion status changes - automatically add agents when discussion becomes active
-        if (event.data?.type === DiscussionEventType.STATUS_CHANGED) {
-          const discussionId = event.data?.discussionId;
-          const { oldStatus, newStatus, startedBy } = event.data?.data || {};
-          
-          logger.info('Discussion status changed', { 
-            discussionId, 
-            oldStatus, 
-            newStatus, 
-            startedBy 
-          });
-
-          // When discussion becomes active, automatically add available agents
-          if (newStatus === 'active' && oldStatus !== 'active') {
-            logger.info('Discussion became active - checking for available agents', { 
-              discussionId 
-            });
-
-            try {
-              // Get the discussion details to check for existing participants
-              const discussion = await this.discussionService.getDiscussion(discussionId);
-              
-              if (discussion) {
-                // Check if there are any agent participants already
-                const agentParticipants = discussion.participants || [];
-                
-                if (agentParticipants.length === 0) {
-                  logger.info('No agent participants found - adding default agent', { 
-                    discussionId 
-                  });
-                  
-                  // Add a default agent to the discussion
-                  // You can modify this to select specific agents based on discussion topic/settings
-                  const agentRepository = this.databaseService.getAgentRepository();
-                  const availableAgents = await agentRepository.getActiveAgents(1);
-                  
-                  if (availableAgents.length > 0) {
-                    const defaultAgent = availableAgents[0]; // Use first available agent
-                    
-                    // Add the agent as a participant
-                    await this.discussionService.addParticipant(discussionId, {
-                      agentId: defaultAgent.id,
-                      role: 'participant'
-                    });
-                    
-                    logger.info('Default agent added to discussion', { 
-                      discussionId, 
-                      agentId: defaultAgent.id 
-                    });
-                  } else {
-                    logger.warn('No available agents found to add to discussion', { 
-                      discussionId 
-                    });
-                  }
-                } else {
-                  logger.info('Agent participants already exist in discussion', { 
-                    discussionId, 
-                    agentCount: agentParticipants.length 
-                  });
-                }
-              }
-            } catch (error) {
-              logger.error('Failed to handle discussion status change', { 
-                error: error instanceof Error ? error.message : 'Unknown error',
-                discussionId,
-                oldStatus,
-                newStatus
-              });
-            }
-          }
-        }
-      } catch (error) {
-        logger.error('Failed to handle discussion event', { 
-          error: error instanceof Error ? error.message : 'Unknown error',
-          eventType: event.type,
-          agentId: event.data?.agentId,
-          discussionId: event.data?.discussionId
-        });
-      }
-    });
+    // DEPRECATED: Agent participation is now handled by Discussion Orchestration service
+    // via 'agent.discussion.participate' events. This removes the duplicate event handler
+    // that was causing participant ID conflicts and "Participant not found" errors.
+    // The AgentDiscussionService now properly subscribes to 'agent.discussion.participate'
+    // events in its setupDiscussionEventSubscriptions() method.
 
     logger.info('Agent chat WebSocket event subscription established');
-    logger.info('Discussion events subscription established');
+    logger.info('Agent discussion participation events will be handled via AgentDiscussionService');
   }
 
   protected async checkServiceHealth(): Promise<boolean> {

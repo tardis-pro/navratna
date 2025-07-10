@@ -191,13 +191,15 @@ export const Portal: React.FC<PortalProps> = ({
   };
 
   const handleResize = (event: any, info: any) => {
+    if (!info || !info.delta) return;
+    
     const minWidth = currentViewport.isMobile ? 300 : 350;
     const minHeight = currentViewport.isMobile ? 200 : 250;
-    const maxWidth = currentViewport.width - state.position.x - 20;
-    const maxHeight = currentViewport.height - state.position.y - 20;
+    const maxWidth = currentViewport.width - (state.position?.x || 0) - 20;
+    const maxHeight = currentViewport.height - (state.position?.y || 0) - 20;
 
-    const newWidth = Math.max(minWidth, Math.min(maxWidth, state.size.width + info.delta.x));
-    const newHeight = Math.max(minHeight, Math.min(maxHeight, state.size.height + info.delta.y));
+    const newWidth = Math.max(minWidth, Math.min(maxWidth, (state.size?.width || 400) + info.delta.x));
+    const newHeight = Math.max(minHeight, Math.min(maxHeight, (state.size?.height || 300) + info.delta.y));
 
     setState(prev => ({
       ...prev,
@@ -338,6 +340,7 @@ export const Portal: React.FC<PortalProps> = ({
             onDragStart={handleHeaderDragStart}
             onDragEnd={handleHeaderDragEnd}
             onDrag={(event, info) => {
+              if (!info || !info.point || !info.offset) return;
               setState(prev => ({
                 ...prev,
                 position: {
@@ -505,9 +508,10 @@ export const Portal: React.FC<PortalProps> = ({
                 onDragStart={handleResizeStart}
                 onDragEnd={handleResizeEnd}
                 onDrag={(event: any, info: any) => {
+                  if (!info || !info.delta) return;
                   const minWidth = 350;
-                  const maxWidth = currentViewport.width - state.position.x - 20;
-                  const newWidth = Math.max(minWidth, Math.min(maxWidth, state.size.width + info.delta.x));
+                  const maxWidth = currentViewport.width - (state.position?.x || 0) - 20;
+                  const newWidth = Math.max(minWidth, Math.min(maxWidth, (state.size?.width || 400) + info.delta.x));
                   setState(prev => ({
                     ...prev,
                     size: { ...prev.size, width: newWidth }
@@ -528,9 +532,10 @@ export const Portal: React.FC<PortalProps> = ({
                 onDragStart={handleResizeStart}
                 onDragEnd={handleResizeEnd}
                 onDrag={(event: any, info: any) => {
+                  if (!info || !info.delta) return;
                   const minHeight = 250;
-                  const maxHeight = currentViewport.height - state.position.y - 20;
-                  const newHeight = Math.max(minHeight, Math.min(maxHeight, state.size.height + info.delta.y));
+                  const maxHeight = currentViewport.height - (state.position?.y || 0) - 20;
+                  const newHeight = Math.max(minHeight, Math.min(maxHeight, (state.size?.height || 300) + info.delta.y));
                   setState(prev => ({
                     ...prev,
                     size: { ...prev.size, height: newHeight }
@@ -552,16 +557,17 @@ export const Portal: React.FC<PortalProps> = ({
                 onDragStart={handleResizeStart}
                 onDragEnd={handleResizeEnd}
                 onDrag={(event: any, info: any) => {
+                  if (!info || !info.delta) return;
                   const minWidth = 350;
                   const minHeight = 250;
-                  const maxWidth = currentViewport.width - state.position.x - 20;
-                  const newWidth = Math.max(minWidth, Math.min(maxWidth, state.size.width + info.delta.x));
-                  const newHeight = Math.max(minHeight, state.size.height - info.delta.y);
+                  const maxWidth = currentViewport.width - (state.position?.x || 0) - 20;
+                  const newWidth = Math.max(minWidth, Math.min(maxWidth, (state.size?.width || 400) + info.delta.x));
+                  const newHeight = Math.max(minHeight, (state.size?.height || 300) - info.delta.y);
                   
                   setState(prev => ({
                     ...prev,
                     size: { width: newWidth, height: newHeight },
-                    position: { ...prev.position, y: prev.position.y + info.delta.y }
+                    position: { ...prev.position, y: (prev.position?.y || 0) + info.delta.y }
                   }));
                 }}
                 className="absolute top-0 right-0 w-5 h-5 cursor-ne-resize z-15 group"
@@ -579,16 +585,17 @@ export const Portal: React.FC<PortalProps> = ({
                 onDragStart={handleResizeStart}
                 onDragEnd={handleResizeEnd}
                 onDrag={(event: any, info: any) => {
+                  if (!info || !info.delta) return;
                   const minWidth = 350;
                   const minHeight = 250;
-                  const maxHeight = currentViewport.height - state.position.y - 20;
-                  const newWidth = Math.max(minWidth, state.size.width - info.delta.x);
-                  const newHeight = Math.max(minHeight, Math.min(maxHeight, state.size.height + info.delta.y));
+                  const maxHeight = currentViewport.height - (state.position?.y || 0) - 20;
+                  const newWidth = Math.max(minWidth, (state.size?.width || 400) - info.delta.x);
+                  const newHeight = Math.max(minHeight, Math.min(maxHeight, (state.size?.height || 300) + info.delta.y));
                   
                   setState(prev => ({
                     ...prev,
                     size: { width: newWidth, height: newHeight },
-                    position: { ...prev.position, x: prev.position.x + info.delta.x }
+                    position: { ...prev.position, x: (prev.position?.x || 0) + info.delta.x }
                   }));
                 }}
                 className="absolute bottom-0 left-0 w-5 h-5 cursor-sw-resize z-15 group"
@@ -606,17 +613,18 @@ export const Portal: React.FC<PortalProps> = ({
                 onDragStart={handleResizeStart}
                 onDragEnd={handleResizeEnd}
                 onDrag={(event: any, info: any) => {
+                  if (!info || !info.delta) return;
                   const minWidth = 350;
                   const minHeight = 250;
-                  const newWidth = Math.max(minWidth, state.size.width - info.delta.x);
-                  const newHeight = Math.max(minHeight, state.size.height - info.delta.y);
+                  const newWidth = Math.max(minWidth, (state.size?.width || 400) - info.delta.x);
+                  const newHeight = Math.max(minHeight, (state.size?.height || 300) - info.delta.y);
                   
                   setState(prev => ({
                     ...prev,
                     size: { width: newWidth, height: newHeight },
                     position: { 
-                      x: prev.position.x + info.delta.x, 
-                      y: prev.position.y + info.delta.y 
+                      x: (prev.position?.x || 0) + info.delta.x, 
+                      y: (prev.position?.y || 0) + info.delta.y 
                     }
                   }));
                 }}
@@ -635,12 +643,13 @@ export const Portal: React.FC<PortalProps> = ({
                 onDragStart={handleResizeStart}
                 onDragEnd={handleResizeEnd}
                 onDrag={(event: any, info: any) => {
+                  if (!info || !info.delta) return;
                   const minWidth = 350;
-                  const newWidth = Math.max(minWidth, state.size.width - info.delta.x);
+                  const newWidth = Math.max(minWidth, (state.size?.width || 400) - info.delta.x);
                   setState(prev => ({
                     ...prev,
                     size: { ...prev.size, width: newWidth },
-                    position: { ...prev.position, x: prev.position.x + info.delta.x }
+                    position: { ...prev.position, x: (prev.position?.x || 0) + info.delta.x }
                   }));
                 }}
                 className="absolute top-4 left-0 bottom-4 w-3 cursor-ew-resize z-10 group"
@@ -658,12 +667,13 @@ export const Portal: React.FC<PortalProps> = ({
                 onDragStart={handleResizeStart}
                 onDragEnd={handleResizeEnd}
                 onDrag={(event: any, info: any) => {
+                  if (!info || !info.delta) return;
                   const minHeight = 250;
-                  const newHeight = Math.max(minHeight, state.size.height - info.delta.y);
+                  const newHeight = Math.max(minHeight, (state.size?.height || 300) - info.delta.y);
                   setState(prev => ({
                     ...prev,
                     size: { ...prev.size, height: newHeight },
-                    position: { ...prev.position, y: prev.position.y + info.delta.y }
+                    position: { ...prev.position, y: (prev.position?.y || 0) + info.delta.y }
                   }));
                 }}
                 className="absolute top-0 left-4 right-4 h-3 cursor-ns-resize z-10 group"

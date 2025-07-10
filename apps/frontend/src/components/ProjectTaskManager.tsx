@@ -217,10 +217,12 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'T') {
+      // Alt+T for quick task creation
+      if (e.altKey && (e.key === 't' || e.key === 'T')) {
         e.preventDefault();
         setShowQuickCreateTask(true);
       }
+      // Escape to close modal
       if (e.key === 'Escape') {
         setShowQuickCreateTask(false);
       }
@@ -405,7 +407,7 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
             
             <div className="flex justify-between items-center pt-4">
               <div className={`text-xs ${DESIGN_TOKENS.colors.textMuted}`}>
-                Press <kbd className="bg-slate-700 px-1 rounded">Ctrl+Shift+T</kbd> to quickly create tasks
+                Press <kbd className="bg-slate-700 px-1 rounded">Alt+T</kbd> to quickly create tasks
               </div>
               <div className={`flex ${DESIGN_TOKENS.spacing.xs}`}>
                 <Button type="button" variant="secondary" onClick={() => setShowQuickCreateTask(false)}>
@@ -584,7 +586,7 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
               size="sm"
               onClick={() => setShowQuickCreateTask(true)}
               className="hidden sm:flex"
-              title="Quick Create Task (Ctrl+Shift+T)"
+              title="Quick Create Task (Alt+T)"
             >
               <Plus className="w-4 h-4 mr-2" />
               New Task

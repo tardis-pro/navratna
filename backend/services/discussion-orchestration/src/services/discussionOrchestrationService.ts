@@ -361,6 +361,17 @@ export class DiscussionOrchestrationService extends EventEmitter {
 
       const participant = discussion.participants.find(p => p.id === participantId);
       if (!participant) {
+        // Enhanced debugging for participant not found
+        logger.error('Participant not found in discussion', {
+          discussionId,
+          requestedParticipantId: participantId,
+          availableParticipants: discussion.participants.map(p => ({
+            id: p.id,
+            agentId: p.agentId,
+            isActive: p.isActive,
+            role: p.role
+          }))
+        });
         return { success: false, error: 'Participant not found' };
       }
 
@@ -1318,7 +1329,15 @@ export class DiscussionOrchestrationService extends EventEmitter {
         discussionId,
         participantId: participant.id,
         agentId: participant.agentId,
-        discussionTitle: discussion.title
+        discussionTitle: discussion.title,
+        participantDetails: {
+          id: participant.id,
+          agentId: participant.agentId,
+          isActive: participant.isActive,
+          role: participant.role,
+          messageCount: participant.messageCount,
+          lastMessageAt: participant.lastMessageAt
+        }
       });
 
       // Send direct participation request to agent intelligence service

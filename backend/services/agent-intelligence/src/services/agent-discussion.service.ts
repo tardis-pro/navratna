@@ -44,6 +44,14 @@ export class AgentDiscussionService {
   private userLLMService: UserLLMService;
   private serviceName: string;
   private securityLevel: number;
+  
+  // Track active LLM requests to prevent duplicates and monitor leaks
+  private activeRequests = new Map<string, {
+    timestamp: number;
+    timeout: NodeJS.Timeout | null;
+    responseChannel: string;
+    handler: ((responseData: any) => Promise<void>) | null;
+  }>();
 
   constructor(config: AgentDiscussionConfig) {
     this.databaseService = config.databaseService;
@@ -61,10 +69,79 @@ export class AgentDiscussionService {
     // Set up event subscriptions
     await this.setupEventSubscriptions();
 
+    // Start periodic monitoring of active requests
+    this.startRequestMonitoring();
+
     logger.info('Agent Discussion Service initialized', {
       service: this.serviceName,
       securityLevel: this.securityLevel
     });
+  }
+
+  /**
+   * Start periodic monitoring of active LLM requests
+   */
+  private startRequestMonitoring(): void {
+    setInterval(() => {
+      const stats = this.getActiveRequestStats();
+      
+      if (stats.totalActiveRequests > 0) {
+        logger.info('LLM Request Monitoring', {
+          activeRequests: stats.totalActiveRequests,
+          oldestRequestAge: stats.oldestRequestAge ? `${Math.round(stats.oldestRequestAge / 1000)}s` : 'N/A',
+          channels: Object.keys(stats.requestsByChannel).length
+        });
+
+        // Warn if requests are accumulating (potential leak)
+        if (stats.totalActiveRequests > 10) {
+          logger.warn('High number of active LLM requests detected', {
+            count: stats.totalActiveRequests,
+            oldestAge: stats.oldestRequestAge
+          });
+        }
+
+        // Warn if very old requests exist (potential stuck requests)
+        if (stats.oldestRequestAge && stats.oldestRequestAge > 60000) { // 1 minute
+          logger.warn('Very old LLM request detected', {
+            oldestAge: `${Math.round(stats.oldestRequestAge / 1000)}s`,
+            totalActive: stats.totalActiveRequests
+          });
+        }
+      }
+    }, 30000); // Every 30 seconds
+  }
+
+  /**
+   * Get statistics about active LLM requests for monitoring
+   */
+  public getActiveRequestStats(): {
+    totalActiveRequests: number;
+    oldestRequestAge: number | null;
+    requestsByChannel: Record<string, number>;
+  } {
+    const stats = {
+      totalActiveRequests: this.activeRequests.size,
+      oldestRequestAge: null as number | null,
+      requestsByChannel: {} as Record<string, number>
+    };
+
+    if (this.activeRequests.size > 0) {
+      const now = Date.now();
+      let oldestTimestamp = now;
+
+      for (const [requestId, request] of this.activeRequests) {
+        if (request.timestamp < oldestTimestamp) {
+          oldestTimestamp = request.timestamp;
+        }
+        
+        const channel = request.responseChannel;
+        stats.requestsByChannel[channel] = (stats.requestsByChannel[channel] || 0) + 1;
+      }
+
+      stats.oldestRequestAge = now - oldestTimestamp;
+    }
+
+    return stats;
   }
 
   /**
@@ -772,6 +849,12 @@ export class AgentDiscussionService {
     try {
       const requestId = `llm-request-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       
+      // Check if we already have an active request with this ID (shouldn't happen, but safety check)
+      if (this.activeRequests.has(requestId)) {
+        logger.warn('Duplicate request ID detected', { requestId, activeRequestCount: this.activeRequests.size });
+        throw new Error(`Duplicate request ID: ${requestId}`);
+      }
+      
       // Publish LLM request event
       const eventType = userId ? 'llm.user.request' : 'llm.global.request';
       const eventData = {
@@ -785,32 +868,89 @@ export class AgentDiscussionService {
       
       // Wait for response (with timeout)
       return new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          logger.warn('LLM request timeout', { requestId, eventType });
+        const responseChannel = `llm.response.${requestId}`;
+        let responseHandler: ((responseData: any) => Promise<void>) | null = null;
+        
+        // Cleanup function
+        const cleanup = async (reason: string) => {
+          logger.debug(`Cleaning up LLM request: ${reason}`, { requestId, responseChannel });
+          
+          // Remove from tracking
+          const request = this.activeRequests.get(requestId);
+          if (request) {
+            if (request.timeout) {
+              clearTimeout(request.timeout);
+            }
+            this.activeRequests.delete(requestId);
+          }
+          
+          // Unsubscribe handler
+          if (responseHandler) {
+            try {
+              await this.eventBusService.unsubscribe(responseChannel, responseHandler);
+              logger.debug('Successfully cleaned up subscription', { requestId, responseChannel, reason });
+            } catch (cleanupError) {
+              logger.warn('Failed to cleanup subscription', { 
+                requestId, 
+                responseChannel, 
+                reason,
+                error: cleanupError.message 
+              });
+            }
+          }
+        };
+        
+        const timeout = setTimeout(async () => {
+          logger.warn('LLM request timeout', { 
+            requestId, 
+            eventType, 
+            activeRequestCount: this.activeRequests.size 
+          });
+          await cleanup('timeout');
           reject(new Error('LLM request timeout'));
         }, 30000); // 30 second timeout
         
-        // Subscribe to response
-        logger.info('Subscribing to LLM response', { responseChannel: `llm.response.${requestId}` });
-        this.eventBusService.subscribe(`llm.response.${requestId}`, async (responseData: any) => {
+        // Define response handler with cleanup
+        responseHandler = async (responseData: any) => {
           logger.info('LLM response received', { requestId, hasResponseData: !!responseData });
-          clearTimeout(timeout);
           
-          // Extract content from event data structure
-          let actualResponse = responseData;
-          if (responseData && responseData.data) {
-            actualResponse = responseData.data;
+          try {
+            // Extract content from event data structure
+            let actualResponse = responseData;
+            if (responseData && responseData.data) {
+              actualResponse = responseData.data;
+            }
+            
+            logger.info('LLM response data extracted', { 
+              requestId, 
+              hasActualResponse: !!actualResponse,
+              actualResponseKeys: actualResponse ? Object.keys(actualResponse) : 'none',
+              hasContent: !!actualResponse?.content
+            });
+            
+            await cleanup('response_received');
+            resolve(actualResponse);
+          } catch (error) {
+            logger.error('Error processing LLM response', { requestId, error: error.message });
+            await cleanup('response_error');
+            reject(error);
           }
-          
-          logger.info('LLM response data extracted', { 
-            requestId, 
-            hasActualResponse: !!actualResponse,
-            actualResponseKeys: actualResponse ? Object.keys(actualResponse) : 'none',
-            hasContent: !!actualResponse?.content
-          });
-          
-          resolve(actualResponse);
+        };
+        
+        // Track the request
+        this.activeRequests.set(requestId, {
+          timestamp: Date.now(),
+          timeout,
+          responseChannel,
+          handler: responseHandler
         });
+        
+        // Subscribe to response
+        logger.info('Subscribing to LLM response', { 
+          responseChannel, 
+          activeRequestCount: this.activeRequests.size 
+        });
+        this.eventBusService.subscribe(responseChannel, responseHandler);
       });
     } catch (error) {
       logger.error('Failed to request LLM response via event bus', { error });
