@@ -1,14 +1,16 @@
 import { logger } from '@uaip/utils';
+import { TypeOrmService } from '../../typeormService.js';
+import { Discussion } from '../../entities/discussion.entity.js';
+import { Repository, SelectQueryBuilder } from 'typeorm';
 
 export class DiscussionRepository {
-  private getEntityManager() {
-    // Use TypeOrmService to get entity manager
-    const { TypeOrmService } = require('../typeormService.js');
+  private getRepository(): Repository<Discussion> {
+    // Use TypeOrmService to get repository
     const typeormService = TypeOrmService.getInstance();
     
     // Check if TypeORM service is initialized
     try {
-      return typeormService.getDataSource().manager;
+      return typeormService.getDataSource().getRepository(Discussion);
     } catch (error) {
       if (error.message.includes('TypeORM service not initialized')) {
         throw new Error(
@@ -21,7 +23,7 @@ export class DiscussionRepository {
   }
 
   /**
-   * Search discussions with complex filters and text search
+   * Search discussions with complex filters and text search using TypeORM
    */
   public async searchDiscussions(filters: {
     textQuery?: string;
@@ -34,121 +36,92 @@ export class DiscussionRepository {
     createdBefore?: Date;
     limit?: number;
     offset?: number;
-  }): Promise<{ discussions: any[]; total: number }> {
+  }): Promise<{ discussions: Discussion[]; total: number }> {
     try {
-      const manager = this.getEntityManager();
-      
-      let sqlQuery = `
-        SELECT 
-          id, title, topic, description, status, visibility, 
-          created_by, organization_id, team_id, participants,
-          state, analytics, settings, created_at, updated_at
-        FROM discussions 
-        WHERE 1=1
-      `;
-      
-      const queryParams: any[] = [];
-      let paramIndex = 1;
+      const repository = this.getRepository();
+      const queryBuilder = repository.createQueryBuilder('discussion');
 
       // Text search across multiple fields
       if (filters.textQuery) {
-        sqlQuery += ` AND (
-          title ILIKE $${paramIndex} OR 
-          topic ILIKE $${paramIndex} OR 
-          description ILIKE $${paramIndex}
-        )`;
-        queryParams.push(`%${filters.textQuery}%`);
-        paramIndex++;
+        queryBuilder.andWhere(
+          '(discussion.title ILIKE :textQuery OR discussion.topic ILIKE :textQuery OR discussion.description ILIKE :textQuery)',
+          { textQuery: `%${filters.textQuery}%` }
+        );
       }
 
       // Status filter
       if (filters.status) {
         if (Array.isArray(filters.status)) {
-          sqlQuery += ` AND status = ANY($${paramIndex})`;
-          queryParams.push(filters.status);
+          queryBuilder.andWhere('discussion.status IN (:...statuses)', { statuses: filters.status });
         } else {
-          sqlQuery += ` AND status = $${paramIndex}`;
-          queryParams.push(filters.status);
+          queryBuilder.andWhere('discussion.status = :status', { status: filters.status });
         }
-        paramIndex++;
       }
 
       // Visibility filter
       if (filters.visibility) {
         if (Array.isArray(filters.visibility)) {
-          sqlQuery += ` AND visibility = ANY($${paramIndex})`;
-          queryParams.push(filters.visibility);
+          queryBuilder.andWhere('discussion.visibility IN (:...visibilities)', { visibilities: filters.visibility });
         } else {
-          sqlQuery += ` AND visibility = $${paramIndex}`;
-          queryParams.push(filters.visibility);
+          queryBuilder.andWhere('discussion.visibility = :visibility', { visibility: filters.visibility });
         }
-        paramIndex++;
       }
 
       // Created by filter
       if (filters.createdBy) {
         if (Array.isArray(filters.createdBy)) {
-          sqlQuery += ` AND created_by = ANY($${paramIndex})`;
-          queryParams.push(filters.createdBy);
+          queryBuilder.andWhere('discussion.createdBy IN (:...createdByIds)', { createdByIds: filters.createdBy });
         } else {
-          sqlQuery += ` AND created_by = $${paramIndex}`;
-          queryParams.push(filters.createdBy);
+          queryBuilder.andWhere('discussion.createdBy = :createdBy', { createdBy: filters.createdBy });
         }
-        paramIndex++;
       }
 
       // Organization filter
       if (filters.organizationId) {
-        sqlQuery += ` AND organization_id = $${paramIndex}`;
-        queryParams.push(filters.organizationId);
-        paramIndex++;
+        queryBuilder.andWhere('discussion.organizationId = :organizationId', { organizationId: filters.organizationId });
       }
 
       // Team filter
       if (filters.teamId) {
-        sqlQuery += ` AND team_id = $${paramIndex}`;
-        queryParams.push(filters.teamId);
-        paramIndex++;
+        queryBuilder.andWhere('discussion.teamId = :teamId', { teamId: filters.teamId });
       }
 
       // Date range filters
       if (filters.createdAfter) {
-        sqlQuery += ` AND created_at >= $${paramIndex}`;
-        queryParams.push(filters.createdAfter);
-        paramIndex++;
+        queryBuilder.andWhere('discussion.createdAt >= :createdAfter', { createdAfter: filters.createdAfter });
       }
 
       if (filters.createdBefore) {
-        sqlQuery += ` AND created_at <= $${paramIndex}`;
-        queryParams.push(filters.createdBefore);
-        paramIndex++;
+        queryBuilder.andWhere('discussion.createdAt <= :createdBefore', { createdBefore: filters.createdBefore });
       }
 
-      // Count total results
-      const countQuery = sqlQuery.replace(/SELECT.*FROM/, 'SELECT COUNT(*) FROM');
-      const countResult = await manager.query(countQuery, queryParams);
-      const total = parseInt(countResult[0].count);
+      // Order by created date descending
+      queryBuilder.orderBy('discussion.createdAt', 'DESC');
 
-      // Add ordering and pagination
-      sqlQuery += ` ORDER BY created_at DESC`;
-      
+      // Get total count for pagination
+      const total = await queryBuilder.getCount();
+
+      // Apply pagination
       if (filters.limit) {
-        sqlQuery += ` LIMIT $${paramIndex}`;
-        queryParams.push(filters.limit);
-        paramIndex++;
+        queryBuilder.limit(filters.limit);
       }
 
       if (filters.offset) {
-        sqlQuery += ` OFFSET $${paramIndex}`;
-        queryParams.push(filters.offset);
-        paramIndex++;
+        queryBuilder.offset(filters.offset);
       }
 
-      const discussions = await manager.query(sqlQuery, queryParams);
+      // Execute query
+      const discussions = await queryBuilder.getMany();
+
+      logger.info('TypeORM discussion search completed', { 
+        total, 
+        returned: discussions.length,
+        filters: Object.keys(filters).filter(key => filters[key as keyof typeof filters] !== undefined)
+      });
 
       return { discussions, total };
     } catch (error) {
-      logger.error('Error searching discussions', { filters, error: (error as Error).message });
+      logger.error('Error searching discussions with TypeORM', { filters, error: (error as Error).message });
       throw error;
     }
   }

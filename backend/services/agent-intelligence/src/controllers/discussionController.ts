@@ -21,19 +21,19 @@ export class DiscussionController {
 
   public async listDiscussions(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const page = req.query.page ? parseInt(req.query.page as string) : 1;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+      const offset = (page - 1) * limit;
+
       const filters: DiscussionSearchFilters = {
-        page: req.query.page ? parseInt(req.query.page as string) : 1,
-        limit: req.query.limit ? parseInt(req.query.limit as string) : 20,
-        sortBy: req.query.sortBy as 'createdAt' | 'updatedAt' | 'title' || 'updatedAt',
-        sortOrder: req.query.sortOrder as 'asc' | 'desc' || 'desc',
-        status: req.query.status as string,
-        participantId: req.query.participantId as string,
-        search: req.query.search as string
+        query: req.query.search as string,
+        status: req.query.status ? [req.query.status as any] : undefined,
+        participants: req.query.participantId ? [req.query.participantId as string] : undefined
       };
 
-      logger.info('Listing discussions', { filters });
+      logger.info('Listing discussions', { filters, page, limit, offset });
 
-      const result = await this.discussionService.searchDiscussions(filters, filters.limit, (filters.page - 1) * filters.limit);
+      const result = await this.discussionService.searchDiscussions(filters, limit, offset);
       const discussions = result.discussions;
 
       res.status(200).json({

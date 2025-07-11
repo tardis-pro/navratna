@@ -39,6 +39,7 @@ export class DiscussionService {
   private databaseService: DatabaseService;
   private eventBusService: EventBusService;
   private personaService: PersonaService;
+  private discussionRepository: DiscussionRepository;
   private enableRealTimeEvents: boolean;
   private enableAnalytics: boolean;
   private maxParticipants: number;
@@ -49,6 +50,7 @@ export class DiscussionService {
     this.databaseService = config.databaseService;
     this.eventBusService = config.eventBusService;
     this.personaService = config.personaService;
+    this.discussionRepository = new DiscussionRepository();
     this.enableRealTimeEvents = config.enableRealTimeEvents ?? true;
     this.enableAnalytics = config.enableAnalytics ?? true;
     this.maxParticipants = config.maxParticipants ?? 20;
@@ -689,8 +691,12 @@ export class DiscussionService {
         offset
       };
 
-      // Use DatabaseService searchDiscussions method instead of raw SQL
-      const result = await this.databaseService.searchDiscussions(searchFilters);
+      logger.info('Searching discussions with filters', { searchFilters });
+
+      // Use DiscussionRepository directly for domain-based architecture
+      const result = await this.discussionRepository.searchDiscussions(searchFilters);
+
+      logger.info('Discussion search result', { total: result.total, count: result.discussions.length });
 
       return {
         discussions: result.discussions,
