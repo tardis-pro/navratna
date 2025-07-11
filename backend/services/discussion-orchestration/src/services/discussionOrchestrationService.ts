@@ -29,6 +29,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
   private webSocketHandler?: DiscussionWebSocketHandler;
   private turnTimers: Map<string, NodeJS.Timeout> = new Map();
   private activeDiscussions: Map<string, Discussion> = new Map();
+  private recentParticipationRequests: Map<string, number> = new Map(); // Track recent participation requests
 
   constructor(
     discussionService: DiscussionService,
@@ -1073,12 +1074,25 @@ export class DiscussionOrchestrationService extends EventEmitter {
           });
           
           // Trigger agent participation for turn-based or free-form discussions
-          for (const participant of agentParticipants) {
-            if (participant.agentId && participant.isActive) {
-              // Check if it's their turn (for turn-based) or trigger anyway (for free-form)
-              if (discussion.turnStrategy.strategy === 'free_form' || 
+          if (discussion.turnStrategy.strategy === 'free_form') {
+            // For free-form discussions, only trigger one agent at a time to prevent spam
+            const eligibleParticipants = agentParticipants.filter(p => p.agentId && p.isActive);
+            if (eligibleParticipants.length > 0) {
+              // Select the participant who hasn't spoken in the longest time
+              const leastRecentParticipant = eligibleParticipants.reduce((oldest, current) => {
+                const oldestTime = oldest.lastMessageAt?.getTime() || 0;
+                const currentTime = current.lastMessageAt?.getTime() || 0;
+                return currentTime < oldestTime ? current : oldest;
+              });
+              await this.triggerAgentParticipationEvent(discussionId, leastRecentParticipant);
+            }
+          } else {
+            // For turn-based discussions, only trigger the current participant
+            for (const participant of agentParticipants) {
+              if (participant.agentId && participant.isActive && 
                   discussion.state.currentTurn.participantId === participant.id) {
                 await this.triggerAgentParticipationEvent(discussionId, participant);
+                break; // Only one participant for turn-based
               }
             }
           }
@@ -1238,11 +1252,44 @@ export class DiscussionOrchestrationService extends EventEmitter {
   }
 
   /**
+   * Check if we recently sent a participation request for this agent
+   */
+  private isRecentParticipationRequest(agentId: string, participantId: string): boolean {
+    const key = `${agentId}-${participantId}`;
+    const lastRequestTime = this.recentParticipationRequests.get(key);
+    const now = Date.now();
+    
+    // Rate limit: Only one request per agent per 2 minutes
+    if (lastRequestTime && (now - lastRequestTime) < 120000) {
+      return true;
+    }
+    
+    // Clean up old entries (older than 10 minutes)
+    for (const [reqKey, timestamp] of this.recentParticipationRequests.entries()) {
+      if (now - timestamp > 600000) {
+        this.recentParticipationRequests.delete(reqKey);
+      }
+    }
+    
+    return false;
+  }
+
+  /**
    * Trigger agent participation event
    */
   private async triggerAgentParticipationEvent(discussionId: string, participant: DiscussionParticipant): Promise<void> {
     try {
       if (!participant.agentId) {
+        return;
+      }
+
+      // Check if we recently sent a participation request for this agent
+      if (this.isRecentParticipationRequest(participant.agentId, participant.id)) {
+        logger.debug('Skipping participation request - recently sent', {
+          discussionId,
+          agentId: participant.agentId,
+          participantId: participant.id
+        });
         return;
       }
 
@@ -1266,6 +1313,10 @@ export class DiscussionOrchestrationService extends EventEmitter {
           lastMessageAt: participant.lastMessageAt
         }
       });
+
+      // Record this participation request to prevent duplicates
+      const requestKey = `${participant.agentId}-${participant.id}`;
+      this.recentParticipationRequests.set(requestKey, Date.now());
 
       // Send direct participation request to agent intelligence service
       await this.eventBusService.publish('agent.discussion.participate', {

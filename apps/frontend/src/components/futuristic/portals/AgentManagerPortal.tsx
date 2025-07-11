@@ -659,20 +659,35 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
     // Get model name without the long ID
     const getModelDisplayName = (modelId: string) => {
       if (!modelId) return 'No model';
-      // Extract just the model name part (after the last colon)
+      // Try to find the model name in available models first
+      const modelInfo = availableModels.find(m => m.id === modelId);
+      if (modelInfo?.name) {
+        return modelInfo.name;
+      }
+      // Fallback to creating a friendly name from the ID
       const parts = modelId.split(':');
-      return parts[parts.length - 1] || modelId;
+      const modelName = parts[parts.length - 1] || modelId;
+      
+      // Convert common model IDs to friendly names
+      const friendlyNames: { [key: string]: string } = {
+        'gpt-4-turbo': 'GPT-4 Turbo',
+        'gpt-4o-mini': 'GPT-4O Mini',
+        'claude-3-5-sonnet-20241022': 'Claude 3.5 Sonnet',
+        'claude-3-opus': 'Claude 3 Opus',
+        'claude-3-haiku': 'Claude 3 Haiku',
+        'llama-3.2-3b-instruct': 'Llama 3.2 3B',
+        'mistral-7b-instruct': 'Mistral 7B',
+        'llama-3.1-8b-instruct': 'Llama 3.1 8B',
+        'llama-3.1-70b-instruct': 'Llama 3.1 70B'
+      };
+      
+      return friendlyNames[modelName] || modelName;
     };
 
     // Get persona display name
     const getPersonaDisplayName = (agent: AgentState) => {
       if (agent.persona?.name) {
         return agent.persona.name;
-      }
-      if (agent.personaId) {
-        // Try to extract a readable name from persona ID
-        const parts = agent.personaId.split('-');
-        return parts.map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
       }
       return 'No persona';
     };
@@ -747,20 +762,20 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
           
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <h3 className="font-semibold text-white truncate" title={agent.name}>
+              <h3 className="font-semibold text-white truncate max-w-[140px]" title={agent.name}>
                 {agent.name}
               </h3>
-              <span className="text-xs px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded capitalize">
+              <span className="text-xs px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded capitalize flex-shrink-0">
                 {agent.role}
               </span>
             </div>
             
             <div className="text-xs text-slate-400 truncate" title={getPersonaDisplayName(agent)}>
-              {getPersonaDisplayName(agent)}
+              👤 {getPersonaDisplayName(agent)}
             </div>
             
             <div className="text-xs text-slate-500 truncate" title={`Model: ${getModelDisplayName(agent.modelId)}`}>
-              {getModelDisplayName(agent.modelId)}
+              Model: {getModelDisplayName(agent.modelId)}
             </div>
           </div>
 
@@ -1712,7 +1727,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
             const hasValidModel = !!modelInfo;
             const hasPersona = !!agent.personaId;
             const isFullyConfigured = hasValidModel && hasPersona;
-            const modelName = modelInfo?.name || agent.modelId || 'No model selected';
+            const modelName = modelInfo?.name || 'No model selected';
 
             return (
               <div
@@ -1785,7 +1800,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
                           <Users className="w-5 h-5 text-purple-600 dark:text-purple-400 flex-shrink-0" />
                           <div className="flex-1 min-w-0">
                             <div className="font-medium text-purple-900 dark:text-purple-100 truncate">
-                              Persona: {agent.personaId}
+                              Persona: {getPersonaDisplayName(agent)}
                             </div>
                             <div className="text-sm text-purple-600 dark:text-purple-400">
                               Configured persona for behavior and expertise

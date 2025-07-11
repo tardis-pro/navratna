@@ -1,35 +1,48 @@
 @import "tailwindcss";
 
 @theme {
+  /* Font Size Scale - Adjust these values to change global font sizes */
+  --font-size-xs: 0.55rem;
+  --font-size-sm: 0.675rem;
+  --font-size-base: 0.75rem;
+  /* Base font size - change this to affect overall scale */
+  --font-size-lg: 1rem;
+  --font-size-xl: 1.05rem;
+  --font-size-2xl: 1.15rem;
+  --font-size-3xl: 1.25rem;
+  --font-size-4xl: 2.25rem;
+  --font-size-5xl: 3rem;
+  --font-size-6xl: 3.75rem;
+
   --color-background: oklch(100% 0 0);
   --color-foreground: oklch(9% 0.024 285.82);
-  
+
   --color-card: oklch(100% 0 0);
   --color-card-foreground: oklch(9% 0.024 285.82);
-  
+
   --color-popover: oklch(100% 0 0);
   --color-popover-foreground: oklch(9% 0.024 285.82);
-  
+
   --color-primary: oklch(11.2% 0.237 285.82);
   --color-primary-foreground: oklch(98% 0.016 285.82);
-  
+
   --color-secondary: oklch(96.1% 0.016 285.82);
   --color-secondary-foreground: oklch(11.2% 0.237 285.82);
-  
+
   --color-muted: oklch(96.1% 0.016 285.82);
   --color-muted-foreground: oklch(46.9% 0.033 264.05);
-  
+
   --color-accent: oklch(96.1% 0.016 285.82);
   --color-accent-foreground: oklch(11.2% 0.237 285.82);
-  
+
   --color-destructive: oklch(60.2% 0.177 29.23);
   --color-destructive-foreground: oklch(98% 0.016 285.82);
-  
+
   --color-border: oklch(91.4% 0.032 264.05);
   --color-input: oklch(91.4% 0.032 264.05);
   --color-ring: oklch(9% 0.024 285.82);
   --color-ring-offset-background: oklch(100% 0 0);
-  
+
   --color-sidebar-background: oklch(98% 0 0);
   --color-sidebar-foreground: oklch(26.1% 0.011 256.85);
   --color-sidebar-primary: oklch(10% 0.012 256.85);
@@ -38,13 +51,13 @@
   --color-sidebar-accent-foreground: oklch(10% 0.012 256.85);
   --color-sidebar-border: oklch(91% 0.026 220);
   --color-sidebar-ring: oklch(59.8% 0.182 217.2);
-  
+
   --color-llama1: oklch(59.69% 0.179 248.37);
   --color-llama2: oklch(62.8% 0.257 29.23);
   --color-debate-bg: oklch(10.98% 0.024 264.05);
-  
+
   --radius: 0.75rem;
-  
+
   /* Animations for UI components */
   --animate-accordion-down: accordion-down 0.2s ease-out;
   --animate-accordion-up: accordion-up 0.2s ease-out;
@@ -62,33 +75,33 @@
   @theme {
     --color-background: oklch(4.9% 0.024 285.82);
     --color-foreground: oklch(98% 0.016 285.82);
-    
+
     --color-card: oklch(4.9% 0.024 285.82);
     --color-card-foreground: oklch(98% 0.016 285.82);
-    
+
     --color-popover: oklch(4.9% 0.024 285.82);
     --color-popover-foreground: oklch(98% 0.016 285.82);
-    
+
     --color-primary: oklch(98% 0.016 285.82);
     --color-primary-foreground: oklch(11.2% 0.237 285.82);
-    
+
     --color-secondary: oklch(17.5% 0.065 217.2);
     --color-secondary-foreground: oklch(98% 0.016 285.82);
-    
+
     --color-muted: oklch(17.5% 0.065 217.2);
     --color-muted-foreground: oklch(65.1% 0.040 215);
-    
+
     --color-accent: oklch(17.5% 0.065 217.2);
     --color-accent-foreground: oklch(98% 0.016 285.82);
-    
+
     --color-destructive: oklch(30.6% 0.131 29.23);
     --color-destructive-foreground: oklch(98% 0.016 285.82);
-    
+
     --color-border: oklch(17.5% 0.065 217.2);
     --color-input: oklch(17.5% 0.065 217.2);
     --color-ring: oklch(83.9% 0.054 212.7);
     --color-ring-offset-background: oklch(4.9% 0.024 285.82);
-    
+
     --color-sidebar-background: oklch(10% 0.012 240);
     --color-sidebar-foreground: oklch(95.9% 0.010 240);
     --color-sidebar-primary: oklch(48% 0.152 224.3);
@@ -97,7 +110,7 @@
     --color-sidebar-accent-foreground: oklch(95.9% 0.010 240);
     --color-sidebar-border: oklch(15.9% 0.007 240);
     --color-sidebar-ring: oklch(59.8% 0.182 217.2);
-    
+
     --color-llama1: oklch(59.69% 0.179 248.37);
     --color-llama2: oklch(62.8% 0.257 29.23);
     --color-debate-bg: oklch(10.98% 0.024 264.05);
@@ -141,6 +154,7 @@
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -152,6 +166,7 @@
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -163,6 +178,7 @@
     opacity: 0;
     transform: translateX(-30px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -174,6 +190,7 @@
     opacity: 0;
     transform: translateX(20px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -185,13 +202,16 @@
     opacity: 0;
     transform: scale(0.3);
   }
+
   50% {
     opacity: 1;
     transform: scale(1.05);
   }
+
   70% {
     transform: scale(0.9);
   }
+
   100% {
     opacity: 1;
     transform: scale(1);
@@ -199,27 +219,36 @@
 }
 
 @keyframes pulseGlow {
-  0%, 100% {
+
+  0%,
+  100% {
     box-shadow: 0 0 5px rgba(59, 130, 246, 0.5);
   }
+
   50% {
     box-shadow: 0 0 20px rgba(59, 130, 246, 0.8), 0 0 30px rgba(59, 130, 246, 0.6);
   }
 }
 
 @keyframes gradientShift {
-  0%, 100% {
+
+  0%,
+  100% {
     background-position: 0% 50%;
   }
+
   50% {
     background-position: 100% 50%;
   }
 }
 
 @keyframes float {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateY(0px);
   }
+
   50% {
     transform: translateY(-10px);
   }
@@ -229,6 +258,7 @@
   0% {
     background-position: -200% 0;
   }
+
   100% {
     background-position: 200% 0;
   }
@@ -238,6 +268,7 @@
   from {
     height: 0;
   }
+
   to {
     height: var(--radix-accordion-content-height);
   }
@@ -247,15 +278,19 @@
   from {
     height: var(--radix-accordion-content-height);
   }
+
   to {
     height: 0;
   }
 }
 
 @keyframes pulse-glow {
-  0%, 100% {
+
+  0%,
+  100% {
     box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
   }
+
   50% {
     box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
   }
@@ -346,7 +381,12 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     @apply font-semibold tracking-tight;
   }
 
@@ -420,10 +460,13 @@
 
 /* Portal Animation Keyframes */
 @keyframes portal-pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: scale(1);
     opacity: 0.8;
   }
+
   50% {
     transform: scale(1.05);
     opacity: 1;
@@ -431,9 +474,12 @@
 }
 
 @keyframes portal-glow {
-  0%, 100% {
+
+  0%,
+  100% {
     box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
   }
+
   50% {
     box-shadow: 0 0 30px rgba(59, 130, 246, 0.4), 0 0 60px rgba(59, 130, 246, 0.1);
   }
@@ -443,6 +489,7 @@
   0% {
     transform: translateX(-100%);
   }
+
   100% {
     transform: translateX(100%);
   }
@@ -559,7 +606,7 @@
 
 /* Portal Grid Background */
 .portal-grid {
-  background-image: 
+  background-image:
     linear-gradient(rgba(59, 130, 246, 0.1) 1px, transparent 1px),
     linear-gradient(90deg, rgba(59, 130, 246, 0.1) 1px, transparent 1px);
   background-size: 50px 50px;
@@ -570,6 +617,7 @@
   0% {
     background-position: 0 0;
   }
+
   100% {
     background-position: 50px 50px;
   }
@@ -635,7 +683,7 @@
     background: rgba(0, 0, 0, 0.9);
     border: 2px solid #ffffff;
   }
-  
+
   .portal-button {
     border: 2px solid currentColor;
   }
@@ -643,13 +691,14 @@
 
 /* Portal Reduced Motion */
 @media (prefers-reduced-motion: reduce) {
+
   .portal-pulse,
   .portal-glow,
   .portal-shimmer,
   .portal-grid-move {
     animation: none;
   }
-  
+
   .portal-minimized {
     transition: none;
   }

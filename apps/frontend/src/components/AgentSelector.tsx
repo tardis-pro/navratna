@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useAgents } from '../contexts/AgentContext';
 import { PersonaSelector } from './PersonaSelector';
 import { AgentState, createAgentStateFromBackend } from '../types/agent';
-import { Persona } from '../types/persona';
+import { Persona, PersonaDisplay } from '../types/persona';
 import { ModelOption } from './ModelSelector';
 import { useDiscussion } from '../contexts/DiscussionContext';
 import { uaipAPI } from '../utils/uaip-api';
@@ -119,7 +119,7 @@ const getServerIcon = (apiType: string) => {
 interface AddAgentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddAgent: (persona: Persona) => Promise<void>;
+  onAddAgent: (persona: PersonaDisplay) => Promise<void>;
   availableModels: ModelOption[];
   isLoadingModels: boolean;
   modelError: string | null;
@@ -155,7 +155,7 @@ const AddAgentModal: React.FC<AddAgentModalProps> = ({
     }
   }, [isOpen]);
 
-  const handleAddAgent = async (persona: Persona) => {
+  const handleAddAgent = async (persona: PersonaDisplay) => {
     if (!agentName.trim()) {
       alert('Please enter an agent name');
       return;
@@ -458,7 +458,7 @@ export const AgentSelector: React.FC = () => {
     }
   }, [availableModels, selectedModelId]);
 
-  const handleCreateAgent = async (persona: Persona) => {
+  const handleCreateAgent = async (persona: PersonaDisplay) => {
     if (!agentName.trim()) {
       throw new Error('Please enter an agent name');
     }

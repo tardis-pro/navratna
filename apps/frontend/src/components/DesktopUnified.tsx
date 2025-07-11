@@ -1018,7 +1018,7 @@ const ActionsMenu: React.FC<{
                 <kbd className="bg-slate-700 px-1 rounded">Ctrl+Shift+C</kbd>
               </div>
               <div className="flex justify-between">
-                <span>Start Discussion</span>
+                <span>Configure Discussion</span>
                 <kbd className="bg-slate-700 px-1 rounded">Ctrl+Shift+D</kbd>
               </div>
               <div className="flex justify-between">
@@ -1356,7 +1356,7 @@ export const Desktop: React.FC = () => {
       }
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'D') {
         e.preventDefault();
-        const event = new CustomEvent('open-discussion-portal', {
+        const event = new CustomEvent('open-discussion-config', {
           detail: {
             contextType: 'general',
             contextData: {},

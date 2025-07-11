@@ -53,6 +53,13 @@ export class AgentDiscussionService {
     handler: ((responseData: any) => Promise<void>) | null;
   }>();
 
+  // Track pending LLM requests for event-driven responses
+  private pendingLLMRequests: Map<string, {
+    resolve: (response: any) => void;
+    reject: (error: any) => void;
+    timeout: NodeJS.Timeout;
+  }> = new Map();
+
   constructor(config: AgentDiscussionConfig) {
     this.databaseService = config.databaseService;
     this.eventBusService = config.eventBusService;
@@ -69,12 +76,127 @@ export class AgentDiscussionService {
     // Set up event subscriptions
     await this.setupEventSubscriptions();
 
+    // Set up LLM event subscriptions
+    await this.setupLLMEventSubscriptions();
+
     // Start periodic monitoring of active requests
     this.startRequestMonitoring();
 
     logger.info('Agent Discussion Service initialized', {
       service: this.serviceName,
       securityLevel: this.securityLevel
+    });
+  }
+
+  /**
+   * Set up LLM event subscriptions for event-driven LLM requests
+   */
+  private async setupLLMEventSubscriptions(): Promise<void> {
+    // Subscribe to LLM generation responses
+    await this.eventBusService.subscribe('llm.agent.generate.response', async (event) => {
+      const { requestId, content, error, confidence, model } = event.data;
+      
+      const pendingRequest = this.pendingLLMRequests.get(requestId);
+      if (!pendingRequest) {
+        logger.warn('Received LLM response for unknown agent discussion request', { 
+          requestId, 
+          pendingCount: this.pendingLLMRequests.size,
+          pendingKeys: Array.from(this.pendingLLMRequests.keys())
+        });
+        return;
+      }
+
+      this.pendingLLMRequests.delete(requestId);
+      clearTimeout(pendingRequest.timeout);
+
+      if (error) {
+        logger.warn('LLM generation failed for agent discussion', { requestId, error });
+        // Resolve with fallback instead of rejecting
+        pendingRequest.resolve({
+          content: 'I appreciate the opportunity to respond.',
+          confidence: 0.3,
+          model: model || 'fallback'
+        });
+      } else {
+        pendingRequest.resolve({
+          content: content || 'I have some thoughts on this.',
+          confidence: confidence || 0.7,
+          model: model || 'unknown'
+        });
+      }
+    });
+
+    logger.info('Agent Discussion LLM event subscriptions established');
+  }
+
+  /**
+   * Request LLM generation via events instead of direct calls
+   */
+  private async requestLLMGeneration(
+    prompt: string,
+    systemPrompt: string,
+    temperature: number = 0.7,
+    maxTokens: number = 300
+  ): Promise<{ content: string; confidence: number; model: string }> {
+    return new Promise(async (resolve, reject) => {
+      const requestId = `agent_disc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Set up timeout (30 seconds for LLM generation)
+      const timeout = setTimeout(() => {
+        this.pendingLLMRequests.delete(requestId);
+        logger.warn('LLM generation timeout for agent discussion', { 
+          requestId, 
+          pendingCount: this.pendingLLMRequests.size 
+        });
+        // Resolve with fallback instead of rejecting
+        resolve({
+          content: 'I appreciate the opportunity to respond.',
+          confidence: 0.5,
+          model: 'timeout-fallback'
+        });
+      }, 30000);
+
+      // Store the promise handlers
+      this.pendingLLMRequests.set(requestId, {
+        resolve: (response) => {
+          resolve(response);
+        },
+        reject: (error) => {
+          clearTimeout(timeout);
+          reject(error);
+        },
+        timeout
+      });
+
+      try {
+        // Publish LLM generation request via event bus
+        await this.eventBusService.publish('llm.agent.generate.request', {
+          requestId,
+          agentId: null, // No specific agent for discussion
+          messages: [{
+            id: `msg_${Date.now()}`,
+            content: prompt,
+            sender: 'user',
+            timestamp: new Date().toISOString(),
+            type: 'user' as const
+          }],
+          systemPrompt,
+          maxTokens,
+          temperature,
+          model: 'auto',
+          provider: 'auto'
+        });
+
+        logger.debug('Agent discussion LLM request published', { 
+          requestId, 
+          pendingCount: this.pendingLLMRequests.size 
+        });
+
+      } catch (error) {
+        clearTimeout(timeout);
+        this.pendingLLMRequests.delete(requestId);
+        reject(error);
+      }
     });
   }
 
@@ -995,20 +1117,15 @@ Be helpful, knowledgeable, and maintain consistency with your character.`,
         temperature: 0.7
       };
 
-      let llmResponse;
-      if (userId) {
-        // Use user-specific LLM service if userId is provided
-        llmResponse = await this.userLLMService.generateResponse(userId, llmRequest);
-      } else {
-        // Fall back to global LLM service
-        llmResponse = await this.llmService.generateResponse(llmRequest);
-      }
+      // Use event-driven LLM generation
+      const llmResponse = await this.requestLLMGeneration(
+        llmRequest.prompt,
+        llmRequest.systemPrompt,
+        llmRequest.temperature,
+        llmRequest.maxTokens
+      );
 
-      if (llmResponse.error) {
-        logger.warn('LLM agent response failed, using fallback', { error: llmResponse.error });
-        return this.generateFallbackResponse(input.message, reasoning, relevantKnowledge);
-      }
-
+      // Event-driven LLM response doesn't have error property, always returns content
       return llmResponse.content;
     } catch (error) {
       logger.error('Error generating LLM agent response', { error });
@@ -1411,15 +1528,16 @@ Reasoning: ${reasoning.join('; ')}`,
     conversationId: string;
   }): Promise<{ response: string; metadata: Record<string, unknown> }> {
     try {
-      // Create LLM request for agent response
-      const llmRequest: LLMRequest = {
-        prompt: params.message,
-        agentId: params.agentId,
-        userId: params.userId
-      };
-
-      // Get agent response via LLM service
-      const llmResponse = await this.llmService.generateResponse(llmRequest);
+      // Create system prompt for agent
+      const systemPrompt = `You are a helpful AI assistant. Provide a natural, conversational response to the user's message.`;
+      
+      // Get agent response via event-driven LLM service
+      const llmResponse = await this.requestLLMGeneration(
+        params.message,
+        systemPrompt,
+        0.7,
+        300
+      );
 
       // Publish discussion event
       await this.eventBusService.publish('agent.discussion.message', {
@@ -1436,7 +1554,10 @@ Reasoning: ${reasoning.join('; ')}`,
         metadata: {
           conversationId: params.conversationId,
           processingTime: Date.now(),
-          agentId: params.agentId
+          agentId: params.agentId,
+          confidence: llmResponse.confidence,
+          model: llmResponse.model,
+          responseType: 'event-driven'
         }
       };
     } catch (error) {

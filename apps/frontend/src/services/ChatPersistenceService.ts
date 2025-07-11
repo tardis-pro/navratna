@@ -244,6 +244,22 @@ export class ChatPersistenceService {
   }
 
   /**
+   * Clear local session data (but keep the discussion active in the database)
+   */
+  public async clearSession(sessionId: string): Promise<void> {
+    const session = this.chatSessions.get(sessionId);
+    if (!session) {
+      return;
+    }
+
+    // Remove from local cache only (keep discussion active for history)
+    this.messageCache.delete(sessionId);
+    this.saveMessageCache();
+    
+    console.log(`Cleared local session data for: ${sessionId}`);
+  }
+
+  /**
    * Delete chat session
    */
   public async deleteChatSession(sessionId: string): Promise<void> {

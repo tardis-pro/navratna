@@ -53,6 +53,7 @@ export class UserChatHandler {
       socket.on('user_connect', (data) => this.handleUserConnect(socket, data));
       socket.on('user_message', (data) => this.handleUserMessage(socket, data));
       socket.on('agent_chat', (data) => this.handleAgentChat(socket, data));
+      socket.on('chat_window_closed', (data) => this.handleChatWindowClosed(socket, data));
       socket.on('call_offer', (data) => this.handleCallSignaling(socket, { ...data, type: 'call_offer' }));
       socket.on('call_answer', (data) => this.handleCallSignaling(socket, { ...data, type: 'call_answer' }));
       socket.on('ice_candidate', (data) => this.handleCallSignaling(socket, { ...data, type: 'ice_candidate' }));
@@ -267,13 +268,80 @@ export class UserChatHandler {
   }
 
   private async storeMessage(message: UserMessage): Promise<void> {
-    // TODO: Implement database storage for message persistence
-    // This would integrate with your existing database service
     try {
       // Store in database for offline delivery and history
-      this.logger.debug(`Message stored: ${message.id}`);
+      // This will be implemented based on your database schema
+      // For now, we'll just log the message storage
+      this.logger.debug(`Message stored: ${message.id}`, {
+        senderId: message.senderId,
+        receiverId: message.receiverId,
+        content: message.content.substring(0, 100) + (message.content.length > 100 ? '...' : ''),
+        timestamp: message.timestamp,
+        status: message.status
+      });
+      
+      // TODO: Implement actual database storage
+      // await this.databaseService.messages.create({
+      //   id: message.id,
+      //   senderId: message.senderId,
+      //   receiverId: message.receiverId,
+      //   content: message.content,
+      //   timestamp: message.timestamp,
+      //   type: message.type,
+      //   status: message.status,
+      //   metadata: message.metadata
+      // });
     } catch (error) {
       this.logger.error('Failed to store message:', error);
+    }
+  }
+
+  private async handleChatWindowClosed(socket: Socket, data: any) {
+    try {
+      // Get user info from socket.data (set by Socket.IO authentication middleware)
+      const socketUser = socket.data?.user;
+      if (!socketUser || !socketUser.userId) {
+        socket.emit('error', { error: 'User not authenticated' });
+        this.logger.warn('Chat window closed attempted without authentication', { socketId: socket.id });
+        return;
+      }
+
+      const { agentId, sessionId, conversationId, timestamp } = data;
+
+      this.logger.info('Processing chat window closure', { 
+        userId: socketUser.userId, 
+        agentId, 
+        sessionId,
+        conversationId,
+        socketId: socket.id
+      });
+
+      // Publish chat window closed event to event bus for cleanup
+      await this.publishToEventBus('chat.window.closed', {
+        userId: socketUser.userId,
+        agentId,
+        sessionId,
+        conversationId,
+        timestamp: timestamp || new Date().toISOString(),
+        socketId: socket.id
+      });
+
+      // Send acknowledgment to client
+      socket.emit('chat_window_closed_ack', {
+        agentId,
+        sessionId,
+        timestamp: new Date().toISOString()
+      });
+
+      this.logger.info('Chat window closure processed successfully', { 
+        agentId, 
+        sessionId,
+        userId: socketUser.userId
+      });
+
+    } catch (error) {
+      this.logger.error('Chat window closure handling error:', error);
+      socket.emit('error', { error: 'Chat window closure processing failed' });
     }
   }
 

@@ -267,10 +267,10 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
       setIsConfigOpen(true);
     };
 
-    window.addEventListener('open-discussion-portal', handleOpenDiscussion as EventListener);
+    window.addEventListener('open-discussion-config', handleOpenDiscussion as EventListener);
 
     return () => {
-      window.removeEventListener('open-discussion-portal', handleOpenDiscussion as EventListener);
+      window.removeEventListener('open-discussion-config', handleOpenDiscussion as EventListener);
     };
   }, []);
 
@@ -621,7 +621,7 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
                   Start Discussion
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-gradient-to-br from-slate-900/95 via-blue-900/30 to-purple-900/20 backdrop-blur-xl border border-slate-700/50 dialog-content">
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-gradient-to-br from-slate-900/95 via-blue-900/30 to-purple-900/20 backdrop-blur-xl border border-slate-700/50 dialog-content z-[9999]">
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2 text-white">
                     <MessageSquare className="w-5 h-5 text-cyan-400" />

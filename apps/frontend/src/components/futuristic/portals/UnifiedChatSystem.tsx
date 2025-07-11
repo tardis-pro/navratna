@@ -966,9 +966,11 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     }
   }, [selectedAgentId, viewMode]);
 
-  const closeChatWindow = useCallback((windowId: string) => {
+  const closeChatWindow = useCallback(async (windowId: string) => {
+    let windowToClose: ChatWindow | undefined;
+    
     setChatWindows(prev => {
-      const windowToClose = prev.find(w => w.id === windowId);
+      windowToClose = prev.find(w => w.id === windowId);
       if (windowToClose) {
         console.log(`Closing chat window for agent ${windowToClose.agentName} (${windowToClose.agentId})`);
         // Remove agent from tracking set when window is closed
@@ -976,6 +978,33 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       }
       return prev.filter(w => w.id !== windowId);
     });
+    
+    // Clean up WebSocket connection for this specific chat
+    if (windowToClose && isWebSocketConnected) {
+      try {
+        // Send a cleanup message to the server to close this specific chat session
+        sendWebSocketMessage('chat_window_closed', {
+          agentId: windowToClose.agentId,
+          sessionId: windowToClose.sessionId,
+          conversationId: conversationIds[windowId],
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        console.error('Error notifying server of chat window closure:', error);
+      }
+    }
+    
+    // Clear local chat persistence if the session exists
+    if (windowToClose?.sessionId) {
+      try {
+        // Clear the session from local storage but keep it in the database for history
+        await chatPersistenceService.clearSession(windowToClose.sessionId);
+        console.log(`Cleared local chat session: ${windowToClose.sessionId}`);
+      } catch (error) {
+        console.error('Error clearing chat session:', error);
+      }
+    }
+    
     setCurrentMessage(prev => {
       const newMessages = { ...prev };
       delete newMessages[windowId];
@@ -1031,7 +1060,56 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       delete newIds[windowId];
       return newIds;
     });
-  }, []);
+    
+    // Clear enhanced AI sidekick state
+    setThinkingParticles(prev => {
+      const newParticles = { ...prev };
+      delete newParticles[windowId];
+      return newParticles;
+    });
+    setConfidenceMetrics(prev => {
+      const newMetrics = { ...prev };
+      delete newMetrics[windowId];
+      return newMetrics;
+    });
+    setKnowledgeSources(prev => {
+      const newSources = { ...prev };
+      delete newSources[windowId];
+      return newSources;
+    });
+    setToolExecutionProgress(prev => {
+      const newProgress = { ...prev };
+      delete newProgress[windowId];
+      return newProgress;
+    });
+    setMemoryEnhancementBadges(prev => {
+      const newBadges = { ...prev };
+      delete newBadges[windowId];
+      return newBadges;
+    });
+    setQuickActionsPanelOpen(prev => {
+      const newPanels = { ...prev };
+      delete newPanels[windowId];
+      return newPanels;
+    });
+    setContextualSuggestions(prev => {
+      const newSuggestions = { ...prev };
+      delete newSuggestions[windowId];
+      return newSuggestions;
+    });
+    
+    // Clean up window refs
+    if (windowRefs.current[windowId]) {
+      delete windowRefs.current[windowId];
+    }
+    
+    // Clear contextual analysis data
+    if (contextualAnalysisRef.current[windowId]) {
+      delete contextualAnalysisRef.current[windowId];
+    }
+    
+    console.log(`Chat window ${windowId} fully cleaned up`);
+  }, [isWebSocketConnected, sendWebSocketMessage, conversationIds]);
 
   const minimizeChatWindow = useCallback((windowId: string) => {
     setChatWindows(prev =>
@@ -2014,8 +2092,8 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         className="flex-1 relative overflow-hidden bg-gradient-to-br from-slate-900/60 via-blue-900/30 to-purple-900/20 backdrop-blur-xl rounded-2xl border border-cyan-500/20"
       >
         <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 via-transparent to-purple-500/5" />
-        <div className="relative h-full flex flex-col">
-          <div className="flex-1 overflow-y-auto p-6 space-y-4" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(59, 130, 246, 0.3) transparent' }}>
+        <div className="relative flex flex-col h-full min-h-0">
+          <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(59, 130, 246, 0.3) transparent' }}>
             <AnimatePresence>
               {portalMessages.length === 0 && (
                 <motion.div

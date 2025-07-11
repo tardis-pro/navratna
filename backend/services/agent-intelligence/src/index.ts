@@ -1,14 +1,14 @@
 import express from 'express';
 import { BaseService, DiscussionService, PersonaService } from '@uaip/shared-services';
-import { LLMService } from '@uaip/llm-service';
+import { LLMService, UserLLMService } from '@uaip/llm-service';
 import { DiscussionEventType } from '@uaip/types';
 import { createAgentRoutes } from './routes/agentRoutes.js';
 import knowledgeRoutes from './routes/knowledgeRoutes.js';
 import { createDiscussionRoutes } from './routes/discussionRoutes.js';
 import { createConversationEnhancementRoutes } from './routes/conversationEnhancementRoutes.js';
 import { DiscussionController } from './controllers/discussionController.js';
-import { AgentDiscussionService } from './services/AgentDiscussionService.js';
 import { ConversationEnhancementService } from './services/conversationEnhancementService.js';
+import { AgentDiscussionService } from './services/agent-discussion.service.js';
 import { initializeChatIngestionServices } from './controllers/chatIngestionController.js';
 import { logger } from '@uaip/utils';
 
@@ -309,7 +309,18 @@ class AgentIntelligenceService extends BaseService {
     logger.info('ConversationEnhancementService initialized');
 
     // Initialize AgentDiscussionService
-    this.agentDiscussionService = new AgentDiscussionService();
+    this.agentDiscussionService = new AgentDiscussionService({
+      databaseService: this.databaseService,
+      eventBusService: this.eventBusService,
+      knowledgeGraphService: undefined, // Optional
+      agentMemoryService: undefined, // Optional
+      discussionService: undefined, // Optional
+      llmService: this.llmService,
+      userLLMService: new UserLLMService(),
+      serviceName: 'agent-intelligence',
+      securityLevel: 1
+    });
+    await this.agentDiscussionService.initialize();
     logger.info('AgentDiscussionService initialized for WebSocket chat processing');
 
     // Initialize DiscussionService for API routes
