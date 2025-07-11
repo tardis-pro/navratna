@@ -968,6 +968,43 @@ export class AgentDiscussionService {
         message: participationMessage,
         userId: participantId || 'system' // Use participantId if available, otherwise fallback to system
       });
+
+      // Look up the correct participant ID for this agent in the discussion
+      const discussionService = await this.databaseService.getDiscussionService();
+      const discussion = await discussionService.getDiscussion(discussionId);
+      const participant = discussion?.participants?.find(p => p.agentId === agentId);
+
+      if (participant && result.response) {
+        // Send the generated response back to the discussion orchestration
+        await this.eventBusService.publish('discussion.agent.message', {
+          discussionId,
+          participantId: participant.id,
+          agentId,
+          content: result.response,
+          messageType: 'agent_participation',
+          metadata: {
+            agentId,
+            isInitialParticipation: true,
+            participationContext: discussionContext
+          }
+        });
+
+        logger.info('Agent participation message sent to discussion', {
+          discussionId,
+          agentId,
+          participantId: participant.id,
+          contentLength: result.response.length
+        });
+      } else {
+        logger.warn('Could not send participation message - participant not found or no response generated', {
+          discussionId,
+          agentId,
+          hasParticipant: !!participant,
+          hasResponse: !!result.response,
+          participantId: participant?.id
+        });
+      }
+
       await this.respondToRequest(requestId, { success: true, data: result });
     } catch (error) {
       await this.respondToRequest(requestId, { success: false, error: error.message });

@@ -80,10 +80,13 @@ export class ConversationIntelligenceHandler {
         const agentId = socket.handshake.query.agentId as string;
         const conversationId = socket.handshake.query.conversationId as string;
 
+        // Handle global user LLM provider
+        const effectiveAgentId = agentId === 'global-user-llm' ? `user-${userId}` : agentId;
+
         // Store connection
         const connection: ConversationIntelligenceConnection = {
           userId,
-          agentId,
+          agentId: effectiveAgentId,
           conversationId,
           socketId: socket.id,
           lastActivity: new Date()
@@ -99,14 +102,15 @@ export class ConversationIntelligenceHandler {
 
         // Join rooms
         socket.join(`user:${userId}`);
-        socket.join(`agent:${agentId}`);
+        socket.join(`agent:${effectiveAgentId}`);
         if (conversationId) {
           socket.join(`conversation:${conversationId}`);
         }
 
         this.logger.info('Conversation intelligence connection established', {
           userId,
-          agentId,
+          agentId: effectiveAgentId,
+          originalAgentId: agentId,
           conversationId,
           socketId: socket.id
         });
@@ -234,13 +238,22 @@ export class ConversationIntelligenceHandler {
     if (!connection) return;
 
     try {
+      // Enhanced context for global user LLM requests
+      const enhancedContext = {
+        ...data.context,
+        isGlobalUserLLM: connection.agentId.startsWith('user-'),
+        userId: connection.userId,
+        useDefaultLLMProvider: connection.agentId.startsWith('user-'),
+        requestType: data.context?.type || 'autocomplete'
+      };
+
       await this.eventBus.publish(ConversationIntelligenceEventType.AUTOCOMPLETE_QUERY_REQUESTED, {
         type: ConversationIntelligenceEventType.AUTOCOMPLETE_QUERY_REQUESTED,
         data: {
           userId: connection.userId,
           agentId: connection.agentId,
           partial: data.partial,
-          context: data.context,
+          context: enhancedContext,
           limit: data.limit || 5
         }
       });

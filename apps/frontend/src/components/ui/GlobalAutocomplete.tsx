@@ -75,7 +75,7 @@ export const GlobalAutocomplete = forwardRef<HTMLInputElement | HTMLTextAreaElem
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const debouncedValue = useDebounce(value, 300);
 
-  // Use conversation intelligence for autocomplete
+  // Use conversation intelligence for autocomplete with user's default LLM provider
   const {
     connected,
     autocompleteSuggestions,
@@ -83,17 +83,28 @@ export const GlobalAutocomplete = forwardRef<HTMLInputElement | HTMLTextAreaElem
     requestAutocomplete,
     clearAutocomplete
   } = useConversationIntelligence({
-    agentId: context.selectedAgents?.[0] || 'global',
+    agentId: 'global-user-llm',
     conversationId: context.conversationId,
     onAutocompleteResults: (results) => {
-      setSuggestions(results);
-      setShowSuggestions(results.length > 0);
+      // Check if this is an enhancement response
+      if (isEnhancing && results.length > 0) {
+        const enhancementTexts = results.map(r => r.text);
+        setEnhancedSuggestions(enhancementTexts);
+        setIsEnhancing(false);
+      } else {
+        // Regular autocomplete suggestions
+        setSuggestions(results);
+        setShowSuggestions(results.length > 0);
+      }
     }
   });
 
   // Debug log
   useEffect(() => {
     console.log('GlobalAutocomplete - WebSocket connected:', connected);
+    if (connected) {
+      console.log('GlobalAutocomplete - Connection successful! AI features enabled.');
+    }
   }, [connected]);
 
   // Request autocomplete suggestions
@@ -165,7 +176,7 @@ export const GlobalAutocomplete = forwardRef<HTMLInputElement | HTMLTextAreaElem
 
     try {
       // Request AI enhancement through WebSocket
-      requestAutocomplete('', {
+      requestAutocomplete(value || '', {
         type: 'ai_enhancement',
         enhancementType,
         currentText: value,
@@ -175,44 +186,14 @@ export const GlobalAutocomplete = forwardRef<HTMLInputElement | HTMLTextAreaElem
         prompt: ENHANCEMENT_PROMPTS[enhancementType]
       });
 
-      // Simulate AI enhancement results (in real implementation, this would come from WebSocket)
-      setTimeout(() => {
-        const mockEnhancements = generateMockEnhancements(enhancementType, context, value);
-        setEnhancedSuggestions(mockEnhancements);
-        setIsEnhancing(false);
-      }, 1500);
+      // The real response will come through the WebSocket callback
+      // and will be handled by the onAutocompleteResults callback
     } catch (error) {
       console.error('Enhancement request failed:', error);
       setIsEnhancing(false);
     }
   }, [connected, isEnhancing, enhancementType, value, context, requestAutocomplete]);
 
-  const generateMockEnhancements = (type: string, ctx: any, currentText: string) => {
-    const base = currentText || '';
-    
-    switch (type) {
-      case 'topic':
-        return [
-          base || `${ctx.purpose || 'Collaborative'} Discussion: AI-Powered Analysis`,
-          base || `${ctx.purpose || 'Strategic'} Planning Session with Multi-Agent Intelligence`,
-          base || `${ctx.purpose || 'Deep-Dive'} Exploration: ${ctx.discussionType || 'Expert'} Perspectives`
-        ];
-      
-      case 'context':
-        return [
-          base + (base ? '\n\n' : '') + 'Focus on actionable insights and practical implementation strategies.',
-          base + (base ? '\n\n' : '') + 'Consider edge cases, scalability, and long-term maintainability.',
-          base + (base ? '\n\n' : '') + 'Prioritize user experience and business value in recommendations.'
-        ];
-      
-      default:
-        return [
-          base + (base ? ' ' : '') + 'with comprehensive analysis',
-          base + (base ? ' ' : '') + 'leveraging AI capabilities',
-          base + (base ? ' ' : '') + 'for optimal outcomes'
-        ];
-    }
-  };
 
   const applyEnhancement = useCallback((enhancedText: string) => {
     onChange(enhancedText);

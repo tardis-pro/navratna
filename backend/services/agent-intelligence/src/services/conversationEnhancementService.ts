@@ -535,7 +535,7 @@ export class ConversationEnhancementService extends EventEmitter {
         discussionId,
         availableAgents: [agent as any],
         messageHistory,
-        currentTopic: discussionContext.topic || discussion.topic,
+        currentTopic: discussionContext?.topic || discussion.topic,
         conversationState,
         participantId,
         enhancementType: 'triggered',

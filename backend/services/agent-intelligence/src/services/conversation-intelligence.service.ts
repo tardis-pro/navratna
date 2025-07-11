@@ -4,7 +4,6 @@ import {
   QdrantService,
   EmbeddingService
 } from '@uaip/shared-services';
-import { LLMService } from '@uaip/llm-service';
 import { logger } from '@uaip/utils';
 import {
   ConversationIntelligenceEventType,
@@ -59,7 +58,6 @@ export class ConversationIntelligenceService {
     private userKnowledgeService: UserKnowledgeService | null,
     private qdrantService: QdrantService | null,
     private embeddingService: EmbeddingService | null,
-    private llmService: LLMService | null,
     private redisService: any // Using any to match RedisCacheService interface
   ) {
     this.setupEventHandlers();
@@ -132,21 +130,14 @@ export class ConversationIntelligenceService {
       if (similarIntents.length > 0 && similarIntents[0].score > this.config.intent.confidenceThreshold) {
         // Use the matched intent
         intent = similarIntents[0].payload as Intent;
-      } else if (this.llmService) {
-        // Use LLM for classification
+      } else {
+        // Use event bus for LLM classification
         intent = await this.classifyIntentWithLLM(text, context);
         
         // Store the new intent pattern
         if (inputEmbedding) {
           await this.storeIntentPattern(userId, text, intent, inputEmbedding);
         }
-      } else {
-        // Fallback intent when no services available
-        intent = {
-          category: IntentCategory.CONVERSATION,
-          subType: IntentSubType.EXPLORATORY,
-          confidence: 0.5
-        };
       }
 
       // Cache the result
@@ -195,31 +186,8 @@ export class ConversationIntelligenceService {
         .map(m => `${m.role}: ${m.content}`)
         .join('\n');
 
-      // Generate topic using LLM (fallback if not available)
-      let topicName = 'General Discussion';
-      if (this.llmService) {
-        try {
-          const prompt = `Analyze this conversation and generate a concise topic name (2-5 words):
-
-Current topic: ${currentTopic || 'None'}
-
-Conversation:
-${conversationText}
-
-Generate a topic that captures the main theme of the discussion.`;
-
-          const response = await this.llmService.generateResponse({
-            prompt,
-            maxTokens: 50,
-            temperature: 0.3
-          });
-
-          topicName = response.content.trim();
-        } catch (error) {
-          logger.error('Failed to generate topic with LLM, using fallback', { error });
-          topicName = `Conversation ${conversationId.substring(0, 8)}`;
-        }
-      }
+      // Generate topic using event bus
+      let topicName = await this.generateTopicWithEventBus(conversationText, currentTopic, conversationId);
 
       // Extract keywords
       const keywords = await this.extractKeywords(conversationText);
@@ -351,22 +319,34 @@ Generate a topic that captures the main theme of the discussion.`;
     try {
       const suggestions: AutocompleteSuggestion[] = [];
 
-      // Search in user's conversation history
-      if (this.config.autocomplete.sources.includes('history')) {
-        const historySuggestions = await this.searchConversationHistory(userId, partial, limit);
-        suggestions.push(...historySuggestions);
-      }
+      // Check if this is a global user LLM request (for AI enhancement)
+      const isGlobalUserLLM = (context as any)?.isGlobalUserLLM || agentId.startsWith('user-');
+      const isAIEnhancement = (context as any)?.requestType === 'ai_enhancement';
 
-      // Search in available tools
-      if (this.config.autocomplete.sources.includes('tools')) {
-        const toolSuggestions = await this.searchTools(agentId, partial, limit);
-        suggestions.push(...toolSuggestions);
-      }
+      if (isGlobalUserLLM && isAIEnhancement) {
+        // Request AI enhancement through event bus
+        await this.requestAIEnhancement(userId, partial, context, limit);
+        return; // Exit early, response will come through event bus
+      } else {
+        // Regular autocomplete suggestions
+        
+        // Search in user's conversation history
+        if (this.config.autocomplete.sources.includes('history')) {
+          const historySuggestions = await this.searchConversationHistory(userId, partial, limit);
+          suggestions.push(...historySuggestions);
+        }
 
-      // Search in common patterns
-      if (this.config.autocomplete.sources.includes('common')) {
-        const commonSuggestions = await this.searchCommonPatterns(partial, limit);
-        suggestions.push(...commonSuggestions);
+        // Search in available tools
+        if (this.config.autocomplete.sources.includes('tools')) {
+          const toolSuggestions = await this.searchTools(agentId, partial, limit);
+          suggestions.push(...toolSuggestions);
+        }
+
+        // Search in common patterns
+        if (this.config.autocomplete.sources.includes('common')) {
+          const commonSuggestions = await this.searchCommonPatterns(partial, limit);
+          suggestions.push(...commonSuggestions);
+        }
       }
 
       // Sort by score and limit
@@ -398,15 +378,6 @@ Generate a topic that captures the main theme of the discussion.`;
   // Helper methods
 
   private async classifyIntentWithLLM(text: string, context: any): Promise<Intent> {
-    if (!this.llmService) {
-      // Fallback intent when LLM service not available
-      return {
-        category: IntentCategory.CONVERSATION,
-        subType: IntentSubType.EXPLORATORY,
-        confidence: 0.5
-      };
-    }
-
     const prompt = `Classify the following user input into an intent category and sub-type:
 
 User input: "${text}"
@@ -429,15 +400,9 @@ Respond in JSON format:
 }`;
 
     try {
-      const response = await this.llmService.generateResponse({
-        prompt,
-        maxTokens: 200,
-        temperature: 0.1
-      });
-
-      return JSON.parse(response.content) as Intent;
+      const response = await this.requestLLMGeneration(prompt, { maxTokens: 200, temperature: 0.1 });
+      return JSON.parse(response) as Intent;
     } catch {
-      // Fallback intent
       return {
         category: IntentCategory.CONVERSATION,
         subType: IntentSubType.EXPLORATORY,
@@ -578,25 +543,14 @@ Respond in JSON format:
   }
 
   private async extractKeywords(text: string): Promise<string[]> {
-    if (!this.llmService) {
-      // Fallback: simple keyword extraction
-      const words = text.toLowerCase().split(/\s+/).filter(word => word.length > 3);
-      return words.slice(0, 5);
-    }
-
-    try {
-      const prompt = `Extract 3-5 key topics/keywords from this text: "${text}"
+    const prompt = `Extract 3-5 key topics/keywords from this text: "${text}"
 Return as a JSON array of strings.`;
 
-      const response = await this.llmService.generateResponse({
-        prompt,
-        maxTokens: 100,
-        temperature: 0.3
-      });
-
-      return JSON.parse(response.content) as string[];
+    try {
+      const response = await this.requestLLMGeneration(prompt, { maxTokens: 100, temperature: 0.3 });
+      return JSON.parse(response) as string[];
     } catch {
-      // Fallback: simple keyword extraction
+      // Simple fallback on error
       const words = text.toLowerCase().split(/\s+/).filter(word => word.length > 3);
       return words.slice(0, 5);
     }
@@ -610,28 +564,6 @@ Return as a JSON array of strings.`;
     similarConversations: any[],
     count: number
   ): Promise<PromptSuggestion[]> {
-    if (!this.llmService) {
-      // Fallback suggestions when LLM service not available
-      return [
-        {
-          prompt: "How can you help me?",
-          category: IntentCategory.QUESTION,
-          reasoning: "Basic help inquiry",
-          confidence: 0.8,
-          relevanceScore: 0.9,
-          basedOn: ["capability" as const]
-        },
-        {
-          prompt: "What can you do?",
-          category: IntentCategory.QUESTION, 
-          reasoning: "Capability inquiry",
-          confidence: 0.8,
-          relevanceScore: 0.9,
-          basedOn: ["capability" as const]
-        }
-      ].slice(0, count);
-    }
-
     try {
       const prompt = `Generate ${count} personalized prompt suggestions based on:
 
@@ -650,13 +582,8 @@ Return as JSON array with format:
   "basedOn": ["history", "context", "capability"]
 }]`;
 
-      const response = await this.llmService.generateResponse({
-        prompt,
-        maxTokens: 500,
-        temperature: 0.7
-      });
-
-      return JSON.parse(response.content) as PromptSuggestion[];
+      const response = await this.requestUserLLMGeneration(userId, prompt, { maxTokens: 500, temperature: 0.7 });
+      return JSON.parse(response) as PromptSuggestion[];
     } catch (error) {
       logger.error('Failed to generate personalized suggestions', { error, userId });
       return [];
@@ -775,5 +702,113 @@ Return as JSON array with format:
       ConversationIntelligenceEventType.INTENT_DETECTION_COMPLETED,
       completedEvent
     );
+  }
+
+  private async requestAIEnhancement(userId: string, partial: string, context: any, limit: number): Promise<void> {
+    // Publish event to LLM service for AI enhancement
+    await this.eventBus.publish('llm.user.generate', {
+      userId,
+      requestType: 'ai_enhancement',
+      context: {
+        ...context,
+        partial,
+        limit,
+        enhancementType: context.enhancementType || 'general',
+        prompt: this.buildEnhancementPrompt(context.enhancementType, partial, context)
+      }
+    });
+  }
+
+  private buildEnhancementPrompt(enhancementType: string, currentText: string, context: any): string {
+    const base = currentText || '';
+    
+    switch (enhancementType) {
+      case 'topic':
+        return `Generate 3 enhanced discussion topic suggestions based on: "${base}". Purpose: ${context.purpose || 'general'}. Discussion type: ${context.discussionType || 'collaborative'}. Make them engaging and specific.`;
+      
+      case 'context':
+        return `Enhance this discussion context: "${base}". Add relevant constraints, considerations, and focus areas for a ${context.purpose || 'productive'} discussion.`;
+      
+      default:
+        return `Enhance and improve this text: "${base}". Make it more clear, comprehensive, and actionable while maintaining the original intent.`;
+    }
+  }
+
+  private async generateTopicWithEventBus(conversationText: string, currentTopic: string, conversationId: string): Promise<string> {
+    try {
+      const prompt = `Analyze this conversation and generate a concise topic name (2-5 words):
+
+Current topic: ${currentTopic || 'None'}
+
+Conversation:
+${conversationText}
+
+Generate a topic that captures the main theme of the discussion.`;
+
+      const response = await this.requestLLMGeneration(prompt, { maxTokens: 50, temperature: 0.3 });
+      return response.trim();
+    } catch (error) {
+      logger.error('Failed to generate topic with LLM, using fallback', { error });
+      return `Conversation ${conversationId.substring(0, 8)}`;
+    }
+  }
+
+  private async requestLLMGeneration(prompt: string, options: any): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const correlationId = `llm_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      const timeout = setTimeout(() => {
+        reject(new Error('LLM request timeout'));
+      }, 30000);
+
+      const responseHandler = async (event: any) => {
+        if (event.correlationId === correlationId) {
+          clearTimeout(timeout);
+          if (event.success) {
+            resolve(event.content);
+          } else {
+            reject(new Error(event.error));
+          }
+        }
+      };
+
+      this.eventBus.subscribe('llm.response', responseHandler);
+      
+      this.eventBus.publish('llm.generate', {
+        prompt,
+        ...options,
+        correlationId
+      });
+    });
+  }
+
+  private async requestUserLLMGeneration(userId: string, prompt: string, options: any): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const correlationId = `user_llm_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      const timeout = setTimeout(() => {
+        reject(new Error('User LLM request timeout'));
+      }, 30000);
+
+      const responseHandler = async (event: any) => {
+        if (event.correlationId === correlationId) {
+          clearTimeout(timeout);
+          if (event.success) {
+            resolve(event.content);
+          } else {
+            reject(new Error(event.error));
+          }
+        }
+      };
+
+      this.eventBus.subscribe('llm.user.response', responseHandler);
+      
+      this.eventBus.publish('llm.user.generate', {
+        userId,
+        prompt,
+        ...options,
+        correlationId
+      });
+    });
   }
 }

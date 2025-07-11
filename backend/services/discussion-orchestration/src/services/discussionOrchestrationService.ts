@@ -184,8 +184,14 @@ export class DiscussionOrchestrationService extends EventEmitter {
         }
       });
 
+      // Ensure we have the full discussion with participants for cache and agent participation
+      const fullDiscussion = updatedDiscussion.participants ? updatedDiscussion : {
+        ...updatedDiscussion,
+        participants: discussion.participants
+      };
+
       // Update cache
-      this.activeDiscussions.set(discussionId, updatedDiscussion);
+      this.activeDiscussions.set(discussionId, fullDiscussion);
 
       // Set turn timer
       if (turnResult.nextParticipant) {
@@ -227,15 +233,17 @@ export class DiscussionOrchestrationService extends EventEmitter {
       await this.emitEvents(events);
 
       // Trigger intelligent agent participation immediately after starting the discussion
-      // Use the original discussion which should have participants
-      if (discussion && discussion.participants) {
-        await this.triggerIntelligentAgentParticipation(discussion);
+      // Use the full discussion with participants
+      if (fullDiscussion && fullDiscussion.participants && fullDiscussion.participants.length > 0) {
+        await this.triggerIntelligentAgentParticipation(fullDiscussion);
       } else {
-        logger.warn('Cannot trigger agent participation - original discussion missing participants', {
+        logger.warn('Cannot trigger agent participation - discussion missing participants', {
           discussionId,
-          hasDiscussion: !!discussion,
-          hasParticipants: !!(discussion?.participants),
-          participantCount: discussion?.participants?.length || 0
+          hasDiscussion: !!fullDiscussion,
+          hasParticipants: !!(fullDiscussion?.participants),
+          participantCount: fullDiscussion?.participants?.length || 0,
+          updateDiscussionHadParticipants: !!updatedDiscussion.participants,
+          originalDiscussionHadParticipants: !!discussion.participants
         });
       }
 
@@ -248,7 +256,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
 
       return {
         success: true,
-        data: updatedDiscussion,
+        data: fullDiscussion,
         events
       };
     } catch (error) {
@@ -368,7 +376,8 @@ export class DiscussionOrchestrationService extends EventEmitter {
         contentLength: content.length
       });
 
-      const discussion = await this.getDiscussion(discussionId);
+      // Force refresh discussion data to get latest participant information
+      const discussion = await this.getDiscussion(discussionId, true);
       if (!discussion) {
         return { success: false, error: 'Discussion not found' };
       }
@@ -401,8 +410,8 @@ export class DiscussionOrchestrationService extends EventEmitter {
         return { success: false, error: 'Participant not found' };
       }
 
-      // Use the proper participant ID for subsequent operations
-      const actualParticipantId = participant.participantId;
+      // Use the proper participant ID for subsequent operations (primary key for turn management)
+      const actualParticipantId = participant.id;
 
       if (!participant.isActive) {
         return { success: false, error: 'Participant is not active' };
@@ -411,17 +420,42 @@ export class DiscussionOrchestrationService extends EventEmitter {
       // Check if it's the participant's turn (for turn-based strategies)
       if (discussion.turnStrategy.strategy !== 'free_form') {
         const currentTurnParticipant = discussion.state.currentTurn.participantId;
-        if (currentTurnParticipant && currentTurnParticipant !== actualParticipantId) {
+        const isInitialParticipation = metadata?.isInitialParticipation === true;
+        
+        logger.info('Turn management check', {
+          discussionId,
+          currentTurnParticipant,
+          actualParticipantId,
+          participantFound: !!participant,
+          isMatch: currentTurnParticipant === actualParticipantId,
+          strategy: discussion.turnStrategy.strategy,
+          isInitialParticipation
+        });
+        
+        // Allow initial agent participation to bypass turn restrictions
+        if (currentTurnParticipant && currentTurnParticipant !== actualParticipantId && !isInitialParticipation) {
           return { success: false, error: 'It is not your turn to speak' };
         }
       }
+
+      // Map message type to valid database enum values
+      const validMessageTypes = ['message', 'question', 'answer', 'clarification', 'objection', 'agreement', 'summary', 'decision', 'action_item', 'system'];
+      const mappedMessageType = validMessageTypes.includes(messageType) ? messageType : 'message';
+      
+      logger.info('Sending message to database', {
+        discussionId,
+        participantId: actualParticipantId,
+        originalMessageType: messageType,
+        mappedMessageType,
+        contentLength: content.length
+      });
 
       // Send message through shared service
       const message = await this.discussionService.sendMessage(
         discussionId,
         actualParticipantId,
         content,
-        messageType as any
+        mappedMessageType as any
       );
 
       // Update participant activity using enterprise participant management
@@ -1401,7 +1435,8 @@ export class DiscussionOrchestrationService extends EventEmitter {
         return;
       }
 
-      const discussion = await this.getDiscussion(discussionId);
+      // Force refresh discussion data to get latest participant information
+      const discussion = await this.getDiscussion(discussionId, true);
       if (!discussion) {
         logger.error('Cannot trigger participation - discussion not found', { discussionId });
         return;
@@ -1424,14 +1459,14 @@ export class DiscussionOrchestrationService extends EventEmitter {
       });
 
       // Record this participation request to prevent duplicates
-      const requestKey = `${participant.agentId}-${participantId}`;
+      const requestKey = `${participant.agentId}-${participant.id}`;
       this.recentParticipationRequests.set(requestKey, Date.now());
 
       // Send direct participation request to agent intelligence service
       await this.eventBusService.publish('agent.discussion.participate', {
         discussionId,
         agentId: participant.agentId,
-        participantId,
+        participantId: participant.id,
         discussionContext: {
           title: discussion.title,
           description: discussion.description,

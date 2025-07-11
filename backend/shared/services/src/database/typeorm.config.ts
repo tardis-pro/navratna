@@ -55,10 +55,6 @@ import { UserContactEntity } from '../entities/user-contact.entity.js';
 import { UserMessageEntity } from '../entities/user-message.entity.js';
 import { UserPresenceEntity } from '../entities/user-presence.entity.js';
 import { ShortLinkEntity } from '../entities/short-link.entity.js';
-import { ProjectEntity } from '../entities/project.entity.js';
-import { ProjectMemberEntity } from '../entities/project-member.entity.js';
-import { ProjectFileEntity } from '../entities/project-file.entity.js';
-import { TaskEntity } from '../entities/task.entity.js';
 import { Project, ProjectTask, ProjectToolUsage, ProjectAgent, ProjectWorkflow, TaskExecution } from '../entities/Project.js';
 import { MCPServerSubscriber } from '../subscribers/MCPServerSubscriber.js';
 import { MCPToolCallSubscriber } from '../subscribers/MCPToolCallSubscriber.js';
@@ -121,10 +117,6 @@ export const allEntities = [
   UserMessageEntity,
   UserPresenceEntity,
   ShortLinkEntity,
-  ProjectEntity,
-  ProjectMemberEntity,
-  ProjectFileEntity,
-  TaskEntity,
   Project,
   ProjectTask,
   ProjectToolUsage,
@@ -178,8 +170,8 @@ function createBaseConfig(): PostgresConnectionOptions {
   return {
     type: 'postgres',
     ...dbConfig,
-    synchronize: false, // Temporarily disabled to fix schema migration issues
-    logging: process.env.NODE_ENV === 'development' || process.env.TYPEORM_LOGGING === 'true',
+    synchronize: true, // Re-enabled to create database schema
+    logging: false, //process.env.NODE_ENV === 'development' || process.env.TYPEORM_LOGGING === 'true',
     entities: allEntities,
     subscribers: allSubscribers,
     migrations: [join(__dirname, '..', 'migrations', '*{.ts,.js}')],

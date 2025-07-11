@@ -147,7 +147,8 @@ export class ParticipantManagementService {
    */
   async getParticipantById(participantId: string): Promise<DiscussionParticipant | null> {
     try {
-      const participants = await this.databaseService.findMany<DiscussionParticipant>(DiscussionParticipant, { participantId });
+      // Use 'id' (primary key) instead of 'participantId' field for lookup
+      const participants = await this.databaseService.findMany<DiscussionParticipant>(DiscussionParticipant, { id: participantId });
       return participants[0] || null;
     } catch (error) {
       logger.error('Error getting participant by ID', {

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from '@/contexts/AuthContext';
+import { getWebSocketURL } from '@/config/apiConfig';
 import {
   ConversationWebSocketEventType,
   ConversationIntelligenceEventType,
@@ -63,11 +64,21 @@ export const useConversationIntelligence = (options: UseConversationIntelligence
 
   // Initialize WebSocket connection
   useEffect(() => {
-    if (!user?.token) return;
+    if (!user) return;
 
-    const socket = io('/conversation-intelligence', {
-      auth: { token: user.token },
-      query: { agentId, conversationId }
+    // Get token from storage since user object doesn't contain token
+    const token = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken');
+    if (!token) return;
+
+    const socket = io(`${getWebSocketURL()}/conversation-intelligence`, {
+      auth: { token },
+      query: { 
+        agentId: agentId || 'global-user-llm',
+        conversationId: conversationId || 'global'
+      },
+      transports: ['polling', 'websocket'],
+      upgrade: true,
+      timeout: 15000
     });
 
     socketRef.current = socket;
@@ -153,7 +164,7 @@ export const useConversationIntelligence = (options: UseConversationIntelligence
       socket.close();
       socketRef.current = null;
     };
-  }, [user?.token, agentId, conversationId, onIntentDetected, onTopicGenerated, onSuggestionsUpdated, onAutocompleteResults]);
+  }, [user, agentId, conversationId]);
 
   // Update conversation context
   const updateConversation = useCallback((newConversationId?: string, newAgentId?: string) => {
