@@ -1018,7 +1018,7 @@ const ActionsMenu: React.FC<{
                 <kbd className="bg-slate-700 px-1 rounded">Ctrl+Shift+C</kbd>
               </div>
               <div className="flex justify-between">
-                <span>AI Discussion</span>
+                <span>Start Discussion</span>
                 <kbd className="bg-slate-700 px-1 rounded">Ctrl+Shift+D</kbd>
               </div>
               <div className="flex justify-between">
@@ -1356,10 +1356,14 @@ export const Desktop: React.FC = () => {
       }
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'D') {
         e.preventDefault();
-        const discussionApp = APPLICATIONS.find(app => app.id === 'discussion');
-        if (discussionApp) {
-          openApplication(discussionApp);
-        }
+        const event = new CustomEvent('open-discussion-portal', {
+          detail: {
+            contextType: 'general',
+            contextData: {},
+            preselectedAgents: []
+          }
+        });
+        window.dispatchEvent(event);
       }
       if (e.altKey && e.code === 'Space') {
         e.preventDefault();

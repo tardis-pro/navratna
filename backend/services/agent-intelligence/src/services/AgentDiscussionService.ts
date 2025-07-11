@@ -31,10 +31,13 @@ export class AgentDiscussionService {
   private eventBusService: EventBusService;
   private agentService: AgentService;
   private conversationCache: Map<string, DiscussionMessage[]> = new Map();
-  private pendingLLMRequests: Map<string, {
-    resolve: (response: any) => void;
-    reject: (error: any) => void;
-    timeout: NodeJS.Timeout;
+  private pendingDiscussionRequests: Map<string, {
+    discussionId: string;
+    agentId: string;
+    participantId: string;
+    discussionContext: any;
+    agent: any;
+    timestamp: Date;
   }> = new Map();
 
   constructor() {
@@ -84,8 +87,8 @@ export class AgentDiscussionService {
       // Determine response strategy
       const responseStrategy = this.determineResponseStrategy(userIntent, conversationHistory);
 
-      // Generate response
-      const response = await this.generateResponse(
+      // Generate fallback response (event-driven system doesn't use Promise-based responses)
+      const response = this.generateFallbackResponse(
         params.message,
         userIntent,
         responseStrategy,
@@ -263,180 +266,79 @@ export class AgentDiscussionService {
     }
   }
 
-  private async generateResponse(
-    message: string,
-    intent: string,
-    strategy: string,
-    history: DiscussionMessage[],
-    agentId: string
-  ): Promise<{
-    content: string;
-    confidence: number;
-    type: 'direct' | 'clarification' | 'suggestion' | 'error';
-  }> {
-    try {
-      // Use event-driven LLM request instead of direct service call
-      const llmResponse = await this.requestLLMGeneration(message, intent, strategy, history, agentId);
 
-      // Determine response type based on strategy
-      let type: 'direct' | 'clarification' | 'suggestion' | 'error' = 'direct';
-      switch (strategy) {
-        case 'explanatory':
-        case 'corrective':
-          type = 'clarification';
-          break;
-        case 'acknowledgment':
-        default:
-          type = 'suggestion';
-          break;
-        case 'informative':
-        case 'actionable':
-        case 'friendly':
-        case 'contextual':
-          type = 'direct';
-          break;
-      }
 
-      return {
-        content: llmResponse.content,
-        confidence: llmResponse.confidence || 0.9,
-        type
-      };
-
-    } catch (error) {
-      logger.error('Error with event-driven LLM request, falling back to template', { 
-        agentId, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      });
-      return this.generateFallbackResponse(message, intent, strategy, history, agentId);
-    }
-  }
-
-  private async requestLLMGeneration(
-    message: string,
-    intent: string,
-    strategy: string,
-    history: DiscussionMessage[],
-    agentId: string
-  ): Promise<{ content: string; confidence: number }> {
-    return new Promise(async (resolve, reject) => {
-      const requestId = `llm_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
-      // Set up timeout (30 seconds for LLM generation - increased for better reliability)
-      const timeout = setTimeout(() => {
-        this.pendingLLMRequests.delete(requestId);
-        logger.warn('LLM generation timeout', { requestId, agentId });
-        // Resolve with fallback instead of rejecting
-        resolve({
-          content: this.generateQuickFallbackResponse(message, agentId),
-          confidence: 0.5
-        });
-      }, 30000);
-
-      // Store the promise handlers
-      this.pendingLLMRequests.set(requestId, {
-        resolve: (response) => {
-          clearTimeout(timeout);
-          resolve(response);
-        },
-        reject: (error) => {
-          clearTimeout(timeout);
-          reject(error);
-        },
-        timeout
-      });
-
-      try {
-        // Build conversation history for LLM context
-        const messages = [
-          ...history.slice(-9).map(msg => ({
-            id: msg.id,
-            content: msg.content,
-            sender: msg.type === 'user' ? 'user' : 'assistant',
-            timestamp: msg.timestamp.toISOString(),
-            type: (msg.type === 'user' ? 'user' : 'assistant') as 'user' | 'assistant'
-          })),
-          {
-            id: `msg_${Date.now()}`,
-            content: message,
-            sender: 'user',
-            timestamp: new Date().toISOString(),
-            type: 'user' as const
-          }
-        ];
-
-        // Get agent configuration for model/provider settings
-        const agent = await this.agentService.findAgentById(agentId);
-        if (!agent) {
-          throw new Error(`Agent ${agentId} not found`);
-        }
-
-        // Use agent's model/provider configuration
-        const effectiveModel = agent.modelId || 'llama2';
-        const effectiveProvider = agent.apiType || 'ollama';
-        const effectiveMaxTokens = agent.maxTokens || 500;
-        const effectiveTemperature = agent.temperature || 0.7;
-
-        logger.info('Using agent configuration for LLM request', {
-          agentId,
-          effectiveModel,
-          effectiveProvider,
-          effectiveMaxTokens,
-          effectiveTemperature
-        });
-
-        // Publish LLM generation request via event bus
-        await this.eventBusService.publish('llm.agent.generate.request', {
-          requestId,
-          agentId,
-          messages,
-          systemPrompt: this.buildSystemPrompt(intent, strategy, agentId),
-          maxTokens: effectiveMaxTokens,
-          temperature: effectiveTemperature,
-          model: effectiveModel,
-          provider: effectiveProvider
-        });
-
-        logger.debug('LLM generation request published', { requestId, agentId });
-
-      } catch (error) {
-        clearTimeout(timeout);
-        this.pendingLLMRequests.delete(requestId);
-        reject(error);
-      }
-    });
-  }
 
   private setupLLMEventSubscriptions(): void {
     // Subscribe to LLM generation responses
     this.eventBusService.subscribe('llm.agent.generate.response', async (event) => {
       const { requestId, content, error, confidence, model } = event.data;
       
-      const pendingRequest = this.pendingLLMRequests.get(requestId);
-      if (!pendingRequest) {
-        logger.warn('Received LLM response for unknown request', { requestId });
+      // Check if this is a discussion participation request
+      const discussionRequest = this.pendingDiscussionRequests.get(requestId);
+      if (discussionRequest) {
+        await this.handleDiscussionParticipationResponse(requestId, content, error, confidence);
         return;
       }
-
-      this.pendingLLMRequests.delete(requestId);
-
-      if (error) {
-        logger.warn('LLM generation failed', { requestId, error });
-        // Resolve with fallback instead of rejecting
-        pendingRequest.resolve({
-          content: 'I apologize, but I encountered an issue generating my response. Please try again.',
-          confidence: 0.3
-        });
-      } else {
-        logger.debug('LLM generation successful', { requestId, model, contentLength: content?.length });
-        pendingRequest.resolve({
-          content: content || 'I apologize, but I received an empty response. Please try again.',
-          confidence: confidence || 0.9
-        });
-      }
+      
+      logger.warn('Received LLM response for unknown request', { requestId });
     });
 
     logger.info('LLM event subscriptions established');
+  }
+
+  private async handleDiscussionParticipationResponse(
+    requestId: string,
+    content: string,
+    error: string,
+    confidence: number
+  ): Promise<void> {
+    const discussionRequest = this.pendingDiscussionRequests.get(requestId);
+    if (!discussionRequest) {
+      logger.warn('Discussion request not found', { requestId });
+      return;
+    }
+
+    this.pendingDiscussionRequests.delete(requestId);
+
+    const { discussionId, participantId, agentId, discussionContext } = discussionRequest;
+
+    if (error) {
+      logger.warn('LLM generation failed for discussion participation, using fallback', {
+        requestId,
+        error,
+        discussionId,
+        agentId
+      });
+      
+      // Send fallback message
+      await this.sendFallbackParticipationMessage(discussionId, participantId, agentId, discussionContext);
+      return;
+    }
+
+    // Send the generated message to the discussion
+    await this.eventBusService.publish('discussion.agent.message', {
+      discussionId,
+      participantId,
+      agentId,
+      content: content || `Hello! I'm excited to join this discussion about ${discussionContext?.topic || 'this topic'}.`,
+      messageType: 'message',
+      metadata: {
+        source: 'agent-intelligence',
+        isInitialParticipation: true,
+        confidence: confidence || 0.8,
+        discussionTopic: discussionContext?.topic,
+        timestamp: new Date()
+      }
+    });
+
+    logger.info('Discussion participation message sent successfully', {
+      requestId,
+      discussionId,
+      agentId,
+      participantId,
+      contentLength: content?.length
+    });
   }
 
   private setupDiscussionEventSubscriptions(): void {
@@ -704,45 +606,8 @@ Remember: You are Agent ${agentId} and should respond in character as a capable 
         return;
       }
 
-      // Generate context-aware participation message
-      const participationMessage = await this.generateContextualParticipationMessage(
-        agentId, 
-        discussionId, 
-        discussionContext
-      );
-
-      // Send the message to the discussion via event bus
-      logger.info('Publishing agent message to discussion', {
-        discussionId,
-        participantId,
-        agentId,
-        contentLength: participationMessage.content.length,
-        messageType: 'message',
-        source: 'agent-intelligence',
-        isInitialParticipation: true
-      });
-
-      await this.eventBusService.publish('discussion.agent.message', {
-        discussionId,
-        participantId,
-        agentId,
-        content: participationMessage.content,
-        messageType: 'message',
-        metadata: {
-          source: 'agent-intelligence',
-          isInitialParticipation: true,
-          confidence: participationMessage.confidence,
-          discussionTopic: discussionContext?.topic,
-          timestamp: new Date()
-        }
-      });
-
-      logger.info('Agent participation message sent successfully', { 
-        discussionId, 
-        agentId, 
-        participantId,
-        contentLength: participationMessage.content.length
-      });
+      // Generate LLM request for participation message (event-driven)
+      await this.requestParticipationMessage(agentId, discussionId, participantId, discussionContext, agent);
 
     } catch (error) {
       logger.error('Failed to handle discussion participation', { 
@@ -754,186 +619,95 @@ Remember: You are Agent ${agentId} and should respond in character as a capable 
     }
   }
 
-  /**
-   * Trigger agent participation in a discussion when they join
-   */
-  async triggerAgentParticipation(discussionId: string, agentId: string, participantId: string): Promise<void> {
+  private async requestParticipationMessage(
+    agentId: string,
+    discussionId: string,
+    participantId: string,
+    discussionContext: any,
+    agent: any
+  ): Promise<void> {
     try {
-      logger.info('Triggering agent participation in discussion', { 
-        discussionId, 
-        agentId, 
-        participantId 
-      });
-
-      // Get agent details
-      const agent = await this.agentService.findAgentById(agentId);
-      if (!agent) {
-        logger.error('Agent not found for participation trigger', { agentId, discussionId });
-        return;
-      }
-
-      // Generate initial participation message
-      const participationMessage = await this.generateParticipationMessage(agentId, discussionId);
-
-      // Send the message to the discussion via event bus
-      await this.eventBusService.publish('discussion.agent.message', {
+      const requestId = `discussion_${discussionId}_${agentId}_${Date.now()}`;
+      
+      // Store discussion context for when LLM responds
+      this.pendingDiscussionRequests.set(requestId, {
         discussionId,
-        participantId,
         agentId,
-        content: participationMessage.content,
-        messageType: 'message',
-        metadata: {
-          source: 'agent-intelligence',
-          isInitialParticipation: true,
-          confidence: participationMessage.confidence,
-          timestamp: new Date()
-        }
-      });
-
-      logger.info('Agent participation triggered successfully', { 
-        discussionId, 
-        agentId, 
         participantId,
-        contentLength: participationMessage.content.length
+        discussionContext,
+        agent,
+        timestamp: new Date()
       });
-
-    } catch (error) {
-      logger.error('Failed to trigger agent participation', { 
-        error: error instanceof Error ? error.message : 'Unknown error',
-        discussionId, 
-        agentId, 
-        participantId 
-      });
-    }
-  }
-
-  /**
-   * Generate context-aware participation message for an agent joining a discussion
-   */
-  private async generateContextualParticipationMessage(
-    agentId: string, 
-    discussionId: string, 
-    discussionContext: any
-  ): Promise<{
-    content: string;
-    confidence: number;
-  }> {
-    try {
-      // Get agent details for personalized introduction
-      const agent = await this.agentService.findAgentById(agentId);
-      if (!agent) {
-        throw new Error(`Agent ${agentId} not found`);
-      }
 
       // Build context-aware system prompt
       const contextPrompt = this.buildDiscussionSystemPrompt(agent, discussionContext);
       const introMessage = this.buildDiscussionIntroMessage(agent, discussionContext);
       
-      // Try to use LLM for a sophisticated, context-aware introduction
-      try {
-        const llmResponse = await this.requestLLMGeneration(
-          introMessage,
-          'greeting',
-          'friendly',
-          [], // No previous messages for initial participation
-          agentId
-        );
-
-        return {
-          content: llmResponse.content,
-          confidence: llmResponse.confidence
-        };
-      } catch (llmError) {
-        logger.warn('LLM generation failed for contextual participation message, using fallback', { 
-          agentId, 
-          discussionId,
-          error: llmError instanceof Error ? llmError.message : 'Unknown error'
-        });
-
-        // Fallback to template-based introduction with context
-        const fallbackMessage = this.buildContextualFallbackMessage(agent, discussionContext);
-
-        return {
-          content: fallbackMessage,
-          confidence: 0.7
-        };
-      }
-    } catch (error) {
-      logger.error('Error generating contextual participation message', { 
-        error: error instanceof Error ? error.message : 'Unknown error',
-        agentId, 
-        discussionId 
+      // Publish LLM generation request event
+      await this.eventBusService.publish('llm.agent.generate.request', {
+        requestId,
+        agentId,
+        messages: [{ role: 'user', content: introMessage }],
+        systemPrompt: contextPrompt,
+        maxTokens: agent.maxTokens || 500,
+        temperature: agent.temperature || 0.7,
+        model: agent.modelId || 'llama2',
+        provider: agent.apiType || 'ollama',
+        context: 'discussion_participation'
       });
 
-      // Ultimate fallback
-      return {
-        content: `Hello! I'm Agent ${agentId} and I'm ready to participate in this discussion. How can I help?`,
-        confidence: 0.5
-      };
-    }
-  }
+      logger.info('Published LLM generation request for discussion participation', {
+        requestId,
+        discussionId,
+        agentId,
+        participantId
+      });
 
-  /**
-   * Generate initial participation message for an agent joining a discussion
-   */
-  private async generateParticipationMessage(agentId: string, discussionId: string): Promise<{
-    content: string;
-    confidence: number;
-  }> {
-    try {
-      // Get agent details for personalized introduction
-      const agent = await this.agentService.findAgentById(agentId);
-      if (!agent) {
-        throw new Error(`Agent ${agentId} not found`);
-      }
-
-      // Generate introductory message using LLM
-      const introMessage = `Hello! I'm ${agent.name}, and I'm excited to join this discussion.`;
+    } catch (error) {
+      logger.error('Failed to request participation message', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        discussionId,
+        agentId,
+        participantId
+      });
       
-      // Try to use LLM for a more sophisticated introduction
-      try {
-        const llmResponse = await this.requestLLMGeneration(
-          introMessage,
-          'greeting',
-          'friendly',
-          [], // No previous messages for initial participation
-          agentId
-        );
-
-        return {
-          content: llmResponse.content,
-          confidence: llmResponse.confidence
-        };
-      } catch (llmError) {
-        logger.warn('LLM generation failed for participation message, using fallback', { 
-          agentId, 
-          discussionId,
-          error: llmError instanceof Error ? llmError.message : 'Unknown error'
-        });
-
-        // Fallback to template-based introduction
-        const capabilities = agent.capabilities ? ` I specialize in ${agent.capabilities.slice(0, 2).join(' and ')}.` : '';
-        const fallbackMessage = `Hello! I'm ${agent.name}, and I'm excited to join this discussion.${capabilities} I'm here to contribute and help with whatever we're working on. What's the current topic?`;
-
-        return {
-          content: fallbackMessage,
-          confidence: 0.7
-        };
-      }
-    } catch (error) {
-      logger.error('Error generating participation message', { 
-        error: error instanceof Error ? error.message : 'Unknown error',
-        agentId, 
-        discussionId 
-      });
-
-      // Ultimate fallback
-      return {
-        content: `Hello! I'm Agent ${agentId} and I'm ready to participate in this discussion. How can I help?`,
-        confidence: 0.5
-      };
+      // Send fallback message immediately
+      await this.sendFallbackParticipationMessage(discussionId, participantId, agentId, discussionContext);
     }
   }
+
+  private async sendFallbackParticipationMessage(
+    discussionId: string,
+    participantId: string,
+    agentId: string,
+    discussionContext: any
+  ): Promise<void> {
+    const fallbackMessage = `Hello! I'm Agent ${agentId} and I'm excited to join this discussion about ${discussionContext?.topic || 'this topic'}. I'm here to contribute and help with whatever we're working on.`;
+
+    await this.eventBusService.publish('discussion.agent.message', {
+      discussionId,
+      participantId,
+      agentId,
+      content: fallbackMessage,
+      messageType: 'message',
+      metadata: {
+        source: 'agent-intelligence',
+        isInitialParticipation: true,
+        confidence: 0.6,
+        discussionTopic: discussionContext?.topic,
+        timestamp: new Date(),
+        fallback: true
+      }
+    });
+
+    logger.info('Fallback participation message sent', {
+      discussionId,
+      participantId,
+      agentId
+    });
+  }
+
+
 
   private buildDiscussionSystemPrompt(agent: any, discussionContext: any): string {
     const topic = discussionContext?.topic || 'general discussion';

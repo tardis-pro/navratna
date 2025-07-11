@@ -1437,9 +1437,9 @@ export class DiscussionOrchestrationService extends EventEmitter {
           agentIds: neverParticipatedAgents.map(p => p.agentId)
         });
 
-        // DISABLED: Auto-participation disabled - agents should only speak when it's their turn
-        // const agentToTrigger = neverParticipatedAgents[0];
-        // await this.triggerAgentParticipationEvent(discussion.id, agentToTrigger);
+        // Trigger participation for the first agent who has never participated
+        const agentToTrigger = neverParticipatedAgents[0];
+        await this.triggerAgentParticipationEvent(discussion.id, agentToTrigger);
       }
       
     } catch (error) {
