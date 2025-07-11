@@ -22,6 +22,18 @@ export enum ConversationIntelligenceEventType {
   AUTOCOMPLETE_QUERY_REQUESTED = 'autocomplete.query.requested',
   AUTOCOMPLETE_SUGGESTIONS_READY = 'autocomplete.suggestions.ready',
   
+  // AI Enhancement Events
+  AI_ENHANCEMENT_REQUESTED = 'ai.enhancement.requested',
+  AI_ENHANCEMENT_COMPLETED = 'ai.enhancement.completed',
+  
+  // Writing Enhancement Events
+  WRITING_ENHANCEMENT_REQUESTED = 'writing.enhancement.requested',
+  WRITING_ENHANCEMENT_COMPLETED = 'writing.enhancement.completed',
+  
+  // Style Analysis Events
+  STYLE_ANALYSIS_REQUESTED = 'style.analysis.requested',
+  STYLE_ANALYSIS_COMPLETED = 'style.analysis.completed',
+  
   // Memory Events
   CONVERSATION_MEMORY_STORED = 'conversation.memory.stored',
   CONVERSATION_PATTERN_DETECTED = 'conversation.pattern.detected',
@@ -34,7 +46,10 @@ export enum ConversationWebSocketEventType {
   TOPIC_GENERATED = 'topic:generated',
   SUGGESTIONS_UPDATED = 'suggestions:updated',
   AUTOCOMPLETE_RESULTS = 'autocomplete:results',
-  TOOL_PREVIEW = 'tool:preview'
+  TOOL_PREVIEW = 'tool:preview',
+  AI_ENHANCEMENT_RESULTS = 'ai_enhancement:results',
+  WRITING_ENHANCEMENT_RESULTS = 'writing_enhancement:results',
+  STYLE_ANALYSIS_RESULTS = 'style_analysis:results'
 }
 
 // Intent Detection Types
@@ -184,7 +199,7 @@ export const PromptSuggestionsCompletedEventSchema = z.object({
 // Autocomplete Types
 export const AutocompleteSuggestionSchema = z.object({
   text: z.string(),
-  type: z.enum(['command', 'question', 'tool', 'previous', 'common']),
+  type: z.enum(['command', 'question', 'tool', 'previous', 'common', 'ai_generated', 'topic', 'context']),
   score: z.number().min(0).max(1),
   metadata: z.object({
     icon: z.string().optional(),
@@ -338,3 +353,195 @@ export const ConversationIntelligenceConfigSchema = z.object({
 });
 
 export type ConversationIntelligenceConfig = z.infer<typeof ConversationIntelligenceConfigSchema>;
+
+// AI Enhancement Types
+export enum EnhancementType {
+  TOPIC_GENERATION = 'topic',
+  CONTEXT_ENHANCEMENT = 'context',
+  WRITING_IMPROVEMENT = 'writing',
+  STYLE_ANALYSIS = 'style',
+  TONE_OPTIMIZATION = 'tone',
+  CLARITY_IMPROVEMENT = 'clarity',
+  GRAMMAR_CHECK = 'grammar',
+  GENERAL = 'general'
+}
+
+export const EnhancementRequestSchema = z.object({
+  type: z.nativeEnum(EnhancementType),
+  currentText: z.string(),
+  context: z.object({
+    purpose: z.string().optional(),
+    discussionType: z.string().optional(),
+    selectedAgents: z.array(z.string()).optional(),
+    conversationId: z.string().optional(),
+    userPreferences: z.record(z.any()).optional()
+  }).optional(),
+  prompt: z.string().optional(),
+  maxSuggestions: z.number().min(1).max(10).default(3)
+});
+
+export type EnhancementRequest = z.infer<typeof EnhancementRequestSchema>;
+
+export const EnhancementResultSchema = z.object({
+  type: z.nativeEnum(EnhancementType),
+  originalText: z.string(),
+  suggestions: z.array(z.object({
+    text: z.string(),
+    confidence: z.number().min(0).max(1),
+    reasoning: z.string().optional(),
+    changes: z.array(z.object({
+      type: z.enum(['addition', 'modification', 'deletion', 'restructure']),
+      description: z.string(),
+      position: z.number().optional()
+    })).optional()
+  })),
+  metadata: z.object({
+    processingTime: z.number(),
+    llmModel: z.string().optional(),
+    tokensUsed: z.number().optional()
+  }).optional()
+});
+
+export type EnhancementResult = z.infer<typeof EnhancementResultSchema>;
+
+// AI Enhancement Event Schemas
+export const AIEnhancementRequestedEventSchema = z.object({
+  type: z.literal(ConversationIntelligenceEventType.AI_ENHANCEMENT_REQUESTED),
+  data: z.object({
+    userId: IDSchema,
+    requestId: IDSchema,
+    enhancement: EnhancementRequestSchema
+  })
+});
+
+export const AIEnhancementCompletedEventSchema = z.object({
+  type: z.literal(ConversationIntelligenceEventType.AI_ENHANCEMENT_COMPLETED),
+  data: z.object({
+    userId: IDSchema,
+    requestId: IDSchema,
+    result: EnhancementResultSchema
+  })
+});
+
+// Writing Enhancement Event Schemas
+export const WritingEnhancementRequestedEventSchema = z.object({
+  type: z.literal(ConversationIntelligenceEventType.WRITING_ENHANCEMENT_REQUESTED),
+  data: z.object({
+    userId: IDSchema,
+    requestId: IDSchema,
+    text: z.string(),
+    enhancementType: z.enum(['clarity', 'conciseness', 'engagement', 'professionalism']),
+    context: z.object({
+      audience: z.string().optional(),
+      purpose: z.string().optional(),
+      tone: z.string().optional()
+    }).optional()
+  })
+});
+
+export const WritingEnhancementCompletedEventSchema = z.object({
+  type: z.literal(ConversationIntelligenceEventType.WRITING_ENHANCEMENT_COMPLETED),
+  data: z.object({
+    userId: IDSchema,
+    requestId: IDSchema,
+    originalText: z.string(),
+    enhancedText: z.string(),
+    improvements: z.array(z.object({
+      category: z.string(),
+      description: z.string(),
+      impact: z.enum(['low', 'medium', 'high'])
+    })),
+    score: z.object({
+      readability: z.number().min(0).max(100),
+      engagement: z.number().min(0).max(100),
+      clarity: z.number().min(0).max(100)
+    })
+  })
+});
+
+// Style Analysis Event Schemas
+export const StyleAnalysisRequestedEventSchema = z.object({
+  type: z.literal(ConversationIntelligenceEventType.STYLE_ANALYSIS_REQUESTED),
+  data: z.object({
+    userId: IDSchema,
+    requestId: IDSchema,
+    text: z.string(),
+    analysisType: z.enum(['tone', 'formality', 'complexity', 'sentiment', 'writing_style'])
+  })
+});
+
+export const StyleAnalysisCompletedEventSchema = z.object({
+  type: z.literal(ConversationIntelligenceEventType.STYLE_ANALYSIS_COMPLETED),
+  data: z.object({
+    userId: IDSchema,
+    requestId: IDSchema,
+    analysis: z.object({
+      tone: z.object({
+        primary: z.string(),
+        confidence: z.number().min(0).max(1),
+        characteristics: z.array(z.string())
+      }),
+      formality: z.object({
+        level: z.enum(['very_informal', 'informal', 'neutral', 'formal', 'very_formal']),
+        score: z.number().min(0).max(1)
+      }),
+      complexity: z.object({
+        readingLevel: z.string(),
+        sentenceComplexity: z.enum(['simple', 'moderate', 'complex']),
+        vocabularyLevel: z.enum(['basic', 'intermediate', 'advanced'])
+      }),
+      sentiment: z.object({
+        polarity: z.enum(['positive', 'neutral', 'negative']),
+        intensity: z.number().min(0).max(1)
+      }),
+      writingStyle: z.object({
+        primaryStyle: z.string(),
+        characteristics: z.array(z.string()),
+        suggestions: z.array(z.string())
+      })
+    })
+  })
+});
+
+// WebSocket Enhancement Event Schemas
+export const AIEnhancementResultsWebSocketEventSchema = z.object({
+  type: z.literal(ConversationWebSocketEventType.AI_ENHANCEMENT_RESULTS),
+  data: z.object({
+    requestId: IDSchema,
+    result: EnhancementResultSchema
+  })
+});
+
+export const WritingEnhancementResultsWebSocketEventSchema = z.object({
+  type: z.literal(ConversationWebSocketEventType.WRITING_ENHANCEMENT_RESULTS),
+  data: z.object({
+    requestId: IDSchema,
+    originalText: z.string(),
+    enhancedText: z.string(),
+    improvements: z.array(z.object({
+      category: z.string(),
+      description: z.string(),
+      impact: z.enum(['low', 'medium', 'high'])
+    }))
+  })
+});
+
+export const StyleAnalysisResultsWebSocketEventSchema = z.object({
+  type: z.literal(ConversationWebSocketEventType.STYLE_ANALYSIS_RESULTS),
+  data: z.object({
+    requestId: IDSchema,
+    analysis: z.object({
+      tone: z.string(),
+      formality: z.string(),
+      suggestions: z.array(z.string())
+    })
+  })
+});
+
+// Export new event types
+export type AIEnhancementRequestedEvent = z.infer<typeof AIEnhancementRequestedEventSchema>;
+export type AIEnhancementCompletedEvent = z.infer<typeof AIEnhancementCompletedEventSchema>;
+export type WritingEnhancementRequestedEvent = z.infer<typeof WritingEnhancementRequestedEventSchema>;
+export type WritingEnhancementCompletedEvent = z.infer<typeof WritingEnhancementCompletedEventSchema>;
+export type StyleAnalysisRequestedEvent = z.infer<typeof StyleAnalysisRequestedEventSchema>;
+export type StyleAnalysisCompletedEvent = z.infer<typeof StyleAnalysisCompletedEventSchema>;

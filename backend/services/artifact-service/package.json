@@ -31,6 +31,7 @@
     "jest": "catalog:backend",
     "nodemon": "catalog:backend",
     "ts-node": "catalog:backend",
+    "tsc-alias": "catalog:backend",
     "tsx": "catalog:backend",
     "typescript": "catalog:"
   },

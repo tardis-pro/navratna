@@ -49,6 +49,17 @@ import { OAuthStateEntity } from '../entities/oauthState.entity.js';
 import { AgentOAuthConnectionEntity } from '../entities/agentOAuthConnection.entity.js';
 import { MFAChallengeEntity } from '../entities/mfaChallenge.entity.js';
 import { SessionEntity } from '../entities/session.entity.js';
+import { UserToolPreferences } from '../entities/userToolPreferences.entity.js';
+import { UserPreferencesEntity } from '../entities/user-preferences.entity.js';
+import { UserContactEntity } from '../entities/user-contact.entity.js';
+import { UserMessageEntity } from '../entities/user-message.entity.js';
+import { UserPresenceEntity } from '../entities/user-presence.entity.js';
+import { ShortLinkEntity } from '../entities/short-link.entity.js';
+import { ProjectEntity } from '../entities/project.entity.js';
+import { ProjectMemberEntity } from '../entities/project-member.entity.js';
+import { ProjectFileEntity } from '../entities/project-file.entity.js';
+import { TaskEntity } from '../entities/task.entity.js';
+import { Project, ProjectTask, ProjectToolUsage, ProjectAgent, ProjectWorkflow, TaskExecution } from '../entities/Project.js';
 import { MCPServerSubscriber } from '../subscribers/MCPServerSubscriber.js';
 import { MCPToolCallSubscriber } from '../subscribers/MCPToolCallSubscriber.js';
 
@@ -104,6 +115,22 @@ export const allEntities = [
   AgentOAuthConnectionEntity,
   MFAChallengeEntity,
   SessionEntity,
+  UserToolPreferences,
+  UserPreferencesEntity,
+  UserContactEntity,
+  UserMessageEntity,
+  UserPresenceEntity,
+  ShortLinkEntity,
+  ProjectEntity,
+  ProjectMemberEntity,
+  ProjectFileEntity,
+  TaskEntity,
+  Project,
+  ProjectTask,
+  ProjectToolUsage,
+  ProjectAgent,
+  ProjectWorkflow,
+  TaskExecution,
 ];
 
 // All subscribers array
@@ -151,12 +178,12 @@ function createBaseConfig(): PostgresConnectionOptions {
   return {
     type: 'postgres',
     ...dbConfig,
-    synchronize: process.env.NODE_ENV === 'development' && process.env.TYPEORM_SYNC === 'true',
+    synchronize: false, // Temporarily disabled to fix schema migration issues
     logging: process.env.NODE_ENV === 'development' || process.env.TYPEORM_LOGGING === 'true',
     entities: allEntities,
     subscribers: allSubscribers,
     migrations: [join(__dirname, '..', 'migrations', '*{.ts,.js}')],
-    migrationsRun: false, // We'll run migrations manually in the service
+    migrationsRun: true, // Enable automatic migrations to fix schema issues
     ssl: process.env.DB_SSL === 'true' || process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
     maxQueryExecutionTime: parseInt(process.env.DB_TIMEOUT || '30000'),
     extra: {

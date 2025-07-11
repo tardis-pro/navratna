@@ -107,6 +107,73 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /v1/knowledge
+ * Get all knowledge items for the authenticated user
+ */
+router.get('/', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ error: 'User not authenticated' });
+      return;
+    }
+
+    const { userKnowledgeService, initializationError } = await getServices();
+    if (initializationError) {
+      res.status(503).json({
+        error: 'Knowledge service not available',
+        details: initializationError
+      });
+      return;
+    }
+
+    const {
+      limit = '50',
+      offset = '0',
+      tags,
+      types,
+      sortBy = 'created_at',
+      sortOrder = 'desc'
+    } = req.query;
+
+    // Use search with empty query to get all items
+    const searchRequest = {
+      query: '',
+      filters: {
+        tags: tags ? (typeof tags === 'string' ? tags.split(',') : tags as string[]) : undefined,
+        types: types ? (typeof types === 'string' ? types.split(',') : types as any[]) : undefined
+      },
+      options: {
+        limit: parseInt(limit as string),
+        offset: parseInt(offset as string),
+        includeRelationships: false
+      },
+      timestamp: Date.now()
+    };
+
+    const result = await userKnowledgeService!.search(userId, searchRequest);
+
+    res.json({
+      success: true,
+      data: result.items,
+      meta: {
+        total: result.totalCount,
+        limit: parseInt(limit as string),
+        offset: parseInt(offset as string),
+        searchMetadata: result.searchMetadata
+      },
+      message: `Retrieved ${result.items.length} knowledge items`
+    });
+  } catch (error) {
+    console.error('Error retrieving user knowledge:', error);
+    res.status(500).json({
+      error: 'Failed to retrieve knowledge items',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+/**
  * GET /v1/knowledge/search
  * Search user's knowledge base
  */

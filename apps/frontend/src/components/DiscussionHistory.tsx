@@ -113,7 +113,7 @@ export const DiscussionHistory: React.FC<DiscussionHistoryProps> = ({
 
       {/* Dropdown Content */}
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
+        <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-50 flex-1 overflow-y-auto min-h-0">
           {isLoading && (
             <div className="p-4 text-center text-slate-500 dark:text-slate-400">
               Loading discussions...

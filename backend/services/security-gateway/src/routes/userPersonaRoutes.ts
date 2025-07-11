@@ -3,6 +3,8 @@ import { authMiddleware } from '@uaip/middleware';
 import { DatabaseService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { z } from 'zod';
+import { ForceOnboardRequestSchema } from '@uaip/types';
+import { DefaultUserLLMProviderSeed, ModelCapabilityDetector } from '@uaip/shared-services';
 
 const router: express.Router = express.Router();
 
@@ -216,6 +218,25 @@ router.post('/complete-onboarding', authMiddleware, async (req: Request, res: Re
 
     await userRepository.update(userId, user);
 
+    // Ensure user has default providers with capabilities
+    try {
+      const dataSource = await databaseService.getDataSource();
+      const userLLMProviderRepo = dataSource.getRepository('UserLLMProvider');
+      const existingProviders = await userLLMProviderRepo.count({ where: { userId } });
+      
+      if (existingProviders === 0) {
+        await DefaultUserLLMProviderSeed.createDefaultProvidersForUser(
+          dataSource,
+          userId,
+          user.role || 'user'
+        );
+        logger.info('Default providers created during onboarding', { userId });
+      }
+    } catch (error) {
+      logger.error('Failed to create default providers during onboarding:', error);
+      // Don't fail onboarding if provider creation fails
+    }
+
     // Log successful onboarding completion
     logger.info('User onboarding completed', {
       userId,
@@ -421,6 +442,144 @@ router.post('/reset', authMiddleware, async (req: Request, res: Response): Promi
     return;
   } catch (error) {
     logger.error('Error resetting persona:', error);
+    res.status(500).json({ error: 'Internal server error' });
+    return;
+  }
+});
+
+// Force comprehensive re-onboarding with provider and model setup
+router.post('/force-onboard', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ error: 'User not authenticated' });
+      return;
+    }
+
+    const validation = ForceOnboardRequestSchema.safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({ 
+        error: 'Invalid force onboard request', 
+        details: validation.error.errors 
+      });
+      return;
+    }
+
+    const { resetPersona, resetProviders, resetModels, detectCapabilities, reason } = validation.data;
+    const databaseService = DatabaseService.getInstance();
+    const userRepository = databaseService.getUserRepository();
+    const user = await userRepository.findById(userId);
+    
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    const results = {
+      personaReset: false,
+      providersReset: false,
+      modelsReset: false,
+      capabilitiesDetected: false,
+      errors: [] as string[]
+    };
+
+    // Reset persona data if requested
+    if (resetPersona) {
+      try {
+        user.userPersona = undefined;
+        user.onboardingProgress = undefined;
+        user.behavioralPatterns = undefined;
+        await userRepository.update(userId, user);
+        results.personaReset = true;
+      } catch (error) {
+        results.errors.push(`Failed to reset persona: ${error.message}`);
+      }
+    }
+
+    // Reset providers if requested
+    if (resetProviders) {
+      try {
+        const dataSource = await databaseService.getDataSource();
+        const userLLMProviderRepo = dataSource.getRepository('UserLLMProvider');
+        await userLLMProviderRepo.delete({ userId });
+        
+        // Create new default providers with capabilities
+        await DefaultUserLLMProviderSeed.createDefaultProvidersForUser(
+          dataSource, 
+          userId, 
+          user.role || 'user'
+        );
+        results.providersReset = true;
+      } catch (error) {
+        results.errors.push(`Failed to reset providers: ${error.message}`);
+      }
+    }
+
+    // Reset models if requested (would involve provider-specific model refresh)
+    if (resetModels) {
+      try {
+        // Update provider configurations with latest models
+        await DefaultUserLLMProviderSeed.updateDefaultProviders(await databaseService.getDataSource());
+        results.modelsReset = true;
+      } catch (error) {
+        results.errors.push(`Failed to reset models: ${error.message}`);
+      }
+    }
+
+    // Detect capabilities if requested
+    if (detectCapabilities) {
+      try {
+        const detector = ModelCapabilityDetector.getInstance();
+        const dataSource = await databaseService.getDataSource();
+        const userLLMProviderRepo = dataSource.getRepository('UserLLMProvider');
+        const userProviders = await userLLMProviderRepo.find({ where: { userId } });
+        
+        for (const provider of userProviders) {
+          // Detect capabilities for default model
+          if (provider.defaultModel) {
+            const detection = await detector.detectCapabilities(
+              provider.defaultModel,
+              provider.type as any,
+              provider.baseUrl,
+              provider.apiKey
+            );
+            
+            // Update provider configuration with detected capabilities
+            provider.configuration = {
+              ...provider.configuration,
+              detectedCapabilities: detection.detectedCapabilities,
+              lastCapabilityCheck: new Date()
+            };
+            
+            await userLLMProviderRepo.save(provider);
+          }
+        }
+        
+        results.capabilitiesDetected = true;
+      } catch (error) {
+        results.errors.push(`Failed to detect capabilities: ${error.message}`);
+      }
+    }
+
+    logger.info('Force onboard completed', { 
+      userId, 
+      resetPersona, 
+      resetProviders, 
+      resetModels, 
+      detectCapabilities,
+      reason,
+      results,
+      timestamp: new Date() 
+    });
+
+    res.json({ 
+      success: true, 
+      results,
+      message: 'Force onboard completed successfully'
+    });
+    return;
+  } catch (error) {
+    logger.error('Error during force onboard:', error);
     res.status(500).json({ error: 'Internal server error' });
     return;
   }

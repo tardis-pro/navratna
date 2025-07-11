@@ -354,7 +354,7 @@ export const DiscussionLog: React.FC<DiscussionLogProps> = ({
       {messages.length > 0 && (
         <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
           <div className="p-4">
-            <div className="space-y-3 max-h-96 overflow-y-auto">
+            <div className="space-y-3 flex-1 overflow-y-auto min-h-0">
               {messages.map(renderMessage)}
             </div>
           </div>

@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
+import { GlobalAutocomplete } from '@/components/ui/GlobalAutocomplete';
 import { useDiscussion } from '@/contexts/DiscussionContext';
 import { useAgents } from '@/contexts/AgentContext';
 import { TurnStrategy, ParticipantRole, DiscussionVisibility } from '@uaip/types';
@@ -377,7 +378,7 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
     const colors = ['blue', 'emerald', 'purple', 'orange', 'pink', 'indigo'];
     const agentNames = Object.values(agents).map(a => a.name);
     const index = agentNames.indexOf(sender);
-    return colors[index % colors.length] || colors[0];
+    return colors[index >= 0 ? index % colors.length : 0];
   };
 
   const getAgentColorClasses = (color: string) => {
@@ -393,10 +394,10 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
   };
 
   const renderMessage = (message: Message, index: number) => {
-    const agent = Object.values(agents).find(a => a.name === message.sender);
+    const agent = Object.values(agents).find(a => a.name === message.sender || a.id === message.sender);
     const isThought = message.type === 'thought';
     const content = parseMessageContent(message.content, showThinkTokens);
-    const color = getAgentColor(message.sender);
+    const color = getAgentColor(agent?.name || message.sender);
 
     return (
       <motion.div
@@ -432,7 +433,7 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
               <div>
                 <div className="flex items-center space-x-2">
                   <span className="font-medium text-white text-sm">
-                    {message.sender}
+                    {agent?.name || message.sender}
                   </span>
                   {agent && (
                     <span className={`px-2 py-1 text-xs rounded-full border ${
@@ -680,13 +681,22 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
                       <label htmlFor="topic" className="text-sm font-medium text-white">
                         Custom Topic (optional)
                       </label>
-                      <Textarea
-                        id="topic"
+                      <GlobalAutocomplete
                         value={customTopic}
-                        onChange={(e) => setCustomTopic(e.target.value)}
+                        onChange={setCustomTopic}
                         placeholder="Override the auto-generated topic..."
                         className="mt-1 bg-slate-800/50 border-slate-700 text-white placeholder-slate-400 focus:border-blue-500"
+                        multiline
                         rows={3}
+                        enhancementType="topic"
+                        context={{
+                          purpose: selectedPurpose,
+                          selectedAgents,
+                          discussionType: selectedPurposeData?.label
+                        }}
+                        onEnhance={(enhancedText) => {
+                          setCustomTopic(enhancedText);
+                        }}
                       />
                     </div>
 
@@ -695,13 +705,22 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
                       <label htmlFor="context" className="text-sm font-medium text-white">
                         Additional Context
                       </label>
-                      <Textarea
-                        id="context"
+                      <GlobalAutocomplete
                         value={additionalContext}
-                        onChange={(e) => setAdditionalContext(e.target.value)}
+                        onChange={setAdditionalContext}
                         placeholder="Provide any additional context or constraints..."
                         className="mt-1 bg-slate-800/50 border-slate-700 text-white placeholder-slate-400 focus:border-blue-500"
+                        multiline
                         rows={3}
+                        enhancementType="context"
+                        context={{
+                          purpose: selectedPurpose,
+                          selectedAgents,
+                          discussionType: selectedPurposeData?.label
+                        }}
+                        onEnhance={(enhancedText) => {
+                          setAdditionalContext(enhancedText);
+                        }}
                       />
                     </div>
                   </div>
@@ -914,7 +933,7 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
 
           {/* Messages */}
           <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-xl border border-slate-700/50 p-4">
-            <div className="space-y-4 max-h-96 overflow-y-auto">
+            <div className="space-y-4 flex-1 overflow-y-auto min-h-0">
               <AnimatePresence>
                 {messages.map((message, index) => renderMessage(message, index))}
               </AnimatePresence>

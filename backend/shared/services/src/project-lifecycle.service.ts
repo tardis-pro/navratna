@@ -3,7 +3,7 @@ import { EventBusService } from './eventBusService';
 import { DatabaseService } from './databaseService';
 import { logger } from '@uaip/utils';
 import { ProjectStatus, ProjectPriority } from '@uaip/types';
-import { Project, ProjectTask } from './entities/Project';
+import { Project, ProjectTask } from './entities/Project.js';
 
 export interface ProjectHealthCheck {
   projectId: string;

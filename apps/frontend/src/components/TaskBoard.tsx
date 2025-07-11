@@ -221,29 +221,29 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
         `}
         onClick={() => setSelectedTask(task)}
       >
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-1 px-2 pt-2">
             <div className="flex items-start justify-between">
-              <div className="flex items-center gap-2">
-                <span className={`text-sm font-mono ${DESIGN_TOKENS.colors.textMuted}`}>{task.taskNumber}</span>
-                <Badge variant="outline" className={`text-xs ${priorityColors[task.priority]} text-white`}>
+              <div className="flex items-center gap-1">
+                <span className={`text-xs font-mono ${DESIGN_TOKENS.colors.textMuted}`}>{task.taskNumber}</span>
+                <Badge variant="outline" className={`text-xs ${priorityColors[task.priority]} text-white px-1 py-0`}>
                   {task.priority}
                 </Badge>
               </div>
-              <span className="text-lg">{typeIcons[task.type]}</span>
+              <span className="text-sm">{typeIcons[task.type]}</span>
             </div>
-            <CardTitle className={`text-sm font-medium line-clamp-2 ${DESIGN_TOKENS.colors.text}`}>
+            <CardTitle className={`text-xs font-medium line-clamp-2 ${DESIGN_TOKENS.colors.text}`}>
               {task.title}
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-0">
+          <CardContent className="pt-0 px-2 pb-2">
             {task.description && (
-              <p className={`text-xs ${DESIGN_TOKENS.colors.textMuted} mb-2 line-clamp-2`}>{task.description}</p>
+              <p className={`text-xs ${DESIGN_TOKENS.colors.textMuted} mb-1 line-clamp-1`}>{task.description}</p>
             )}
             
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-1">
               <div className={`flex items-center gap-1 text-xs ${DESIGN_TOKENS.colors.textMuted}`}>
                 {task.assigneeType === 'human' ? <User className="w-3 h-3" /> : <Bot className="w-3 h-3" />}
-                <span className="truncate max-w-20">{task.assigneeDisplayName}</span>
+                <span className="truncate max-w-16">{task.assigneeDisplayName}</span>
               </div>
               {task.dueDate && (
                 <div className={`flex items-center gap-1 text-xs ${task.isOverdue ? 'text-red-400' : DESIGN_TOKENS.colors.textMuted}`}>
@@ -254,14 +254,14 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
             </div>
 
             {task.metrics.completionPercentage > 0 && (
-              <div className="mb-2">
+              <div className="mb-1">
                 <div className="flex justify-between text-xs mb-1">
-                  <span>Progress</span>
-                  <span>{task.metrics.completionPercentage}%</span>
+                  <span className="text-xs">Progress</span>
+                  <span className="text-xs">{task.metrics.completionPercentage}%</span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-1.5">
+                <div className="w-full bg-gray-200 rounded-full h-1">
                   <div
-                    className="bg-blue-500 h-1.5 rounded-full transition-all"
+                    className="bg-blue-500 h-1 rounded-full transition-all"
                     style={{ width: `${task.metrics.completionPercentage}%` }}
                   />
                 </div>
@@ -270,14 +270,14 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
 
             <div className="flex items-center justify-between">
               <div className="flex gap-1">
-                {task.tags?.slice(0, 2).map(tag => (
+                {task.tags?.slice(0, 1).map(tag => (
                   <Badge key={tag} variant="secondary" className="text-xs px-1 py-0">
                     {tag}
                   </Badge>
                 ))}
-                {task.tags && task.tags.length > 2 && (
+                {task.tags && task.tags.length > 1 && (
                   <Badge variant="secondary" className="text-xs px-1 py-0">
-                    +{task.tags.length - 2}
+                    +{task.tags.length - 1}
                   </Badge>
                 )}
               </div>
@@ -294,7 +294,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
   );
 
   const StatusColumn: React.FC<{ column: typeof statusColumns[0]; tasks: Task[] }> = ({ column, tasks }) => (
-    <div className="flex-1 min-w-72">
+    <div className="flex-1 min-w-40">
       <motion.div 
         className={`${DESIGN_TOKENS.radius.lg} ${DESIGN_TOKENS.padding.lg} ${column.color} ${DESIGN_TOKENS.backdrop} min-h-screen ${DESIGN_TOKENS.colors.border} border`}
         data-column-id={column.id}
@@ -314,7 +314,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
         }}
       >
         <div className="flex items-center justify-between mb-4">
-          <h3 className={`font-semibold ${DESIGN_TOKENS.colors.text}`}>{column.title}</h3>
+          <h3 className={`text-sm font-semibold ${DESIGN_TOKENS.colors.text}`}>{column.title}</h3>
           <Badge variant="secondary" className={`text-xs ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.textSecondary}`}>
             {tasks.length}
           </Badge>

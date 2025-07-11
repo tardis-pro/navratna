@@ -30,7 +30,10 @@ import {
   Image as ImageIcon,
   Monitor,
   Smartphone,
-  Tablet
+  Tablet,
+  ZoomIn,
+  ZoomOut,
+  RotateCw
 } from 'lucide-react';
 
 interface Screenshot {
@@ -114,8 +117,64 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
   // Refs
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  
+  // Container dimensions state
+  const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 });
+  const [zoomLevel, setZoomLevel] = useState(1);
 
   const activeTab = tabs.find(tab => tab.id === activeTabId);
+
+  // ResizeObserver to track container dimensions
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    // Initial measurement
+    const rect = container.getBoundingClientRect();
+    setContainerDimensions({ width: rect.width, height: rect.height });
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        setContainerDimensions({ width, height });
+      }
+    });
+
+    resizeObserver.observe(container);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
+
+  // Force re-render when viewport changes
+  useEffect(() => {
+    const container = containerRef.current;
+    if (container) {
+      const rect = container.getBoundingClientRect();
+      setContainerDimensions({ width: rect.width, height: rect.height });
+    }
+  }, [currentViewport]);
+
+  // Calculate iframe scale based on container dimensions and zoom level
+  const calculateIframeScale = useCallback(() => {
+    if (containerDimensions.width === 0 || containerDimensions.height === 0) return 0.5 * zoomLevel;
+    
+    // Account for padding and ensure we have actual usable space
+    const availableWidth = Math.max(containerDimensions.width - 64, 200);
+    const availableHeight = Math.max(containerDimensions.height - 64, 200);
+    
+    const scaleX = availableWidth / currentViewport.width;
+    const scaleY = availableHeight / currentViewport.height;
+    
+    // Base scale calculation
+    const baseScale = Math.min(scaleX, scaleY, 1);
+    const finalScale = Math.max(baseScale, 0.3) * zoomLevel; // Minimum 30% base scale
+    
+    // Allow zoom up to 300%
+    return Math.min(finalScale, 3);
+  }, [containerDimensions, currentViewport, zoomLevel]);
 
   const navigateToUrl = useCallback((url: string) => {
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
@@ -391,6 +450,56 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
               />
             </form>
 
+            {/* Viewport Selector */}
+            <div className="flex items-center gap-1">
+              {VIEWPORT_SIZES.map((viewport) => (
+                <Button
+                  key={viewport.name}
+                  size="sm"
+                  variant={currentViewport.name === viewport.name ? "default" : "outline"}
+                  onClick={() => setCurrentViewport(viewport)}
+                  className="border-slate-600/50 hover:bg-slate-700/50"
+                  title={`${viewport.name} (${viewport.width}x${viewport.height})`}
+                >
+                  {viewport.icon}
+                </Button>
+              ))}
+            </div>
+
+            {/* Zoom Controls */}
+            <div className="flex items-center gap-1 border-l border-slate-600/50 pl-2 ml-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setZoomLevel(prev => Math.max(0.25, prev - 0.25))}
+                className="border-slate-600/50 hover:bg-slate-700/50"
+                title="Zoom Out"
+              >
+                <ZoomOut className="w-4 h-4" />
+              </Button>
+              <span className="text-xs text-slate-400 min-w-[3rem] text-center">
+                {Math.round(zoomLevel * 100)}%
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setZoomLevel(prev => Math.min(3, prev + 0.25))}
+                className="border-slate-600/50 hover:bg-slate-700/50"
+                title="Zoom In"
+              >
+                <ZoomIn className="w-4 h-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setZoomLevel(1)}
+                className="border-slate-600/50 hover:bg-slate-700/50"
+                title="Reset Zoom"
+              >
+                <RotateCw className="w-3 h-3" />
+              </Button>
+            </div>
+
             <Button size="sm" variant="outline" className="border-slate-600/50 hover:bg-slate-700/50">
               <Bookmark className="w-4 h-4" />
             </Button>
@@ -405,12 +514,12 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
               { name: 'Example.com', url: 'https://example.com' },
               { name: 'Wikipedia', url: 'https://en.wikipedia.org' },
               { name: 'MDN Docs', url: 'https://developer.mozilla.org' },
-              { name: 'Docs', url: 'https://devdocs.io' },
-              { name: 'Docs', url: 'https://devhint.io' },
-              { name: '3d kithen sink', url: 'https://tardis3d.netlify.app/' }
+              { name: 'DevDocs', url: 'https://devdocs.io' },
+              { name: 'DevHints', url: 'https://devhint.io' },
+              { name: '3D Kitchen Sink', url: 'https://tardis3d.netlify.app/' }
             ].map((site) => (
               <Button
-                key={site.name}
+                key={site.url}
                 size="sm"
                 variant="outline"
                 onClick={() => navigateToUrl(site.url)}
@@ -427,23 +536,41 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
       <div className="flex-1 flex overflow-hidden">
         {/* Main Browser */}
         <div className="flex-1 flex flex-col bg-white">
-          <div className="flex-1 relative overflow-auto">
+          <div ref={containerRef} className="flex-1 relative overflow-auto">
             {!activeTab?.hasError ? (
-              <iframe
-                ref={iframeRef}
-                src={activeTab?.url}
-                onLoad={handleIframeLoad}
-                onError={handleIframeError}
-                className="w-full h-full border-0"
+              <div 
+                className="flex items-center justify-center p-4 min-h-full"
                 style={{
-                  width: currentViewport.width,
-                  height: currentViewport.height,
-                  transform: `scale(${Math.min(1, window.innerWidth * 0.7 / currentViewport.width)})`,
-                  transformOrigin: 'top left'
+                  minWidth: '100%',
+                  minHeight: '100%'
                 }}
-                sandbox="allow-same-origin allow-scripts allow-forms allow-links allow-popups"
-                title="Mini Browser"
-              />
+              >
+                <div 
+                  className="relative border border-gray-300 shadow-lg bg-white"
+                  style={{
+                    width: currentViewport.width * calculateIframeScale(),
+                    height: currentViewport.height * calculateIframeScale(),
+                    minWidth: currentViewport.width * calculateIframeScale(),
+                    minHeight: currentViewport.height * calculateIframeScale()
+                  }}
+                >
+                  <iframe
+                    ref={iframeRef}
+                    src={activeTab?.url}
+                    onLoad={handleIframeLoad}
+                    onError={handleIframeError}
+                    className="border-0 absolute top-0 left-0"
+                    style={{
+                      width: currentViewport.width,
+                      height: currentViewport.height,
+                      transform: `scale(${calculateIframeScale()})`,
+                      transformOrigin: 'top left'
+                    }}
+                    sandbox="allow-same-origin allow-scripts allow-forms allow-links allow-popups"
+                    title="Mini Browser"
+                  />
+                </div>
+              </div>
             ) : (
               <div className="absolute inset-0 bg-slate-100 flex items-center justify-center">
                 <div className="text-center p-8 max-w-md">
@@ -460,7 +587,7 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
                        
                       ].map((site) => (
                         <Button
-                          key={site.name}
+                          key={site.url}
                           size="sm"
                           variant="outline"
                           onClick={() => navigateToUrl(site.url)}

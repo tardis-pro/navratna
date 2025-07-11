@@ -72,6 +72,12 @@ const portalTypeStyles: Record<string, {
     border: 'border-indigo-500/30',
     glow: 'shadow-indigo-500/20',
     accent: 'text-indigo-400'
+  },
+  security: {
+    gradient: 'from-red-500/20 to-orange-500/20',
+    border: 'border-red-500/30',
+    glow: 'shadow-red-500/20',
+    accent: 'text-red-400'
   }
 };
 

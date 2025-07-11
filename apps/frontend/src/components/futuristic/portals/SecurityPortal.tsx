@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Shield, 
@@ -6,62 +6,24 @@ import {
   Activity, 
   RefreshCw,
   Settings,
-  Eye,
-  EyeOff,
-  Lock,
-  Unlock,
   Key,
   Users,
   AlertTriangle,
   CheckCircle,
-  XCircle,
-  Clock,
-  Globe,
   Server,
-  Database,
   FileText,
   Bell,
-  TrendingUp,
   BarChart3,
-  Filter,
-  Search,
-  Download,
-  Upload,
-  Zap,
-  Wifi,
-  WifiOff,
-  UserCheck,
-  UserX,
   Bug,
-  Code,
-  Terminal,
-  MonitorSpeaker,
   Radio,
-  Scan,
   ShieldCheck,
-  RotateCcw,
-  Network,
-  HardDrive,
-  Cpu,
-  MemoryStick,
-  Circle,
-  Plus,
-  Minus,
   ArrowUp,
   ArrowDown,
-  Pause,
-  Play,
-  Target,
-  Crosshair
+  Minus,
+  Pause
 } from 'lucide-react';
-
-interface ViewportSize {
-  width: number;
-  height: number;
-  isMobile: boolean;
-  isTablet: boolean;
-  isDesktop: boolean;
-}
+import { Portal, PortalProps } from '../Portal';
+import { cn } from '@/lib/utils';
 
 interface SecurityMetric {
   id: string;
@@ -83,9 +45,7 @@ interface SecurityEvent {
   resolved: boolean;
 }
 
-interface SecurityPortalProps {
-  className?: string;
-  viewport?: ViewportSize;
+interface SecurityPortalProps extends Omit<PortalProps, 'children' | 'type' | 'title'> {
   mode?: 'dashboard' | 'monitor' | 'settings';
   showAdvanced?: boolean;
 }
@@ -107,32 +67,25 @@ const SECURITY_EVENTS: SecurityEvent[] = [
   { id: '5', type: 'audit', severity: 'medium', message: 'Failed MFA verification attempt', timestamp: new Date(Date.now() - 60 * 60000), source: 'MFA Service', resolved: false }
 ];
 
-export const SecurityPortal: React.FC<SecurityPortalProps> = ({ 
-  className, 
-  viewport,
-  mode = 'dashboard',
-  showAdvanced = false
-}) => {
+const SecurityPortalContent: React.FC<{
+  mode: 'dashboard' | 'monitor' | 'settings';
+  showAdvanced: boolean;
+  viewport?: any;
+}> = ({ mode, showAdvanced, viewport }) => {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'threats' | 'monitoring' | 'users'>('overview');
   const [realTimeData, setRealTimeData] = useState(true);
   const [selectedTimeRange, setSelectedTimeRange] = useState<'1h' | '24h' | '7d' | '30d'>('24h');
   const [systemStatus, setSystemStatus] = useState<'healthy' | 'warning' | 'critical'>('healthy');
 
-  // Default viewport if not provided - memoized to prevent infinite re-renders
-  const currentViewport = useMemo(() => {
-    if (viewport) return viewport;
-    
-    const defaultViewport: ViewportSize = {
-      width: typeof window !== 'undefined' ? window.innerWidth : 1024,
-      height: typeof window !== 'undefined' ? window.innerHeight : 768,
-      isMobile: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
-      isTablet: typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
-      isDesktop: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
-    };
-    
-    return defaultViewport;
-  }, [viewport]);
+  // Use Portal's viewport management
+  const currentViewport = viewport || {
+    width: typeof window !== 'undefined' ? window.innerWidth : 1024,
+    height: typeof window !== 'undefined' ? window.innerHeight : 768,
+    isMobile: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
+    isTablet: typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
+    isDesktop: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
+  };
 
   // Determine layout based on viewport size
   const isCompactMode = currentViewport.width < 500 || currentViewport.height < 400;
@@ -207,7 +160,7 @@ export const SecurityPortal: React.FC<SecurityPortalProps> = ({
   };
 
   return (
-    <div className={`h-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white overflow-hidden ${className || ''}`}>
+    <div className="h-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white overflow-hidden">
       {/* Enhanced Background Pattern */}
       <div className="absolute inset-0 opacity-10">
         <div className="absolute inset-0" style={{
@@ -588,5 +541,33 @@ export const SecurityPortal: React.FC<SecurityPortalProps> = ({
         </motion.div>
       )}
     </div>
+  );
+};
+
+export const SecurityPortal: React.FC<SecurityPortalProps> = ({
+  mode = 'dashboard',
+  showAdvanced = false,
+  ...portalProps
+}) => {
+  // Add security portal type to Portal styles
+  const portalType = 'security';
+  
+  return (
+    <Portal
+      {...portalProps}
+      type={portalType}
+      title="Security Center"
+      initialSize={{ width: 900, height: 600 }}
+      className={cn(
+        "security-portal",
+        portalProps.className
+      )}
+    >
+      <SecurityPortalContent
+        mode={mode}
+        showAdvanced={showAdvanced}
+        viewport={portalProps.viewport}
+      />
+    </Portal>
   );
 };

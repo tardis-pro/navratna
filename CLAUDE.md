@@ -11,57 +11,58 @@ Council of Nycea is a **Unified Agent Intelligence Platform (UAIP)** - a product
 - You use puppeteer on 5173 always
 - Its running in docker compose is hotreloading
 - You are in pnpm workspace, always think global, extend configs, no private local thing unless explicitly required or deemed necessary
+- IMPORTANT: ALWAYS SEARCH FOR RELEVANT CODE FOR THE THING YOU ARE DOING, DONT DUPLICATE, USE SHARED INTERFACES. ALWAYS
 
 ## Common Development Commands
 
 ### Start Development Environment
 ```bash
 # Full system (takes ~2 minutes to start)
-npm run dev
+pnpm run dev
 
 # Infrastructure only (databases, message queue)
 ./dev-start.sh --services infrastructure --daemon
 
 # Backend services only
-npm run dev:backend
+pnpm run dev:backend
 
 # Frontend only  
-npm run dev:frontend
+pnpm run dev:frontend
 
 # Minimal development (core services only)
-cd backend && npm run dev:minimal
+cd backend && pnpm run dev:minimal
 ```
 
 ### Build Commands
 ```bash
 # Build everything (shared packages, backend, frontend)
-npm run build
+pnpm run build
 
 # Build shared packages first (required before backend)
-npm run build:shared
+pnpm run build:shared
 
 # Build backend services
-npm run build:backend
+pnpm run build:backend
 
 # Build frontend
-npm run build:frontend
+pnpm run build:frontend
 ```
 
 ### Testing
 ```bash
 # Run all tests across packages
-npm test
+pnpm test
 
 # Test specific packages
-cd backend/shared/middleware && npm test  # Middleware tests (132 tests)
-cd backend/shared/services && npm test   # Services tests
+cd backend/shared/middleware && pnpm test  # Middleware tests (132 tests)
+cd backend/shared/services && pnpm test   # Services tests
 
 # Test artifact generation system
-npm run test:artifacts
+pnpm run test:artifacts
 
 # Test specific artifact types
-npm run test:artifacts:prd
-npm run test:artifacts:code
+pnpm run test:artifacts:prd
+pnpm run test:artifacts:code
 ```
 
 **Test Coverage Status:**

@@ -313,6 +313,8 @@ export const CreateDiscussionRequestSchema = DiscussionSchema.omit({
   state: true,
   analytics: true
 }).extend({
+  // Make createdBy optional - backend will set it from authenticated user
+  createdBy: IDSchema.optional(),
   initialParticipants: z.array(z.object({
     agentId: IDSchema, // Only need agentId - persona comes from agent
     role: z.enum(['participant', 'moderator', 'observer', 'facilitator']).default('participant')

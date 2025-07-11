@@ -4,7 +4,8 @@ import {
   Folder, Plus, Users, Calendar, Target, BarChart3, Search, Filter,
   MoreVertical, Edit3, Trash2, Archive, Star, Clock, CheckCircle2,
   AlertCircle, PlayCircle, PauseCircle, Settings, GitBranch, Upload,
-  Download, Share2, MessageSquare, FileText, Code, Image, Database
+  Download, Share2, MessageSquare, FileText, Code, Image, Database,
+  RefreshCw
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { ProjectOnboardingFlow } from './ProjectOnboardingFlow';
@@ -363,7 +364,9 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
   useEffect(() => {
     const loadProjects = async () => {
       try {
+        console.log('🔄 Loading projects from API...');
         const apiProjects = await projectsAPI.list();
+        console.log('📊 Loaded projects:', apiProjects.length, 'projects');
         
         // Convert API projects to local Project interface
         const convertedProjects: Project[] = apiProjects.map(apiProject => ({
@@ -385,6 +388,7 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
         }));
         
         setProjects(convertedProjects);
+        console.log('✅ Projects loaded successfully:', convertedProjects.map(p => p.name));
       } catch (error) {
         console.error('Failed to load projects:', error);
         // Fallback to empty array or could show error state
@@ -394,6 +398,35 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
     
     loadProjects();
   }, []);
+  
+  // Add a function to refresh projects when needed
+  const refreshProjects = async () => {
+    try {
+      console.log('🔄 Refreshing projects...');
+      const apiProjects = await projectsAPI.list();
+      const convertedProjects: Project[] = apiProjects.map(apiProject => ({
+        id: apiProject.id,
+        name: apiProject.name,
+        description: apiProject.description || '',
+        status: apiProject.status,
+        priority: (apiProject.metadata?.priority as Project['priority']) || 'medium',
+        progress: apiProject.metadata?.progress || 0,
+        startDate: new Date(apiProject.createdAt),
+        dueDate: apiProject.metadata?.dueDate ? new Date(apiProject.metadata.dueDate) : undefined,
+        team: apiProject.metadata?.team || [],
+        tags: apiProject.metadata?.tags || [],
+        resources: apiProject.metadata?.resources || [],
+        tasks: apiProject.metadata?.tasks || [],
+        createdBy: apiProject.ownerId,
+        createdAt: new Date(apiProject.createdAt),
+        updatedAt: new Date(apiProject.updatedAt)
+      }));
+      setProjects(convertedProjects);
+      console.log('✅ Projects refreshed successfully');
+    } catch (error) {
+      console.error('Failed to refresh projects:', error);
+    }
+  };
 
   const filteredProjects = projects.filter(project => {
     const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -404,6 +437,8 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
 
   const handleCreateProject = async (projectData: any) => {
     try {
+      console.log('🚀 Creating project:', projectData);
+      
       // If projectData is already an API project (from onboarding flow), just add it
       if (projectData.id && projectData.ownerId) {
         // Convert API project to local format
@@ -425,6 +460,10 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
           updatedAt: new Date(projectData.updatedAt)
         };
         setProjects(prev => [convertedProject, ...prev]);
+        console.log('✅ Project added to local state:', convertedProject.name);
+        
+        // Refresh projects from API to ensure consistency
+        await refreshProjects();
       } else {
         // Handle legacy local project creation (from quick create modal)
         const newProject: Project = {
@@ -434,7 +473,11 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
           updatedAt: new Date()
         };
         setProjects(prev => [newProject, ...prev]);
+        console.log('✅ Legacy project added to local state:', newProject.name);
       }
+      
+      // Close the onboarding flow
+      setShowOnboardingFlow(false);
     } catch (error) {
       console.error('Failed to handle project creation:', error);
     }
@@ -560,6 +603,14 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
           Projects
         </h1>
         <div className={`flex items-center gap-3 ${isMobile ? 'w-full justify-end' : ''}`}>
+          <button
+            onClick={refreshProjects}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-800/50 text-slate-300 rounded-xl hover:bg-slate-700/50 transition-all duration-200 border border-slate-700/50 z-10"
+            title="Refresh Projects"
+          >
+            <RefreshCw className="w-4 h-4" />
+            {!isMobile && 'Refresh'}
+          </button>
           <button
             onClick={() => setShowCreateModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-slate-800/50 text-slate-300 rounded-xl hover:bg-slate-700/50 transition-all duration-200 border border-slate-700/50 z-10"

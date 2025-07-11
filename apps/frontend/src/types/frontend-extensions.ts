@@ -297,6 +297,7 @@ export interface ModelInfo {
 export interface AgentContextValue {
   agents: Record<string, AgentState>;
   addAgent: (agent: AgentState) => void;
+  addAgents: (agents: AgentState[]) => void;
   removeAgent: (id: string) => void;
   updateAgentState: (id: string, updates: Partial<AgentState>) => void;
   addMessage: (agentId: string, message: Message) => void;

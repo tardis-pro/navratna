@@ -5,7 +5,7 @@ import {
   ArtifactConversationContext
 } from '@uaip/types';
 
-import { ArtifactGenerator } from 'interfaces';
+import { ArtifactGenerator } from '../interfaces';
 import { logger } from '@uaip/utils';
 
 export class PRDGenerator implements ArtifactGenerator {

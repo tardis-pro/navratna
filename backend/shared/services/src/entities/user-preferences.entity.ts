@@ -26,6 +26,30 @@ export interface UserPreferencesData {
     autoMinimize?: boolean;
     showDesktopNotifications?: boolean;
   };
+  intelligence?: {
+    autocomplete?: {
+      enabled?: boolean;
+      minChars?: number;
+      maxSuggestions?: number;
+      debounceMs?: number;
+      sources?: ('history' | 'tools' | 'common' | 'context')[];
+      aiEnhancement?: boolean;
+    };
+    topicGeneration?: {
+      enabled?: boolean;
+      autoSuggest?: boolean;
+      confidenceThreshold?: number;
+    };
+    writingEnhancement?: {
+      enabled?: boolean;
+      autoCheck?: boolean;
+      suggestionTypes?: ('clarity' | 'tone' | 'grammar' | 'style')[];
+    };
+    contextAnalysis?: {
+      enabled?: boolean;
+      depthLevel?: 'basic' | 'detailed' | 'comprehensive';
+    };
+  };
 }
 
 @Entity('user_preferences')

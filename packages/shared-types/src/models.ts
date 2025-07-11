@@ -46,7 +46,7 @@ export interface ModelInfo {
   inputCostPer1k?: number;
   outputCostPer1k?: number;
   provider: string;
-  capabilities: string[];
+  capabilities: ('text' | 'code' | 'reasoning' | 'multimodal' | 'vision-to-text' | 'audio-to-text' | 'audio-to-audio' | 'tool-calling' | 'function-calling' | 'image-generation' | 'embeddings')[];
 }
 
 // Debate-specific message data

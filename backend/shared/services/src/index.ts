@@ -54,6 +54,7 @@ export type {
 export { AgentIntelligenceService } from './agentIntelligenceService.js';
 export { CapabilityDiscoveryService } from './capabilityDiscoveryService.js';
 export { SecurityValidationService } from './securityValidationService.js';
+export { ModelCapabilityDetector } from './capabilities/ModelCapabilityDetector.js';
 
 // Business Logic Services
 export { ToolManagementService } from './tool-management.service.js';
@@ -65,6 +66,7 @@ export { ProjectLifecycleService } from './project-lifecycle.service.js';
 // Persona and Discussion Services
 export { PersonaService } from './personaService.js';
 export { DiscussionService } from './discussionService.js';
+export { ParticipantManagementService } from './participant-management.service.js';
 
 // Widget Services
 export { WidgetService, WidgetServiceOptions } from './widgetService.js';
@@ -126,6 +128,9 @@ export {
 
 // Contact Management Entities
 export { ContactStatus, ContactType } from './database/repositories/UserContactRepository.js';
+
+// Database Seeders
+export { DefaultUserLLMProviderSeed } from './database/seeders/DefaultUserLLMProviderSeed.js';
 
 // =============================================================================
 // SERVICE FACTORY AND DEPENDENCY INJECTION

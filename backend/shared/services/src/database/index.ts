@@ -13,6 +13,7 @@ export {
 export { Repository } from 'typeorm';
 
 export { seedDatabase } from './seedDatabase.js';
+export { DefaultUserLLMProviderSeed } from './seeders/DefaultUserLLMProviderSeed.js';
 // Legacy DataSource exports for backward compatibility
 export {
   initializeDataSource,

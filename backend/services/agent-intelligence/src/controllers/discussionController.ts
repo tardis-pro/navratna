@@ -59,14 +59,33 @@ export class DiscussionController {
   public async createDiscussion(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const createRequest: CreateDiscussionRequest = req.body;
+      
+      // Use the authenticated user ID instead of the request body createdBy
+      const userId = req.user?.id;
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          error: {
+            code: 'UNAUTHORIZED',
+            message: 'User not authenticated'
+          }
+        });
+        return;
+      }
+
+      // Set the createdBy to the authenticated user ID
+      const discussionRequest: CreateDiscussionRequest = {
+        ...createRequest,
+        createdBy: userId
+      };
 
       logger.info('Creating new discussion', { 
-        title: createRequest.title,
-        createdBy: createRequest.createdBy,
-        participantCount: createRequest.initialParticipants?.length
+        title: discussionRequest.title,
+        createdBy: discussionRequest.createdBy,
+        participantCount: discussionRequest.initialParticipants?.length
       });
 
-      const discussion = await this.discussionService.createDiscussion(createRequest);
+      const discussion = await this.discussionService.createDiscussion(discussionRequest);
 
       logger.info('Discussion created successfully', { 
         discussionId: discussion.id,

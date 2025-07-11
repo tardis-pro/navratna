@@ -2,9 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { TaskBoard } from './TaskBoard';
 import { TaskAssignment } from './TaskAssignment';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Badge } from './ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { Input } from './ui/input';
+import { Textarea } from './ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 // Design System Tokens - matching DesktopUnified
 const DESIGN_TOKENS = {
@@ -46,9 +49,9 @@ import {
   UpdateTaskRequest,
   TaskAssignmentRequest,
   TaskFilters
-} from '@/api/tasks.api';
-import { projectsAPI } from '@/api/projects.api';
-import { agentsAPI } from '@/api/agents.api';
+} from '../api/tasks.api';
+import { projectsAPI } from '../api/projects.api';
+import { agentsAPI } from '../api/agents.api';
 import { 
   BarChart3, 
   Users, 
@@ -63,6 +66,7 @@ import {
   Download,
   Settings
 } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ProjectTaskManagerProps {
@@ -112,13 +116,13 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
   const [showQuickCreateTask, setShowQuickCreateTask] = useState(false);
 
   // Queries
-  const { data: tasksData, isLoading: tasksLoading, error: tasksError } = useQuery(
-    useTasksQuery(projectId, selectedFilters)
-  );
+  const { data: tasksData, isLoading: tasksLoading, error: tasksError } = useQuery({
+    ...useTasksQuery(projectId, selectedFilters)
+  });
 
-  const { data: statisticsData, isLoading: statsLoading } = useQuery(
-    useTaskStatisticsQuery(projectId)
-  );
+  const { data: statisticsData, isLoading: statsLoading } = useQuery({
+    ...useTaskStatisticsQuery(projectId)
+  });
 
   const { data: projectData } = useQuery({
     queryKey: ['project', projectId],
@@ -311,18 +315,19 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
 
     return (
       <>
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={() => setShowQuickCreateTask(false)} />
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center p-2 sm:p-4" onClick={() => setShowQuickCreateTask(false)} />
         
         <div className={`
-          fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl 
+          fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-xs sm:max-w-lg md:max-w-xl lg:max-w-2xl xl:max-w-3xl mx-2 sm:mx-4 max-h-[95vh] sm:max-h-[90vh] overflow-y-auto
           ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.radius.lg} 
-          ${DESIGN_TOKENS.colors.border} border ${DESIGN_TOKENS.shadow} z-[201] overflow-hidden
+          ${DESIGN_TOKENS.colors.border} border ${DESIGN_TOKENS.shadow} z-[201]
         `}>
-          <div className={`${DESIGN_TOKENS.padding.lg} ${DESIGN_TOKENS.colors.border} border-b`}>
+          <div className={`p-3 sm:p-4 lg:${DESIGN_TOKENS.padding.lg} ${DESIGN_TOKENS.colors.border} border-b`}>
             <div className="flex items-center justify-between">
-              <h2 className={`text-xl font-bold ${DESIGN_TOKENS.colors.text} flex items-center gap-2`}>
-                <Plus className="w-5 h-5 text-blue-400" />
-                Quick Create Task
+              <h2 className={`text-lg sm:text-xl lg:text-2xl font-bold ${DESIGN_TOKENS.colors.text} flex items-center gap-2`}>
+                <Plus className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
+                <span className="hidden sm:inline">Quick Create Task</span>
+                <span className="sm:hidden">New Task</span>
               </h2>
               <Button variant="ghost" size="sm" onClick={() => setShowQuickCreateTask(false)}>
                 <X className="w-4 h-4" />
@@ -330,7 +335,7 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className={`${DESIGN_TOKENS.padding.lg} space-y-4`}>
+          <form onSubmit={handleSubmit} className={`p-3 sm:p-4 lg:${DESIGN_TOKENS.padding.lg} space-y-3 sm:space-y-4`}>
             <div className="grid grid-cols-1 gap-4">
               <Input
                 placeholder="Task title"
@@ -348,7 +353,7 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
                 className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.border} border ${DESIGN_TOKENS.colors.text}`}
               />
               
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Select value={formData.priority} onValueChange={(value) => setFormData(prev => ({ ...prev, priority: value }))}>
                   <SelectTrigger className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.border} border ${DESIGN_TOKENS.colors.text}`}>
                     <SelectValue placeholder="Priority" />
@@ -378,7 +383,7 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
                 </Select>
               </div>
               
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Input
                   type="date"
                   placeholder="Due date"
@@ -405,11 +410,11 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
               />
             </div>
             
-            <div className="flex justify-between items-center pt-4">
-              <div className={`text-xs ${DESIGN_TOKENS.colors.textMuted}`}>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pt-4 gap-3">
+              <div className={`text-xs ${DESIGN_TOKENS.colors.textMuted} hidden sm:block`}>
                 Press <kbd className="bg-slate-700 px-1 rounded">Alt+T</kbd> to quickly create tasks
               </div>
-              <div className={`flex ${DESIGN_TOKENS.spacing.xs}`}>
+              <div className={`flex ${DESIGN_TOKENS.spacing.xs} w-full sm:w-auto justify-end`}>
                 <Button type="button" variant="secondary" onClick={() => setShowQuickCreateTask(false)}>
                   Cancel
                 </Button>
@@ -427,7 +432,7 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
   const TaskOverview: React.FC = () => (
     <div className="space-y-4 sm:space-y-6">
       {/* Statistics Grid - More responsive */}
-      <div className={`grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 ${DESIGN_TOKENS.spacing.sm} sm:${DESIGN_TOKENS.spacing.md}`}>
+      <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 ${DESIGN_TOKENS.spacing.sm} sm:${DESIGN_TOKENS.spacing.md}`}>
         <StatCard
           title="Total Tasks"
           value={totalTasks}
@@ -560,78 +565,106 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
     tasksData?.find((task: any) => task.id === selectedTaskForAssignment) : null;
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Header - More responsive */}
-      <div className={`${DESIGN_TOKENS.colors.border} border-b ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} p-4 sm:${DESIGN_TOKENS.padding.lg}`}>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="min-w-0 flex-1">
-            <h1 className={`text-xl sm:text-2xl font-bold ${DESIGN_TOKENS.colors.text} truncate`}>
-              {projectData?.name || 'Project'} - Tasks
-            </h1>
-            <p className={`${DESIGN_TOKENS.colors.textMuted} mt-1 text-sm hidden sm:block`}>
-              Manage and track tasks with human and agent assignments
-            </p>
-          </div>
-          <div className={`flex items-center ${DESIGN_TOKENS.spacing.xs} flex-shrink-0`}>
-            <Button 
-              variant="primary" 
-              size="sm"
-              onClick={() => setShowQuickCreateTask(true)}
-              className="sm:hidden"
-            >
-              <Plus className="w-4 h-4" />
-            </Button>
-            <Button 
-              variant="primary" 
-              size="sm"
-              onClick={() => setShowQuickCreateTask(true)}
-              className="hidden sm:flex"
-              title="Quick Create Task (Alt+T)"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              New Task
-            </Button>
-            <Button variant="outline" size="sm" className="hidden md:flex">
-              <Download className="w-4 h-4 mr-2" />
-              Export
-            </Button>
-            <Button variant="outline" size="sm" className="hidden lg:flex">
-              <Settings className="w-4 h-4 mr-2" />
-              Settings
-            </Button>
+    <div className="h-full w-full flex flex-col overflow-hidden">
+      {/* Header - All devices responsive */}
+      <div className={`${DESIGN_TOKENS.colors.border} border-b ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} flex-shrink-0`}>
+        <div className="px-3 py-3 sm:px-4 sm:py-4 md:px-6 md:py-4 lg:px-8 lg:py-5 xl:px-10 xl:py-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+            <div className="min-w-0 flex-1">
+              <h1 className={`text-base sm:text-lg md:text-xl lg:text-2xl xl:text-3xl font-bold ${DESIGN_TOKENS.colors.text} truncate`}>
+                {projectData?.name || 'Project'} - Tasks
+              </h1>
+              {/* Mobile compact description */}
+              <p className={`${DESIGN_TOKENS.colors.textMuted} text-xs mt-1 sm:hidden`}>
+                Collaborative task management
+              </p>
+              {/* Tablet+ full description */}
+              <div className={`mt-2 hidden sm:block`}>
+                <p className={`${DESIGN_TOKENS.colors.textMuted} text-xs sm:text-sm lg:text-base mb-2`}>
+                  Collaborative task management with intelligent agent assistance
+                </p>
+                <div className="flex items-center gap-3 md:gap-4 lg:gap-6 text-xs lg:text-sm flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 lg:w-2.5 lg:h-2.5 rounded-full bg-blue-400"></div>
+                    <span className={`${DESIGN_TOKENS.colors.textMuted}`}>Human Tasks</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 lg:w-2.5 lg:h-2.5 rounded-full bg-purple-400"></div>
+                    <span className={`${DESIGN_TOKENS.colors.textMuted}`}>Agent Tasks</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 lg:w-2.5 lg:h-2.5 rounded-full bg-orange-400"></div>
+                    <span className={`${DESIGN_TOKENS.colors.textMuted}`}>Unassigned</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className={`flex items-center gap-2 flex-shrink-0 overflow-x-auto pb-1 sm:pb-0`}>
+              <Button 
+                variant="primary" 
+                size="sm"
+                onClick={() => setShowQuickCreateTask(true)}
+                className="sm:hidden whitespace-nowrap"
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
+              <Button 
+                variant="primary" 
+                size="sm"
+                onClick={() => setShowQuickCreateTask(true)}
+                className="hidden sm:flex whitespace-nowrap"
+                title="Quick Create Task (Alt+T)"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                <span className="hidden md:inline">New Task</span>
+                <span className="md:hidden">New</span>
+              </Button>
+              <Button variant="outline" size="sm" className="hidden md:flex whitespace-nowrap">
+                <Download className="w-4 h-4 mr-2" />
+                <span className="hidden lg:inline">Export</span>
+              </Button>
+              <Button variant="outline" size="sm" className="hidden lg:flex whitespace-nowrap">
+                <Settings className="w-4 h-4 mr-2" />
+                <span className="hidden xl:inline">Settings</span>
+              </Button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Main Content - More responsive */}
+      {/* Main Content - Proper overflow handling */}
       <div className="flex-1 overflow-hidden">
         <Tabs defaultValue="board" className="h-full flex flex-col">
-          <TabsList className={`mx-4 sm:mx-6 mt-4 w-fit ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.colors.border} border`}>
-            <TabsTrigger value="board" className={`flex items-center gap-1 sm:gap-2 text-xs sm:text-sm ${DESIGN_TOKENS.colors.textSecondary} data-[state=active]:${DESIGN_TOKENS.colors.text}`}>
-              <Activity className="w-3 h-3 sm:w-4 sm:h-4" />
-              <span className="hidden sm:inline">Task Board</span>
-              <span className="sm:hidden">Board</span>
-            </TabsTrigger>
-            <TabsTrigger value="overview" className={`flex items-center gap-1 sm:gap-2 text-xs sm:text-sm ${DESIGN_TOKENS.colors.textSecondary} data-[state=active]:${DESIGN_TOKENS.colors.text}`}>
-              <BarChart3 className="w-3 h-3 sm:w-4 sm:h-4" />
-              <span className="hidden sm:inline">Overview</span>
-              <span className="sm:hidden">Stats</span>
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex-shrink-0 px-3 sm:px-4 md:px-6 lg:px-8 xl:px-10 pt-3 sm:pt-4">
+            <TabsList className={`w-fit ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.colors.border} border`}>
+              <TabsTrigger value="board" className={`flex items-center gap-1 sm:gap-2 text-xs sm:text-sm lg:text-base px-3 sm:px-4 lg:px-6 py-2 ${DESIGN_TOKENS.colors.textSecondary} data-[state=active]:${DESIGN_TOKENS.colors.text}`}>
+                <Activity className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5" />
+                <span className="hidden sm:inline">Task Board</span>
+                <span className="sm:hidden">Board</span>
+              </TabsTrigger>
+              <TabsTrigger value="overview" className={`flex items-center gap-1 sm:gap-2 text-xs sm:text-sm lg:text-base px-3 sm:px-4 lg:px-6 py-2 ${DESIGN_TOKENS.colors.textSecondary} data-[state=active]:${DESIGN_TOKENS.colors.text}`}>
+                <BarChart3 className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5" />
+                <span className="hidden sm:inline">Overview</span>
+                <span className="sm:hidden">Stats</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-          <TabsContent value="board" className="flex-1 mx-2 sm:mx-4 lg:mx-6 mb-4 sm:mb-6 mt-4">
-            <TaskBoard
-              projectId={projectId}
-              tasks={tasksData || []}
-              onTaskCreate={handleTaskCreate}
-              onTaskUpdate={handleTaskUpdate}
-              onTaskDelete={handleTaskDelete}
-              onTaskAssign={handleTaskAssign}
-              isLoading={tasksLoading}
-            />
+          <TabsContent value="board" className="flex-1 overflow-hidden px-3 sm:px-4 md:px-6 lg:px-8 xl:px-10 py-3 sm:py-4">
+            <div className="h-full overflow-hidden">
+              <TaskBoard
+                projectId={projectId}
+                tasks={tasksData || []}
+                onTaskCreate={handleTaskCreate}
+                onTaskUpdate={handleTaskUpdate}
+                onTaskDelete={handleTaskDelete}
+                onTaskAssign={handleTaskAssign}
+                isLoading={tasksLoading}
+              />
+            </div>
           </TabsContent>
 
-          <TabsContent value="overview" className="flex-1 mx-2 sm:mx-4 lg:mx-6 mb-4 sm:mb-6 mt-4 overflow-y-auto">
+          <TabsContent value="overview" className="flex-1 overflow-y-auto px-3 sm:px-4 md:px-6 lg:px-8 xl:px-10 py-3 sm:py-4">
             <TaskOverview />
           </TabsContent>
         </Tabs>

@@ -136,7 +136,8 @@ export class AgentDiscussionService {
     prompt: string,
     systemPrompt: string,
     temperature: number = 0.7,
-    maxTokens: number = 300
+    maxTokens: number = 300,
+    agentId?: string
   ): Promise<{ content: string; confidence: number; model: string }> {
     return new Promise(async (resolve, reject) => {
       const requestId = `agent_disc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -172,7 +173,7 @@ export class AgentDiscussionService {
         // Publish LLM generation request via event bus
         await this.eventBusService.publish('llm.agent.generate.request', {
           requestId,
-          agentId: null, // No specific agent for discussion
+          agentId: agentId || null, // Pass agent ID if provided
           messages: [{
             id: `msg_${Date.now()}`,
             content: prompt,
@@ -336,13 +337,16 @@ export class AgentDiscussionService {
           scope: { agentId, userId }
         }) : [];
 
+      // Handle "system" userId by using agent's creator
+      const effectiveUserId = userId === 'system' ? agent.createdBy : userId;
+
       // Generate response using LLM
       const response = await this.generateChatResponse(
         message,
         agent,
         conversationHistory,
         contextualKnowledge,
-        userId
+        effectiveUserId
       );
 
       // Store chat interaction as an episode
@@ -921,12 +925,48 @@ export class AgentDiscussionService {
    * Event handlers
    */
   private async handleParticipateInDiscussion(event: any): Promise<void> {
-    const { requestId, agentId, discussionId, message } = event;
+    // Extract data from the correct event structure
+    const { requestId } = event;
+    const { agentId, discussionId, participantId, discussionContext } = event.data || {};
+    
+    // Debug logging to understand what's being received
+    logger.info('Received participation event', {
+      eventKeys: Object.keys(event),
+      dataKeys: event.data ? Object.keys(event.data) : [],
+      requestId,
+      agentId: agentId || 'MISSING',
+      agentIdType: typeof agentId,
+      discussionId: discussionId || 'MISSING',
+      participantId: participantId || 'MISSING',
+      hasDiscussionContext: !!discussionContext
+    });
+    
+    // Validate agentId before processing
+    if (!agentId || typeof agentId !== 'string' || agentId.trim() === '') {
+      logger.error('Invalid agentId in participation event', {
+        agentId: agentId || 'MISSING',
+        agentIdType: typeof agentId,
+        eventKeys: Object.keys(event),
+        requestId,
+        discussionId
+      });
+      await this.respondToRequest(requestId, { 
+        success: false, 
+        error: `Invalid agentId: received ${agentId} (${typeof agentId})` 
+      });
+      return;
+    }
+
     try {
+      // Generate a discussion participation message based on context
+      const participationMessage = discussionContext 
+        ? `Participating in discussion: ${discussionContext.title}. Topic: ${discussionContext.topic}. Current phase: ${discussionContext.phase}.`
+        : 'Participating in discussion.';
+
       const result = await this.participateInDiscussion({
         agentId,
-        message,
-        userId: 'system' // Default for event-driven participation
+        message: participationMessage,
+        userId: participantId || 'system' // Use participantId if available, otherwise fallback to system
       });
       await this.respondToRequest(requestId, { success: true, data: result });
     } catch (error) {
@@ -1122,7 +1162,8 @@ Be helpful, knowledgeable, and maintain consistency with your character.`,
         llmRequest.prompt,
         llmRequest.systemPrompt,
         llmRequest.temperature,
-        llmRequest.maxTokens
+        llmRequest.maxTokens,
+        agent.id
       );
 
       // Event-driven LLM response doesn't have error property, always returns content
@@ -1355,7 +1396,11 @@ Reasoning: ${reasoning.join('; ')}`,
       
       return agentWithPersona;
     } catch (error) {
-      logger.warn('Failed to get agent data', { error, agentId });
+      logger.warn('Failed to get agent data', { 
+        error: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+        agentId 
+      });
       return null;
     }
   }
@@ -1468,8 +1513,8 @@ Reasoning: ${reasoning.join('; ')}`,
         } : 'No persona data'
       });
 
-      // Use event-driven LLM request
-      const llmResponse = await this.requestLLMResponse(agentRequest, userId);
+      // Use event-driven LLM request - only pass userId if it's a valid UUID
+      const llmResponse = await this.requestLLMResponse(agentRequest, userId && userId !== 'system' ? userId : undefined);
       
       logger.info('LLM response received from event bus', { 
         agentId: agent.id,
@@ -1536,7 +1581,8 @@ Reasoning: ${reasoning.join('; ')}`,
         params.message,
         systemPrompt,
         0.7,
-        300
+        300,
+        params.agentId
       );
 
       // Publish discussion event

@@ -13,7 +13,7 @@ import {
 
 import { TemplateManager } from '../templates/TemplateManager.js';
 import { logger } from '@uaip/utils';
-import { ArtifactGenerator } from 'interfaces';
+import { ArtifactGenerator } from '../interfaces';
 
 export class CodeGenerator implements ArtifactGenerator {
   private readonly supportedType = 'code';

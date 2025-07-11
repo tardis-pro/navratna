@@ -215,7 +215,8 @@ class AgentIntelligenceService extends BaseService {
         if (result.success && result.enhancedResponse) {
           try {
             // Find the participant ID for the selected agent
-            const discussion = await this.databaseService.getDiscussionService().getDiscussion(discussionId);
+            const discussionService = await this.databaseService.getDiscussionService();
+            const discussion = await discussionService.getDiscussion(discussionId);
             const participant = discussion?.participants?.find(p => p.agentId === result.selectedAgent?.id);
 
             if (participant) {

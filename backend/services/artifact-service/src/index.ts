@@ -14,7 +14,7 @@ class ArtifactServiceApp extends BaseService {
   constructor() {
     const serviceConfig: ServiceConfig = {
       name: 'artifact-service',
-      port: config.services?.artifactService?.port || 3004,
+      port: config.services?.artifactService?.port || 3006,
       version: '1.0.0',
       rateLimitConfig: {
         windowMs: 15 * 60 * 1000, // 15 minutes

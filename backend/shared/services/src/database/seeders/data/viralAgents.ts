@@ -79,7 +79,7 @@ export function getViralAgentsData(users: UserEntity[], personas: PersonaEntity[
       totalOperations: 8756,
       successfulOperations: 8405,
       averageResponseTime: 1.2,
-      modelId: 'gpt-4-turbo',
+      modelId: 'cogito 14',
       apiType: 'llmstudio' as any,
       temperature: 0.8,
       maxTokens: 2048,

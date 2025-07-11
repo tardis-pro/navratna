@@ -182,6 +182,7 @@ function createDefaultToolProperties(): {
 
 type AgentAction = 
   | { type: 'ADD_AGENT'; payload: AgentState }
+  | { type: 'ADD_AGENTS'; payload: AgentState[] }
   | { type: 'REMOVE_AGENT'; payload: string }
   | { type: 'UPDATE_AGENT'; payload: { id: string; updates: Partial<AgentState> } }
   | { type: 'ADD_MESSAGE'; payload: { agentId: string; message: Message } }
@@ -222,6 +223,33 @@ function agentReducer(state: Record<string, AgentState>, action: AgentAction): R
         agentId: action.payload.id,
         newStateSize: Object.keys(newState).length,
         allAgentIds: Object.keys(newState)
+      });
+      
+      return newState;
+    }
+    case 'ADD_AGENTS': {
+      console.log('🔥 REDUCER: ADD_AGENTS received:', {
+        agentCount: action.payload.length,
+        currentStateSize: Object.keys(state).length
+      });
+      
+      const toolProperties = createDefaultToolProperties();
+      const newAgents = action.payload.reduce((acc, agent) => {
+        if (agent && agent.id) {
+          acc[agent.id] = {
+            ...agent,
+            ...toolProperties,
+            conversationHistory: []
+          };
+        }
+        return acc;
+      }, {} as Record<string, AgentState>);
+      
+      const newState = { ...state, ...newAgents };
+      
+      console.log('✅ REDUCER: ADD_AGENTS completed:', {
+        newAgentCount: Object.keys(newAgents).length,
+        totalStateSize: Object.keys(newState).length
       });
       
       return newState;
@@ -811,6 +839,41 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     
     console.log('✅ Dispatch completed');
   };
+  
+  const addAgents = (agentList: AgentState[]) => {
+    if (!agentList || !Array.isArray(agentList)) {
+      console.error('❌ addAgents: Invalid agent list', agentList);
+      return;
+    }
+    
+    const validAgents = agentList.filter(agent => {
+      if (!agent) {
+        console.error('❌ addAgents: Skipping undefined agent');
+        return false;
+      }
+      if (!agent.id) {
+        console.error('❌ addAgents: Skipping agent missing id', agent);
+        return false;
+      }
+      return true;
+    });
+    
+    if (validAgents.length === 0) {
+      console.log('No valid agents to add');
+      return;
+    }
+    
+    console.log('🚀 addAgents called with:', {
+      totalAgents: agentList.length,
+      validAgents: validAgents.length,
+      currentStateSize: Object.keys(agents).length
+    });
+    
+    console.log('🔄 Dispatching ADD_AGENTS...');
+    dispatch({ type: 'ADD_AGENTS', payload: validAgents });
+    
+    console.log('✅ Bulk dispatch completed');
+  };
 
   const removeAgent = (id: string) => {
     dispatch({ type: 'REMOVE_AGENT', payload: id });
@@ -1053,33 +1116,40 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
         }
         
         if (agentList.length > 0) {
-          console.log(`Processing ${agentList.length} agents...`);
-          agentList.forEach((backendAgent, index) => {
-            try {
+          console.log(`Processing ${agentList.length} agents in bulk...`);
+          
+          try {
+            const agentStates = agentList.map((backendAgent, index) => {
               console.log(`🔄 Processing agent ${index + 1}/${agentList.length}:`, {
                 id: backendAgent.id,
                 name: backendAgent.name,
                 role: backendAgent.role
               });
               
-              const agentState = createAgentStateFromBackend(backendAgent);
-              console.log('✅ Created agent state:', {
-                id: agentState.id,
-                name: agentState.name,
-                role: agentState.role
-              });
-              
-              addAgent(agentState);
-              console.log('✅ Added agent to context successfully');
-              
-            } catch (error) {
-              console.error('❌ Failed to create/add agent state:', {
-                backendAgent: backendAgent,
-                error: error.message,
-                stack: error.stack
-              });
-            }
-          });
+              return createAgentStateFromBackend(backendAgent);
+            }).filter(Boolean); // Remove any null/undefined results
+            
+            console.log(`✅ Created ${agentStates.length} agent states, adding to context...`);
+            addAgents(agentStates);
+            console.log('✅ Added all agents to context successfully');
+            
+          } catch (error) {
+            console.error('❌ Failed to process agents in bulk:', error.message);
+            // Fallback to individual processing if bulk fails
+            console.log('Falling back to individual agent processing...');
+            agentList.forEach((backendAgent, index) => {
+              try {
+                const agentState = createAgentStateFromBackend(backendAgent);
+                addAgent(agentState);
+              } catch (err) {
+                console.error('❌ Failed to create/add agent state:', {
+                  backendAgent: backendAgent,
+                  error: err.message,
+                  stack: err.stack
+                });
+              }
+            });
+          }
           
           // Mark as loaded after successful processing
           agentsLoadedRef.current = true;
@@ -1098,6 +1168,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   const value: AgentContextValue = {
     agents,
     addAgent,
+    addAgents,
     removeAgent,
     updateAgentState,
     addMessage,

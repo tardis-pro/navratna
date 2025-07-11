@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Home, Bot, Package, MessageSquare, Brain, Settings, BarChart3, Search, Target, TrendingUp, 
-  Wrench, Plus, User, Activity, Clock, X, Minimize2, Shield, Menu, Power, Monitor, Folder, 
+  Home, Bot, Package, MessageSquare, Brain, Settings, BarChart3, Search, Target, TrendingUp,
+  Wrench, Plus, User, Activity, Clock, X, Minimize2, Shield, Menu, Power, Monitor, Folder,
   Terminal, Globe, Calculator, Command, Image, StickyNote, Cloud, Edit3, Save, Trash2,
   Sun, CloudSun, CloudRain, CloudSnow, MapPin, Thermometer, Wind, Droplets, History, Users, Upload,
   Map, Layers, ZoomIn, ZoomOut, Navigation, RotateCcw, Eye, EyeOff, Moon, Palette, RefreshCw
@@ -40,6 +40,9 @@ import { LocationService, LocationData } from '../services/LocationService';
 import { WeatherService } from '../services/WeatherService';
 import { userPersonaAPI } from '../api/user-persona.api';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
+import { useWallpaper } from '../hooks/useWallpaper';
+import { WallpaperCustomizationPanel } from './WallpaperCustomizationPanel';
+import { DiscussionConfigModal } from './DiscussionConfigModal';
 
 // Design System Tokens
 const DESIGN_TOKENS = {
@@ -54,13 +57,13 @@ const DESIGN_TOKENS = {
   },
   spacing: {
     xs: 'gap-2',
-    sm: 'gap-3', 
+    sm: 'gap-3',
     md: 'gap-4',
     lg: 'gap-6',
   },
   radius: {
     sm: 'rounded-lg',
-    md: 'rounded-xl', 
+    md: 'rounded-xl',
     lg: 'rounded-2xl',
   },
   padding: {
@@ -123,31 +126,31 @@ const ALL_APPLICATIONS: Application[] = [
   { id: 'dashboard', title: 'Dashboard', icon: Home, color: 'text-blue-400', component: DashboardPortal, category: 'core', minimumRole: 'guest' },
   { id: 'agents', title: 'Agent Manager', icon: Bot, color: 'text-cyan-400', component: AgentManager, category: 'core', minimumRole: 'user' },
   { id: 'chat', title: 'User Chat', icon: MessageSquare, color: 'text-green-400', component: UserChatPortal, category: 'core', minimumRole: 'user' },
-  
+
   // Data & Knowledge
   { id: 'knowledge', title: 'Knowledge', icon: Brain, color: 'text-orange-400', component: KnowledgePortal, category: 'data', minimumRole: 'user' },
   { id: 'artifacts', title: 'Artifacts', icon: Package, color: 'text-purple-400', component: ArtifactsPortal, category: 'data', minimumRole: 'user' },
   { id: 'intelligence', title: 'Intelligence', icon: BarChart3, color: 'text-pink-400', component: IntelligencePanelPortal, category: 'data', minimumRole: 'moderator' },
-  
+
   // Project Management - NEW
   { id: 'projects', title: 'Projects', icon: Folder, color: 'text-green-500', component: ProjectManagementPortal, category: 'core', minimumRole: 'user' },
   { id: 'tasks', title: 'Task Manager', icon: Activity, color: 'text-emerald-500', component: ProjectTaskManager, category: 'core', minimumRole: 'user' },
-  
+
   // Tools & Utilities
   { id: 'search', title: 'Search', icon: Search, color: 'text-cyan-300', component: () => <div className="p-4 text-white">Global Search Portal</div>, category: 'tools', minimumRole: 'user' },
   { id: 'mini-browser', title: 'Browser', icon: Globe, color: 'text-blue-400', component: MiniBrowserPortal, category: 'tools', minimumRole: 'user' },
   { id: 'tools', title: 'Tools', icon: Wrench, color: 'text-violet-400', component: ToolManagementPortal, category: 'tools', minimumRole: 'moderator' },
   { id: 'integrations', title: 'Integrations', icon: Wrench, color: 'text-cyan-400', component: ToolsIntegrationsPortal, category: 'tools', minimumRole: 'moderator' },
-  
+
   // Discussion & Communication
   { id: 'discussion', title: 'AI Discussions', icon: MessageSquare, color: 'text-cyan-400', component: DiscussionPortal, category: 'core', minimumRole: 'user' },
-  
+
   // Admin & Security
   { id: 'settings', title: 'Settings', icon: Settings, color: 'text-gray-400', component: SettingsPortal, category: 'security', minimumRole: 'admin' },
   { id: 'system', title: 'System', icon: Target, color: 'text-indigo-400', component: SystemConfigPortal, category: 'security', minimumRole: 'admin' },
   { id: 'security', title: 'Security', icon: Shield, color: 'text-red-400', component: SecurityPortal, category: 'security', minimumRole: 'admin' },
   { id: 'providers', title: 'Providers', icon: Plus, color: 'text-yellow-400', component: ProviderSettingsPortal, category: 'security', minimumRole: 'admin' },
-  
+
   // System Level
   { id: 'terminal', title: 'Terminal', icon: Terminal, color: 'text-red-500', component: () => <div className="p-4 text-white">System Terminal</div>, category: 'security', minimumRole: 'system' },
 ];
@@ -165,10 +168,10 @@ const Button: React.FC<{
     ghost: `${DESIGN_TOKENS.colors.surfaceHover} ${DESIGN_TOKENS.colors.textSecondary}`,
     danger: 'bg-red-500/20 hover:bg-red-500/30 text-red-400',
   };
-  
+
   const sizes = {
     sm: `${DESIGN_TOKENS.padding.sm} text-xs`,
-    md: `${DESIGN_TOKENS.padding.md} text-sm`, 
+    md: `${DESIGN_TOKENS.padding.md} text-sm`,
     lg: `${DESIGN_TOKENS.padding.lg} text-base`,
   };
 
@@ -188,7 +191,7 @@ const Button: React.FC<{
 
 const DesktopIcon: React.FC<{ app: Application; onClick: () => void }> = ({ app, onClick }) => {
   const Icon = app.icon;
-  
+
   return (
     <motion.div
       className="w-16 h-18 flex flex-col items-center justify-start cursor-pointer group select-none mx-auto relative z-20 pointer-events-auto"
@@ -250,7 +253,7 @@ const Window: React.FC<{
 
     const deltaX = e.clientX - startMousePos.x;
     const deltaY = e.clientY - startMousePos.y;
-    
+
     let newWidth = startWindowSize.width;
     let newHeight = startWindowSize.height;
     let newX = startWindowPos.x;
@@ -339,7 +342,7 @@ const Window: React.FC<{
           <Icon className={`w-4 h-4 ${window.app.color}`} />
           <span className={`${DESIGN_TOKENS.colors.text} text-sm font-medium truncate`}>{window.app.title}</span>
         </div>
-        
+
         <div className={`flex items-center ${DESIGN_TOKENS.spacing.xs}`}>
           <Button variant="secondary" size="sm" onClick={(e) => { e.stopPropagation(); onMinimize(); }}>
             <Minimize2 className="w-3 h-3" />
@@ -375,7 +378,7 @@ const Window: React.FC<{
             className="absolute bottom-0 right-0 w-3 h-3 cursor-se-resize"
             onMouseDown={(e) => handleResizeStart(e, 'bottom-right')}
           />
-          
+
           {/* Edge Handles */}
           <div
             className="absolute top-0 left-3 right-3 h-1 cursor-n-resize"
@@ -445,7 +448,7 @@ const DesktopNote: React.FC<{
           </button>
         </div>
       </div>
-      
+
       {isEditing ? (
         <div className="flex flex-col h-32">
           <textarea
@@ -526,7 +529,7 @@ const MapControlPanel: React.FC<{
                 <span className="text-sm font-medium text-white">Map Controls</span>
               </div>
             </div>
-            
+
             <div className="space-y-2">
               <Button
                 variant={isInteractive ? "primary" : "secondary"}
@@ -577,9 +580,9 @@ const MapControlPanel: React.FC<{
                   {preferences.theme === 'auto' ? ' (Auto)' : ''}
                 </div>
               </div>
-              
+
               <div className="text-xs text-slate-400 px-2">
-                {isInteractive 
+                {isInteractive
                   ? 'Map is interactive - hover over map for more controls'
                   : 'Map is display only - click to enable interaction'
                 }
@@ -712,208 +715,7 @@ const WeatherWidget: React.FC<{
   );
 };
 
-const CustomizationPanel: React.FC<{
-  wallpaper: string;
-  wallpaperPresets: Array<{ name: string; url: string }>;
-  onWallpaperChange: (url: string) => void;
-  useMapWallpaper: boolean;
-  onMapWallpaperToggle: (enabled: boolean) => void;
-  userLocation: LocationData | null;
-  onLocationRequest: () => void;
-  onCreateNote: () => void;
-  onRefreshWeather: () => void;
-  onClose: () => void;
-}> = ({ wallpaper, wallpaperPresets, onWallpaperChange, useMapWallpaper, onMapWallpaperToggle, userLocation, onLocationRequest, onCreateNote, onRefreshWeather, onClose }) => {
-  const [customUrl, setCustomUrl] = useState('');
-
-  return (
-    <>
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[90]" onClick={onClose} />
-      
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className={`
-          fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] max-h-[85vh] 
-          ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.radius.lg} 
-          ${DESIGN_TOKENS.colors.border} border ${DESIGN_TOKENS.shadow} z-[100] overflow-hidden
-        `}
-      >
-        <div className={`${DESIGN_TOKENS.padding.lg} ${DESIGN_TOKENS.colors.border} border-b`}>
-          <div className="flex items-center justify-between">
-            <h2 className={`text-xl font-bold ${DESIGN_TOKENS.colors.text}`}>Desktop Customization</h2>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-
-        <div className="max-h-[65vh] overflow-y-auto">
-          {/* Wallpaper Section */}
-          <div className={`${DESIGN_TOKENS.padding.lg} ${DESIGN_TOKENS.colors.border} border-b`}>
-            <h3 className={`text-lg font-semibold ${DESIGN_TOKENS.colors.text} mb-4`}>Wallpaper</h3>
-            
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              {wallpaperPresets.map((preset) => (
-                <button
-                  key={preset.name}
-                  onClick={() => onWallpaperChange(preset.url)}
-                  className={`
-                    relative h-20 rounded-lg overflow-hidden border-2 transition-all
-                    ${wallpaper === preset.url ? 'border-blue-400 ring-2 ring-blue-400/50' : 'border-slate-600 hover:border-slate-500'}
-                  `}
-                >
-                  <img src={preset.url} alt={preset.name} className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                    <span className="text-white text-xs font-medium">{preset.name}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            <div className="flex gap-2">
-              <input
-                type="url"
-                value={customUrl}
-                onChange={(e) => setCustomUrl(e.target.value)}
-                placeholder="Enter custom wallpaper URL..."
-                className={`
-                  flex-1 px-3 py-2 bg-slate-800 ${DESIGN_TOKENS.colors.border} border 
-                  ${DESIGN_TOKENS.radius.md} ${DESIGN_TOKENS.colors.text} text-sm
-                  focus:outline-none focus:border-blue-400
-                `}
-              />
-              <Button
-                variant="primary"
-                onClick={() => {
-                  if (customUrl) {
-                    onWallpaperChange(customUrl);
-                    setCustomUrl('');
-                  }
-                }}
-              >
-                <Image className="w-4 h-4" />
-                Apply
-              </Button>
-            </div>
-          </div>
-
-          {/* Map Wallpaper Section */}
-          <div className={`${DESIGN_TOKENS.padding.lg} ${DESIGN_TOKENS.colors.border} border-b`}>
-            <h3 className={`text-lg font-semibold ${DESIGN_TOKENS.colors.text} mb-4 flex items-center gap-2`}>
-              <Globe className="w-5 h-5 text-blue-400" />
-              Map Wallpaper
-            </h3>
-            
-            <div className="space-y-4">
-              {/* Map Toggle */}
-              <div className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg border border-slate-700/30">
-                <div>
-                  <p className="text-white font-medium">Enable Map Background</p>
-                  <p className="text-slate-400 text-sm">Use an interactive map as your desktop wallpaper</p>
-                </div>
-                <button
-                  onClick={() => onMapWallpaperToggle(!useMapWallpaper)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    useMapWallpaper ? 'bg-blue-600' : 'bg-slate-600'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      useMapWallpaper ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
-
-              {/* Location Status */}
-              {useMapWallpaper && (
-                <div className="space-y-3">
-                  {userLocation ? (
-                    <div className="p-3 bg-green-500/10 rounded-lg border border-green-500/20">
-                      <div className="flex items-center gap-2 mb-2">
-                        <MapPin className="w-4 h-4 text-green-400" />
-                        <span className="text-green-300 font-medium">Location Active</span>
-                      </div>
-                      <p className="text-green-400/80 text-sm">
-                        {userLocation.city && userLocation.country 
-                          ? `${userLocation.city}, ${userLocation.country}`
-                          : `Coordinates: ${userLocation.latitude.toFixed(2)}, ${userLocation.longitude.toFixed(2)}`
-                        }
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="p-3 bg-orange-500/10 rounded-lg border border-orange-500/20">
-                      <div className="flex items-center gap-2 mb-2">
-                        <MapPin className="w-4 h-4 text-orange-400" />
-                        <span className="text-orange-300 font-medium">Location Required</span>
-                      </div>
-                      <p className="text-orange-400/80 text-sm mb-3">
-                        Allow location access to personalize your map wallpaper
-                      </p>
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        onClick={onLocationRequest}
-                        className="w-full"
-                      >
-                        <MapPin className="w-4 h-4 mr-2" />
-                        Enable Location
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Widgets Section */}
-          <div className={`${DESIGN_TOKENS.padding.lg}`}>
-            <h3 className={`text-lg font-semibold ${DESIGN_TOKENS.colors.text} mb-4`}>Widgets</h3>
-            
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                variant="secondary"
-                onClick={() => { onCreateNote(); onClose(); }}
-                className="flex-col h-20"
-              >
-                <StickyNote className="w-6 h-6 mb-2 text-yellow-400" />
-                <span>Add Sticky Note</span>
-              </Button>
-              
-              <Button
-                variant="secondary"
-                onClick={() => { onRefreshWeather(); }}
-                className="flex-col h-20"
-                title="Refresh weather data"
-              >
-                <RefreshCw className="w-6 h-6 mb-2 text-blue-400" />
-                <span>Refresh Weather</span>
-              </Button>
-            </div>
-
-            {/* Weather Status */}
-            {userLocation && (
-              <div className="mt-3 p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
-                <div className="flex items-center gap-2 mb-1">
-                  <Cloud className="w-4 h-4 text-blue-400" />
-                  <span className="text-blue-300 font-medium text-sm">Weather Active</span>
-                </div>
-                <p className="text-blue-400/80 text-xs">
-                  Weather data for {userLocation.city && userLocation.country 
-                    ? `${userLocation.city}, ${userLocation.country}`
-                    : 'your location'
-                  }
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      </motion.div>
-    </>
-  );
-};
+// CustomizationPanel component moved to separate file: WallpaperCustomizationPanel.tsx
 
 const ActionsMenu: React.FC<{
   isOpen: boolean;
@@ -944,7 +746,7 @@ const ActionsMenu: React.FC<{
   return (
     <>
       <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40" onClick={onClose} />
-      
+
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -1044,10 +846,10 @@ const ActionsMenu: React.FC<{
               <Command className="w-4 h-4" />
               Close
             </Button>
-            <Button variant="destructive" size="sm" onClick={async () => { 
+            <Button variant="destructive" size="sm" onClick={async () => {
               if (confirm('Sign out?')) {
                 try {
-                  onClose(); 
+                  onClose();
                   await onLogout();
                 } catch (error) {
                   console.error('Logout failed:', error);
@@ -1087,7 +889,7 @@ const ShortcutBar: React.FC<{
       }
       setAutoHideActive(false);
     }
-    
+
     return () => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
@@ -1114,9 +916,9 @@ const ShortcutBar: React.FC<{
   return (
     <motion.div
       initial={{ opacity: 0, y: -20 }}
-      animate={{ 
-        opacity: autoHideActive ? 0.2 : 1, 
-        y: autoHideActive ? -10 : 0 
+      animate={{
+        opacity: autoHideActive ? 0.2 : 1,
+        y: autoHideActive ? -10 : 0
       }}
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.3 }}
@@ -1145,7 +947,7 @@ const ShortcutBar: React.FC<{
             </Button>
           );
         })}
-        
+
         <div className="w-px h-6 bg-slate-700/50 mx-1" />
         <Button variant="ghost" size="sm" className="p-2" title="Global Search (Ctrl+K)">
           <Search className="w-5 h-5" />
@@ -1221,32 +1023,40 @@ export const Desktop: React.FC = () => {
   const [windows, setWindows] = useState<OpenWindow[]>([]);
   const [nextZIndex, setNextZIndex] = useState(100);
   const [activeWindowId, setActiveWindowId] = useState<string | null>(null);
-  
+
   // Get user role for filtering
   const { user, logout } = useAuth();
   const userRole = user?.role || 'guest';
-  
+
   // Role weight for comparison
   const getRoleWeight = (role: string): number => {
     const weights = { 'guest': 0, 'user': 1, 'moderator': 2, 'admin': 3, 'system': 4 };
     return weights[role as keyof typeof weights] || 0;
   };
-  
+
   // Filter applications by user role
-  const APPLICATIONS = ALL_APPLICATIONS.filter(app => 
+  const APPLICATIONS = ALL_APPLICATIONS.filter(app =>
     !app.minimumRole || getRoleWeight(userRole) >= getRoleWeight(app.minimumRole)
   );
   const [showActionsMenu, setShowActionsMenu] = useState(false);
   const [showShortcutBar, setShowShortcutBar] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
-  const [wallpaper, setWallpaper] = useState<string>('https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2126&q=80');
   const [notes, setNotes] = useState<DesktopNote[]>([]);
-  const [weather, setWeather] = useState<WeatherData>({ 
-    location: 'Loading...', 
-    temperature: 22, 
-    condition: 'Partly Cloudy', 
-    icon: '⛅', 
-    humidity: 65, 
+
+  // Use the new wallpaper system
+  const {
+    currentImage,
+    currentTheme,
+    availableThemes,
+    preferences: wallpaperPreferences,
+    getCurrentImageUrl
+  } = useWallpaper();
+  const [weather, setWeather] = useState<WeatherData>({
+    location: 'Loading...',
+    temperature: 22,
+    condition: 'Partly Cloudy',
+    icon: '⛅',
+    humidity: 65,
     windSpeed: 8,
     forecast: [
       { day: 'Tomorrow', high: 25, low: 18, condition: 'Sunny', icon: '☀️' },
@@ -1262,7 +1072,8 @@ export const Desktop: React.FC = () => {
   const [selectedKnowledgeItem, setSelectedKnowledgeItem] = useState<any>(null);
   const [showProjectOnboarding, setShowProjectOnboarding] = useState(false);
   const [showUserPersonaOnboarding, setShowUserPersonaOnboarding] = useState(false);
-  
+  const [showDiscussionConfig, setShowDiscussionConfig] = useState(false);
+
   // Map wallpaper state
   const [useMapWallpaper, setUseMapWallpaper] = useState(false);
   const [userLocation, setUserLocation] = useState<LocationData | null>(null);
@@ -1281,13 +1092,11 @@ export const Desktop: React.FC = () => {
 
   // Load saved customizations
   useEffect(() => {
-    const savedWallpaper = localStorage.getItem('desktop-wallpaper');
     const savedNotes = localStorage.getItem('desktop-notes');
     const savedMapWallpaper = localStorage.getItem('desktop-use-map');
     const savedMapInteractive = localStorage.getItem('desktop-map-interactive');
     const savedLocation = LocationService.loadLocation();
-    
-    if (savedWallpaper) setWallpaper(savedWallpaper);
+
     if (savedNotes) setNotes(JSON.parse(savedNotes));
     if (savedMapWallpaper === 'true') setUseMapWallpaper(true);
     if (savedMapInteractive === 'true') setMapInteractive(true);
@@ -1318,11 +1127,10 @@ export const Desktop: React.FC = () => {
 
   // Save customizations
   useEffect(() => {
-    localStorage.setItem('desktop-wallpaper', wallpaper);
     localStorage.setItem('desktop-notes', JSON.stringify(notes));
     localStorage.setItem('desktop-use-map', useMapWallpaper.toString());
     localStorage.setItem('desktop-map-interactive', mapInteractive.toString());
-  }, [wallpaper, notes, useMapWallpaper, mapInteractive]);
+  }, [notes, useMapWallpaper, mapInteractive]);
 
   // Periodic weather refresh (every 30 minutes)
   useEffect(() => {
@@ -1356,14 +1164,8 @@ export const Desktop: React.FC = () => {
       }
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'D') {
         e.preventDefault();
-        const event = new CustomEvent('open-discussion-config', {
-          detail: {
-            contextType: 'general',
-            contextData: {},
-            preselectedAgents: []
-          }
-        });
-        window.dispatchEvent(event);
+        // Open the discussion config modal
+        setShowDiscussionConfig(true);
       }
       if (e.altKey && e.code === 'Space') {
         e.preventDefault();
@@ -1402,7 +1204,7 @@ export const Desktop: React.FC = () => {
   };
 
   const updateNote = (id: string, content: string) => {
-    setNotes(prev => prev.map(note => 
+    setNotes(prev => prev.map(note =>
       note.id === id ? { ...note, content, timestamp: Date.now() } : note
     ));
   };
@@ -1440,10 +1242,10 @@ export const Desktop: React.FC = () => {
         // Try to get city/country info
         const geocode = await LocationService.reverseGeocode(location.latitude, location.longitude);
         const enhancedLocation = { ...location, ...geocode };
-        
+
         setUserLocation(enhancedLocation);
         LocationService.saveLocation(enhancedLocation);
-        
+
         // Fetch weather for the new location
         await fetchWeatherForLocation(enhancedLocation);
       }
@@ -1473,10 +1275,10 @@ export const Desktop: React.FC = () => {
     try {
       await userPersonaAPI.completeOnboarding(data);
       setShowUserPersonaOnboarding(false);
-      
+
       // Optionally show success notification or adapt UI immediately
       console.log('User persona onboarding completed:', data);
-      
+
       // Track the completion for behavioral learning
       await userPersonaAPI.trackInteraction({
         type: 'preference_change',
@@ -1510,20 +1312,14 @@ export const Desktop: React.FC = () => {
   }, []);
 
 
-  const wallpaperPresets = [
-    { name: 'Space', url: 'https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2126&q=80' },
-    { name: 'Mountains', url: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2340&q=80' },
-    { name: 'Ocean', url: 'https://images.unsplash.com/photo-1439066615861-d1af74d74000?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2340&q=80' },
-    { name: 'Forest', url: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2340&q=80' },
-    { name: 'City', url: 'https://images.unsplash.com/photo-1480714378408-67cf0d13bc1f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2340&q=80' },
-    { name: 'Abstract', url: 'https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2340&q=80' }
-  ];
+  // Get current wallpaper URL for display
+  const currentWallpaperUrl = getCurrentImageUrl(2560, 1440);
 
   const openApplication = (app: Application) => {
     const existingWindow = windows.find(w => w.app.id === app.id);
     if (existingWindow) {
-      setWindows(prev => prev.map(w => 
-        w.id === existingWindow.id 
+      setWindows(prev => prev.map(w =>
+        w.id === existingWindow.id
           ? { ...w, isMinimized: false, zIndex: nextZIndex }
           : w
       ));
@@ -1537,16 +1333,16 @@ export const Desktop: React.FC = () => {
     const screenHeight = window.innerHeight;
     const windowWidth = Math.min(800, screenWidth - 200);
     const windowHeight = Math.min(600, screenHeight - 200);
-    
+
     const offsetX = (windows.length * 40) % 300;
     const offsetY = (windows.length * 40) % 200;
-    
+
     const newWindow: OpenWindow = {
       id: `${app.id}-${Date.now()}`,
       app,
       isMinimized: false,
-      position: { 
-        x: Math.max(50, Math.min(100 + offsetX, screenWidth - windowWidth - 50)), 
+      position: {
+        x: Math.max(50, Math.min(100 + offsetX, screenWidth - windowWidth - 50)),
         y: Math.max(50, Math.min(100 + offsetY, screenHeight - windowHeight - 100))
       },
       size: { width: windowWidth, height: windowHeight },
@@ -1564,15 +1360,15 @@ export const Desktop: React.FC = () => {
   };
 
   const minimizeWindow = (windowId: string) => {
-    setWindows(prev => prev.map(w => 
+    setWindows(prev => prev.map(w =>
       w.id === windowId ? { ...w, isMinimized: true } : w
     ));
     if (activeWindowId === windowId) setActiveWindowId(null);
   };
 
   const focusWindow = (windowId: string) => {
-    setWindows(prev => prev.map(w => 
-      w.id === windowId 
+    setWindows(prev => prev.map(w =>
+      w.id === windowId
         ? { ...w, zIndex: nextZIndex, isMinimized: false }
         : w
     ));
@@ -1581,8 +1377,8 @@ export const Desktop: React.FC = () => {
   };
 
   const updateWindow = (windowId: string, updates: Partial<OpenWindow>) => {
-    setWindows(prev => prev.map(w => 
-      w.id === windowId 
+    setWindows(prev => prev.map(w =>
+      w.id === windowId
         ? { ...w, ...updates }
         : w
     ));
@@ -1607,12 +1403,12 @@ export const Desktop: React.FC = () => {
           className="opacity-30"
         />
       )}
-      
+
       {/* Desktop Wallpaper (only if not using map) */}
-      {!useMapWallpaper && (
-        <div 
-          className="desktop-wallpaper" 
-          style={{ backgroundImage: `url(${wallpaper})` }}
+      {!useMapWallpaper && currentWallpaperUrl && (
+        <div
+          className="desktop-wallpaper"
+          style={{ backgroundImage: `url(${currentWallpaperUrl})` }}
         />
       )}
 
@@ -1694,10 +1490,7 @@ export const Desktop: React.FC = () => {
       {/* Desktop Customization Panel */}
       <AnimatePresence>
         {showCustomization && (
-          <CustomizationPanel
-            wallpaper={wallpaper}
-            wallpaperPresets={wallpaperPresets}
-            onWallpaperChange={setWallpaper}
+          <WallpaperCustomizationPanel
             useMapWallpaper={useMapWallpaper}
             onMapWallpaperToggle={setUseMapWallpaper}
             userLocation={userLocation}
@@ -1734,33 +1527,33 @@ export const Desktop: React.FC = () => {
           </style>
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
             <div className="bg-slate-900 rounded-2xl border border-slate-700/50 w-full max-w-4xl max-h-[90vh] overflow-hidden relative z-[10000]">
-            <div className="flex items-center justify-between p-4 border-b border-slate-700/50">
-              <h2 className="text-xl font-bold text-white flex items-center">
-                <MessageSquare className="w-6 h-6 mr-2 text-blue-400" />
-                Chat Ingestion & Knowledge Extraction
-              </h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowChatIngestion(false)}
-                className="text-gray-400 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </Button>
-            </div>
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)] relative z-[10001]">
-              <div className="chat-ingestion-container relative z-[10002]" style={{ zIndex: 10002 }}>
-                <ChatKnowledgeUploader
-                  onUploadComplete={() => {
-                    console.log('Chat ingestion completed');
-                    // Optionally refresh knowledge data or show notification
-                  }}
-                  className="max-w-none"
-                />
+              <div className="flex items-center justify-between p-4 border-b border-slate-700/50">
+                <h2 className="text-xl font-bold text-white flex items-center">
+                  <MessageSquare className="w-6 h-6 mr-2 text-blue-400" />
+                  Chat Ingestion & Knowledge Extraction
+                </h2>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowChatIngestion(false)}
+                  className="text-gray-400 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+              <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)] relative z-[10001]">
+                <div className="chat-ingestion-container relative z-[10002]" style={{ zIndex: 10002 }}>
+                  <ChatKnowledgeUploader
+                    onUploadComplete={() => {
+                      console.log('Chat ingestion completed');
+                      // Optionally refresh knowledge data or show notification
+                    }}
+                    className="max-w-none"
+                  />
+                </div>
               </div>
             </div>
           </div>
-        </div>
         </>
       )}
 
@@ -1776,6 +1569,19 @@ export const Desktop: React.FC = () => {
         isOpen={showUserPersonaOnboarding}
         onClose={() => setShowUserPersonaOnboarding(false)}
         onComplete={handlePersonaCompleted}
+      />
+
+      {/* Discussion Config Modal */}
+      <DiscussionConfigModal
+        isOpen={showDiscussionConfig}
+        onClose={() => setShowDiscussionConfig(false)}
+        onDiscussionStarted={(discussionId) => {
+          // Open the discussion portal after discussion starts
+          const discussionApp = ALL_APPLICATIONS.find(app => app.id === 'discussion');
+          if (discussionApp) {
+            openApplication(discussionApp);
+          }
+        }}
       />
 
       {/* Knowledge Shortcut Dialog */}

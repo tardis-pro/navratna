@@ -11,7 +11,7 @@ import {
   TurnStrategyConfig
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
-import { DiscussionService, EventBusService } from '@uaip/shared-services';
+import { DiscussionService, EventBusService, ParticipantManagementService } from '@uaip/shared-services';
 import { TurnStrategyService } from './turnStrategyService.js';
 import { DiscussionWebSocketHandler } from '../websocket/discussionWebSocketHandler.js';
 
@@ -373,30 +373,36 @@ export class DiscussionOrchestrationService extends EventEmitter {
         return { success: false, error: 'Discussion not found' };
       }
 
-      // Try to find participant by participantId first, then by agentId
-      let participant = discussion.participants.find(p => p.id === participantId);
+      // Enterprise participant lookup - use the participant management service
+      const participantManagementService = new ParticipantManagementService((this.discussionService as any).databaseService);
+      
+      // Try to find participant by participantId first
+      let participant = await participantManagementService.getParticipantById(participantId);
+      
       if (!participant) {
         // Try to find by agentId in case participantId is actually an agentId
-        participant = discussion.participants.find(p => p.agentId === participantId);
+        participant = await participantManagementService.getParticipantByAgentId(discussionId, participantId);
       }
       
       if (!participant) {
         // Enhanced debugging for participant not found
+        const allParticipants = await participantManagementService.getDiscussionParticipants(discussionId);
         logger.error('Participant not found in discussion', {
           discussionId,
           requestedParticipantId: participantId,
-          availableParticipants: discussion.participants.map(p => ({
-            id: p.id,
+          availableParticipants: allParticipants.map(p => ({
+            participantId: p.participantId,
             agentId: p.agentId,
+            displayName: p.displayName,
             isActive: p.isActive,
-            role: p.role
+            roleInDiscussion: p.roleInDiscussion
           }))
         });
         return { success: false, error: 'Participant not found' };
       }
 
-      // Use the actual participant ID for subsequent operations
-      const actualParticipantId = participant.id;
+      // Use the proper participant ID for subsequent operations
+      const actualParticipantId = participant.participantId;
 
       if (!participant.isActive) {
         return { success: false, error: 'Participant is not active' };
@@ -417,6 +423,14 @@ export class DiscussionOrchestrationService extends EventEmitter {
         content,
         messageType as any
       );
+
+      // Update participant activity using enterprise participant management
+      await participantManagementService.updateParticipantActivity(actualParticipantId, {
+        messageCount: participant.messageCount + 1,
+        lastMessageAt: new Date(),
+        contributionScore: (participant.contributionScore || 0) + 1,
+        engagementLevel: Math.min(1.0, (participant.engagementLevel || 0) + 0.1)
+      });
 
       // Update discussion state (the service handles participant updates internally)
       await this.discussionService.updateDiscussion(discussionId, {
@@ -448,6 +462,28 @@ export class DiscussionOrchestrationService extends EventEmitter {
         participantId,
         messageType
       });
+
+      // After sending a message, trigger the next agent to continue the conversation
+      // This ensures the discussion flow continues after each message
+      setTimeout(async () => {
+        try {
+          logger.info('Triggering next agent after message sent', {
+            discussionId,
+            previousParticipantId: participantId
+          });
+          
+          // Re-fetch discussion to get updated state
+          const updatedDiscussion = await this.getDiscussion(discussionId);
+          if (updatedDiscussion) {
+            await this.triggerIntelligentAgentParticipation(updatedDiscussion);
+          }
+        } catch (error) {
+          logger.error('Error triggering next agent after message', {
+            error: error instanceof Error ? error.message : 'Unknown error',
+            discussionId
+          });
+        }
+      }, 1000); // Wait 1 second before triggering next agent
 
       return {
         success: true,
@@ -1190,33 +1226,51 @@ export class DiscussionOrchestrationService extends EventEmitter {
   }
 
   /**
-   * Ensure agent participation in a discussion (legacy method)
+   * Ensure agent participation in a discussion (enterprise-grade method)
    */
   private async ensureAgentParticipation(discussion: Discussion): Promise<void> {
     try {
-      if (!discussion.participants || !Array.isArray(discussion.participants)) {
-        logger.warn('Discussion participants not available for agent participation', {
+      // Use enterprise participant management service
+      const participantManagementService = new ParticipantManagementService((this.discussionService as any).databaseService);
+      
+      // Get active agent participants
+      const activeParticipants = await participantManagementService.getActiveParticipants(discussion.id);
+      const agentParticipants = activeParticipants.filter(p => p.participantType === 'agent' && p.agentId);
+      
+      if (agentParticipants.length === 0) {
+        logger.info('No active agent participants found for discussion', {
           discussionId: discussion.id,
-          hasParticipants: !!discussion.participants,
-          participantsType: typeof discussion.participants
+          totalParticipants: activeParticipants.length
         });
         return;
       }
 
-      const agentParticipants = discussion.participants.filter(p => p.agentId && p.isActive);
-      
-      if (agentParticipants.length === 0) {
-        return; // No agents to participate
-      }
+      logger.info('Enterprise agent participation management', {
+        discussionId: discussion.id,
+        totalAgentParticipants: agentParticipants.length,
+        participantDetails: agentParticipants.map(p => ({
+          participantId: p.participantId,
+          agentId: p.agentId,
+          displayName: p.displayName,
+          messageCount: p.messageCount,
+          lastMessageAt: p.lastMessageAt
+        }))
+      });
 
-      // Only trigger participation for agents that have NEVER participated in this discussion
+      // Phase-based agent participation logic
       const neverParticipatedAgents = agentParticipants.filter(p => {
         // Check if agent has never sent a message
         return !p.lastMessageAt && p.messageCount === 0;
       });
 
+      const participatedAgents = agentParticipants.filter(p => {
+        // Agents who have participated but may need to continue conversation
+        return p.lastMessageAt && p.messageCount > 0;
+      });
+
+      // Phase 1: Introduction phase - trigger agents who haven't introduced themselves
       if (neverParticipatedAgents.length > 0) {
-        logger.info('Triggering participation for agents who have never participated', {
+        logger.info('Triggering introduction for agents who have never participated', {
           discussionId: discussion.id,
           agentCount: neverParticipatedAgents.length,
           agentIds: neverParticipatedAgents.map(p => p.agentId)
@@ -1225,6 +1279,59 @@ export class DiscussionOrchestrationService extends EventEmitter {
         // Trigger participation for the first agent who has never participated
         const agentToTrigger = neverParticipatedAgents[0];
         await this.triggerAgentParticipationEvent(discussion.id, agentToTrigger);
+      }
+      // Phase 2: Main discussion phase - continue conversation with participated agents
+      else if (participatedAgents.length > 0 && discussion.state.currentTurn) {
+        logger.info('Continuing main discussion with participated agents', {
+          discussionId: discussion.id,
+          participatedAgentCount: participatedAgents.length,
+          currentTurnNumber: discussion.state.currentTurn.turnNumber,
+          totalMessageCount: discussion.state.messageCount
+        });
+
+        // Check if we should continue the discussion (prevent infinite loops)
+        const maxMessages = discussion.metadata?.maxMessages || 50;
+        const currentMessageCount = discussion.state.messageCount || 0;
+        
+        if (currentMessageCount >= maxMessages) {
+          logger.info('Discussion reached maximum message limit, stopping', {
+            discussionId: discussion.id,
+            currentMessageCount,
+            maxMessages
+          });
+          return;
+        }
+
+        // Use turn strategy to determine next participant
+        const participants = await this.getActiveParticipants(discussion.id);
+        const nextParticipant = await this.turnStrategyService.getNextParticipant(discussion, participants);
+        
+        if (nextParticipant && nextParticipant.agentId) {
+          // Check if this participant has been active recently to prevent immediate re-triggering
+          // Get last message from discussion history
+          const messages = await this.getDiscussionMessages(discussion.id);
+          const lastMessage = messages && messages.length > 0 ? messages[messages.length - 1] : null;
+          const isRecentSender = lastMessage && lastMessage.participantId === nextParticipant.id;
+          
+          // Don't trigger the same participant immediately unless it's been a while
+          if (!isRecentSender || (lastMessage && (Date.now() - lastMessage.createdAt.getTime()) > 5000)) {
+            logger.info('Triggering next participant in main discussion', {
+              discussionId: discussion.id,
+              participantId: nextParticipant.id,
+              agentId: nextParticipant.agentId,
+              turnNumber: discussion.state.currentTurn.turnNumber,
+              isRecentSender
+            });
+            
+            await this.triggerAgentParticipationEvent(discussion.id, nextParticipant);
+          } else {
+            logger.debug('Skipping participant trigger (recent sender)', {
+              discussionId: discussion.id,
+              participantId: nextParticipant.id,
+              lastMessageTime: lastMessage?.createdAt
+            });
+          }
+        }
       }
       
     } catch (error) {
@@ -1284,11 +1391,12 @@ export class DiscussionOrchestrationService extends EventEmitter {
       }
 
       // Check if we recently sent a participation request for this agent
-      if (this.isRecentParticipationRequest(participant.agentId, participant.id)) {
+      const participantId = participant.id;
+      if (this.isRecentParticipationRequest(participant.agentId, participantId)) {
         logger.debug('Skipping participation request - recently sent', {
           discussionId,
           agentId: participant.agentId,
-          participantId: participant.id
+          participantId
         });
         return;
       }
@@ -1299,30 +1407,31 @@ export class DiscussionOrchestrationService extends EventEmitter {
         return;
       }
 
-      logger.info('Triggering agent participation for first-time participant', {
+      logger.info('Triggering enterprise agent participation', {
         discussionId,
-        participantId: participant.id,
+        participantId,
         agentId: participant.agentId,
+        displayName: participant.metadata?.displayName || `Participant ${participant.id}`,
         discussionTitle: discussion.title,
         participantDetails: {
-          id: participant.id,
+          participantId,
           agentId: participant.agentId,
           isActive: participant.isActive,
-          role: participant.role,
+          roleInDiscussion: participant.role,
           messageCount: participant.messageCount,
           lastMessageAt: participant.lastMessageAt
         }
       });
 
       // Record this participation request to prevent duplicates
-      const requestKey = `${participant.agentId}-${participant.id}`;
+      const requestKey = `${participant.agentId}-${participantId}`;
       this.recentParticipationRequests.set(requestKey, Date.now());
 
       // Send direct participation request to agent intelligence service
       await this.eventBusService.publish('agent.discussion.participate', {
         discussionId,
         agentId: participant.agentId,
-        participantId: participant.id,
+        participantId,
         discussionContext: {
           title: discussion.title,
           description: discussion.description,
@@ -1488,6 +1597,31 @@ export class DiscussionOrchestrationService extends EventEmitter {
       cacheSize: this.activeDiscussions.size,
       uptime: process.uptime()
     };
+  }
+
+  /**
+   * Get active participants for a discussion
+   */
+  private async getActiveParticipants(discussionId: string): Promise<DiscussionParticipant[]> {
+    try {
+      const participantManagementService = new ParticipantManagementService((this.discussionService as any).databaseService);
+      return await participantManagementService.getActiveParticipants(discussionId);
+    } catch (error) {
+      logger.error('Error getting active participants', { error: (error as Error).message, discussionId });
+      return [];
+    }
+  }
+
+  /**
+   * Get discussion messages
+   */
+  private async getDiscussionMessages(discussionId: string, options?: { limit?: number }): Promise<DiscussionMessage[]> {
+    try {
+      return await this.discussionService.getDiscussionMessages(discussionId, options);
+    } catch (error) {
+      logger.error('Error getting discussion messages', { error: (error as Error).message, discussionId });
+      return [];
+    }
   }
 
   /**

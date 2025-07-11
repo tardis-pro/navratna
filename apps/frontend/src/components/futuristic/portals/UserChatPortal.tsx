@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useEnhancedWebSocket } from '../../../hooks/useEnhancedWebSocket';
+import { uaipAPI } from '../../../utils/uaip-api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -75,6 +76,16 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
     socket
   } = useEnhancedWebSocket();
 
+  // Helper to get auth token
+  const getAuthToken = () => {
+    const token = uaipAPI.client.getAuthToken();
+    if (!token) {
+      console.error('No authentication token available');
+      return null;
+    }
+    return token;
+  };
+
   // State Management
   const [contacts, setContacts] = useState<UserContact[]>([]);
   const [activeChat, setActiveChat] = useState<string | null>(null);
@@ -108,9 +119,12 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
     const loadContacts = async () => {
       try {
         // Load user's contacts
+        const token = getAuthToken();
+        if (!token) return;
+        
         const contactsResponse = await fetch('/api/v1/contacts?status=ACCEPTED', {
           headers: {
-            'Authorization': `Bearer ${user.token}`,
+            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         });
@@ -130,7 +144,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
           try {
             const onlineResponse = await fetch('/api/v1/presence/online', {
               headers: {
-                'Authorization': `Bearer ${user.token}`,
+                'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
               }
             });
@@ -158,7 +172,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
           if (userContacts.length === 0) {
             const publicResponse = await fetch('/api/v1/users/public?limit=10', {
               headers: {
-                'Authorization': `Bearer ${user.token}`,
+                'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
               }
             });
@@ -204,9 +218,12 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
 
     const loadConversation = async () => {
       try {
+        const token = getAuthToken();
+        if (!token) return;
+        
         const response = await fetch(`/api/conversations/${activeChat}?limit=50`, {
           headers: {
-            'Authorization': `Bearer ${user.token}`,
+            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         });
@@ -482,10 +499,13 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
 
     try {
       // Send message via API
+      const token = getAuthToken();
+      if (!token) return;
+      
       const response = await fetch('/api/messages', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${user.token}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -547,9 +567,12 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
     
     setIsLoadingUsers(true);
     try {
+      const token = getAuthToken();
+      if (!token) return;
+      
       const response = await fetch(`/api/v1/users/public?limit=50&search=${userSearchTerm}`, {
         headers: {
-          'Authorization': `Bearer ${user.token}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
@@ -579,21 +602,24 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
     }
   };
 
-  // Send Agent Connection Request
+  // Send User Connection Request
   const sendFriendRequest = async (targetUserId: string) => {
     if (!user) return;
     
     try {
+      const token = getAuthToken();
+      if (!token) return;
+
       const response = await fetch('/api/v1/contacts/request', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${user.token}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           targetUserId: targetUserId,
           type: 'FRIEND',
-          message: 'Would like to add you as an agent connection'
+          message: 'Would like to add you as a user connection'
         })
       });
 
@@ -605,10 +631,10 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
         console.log('Agent connection request sent successfully');
       } else {
         const errorData = await response.json();
-        console.error('Failed to send agent connection request:', errorData.message);
+        console.error('Failed to send user connection request:', errorData.message);
       }
     } catch (error) {
-      console.error('Error sending agent connection request:', error);
+      console.error('Error sending user connection request:', error);
     }
   };
 
@@ -727,14 +753,14 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
         >
           <div className="p-4 border-b border-slate-700/50">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-white">Agent Connections</h3>
+              <h3 className="text-lg font-semibold text-white">User Connections</h3>
               <Button
                 size="sm"
                 onClick={openAddModal}
                 className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700"
               >
                 <UserPlus className="w-4 h-4 mr-2" />
-                Add Agent
+                Add User
               </Button>
             </div>
           </div>
@@ -929,7 +955,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
                   Select an Agent
                 </h3>
                 <p className="text-slate-400">
-                  Choose an agent connection from the list to start chatting
+                  Choose a user connection from the list to start chatting
                 </p>
               </div>
             </div>
@@ -1060,8 +1086,8 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
                       <UserPlus className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-bold text-white">Add Agent Connections</h3>
-                      <p className="text-sm text-slate-400">Find and connect with other users as agents</p>
+                      <h3 className="text-xl font-bold text-white">Add User Connections</h3>
+                      <p className="text-sm text-slate-400">Find and connect with other users in the system</p>
                     </div>
                   </div>
                   <Button
@@ -1094,7 +1120,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
               </div>
 
               {/* Available Users List */}
-              <div className="flex-1 overflow-y-auto max-h-96">
+              <div className="flex-1 overflow-y-auto min-h-0">
                 {isLoadingUsers ? (
                   <div className="flex items-center justify-center p-8">
                     <Loader className="w-6 h-6 animate-spin text-cyan-500" />
@@ -1126,7 +1152,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
                           className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700"
                         >
                           <UserPlus className="w-4 h-4 mr-2" />
-                          Add Agent
+                          Add User
                         </Button>
                       </motion.div>
                     ))}
@@ -1136,7 +1162,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
                     <div className="text-center">
                       <Users className="w-12 h-12 mx-auto mb-4 text-slate-600" />
                       <p className="text-slate-400">
-                        {userSearchTerm ? 'No users found matching your search' : 'Enter a search term to find users to add as agents'}
+                        {userSearchTerm ? 'No users found matching your search' : 'Enter a search term to find users to connect with'}
                       </p>
                     </div>
                   </div>

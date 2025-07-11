@@ -5,7 +5,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { uaipAPI } from '../../../utils/uaip-api';
 import { DiscussionTrigger } from '../../DiscussionTrigger';
 import { useEnhancedWebSocket } from '../../../hooks/useEnhancedWebSocket';
-import { chatPersistenceService, ChatSession, PersistentChatMessage } from '../../../services/ChatPersistenceService';
+import { discussionsAPI } from '../../../api/discussions.api';
 import { SmartInputField } from '../../chat/SmartInputField';
 import { PromptSuggestions } from '../../chat/PromptSuggestions';
 import { ConversationTopicDisplay } from '../../chat/ConversationTopicDisplay';
@@ -53,7 +53,7 @@ import {
   Headphones,
   Mic
 } from 'lucide-react';
-import { Discussion, CreateDiscussionRequest, DiscussionMessage, MessageType } from '@uaip/types';
+import { Discussion, CreateDiscussionRequest, DiscussionMessage, MessageType, TurnStrategy, DiscussionStatus } from '@uaip/types';
 
 interface ChatMessage {
   id: string;
@@ -81,17 +81,16 @@ interface ChatWindow {
   id: string;
   agentId: string;
   agentName: string;
-  sessionId?: string;
-  discussionId?: string;
+  discussionId: string;
   messages: ChatMessage[];
   isMinimized: boolean;
+  isMaximized: boolean;
   isLoading: boolean;
   error: string | null;
   hasLoadedHistory: boolean;
   totalMessages: number;
   canLoadMore: boolean;
   mode: 'floating' | 'portal';
-  isPersistent: boolean;
 }
 
 interface UnifiedChatSystemProps {
@@ -99,6 +98,87 @@ interface UnifiedChatSystemProps {
   mode?: 'floating' | 'portal' | 'hybrid';
   defaultAgentId?: string;
 }
+
+// Helper function to create a new discussion for agent chat
+const createAgentChatDiscussion = async (agentId: string, agentName: string): Promise<Discussion> => {
+  const discussionRequest: CreateDiscussionRequest = {
+    title: `Chat with ${agentName}`,
+    description: `Direct chat conversation with agent ${agentName}`,
+    topic: `Direct chat conversation with agent ${agentName}`,
+    objectives: ['agent-chat'],
+    initialParticipants: [{
+      agentId: agentId,
+      role: 'participant'
+    }],
+    turnStrategy: {
+      strategy: TurnStrategy.FREE_FORM,
+      config: {
+        type: 'free_form',
+        cooldownPeriod: 5
+      }
+    },
+    settings: {
+      maxParticipants: 2,
+      maxDuration: 1440, // 24 hours in minutes
+      autoModeration: false,
+      requireApproval: false,
+      allowInvites: false,
+      allowFileSharing: true,
+      allowAnonymous: false,
+      recordTranscript: true,
+      enableAnalytics: true,
+      turnTimeout: 300,
+      responseTimeout: 60,
+      moderationRules: []
+    },
+    metadata: {
+      chatType: 'agent-chat',
+      agentId: agentId,
+      agentName: agentName,
+      createdBy: 'current-user' // TODO: Get from auth context
+    }
+  };
+
+  const discussion = await discussionsAPI.create(discussionRequest);
+  await discussionsAPI.start(discussion.id);
+  return discussion;
+};
+
+// Helper function to convert discussion messages to chat messages
+const convertDiscussionMessagesToChatMessages = (messages: DiscussionMessage[]): ChatMessage[] => {
+  return messages.map(msg => ({
+    id: msg.id,
+    content: msg.content,
+    sender: msg.metadata?.sender || (msg.metadata?.agentId ? 'agent' : 'user'),
+    senderName: msg.metadata?.senderName || 'Unknown',
+    timestamp: msg.createdAt || new Date().toISOString(),
+    agentId: msg.metadata?.agentId,
+    messageType: msg.messageType,
+    confidence: msg.metadata?.confidence,
+    memoryEnhanced: msg.metadata?.memoryEnhanced,
+    knowledgeUsed: msg.metadata?.knowledgeUsed,
+    toolsExecuted: msg.metadata?.toolsExecuted,
+    metadata: msg.metadata
+  }));
+};
+
+// Helper function to store a chat message to discussion
+const addMessageToDiscussion = async (discussionId: string, message: ChatMessage): Promise<void> => {
+  await discussionsAPI.sendMessage(discussionId, {
+    content: message.content,
+    metadata: {
+      sender: message.sender,
+      senderName: message.senderName,
+      agentId: message.agentId,
+      confidence: message.confidence,
+      memoryEnhanced: message.memoryEnhanced,
+      knowledgeUsed: message.knowledgeUsed,
+      toolsExecuted: message.toolsExecuted,
+      originalMessageId: message.id,
+      ...message.metadata
+    }
+  });
+};
 
 export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   className,
@@ -269,25 +349,10 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         } : w);
       });
 
-      // Persist agent message if session exists
-      if (targetWindowForPersistence?.sessionId) {
-        const persistentMessage: PersistentChatMessage = {
-          id: agentMessage.id,
-          content: agentMessage.content,
-          sender: agentMessage.sender,
-          senderName: agentMessage.senderName,
-          timestamp: agentMessage.timestamp,
-          agentId: agentMessage.agentId,
-          messageType: agentMessage.messageType,
-          confidence: agentMessage.confidence,
-          memoryEnhanced: agentMessage.memoryEnhanced,
-          knowledgeUsed: agentMessage.knowledgeUsed,
-          toolsExecuted: agentMessage.toolsExecuted,
-          metadata: agentMessage.metadata
-        };
-        
-        chatPersistenceService.addMessage(targetWindowForPersistence.sessionId, persistentMessage).catch(error => {
-          console.error('Failed to persist agent message:', error);
+      // Persist agent message to backend discussion
+      if (targetWindowForPersistence?.discussionId) {
+        addMessageToDiscussion(targetWindowForPersistence.discussionId, agentMessage).catch(error => {
+          console.error('Failed to persist agent message to discussion:', error);
         });
       }
 
@@ -317,70 +382,55 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [portalMessages]);
 
-  // Define openChatWindowWithSession function for resuming specific sessions
-  const openChatWindowWithSession = useCallback(async (agentId: string, agentName: string, sessionId: string) => {
-    // Check if chat window already exists for this specific session
-    const existingWindow = chatWindows.find(w => w.sessionId === sessionId);
+  // Define openChatWindowWithSession function for resuming specific discussions
+  const openChatWindowWithSession = useCallback(async (agentId: string, agentName: string, discussionId: string) => {
+    // Check if chat window already exists for this specific discussion
+    const existingWindow = chatWindows.find(w => w.discussionId === discussionId);
     if (existingWindow) {
-      console.log(`Chat window for session ${sessionId} already exists - focusing existing window`);
+      console.log(`Chat window for discussion ${discussionId} already exists - focusing existing window`);
       // Focus/restore existing window
       setChatWindows(prev =>
-        prev.map(w => w.sessionId === sessionId ? { ...w, isMinimized: false } : w)
+        prev.map(w => w.discussionId === discussionId ? { ...w, isMinimized: false } : w)
       );
       return;
     }
 
-    console.log(`Opening existing chat session ${sessionId} with agent ${agentName} (${agentId})`);
+    console.log(`Opening existing chat discussion ${discussionId} with agent ${agentName} (${agentId})`);
 
     try {
-      // Get the existing session
-      const session = chatPersistenceService.getChatSession(sessionId);
-      if (!session) {
-        throw new Error(`Session ${sessionId} not found`);
+      // Get the existing discussion
+      const discussion = await discussionsAPI.get(discussionId);
+      if (!discussion) {
+        throw new Error(`Discussion ${discussionId} not found`);
       }
       
       // Set up conversation ID for this window
       const windowId = `chat-${Date.now()}-${agentId}`;
-      setConversationIds(prev => ({ ...prev, [windowId]: session.id }));
+      setConversationIds(prev => ({ ...prev, [windowId]: discussion.id }));
       
-      // Load existing messages from the specific session
-      const existingMessages = await chatPersistenceService.getMessages(sessionId);
+      // Load existing messages from the specific discussion
+      const existingMessages = await discussionsAPI.getMessages(discussionId, { limit: 50 });
       
-      // Convert persistent messages to chat messages
-      const chatMessages: ChatMessage[] = existingMessages.map(msg => ({
-        id: msg.id,
-        content: msg.content,
-        sender: msg.sender,
-        senderName: msg.senderName,
-        timestamp: msg.timestamp,
-        agentId: msg.agentId,
-        messageType: msg.messageType,
-        confidence: msg.confidence,
-        memoryEnhanced: msg.memoryEnhanced,
-        knowledgeUsed: msg.knowledgeUsed,
-        toolsExecuted: msg.toolsExecuted,
-        metadata: msg.metadata
-      }));
+      // Convert discussion messages to chat messages
+      const chatMessages = convertDiscussionMessagesToChatMessages(existingMessages);
 
-      // Create new floating chat window with existing session data
+      // Create new floating chat window with existing discussion data
       const newWindow: ChatWindow = {
         id: windowId,
         agentId,
         agentName,
-        sessionId: session.id,
-        discussionId: session.discussionId,
+        discussionId: discussion.id,
         messages: chatMessages,
         isMinimized: false,
         isLoading: false,
         error: null,
         hasLoadedHistory: true,
-        totalMessages: session.messageCount,
+        totalMessages: chatMessages.length,
         canLoadMore: existingMessages.length >= 50,
-        mode: 'floating',
-        isPersistent: session.isPersistent
+        mode: 'floating'
       };
 
-      // Note: Not adding to agent tracking set since this is a specific session
+      // Note: Not adding to agent tracking set since this is a specific discussion
       
       setChatWindows(prev => [...prev, newWindow]);
       setCurrentMessage(prev => ({ ...prev, [newWindow.id]: '' }));
@@ -391,9 +441,9 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         [newWindow.id]: { width: 320, height: 400 } 
       }));
 
-      console.log(`Resumed ${session.isPersistent ? 'persistent' : 'temporary'} chat session with agent:`, agentName, `(${chatMessages.length} messages loaded)`);
+      console.log(`Resumed chat discussion with agent:`, agentName, `(${chatMessages.length} messages loaded)`);
     } catch (error) {
-      console.error('Failed to open chat session:', error);
+      console.error('Failed to open chat discussion:', error);
       
       // Fallback to creating a new chat window
       console.log('Falling back to new chat window...');
@@ -416,48 +466,33 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     console.log(`Creating new chat window for agent ${agentName} (${agentId})`);
 
     try {
-      // Create or get existing chat session
-      const session = await chatPersistenceService.createChatSession(agentId, agentName, true);
+      // Create new discussion for this agent
+      const discussion = await createAgentChatDiscussion(agentId, agentName);
       
       // Set up conversation ID for this window
       const windowId = `chat-${Date.now()}-${agentId}`;
-      setConversationIds(prev => ({ ...prev, [windowId]: session.id }));
+      setConversationIds(prev => ({ ...prev, [windowId]: discussion.id }));
       
-      // Load existing messages
-      const existingMessages = await chatPersistenceService.getMessages(session.id);
+      // Load existing messages (should be empty for new discussion)
+      const existingMessages = await discussionsAPI.getMessages(discussion.id, { limit: 50 });
       
-      // Convert persistent messages to chat messages
-      const chatMessages: ChatMessage[] = existingMessages.map(msg => ({
-        id: msg.id,
-        content: msg.content,
-        sender: msg.sender,
-        senderName: msg.senderName,
-        timestamp: msg.timestamp,
-        agentId: msg.agentId,
-        messageType: msg.messageType,
-        confidence: msg.confidence,
-        memoryEnhanced: msg.memoryEnhanced,
-        knowledgeUsed: msg.knowledgeUsed,
-        toolsExecuted: msg.toolsExecuted,
-        metadata: msg.metadata
-      }));
+      // Convert discussion messages to chat messages
+      const chatMessages = convertDiscussionMessagesToChatMessages(existingMessages);
 
       // Create new floating chat window
       const newWindow: ChatWindow = {
         id: windowId,
         agentId,
         agentName,
-        sessionId: session.id,
-        discussionId: session.discussionId,
+        discussionId: discussion.id,
         messages: chatMessages,
         isMinimized: false,
         isLoading: false,
         error: null,
         hasLoadedHistory: true,
-        totalMessages: session.messageCount,
+        totalMessages: chatMessages.length,
         canLoadMore: existingMessages.length >= 50,
-        mode: 'floating',
-        isPersistent: session.isPersistent
+        mode: 'floating'
       };
 
       // Add agent to tracking set
@@ -472,7 +507,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         [newWindow.id]: { width: 320, height: 400 } 
       }));
 
-      console.log(`Opened ${session.isPersistent ? 'persistent' : 'temporary'} chat with agent:`, agentName);
+      console.log(`Opened new chat discussion with agent:`, agentName);
     } catch (error) {
       console.error('Failed to open chat window:', error);
       
@@ -481,15 +516,15 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         id: `chat-${Date.now()}-${agentId}`,
         agentId,
         agentName,
+        discussionId: '', // Empty discussion ID for fallback
         messages: [],
         isMinimized: false,
         isLoading: false,
-        error: 'Failed to create persistent chat session',
+        error: 'Failed to create chat discussion',
         hasLoadedHistory: true,
         totalMessages: 0,
         canLoadMore: false,
-        mode: 'floating',
-        isPersistent: false
+        mode: 'floating'
       };
 
       // Add agent to tracking set (fallback case)
@@ -514,23 +549,22 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
 
   // Define openNewChatWindow function for forced new chats
   const openNewChatWindow = useCallback(async (agentId: string, agentName: string) => {
-    console.log(`Creating NEW chat window for agent ${agentName} (${agentId}) - ignoring existing sessions`);
+    console.log(`Creating NEW chat window for agent ${agentName} (${agentId}) - ignoring existing discussions`);
 
     try {
-      // Force create a new session without checking for existing ones
-      const session = await chatPersistenceService.createChatSession(agentId, agentName, true, true);
+      // Force create a new discussion without checking for existing ones
+      const discussion = await createAgentChatDiscussion(agentId, agentName);
       
       // Set up conversation ID for this window
       const windowId = `chat-${Date.now()}-${agentId}-new`;
-      setConversationIds(prev => ({ ...prev, [windowId]: session.id }));
+      setConversationIds(prev => ({ ...prev, [windowId]: discussion.id }));
       
       // Create new floating chat window
       const newWindow: ChatWindow = {
         id: windowId,
         agentId,
         agentName,
-        sessionId: session.id,
-        discussionId: session.discussionId,
+        discussionId: discussion.id,
         messages: [], // Always start with empty messages for new chats
         isMinimized: false,
         isLoading: false,
@@ -538,8 +572,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         hasLoadedHistory: true,
         totalMessages: 0,
         canLoadMore: false,
-        mode: 'floating',
-        isPersistent: session.isPersistent
+        mode: 'floating'
       };
 
       setChatWindows(prev => [...prev, newWindow]);
@@ -551,7 +584,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         [newWindow.id]: { width: 320, height: 400 } 
       }));
 
-      console.log(`Opened NEW ${session.isPersistent ? 'persistent' : 'temporary'} chat with agent:`, agentName);
+      console.log(`Opened NEW chat discussion with agent:`, agentName);
     } catch (error) {
       console.error('Failed to create new chat window:', error);
       
@@ -560,15 +593,15 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         id: `chat-${Date.now()}-${agentId}-new`,
         agentId,
         agentName,
+        discussionId: '', // Empty discussion ID for fallback
         messages: [],
         isMinimized: false,
         isLoading: false,
-        error: 'Failed to create persistent chat session',
+        error: 'Failed to create chat discussion',
         hasLoadedHistory: true,
         totalMessages: 0,
         canLoadMore: false,
-        mode: 'floating',
-        isPersistent: false
+        mode: 'floating'
       };
       
       setChatWindows(prev => [...prev, newWindow]);
@@ -641,22 +674,12 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     }
     loadingTimeouts.current[windowId] = progressInterval;
 
-    // Persist user message if session exists
-    if (window.sessionId) {
+    // Persist user message to backend discussion
+    if (window.discussionId) {
       try {
-        const persistentMessage: PersistentChatMessage = {
-          id: userMessage.id,
-          content: userMessage.content,
-          sender: userMessage.sender,
-          senderName: userMessage.senderName,
-          timestamp: userMessage.timestamp,
-          agentId: userMessage.agentId,
-          messageType: userMessage.messageType,
-          metadata: userMessage.metadata
-        };
-        await chatPersistenceService.addMessage(window.sessionId, persistentMessage);
+        await addMessageToDiscussion(window.discussionId, userMessage);
       } catch (error) {
-        console.error('Failed to persist user message:', error);
+        console.error('Failed to persist user message to discussion:', error);
       }
     }
 
@@ -735,25 +758,11 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           });
           setTypingIndicators(prev => ({ ...prev, [windowId]: false }));
 
-          if (window.sessionId) {
+          if (window.discussionId) {
             try {
-              const persistentMessage: PersistentChatMessage = {
-                id: agentMessage.id,
-                content: agentMessage.content,
-                sender: agentMessage.sender,
-                senderName: agentMessage.senderName,
-                timestamp: agentMessage.timestamp,
-                agentId: agentMessage.agentId,
-                messageType: agentMessage.messageType,
-                confidence: agentMessage.confidence,
-                memoryEnhanced: agentMessage.memoryEnhanced,
-                knowledgeUsed: agentMessage.knowledgeUsed,
-                toolsExecuted: agentMessage.toolsExecuted,
-                metadata: agentMessage.metadata
-              };
-              await chatPersistenceService.addMessage(window.sessionId, persistentMessage);
+              await addMessageToDiscussion(window.discussionId, agentMessage);
             } catch (error) {
-              console.error('Failed to persist agent message:', error);
+              console.error('Failed to persist agent message to discussion:', error);
             }
           }
         }
@@ -985,7 +994,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         // Send a cleanup message to the server to close this specific chat session
         sendWebSocketMessage('chat_window_closed', {
           agentId: windowToClose.agentId,
-          sessionId: windowToClose.sessionId,
+          discussionId: windowToClose.discussionId,
           conversationId: conversationIds[windowId],
           timestamp: new Date().toISOString()
         });
@@ -994,15 +1003,9 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       }
     }
     
-    // Clear local chat persistence if the session exists
-    if (windowToClose?.sessionId) {
-      try {
-        // Clear the session from local storage but keep it in the database for history
-        await chatPersistenceService.clearSession(windowToClose.sessionId);
-        console.log(`Cleared local chat session: ${windowToClose.sessionId}`);
-      } catch (error) {
-        console.error('Error clearing chat session:', error);
-      }
+    // No local persistence to clear - everything is now handled by backend discussions
+    if (windowToClose?.discussionId) {
+      console.log(`Chat window closed for discussion: ${windowToClose.discussionId}`);
     }
     
     setCurrentMessage(prev => {
@@ -1146,22 +1149,12 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
 
     setCurrentMessage(prev => ({ ...prev, [windowId]: '' }));
 
-    // Persist user message if session exists
-    if (window.sessionId) {
+    // Persist user message to backend discussion
+    if (window.discussionId) {
       try {
-        const persistentMessage: PersistentChatMessage = {
-          id: userMessage.id,
-          content: userMessage.content,
-          sender: userMessage.sender,
-          senderName: userMessage.senderName,
-          timestamp: userMessage.timestamp,
-          agentId: userMessage.agentId,
-          messageType: userMessage.messageType,
-          metadata: userMessage.metadata
-        };
-        await chatPersistenceService.addMessage(window.sessionId, persistentMessage);
+        await addMessageToDiscussion(window.discussionId, userMessage);
       } catch (error) {
-        console.error('Failed to persist user message:', error);
+        console.error('Failed to persist user message to discussion:', error);
       }
     }
 
@@ -1225,25 +1218,11 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           );
 
           // Persist agent message if session exists
-          if (window.sessionId) {
+          if (window.discussionId) {
             try {
-              const persistentMessage: PersistentChatMessage = {
-                id: agentMessage.id,
-                content: agentMessage.content,
-                sender: agentMessage.sender,
-                senderName: agentMessage.senderName,
-                timestamp: agentMessage.timestamp,
-                agentId: agentMessage.agentId,
-                messageType: agentMessage.messageType,
-                confidence: agentMessage.confidence,
-                memoryEnhanced: agentMessage.memoryEnhanced,
-                knowledgeUsed: agentMessage.knowledgeUsed,
-                toolsExecuted: agentMessage.toolsExecuted,
-                metadata: agentMessage.metadata
-              };
-              await chatPersistenceService.addMessage(window.sessionId, persistentMessage);
+              await addMessageToDiscussion(window.discussionId, agentMessage);
             } catch (error) {
-              console.error('Failed to persist agent message:', error);
+              console.error('Failed to persist agent message to discussion:', error);
             }
           }
         }

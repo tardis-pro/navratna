@@ -1,6 +1,7 @@
 import { DataSource } from 'typeorm';
 import { UserLLMProvider } from '../../entities/userLLMProvider.entity.js';
 import { logger } from '@uaip/utils';
+import { ModelCapability, DefaultModelConfig, LLMProviderType } from '@uaip/types';
 
 export class DefaultUserLLMProviderSeed {
   
@@ -86,7 +87,7 @@ export class DefaultUserLLMProviderSeed {
     // OpenAI provider (requires user to add their own API key)
     baseProviders.push({
       name: 'OpenAI',
-      description: 'OpenAI GPT models - Add your API key in settings',
+      description: 'OpenAI GPT models with vision and tool calling - Add your API key in settings',
       type: 'openai' as const,
       baseUrl: 'https://api.openai.com',
       defaultModel: 'gpt-4o-mini',
@@ -96,6 +97,16 @@ export class DefaultUserLLMProviderSeed {
         rateLimit: 60,
         headers: {
           'User-Agent': 'UAIP-Client/1.0'
+        },
+        modelCapabilities: {
+          'gpt-4o-mini': [ModelCapability.TEXT, ModelCapability.CODE, ModelCapability.REASONING, ModelCapability.VISION_TO_TEXT, ModelCapability.TOOL_CALLING, ModelCapability.FUNCTION_CALLING],
+          'gpt-4o': [ModelCapability.TEXT, ModelCapability.CODE, ModelCapability.REASONING, ModelCapability.VISION_TO_TEXT, ModelCapability.TOOL_CALLING, ModelCapability.FUNCTION_CALLING],
+          'gpt-4-turbo': [ModelCapability.TEXT, ModelCapability.CODE, ModelCapability.REASONING, ModelCapability.VISION_TO_TEXT, ModelCapability.TOOL_CALLING, ModelCapability.FUNCTION_CALLING],
+          'gpt-3.5-turbo': [ModelCapability.TEXT, ModelCapability.CODE, ModelCapability.REASONING, ModelCapability.TOOL_CALLING, ModelCapability.FUNCTION_CALLING],
+          'text-embedding-3-large': [ModelCapability.EMBEDDINGS],
+          'text-embedding-3-small': [ModelCapability.EMBEDDINGS],
+          'dall-e-3': [ModelCapability.IMAGE_GENERATION],
+          'whisper-1': [ModelCapability.AUDIO_TO_TEXT]
         }
       },
       priority: 10,
@@ -106,7 +117,7 @@ export class DefaultUserLLMProviderSeed {
     // Anthropic provider (requires user to add their own API key)
     baseProviders.push({
       name: 'Anthropic Claude',
-      description: 'Anthropic Claude models - Add your API key in settings',
+      description: 'Anthropic Claude models with vision and tool calling - Add your API key in settings',
       type: 'anthropic' as const,
       baseUrl: 'https://api.anthropic.com',
       defaultModel: 'claude-3-5-sonnet-20241022',
@@ -117,6 +128,13 @@ export class DefaultUserLLMProviderSeed {
         headers: {
           'anthropic-version': '2023-06-01',
           'User-Agent': 'UAIP-Client/1.0'
+        },
+        modelCapabilities: {
+          'claude-3-5-sonnet-20241022': [ModelCapability.TEXT, ModelCapability.CODE, ModelCapability.REASONING, ModelCapability.VISION_TO_TEXT, ModelCapability.TOOL_CALLING, ModelCapability.FUNCTION_CALLING],
+          'claude-3-5-haiku-20241022': [ModelCapability.TEXT, ModelCapability.CODE, ModelCapability.REASONING, ModelCapability.VISION_TO_TEXT, ModelCapability.TOOL_CALLING, ModelCapability.FUNCTION_CALLING],
+          'claude-3-opus-20240229': [ModelCapability.TEXT, ModelCapability.CODE, ModelCapability.REASONING, ModelCapability.VISION_TO_TEXT, ModelCapability.TOOL_CALLING, ModelCapability.FUNCTION_CALLING],
+          'claude-3-sonnet-20240229': [ModelCapability.TEXT, ModelCapability.CODE, ModelCapability.REASONING, ModelCapability.VISION_TO_TEXT, ModelCapability.TOOL_CALLING, ModelCapability.FUNCTION_CALLING],
+          'claude-3-haiku-20240307': [ModelCapability.TEXT, ModelCapability.CODE, ModelCapability.REASONING, ModelCapability.VISION_TO_TEXT, ModelCapability.TOOL_CALLING, ModelCapability.FUNCTION_CALLING]
         }
       },
       priority: 20,
@@ -127,14 +145,24 @@ export class DefaultUserLLMProviderSeed {
     // Local Ollama provider (active by default if available)
     baseProviders.push({
       name: 'Local Ollama',
-      description: 'Local Ollama instance for privacy-focused AI',
+      description: 'Local Ollama instance for privacy-focused AI with multi-modal support',
       type: 'ollama' as const,
       baseUrl: 'http://localhost:11434',
       defaultModel: 'llama3.2',
       configuration: {
         timeout: 60000,
         retries: 2,
-        rateLimit: 10
+        rateLimit: 10,
+        modelCapabilities: {
+          'llama3.2': [ModelCapability.TEXT, ModelCapability.CODE, ModelCapability.REASONING],
+          'llama3.2-vision': [ModelCapability.TEXT, ModelCapability.CODE, ModelCapability.REASONING, ModelCapability.VISION_TO_TEXT],
+          'llava': [ModelCapability.TEXT, ModelCapability.VISION_TO_TEXT],
+          'codellama': [ModelCapability.TEXT, ModelCapability.CODE, ModelCapability.REASONING],
+          'mistral': [ModelCapability.TEXT, ModelCapability.CODE, ModelCapability.REASONING],
+          'phi3': [ModelCapability.TEXT, ModelCapability.CODE, ModelCapability.REASONING],
+          'gemma': [ModelCapability.TEXT, ModelCapability.CODE, ModelCapability.REASONING],
+          'qwen': [ModelCapability.TEXT, ModelCapability.CODE, ModelCapability.REASONING, ModelCapability.VISION_TO_TEXT]
+        }
       },
       priority: 30,
       status: 'testing' as const, // Will be tested and activated if available
@@ -143,18 +171,21 @@ export class DefaultUserLLMProviderSeed {
     
     // LM Studio provider (active by default if available)
     baseProviders.push({
-      name: 'LM Studio',
-      description: 'Local LM Studio instance for private AI models',
+      name: 'LM Studio Local',
+      description: 'Local LM Studio instance for running open-source models privately',
       type: 'llmstudio' as const,
-      baseUrl: 'http://localhost:1234',
-      defaultModel: 'local-model',
+      baseUrl: 'http://192.168.1.16:1234',
+      defaultModel: 'cogito-v1-preview-qwen-14b',
       configuration: {
         timeout: 60000,
         retries: 2,
-        rateLimit: 5
+        rateLimit: 5,
+        modelCapabilities: {
+          'cogito-v1-preview-qwen-14b': [ModelCapability.TEXT, ModelCapability.CODE, ModelCapability.REASONING, ModelCapability.VISION_TO_TEXT]
+        }
       },
-      priority: 40,
-      status: 'testing' as const, // Will be tested and activated if available
+      priority: 1,
+      status: 'active' as const,
       isActive: true
     });
     

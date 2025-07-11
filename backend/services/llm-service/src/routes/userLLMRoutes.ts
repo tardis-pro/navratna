@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { UserLLMService } from '@uaip/llm-service';
 import { authMiddleware } from '@uaip/middleware';
 import { logger } from '@uaip/utils';
+import { ModelCapabilityDetector, DatabaseService } from '@uaip/shared-services';
 
 const router: Router = Router();
 let userLLMService: UserLLMService | null = null;
@@ -469,6 +470,221 @@ router.post('/agent-response', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Failed to generate agent response',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+    return;
+  }
+});
+
+// Model Capabilities Routes
+
+// Get model capabilities for user's providers
+router.get('/capabilities', async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        error: 'User authentication required'
+      });
+      return;
+    }
+
+    const databaseService = DatabaseService.getInstance();
+    const dataSource = await databaseService.getDataSource();
+    const userLLMProviderRepo = dataSource.getRepository('UserLLMProvider');
+    const userProviders = await userLLMProviderRepo.find({ where: { userId } });
+    
+    const capabilities = [];
+    
+    for (const provider of userProviders) {
+      const providerCapabilities = {
+        providerId: provider.id,
+        providerName: provider.name,
+        providerType: provider.type,
+        defaultModel: provider.defaultModel,
+        modelCapabilities: provider.configuration?.modelCapabilities || {},
+        detectedCapabilities: provider.configuration?.detectedCapabilities || [],
+        lastCapabilityCheck: provider.configuration?.lastCapabilityCheck,
+        isActive: provider.isActive,
+        status: provider.status
+      };
+      
+      capabilities.push(providerCapabilities);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        userId,
+        providers: capabilities,
+        totalProviders: userProviders.length,
+        activeProviders: userProviders.filter(p => p.isActive).length
+      }
+    });
+  } catch (error) {
+    logger.error('Error getting model capabilities', {
+      userId: req.user?.id,
+      error: error instanceof Error ? error.message : error
+    });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get model capabilities',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+    return;
+  }
+});
+
+// Detect capabilities for a specific provider
+router.post('/providers/:providerId/detect-capabilities', async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const providerId = req.params.providerId;
+    
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        error: 'User authentication required'
+      });
+      return;
+    }
+
+    const databaseService = DatabaseService.getInstance();
+    const dataSource = await databaseService.getDataSource();
+    const userLLMProviderRepo = dataSource.getRepository('UserLLMProvider');
+    const provider = await userLLMProviderRepo.findOne({ 
+      where: { id: providerId, userId } 
+    });
+    
+    if (!provider) {
+      res.status(404).json({
+        success: false,
+        error: 'Provider not found'
+      });
+      return;
+    }
+
+    const detector = ModelCapabilityDetector.getInstance();
+    const detection = await detector.detectCapabilities(
+      provider.defaultModel,
+      provider.type as any,
+      provider.baseUrl,
+      provider.apiKey
+    );
+    
+    // Update provider configuration with detected capabilities
+    provider.configuration = {
+      ...provider.configuration,
+      detectedCapabilities: detection.detectedCapabilities,
+      lastCapabilityCheck: new Date(),
+      capabilityTestResults: detection.testResults
+    };
+    
+    await userLLMProviderRepo.save(provider);
+
+    res.json({
+      success: true,
+      data: {
+        providerId: provider.id,
+        providerName: provider.name,
+        modelId: provider.defaultModel,
+        detection
+      }
+    });
+  } catch (error) {
+    logger.error('Error detecting capabilities', {
+      userId: req.user?.id,
+      providerId: req.params.providerId,
+      error: error instanceof Error ? error.message : error
+    });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to detect capabilities',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+    return;
+  }
+});
+
+// Detect capabilities for all user providers
+router.post('/detect-all-capabilities', async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        error: 'User authentication required'
+      });
+      return;
+    }
+
+    const databaseService = DatabaseService.getInstance();
+    const dataSource = await databaseService.getDataSource();
+    const userLLMProviderRepo = dataSource.getRepository('UserLLMProvider');
+    const userProviders = await userLLMProviderRepo.find({ where: { userId } });
+    
+    const detector = ModelCapabilityDetector.getInstance();
+    const results = [];
+    
+    for (const provider of userProviders) {
+      try {
+        if (provider.defaultModel) {
+          const detection = await detector.detectCapabilities(
+            provider.defaultModel,
+            provider.type as any,
+            provider.baseUrl,
+            provider.apiKey
+          );
+          
+          // Update provider configuration with detected capabilities
+          provider.configuration = {
+            ...provider.configuration,
+            detectedCapabilities: detection.detectedCapabilities,
+            lastCapabilityCheck: new Date(),
+            capabilityTestResults: detection.testResults
+          };
+          
+          await userLLMProviderRepo.save(provider);
+          
+          results.push({
+            providerId: provider.id,
+            providerName: provider.name,
+            modelId: provider.defaultModel,
+            success: true,
+            detection
+          });
+        }
+      } catch (error) {
+        results.push({
+          providerId: provider.id,
+          providerName: provider.name,
+          modelId: provider.defaultModel,
+          success: false,
+          error: error.message
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        userId,
+        totalProviders: userProviders.length,
+        processedProviders: results.length,
+        successfulDetections: results.filter(r => r.success).length,
+        failedDetections: results.filter(r => !r.success).length,
+        results
+      }
+    });
+  } catch (error) {
+    logger.error('Error detecting all capabilities', {
+      userId: req.user?.id,
+      error: error instanceof Error ? error.message : error
+    });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to detect capabilities for all providers',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
     return;

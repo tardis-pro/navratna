@@ -355,25 +355,26 @@ export class DiscussionService {
     agentId: string;
     role?: 'participant' | 'moderator' | 'observer' | 'facilitator';
     userId?: string;
+    displayName?: string;
+    permissions?: string[];
+    turnOrder?: number;
+    turnWeight?: number;
+    participationConfig?: Record<string, any>;
+    behavioralConstraints?: Record<string, any>;
+    contextAwareness?: Record<string, any>;
   }): Promise<DiscussionParticipantType> {
     try {
-      logger.info('Adding participant to discussion', {
+      logger.info('Adding participant to discussion using enterprise participant management', {
         discussionId,
-        agentId: participantRequest.agentId
+        agentId: participantRequest.agentId,
+        role: participantRequest.role,
+        displayName: participantRequest.displayName
       });
 
-      const discussion = await this.getDiscussion(discussionId, true); // Force refresh to get latest participants
+      const discussion = await this.getDiscussion(discussionId, true);
       if (!discussion) {
         throw new Error(`Discussion not found: ${discussionId}`);
       }
-
-      logger.debug('Retrieved discussion for addParticipant', {
-        discussionId,
-        hasSettings: !!discussion.settings,
-        settingsMaxParticipants: discussion.settings?.maxParticipants,
-        participantsLength: discussion.participants?.length || 0,
-        participants: discussion.participants?.map(p => ({ id: p.id, agentId: p.agentId, isActive: p.isActive })) || []
-      });
 
       // Check participant limit - only count active participants
       const maxParticipants = discussion.settings?.maxParticipants || this.maxParticipants;
@@ -384,65 +385,68 @@ export class DiscussionService {
         discussionId,
         totalParticipants: discussion.participants?.length || 0,
         activeParticipants: currentParticipantCount,
-        maxParticipants,
-        discussionSettingsMaxParticipants: discussion.settings?.maxParticipants,
-        serviceMaxParticipants: this.maxParticipants
+        maxParticipants
       });
 
       if (currentParticipantCount >= maxParticipants) {
         throw new Error(`Discussion has reached maximum participants limit: ${maxParticipants}`);
       }
 
-      // Check if participant already exists
-      const existingParticipant = discussion.participants.find(
-        (p: DiscussionParticipant) => p.agentId === participantRequest.agentId
-      );
-      if (existingParticipant) {
-        throw new Error('Participant already exists in discussion');
-      }
-
-      // Validate agent exists (and get persona through agent)
+      // Validate agent exists
       const agent = await this.databaseService.findById('agents', participantRequest.agentId);
       if (!agent) {
         throw new Error(`Agent not found: ${participantRequest.agentId}`);
       }
 
-      // Create participant
-      const participant = await this.databaseService.create<DiscussionParticipant>(DiscussionParticipant, {
+      // Use enterprise participant management service
+      const participantManagementService = new (await import('./participant-management.service.js')).ParticipantManagementService(this.databaseService);
+
+      // Create participant using enterprise service
+      const participant = await participantManagementService.createAgentParticipant({
         discussionId,
         agentId: participantRequest.agentId,
-        userId: participantRequest.userId,
-        role: participantRequest.role || 'participant',
-        joinedAt: new Date(),
-        messageCount: 0,
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        displayName: participantRequest.displayName || (agent as any).name,
+        roleInDiscussion: participantRequest.role || 'participant',
+        permissions: participantRequest.permissions,
+        turnOrder: participantRequest.turnOrder,
+        turnWeight: participantRequest.turnWeight,
+        participationConfig: participantRequest.participationConfig,
+        behavioralConstraints: participantRequest.behavioralConstraints,
+        contextAwareness: participantRequest.contextAwareness
       });
 
       // Update discussion participant count
       await this.updateDiscussion(discussionId, {
         state: {
           ...discussion.state,
-          activeParticipants: (discussion.state?.activeParticipants) + 1
+          activeParticipants: (discussion.state?.activeParticipants || 0) + 1
         }
       });
 
-      // Emit participant joined event
+      // Emit participant joined event with proper participant ID
       await this.emitDiscussionEvent(discussionId, DiscussionEventType.PARTICIPANT_JOINED, {
-        participantId: participant.id,
+        participantId: participant.participantId, // Use the unique participant ID
         agentId: participant.agentId,
-        role: participant.role
+        role: participant.roleInDiscussion,
+        displayName: participant.displayName
       });
 
-      logger.info('Participant added successfully', {
+      logger.info('Enterprise participant added successfully', {
         discussionId,
-        participantId: participant.id
+        participantId: participant.participantId,
+        agentId: participant.agentId,
+        displayName: participant.displayName,
+        role: participant.roleInDiscussion
       });
+
       return participant;
 
     } catch (error) {
-      logger.error('Failed to add participant', { error: (error as Error).message, discussionId });
+      logger.error('Failed to add participant', { 
+        error: (error as Error).message, 
+        discussionId,
+        agentId: participantRequest.agentId 
+      });
       throw error;
     }
   }

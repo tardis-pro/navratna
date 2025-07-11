@@ -428,19 +428,8 @@ export class DatabaseService {
 
   public get discussions(): DiscussionService {
     if (!this.discussionService) {
-      // Lazy initialize DiscussionService with required dependencies
-      const { EventBusService } = require('./eventBusService.js');
-      const { PersonaService } = require('./personaService.js');
-      
-      this.discussionService = new DiscussionService({
-        databaseService: this,
-        eventBusService: EventBusService.getInstance(),
-        personaService: PersonaService.getInstance(),
-        enableRealTimeEvents: true,
-        enableAnalytics: true,
-        maxParticipants: 10,
-        defaultTurnTimeout: 30000
-      });
+      // DiscussionService not initialized. Use getDiscussionService() instead for proper async initialization.
+      throw new Error('DiscussionService not initialized. Use getDiscussionService() instead.');
     }
     return this.discussionService;
   }
@@ -466,8 +455,32 @@ export class DatabaseService {
     return this.agentService;
   }
 
-  public getDiscussionService(): DiscussionService {
-    return this.discussions;
+  public async getDiscussionService(): Promise<DiscussionService> {
+    if (!this.discussionService) {
+      // Lazy initialize DiscussionService with required dependencies
+      const { DiscussionService } = await import('./discussionService.js');
+      const { EventBusService } = await import('./eventBusService.js');
+      const { PersonaService } = await import('./personaService.js');
+      
+      const personaService = new PersonaService({
+        databaseService: this,
+        eventBusService: EventBusService.getInstance(),
+        enableAnalytics: false,
+        enableRecommendations: false,
+        enableCaching: false
+      });
+
+      this.discussionService = new DiscussionService({
+        databaseService: this,
+        eventBusService: EventBusService.getInstance(),
+        personaService: personaService,
+        enableRealTimeEvents: true,
+        enableAnalytics: true,
+        maxParticipants: 10,
+        defaultTurnTimeout: 30000
+      });
+    }
+    return this.discussionService;
   }
 
   // Legacy compatibility methods

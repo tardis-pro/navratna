@@ -29,7 +29,19 @@ export const LLMModelSchema = z.object({
   isAvailable: z.boolean().default(true),
   contextLength: z.number().optional(),
   maxTokens: z.number().optional(),
-  capabilities: z.array(z.enum(['text', 'code', 'reasoning', 'multimodal'])).optional(),
+  capabilities: z.array(z.enum([
+    'text', 
+    'code', 
+    'reasoning', 
+    'multimodal',
+    'vision-to-text',
+    'audio-to-text', 
+    'audio-to-audio',
+    'tool-calling',
+    'function-calling',
+    'image-generation',
+    'embeddings'
+  ])).optional(),
   pricing: z.object({
     inputTokens: z.number().optional(),
     outputTokens: z.number().optional(),
@@ -224,4 +236,64 @@ export const ProviderStatsSchema = z.object({
   healthStatus: z.enum(['healthy', 'degraded', 'unavailable']).default('healthy')
 });
 
-export type ProviderStats = z.infer<typeof ProviderStatsSchema>; 
+export type ProviderStats = z.infer<typeof ProviderStatsSchema>;
+
+// Model capability detection and management
+export enum ModelCapability {
+  TEXT = 'text',
+  CODE = 'code',
+  REASONING = 'reasoning',
+  MULTIMODAL = 'multimodal',
+  VISION_TO_TEXT = 'vision-to-text',
+  AUDIO_TO_TEXT = 'audio-to-text',
+  AUDIO_TO_AUDIO = 'audio-to-audio',
+  TOOL_CALLING = 'tool-calling',
+  FUNCTION_CALLING = 'function-calling',
+  IMAGE_GENERATION = 'image-generation',
+  EMBEDDINGS = 'embeddings'
+}
+
+export const ModelCapabilityDetectionSchema = z.object({
+  modelId: z.string(),
+  provider: z.nativeEnum(LLMProviderType),
+  detectedCapabilities: z.array(z.nativeEnum(ModelCapability)),
+  testedAt: z.date(),
+  testResults: z.record(z.object({
+    supported: z.boolean(),
+    confidence: z.number().min(0).max(1),
+    testMethod: z.enum(['api-call', 'documentation', 'inference', 'manual']),
+    notes: z.string().optional()
+  })).optional()
+});
+
+export type ModelCapabilityDetection = z.infer<typeof ModelCapabilityDetectionSchema>;
+
+// Default model configurations with capabilities
+export const DefaultModelConfigSchema = z.object({
+  provider: z.nativeEnum(LLMProviderType),
+  modelId: z.string(),
+  name: z.string(),
+  description: z.string().optional(),
+  capabilities: z.array(z.nativeEnum(ModelCapability)),
+  defaultSettings: z.object({
+    temperature: z.number().min(0).max(2).optional(),
+    maxTokens: z.number().min(1).optional(),
+    topP: z.number().min(0).max(1).optional()
+  }).optional(),
+  priority: z.number().min(1).max(100).default(50),
+  isRecommended: z.boolean().default(false)
+});
+
+export type DefaultModelConfig = z.infer<typeof DefaultModelConfigSchema>;
+
+// Force onboard request schema
+export const ForceOnboardRequestSchema = z.object({
+  userId: z.string(),
+  resetPersona: z.boolean().default(false),
+  resetProviders: z.boolean().default(false),
+  resetModels: z.boolean().default(false),
+  detectCapabilities: z.boolean().default(true),
+  reason: z.string().optional()
+});
+
+export type ForceOnboardRequest = z.infer<typeof ForceOnboardRequestSchema>; 
