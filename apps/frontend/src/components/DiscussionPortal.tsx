@@ -214,7 +214,7 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
   const [refreshing, setRefreshing] = useState(false);
 
   const { 
-    start, stop, history, isActive, discussionId, participants, lastError, 
+    start, stop, pause, resume, history, isActive, discussionId, participants, lastError, 
     isWebSocketConnected, loadHistory, isLoading: discussionLoading 
   } = useDiscussion();
   const { agents } = useAgents();
@@ -330,6 +330,22 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
       await stop();
     } catch (error) {
       console.error('Failed to stop discussion:', error);
+    }
+  };
+
+  const handlePause = async () => {
+    try {
+      await pause();
+    } catch (error) {
+      console.error('Failed to pause discussion:', error);
+    }
+  };
+
+  const handleResume = async () => {
+    try {
+      await resume();
+    } catch (error) {
+      console.error('Failed to resume discussion:', error);
     }
   };
 
@@ -455,7 +471,7 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
   };
 
   const agentCount = Object.keys(agents).length;
-  const messageCount = messages?.length || 0;
+  const messageCount = history?.length || 0; // Use history length for actual DB count
   const participantCount = participants?.length || 0;
   const canStart = agentCount >= 2;
 
@@ -799,14 +815,32 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
               </DialogContent>
             </Dialog>
           ) : (
-            <Button
-              onClick={handleStop}
-              disabled={discussionLoading}
-              className="flex-1 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800"
-            >
-              <Pause className="w-4 h-4 mr-2" />
-              Stop Discussion
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={handlePause}
+                disabled={discussionLoading}
+                className="flex-1 bg-gradient-to-r from-yellow-600 to-yellow-700 hover:from-yellow-700 hover:to-yellow-800"
+              >
+                <Pause className="w-4 h-4 mr-2" />
+                Pause
+              </Button>
+              <Button
+                onClick={handleResume}
+                disabled={discussionLoading}
+                className="flex-1 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
+              >
+                <Play className="w-4 h-4 mr-2" />
+                Resume
+              </Button>
+              <Button
+                onClick={handleStop}
+                disabled={discussionLoading}
+                className="flex-1 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800"
+              >
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Stop
+              </Button>
+            </div>
           )}
         </div>
 

@@ -165,7 +165,7 @@ export class TurnStrategyService {
         discussionId: discussion.id,
         strategy: discussion.turnStrategy.strategy
       });
-      return discussion.settings.turnTimeout || 30;
+      return discussion.settings.turnTimeout || 10;
     }
   }
 

@@ -50,8 +50,10 @@ export const DiscussionHistory: React.FC<DiscussionHistoryProps> = ({
     try {
       console.log('🔍 Loading discussion:', discussion.id);
       
-      // Load the discussion history
-      await loadHistory(discussion.id);
+      // Force reload by clearing current discussion first
+      if (loadHistory) {
+        await loadHistory(discussion.id);
+      }
       
       // Notify parent component
       if (onSelectDiscussion) {

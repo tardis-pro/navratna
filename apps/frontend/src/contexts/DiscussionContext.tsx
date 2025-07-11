@@ -48,6 +48,8 @@ interface DiscussionContextType {
   // Actions
   start: (topic?: string, agentIds?: string[], enhancedContext?: any) => Promise<void>;
   stop: () => Promise<void>;
+  pause: () => Promise<void>;
+  resume: () => Promise<void>;
   addMessage: (content: string, agentId?: string) => Promise<void>;
   loadHistory: (discussionId: string) => Promise<void>;
 }
@@ -340,6 +342,13 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
     try {
       setIsLoading(true);
       
+      // Stop the discussion via WebSocket
+      if (isWebSocketConnected) {
+        sendWebSocketMessage('stop_discussion', {
+          discussionId: discussionId
+        });
+      }
+      
       // Leave the discussion room via WebSocket
       if (isWebSocketConnected) {
         sendWebSocketMessage('leave_discussion', {
@@ -357,6 +366,54 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
     } catch (error) {
       console.error('Failed to stop discussion:', error);
       setLastError(error instanceof Error ? error.message : 'Failed to stop discussion');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const pause = async () => {
+    if (!isActive || !discussionId) {
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      
+      // Pause the discussion via WebSocket
+      if (isWebSocketConnected) {
+        sendWebSocketMessage('pause_discussion', {
+          discussionId: discussionId
+        });
+      }
+      
+      setLastError(null);
+    } catch (error) {
+      console.error('Failed to pause discussion:', error);
+      setLastError(error instanceof Error ? error.message : 'Failed to pause discussion');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resume = async () => {
+    if (!discussionId) {
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      
+      // Resume the discussion via WebSocket
+      if (isWebSocketConnected) {
+        sendWebSocketMessage('resume_discussion', {
+          discussionId: discussionId
+        });
+      }
+      
+      setLastError(null);
+    } catch (error) {
+      console.error('Failed to resume discussion:', error);
+      setLastError(error instanceof Error ? error.message : 'Failed to resume discussion');
     } finally {
       setIsLoading(false);
     }
@@ -401,10 +458,10 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
       return;
     }
     
-    // Throttle requests to once per minute
+    // Throttle requests to once every 5 seconds for better UX
     const now = Date.now();
-    if (now - lastLoadTimeRef.current < 60000) { // 1 minute throttle
-      console.log('Throttling loadHistory call - waiting 1 minute between calls');
+    if (now - lastLoadTimeRef.current < 5000) { // 5 second throttle
+      console.log('Throttling loadHistory call - waiting 5 seconds between calls');
       return;
     }
     
@@ -463,6 +520,8 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
     lastError,
     start,
     stop,
+    pause,
+    resume,
     addMessage,
     loadHistory
   };

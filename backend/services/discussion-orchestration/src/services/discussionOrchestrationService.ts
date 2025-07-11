@@ -569,243 +569,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
     }
   }
 
-  /**
-   * Pause discussion
-   */
-  async pauseDiscussion(
-    discussionId: string,
-    pausedBy: string,
-    reason?: string
-  ): Promise<DiscussionOrchestrationResult> {
-    try {
-      logger.info('Pausing discussion', { discussionId, pausedBy, reason });
 
-      const discussion = await this.getDiscussion(discussionId);
-      if (!discussion) {
-        return { success: false, error: 'Discussion not found' };
-      }
-
-      if (discussion.status !== DiscussionStatus.ACTIVE) {
-        return { success: false, error: 'Discussion is not active' };
-      }
-
-      // Clear turn timer
-      this.clearTurnTimer(discussionId);
-
-      // Update discussion status
-      const updatedDiscussion = await this.discussionService.updateDiscussion(discussionId, {
-        status: DiscussionStatus.PAUSED,
-        metadata: {
-          ...discussion.metadata,
-          pausedBy,
-          pausedAt: new Date(),
-          pauseReason: reason
-        }
-      });
-
-      // Update cache
-      this.activeDiscussions.set(discussionId, updatedDiscussion);
-
-      // Emit event
-      const pauseEvent: DiscussionEvent = {
-        id: this.generateEventId(),
-        type: DiscussionEventType.STATUS_CHANGED,
-        discussionId,
-        data: {
-          oldStatus: DiscussionStatus.ACTIVE,
-          newStatus: DiscussionStatus.PAUSED,
-          pausedBy,
-          reason
-        },
-        timestamp: new Date(),
-        metadata: { source: 'orchestration-service' }
-      };
-
-      await this.emitEvent(pauseEvent);
-
-      logger.info('Discussion paused successfully', { discussionId, pausedBy });
-
-      return {
-        success: true,
-        data: updatedDiscussion,
-        events: [pauseEvent]
-      };
-    } catch (error) {
-      logger.error('Error pausing discussion', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        discussionId,
-        pausedBy
-      });
-      
-      return {
-        success: false,
-        error: 'Failed to pause discussion'
-      };
-    }
-  }
-
-  /**
-   * Resume discussion
-   */
-  async resumeDiscussion(
-    discussionId: string,
-    resumedBy: string
-  ): Promise<DiscussionOrchestrationResult> {
-    try {
-      logger.info('Resuming discussion', { discussionId, resumedBy });
-
-      const discussion = await this.getDiscussion(discussionId);
-      if (!discussion) {
-        return { success: false, error: 'Discussion not found' };
-      }
-
-      if (discussion.status !== DiscussionStatus.PAUSED) {
-        return { success: false, error: 'Discussion is not paused' };
-      }
-
-      // Update discussion status
-      const updatedDiscussion = await this.discussionService.updateDiscussion(discussionId, {
-        status: DiscussionStatus.ACTIVE,
-        state: {
-          ...discussion.state,
-          lastActivity: new Date()
-        }
-      });
-
-      // Update cache
-      this.activeDiscussions.set(discussionId, updatedDiscussion);
-
-      // Restart turn timer if there's a current participant
-      if (discussion.state.currentTurn.participantId && discussion.state.currentTurn.expectedEndAt) {
-        const remainingTime = Math.max(
-          0,
-          new Date(discussion.state.currentTurn.expectedEndAt).getTime() - Date.now()
-        ) / 1000;
-        
-        if (remainingTime > 0) {
-          this.setTurnTimer(discussionId, remainingTime);
-        } else {
-          // Turn has expired, advance immediately
-          await this.advanceTurn(discussionId, 'system');
-        }
-      }
-
-      // Emit event
-      const resumeEvent: DiscussionEvent = {
-        id: this.generateEventId(),
-        type: DiscussionEventType.STATUS_CHANGED,
-        discussionId,
-        data: {
-          oldStatus: DiscussionStatus.PAUSED,
-          newStatus: DiscussionStatus.ACTIVE,
-          resumedBy
-        },
-        timestamp: new Date(),
-        metadata: { source: 'orchestration-service' }
-      };
-
-      await this.emitEvent(resumeEvent);
-
-      logger.info('Discussion resumed successfully', { discussionId, resumedBy });
-
-      return {
-        success: true,
-        data: updatedDiscussion,
-        events: [resumeEvent]
-      };
-    } catch (error) {
-      logger.error('Error resuming discussion', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        discussionId,
-        resumedBy
-      });
-      
-      return {
-        success: false,
-        error: 'Failed to resume discussion'
-      };
-    }
-  }
-
-  /**
-   * End discussion
-   */
-  async endDiscussion(
-    discussionId: string,
-    endedBy: string,
-    reason?: string
-  ): Promise<DiscussionOrchestrationResult> {
-    try {
-      logger.info('Ending discussion', { discussionId, endedBy, reason });
-
-      const discussion = await this.getDiscussion(discussionId);
-      if (!discussion) {
-        return { success: false, error: 'Discussion not found' };
-      }
-
-      if (![DiscussionStatus.ACTIVE, DiscussionStatus.PAUSED].includes(discussion.status)) {
-        return { success: false, error: 'Discussion cannot be ended from current status' };
-      }
-
-      // Clear turn timer
-      this.clearTurnTimer(discussionId);
-
-      // Update discussion status
-      const updatedDiscussion = await this.discussionService.updateDiscussion(discussionId, {
-        status: DiscussionStatus.COMPLETED,
-        state: {
-          ...discussion.state,
-          phase: 'conclusion',
-          lastActivity: new Date()
-        },
-        metadata: {
-          ...discussion.metadata,
-          endedBy,
-          endedAt: new Date(),
-          endReason: reason
-        }
-      });
-
-      // Remove from active discussions cache
-      this.activeDiscussions.delete(discussionId);
-
-      // Emit event
-      const endEvent: DiscussionEvent = {
-        id: this.generateEventId(),
-        type: DiscussionEventType.STATUS_CHANGED,
-        discussionId,
-        data: {
-          oldStatus: discussion.status,
-          newStatus: DiscussionStatus.COMPLETED,
-          endedBy,
-          reason
-        },
-        timestamp: new Date(),
-        metadata: { source: 'orchestration-service' }
-      };
-
-      await this.emitEvent(endEvent);
-
-      logger.info('Discussion ended successfully', { discussionId, endedBy });
-
-      return {
-        success: true,
-        data: updatedDiscussion,
-        events: [endEvent]
-      };
-    } catch (error) {
-      logger.error('Error ending discussion', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        discussionId,
-        endedBy
-      });
-      
-      return {
-        success: false,
-        error: 'Failed to end discussion'
-      };
-    }
-  }
 
   /**
    * Get a discussion by ID (public method for external access)
@@ -1204,17 +968,17 @@ export class DiscussionOrchestrationService extends EventEmitter {
       this.cleanupExpiredTimers();
     }, 120000); // Every 2 minutes
 
-    // Check for discussions needing agent participation every 5 minutes (reduced frequency)
+    // Check for discussions needing agent participation every 5 seconds (near real-time)
     setInterval(() => {
       this.checkActiveDiscussionsForParticipation();
-    }, 300000);
+    }, 5000);
 
-    // Monitor discussion health every 5 minutes (reduced frequency)
+    // Monitor discussion health every 30 seconds (near real-time)
     setInterval(() => {
       this.monitorDiscussionHealth();
-    }, 300000);
+    }, 30000);
 
-    logger.info('Discussion orchestration periodic tasks started with reduced frequency');
+    logger.info('Discussion orchestration periodic tasks started with near real-time frequency');
   }
 
   private cleanupExpiredTimers(): void {
@@ -1225,29 +989,36 @@ export class DiscussionOrchestrationService extends EventEmitter {
     }
   }
 
+
   /**
    * Check active discussions for agent participation
    */
   private async checkActiveDiscussionsForParticipation(): Promise<void> {
     try {
-      const cachedDiscussions = Array.from(this.activeDiscussions.values());
+      // Query database directly instead of relying on cache
+      const result = await this.discussionService.searchDiscussions({ status: [DiscussionStatus.ACTIVE] }, 100, 0);
+      const activeDiscussions = result.discussions;
       logger.debug('Checking active discussions for agent participation', {
-        cachedDiscussionCount: cachedDiscussions.length
+        activeDiscussionCount: activeDiscussions.length
       });
       
       // Only check discussions that are truly stale or have participation issues
-      for (const discussion of cachedDiscussions) {
+      for (const discussion of activeDiscussions) {
         if (discussion.status === DiscussionStatus.ACTIVE) {
+          // Get full discussion with participants
+          const fullDiscussion = await this.discussionService.getDiscussion(discussion.id);
+          if (!fullDiscussion) continue;
+          
           // Check if discussion needs agent participation
-          const lastActivity = discussion.state.lastActivity;
+          const lastActivity = fullDiscussion.state.lastActivity;
           const timeSinceActivity = lastActivity ? Date.now() - (lastActivity instanceof Date ? lastActivity.getTime() : new Date(lastActivity).getTime()) : Infinity;
           
-          // For new discussions (less than 5 minutes old), trigger initial participation
-          // For old discussions (more than 10 minutes), check if agents should participate
-          if (timeSinceActivity > 300000 && discussion.state.messageCount === 0) { // 5 minutes for initial participation
-            await this.ensureAgentParticipation(discussion);
-          } else if (timeSinceActivity > 600000) { // 10 minutes for subsequent participation
-            await this.ensureAgentParticipation(discussion);
+          // For new discussions (more than 10 seconds old), trigger initial participation
+          // For ongoing discussions (more than 15 seconds), check if agents should participate
+          if (timeSinceActivity > 10000 && fullDiscussion.state.messageCount === 0) { // 10 seconds for initial participation
+            await this.ensureAgentParticipation(fullDiscussion);
+          } else if (timeSinceActivity > 15000) { // 15 seconds for subsequent participation
+            await this.ensureAgentParticipation(fullDiscussion);
           }
         }
       }
@@ -1524,6 +1295,130 @@ export class DiscussionOrchestrationService extends EventEmitter {
         discussionId,
         participantId: participant.id
       });
+    }
+  }
+
+
+  /**
+   * Update discussion status
+   */
+  private async updateDiscussionStatus(discussionId: string, status: DiscussionStatus, userId: string): Promise<DiscussionOrchestrationResult> {
+    try {
+      const result = await this.discussionService.updateDiscussion(discussionId, { status });
+      
+      if (result) {
+        // Update cache
+        this.activeDiscussions.set(discussionId, result);
+        
+        // Emit status change event
+        await this.emitEvent({
+          id: this.generateEventId(),
+          type: DiscussionEventType.STATUS_CHANGED,
+          discussionId,
+          data: { status, changedBy: userId },
+          timestamp: new Date()
+        });
+        
+        return { success: true, data: result };
+      }
+      
+      return { success: false, error: 'Failed to update discussion status' };
+    } catch (error) {
+      logger.error('Failed to update discussion status', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        discussionId,
+        status,
+        userId
+      });
+      return { success: false, error: 'Failed to update discussion status' };
+    }
+  }
+
+  /**
+   * Pause a discussion
+   */
+  async pauseDiscussion(discussionId: string, userId: string): Promise<DiscussionOrchestrationResult> {
+    try {
+      const result = await this.updateDiscussionStatus(discussionId, DiscussionStatus.PAUSED, userId);
+      
+      if (result.success) {
+        // Clear turn timer
+        const timer = this.turnTimers.get(discussionId);
+        if (timer) {
+          clearTimeout(timer);
+          this.turnTimers.delete(discussionId);
+        }
+        
+        logger.info('Discussion paused', { discussionId, userId });
+      }
+      
+      return result;
+    } catch (error) {
+      logger.error('Failed to pause discussion', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        discussionId,
+        userId
+      });
+      return { success: false, error: 'Failed to pause discussion' };
+    }
+  }
+
+  /**
+   * Resume a discussion
+   */
+  async resumeDiscussion(discussionId: string, userId: string): Promise<DiscussionOrchestrationResult> {
+    try {
+      const result = await this.updateDiscussionStatus(discussionId, DiscussionStatus.ACTIVE, userId);
+      
+      if (result.success) {
+        // Restart turn timer
+        const discussion = await this.getDiscussion(discussionId);
+        if (discussion) {
+          const turnTimeout = discussion.settings.turnTimeout || 10;
+          this.setTurnTimer(discussionId, turnTimeout);
+        }
+        
+        logger.info('Discussion resumed', { discussionId, userId });
+      }
+      
+      return result;
+    } catch (error) {
+      logger.error('Failed to resume discussion', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        discussionId,
+        userId
+      });
+      return { success: false, error: 'Failed to resume discussion' };
+    }
+  }
+
+  /**
+   * Stop a discussion
+   */
+  async stopDiscussion(discussionId: string, userId: string): Promise<DiscussionOrchestrationResult> {
+    try {
+      const result = await this.updateDiscussionStatus(discussionId, DiscussionStatus.COMPLETED, userId);
+      
+      if (result.success) {
+        // Clear turn timer and remove from active discussions
+        const timer = this.turnTimers.get(discussionId);
+        if (timer) {
+          clearTimeout(timer);
+          this.turnTimers.delete(discussionId);
+        }
+        this.activeDiscussions.delete(discussionId);
+        
+        logger.info('Discussion stopped', { discussionId, userId });
+      }
+      
+      return result;
+    } catch (error) {
+      logger.error('Failed to stop discussion', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        discussionId,
+        userId
+      });
+      return { success: false, error: 'Failed to stop discussion' };
     }
   }
 

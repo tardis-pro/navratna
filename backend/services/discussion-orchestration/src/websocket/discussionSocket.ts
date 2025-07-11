@@ -59,6 +59,10 @@ const StartDiscussionSchema = z.object({
   startedBy: z.string().uuid('User ID must be a valid UUID').optional()
 });
 
+const DiscussionControlSchema = z.object({
+  discussionId: z.string().uuid('Discussion ID must be a valid UUID')
+});
+
 // Rate limiting configuration
 const RATE_LIMITS = {
   MESSAGES_PER_MINUTE: 30,
@@ -399,6 +403,171 @@ export function setupWebSocketHandlers(
             message: 'Failed to start discussion'
           });
         }
+      }
+    });
+
+    // Pause discussion
+    socket.on('pause_discussion', async (data: any) => {
+      try {
+        socket.lastActivity = new Date();
+        
+        const validatedData = DiscussionControlSchema.parse(data);
+        const { discussionId } = validatedData;
+
+        // Verify user has permission to pause this discussion
+        const hasAccess = await orchestrationService.verifyParticipantAccess(
+          discussionId, 
+          socket.userId!
+        );
+
+        if (!hasAccess) {
+          socket.emit('error', { 
+            code: 'ACCESS_DENIED',
+            message: 'No permission to pause this discussion'
+          });
+          return;
+        }
+
+        const result = await orchestrationService.pauseDiscussion(discussionId, socket.userId!);
+
+        if (result.success) {
+          io.to(`discussion:${discussionId}`).emit('discussion_paused', {
+            discussionId,
+            pausedBy: socket.userId,
+            timestamp: new Date()
+          });
+
+          socket.emit('discussion_paused', {
+            discussionId,
+            pausedBy: socket.userId,
+            timestamp: new Date(),
+            success: true
+          });
+        } else {
+          socket.emit('error', {
+            code: 'PAUSE_FAILED',
+            message: result.error || 'Failed to pause discussion'
+          });
+        }
+      } catch (error) {
+        logger.error('Failed to pause discussion', {
+          socketId: socket.id,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+        socket.emit('error', { 
+          code: 'PAUSE_FAILED',
+          message: 'Failed to pause discussion'
+        });
+      }
+    });
+
+    // Resume discussion
+    socket.on('resume_discussion', async (data: any) => {
+      try {
+        socket.lastActivity = new Date();
+        
+        const validatedData = DiscussionControlSchema.parse(data);
+        const { discussionId } = validatedData;
+
+        // Verify user has permission to resume this discussion
+        const hasAccess = await orchestrationService.verifyParticipantAccess(
+          discussionId, 
+          socket.userId!
+        );
+
+        if (!hasAccess) {
+          socket.emit('error', { 
+            code: 'ACCESS_DENIED',
+            message: 'No permission to resume this discussion'
+          });
+          return;
+        }
+
+        const result = await orchestrationService.resumeDiscussion(discussionId, socket.userId!);
+
+        if (result.success) {
+          io.to(`discussion:${discussionId}`).emit('discussion_resumed', {
+            discussionId,
+            resumedBy: socket.userId,
+            timestamp: new Date()
+          });
+
+          socket.emit('discussion_resumed', {
+            discussionId,
+            resumedBy: socket.userId,
+            timestamp: new Date(),
+            success: true
+          });
+        } else {
+          socket.emit('error', {
+            code: 'RESUME_FAILED',
+            message: result.error || 'Failed to resume discussion'
+          });
+        }
+      } catch (error) {
+        logger.error('Failed to resume discussion', {
+          socketId: socket.id,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+        socket.emit('error', { 
+          code: 'RESUME_FAILED',
+          message: 'Failed to resume discussion'
+        });
+      }
+    });
+
+    // Stop discussion
+    socket.on('stop_discussion', async (data: any) => {
+      try {
+        socket.lastActivity = new Date();
+        
+        const validatedData = DiscussionControlSchema.parse(data);
+        const { discussionId } = validatedData;
+
+        // Verify user has permission to stop this discussion
+        const hasAccess = await orchestrationService.verifyParticipantAccess(
+          discussionId, 
+          socket.userId!
+        );
+
+        if (!hasAccess) {
+          socket.emit('error', { 
+            code: 'ACCESS_DENIED',
+            message: 'No permission to stop this discussion'
+          });
+          return;
+        }
+
+        const result = await orchestrationService.stopDiscussion(discussionId, socket.userId!);
+
+        if (result.success) {
+          io.to(`discussion:${discussionId}`).emit('discussion_stopped', {
+            discussionId,
+            stoppedBy: socket.userId,
+            timestamp: new Date()
+          });
+
+          socket.emit('discussion_stopped', {
+            discussionId,
+            stoppedBy: socket.userId,
+            timestamp: new Date(),
+            success: true
+          });
+        } else {
+          socket.emit('error', {
+            code: 'STOP_FAILED',
+            message: result.error || 'Failed to stop discussion'
+          });
+        }
+      } catch (error) {
+        logger.error('Failed to stop discussion', {
+          socketId: socket.id,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+        socket.emit('error', { 
+          code: 'STOP_FAILED',
+          message: 'Failed to stop discussion'
+        });
       }
     });
 

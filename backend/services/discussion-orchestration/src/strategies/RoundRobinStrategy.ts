@@ -131,7 +131,7 @@ export class RoundRobinStrategy implements TurnStrategyInterface {
 
       // Check if turn timeout has been reached
       const turnDuration = now.getTime() - new Date(turnStartTime).getTime();
-      const timeoutMs = (discussion.settings.turnTimeout || 30) * 1000;
+      const timeoutMs = (discussion.settings.turnTimeout || 10) * 1000;
       
       if (turnDuration >= timeoutMs) {
         logger.info('Turn timeout reached, advancing turn', {
@@ -163,16 +163,16 @@ export class RoundRobinStrategy implements TurnStrategyInterface {
     config?: TurnStrategyConfig
   ): Promise<number> {
     try {
-      // Base duration from discussion settings (no timeout in config for round robin)
-      let baseDuration = discussion.settings.turnTimeout || 30;
+      // Base duration from discussion settings (short timeout for near real-time)
+      let baseDuration = discussion.settings.turnTimeout || 10;
 
       // Adjust based on participant's historical performance
       if (participant.messageCount > 0) {
         // Calculate average response time based on activity
         const avgResponseTime = this.calculateAverageResponseTime(participant);
         if (avgResponseTime > 0) {
-          // Use historical data but cap it within reasonable bounds
-          baseDuration = Math.min(Math.max(avgResponseTime, 30), 1800); // 30 seconds to 30 minutes
+          // Use historical data but cap it within reasonable bounds for near real-time
+          baseDuration = Math.min(Math.max(avgResponseTime, 5), 60); // 5 seconds to 1 minute
         }
       }
 
@@ -191,7 +191,7 @@ export class RoundRobinStrategy implements TurnStrategyInterface {
         participantId: participant.id,
         discussionId: discussion.id,
         estimatedDuration: baseDuration,
-        baseDuration: discussion.settings.turnTimeout || 30
+        baseDuration: discussion.settings.turnTimeout || 10
       });
 
       return Math.round(baseDuration);
@@ -201,7 +201,7 @@ export class RoundRobinStrategy implements TurnStrategyInterface {
         participantId: participant.id,
         discussionId: discussion.id
       });
-      return discussion.settings.turnTimeout || 30;
+      return discussion.settings.turnTimeout || 10;
     }
   }
 
