@@ -8,8 +8,8 @@
 
 import { EventEmitter } from 'events';
 import { logger } from '@uaip/utils';
-import { 
-  Persona, 
+import {
+  Persona,
   Agent,
   Discussion,
   DiscussionParticipant
@@ -130,7 +130,7 @@ export class ConversationEnhancementService extends EventEmitter {
     this.eventBusService = eventBusService;
     // Note: No longer using direct LLM service - using event-driven approach
     this.llmService = null; // Deprecated
-    
+
     this.initializeEventHandlers();
     this.setupLLMEventSubscriptions();
   }
@@ -159,59 +159,70 @@ export class ConversationEnhancementService extends EventEmitter {
    * Set up LLM event subscriptions for event-driven LLM requests
    */
   private setupLLMEventSubscriptions(): void {
-    // Subscribe to LLM generation responses
+    // Handle user LLM responses (for discussion creator's provider)
+    this.eventBusService.subscribe('llm.user.response', async (event) => {
+      const { requestId, content, error, confidence } = event.data || event;
+      this.handleLLMResponse(requestId, content, error, confidence, 'user');
+    });
+
+    // Handle agent LLM responses (fallback)
     this.eventBusService.subscribe('llm.agent.generate.response', async (event) => {
-      const { requestId, content, error, confidence, model } = event.data;
-      
-      const pendingRequest = this.pendingLLMRequests.get(requestId);
-      if (!pendingRequest) {
-        logger.warn('Received LLM response for unknown conversation enhancement request', { 
-          requestId, 
-          pendingCount: this.pendingLLMRequests.size,
-          pendingKeys: Array.from(this.pendingLLMRequests.keys())
-        });
-        return;
-      }
-
-      this.pendingLLMRequests.delete(requestId);
-      clearTimeout(pendingRequest.timeout);
-
-      if (error) {
-        logger.warn('LLM generation failed for conversation enhancement', { requestId, error });
-        // Resolve with fallback instead of rejecting
-        pendingRequest.resolve({
-          content: 'I appreciate the discussion and would like to contribute further.',
-          confidence: 0.3
-        });
-      } else {
-        pendingRequest.resolve({
-          content: content || 'I have some thoughts on this topic.',
-          confidence: confidence || 0.7
-        });
-      }
+      const { requestId, content, error, confidence } = event.data || event;
+      this.handleLLMResponse(requestId, content, error, confidence, 'agent');
     });
 
     logger.info('Conversation Enhancement LLM event subscriptions established');
   }
 
+  private handleLLMResponse(requestId: string, content: string, error: any, confidence: number, source: string): void {
+    const pendingRequest = this.pendingLLMRequests.get(requestId);
+    if (!pendingRequest) {
+      logger.warn('Received LLM response for unknown conversation enhancement request', { 
+        requestId, 
+        source,
+        pendingCount: this.pendingLLMRequests.size,
+        pendingKeys: Array.from(this.pendingLLMRequests.keys())
+      });
+      return;
+    }
+
+    this.pendingLLMRequests.delete(requestId);
+    clearTimeout(pendingRequest.timeout);
+
+    if (error) {
+      logger.warn('LLM generation failed for conversation enhancement', { requestId, error, source });
+      // Resolve with fallback instead of rejecting
+      pendingRequest.resolve({
+        content: 'I appreciate the discussion and would like to contribute further.',
+        confidence: 0.3
+      });
+    } else {
+      pendingRequest.resolve({
+        content: content || 'I have some thoughts on this topic.',
+        confidence: confidence || 0.7
+      });
+    }
+  }
+
   /**
-   * Request LLM generation via events instead of direct HTTP calls
+   * Request LLM generation via events using discussion creator's provider
    */
   private async requestLLMGeneration(
     prompt: string,
     systemPrompt: string,
     temperature: number = 0.7,
-    maxTokens: number = 300
+    maxTokens: number = 300,
+    discussionId?: string
   ): Promise<{ content: string; confidence: number }> {
     return new Promise(async (resolve, reject) => {
       const requestId = `conv_enh_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
+
       // Set up timeout (45 seconds for LLM generation - increased for better reliability)
       const timeout = setTimeout(() => {
         this.pendingLLMRequests.delete(requestId);
-        logger.warn('LLM generation timeout for conversation enhancement', { 
-          requestId, 
-          pendingCount: this.pendingLLMRequests.size 
+        logger.warn('LLM generation timeout for conversation enhancement', {
+          requestId,
+          pendingCount: this.pendingLLMRequests.size
         });
         // Resolve with fallback instead of rejecting
         resolve({
@@ -233,27 +244,52 @@ export class ConversationEnhancementService extends EventEmitter {
       });
 
       try {
-        // Publish LLM generation request via event bus
-        await this.eventBusService.publish('llm.agent.generate.request', {
-          requestId,
-          agentId: null, // No specific agent for conversation enhancement
-          messages: [{
-            id: `msg_${Date.now()}`,
-            content: prompt,
-            sender: 'user',
-            timestamp: new Date().toISOString(),
-            type: 'user' as const
-          }],
-          systemPrompt,
-          maxTokens,
-          temperature,
-          model: 'auto',
-          provider: 'auto'
-        });
+        // Get discussion creator's userId for LLM provider
+        let userId = null;
+        if (discussionId) {
+          try {
+            const discussion = await this.databaseService.discussions.getDiscussion(discussionId);
+            if (discussion && discussion.createdBy) {
+              userId = discussion.createdBy;
+            }
+          } catch (error) {
+            logger.warn('Failed to get discussion creator for LLM provider', { discussionId, error });
+          }
+        }
 
-        logger.debug('Conversation enhancement LLM request published', { 
-          requestId, 
-          pendingCount: this.pendingLLMRequests.size 
+        // Use user's LLM provider if available, otherwise fallback to system
+        if (userId) {
+          // Use user-specific LLM request
+          await this.eventBusService.publish('llm.user.request', {
+            requestId,
+            userId,
+            agentRequest: {
+              prompt: prompt,
+              systemPrompt: systemPrompt,
+              maxTokens: maxTokens,
+              temperature: temperature,
+              model: 'auto', // Let user's provider choose best model
+              provider: 'auto' // Use user's configured provider
+            },
+            service: 'agent-intelligence'
+          });
+        } else {
+          // Fallback to agent-level LLM request
+          await this.eventBusService.publish('llm.agent.generate.request', {
+            requestId,
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            maxTokens: maxTokens,
+            temperature: temperature,
+            model: 'llama-3.2-3b-overthinker', // Use llama overthinker model
+            provider: 'llmstudio', // Use LLM Studio on 192.168.1.16:1234
+            service: 'agent-intelligence'
+          });
+        }
+
+        logger.debug('Conversation enhancement LLM request published', {
+          requestId,
+          pendingCount: this.pendingLLMRequests.size
         });
 
       } catch (error) {
@@ -279,7 +315,7 @@ export class ConversationEnhancementService extends EventEmitter {
       });
 
       // Get or initialize conversation state
-      const conversationState = request.conversationState || 
+      const conversationState = request.conversationState ||
         this.getConversationState(request.discussionId);
 
       // Map agents to personas
@@ -309,16 +345,17 @@ export class ConversationEnhancementService extends EventEmitter {
 
       // Find the corresponding agent for the selected persona
       const selectedAgent = this.findAgentForPersona(
-        request.availableAgents, 
+        request.availableAgents,
         selectedPersona
       );
 
-      // Generate enhanced response
+      // Generate enhanced response using discussion creator's LLM provider
       const enhancedResponse = await this.generateEnhancedResponse(
         selectedPersona,
         request.currentTopic,
         request.messageHistory,
-        conversationState
+        conversationState,
+        request.discussionId
       );
 
       // Update conversation state
@@ -390,16 +427,16 @@ export class ConversationEnhancementService extends EventEmitter {
       switch (analysisType) {
         case 'flow':
           return this.analyzeConversationFlow(messageHistory, []);
-          
+
         case 'insights':
           return this.getConversationInsights(messageHistory, conversationState);
-          
+
         case 'health':
           return this.analyzeConversationHealth(request);
-          
+
         case 'patterns':
           return await this.analyzeConversationPatterns(request);
-          
+
         default:
           throw new Error(`Unknown analysis type: ${analysisType}`);
       }
@@ -579,11 +616,11 @@ export class ConversationEnhancementService extends EventEmitter {
     try {
       // Load all active agents
       const agents = await this.databaseService.getAgentService().findActiveAgents();
-      
+
       for (const agent of agents) {
         // Map agent properties to personas
         const personas = await this.createPersonasFromAgent(agent as any);
-        
+
         this.agentPersonaMappings.set(agent.id, {
           agentId: agent.id,
           personas,
@@ -656,19 +693,19 @@ export class ConversationEnhancementService extends EventEmitter {
 
   private async mapAgentsToPersonas(agents: Agent[]): Promise<Persona[]> {
     const personas: Persona[] = [];
-    
+
     for (const agent of agents) {
       const mapping = this.agentPersonaMappings.get(agent.id);
       if (mapping && mapping.isActive) {
         personas.push(...mapping.personas);
       }
     }
-    
+
     return personas;
   }
 
   private findAgentForPersona(agents: Agent[], persona: Persona): Agent | undefined {
-    return agents.find(agent => 
+    return agents.find(agent =>
       this.agentPersonaMappings.get(agent.id)?.personas
         .some(p => p.id === persona.id)
     );
@@ -686,7 +723,7 @@ export class ConversationEnhancementService extends EventEmitter {
   }
 
   private determineFillerType(
-    persona: Persona, 
+    persona: Persona,
     context: ConversationContext
   ): 'thinking' | 'hesitation' | 'transition' | 'agreement' | 'casual' {
     if (context.topicShiftDetected) return 'transition';
@@ -806,10 +843,44 @@ export class ConversationEnhancementService extends EventEmitter {
   private async createMessageHistoryFromDiscussion(discussion: Discussion): Promise<MessageHistoryItem[]> {
     try {
       const messages = await this.databaseService.discussions.getDiscussionMessages(discussion.id);
-      
+
+      // Get full discussion with participants to map IDs to names
+      const fullDiscussion = await this.databaseService.discussions.getDiscussion(discussion.id);
+      const participantMap = new Map();
+
+      if (fullDiscussion && fullDiscussion.participants) {
+        for (const participant of fullDiscussion.participants) {
+          try {
+            // Try to get agent name first
+            if (participant.agentId) {
+              const agent = await this.databaseService.getAgentService().findAgentById(participant.agentId);
+              if (agent) {
+                participantMap.set(participant.id, agent.name);
+                continue;
+              }
+            }
+
+            // Fallback to user name if available
+            if (participant.userId) {
+              const user = await this.databaseService.findById('User', participant.userId) as any;
+              if (user && (user.username || user.email)) {
+                participantMap.set(participant.id, user.username || user.email);
+                continue;
+              }
+            }
+
+            // Final fallback to participant ID
+            participantMap.set(participant.id, participant.id);
+          } catch (error) {
+            logger.warn('Failed to get participant name', { participantId: participant.id, error });
+            participantMap.set(participant.id, participant.id);
+          }
+        }
+      }
+
       return messages.map(msg => ({
         id: msg.id,
-        speaker: msg.participantId || 'user',
+        speaker: participantMap.get(msg.participantId) || msg.participantId || 'user',
         content: msg.content,
         timestamp: msg.createdAt,
         metadata: msg.metadata
@@ -839,7 +910,7 @@ export class ConversationEnhancementService extends EventEmitter {
   private async handleAgentUpdate(event: any): Promise<void> {
     try {
       const { agentId } = event;
-      
+
       // Reload personas for updated agent
       const agent = await this.databaseService.getAgentService().findAgentById(agentId);
       if (agent) {
@@ -854,7 +925,7 @@ export class ConversationEnhancementService extends EventEmitter {
             metadata: agent.metadata
           }
         });
-        
+
         logger.info('Updated agent-persona mapping', { agentId });
       }
     } catch (error) {
@@ -882,9 +953,9 @@ export class ConversationEnhancementService extends EventEmitter {
     // Simple selection logic - could be enhanced with more sophisticated scoring
     // For now, rotate through personas or select based on role
     const recentSpeakers = messageHistory.slice(-3).map(m => m.speaker);
-    
+
     // Avoid selecting the same persona that spoke recently
-    const availablePersonas = personas.filter(p => 
+    const availablePersonas = personas.filter(p =>
       !recentSpeakers.includes(p.id)
     );
 
@@ -904,7 +975,8 @@ export class ConversationEnhancementService extends EventEmitter {
     persona: Persona,
     topic: string,
     messageHistory: MessageHistoryItem[],
-    conversationState: ConversationState
+    conversationState: ConversationState,
+    discussionId?: string
   ): Promise<string> {
     try {
       // Create context from recent messages
@@ -926,12 +998,13 @@ ${context}
 
 Please contribute to this discussion about "${topic}" in a way that's natural and valuable to the conversation.`;
 
-      // Generate response using event-driven LLM approach
+      // Generate response using event-driven LLM approach with discussion creator's provider
       const response = await this.requestLLMGeneration(
         userPrompt,
         systemPrompt,
         0.7,
-        300
+        300,
+        discussionId
       );
 
       return response.content || 'I have some thoughts on this topic, but I need a moment to organize them.';
@@ -954,7 +1027,7 @@ Please contribute to this discussion about "${topic}" in a way that's natural an
     return {
       ...state,
       activePersonaId: personaId,
-      lastSpeakerContinuityCount: state.activePersonaId === personaId ? 
+      lastSpeakerContinuityCount: state.activePersonaId === personaId ?
         state.lastSpeakerContinuityCount + 1 : 0,
       recentContributors: [
         personaId,
@@ -975,7 +1048,7 @@ Please contribute to this discussion about "${topic}" in a way that's natural an
     // Check for back-to-back speakers
     let backToBackCount = 0;
     for (let i = 1; i < recentSpeakers.length; i++) {
-      if (recentSpeakers[i] === recentSpeakers[i-1]) {
+      if (recentSpeakers[i] === recentSpeakers[i - 1]) {
         backToBackCount++;
       }
     }
@@ -985,7 +1058,7 @@ Please contribute to this discussion about "${topic}" in a way that's natural an
     return {
       flowQuality,
       diversityScore,
-      suggestions: diversityScore < 0.4 ? 
+      suggestions: diversityScore < 0.4 ?
         ['Consider encouraging more diverse participation'] : []
     };
   }

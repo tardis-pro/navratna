@@ -1,7 +1,7 @@
-import { 
-  LLMRequest, 
-  LLMResponse, 
-  AgentResponseRequest, 
+import {
+  LLMRequest,
+  LLMResponse,
+  AgentResponseRequest,
   AgentResponseResponse,
   ArtifactRequest,
   ArtifactResponse,
@@ -58,7 +58,7 @@ export class LLMService {
 
       // Get active providers from database
       const dbProviders = await this.llmProviderRepository.findActiveProviders();
-      
+
       // Clear existing providers
       this.providers.clear();
 
@@ -84,14 +84,14 @@ export class LLMService {
           }
 
           this.providers.set(dbProvider.type, provider);
-          logger.info(`Initialized provider: ${dbProvider.name}`, { 
-            type: dbProvider.type, 
-            id: dbProvider.id 
+          logger.info(`Initialized provider: ${dbProvider.name}`, {
+            type: dbProvider.type,
+            id: dbProvider.id
           });
         } catch (error) {
-          logger.error(`Failed to initialize provider: ${dbProvider.name}`, { 
-            error, 
-            providerId: dbProvider.id 
+          logger.error(`Failed to initialize provider: ${dbProvider.name}`, {
+            error,
+            providerId: dbProvider.id
           });
         }
       }
@@ -107,9 +107,9 @@ export class LLMService {
         providerTypes: Array.from(this.providers.keys())
       });
     } catch (error) {
-      logger.error('Failed to initialize LLM service from database', { 
+      logger.error('Failed to initialize LLM service from database', {
         error: error instanceof Error ? error.message : error,
-        stack: error instanceof Error ? error.stack : undefined 
+        stack: error instanceof Error ? error.stack : undefined
       });
       // Fallback to environment-based initialization
       await this.initializeFallbackProviders();
@@ -147,13 +147,13 @@ export class LLMService {
         timeout: 30000,
         retries: 3
       }, 'OpenAI');
-      
+
       this.providers.set('openai', openaiProvider);
     }
 
     this.providers.set('ollama', ollamaProvider);
     this.providers.set('llmstudio', llmStudioProvider);
-    
+
     this.initialized = true;
     logger.info(`LLM Service initialized with ${this.providers.size} fallback providers`, {
       providerTypes: Array.from(this.providers.keys())
@@ -172,7 +172,7 @@ export class LLMService {
 
     // Fallback order: OpenAI -> LLM Studio -> Ollama
     const fallbackOrder = ['openai', 'llmstudio', 'ollama'];
-    
+
     for (const providerType of fallbackOrder) {
       if (this.providers.has(providerType)) {
         return this.providers.get(providerType)!;
@@ -200,7 +200,8 @@ export class LLMService {
       logger.info('Generating LLM response', {
         provider: preferredType || 'auto',
         promptLength: request.prompt.length,
-        model: request.model
+        model: request.model,
+        request: JSON.stringify(request)
       });
 
       const response = await provider.generateResponse(request);
@@ -215,7 +216,7 @@ export class LLMService {
       return response;
     } catch (error) {
       const duration = Date.now() - startTime;
-      logger.error('Error generating LLM response', { 
+      logger.error('Error generating LLM response', {
         error,
         duration
       });
@@ -256,9 +257,9 @@ export class LLMService {
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined
       };
     } catch (error) {
-      logger.error('Error generating agent response', { 
+      logger.error('Error generating agent response', {
         agentId: request.agent.id,
-        error 
+        error
       });
 
       return {
@@ -293,10 +294,10 @@ export class LLMService {
         }
       };
     } catch (error) {
-      logger.error('Error generating artifact', { 
+      logger.error('Error generating artifact', {
         type: request.type,
         language: request.language,
-        error 
+        error
       });
 
       return {
@@ -367,7 +368,7 @@ export class LLMService {
     available: boolean;
   }>> {
     const stats = [];
-    
+
     for (const [name, provider] of this.providers) {
       stats.push({
         name,
@@ -415,11 +416,11 @@ export class LLMService {
         logger.info(`Fetching models from provider: ${providerType}`, {
           baseUrl: provider.getBaseUrl()
         });
-        
+
         const models = await provider.getAvailableModels();
-        
+
         logger.info(`Provider ${providerType} returned ${models.length} models`);
-        
+
         allModels.push(...models.map(model => ({
           ...model,
           provider: providerType,
@@ -427,7 +428,7 @@ export class LLMService {
           isAvailable: true
         })));
       } catch (error) {
-        logger.error(`Failed to get models from provider ${providerType}`, { 
+        logger.error(`Failed to get models from provider ${providerType}`, {
           error: error instanceof Error ? error.message : error,
           stack: error instanceof Error ? error.stack : undefined,
           baseUrl: provider.getBaseUrl()
@@ -455,7 +456,7 @@ export class LLMService {
     apiEndpoint: string;
   }>> {
     const cacheKey = `${LLMService.PROVIDER_MODELS_CACHE_PREFIX}${providerType}`;
-    
+
     // Check cache first
     try {
       const cachedModels = await this.cacheService.get(cacheKey);
@@ -478,7 +479,7 @@ export class LLMService {
 
     try {
       const models = await provider.getAvailableModels();
-      
+
       // Cache the results for 1 hour
       try {
         await this.cacheService.set(cacheKey, models, LLMService.CACHE_TTL);
@@ -486,7 +487,7 @@ export class LLMService {
       } catch (cacheError) {
         logger.warn(`Failed to cache models for provider ${providerType}`, { error: cacheError });
       }
-      
+
       return models;
     } catch (error) {
       logger.error(`Failed to get models from provider ${providerType}`, { error });
@@ -532,7 +533,7 @@ export class LLMService {
         for (const dbProvider of dbProviders) {
           const isInitialized = this.providers.has(dbProvider.type);
           let modelCount = 0;
-          
+
           if (isInitialized) {
             try {
               const models = await this.getModelsFromProvider(dbProvider.type);
@@ -661,24 +662,24 @@ export class LLMService {
 
   private buildAgentSystemPrompt(request: AgentResponseRequest): string {
     const { agent } = request;
-    
+
     let systemPrompt = `You are ${agent.name}`;
-    
+
     if (agent.persona?.description) {
       systemPrompt += `, ${agent.persona.description}`;
     }
-    
+
     systemPrompt += '.\n\nCRITICAL RESPONSE RULES:\n';
     systemPrompt += '- Keep responses under 200 words maximum\n';
     systemPrompt += '- Be direct and concise - no fluff or filler\n';
     systemPrompt += '- Only answer what was asked - don\'t elaborate unnecessarily\n';
     systemPrompt += '- Use bullet points or short sentences\n';
     systemPrompt += '- If the topic is complex, give a brief answer and offer to elaborate if needed\n\n';
-    
+
     if (agent.persona?.capabilities && agent.persona.capabilities.length > 0) {
       systemPrompt += `Your capabilities include: ${agent.persona.capabilities.join(', ')}\n`;
     }
-    
+
     if (request.tools && request.tools.length > 0) {
       systemPrompt += '\nAvailable tools:\n';
       request.tools.forEach(tool => {
@@ -691,11 +692,11 @@ export class LLMService {
 
   private buildArtifactPrompt(request: ArtifactRequest): string {
     let prompt = `Generate a ${request.type}`;
-    
+
     if (request.language) {
       prompt += ` in ${request.language}`;
     }
-    
+
     prompt += ` based on the following context and requirements:\n\n`;
     prompt += `Context: ${request.context}\n\n`;
     prompt += `Requirements:\n`;
@@ -722,7 +723,7 @@ export class LLMService {
     };
 
     let systemPrompt = typePrompts[request.type] || 'You are an expert assistant.';
-    
+
     if (request.language) {
       systemPrompt += ` Focus specifically on ${request.language} best practices and conventions.`;
     }
@@ -732,22 +733,22 @@ export class LLMService {
 
   private buildContextAnalysisPrompt(request: ContextRequest): string {
     let prompt = 'Analyze the following conversation context and provide structured insights:\n\n';
-    
+
     prompt += `User Request: ${request.userRequest}\n\n`;
-    
+
     if (request.currentContext) {
       prompt += `Current Context: ${request.currentContext.title} - ${request.currentContext.content}\n\n`;
     }
-    
+
     prompt += 'Conversation History:\n';
     request.conversationHistory.forEach(msg => {
       prompt += `${msg.sender}: ${msg.content}\n`;
     });
-    
+
     if (request.agentCapabilities && request.agentCapabilities.length > 0) {
       prompt += `\nAgent Capabilities: ${request.agentCapabilities.join(', ')}\n`;
     }
-    
+
     prompt += '\nProvide analysis in the following areas:\n';
     prompt += '1. Primary and secondary intents\n';
     prompt += '2. Conversation context (participants, topics, sentiment)\n';
@@ -759,17 +760,17 @@ export class LLMService {
   private getPreferredProviderType(agent: any): string | undefined {
     // Logic to determine preferred provider based on agent configuration
     const modelId = agent.configuration?.model;
-    
+
     if (!modelId) return undefined;
-    
+
     if (modelId.includes('gpt') || modelId.includes('openai')) {
       return 'openai';
     }
-    
+
     if (modelId.includes('llama') || modelId.includes('ollama')) {
       return 'ollama';
     }
-    
+
     return 'llmstudio'; // Default fallback
   }
 
@@ -782,7 +783,7 @@ export class LLMService {
     let match;
     while ((match = toolCallRegex.exec(content)) !== null) {
       const [fullMatch, toolName, args] = match;
-      
+
       toolCalls.push({
         id: uuidv4(),
         type: 'function',
@@ -829,7 +830,7 @@ export class LLMService {
 
   private extractPrimaryIntent(userRequest: string): string {
     const lowerRequest = userRequest.toLowerCase();
-    
+
     if (lowerRequest.includes('create') || lowerRequest.includes('generate')) {
       return 'creation';
     }
@@ -839,7 +840,7 @@ export class LLMService {
     if (lowerRequest.includes('fix') || lowerRequest.includes('debug') || lowerRequest.includes('error')) {
       return 'troubleshooting';
     }
-    
+
     return 'general_inquiry';
   }
 
@@ -847,7 +848,7 @@ export class LLMService {
     // Simple topic extraction - can be enhanced with NLP
     const topics = new Set<string>();
     const commonWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by']);
-    
+
     messages.forEach(msg => {
       const words = msg.content.toLowerCase().split(/\s+/);
       words.forEach(word => {
@@ -857,13 +858,13 @@ export class LLMService {
         }
       });
     });
-    
+
     return Array.from(topics).slice(0, 5); // Return top 5 topics
   }
 
   private detectFramework(content: string, language?: string): string | undefined {
     if (!language) return undefined;
-    
+
     const frameworks: Record<string, string[]> = {
       javascript: ['react', 'vue', 'angular', 'express', 'nodejs'],
       typescript: ['react', 'vue', 'angular', 'express', 'nestjs'],
@@ -871,18 +872,18 @@ export class LLMService {
       java: ['spring', 'hibernate', 'junit'],
       csharp: ['asp.net', '.net', 'entity framework']
     };
-    
+
     const contentLower = content.toLowerCase();
     const possibleFrameworks = frameworks[language.toLowerCase()] || [];
-    
+
     return possibleFrameworks.find(fw => contentLower.includes(fw));
   }
 
   private extractDependencies(content: string, language?: string): string[] {
     if (!language) return [];
-    
+
     const deps: string[] = [];
-    
+
     // Extract imports/requires based on language
     switch (language.toLowerCase()) {
       case 'javascript':
@@ -892,13 +893,13 @@ export class LLMService {
         deps.push(...jsImports.map(imp => imp.match(/['"]([^'"]+)['"]/)![1]));
         deps.push(...requires.map(req => req.match(/['"]([^'"]+)['"]/)![1]));
         break;
-        
+
       case 'python':
         const pythonImports = content.match(/(?:from|import)\s+(\w+)/g) || [];
         deps.push(...pythonImports.map(imp => imp.replace(/(?:from|import)\s+/, '')));
         break;
     }
-    
+
     return [...new Set(deps)]; // Remove duplicates
   }
 
@@ -936,7 +937,7 @@ export class LLMService {
       this.invalidateModelsCache(),
       this.invalidateProvidersCache(),
       // Invalidate all provider-specific model caches
-      ...Array.from(this.providers.keys()).map(providerType => 
+      ...Array.from(this.providers.keys()).map(providerType =>
         this.invalidateProviderModelsCache(providerType)
       )
     ]);
