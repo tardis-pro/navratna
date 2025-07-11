@@ -220,7 +220,7 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
 
       // Check timeout with context-aware adjustments
       const turnDuration = now.getTime() - new Date(turnStartTime).getTime();
-      const baseTimeout = discussion.settings.turnTimeout || 300;
+      const baseTimeout = discussion.settings.turnTimeout || 30;
       
       // Adjust timeout based on context
       const adjustedTimeout = this.calculateContextAwareTimeout(
@@ -257,7 +257,7 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
     config?: TurnStrategyConfig
   ): Promise<number> {
     try {
-      const baseDuration = discussion.settings.turnTimeout || 300;
+      const baseDuration = discussion.settings.turnTimeout || 30;
       
       // Get context analysis
       const contextAnalysis = await this.getOrCreateContextAnalysis(discussion, [participant]);
@@ -285,7 +285,7 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
         participantId: participant.id,
         discussionId: discussion.id
       });
-      return discussion.settings.turnTimeout || 300;
+      return discussion.settings.turnTimeout || 30;
     }
   }
 

@@ -2,10 +2,13 @@
   "compilerOptions": {
     "target": "ES2020",
     "useDefineForClassFields": true,
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2020",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "module": "ESNext",
     "skipLibCheck": true,
-
     /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
@@ -14,7 +17,6 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "jsxImportSource": "react",
-
     /* Linting */
     "strict": false,
     "noUnusedLocals": false,
@@ -23,20 +25,42 @@
     "noFallthroughCasesInSwitch": false,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
-
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "@uaip/types": ["../../packages/shared-types/src"],
-      "@uaip/types/*": ["../../packages/shared-types/src/*"],
-      "@uaip/utils": ["../../packages/shared-utils/src"],
-      "@uaip/utils/*": ["../../packages/shared-utils/src/*"]
+      "@/*": [
+        "./src/*"
+      ],
+      "@uaip/types": [
+        "../../packages/shared-types/src"
+      ],
+      "@uaip/types/*": [
+        "../../packages/shared-types/src/*"
+      ],
+      "@uaip/utils": [
+        "../../packages/shared-utils/src"
+      ],
+      "@uaip/utils/*": [
+        "../../packages/shared-utils/src/*"
+      ]
     },
-    "typeRoots": ["./node_modules/@types", "../../node_modules/@types"]
+    "typeRoots": [
+      "./node_modules/@types",
+      "../../node_modules/@types"
+    ]
   },
-  "include": ["src", "../../node_modules/@types"],
+  "include": [
+    "src",
+    "../../node_modules/@types",
+    "../../packages/shared-utils/src/conversationFlow.ts",
+    "../../packages/shared-utils/src/conversationEnhancer.ts",
+    "../../packages/shared-utils/src/personaUtils.ts"
+  ],
   "references": [
-    { "path": "../../packages/shared-types" },
-    { "path": "../../packages/shared-utils" }
+    {
+      "path": "../../packages/shared-types"
+    },
+    {
+      "path": "../../packages/shared-utils"
+    }
   ]
 }

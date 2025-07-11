@@ -342,8 +342,8 @@ export const uaipAPI = {
 
     async end(id: string): Promise<void> {
       const client = getAPIClient();
-      // Use the complete method which exists in the API
-      await client.discussions.complete(id, 'Discussion completed');
+      // Use the end method which exists in the API
+      await client.discussions.end(id, 'Discussion terminated by user');
     },
 
     async addParticipant(id: string, participant: DiscussionParticipantCreate): Promise<DiscussionParticipant> {

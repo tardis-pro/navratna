@@ -679,3 +679,26 @@
 .z-shortcuts {
   z-index: 40;
 }
+
+/* Dialog and Modal z-index layers */
+.dialog-overlay {
+  z-index: 50;
+}
+
+.dialog-content {
+  z-index: 51;
+}
+
+/* Portal container z-index */
+.portal-container {
+  z-index: 10;
+}
+
+/* Discussion modal specific z-index */
+[data-radix-dialog-overlay] {
+  z-index: 50 !important;
+}
+
+[data-radix-dialog-content] {
+  z-index: 51 !important;
+}

@@ -461,6 +461,15 @@ export class DatabaseService {
     return this.oauthService;
   }
 
+  // Service getters for dependency injection
+  public getAgentService(): AgentService {
+    return this.agentService;
+  }
+
+  public getDiscussionService(): DiscussionService {
+    return this.discussions;
+  }
+
   // Legacy compatibility methods
   public async getRepository(entityClass: any): Promise<any> {
     await this.ensureInitialized();

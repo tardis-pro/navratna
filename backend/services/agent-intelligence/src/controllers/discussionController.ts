@@ -19,6 +19,43 @@ export class DiscussionController {
     this.discussionService = discussionService;
   }
 
+  public async listDiscussions(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const filters: DiscussionSearchFilters = {
+        page: req.query.page ? parseInt(req.query.page as string) : 1,
+        limit: req.query.limit ? parseInt(req.query.limit as string) : 20,
+        sortBy: req.query.sortBy as 'createdAt' | 'updatedAt' | 'title' || 'updatedAt',
+        sortOrder: req.query.sortOrder as 'asc' | 'desc' || 'desc',
+        status: req.query.status as string,
+        participantId: req.query.participantId as string,
+        search: req.query.search as string
+      };
+
+      logger.info('Listing discussions', { filters });
+
+      const result = await this.discussionService.searchDiscussions(filters, filters.limit, (filters.page - 1) * filters.limit);
+      const discussions = result.discussions;
+
+      res.status(200).json({
+        success: true,
+        data: discussions,
+        meta: {
+          timestamp: new Date(),
+          version: '1.0.0',
+          count: discussions.length,
+          filters
+        }
+      });
+
+    } catch (error) {
+      logger.error('Error listing discussions', { 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      next(error);
+    }
+  }
+
   public async createDiscussion(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const createRequest: CreateDiscussionRequest = req.body;
@@ -358,7 +395,7 @@ export class DiscussionController {
     try {
       const { discussionId } = req.params;
       const limit = parseInt(req.query.limit as string) || 50;
-      const offset = parseInt(req.query.offset as string);
+      const offset = parseInt(req.query.offset as string) || 0;
 
       logger.info('Retrieving discussion messages', { 
         discussionId,
@@ -439,7 +476,7 @@ export class DiscussionController {
       };
 
       const limit = parseInt(req.query.limit as string) || 20;
-      const offset = parseInt(req.query.offset as string);
+      const offset = parseInt(req.query.offset as string) || 0;
 
       logger.info('Searching discussions', { 
         filters: Object.keys(filters).filter(key => filters[key as keyof DiscussionSearchFilters] !== undefined),

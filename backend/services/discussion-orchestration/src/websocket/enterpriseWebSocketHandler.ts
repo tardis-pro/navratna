@@ -739,7 +739,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
     const staleThreshold = 5 * 60 * 1000; // 5 minutes
 
     for (const [connectionId, connection] of this.connections) {
-      if (now.getTime() - connection.lastActivity.getTime() > staleThreshold) {
+      if (now.getTime() - (connection.lastActivity instanceof Date ? connection.lastActivity.getTime() : new Date(connection.lastActivity).getTime()) > staleThreshold) {
         logger.info('Cleaning up stale connection', { connectionId });
         connection.ws.close(4408, 'Connection timeout');
         this.handleDisconnection(connectionId);
@@ -889,7 +889,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
     this.auditLog('WEBSOCKET_CONNECTION_CLOSED', {
       connectionId,
       userId: connection.userId,
-      sessionDuration: new Date().getTime() - connection.lastActivity.getTime()
+      sessionDuration: new Date().getTime() - (connection.lastActivity instanceof Date ? connection.lastActivity.getTime() : new Date(connection.lastActivity).getTime())
     });
   }
 

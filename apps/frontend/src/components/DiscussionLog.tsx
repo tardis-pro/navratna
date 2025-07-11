@@ -98,11 +98,8 @@ export const DiscussionLog: React.FC<DiscussionLogProps> = ({
       setIsStarting(false);
     }
   };
-  if(!history) {
-    return <div>No messages</div>;
-  }
-  // Filter and sort messages
-  const messages = history
+  // Filter and sort messages - handle empty history
+  const messages = (history || [])
     .filter(message => showThinkTokens || message.type !== 'thought')
     .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 

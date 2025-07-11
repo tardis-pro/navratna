@@ -25,6 +25,12 @@ export function createDiscussionRoutes(discussionController: DiscussionControlle
   // Apply authentication middleware to all routes
   router.use(authMiddleware);
 
+  // GET /api/v1/discussions - List all discussions
+  router.get(
+    '/',
+    discussionController.listDiscussions.bind(discussionController)
+  );
+
   // POST /api/v1/discussions
   router.post(
     '/',

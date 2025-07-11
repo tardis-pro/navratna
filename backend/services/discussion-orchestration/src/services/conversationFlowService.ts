@@ -1,5 +1,14 @@
-import { ConversationPattern } from '../types/agent';
-import { shouldPersonaActivate, getActivationPhrase, getConcernFlag, getBuildOnPattern, contextualTriggers } from '../data/personas';
+import { ConversationPattern } from '@uaip/types';
+import { 
+  shouldPersonaActivate,
+  getBuildOnPattern, 
+  getActivationPhrase,
+  getConcernFlag,
+  contextualTriggers 
+} from '@uaip/types';
+
+// Simple pattern type for conversation flow detection
+type SimpleConversationPattern = 'interruption' | 'build-on' | 'clarification' | 'concern' | 'expertise';
 
 export interface ConversationState {
   activePersonas: Set<string>;
@@ -21,63 +30,63 @@ export class ConversationFlowManager {
   }
 
   // Detect conversation patterns in content
-  detectPattern(content: string): ConversationPattern | null {
+  detectPattern(content: string): SimpleConversationPattern | null {
     const lowerContent = content.toLowerCase();
-    
+
     if (lowerContent.includes('wait,') || lowerContent.includes('hold on')) return 'interruption';
     if (lowerContent.includes('building on') || lowerContent.includes('adding to')) return 'build-on';
     if (lowerContent.includes('can someone explain') || lowerContent.includes('i\'m not sure')) return 'clarification';
     if (lowerContent.includes('what about') || lowerContent.includes('how do we')) return 'concern';
     if (lowerContent.includes('from a') && lowerContent.includes('perspective')) return 'expertise';
-    
+
     return null;
   }
 
   // Get personas that should be triggered by content
   getTriggeredPersonas(content: string): string[] {
     const triggered: string[] = [];
-    
+
     // Check all available personas for triggers
     const personaIds = [
       'tech-lead', 'software-engineer', 'qa-engineer', 'junior-dev', 'devops-engineer',
       'policy-analyst', 'economist', 'legal-expert', 'social-scientist', 'environmental-expert'
     ];
-    
+
     personaIds.forEach(personaId => {
       if (shouldPersonaActivate(personaId, content, contextualTriggers)) {
         triggered.push(personaId);
       }
     });
-    
+
     return triggered;
   }
 
   // Get appropriate response starter for a persona based on context
-  getResponseStarter(personaId: string, pattern: ConversationPattern | null): string {
+  getResponseStarter(personaId: string, pattern: SimpleConversationPattern | null): string {
     if (pattern === 'build-on') {
-      return getBuildOnPattern(personaId) || getActivationPhrase(personaId);
+      return getBuildOnPattern(personaId, contextualTriggers) || getActivationPhrase(personaId, contextualTriggers);
     }
-    
+
     if (pattern === 'concern') {
-      return getConcernFlag(personaId) || getActivationPhrase(personaId);
+      return getConcernFlag(personaId, contextualTriggers) || getActivationPhrase(personaId, contextualTriggers);
     }
-    
-    return getActivationPhrase(personaId);
+
+    return getActivationPhrase(personaId, contextualTriggers);
   }
 
   // Update conversation state
   updateState(speaker: string, content: string, triggeredPersonas: string[]) {
     this.state.lastSpeaker = speaker;
-    
+
     // Add triggered personas to active set
     triggeredPersonas.forEach(persona => {
       this.state.activePersonas.add(persona);
     });
-    
+
     // Extract topics (simple keyword extraction)
     const topics = this.extractTopics(content);
     this.state.recentTopics = [...new Set([...topics, ...this.state.recentTopics])].slice(0, 10);
-    
+
     // Detect conversation phase
     this.updateConversationPhase(content);
   }
@@ -89,7 +98,7 @@ export class ConversationFlowManager {
       'policy', 'cost', 'legal', 'environment', 'social', 'implementation',
       'design', 'quality', 'infrastructure', 'compliance', 'budget'
     ];
-    
+
     const lowerContent = content.toLowerCase();
     return topicKeywords.filter(keyword => lowerContent.includes(keyword));
   }
@@ -97,7 +106,7 @@ export class ConversationFlowManager {
   // Update conversation phase based on content
   private updateConversationPhase(content: string) {
     const lowerContent = content.toLowerCase();
-    
+
     if (lowerContent.includes('sprint') || lowerContent.includes('planning')) {
       this.state.conversationPhase = 'planning';
     } else if (lowerContent.includes('decision') || lowerContent.includes('decide')) {
@@ -126,4 +135,4 @@ export class ConversationFlowManager {
 }
 
 // Export singleton instance
-export const conversationFlow = new ConversationFlowManager(); 
+export const conversationFlow = new ConversationFlowManager();

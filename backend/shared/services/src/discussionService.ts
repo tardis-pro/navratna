@@ -196,11 +196,14 @@ export class DiscussionService {
       // Update discussion in database
       // Exclude complex fields from updates - they should be managed separately
       const { participants, outcomes, analytics, ...discussionUpdates } = updates;
-      const discussion = await this.databaseService.update<Discussion>(Discussion, id, {
+      await this.databaseService.update<Discussion>(Discussion, id, {
         ...discussionUpdates,
         updatedAt: new Date()
       });
 
+      // Fetch the updated discussion with all relations (especially participants)
+      const discussion = await this.databaseService.findById<Discussion>(Discussion, id, ['participants']);
+      
       if (!discussion) {
         throw new Error(`Failed to update discussion: ${id}`);
       }
@@ -290,16 +293,25 @@ export class DiscussionService {
         throw new Error(`Discussion not found: ${id}`);
       }
 
-      if (discussion.status !== DiscussionStatus.ACTIVE) {
+      // Allow ending discussions in ACTIVE or DRAFT status
+      // DRAFT discussions can be "cancelled" and ACTIVE discussions can be "completed"
+      if (discussion.status !== DiscussionStatus.ACTIVE && discussion.status !== DiscussionStatus.DRAFT) {
         throw new Error(`Discussion cannot be ended from status: ${discussion.status}`);
       }
 
-      // Calculate final metrics
-      const finalAnalytics = await this.calculateFinalAnalytics(id);
+      // Calculate final metrics (only for ACTIVE discussions)
+      const finalAnalytics = discussion.status === DiscussionStatus.ACTIVE 
+        ? await this.calculateFinalAnalytics(id)
+        : null;
+
+      // Determine final status based on current status
+      const finalStatus = discussion.status === DiscussionStatus.DRAFT 
+        ? DiscussionStatus.CANCELLED 
+        : DiscussionStatus.COMPLETED;
 
       // Update discussion status
       const updatedDiscussion = await this.updateDiscussion(id, {
-        status: DiscussionStatus.COMPLETED,
+        status: finalStatus,
         endedAt: new Date(),
         actualDuration: discussion.startedAt ?
           Date.now() - discussion.startedAt.getTime() : 0,
@@ -532,7 +544,7 @@ export class DiscussionService {
       // Update participant message count
       await this.databaseService.update('discussion_participants', participantId, {
         messageCount: (participant.messageCount) + 1,
-        lastActiveAt: new Date()
+        lastMessageAt: new Date()
       });
 
       // Update discussion state
@@ -599,6 +611,13 @@ export class DiscussionService {
       logger.error('Failed to get messages', { error: (error as Error).message, discussionId });
       throw error;
     }
+  }
+
+  // Alias method for backward compatibility
+  async getDiscussionMessages(discussionId: string, options: { limit?: number; offset?: number } = {}): Promise<DiscussionMessage[]> {
+    const { limit = 50, offset = 0 } = options;
+    const result = await this.getMessages(discussionId, limit, offset);
+    return result.messages;
   }
 
   // ===== TURN MANAGEMENT =====

@@ -108,6 +108,7 @@ export const API_ROUTES = {
     START: '/api/v1/discussions',
     PAUSE: '/api/v1/discussions',
     RESUME: '/api/v1/discussions',
+    END: '/api/v1/discussions',
     COMPLETE: '/api/v1/discussions',
     SEARCH: '/api/v1/discussions/search',
     ADD_PARTICIPANT: '/api/v1/discussions',
@@ -280,5 +281,6 @@ export const buildAPIURL = (route: string) => {
 export const getWebSocketURL = () => {
   const baseURL = getEffectiveAPIBaseURL();
   // Socket.IO client expects HTTP/HTTPS URL, not WS/WSS
+  // The nginx configuration routes /socket.io/ to discussion-orchestration service
   return baseURL; // Returns http://localhost:8081
 }; 

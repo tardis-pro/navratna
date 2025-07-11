@@ -131,7 +131,7 @@ export class RoundRobinStrategy implements TurnStrategyInterface {
 
       // Check if turn timeout has been reached
       const turnDuration = now.getTime() - new Date(turnStartTime).getTime();
-      const timeoutMs = (discussion.settings.turnTimeout || 300) * 1000;
+      const timeoutMs = (discussion.settings.turnTimeout || 30) * 1000;
       
       if (turnDuration >= timeoutMs) {
         logger.info('Turn timeout reached, advancing turn', {
@@ -164,7 +164,7 @@ export class RoundRobinStrategy implements TurnStrategyInterface {
   ): Promise<number> {
     try {
       // Base duration from discussion settings (no timeout in config for round robin)
-      let baseDuration = discussion.settings.turnTimeout || 300;
+      let baseDuration = discussion.settings.turnTimeout || 30;
 
       // Adjust based on participant's historical performance
       if (participant.messageCount > 0) {
@@ -191,7 +191,7 @@ export class RoundRobinStrategy implements TurnStrategyInterface {
         participantId: participant.id,
         discussionId: discussion.id,
         estimatedDuration: baseDuration,
-        baseDuration: discussion.settings.turnTimeout || 300
+        baseDuration: discussion.settings.turnTimeout || 30
       });
 
       return Math.round(baseDuration);
@@ -201,7 +201,7 @@ export class RoundRobinStrategy implements TurnStrategyInterface {
         participantId: participant.id,
         discussionId: discussion.id
       });
-      return discussion.settings.turnTimeout || 300;
+      return discussion.settings.turnTimeout || 30;
     }
   }
 

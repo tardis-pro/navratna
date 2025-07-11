@@ -18,8 +18,7 @@ import { IntelligencePanelPortal } from './futuristic/portals/IntelligencePanelP
 import { SecurityPortal } from './futuristic/portals/SecurityPortal';
 import { SystemConfigPortal } from './futuristic/portals/SystemConfigPortal';
 import { ToolManagementPortal } from './futuristic/portals/ToolManagementPortal';
-import { DiscussionControlsPortal } from './futuristic/portals/DiscussionControlsPortal';
-import { DiscussionLogPortal } from './futuristic/portals/DiscussionLogPortal';
+import { DiscussionPortal } from './DiscussionPortal';
 import { ProviderSettingsPortal } from './futuristic/portals/ProviderSettingsPortal';
 import { MiniBrowserPortal } from './futuristic/portals/MiniBrowserPortal';
 import { UserChatPortal } from './futuristic/portals/UserChatPortal';
@@ -141,8 +140,7 @@ const ALL_APPLICATIONS: Application[] = [
   { id: 'integrations', title: 'Integrations', icon: Wrench, color: 'text-cyan-400', component: ToolsIntegrationsPortal, category: 'tools', minimumRole: 'moderator' },
   
   // Discussion & Communication
-  { id: 'discussion', title: 'Discussions', icon: TrendingUp, color: 'text-teal-400', component: DiscussionControlsPortal, category: 'core', minimumRole: 'moderator' },
-  { id: 'discussion-logs', title: 'Discussion Logs', icon: History, color: 'text-emerald-400', component: DiscussionLogPortal, category: 'core', minimumRole: 'user' },
+  { id: 'discussion', title: 'AI Discussions', icon: MessageSquare, color: 'text-cyan-400', component: DiscussionPortal, category: 'core', minimumRole: 'user' },
   
   // Admin & Security
   { id: 'settings', title: 'Settings', icon: Settings, color: 'text-gray-400', component: SettingsPortal, category: 'security', minimumRole: 'admin' },
@@ -1020,6 +1018,10 @@ const ActionsMenu: React.FC<{
                 <kbd className="bg-slate-700 px-1 rounded">Ctrl+Shift+C</kbd>
               </div>
               <div className="flex justify-between">
+                <span>AI Discussion</span>
+                <kbd className="bg-slate-700 px-1 rounded">Ctrl+Shift+D</kbd>
+              </div>
+              <div className="flex justify-between">
                 <span>New Project</span>
                 <kbd className="bg-slate-700 px-1 rounded">Ctrl+Shift+P</kbd>
               </div>
@@ -1351,6 +1353,13 @@ export const Desktop: React.FC = () => {
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'P') {
         e.preventDefault();
         setShowProjectOnboarding(true);
+      }
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'D') {
+        e.preventDefault();
+        const discussionApp = APPLICATIONS.find(app => app.id === 'discussion');
+        if (discussionApp) {
+          openApplication(discussionApp);
+        }
       }
       if (e.altKey && e.code === 'Space') {
         e.preventDefault();

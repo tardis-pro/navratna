@@ -236,7 +236,7 @@ export const KnowledgeSearch: React.FC<KnowledgeSearchProps> = ({
               </PopoverContent>
             </Popover>
 
-              <motion.div
+            <motion.div
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
@@ -262,7 +262,7 @@ export const KnowledgeSearch: React.FC<KnowledgeSearchProps> = ({
                     </span>
                   )}
                 </Button>
-              </motion.div>
+            </motion.div>
           </div>
 
           {/* Active Filters Display */}

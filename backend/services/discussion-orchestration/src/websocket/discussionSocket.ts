@@ -54,6 +54,11 @@ const TypingSchema = z.object({
   discussionId: z.string().uuid('Discussion ID must be a valid UUID')
 });
 
+const StartDiscussionSchema = z.object({
+  discussionId: z.string().uuid('Discussion ID must be a valid UUID'),
+  startedBy: z.string().uuid('User ID must be a valid UUID').optional()
+});
+
 // Rate limiting configuration
 const RATE_LIMITS = {
   MESSAGES_PER_MINUTE: 30,
@@ -193,6 +198,17 @@ export function setupWebSocketHandlers(
       userId: socket.userId
     });
 
+    // Debug: Log all incoming events
+    socket.onAny((eventName: string, ...args: any[]) => {
+      logger.info('🎯 WebSocket event received', {
+        socketId: socket.id,
+        userId: socket.userId,
+        eventName,
+        data: args[0],
+        totalArgs: args.length
+      });
+    });
+
     // Join discussion room with enhanced validation
     socket.on('join_discussion', async (data: any) => {
       try {
@@ -279,6 +295,108 @@ export function setupWebSocketHandlers(
           socket.emit('error', { 
             code: 'JOIN_FAILED',
             message: 'Failed to join discussion'
+          });
+        }
+      }
+    });
+
+    // Start discussion with agent participation
+    socket.on('start_discussion', async (data: any) => {
+      try {
+        // Update activity timestamp
+        socket.lastActivity = new Date();
+        
+        // Validate input data
+        const validatedData = StartDiscussionSchema.parse(data);
+        const { discussionId, startedBy } = validatedData;
+
+        // Verify user has permission to start this discussion
+        const hasAccess = await orchestrationService.verifyParticipantAccess(
+          discussionId, 
+          socket.userId!
+        );
+
+        if (!hasAccess) {
+          logger.warn('WebSocket access denied to start discussion', {
+            socketId: socket.id,
+            userId: socket.userId,
+            discussionId,
+            securityLevel: socket.securityLevel
+          });
+          socket.emit('error', { 
+            code: 'ACCESS_DENIED',
+            message: 'No permission to start this discussion'
+          });
+          return;
+        }
+
+        logger.info('Starting discussion via WebSocket', {
+          socketId: socket.id,
+          userId: socket.userId,
+          discussionId,
+          startedBy: startedBy || socket.userId
+        });
+
+        // Start the discussion using orchestration service
+        const result = await orchestrationService.startDiscussion(
+          discussionId, 
+          startedBy || socket.userId!
+        );
+
+        if (result.success) {
+          // Notify all participants that discussion has started
+          socket.to(`discussion:${discussionId}`).emit('discussion_started', {
+            discussionId,
+            startedBy: startedBy || socket.userId,
+            timestamp: new Date(),
+            participants: result.data?.state?.activeParticipants || 0
+          });
+
+          // Confirm to the starter
+          socket.emit('discussion_started', {
+            discussionId,
+            startedBy: startedBy || socket.userId,
+            timestamp: new Date(),
+            participants: result.data?.state?.activeParticipants || 0,
+            success: true
+          });
+
+          logger.info('Discussion started successfully via WebSocket', {
+            socketId: socket.id,
+            userId: socket.userId,
+            discussionId,
+            activeParticipants: result.data?.state?.activeParticipants
+          });
+        } else {
+          socket.emit('error', {
+            code: 'START_FAILED',
+            message: result.error || 'Failed to start discussion'
+          });
+        }
+
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          logger.warn('Invalid start discussion data', {
+            socketId: socket.id,
+            userId: socket.userId,
+            validationErrors: error.errors,
+            data
+          });
+          socket.emit('error', { 
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid discussion start data',
+            details: error.errors.map(e => `${e.path.join('.')}: ${e.message}`)
+          });
+        } else {
+          logger.error('Failed to start discussion', {
+            socketId: socket.id,
+            userId: socket.userId,
+            error: error instanceof Error ? error.message : 'Unknown error',
+            stack: error instanceof Error ? error.stack : undefined
+          });
+          socket.emit('error', { 
+            code: 'START_FAILED',
+            message: 'Failed to start discussion'
           });
         }
       }

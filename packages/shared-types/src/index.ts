@@ -42,3 +42,5 @@ export * from './widget';
 export * from './conversation-intelligence';
 // Project types - NEW
 export * from './project';
+// Context triggers export
+export { contextualTriggers } from './contextTriggers';

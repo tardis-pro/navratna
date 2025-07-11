@@ -79,6 +79,10 @@ export const discussionsAPI = {
     return APIClient.post<Discussion>(`${API_ROUTES.DISCUSSIONS.RESUME}/${id}/resume`);
   },
 
+  async end(id: string, reason?: string): Promise<Discussion> {
+    return APIClient.post<Discussion>(`${API_ROUTES.DISCUSSIONS.END}/${id}/end`, { reason });
+  },
+
   async complete(id: string, summary?: string): Promise<Discussion> {
     return APIClient.post<Discussion>(`${API_ROUTES.DISCUSSIONS.COMPLETE}/${id}/complete`, { summary });
   },

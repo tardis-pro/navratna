@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { useAgents } from './AgentContext';
 import { useAuth } from './AuthContext';
+import { useEnhancedWebSocket } from '@/hooks/useEnhancedWebSocket';
 import uaipAPI from '@/utils/uaip-api';
 
 // Import shared types
@@ -68,7 +69,7 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
   children
 }) => {
   const [isActive, setIsActive] = useState<boolean>(false);
-  const [isWebSocketConnected, setIsWebSocketConnected] = useState<boolean>(true); // Assume connected for now
+  const [isWebSocketConnected, setIsWebSocketConnected] = useState<boolean>(false);
   const [websocketError, setWebsocketError] = useState<string | null>(null);
   const [participants, setParticipants] = useState<DiscussionParticipant[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -80,6 +81,103 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
   
   const { agents } = useAgents();
   const { user } = useAuth();
+  
+  // WebSocket connection for discussion orchestration
+  const { 
+    isConnected: wsConnected, 
+    sendMessage: sendWebSocketMessage, 
+    lastEvent,
+    authStatus 
+  } = useEnhancedWebSocket();
+
+  // Sync WebSocket connection status
+  useEffect(() => {
+    setIsWebSocketConnected(wsConnected);
+  }, [wsConnected]);
+
+  // Listen for discussion events
+  useEffect(() => {
+    if (lastEvent) {
+      console.log('📡 Discussion WebSocket event received:', lastEvent);
+      
+      switch (lastEvent.type) {
+        case 'joined_discussion':
+          console.log('✅ Joined discussion room:', lastEvent.payload);
+          break;
+          
+        case 'discussion_started':
+          console.log('✅ Discussion started event received:', lastEvent.payload);
+          setIsActive(true);
+          setLastError(null);
+          setIsLoading(false); // Clear loading state on success
+          break;
+          
+        case 'message_received':
+          console.log('💬 Message received event:', lastEvent.payload);
+          // Handle both direct message format and orchestration service event format
+          const messageData = lastEvent.payload?.message || lastEvent.payload?.data?.message;
+          if (messageData) {
+            const newMessage: Message = {
+              id: messageData.id,
+              content: messageData.content,
+              sender: messageData.metadata?.agentName || messageData.participantId || 'agent',
+              timestamp: new Date(messageData.createdAt || messageData.timestamp),
+              type: 'response',
+              agentId: messageData.metadata?.agentId,
+              confidence: messageData.metadata?.confidence,
+              metadata: messageData.metadata
+            };
+            // Add to both real-time messages and history for immediate display
+            setMessages(prev => [...prev, newMessage]);
+            setHistory(prev => [...prev, newMessage]);
+          }
+          break;
+          
+        case 'participant_joined':
+          console.log('👥 Participant joined:', lastEvent.payload);
+          break;
+          
+        case 'participant_left':
+          console.log('👥 Participant left:', lastEvent.payload);
+          break;
+          
+        case 'turn_changed':
+          console.log('🔄 Turn changed:', lastEvent.payload);
+          if (lastEvent.payload?.currentTurn) {
+            setCurrentTurn({
+              participantId: lastEvent.payload.currentTurn.participantId,
+              startedAt: new Date(lastEvent.payload.currentTurn.startedAt),
+              expectedEndAt: new Date(lastEvent.payload.currentTurn.expectedEndAt),
+              turnNumber: lastEvent.payload.currentTurn.turnNumber
+            });
+          }
+          break;
+          
+        case 'error':
+          console.error('❌ Discussion error:', lastEvent.payload);
+          setLastError(lastEvent.payload.message || 'Discussion error occurred');
+          setIsLoading(false);
+          break;
+          
+        default:
+          console.log('🔹 Other discussion event:', lastEvent.type, lastEvent.payload);
+          break;
+      }
+    }
+  }, [lastEvent]);
+
+  // Add timeout mechanism for WebSocket operations
+  useEffect(() => {
+    if (isLoading && discussionId) {
+      const timeout = setTimeout(() => {
+        console.warn('⏰ Discussion start timeout - no response received within 10 seconds');
+        setLastError('Discussion start timeout. Please try again.');
+        setIsLoading(false);
+      }, 10000); // 10 second timeout
+
+      return () => clearTimeout(timeout);
+    }
+  }, [isLoading, discussionId]);
 
   const start = async (topic?: string, agentIds?: string[], enhancedContext?: any) => {
     if (isActive) {
@@ -89,6 +187,7 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
 
     if (!isWebSocketConnected) {
       console.warn('Cannot start discussion: WebSocket not connected');
+      setLastError('WebSocket not connected. Please check your connection.');
       return;
     }
 
@@ -125,23 +224,9 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
         console.warn(`Only ${selectedAgentIds.length} agent(s) available, proceeding with minimum participants`);
       }
 
-      console.log('Starting discussion with agents:', selectedAgentIds);
+      console.log('🎯 Creating discussion with agents:', selectedAgentIds);
 
-      // Check if discussion already exists and is active
-      if (discussionId) {
-        try {
-          const existingDiscussion = await uaipAPI.discussions.get(discussionId);
-          if (existingDiscussion && existingDiscussion.status === 'active') {
-            console.log('Discussion is already active, joining existing discussion');
-            setIsActive(true);
-            return;
-          }
-        } catch (error) {
-          console.warn('Could not check existing discussion status:', error);
-    }
-      }
-
-      // Create new discussion if none exists or existing one is not active
+      // STEP 1: Create discussion via agent-intelligence API (existing behavior)
       let currentDiscussionId = discussionId;
       
       if (!currentDiscussionId) {
@@ -151,7 +236,7 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
             ? `${enhancedContext.purpose} discussion to generate ${enhancedContext.targetArtifact}: ${discussionTopic}`
             : `Automated discussion on ${discussionTopic}`,
           topic: discussionTopic,
-          createdBy: user.id, // Use actual logged-in user ID (guaranteed to exist due to check above)
+          createdBy: user.id,
           initialParticipants: selectedAgentIds.map(agentId => ({
             agentId,
             role: 'participant' as const
@@ -183,38 +268,48 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
           }
         };
         
-        console.log('Creating discussion with request:', {
+        console.log('📝 Creating discussion via agent-intelligence API:', {
           title: createRequest.title,
           topic: createRequest.topic,
           createdBy: createRequest.createdBy,
-          participantCount: createRequest.initialParticipants.length,
-          turnStrategy: createRequest.turnStrategy
+          participantCount: createRequest.initialParticipants.length
         });
         
         const newDiscussion = await uaipAPI.discussions.create(createRequest);
         currentDiscussionId = newDiscussion.id;
         setDiscussionId(currentDiscussionId);
+        console.log('✅ Discussion created successfully:', currentDiscussionId);
       }
 
-      // Try to start the discussion, but handle the case where it's already active
-      try {
-        await uaipAPI.discussions.start(currentDiscussionId, user?.id);
-        console.log('Discussion started successfully');
-      } catch (error: any) {
-        if (error.message?.includes('cannot be started from status: active')) {
-          console.log('Discussion is already active, proceeding...');
-        } else {
-          throw error;
-        }
-      }
+      // STEP 2: Join discussion room via WebSocket
+      console.log('🏠 Joining discussion room via WebSocket:', {
+        discussionId: currentDiscussionId
+      });
 
-      // Set discussion as active
-      setIsActive(true);
+      // Join the discussion room to receive events
+      sendWebSocketMessage('join_discussion', {
+        discussionId: currentDiscussionId
+      });
+
+      // STEP 3: Start discussion via WebSocket to discussion-orchestration (new behavior)
+      console.log('🚀 Starting discussion via WebSocket:', {
+        discussionId: currentDiscussionId,
+        startedBy: user.id
+      });
+
+      // Send WebSocket message to start discussion
+      sendWebSocketMessage('start_discussion', {
+        discussionId: currentDiscussionId,
+        startedBy: user.id
+      });
       
-      console.log('Discussion setup completed - participants were added during creation');
+      console.log('📡 WebSocket start_discussion event sent - waiting for confirmation...');
+      
+      // Note: The discussion will be marked as active when we receive the 'discussion_started' event
+      // This is handled in the useEffect that listens to WebSocket events
 
     } catch (error) {
-      console.error('Failed to start discussion:', error);
+      console.error('❌ Failed to start discussion:', error);
       
       // Enhanced error logging for validation failures
       if (error instanceof Error) {
@@ -222,10 +317,10 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
           console.error('Discussion validation failed. Check required fields:', {
             requiredFields: ['title', 'topic', 'createdBy', 'initialParticipants (min 1)'],
             providedData: {
-              title: discussionTopic ? `Discussion: ${discussionTopic}` : 'MISSING',
-              topic: discussionTopic || 'MISSING',
+              title: `Discussion: ${topic || 'General Discussion'}`,
+              topic: topic || 'General Discussion',
               createdBy: user?.id || 'MISSING',
-              participantCount: selectedAgentIds?.length || 0
+              participantCount: agentIds?.length || 0
             }
           });
         }
@@ -233,7 +328,6 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
       } else {
         setLastError('Failed to start discussion');
       }
-    } finally {
       setIsLoading(false);
     }
   };
@@ -245,6 +339,14 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
 
     try {
       setIsLoading(true);
+      
+      // Leave the discussion room via WebSocket
+      if (isWebSocketConnected) {
+        sendWebSocketMessage('leave_discussion', {
+          discussionId: discussionId
+        });
+      }
+      
       await uaipAPI.discussions.end(discussionId);
       setIsActive(false);
       setDiscussionId(null);
@@ -289,10 +391,28 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
     }
   };
 
-  const loadHistory = async (discussionId: string) => {
+  // Track last load time to prevent too frequent calls
+  const lastLoadTimeRef = useRef<number>(0);
+  const loadHistoryRef = useRef<string | null>(null);
+
+  const loadHistory = useCallback(async (discussionId: string) => {
+    // Prevent loading the same discussion multiple times in quick succession
+    if (loadHistoryRef.current === discussionId) {
+      return;
+    }
+    
+    // Throttle requests to once per minute
+    const now = Date.now();
+    if (now - lastLoadTimeRef.current < 60000) { // 1 minute throttle
+      console.log('Throttling loadHistory call - waiting 1 minute between calls');
+      return;
+    }
+    
     try {
       setIsLoading(true);
       setLastError(null);
+      loadHistoryRef.current = discussionId;
+      lastLoadTimeRef.current = now;
       
       console.log('Loading discussion history for:', discussionId);
       
@@ -326,13 +446,14 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
       setHistory([]); // Clear history on error
     } finally {
       setIsLoading(false);
+      loadHistoryRef.current = null;
     }
-  };
+  }, []);
 
   const value: DiscussionContextType = {
     isActive,
     isWebSocketConnected,
-    websocketError,
+    websocketError: websocketError || (authStatus === 'failed' ? 'WebSocket authentication failed' : null),
     participants,
     messages,
     history,
@@ -345,6 +466,17 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
     addMessage,
     loadHistory
   };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (isWebSocketConnected && discussionId) {
+        sendWebSocketMessage('leave_discussion', {
+          discussionId: discussionId
+        });
+      }
+    };
+  }, [isWebSocketConnected, discussionId, sendWebSocketMessage]);
 
   return (
     <DiscussionContext.Provider value={value}>

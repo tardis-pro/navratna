@@ -1,11 +1,14 @@
 import express from 'express';
 import { BaseService, DiscussionService, PersonaService } from '@uaip/shared-services';
+import { LLMService } from '@uaip/llm-service';
 import { DiscussionEventType } from '@uaip/types';
 import { createAgentRoutes } from './routes/agentRoutes.js';
 import knowledgeRoutes from './routes/knowledgeRoutes.js';
 import { createDiscussionRoutes } from './routes/discussionRoutes.js';
+import { createConversationEnhancementRoutes } from './routes/conversationEnhancementRoutes.js';
 import { DiscussionController } from './controllers/discussionController.js';
 import { AgentDiscussionService } from './services/AgentDiscussionService.js';
+import { ConversationEnhancementService } from './services/conversationEnhancementService.js';
 import { initializeChatIngestionServices } from './controllers/chatIngestionController.js';
 import { logger } from '@uaip/utils';
 
@@ -14,6 +17,8 @@ class AgentIntelligenceService extends BaseService {
   private discussionService: DiscussionService;
   private discussionController: DiscussionController;
   private personaService: PersonaService;
+  private conversationEnhancementService: ConversationEnhancementService;
+  private llmService: LLMService;
 
   constructor() {
     super({
@@ -42,6 +47,7 @@ class AgentIntelligenceService extends BaseService {
     this.app.use('/api/v1/agents', createAgentRoutes());
     this.app.use('/api/v1/knowledge', knowledgeRoutes);
     this.app.use('/api/v1/discussions', createDiscussionRoutes(this.discussionController));
+    this.app.use('/api/v1/conversation', createConversationEnhancementRoutes(this.conversationEnhancementService));
     
     // Test endpoint for manual sync trigger
     this.app.post('/test/sync', async (req, res) => {
@@ -166,6 +172,106 @@ class AgentIntelligenceService extends BaseService {
       }
     });
 
+    // Subscribe to conversation enhancement requests from discussion orchestration
+    await this.eventBusService.subscribe('conversation.enhancement.request', async (event) => {
+      try {
+        const { discussionId, availableAgentIds, messageHistory, currentTopic, enhancementType, context } = event.data;
+        
+        logger.info('Processing conversation enhancement request', {
+          discussionId,
+          agentCount: availableAgentIds?.length,
+          messageCount: messageHistory?.length,
+          enhancementType
+        });
+
+        // Get agent objects from IDs
+        const availableAgents = [];
+        for (const agentId of availableAgentIds || []) {
+          try {
+            const agent = await this.databaseService.getAgentService().findAgentById(agentId);
+            if (agent) {
+              availableAgents.push(agent);
+            }
+          } catch (error) {
+            logger.warn('Failed to get agent for enhancement', { agentId, error });
+          }
+        }
+
+        if (availableAgents.length === 0) {
+          logger.warn('No valid agents found for enhancement request', { discussionId });
+          return;
+        }
+
+        // Process enhancement request
+        const result = await this.conversationEnhancementService.getEnhancedContribution({
+          discussionId,
+          availableAgents,
+          messageHistory: messageHistory || [],
+          currentTopic: currentTopic || '',
+          enhancementType: enhancementType || 'auto',
+          context
+        });
+
+        if (result.success && result.enhancedResponse) {
+          try {
+            // Find the participant ID for the selected agent
+            const discussion = await this.databaseService.getDiscussionService().getDiscussion(discussionId);
+            const participant = discussion?.participants?.find(p => p.agentId === result.selectedAgent?.id);
+
+            if (participant) {
+              // Send enhanced response back to discussion orchestration
+              await this.eventBusService.publish('discussion.message.send', {
+                discussionId,
+                participantId: participant.id,
+                content: result.enhancedResponse,
+                messageType: 'agent_contribution',
+                metadata: {
+                  agentId: result.selectedAgent?.id,
+                  personaId: result.selectedPersona?.id,
+                  enhancementType: 'contextual',
+                  contributionScore: result.contributionScores?.[0]?.score,
+                  suggestions: result.suggestions || [],
+                  nextActions: result.nextActions || []
+                }
+              });
+
+              logger.info('Enhanced conversation response sent', {
+                discussionId,
+                agentId: result.selectedAgent?.id,
+                personaId: result.selectedPersona?.id,
+                responseLength: result.enhancedResponse.length
+              });
+            } else {
+              logger.warn('Could not find participant for enhanced response', {
+                discussionId,
+                agentId: result.selectedAgent?.id,
+                discussionExists: !!discussion,
+                participantCount: discussion?.participants?.length || 0
+              });
+            }
+          } catch (publishError) {
+            logger.error('Failed to publish enhanced response', {
+              discussionId,
+              error: publishError instanceof Error ? publishError.message : 'Unknown error',
+              stack: publishError instanceof Error ? publishError.stack : undefined
+            });
+          }
+        } else {
+          logger.info('No enhanced response generated', {
+            discussionId,
+            success: result.success,
+            error: result.error
+          });
+        }
+
+      } catch (error) {
+        logger.error('Failed to process conversation enhancement request', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          discussionId: event?.data?.discussionId
+        });
+      }
+    });
+
     // DEPRECATED: Agent participation is now handled by Discussion Orchestration service
     // via 'agent.discussion.participate' events. This removes the duplicate event handler
     // that was causing participant ID conflicts and "Participant not found" errors.
@@ -173,6 +279,7 @@ class AgentIntelligenceService extends BaseService {
     // events in its setupDiscussionEventSubscriptions() method.
 
     logger.info('Agent chat WebSocket event subscription established');
+    logger.info('Conversation enhancement event subscription established');
     logger.info('Agent discussion participation events will be handled via AgentDiscussionService');
   }
 
@@ -187,6 +294,19 @@ class AgentIntelligenceService extends BaseService {
       eventBusService: this.eventBusService
     });
     logger.info('PersonaService initialized');
+
+    // Initialize LLMService (legacy - conversation enhancement now uses events)
+    this.llmService = LLMService.getInstance();
+    logger.info('LLMService initialized (legacy)');
+
+    // Initialize ConversationEnhancementService (now event-driven)
+    this.conversationEnhancementService = new ConversationEnhancementService(
+      this.databaseService,
+      this.eventBusService
+      // No longer passing LLMService - using event-driven approach
+    );
+    await this.conversationEnhancementService.initialize();
+    logger.info('ConversationEnhancementService initialized');
 
     // Initialize AgentDiscussionService
     this.agentDiscussionService = new AgentDiscussionService();

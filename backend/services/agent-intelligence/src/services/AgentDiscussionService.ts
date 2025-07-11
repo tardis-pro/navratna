@@ -322,7 +322,7 @@ export class AgentDiscussionService {
     return new Promise(async (resolve, reject) => {
       const requestId = `llm_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
-      // Set up timeout (10 seconds for LLM generation)
+      // Set up timeout (30 seconds for LLM generation - increased for better reliability)
       const timeout = setTimeout(() => {
         this.pendingLLMRequests.delete(requestId);
         logger.warn('LLM generation timeout', { requestId, agentId });
@@ -331,7 +331,7 @@ export class AgentDiscussionService {
           content: this.generateQuickFallbackResponse(message, agentId),
           confidence: 0.5
         });
-      }, 10000);
+      }, 30000);
 
       // Store the promise handlers
       this.pendingLLMRequests.set(requestId, {
