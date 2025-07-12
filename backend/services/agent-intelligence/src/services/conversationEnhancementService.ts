@@ -936,10 +936,10 @@ export class ConversationEnhancementService extends EventEmitter {
 
   private async setupEventSubscriptions(): Promise<void> {
     // Subscribe to discussion participation events
-    await this.eventBusService.subscribe(
-      'agent.discussion.participate',
-      this.processDiscussionParticipation.bind(this)
-    );
+    // await this.eventBusService.subscribe(
+    //   'agent.discussion.participate',
+    //   this.processDiscussionParticipation.bind(this)
+    // );
 
     // Subscribe to agent updates
     await this.eventBusService.subscribe(
