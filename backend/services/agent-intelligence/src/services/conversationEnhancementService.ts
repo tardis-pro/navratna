@@ -251,25 +251,49 @@ export class ConversationEnhancementService extends EventEmitter {
             const discussion = await this.databaseService.discussions.getDiscussion(discussionId);
             if (discussion && discussion.createdBy) {
               userId = discussion.createdBy;
+              logger.info('Found discussion creator for LLM provider', { 
+                discussionId, 
+                createdBy: userId,
+                discussionTitle: discussion.title 
+              });
+            } else {
+              logger.warn('No discussion creator found', { discussionId, discussion: !!discussion });
             }
           } catch (error) {
             logger.warn('Failed to get discussion creator for LLM provider', { discussionId, error });
           }
+        } else {
+          logger.warn('No discussionId provided for LLM generation');
         }
 
         // Use user's LLM provider if available, otherwise fallback to system
         if (userId) {
-          // Use user-specific LLM request
+          // Create a basic agent structure for the request
+          const agentData = {
+            id: 'ai-agent',
+            name: 'AI Assistant',
+            persona: {
+              description: 'An intelligent conversation participant'
+            }
+          };
+
+          // Create minimal message history (empty for now)
+          const formattedMessages = [];
+
+          // Use user-specific LLM request with proper AgentResponseRequest structure
           await this.eventBusService.publish('llm.user.request', {
             requestId,
             userId,
             agentRequest: {
-              prompt: prompt,
-              systemPrompt: systemPrompt,
-              maxTokens: maxTokens,
-              temperature: temperature,
-              model: 'auto', // Let user's provider choose best model
-              provider: 'auto' // Use user's configured provider
+              agent: agentData,
+              messages: formattedMessages,
+              context: {
+                id: discussionId || 'discussion',
+                title: 'Discussion',
+                content: `Topic: General discussion\n\nPrompt: ${prompt}\n\nSystem Instructions: ${systemPrompt}`,
+                type: 'discussion'
+              },
+              tools: [] // Add tools if needed
             },
             service: 'agent-intelligence'
           });

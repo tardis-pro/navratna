@@ -210,6 +210,7 @@ export class LLMService {
       logger.info('LLM response generated successfully', {
         tokensUsed: response.tokensUsed,
         duration,
+        response,
         isError: !!response.error
       });
 

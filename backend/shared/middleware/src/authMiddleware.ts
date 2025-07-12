@@ -330,45 +330,63 @@ export const validateJWTToken = async (token: string): Promise<{
   complianceFlags?: string[];
   reason?: string;
 }> => {
-  try {
-    // Verify JWT token using JWTValidator
-    const decoded = JWTValidator.verify(token);
-
-    // Validate token payload structure
-    if (!decoded.userId || !decoded.email || !decoded.role) {
-      return {
+  // Add timeout wrapper to prevent hanging
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => {
+      logger.warn('JWT token validation timed out', { tokenLength: token?.length || 0 });
+      resolve({
         valid: false,
-        reason: 'Invalid token payload - missing required fields'
-      };
-    }
+        reason: 'Authentication service timeout'
+      });
+    }, 5000); // 5 second timeout
 
-    // Check if token is expired (additional check beyond JWT verification)
-    if (decoded.exp && Date.now() >= decoded.exp * 1000) {
-      return {
+    try {
+      // Verify JWT token using JWTValidator (synchronous operation)
+      const decoded = JWTValidator.verify(token);
+
+      clearTimeout(timeout);
+
+      // Validate token payload structure
+      if (!decoded.userId || !decoded.email || !decoded.role) {
+        resolve({
+          valid: false,
+          reason: 'Invalid token payload - missing required fields'
+        });
+        return;
+      }
+
+      // Check if token is expired (additional check beyond JWT verification)
+      if (decoded.exp && Date.now() >= decoded.exp * 1000) {
+        resolve({
+          valid: false,
+          reason: 'Token expired'
+        });
+        return;
+      }
+
+      resolve({
+        valid: true,
+        userId: decoded.userId,
+        email: decoded.email,
+        role: decoded.role,
+        username: decoded.email.split('@')[0], // Extract username from email
+        sessionId: decoded.sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        securityLevel: 3, // Default security level
+        complianceFlags: [] // Default empty compliance flags
+      });
+
+    } catch (error) {
+      clearTimeout(timeout);
+      
+      logger.warn('JWT token validation failed', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        tokenLength: token?.length || 0
+      });
+
+      resolve({
         valid: false,
-        reason: 'Token expired'
-      };
+        reason: error instanceof Error ? error.message : 'Token validation failed'
+      });
     }
-
-    return {
-      valid: true,
-      userId: decoded.userId,
-      email: decoded.email,
-      role: decoded.role,
-      username: decoded.email.split('@')[0], // Extract username from email
-      sessionId: decoded.sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      securityLevel: 3, // Default security level
-      complianceFlags: [] // Default empty compliance flags
-    };
-
-  } catch (error) {
-    logger.warn('JWT token validation failed', {
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
-
-    return {
-      valid: false,
-      reason: error instanceof Error ? error.message : 'Token validation failed'
-    };
-  }
+  });
 }; 

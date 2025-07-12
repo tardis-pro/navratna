@@ -53,25 +53,47 @@ export class ConversationIntelligenceHandler {
 
     ciNamespace.on('connection', async (socket: Socket) => {
       try {
+        this.logger.info('New conversation intelligence connection attempt', {
+          socketId: socket.id,
+          remoteAddress: socket.request.connection.remoteAddress
+        });
+
         // Authenticate the connection with proper error handling
         const token = socket.handshake.auth.token;
         if (!token) {
-          this.logger.warn('No authentication token provided');
+          this.logger.warn('No authentication token provided', { socketId: socket.id });
+          socket.emit('error', { message: 'Authentication failed: No token provided' });
           socket.disconnect();
           return;
         }
+        
+        this.logger.debug('Token received for validation', { 
+          socketId: socket.id, 
+          tokenLength: token.length 
+        });
         
         let decoded;
         try {
           decoded = await validateJWTToken(token);
+          this.logger.debug('Token validation result:', { 
+            valid: decoded.valid, 
+            userId: decoded.userId, 
+            reason: decoded.reason 
+          });
         } catch (error) {
-          this.logger.error('Token validation failed:', error);
+          this.logger.error('Token validation exception:', error);
+          socket.emit('error', { message: 'Authentication failed: Token validation exception' });
           socket.disconnect();
           return;
         }
         
-        if (!decoded || !decoded.userId) {
-          this.logger.warn('Invalid token or missing userId');
+        if (!decoded || !decoded.valid || !decoded.userId) {
+          this.logger.warn('Invalid token or missing userId', { 
+            valid: decoded?.valid, 
+            userId: decoded?.userId, 
+            reason: decoded?.reason 
+          });
+          socket.emit('error', { message: `Authentication failed: ${decoded?.reason || 'Invalid token'}` });
           socket.disconnect();
           return;
         }

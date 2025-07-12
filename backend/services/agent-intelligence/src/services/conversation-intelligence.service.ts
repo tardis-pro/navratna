@@ -378,9 +378,9 @@ export class ConversationIntelligenceService {
   // Helper methods
 
   private async classifyIntentWithLLM(text: string, context: any): Promise<Intent> {
-    const prompt = `Classify the following user input into an intent category and sub-type:
+    const prompt = `System Instructions: You are an expert intent classifier. Analyze user input and classify it into precise intent categories with high accuracy.
 
-User input: "${text}"
+Prompt: Classify this user input: "${text}"
 
 Context: ${JSON.stringify(context?.previousMessages?.slice(-3) || [])}
 
@@ -543,8 +543,11 @@ Respond in JSON format:
   }
 
   private async extractKeywords(text: string): Promise<string[]> {
-    const prompt = `Extract 3-5 key topics/keywords from this text: "${text}"
-Return as a JSON array of strings.`;
+    const prompt = `System Instructions: You are an expert keyword extraction specialist. Extract the most relevant and important keywords from text.
+
+Prompt: Extract 3-5 key topics/keywords from this text: "${text}"
+
+Return as a JSON array of strings containing the most important concepts, themes, or topics.`;
 
     try {
       const response = await this.requestLLMGeneration(prompt, { maxTokens: 100, temperature: 0.3 });
@@ -565,13 +568,16 @@ Return as a JSON array of strings.`;
     count: number
   ): Promise<PromptSuggestion[]> {
     try {
-      const prompt = `Generate ${count} personalized prompt suggestions based on:
+      const prompt = `System Instructions: You are an expert conversation facilitator specializing in generating personalized, contextually relevant prompt suggestions based on user patterns and conversation history.
+
+Prompt: Generate ${count} personalized prompt suggestions based on:
 
 Current context: ${JSON.stringify(context)}
 User patterns: ${JSON.stringify(patterns.slice(0, 3))}
 Similar past conversations: ${JSON.stringify(similarConversations.slice(0, 3).map(c => c.payload))}
 
-Generate diverse, relevant prompts that the user is likely to ask next.
+Generate diverse, relevant prompts that the user is likely to ask next, considering their conversation patterns and current context.
+
 Return as JSON array with format:
 [{
   "prompt": "...",
@@ -721,29 +727,61 @@ Return as JSON array with format:
 
   private buildEnhancementPrompt(enhancementType: string, currentText: string, context: any): string {
     const base = currentText || '';
+    const purpose = context.purpose || 'general';
+    const discussionType = context.discussionType || 'collaborative';
     
     switch (enhancementType) {
       case 'topic':
-        return `Generate 3 enhanced discussion topic suggestions based on: "${base}". Purpose: ${context.purpose || 'general'}. Discussion type: ${context.discussionType || 'collaborative'}. Make them engaging and specific.`;
+        return `System Instructions: You are an expert discussion facilitator. Generate exactly 3 enhanced discussion topic suggestions that are engaging, specific, and actionable.
+
+Prompt: Based on the input "${base}", create 3 improved discussion topics for a ${discussionType} discussion with ${purpose} purpose. Each topic should be:
+- Clear and specific (not vague)
+- Engaging and thought-provoking
+- Actionable with clear discussion outcomes
+- Appropriate for the intended purpose and discussion type
+
+Format as a simple list, one topic per line, without numbering or bullet points.`;
       
       case 'context':
-        return `Enhance this discussion context: "${base}". Add relevant constraints, considerations, and focus areas for a ${context.purpose || 'productive'} discussion.`;
+        return `System Instructions: You are an expert meeting planner and discussion facilitator. Your role is to enhance discussion context by adding structure, constraints, and focus areas.
+
+Prompt: Enhance this discussion context: "${base}"
+
+Add relevant elements for a ${purpose} discussion:
+- Key constraints or limitations to consider
+- Important focus areas or objectives
+- Success criteria or desired outcomes
+- Relevant considerations or prerequisites
+
+Keep the enhancement concise but comprehensive, maintaining the original intent while adding valuable structure.`;
       
       default:
-        return `Enhance and improve this text: "${base}". Make it more clear, comprehensive, and actionable while maintaining the original intent.`;
+        return `System Instructions: You are an expert communication specialist. Your role is to improve text clarity, comprehensiveness, and actionability while preserving the original intent.
+
+Prompt: Improve this text: "${base}"
+
+Make it:
+- More clear and specific
+- More comprehensive with relevant details
+- More actionable with concrete next steps
+- Better structured and easier to understand
+
+Maintain the original intent and tone while enhancing clarity and usefulness.`;
     }
   }
 
   private async generateTopicWithEventBus(conversationText: string, currentTopic: string, conversationId: string): Promise<string> {
     try {
-      const prompt = `Analyze this conversation and generate a concise topic name (2-5 words):
+      const prompt = `System Instructions: You are an expert conversation analyzer. Generate concise, descriptive topic names that capture the essence of discussions.
+
+Prompt: Analyze this conversation and generate a concise topic name (2-5 words):
 
 Current topic: ${currentTopic || 'None'}
 
 Conversation:
 ${conversationText}
 
-Generate a topic that captures the main theme of the discussion.`;
+Generate a topic that captures the main theme and focus of the discussion. Keep it specific and descriptive.`;
 
       const response = await this.requestLLMGeneration(prompt, { maxTokens: 50, temperature: 0.3 });
       return response.trim();

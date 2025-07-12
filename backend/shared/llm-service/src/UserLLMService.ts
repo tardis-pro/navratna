@@ -352,17 +352,50 @@ export class UserLLMService {
         systemPromptLength: systemPrompt.length,
         systemPrompt: systemPrompt.substring(0, 500) + (systemPrompt.length > 500 ? '...' : ''),
         agentPromptLength: agentPrompt.length,
-        agentPrompt: agentPrompt.substring(0, 300) + (agentPrompt.length > 300 ? '...' : '')
+        agentPrompt: agentPrompt.substring(0, 300) + (agentPrompt.length > 300 ? '...' : ''),
+        hasContext: !!request.context,
+        contextContent: request.context?.content?.substring(0, 200) || 'none'
       });
+
+      // Extract original prompt and systemPrompt if context contains them
+      let finalPrompt = agentPrompt;
+      let finalSystemPrompt = systemPrompt;
+      
+      // If context contains embedded prompts (for compatibility with current architecture)
+      if (request.context && request.context.content) {
+        const contextContent = request.context.content;
+        const promptMatch = contextContent.match(/Prompt: (.*?)(?:\n|$)/);
+        const systemMatch = contextContent.match(/System Instructions: (.*?)(?:\n|$)/);
+        
+        if (promptMatch && promptMatch[1]) {
+          finalPrompt = promptMatch[1];
+        }
+        if (systemMatch && systemMatch[1]) {
+          finalSystemPrompt = systemMatch[1];
+        }
+      }
 
       // Convert to LLM request
       const llmRequest: LLMRequest = {
-        prompt: agentPrompt,
-        systemPrompt: systemPrompt,
+        prompt: finalPrompt,
+        systemPrompt: finalSystemPrompt,
         maxTokens: 200, // Keep responses concise
         temperature: 0.7,
         model: request.agent.configuration?.model || request.agent.modelId
       };
+
+      // Log final prompts being used
+      logger.info('UserLLMService.generateAgentResponse - Final prompts for LLM', {
+        userId,
+        agentName: request.agent?.name,
+        finalPromptLength: finalPrompt.length,
+        finalPrompt: finalPrompt.substring(0, 200) + (finalPrompt.length > 200 ? '...' : ''),
+        finalSystemPromptLength: finalSystemPrompt.length,
+        finalSystemPrompt: finalSystemPrompt.substring(0, 200) + (finalSystemPrompt.length > 200 ? '...' : ''),
+        model: llmRequest.model,
+        maxTokens: llmRequest.maxTokens,
+        temperature: llmRequest.temperature
+      });
 
       const response = await this.generateResponse(userId, llmRequest);
 
@@ -537,8 +570,8 @@ export class UserLLMService {
       prompt += `Context Document:\nTitle: ${context.title}\nContent: ${context.content}\n\n`;
     }
 
-    // Add conversation history
-    if (messages.length > 0) {
+    // Add conversation history (with null check)
+    if (messages && messages.length > 0) {
       prompt += 'Conversation History:\n';
       messages.forEach(msg => {
         prompt += `${msg.sender}: ${msg.content}\n`;
