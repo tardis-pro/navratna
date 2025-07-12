@@ -892,10 +892,30 @@ export class AgentDiscussionService {
 
       logger.info(`Agent ${agent.name} joining discussion ${discussionId}`);
 
-      // Generate agent's response to the discussion
-      const discussionPrompt = comment
-        ? `You are participating in a discussion. Context: ${comment}. Please provide your initial thoughts or response.`
-        : `You are participating in a discussion. Please provide your initial thoughts.`;
+      // Generate agent's response to the discussion with context-aware prompts
+      const discussionMessages = await this.getDiscussionMessages(discussionId);
+      const messageCount = discussionMessages?.length || 0;
+      
+      let discussionPrompt: string;
+      
+      if (messageCount === 0) {
+        // First message - start the discussion
+        discussionPrompt = comment
+          ? `Start a discussion about: ${comment}. Share your perspective or ask an opening question.`
+          : `You're the first to speak in this discussion. Share an interesting perspective or ask a thought-provoking question.`;
+      } else if (messageCount <= 2) {
+        // Early discussion - build on what's been said
+        const recentContent = discussionMessages.slice(-2).map(m => m.content).join(' ');
+        discussionPrompt = comment
+          ? `Discussion context: ${comment}. Recent messages: "${recentContent}". Build on what's been discussed or add your perspective.`
+          : `Recent discussion: "${recentContent}". Add your thoughts or ask a follow-up question.`;
+      } else {
+        // Ongoing discussion - continue the conversation naturally
+        const recentContent = discussionMessages.slice(-3).map(m => m.content).join(' ');
+        discussionPrompt = comment
+          ? `Context: ${comment}. Current discussion: "${recentContent}". Continue the conversation naturally.`
+          : `Current discussion: "${recentContent}". Share your thoughts or respond to what's been said.`;
+      }
 
       const response = await this.generateAgentResponse(agentId, [{
         id: 'trigger-prompt',
@@ -1220,18 +1240,12 @@ Be helpful, knowledgeable, and maintain consistency with your character.`,
   ): Promise<string> {
     try {
       const llmRequest: LLMRequest = {
-        prompt: `You are participating in a discussion about "${discussion.topic}".
+        prompt: `Discussion topic: "${discussion.topic}"
 
-Current message: ${message}
+Message to respond to: ${message}
 
-Relevant knowledge:
-${knowledge.slice(0, 3).map(k => `- ${k.content}`).join('\n')}
-
-Please provide a thoughtful response that contributes to the discussion.
-Keep the response concise but meaningful.`,
-        systemPrompt: `You are an AI assistant participating in a collaborative discussion.
-Your role is to contribute thoughtful, evidence-based insights while maintaining a respectful and collaborative tone.
-Be helpful, knowledgeable, and constructive in your contributions.`,
+${knowledge.length > 0 ? `Relevant knowledge:\n${knowledge.slice(0, 3).map(k => `- ${k.content}`).join('\n')}\n` : ''}Provide a direct, thoughtful response. Avoid generic greetings or introductions.`,
+        systemPrompt: `You are an AI assistant in an ongoing discussion. Be direct and substantive. Focus on the content rather than pleasantries. Contribute meaningful insights without repeating what others have said.`,
         maxTokens: 200,
         temperature: 0.7
       };
@@ -1261,10 +1275,10 @@ Be helpful, knowledgeable, and constructive in your contributions.`,
   ): Promise<string> {
     try {
       const llmRequest: LLMRequest = {
-        prompt: `You are ${agent.name}, participating in a discussion.
+        prompt: `As ${agent.name}, respond to this discussion.
 
-Discussion Topic: ${context.discussionTopic || 'General discussion'}
-Recent Context: ${context.lastMessage || 'No recent messages'}
+Topic: ${context.discussionTopic || 'General discussion'}
+${context.lastMessage ? `Recent message: ${context.lastMessage}` : 'Start the conversation'}
 
 Available Knowledge:
 ${knowledge.slice(0, 3).map(k => `- ${k.content}`).join('\n')}
@@ -1453,13 +1467,25 @@ Reasoning: ${reasoning.join('; ')}`,
   }
 
   private async getDiscussionMessages(discussionId: string): Promise<any> {
-    if (!this.discussionService) return null;
     try {
-      // Use a compatible method or return empty for now
-      return { messages: [] };
+      // Get messages directly from database
+      const messages = await this.databaseService.discussions.getDiscussionMessages(discussionId);
+      
+      logger.debug('Retrieved discussion messages for context', {
+        discussionId,
+        messageCount: messages?.length || 0
+      });
+      
+      // Format messages for conversation history
+      return messages?.map(msg => ({
+        content: msg.content,
+        sender: msg.participantId === 'system' ? 'system' : 'participant',
+        timestamp: msg.createdAt,
+        participantId: msg.participantId
+      })) || [];
     } catch (error) {
       logger.warn('Failed to get discussion messages', { error, discussionId });
-      return null;
+      return [];
     }
   }
 

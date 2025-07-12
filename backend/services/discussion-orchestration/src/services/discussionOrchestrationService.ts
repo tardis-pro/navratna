@@ -497,27 +497,14 @@ export class DiscussionOrchestrationService extends EventEmitter {
         messageType
       });
 
-      // After sending a message, trigger the next agent to continue the conversation
-      // This ensures the discussion flow continues after each message
-      setTimeout(async () => {
-        try {
-          logger.info('Triggering next agent after message sent', {
-            discussionId,
-            previousParticipantId: participantId
-          });
-          
-          // Re-fetch discussion to get updated state
-          const updatedDiscussion = await this.getDiscussion(discussionId);
-          if (updatedDiscussion) {
-            await this.triggerIntelligentAgentParticipation(updatedDiscussion);
-          }
-        } catch (error) {
-          logger.error('Error triggering next agent after message', {
-            error: error instanceof Error ? error.message : 'Unknown error',
-            discussionId
-          });
-        }
-      }, 1000); // Wait 1 second before triggering next agent
+      // DISABLED: Automatic conversation enhancement after every message
+      // This was causing repetitive "I apologize" error messages
+      // Agent participation is now handled through the periodic check system only
+      logger.debug('Message sent, automatic enhancement disabled', {
+        discussionId,
+        participantId,
+        note: 'Agent participation handled via periodic checks'
+      });
 
       return {
         success: true,
@@ -1658,6 +1645,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
       return [];
     }
   }
+
 
   /**
    * Cleanup resources

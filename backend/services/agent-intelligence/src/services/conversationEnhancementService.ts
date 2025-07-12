@@ -189,9 +189,24 @@ export class ConversationEnhancementService extends EventEmitter {
     this.pendingLLMRequests.delete(requestId);
     clearTimeout(pendingRequest.timeout);
 
-    if (error) {
-      logger.warn('LLM generation failed for conversation enhancement', { requestId, error, source });
-      // Resolve with fallback instead of rejecting
+    // Check if content contains error messages from LLM service
+    const isErrorContent = content && (
+      content.includes('I apologize, but I encountered an error') ||
+      content.includes('I encountered an error while generating') ||
+      content.includes('I encountered an error while processing') ||
+      content.includes('check your provider configuration') ||
+      content.includes('Please try again or check your provider')
+    );
+
+    if (error || isErrorContent) {
+      logger.warn('LLM generation failed for conversation enhancement', { 
+        requestId, 
+        error, 
+        source,
+        isErrorContent,
+        contentPreview: content?.substring(0, 100)
+      });
+      // Resolve with graceful fallback instead of error message
       pendingRequest.resolve({
         content: 'I appreciate the discussion and would like to contribute further.',
         confidence: 0.3

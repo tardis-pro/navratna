@@ -148,6 +148,101 @@ const ARTIFACT_TYPES: Record<ArtifactType, { label: string; description: string;
   }
 };
 
+// Turn strategy options with descriptions
+const TURN_STRATEGIES = [
+  {
+    value: TurnStrategy.CONTEXT_AWARE,
+    label: 'Context Aware (AI)',
+    description: 'AI selects next speaker based on expertise and topic relevance',
+    icon: <Brain className="w-4 h-4" />
+  },
+  {
+    value: TurnStrategy.ROUND_ROBIN,
+    label: 'Round Robin',
+    description: 'Participants take turns in order',
+    icon: <Users className="w-4 h-4" />
+  },
+  {
+    value: TurnStrategy.EXPERTISE_DRIVEN,
+    label: 'Expertise Driven',
+    description: 'Technical experts speak first on relevant topics',
+    icon: <Target className="w-4 h-4" />
+  },
+  {
+    value: TurnStrategy.FREE_FORM,
+    label: 'Free Form',
+    description: 'Open discussion, no turn restrictions',
+    icon: <MessageSquare className="w-4 h-4" />
+  },
+  {
+    value: TurnStrategy.MODERATED,
+    label: 'Moderated',
+    description: 'Human moderator controls speaking order',
+    icon: <Zap className="w-4 h-4" />
+  }
+];
+
+// Generate turn strategy configuration based on selected strategy
+const generateTurnStrategyConfig = (strategy: TurnStrategy) => {
+  switch (strategy) {
+    case TurnStrategy.ROUND_ROBIN:
+      return {
+        strategy: TurnStrategy.ROUND_ROBIN,
+        config: {
+          type: 'round_robin' as const,
+          skipInactive: true,
+          maxSkips: 3
+        }
+      };
+    case TurnStrategy.CONTEXT_AWARE:
+      return {
+        strategy: TurnStrategy.CONTEXT_AWARE,
+        config: {
+          type: 'context_aware' as const,
+          relevanceThreshold: 0.7,
+          expertiseWeight: 0.3,
+          engagementWeight: 0.2
+        }
+      };
+    case TurnStrategy.EXPERTISE_DRIVEN:
+      return {
+        strategy: TurnStrategy.EXPERTISE_DRIVEN,
+        config: {
+          type: 'expertise_driven' as const,
+          expertiseThreshold: 0.8,
+          fallbackToRoundRobin: true
+        }
+      };
+    case TurnStrategy.FREE_FORM:
+      return {
+        strategy: TurnStrategy.FREE_FORM,
+        config: {
+          type: 'free_form' as const,
+          cooldownPeriod: 5
+        }
+      };
+    case TurnStrategy.MODERATED:
+      return {
+        strategy: TurnStrategy.MODERATED,
+        config: {
+          type: 'moderated' as const,
+          requireApproval: true,
+          autoAdvance: false
+        }
+      };
+    default:
+      return {
+        strategy: TurnStrategy.CONTEXT_AWARE,
+        config: {
+          type: 'context_aware' as const,
+          relevanceThreshold: 0.7,
+          expertiseWeight: 0.3,
+          engagementWeight: 0.2
+        }
+      };
+  }
+};
+
 export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({ 
   isOpen, 
   onClose, 
@@ -155,6 +250,7 @@ export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
 }) => {
   const [selectedPurpose, setSelectedPurpose] = useState<DiscussionPurpose>('brainstorm');
   const [selectedArtifact, setSelectedArtifact] = useState<ArtifactType>('document');
+  const [selectedStrategy, setSelectedStrategy] = useState<TurnStrategy>(TurnStrategy.CONTEXT_AWARE);
   const [customTopic, setCustomTopic] = useState('');
   const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
   const [additionalContext, setAdditionalContext] = useState('');
@@ -174,6 +270,7 @@ export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
     if (!isOpen) {
       setSelectedPurpose('brainstorm');
       setSelectedArtifact('document');
+      setSelectedStrategy(TurnStrategy.CONTEXT_AWARE);
       setCustomTopic('');
       setSelectedAgents([]);
       setAdditionalContext('');
@@ -221,14 +318,7 @@ export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
         agentId,
         role: ParticipantRole.PARTICIPANT
       })),
-      turnStrategy: {
-        strategy: TurnStrategy.ROUND_ROBIN,
-        config: {
-          type: 'round_robin' as const,
-          skipInactive: true,
-          maxSkips: 3
-        }
-      },
+      turnStrategy: generateTurnStrategyConfig(selectedStrategy),
       visibility: DiscussionVisibility.PRIVATE,
       objectives: [
         `Generate ${ARTIFACT_TYPES[selectedArtifact].label} through ${selectedPurposeData?.label.toLowerCase()}`,
@@ -401,6 +491,32 @@ export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
               </Select>
             </div>
 
+            {/* Turn Strategy Selection */}
+            <div>
+              <label className="text-sm font-medium text-white">Discussion Flow Strategy</label>
+              <p className="text-xs text-slate-400 mt-1">
+                How should participants take turns in the discussion?
+              </p>
+              <Select value={selectedStrategy} onValueChange={(value: TurnStrategy) => setSelectedStrategy(value)}>
+                <SelectTrigger className="mt-1 bg-slate-800/50 border-slate-700 text-white focus:border-blue-500">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TURN_STRATEGIES.map((strategy) => (
+                    <SelectItem key={strategy.value} value={strategy.value}>
+                      <div className="flex items-center gap-2">
+                        {strategy.icon}
+                        <div>
+                          <div className="font-medium">{strategy.label}</div>
+                          <div className="text-xs text-gray-500">{strategy.description}</div>
+                        </div>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Agent Selection */}
             <div>
               <label className="text-sm font-medium text-white">
@@ -409,7 +525,7 @@ export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
               <p className="text-xs text-slate-400 mt-1">
                 Leave empty to auto-select best agents
               </p>
-              <div className="grid grid-cols-1 gap-2 mt-2 max-h-60 overflow-y-auto">
+              <div className="grid grid-cols-1 gap-2 mt-2 max-h-80 overflow-y-auto">
                 {agentList.map((agent) => (
                   <Card
                     key={agent.id}

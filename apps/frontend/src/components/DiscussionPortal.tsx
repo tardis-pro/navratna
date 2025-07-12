@@ -293,11 +293,12 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
         role: ParticipantRole.PARTICIPANT
       })),
       turnStrategy: {
-        strategy: TurnStrategy.ROUND_ROBIN,
+        strategy: TurnStrategy.CONTEXT_AWARE,
         config: {
-          type: 'round_robin' as const,
-          skipInactive: true,
-          maxSkips: 3
+          type: 'context_aware' as const,
+          relevanceThreshold: 0.7,
+          expertiseWeight: 0.3,
+          engagementWeight: 0.2
         }
       },
       visibility: DiscussionVisibility.PRIVATE,

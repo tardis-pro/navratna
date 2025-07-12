@@ -379,7 +379,12 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messagesEndRef.current) {
+      const scrollContainer = messagesEndRef.current.parentElement;
+      if (scrollContainer) {
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+      }
+    }
   }, [portalMessages]);
 
   // Define openChatWindowWithSession function for resuming specific discussions
@@ -2069,10 +2074,11 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         className="flex-1 relative overflow-hidden bg-gradient-to-br from-slate-900/60 via-blue-900/30 to-purple-900/20 backdrop-blur-xl rounded-2xl border border-cyan-500/20"
+        style={{ minHeight: 0 }}
       >
         <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 via-transparent to-purple-500/5" />
-        <div className="relative flex flex-col h-full min-h-0">
-          <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(59, 130, 246, 0.3) transparent' }}>
+        <div className="relative flex flex-col h-full">
+          <div className="flex-1 overflow-y-auto p-6 space-y-4" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(59, 130, 246, 0.3) transparent', minHeight: 0, maxHeight: '100%' }}>
             <AnimatePresence>
               {portalMessages.length === 0 && (
                 <motion.div
