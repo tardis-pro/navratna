@@ -49,7 +49,7 @@ interface DiscussionContextType {
   start: (topic?: string, agentIds?: string[], enhancedContext?: any) => Promise<void>;
   stop: () => Promise<void>;
   pause: () => Promise<void>;
-  resume: () => Promise<void>;
+  resume: (discussionId: string) => Promise<void>;
   addMessage: (content: string, agentId?: string) => Promise<void>;
   loadHistory: (discussionId: string) => Promise<void>;
 }
@@ -395,11 +395,11 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
     }
   };
 
-  const resume = async () => {
+  const resume = async (discussionId: string) => {
     if (!discussionId) {
       return;
     }
-
+    setDiscussionId(discussionId);
     try {
       setIsLoading(true);
       

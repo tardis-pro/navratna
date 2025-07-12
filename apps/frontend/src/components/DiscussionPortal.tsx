@@ -578,7 +578,14 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
                   { label: 'Agents', value: agentCount, color: 'blue', icon: Brain },
                   { label: 'Messages', value: messageCount, color: 'emerald', icon: Network },
                   { label: 'Participants', value: participantCount, color: 'purple', icon: Activity },
-                  { label: 'Status', value: isActive ? 'ACTIVE' : 'IDLE', color: 'orange', icon: Zap, isText: true }
+                  { label: 'Status', value: isActive ? 'ACTIVE' : <Button
+                    onClick={handleResume}
+                    disabled={discussionLoading}
+                    className="flex-1 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
+                  >
+                    <Play className="w-4 h-4 mr-2" />
+                    Resume
+                  </Button>, color: 'orange', icon: Zap, isText: true }
                 ].map((stat, index) => (
                   <motion.div
                     key={stat.label}

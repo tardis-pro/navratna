@@ -111,7 +111,6 @@ export interface AgentPersonaMapping {
 export class ConversationEnhancementService extends EventEmitter {
   private databaseService: DatabaseService;
   private eventBusService: EventBusService;
-  private llmService: any; // TODO: Remove - deprecated in favor of event-driven approach
   private agentPersonaMappings: Map<string, AgentPersonaMapping> = new Map();
   private conversationStates: Map<string, ConversationState> = new Map();
   private pendingLLMRequests: Map<string, {
@@ -122,14 +121,11 @@ export class ConversationEnhancementService extends EventEmitter {
 
   constructor(
     databaseService: DatabaseService,
-    eventBusService: EventBusService,
-    llmService?: any // TODO: Remove - using event-driven LLM requests instead
+    eventBusService: EventBusService
   ) {
     super();
     this.databaseService = databaseService;
     this.eventBusService = eventBusService;
-    // Note: No longer using direct LLM service - using event-driven approach
-    this.llmService = null; // Deprecated
 
     this.initializeEventHandlers();
     this.setupLLMEventSubscriptions();
@@ -227,7 +223,8 @@ export class ConversationEnhancementService extends EventEmitter {
     systemPrompt: string,
     temperature: number = 0.7,
     maxTokens: number = 300,
-    discussionId?: string
+    discussionId?: string,
+    agentId?: string
   ): Promise<{ content: string; confidence: number }> {
     return new Promise(async (resolve, reject) => {
       const requestId = `conv_enh_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -316,12 +313,16 @@ export class ConversationEnhancementService extends EventEmitter {
           // Fallback to agent-level LLM request
           await this.eventBusService.publish('llm.agent.generate.request', {
             requestId,
-            prompt: prompt,
+            agentId: agentId || null, // Use provided agentId or null for global fallback
+            messages: [{
+              role: 'user',
+              content: prompt
+            }],
             systemPrompt: systemPrompt,
             maxTokens: maxTokens,
             temperature: temperature,
-            model: 'llama-3.2-3b-overthinker', // Use llama overthinker model
-            provider: 'llmstudio', // Use LLM Studio on 192.168.1.16:1234
+            model: 'auto', // Let the system choose the model
+            provider: 'auto', // Let the system choose the provider
             service: 'agent-intelligence'
           });
         }
@@ -394,7 +395,8 @@ export class ConversationEnhancementService extends EventEmitter {
         request.currentTopic,
         request.messageHistory,
         conversationState,
-        request.discussionId
+        request.discussionId,
+        selectedAgent?.id // Pass the agent ID for proper LLM routing
       );
 
       // Update conversation state
@@ -559,7 +561,9 @@ export class ConversationEnhancementService extends EventEmitter {
         persona,
         baseContent,
         [], // empty message history for now
-        this.initializeConversationStateSimple()
+        this.initializeConversationStateSimple(),
+        undefined, // No discussionId for this context
+        agentId
       );
 
       return enhancedResponse;
@@ -1015,7 +1019,8 @@ export class ConversationEnhancementService extends EventEmitter {
     topic: string,
     messageHistory: MessageHistoryItem[],
     conversationState: ConversationState,
-    discussionId?: string
+    discussionId?: string,
+    agentId?: string
   ): Promise<string> {
     try {
       // Create context from recent messages
@@ -1043,7 +1048,8 @@ Please contribute to this discussion about "${topic}" in a way that's natural an
         systemPrompt,
         0.7,
         300,
-        discussionId
+        discussionId,
+        agentId
       );
 
       return response.content || 'I have some thoughts on this topic, but I need a moment to organize them.';

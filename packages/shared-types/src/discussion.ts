@@ -259,7 +259,7 @@ export type TurnStrategyConfig = z.infer<typeof TurnStrategyConfigSchema>;
 // Main Discussion schema
 export const DiscussionSchema = BaseEntitySchema.extend({
   title: z.string().min(1).max(255),
-  topic: z.string().min(1).max(1000),
+  topic: z.string().min(1).max(4000),
   description: z.string().max(5000).optional(),
   documentId: IDSchema.optional(),
   operationId: IDSchema.optional(), // Link to UAIP operation

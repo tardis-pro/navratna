@@ -308,9 +308,9 @@ export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
 
   const handleStartDiscussion = async () => {
     const topic = generateTopic();
-    
+    console.log(topic.slice(0,20));
     const discussionData = {
-      title: topic,
+      title: topic.slice(0,20),
       topic,
       description: additionalContext.trim() || `${selectedPurposeData?.description} session`,
       createdBy: 'current-user-id',
@@ -364,7 +364,7 @@ export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-white">
             <MessageSquare className="w-5 h-5 text-cyan-400" />
-            Configure Discussion Session
+            Configure Discussion Session1
           </DialogTitle>
           <DialogDescription className="text-slate-300">
             Set up the purpose and expected outcomes for your agent discussion

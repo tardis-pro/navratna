@@ -978,15 +978,65 @@ export class AgentDiscussionService {
     }
 
     try {
-      // Generate a discussion participation message based on context
-      const participationMessage = discussionContext 
-        ? `Participating in discussion: ${discussionContext.title}. Topic: ${discussionContext.topic}. Current phase: ${discussionContext.phase}.`
-        : 'Participating in discussion.';
+      // Build context-aware participation message based on recent messages
+      let participationPrompt = '';
+      let conversationHistory = [];
+      
+      if (discussionContext?.recentMessages && discussionContext.recentMessages.length > 0) {
+        // Extract conversation history from recent messages
+        conversationHistory = discussionContext.recentMessages.map(msg => ({
+          id: msg.id,
+          content: msg.content,
+          sender: msg.participantName || 'Unknown',
+          timestamp: msg.timestamp,
+          type: msg.agentId ? 'agent' : 'user'
+        }));
+        
+        // Check if this agent has already introduced itself
+        const hasIntroduced = discussionContext.recentMessages.some(
+          msg => msg.agentId === agentId && 
+                 (msg.content.toLowerCase().includes('hello') || 
+                  msg.content.toLowerCase().includes('i\'m') ||
+                  msg.content.toLowerCase().includes('excited to join'))
+        );
+        
+        // Get the last few messages for immediate context
+        const lastMessages = discussionContext.recentMessages.slice(-3);
+        const lastMessageContent = lastMessages[lastMessages.length - 1]?.content || '';
+        const lastSpeaker = lastMessages[lastMessages.length - 1]?.participantName || '';
+        
+        if (hasIntroduced) {
+          // Agent has already introduced, respond to the conversation
+          participationPrompt = `You are participating in a discussion about "${discussionContext.topic}". ` +
+            `The last message was from ${lastSpeaker}: "${lastMessageContent}". ` +
+            `Please provide a thoughtful response that adds value to the discussion. ` +
+            `Do NOT re-introduce yourself as you have already done so.`;
+        } else {
+          // First participation - introduce and respond to context
+          participationPrompt = `You are joining a discussion about "${discussionContext.topic}". ` +
+            `There have been ${discussionContext.messageCount} messages so far. ` +
+            `Please introduce yourself briefly and then contribute to the discussion based on what has been said. ` +
+            `The most recent message was: "${lastMessageContent}"`;
+        }
+      } else {
+        // Fallback to basic participation message
+        participationPrompt = discussionContext 
+          ? `You are participating in a discussion titled "${discussionContext.title}" about "${discussionContext.topic}". ` +
+            `The discussion is in the ${discussionContext.phase} phase. Please contribute meaningfully to the discussion.`
+          : 'You are participating in a discussion. Please share your thoughts.';
+      }
 
       const result = await this.participateInDiscussion({
         agentId,
-        message: participationMessage,
-        userId: participantId || 'system' // Use participantId if available, otherwise fallback to system
+        message: participationPrompt,
+        userId: participantId || 'system',
+        conversationHistory,
+        context: {
+          discussionId,
+          topic: discussionContext?.topic,
+          phase: discussionContext?.phase,
+          activeParticipants: discussionContext?.activeParticipants || []
+        }
       });
 
       // Look up the correct participant ID for this agent in the discussion

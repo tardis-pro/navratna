@@ -1311,7 +1311,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
         });
 
         // Check if we should continue the discussion (prevent infinite loops)
-        const maxMessages = discussion.metadata?.maxMessages || 50;
+        const maxMessages = discussion.metadata?.maxMessages || 100; // Increased limit for better testing
         const currentMessageCount = discussion.state.messageCount || 0;
         
         if (currentMessageCount >= maxMessages) {
@@ -1320,12 +1320,28 @@ export class DiscussionOrchestrationService extends EventEmitter {
             currentMessageCount,
             maxMessages
           });
+          
+          // Stop the discussion properly to prevent loops
+          await this.updateDiscussionStatus(discussion.id, DiscussionStatus.COMPLETED, 'system');
           return;
         }
 
         // Use turn strategy to determine next participant
         const participants = await this.getActiveParticipants(discussion.id);
+        
+        logger.debug('Using turn strategy to select next participant', {
+          discussionId: discussion.id,
+          strategy: discussion.turnStrategy?.strategy || 'unknown',
+          participantCount: participants.length
+        });
+        
         const nextParticipant = await this.turnStrategyService.getNextParticipant(discussion, participants);
+        
+        logger.debug('Turn strategy selected participant', {
+          discussionId: discussion.id,
+          selectedParticipant: nextParticipant?.id || 'none',
+          selectedAgent: nextParticipant?.agentId || 'none'
+        });
         
         if (nextParticipant && nextParticipant.agentId) {
           // Check if this participant has been active recently to prevent immediate re-triggering
@@ -1449,6 +1465,27 @@ export class DiscussionOrchestrationService extends EventEmitter {
       const requestKey = `${participant.agentId}-${participant.id}`;
       this.recentParticipationRequests.set(requestKey, Date.now());
 
+      // Fetch recent messages to provide context
+      const recentMessages = await this.discussionService.getDiscussionMessages(discussionId, { 
+        limit: 20
+      });
+
+      // Format messages for agent context
+      const messageHistory = recentMessages.map(msg => {
+        // Find the participant to get agent ID
+        const msgParticipant = discussion.participants.find(p => p.id === msg.participantId);
+        return {
+          id: msg.id,
+          participantId: msg.participantId,
+          content: msg.content,
+          timestamp: msg.createdAt,
+          messageType: msg.messageType,
+          agentId: msgParticipant?.agentId || null,
+          // Find participant name for better context
+          participantName: msgParticipant?.metadata?.displayName || 'Unknown'
+        };
+      });
+
       // Send direct participation request to agent intelligence service
       await this.eventBusService.publish('agent.discussion.participate', {
         discussionId,
@@ -1460,7 +1497,19 @@ export class DiscussionOrchestrationService extends EventEmitter {
           topic: discussion.topic,
           phase: discussion.state.phase,
           messageCount: discussion.state.messageCount,
-          participantCount: discussion.participants.length
+          participantCount: discussion.participants.length,
+          // Add message history for context
+          recentMessages: messageHistory,
+          // Add information about who has already participated
+          activeParticipants: discussion.participants
+            .filter(p => p.messageCount > 0)
+            .map(p => ({
+              id: p.id,
+              agentId: p.agentId,
+              displayName: p.metadata?.displayName || 'Unknown',
+              messageCount: p.messageCount,
+              lastMessageAt: p.lastMessageAt
+            }))
         },
         timestamp: new Date()
       });
