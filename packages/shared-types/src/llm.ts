@@ -296,4 +296,159 @@ export const ForceOnboardRequestSchema = z.object({
   reason: z.string().optional()
 });
 
-export type ForceOnboardRequest = z.infer<typeof ForceOnboardRequestSchema>; 
+export type ForceOnboardRequest = z.infer<typeof ForceOnboardRequestSchema>;
+
+// User LLM Meta Models for specialized tasks
+export enum LLMTaskType {
+  SUMMARIZATION = 'summarization',
+  VISION = 'vision',
+  TOOL_CALLING = 'tool_calling',
+  SPEECH_TO_TEXT = 'speech_to_text',
+  TEXT_TO_SPEECH = 'text_to_speech',
+  CODE_GENERATION = 'code_generation',
+  REASONING = 'reasoning',
+  CREATIVE_WRITING = 'creative_writing',
+  TRANSLATION = 'translation',
+  EMBEDDINGS = 'embeddings',
+  CLASSIFICATION = 'classification'
+}
+
+export const UserLLMPreferenceSchema = z.object({
+  id: IDSchema,
+  userId: IDSchema,
+  taskType: z.nativeEnum(LLMTaskType),
+  preferredProvider: z.nativeEnum(LLMProviderType),
+  preferredModel: z.string(),
+  fallbackModel: z.string().optional(),
+  settings: z.object({
+    temperature: z.number().min(0).max(2).optional(),
+    maxTokens: z.number().min(1).optional(),
+    topP: z.number().min(0).max(1).optional(),
+    systemPrompt: z.string().optional(),
+    customSettings: z.record(z.any()).optional()
+  }).optional(),
+  isActive: z.boolean().default(true),
+  priority: z.number().min(1).max(100).default(50),
+  createdAt: z.date(),
+  updatedAt: z.date()
+});
+
+export type UserLLMPreference = z.infer<typeof UserLLMPreferenceSchema>;
+
+// Agent LLM Preferences Schema
+export const AgentLLMPreferenceSchema = z.object({
+  id: IDSchema.optional(),
+  agentId: IDSchema,
+  taskType: z.nativeEnum(LLMTaskType),
+  preferredProvider: z.nativeEnum(LLMProviderType),
+  preferredModel: z.string(),
+  fallbackModel: z.string().optional(),
+  settings: z.object({
+    temperature: z.number().min(0).max(2).optional(),
+    maxTokens: z.number().min(1).optional(),
+    topP: z.number().min(0).max(1).optional(),
+    systemPrompt: z.string().optional(),
+    customSettings: z.record(z.any()).optional()
+  }).optional(),
+  isActive: z.boolean().default(true),
+  priority: z.number().min(1).max(100).default(50),
+  description: z.string().optional(),
+  reasoning: z.string().optional(),
+  createdAt: z.date().optional(),
+  updatedAt: z.date().optional()
+});
+
+export type AgentLLMPreference = z.infer<typeof AgentLLMPreferenceSchema>;
+
+// Agent routing domain classification
+export enum DiscussionDomain {
+  TECHNICAL_ARCHITECTURE = 'technical_architecture',
+  PROJECT_MANAGEMENT = 'project_management',
+  CODE_REVIEW = 'code_review',
+  STRATEGIC_PLANNING = 'strategic_planning',
+  CRISIS_RESPONSE = 'crisis_response',
+  KNOWLEDGE_SYNTHESIS = 'knowledge_synthesis',
+  USER_EXPERIENCE = 'user_experience',
+  SECURITY_ANALYSIS = 'security_analysis',
+  PERFORMANCE_OPTIMIZATION = 'performance_optimization',
+  COMPLIANCE_AUDIT = 'compliance_audit',
+  CREATIVE_BRAINSTORMING = 'creative_brainstorming',
+  TECHNICAL_SUPPORT = 'technical_support',
+  BUSINESS_PROCESS = 'business_process',
+  CUSTOMER_ONBOARDING = 'customer_onboarding',
+  INVOICE_PROCESSING = 'invoice_processing',
+  EMPLOYEE_ONBOARDING = 'employee_onboarding',
+  VENDOR_MANAGEMENT = 'vendor_management',
+  QUALITY_ASSURANCE = 'quality_assurance',
+  FINANCIAL_REPORTING = 'financial_reporting'
+}
+
+// Agent routing action classification
+export enum DiscussionAction {
+  ANALYZE = 'analyze',
+  SYNTHESIZE = 'synthesize',
+  DECIDE = 'decide',
+  VALIDATE = 'validate',
+  EXECUTE = 'execute',
+  BRAINSTORM = 'brainstorm',
+  TROUBLESHOOT = 'troubleshoot',
+  REVIEW = 'review',
+  PLAN = 'plan',
+  ESCALATE = 'escalate',
+  DOCUMENT = 'document',
+  COORDINATE = 'coordinate',
+  FACILITATE = 'facilitate',
+  MEDIATE = 'mediate',
+  PROCESS_CREATION = 'process_creation',
+  STEP_EXECUTION = 'step_execution',
+  APPROVAL_WORKFLOW = 'approval_workflow',
+  COMPLIANCE_CHECK = 'compliance_check',
+  PROCESS_OPTIMIZATION = 'process_optimization',
+  EXCEPTION_HANDLING = 'exception_handling',
+  AUDIT_TRAIL = 'audit_trail',
+  STAKEHOLDER_COMMUNICATION = 'stakeholder_communication'
+}
+
+// Agent routing request
+export const RoutingRequestSchema = z.object({
+  domain: z.nativeEnum(DiscussionDomain),
+  action: z.nativeEnum(DiscussionAction),
+  context: z.object({
+    complexity: z.enum(['low', 'medium', 'high']).optional(),
+    urgency: z.enum(['low', 'normal', 'high', 'critical']).optional(),
+    requiredTools: z.array(z.string()).optional(),
+    timeConstraints: z.number().optional(), // minutes
+    participantCount: z.number().optional(),
+    expertise: z.array(z.string()).optional(),
+    securityLevel: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']).optional()
+  }).optional(),
+  preferences: z.object({
+    preferredAgents: z.array(IDSchema).optional(),
+    excludedAgents: z.array(IDSchema).optional(),
+    maxAgents: z.number().optional(),
+    requireHuman: z.boolean().optional()
+  }).optional()
+});
+
+export type RoutingRequest = z.infer<typeof RoutingRequestSchema>;
+
+// Agent routing response
+export const RoutingResponseSchema = z.object({
+  primaryAgent: IDSchema,
+  supportingAgents: z.array(IDSchema).optional(),
+  confidence: z.number().min(0).max(1),
+  reasoning: z.string().optional(),
+  estimatedDuration: z.number().optional(), // minutes
+  requiredCapabilities: z.array(z.string()).optional(),
+  riskAssessment: z.object({
+    level: z.enum(['low', 'medium', 'high']),
+    factors: z.array(z.string()).optional()
+  }).optional(),
+  fallbackOptions: z.array(z.object({
+    agent: IDSchema,
+    reason: z.string()
+  })).optional(),
+  routedAt: z.date()
+});
+
+export type RoutingResponse = z.infer<typeof RoutingResponseSchema>; 

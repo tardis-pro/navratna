@@ -21,6 +21,10 @@ export * from './database/index.js';
 // Communication Services
 export { EventBusService } from './eventBusService.js';
 
+// Agent Intelligence Services
+export { AgentRouterService } from './services/agentRouterService.js';
+export { LLMPreferenceResolutionService } from './services/llmPreferenceResolutionService.js';
+
 // Vector Search Services
 export { QdrantService } from './qdrant.service.js';
 

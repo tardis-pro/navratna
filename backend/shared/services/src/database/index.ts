@@ -31,6 +31,8 @@ export { RepositoryFactory, repositoryFactory } from './base/RepositoryFactory.j
 // Repositories
 export { LLMProviderRepository } from './repositories/LLMProviderRepository.js';
 export { UserLLMProviderRepository } from './repositories/UserLLMProviderRepository.js';
+export { UserLLMPreferenceRepository } from './repositories/UserLLMPreferenceRepository.js';
+export { AgentLLMPreferenceRepository } from './repositories/AgentLLMPreferenceRepository.js';
 export * from './repositories/index.js';
 
 // Entities

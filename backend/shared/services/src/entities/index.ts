@@ -70,6 +70,8 @@ export { MCPToolCall } from './mcpToolCall.entity.js';
 
 // LLM Integration entities
 export { LLMProvider } from './llmProvider.entity.js';
+export { UserLLMPreference } from './userLLMPreference.entity.js';
+export { AgentLLMPreference } from './agentLLMPreference.entity.js';
 
 // Knowledge Graph entities
 export { KnowledgeItemEntity } from './knowledge-item.entity.js';
