@@ -1,6 +1,7 @@
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
+import { OnboardingProvider } from './contexts/OnboardingContext';
 import { AgentProvider } from './contexts/AgentContext';
 import { UAIPProvider } from './contexts/UAIPContext';
 import { DocumentProvider } from './contexts/DocumentContext';
@@ -32,9 +33,10 @@ function DesktopApp() {
   return (
     <UserPreferencesProvider>
       <AuthProvider>
-        <QueryClientProvider client={queryClient}>
-          <SecurityProvider>
-            <ProtectedRoute>
+        <OnboardingProvider>
+          <QueryClientProvider client={queryClient}>
+            <SecurityProvider>
+              <ProtectedRoute>
               <AgentProvider>
                 <UAIPProvider>
                   <KnowledgeProvider>
@@ -51,6 +53,7 @@ function DesktopApp() {
             </ProtectedRoute>
           </SecurityProvider>
         </QueryClientProvider>
+        </OnboardingProvider>
       </AuthProvider>
     </UserPreferencesProvider>
   );

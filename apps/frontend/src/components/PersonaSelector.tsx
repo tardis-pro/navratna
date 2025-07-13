@@ -3,62 +3,32 @@ import { PersonaDisplay } from '../types/frontend-extensions';
 import { uaipAPI } from '@/utils/uaip-api';
 import { 
   Users, 
-  Brain, 
-  Lightbulb, 
-  Target, 
   Sparkles, 
-  Shuffle, 
-  Zap, 
-  Heart, 
   TrendingUp,
   BookOpen,
-  Briefcase,
-  Palette,
-  Settings,
   Search,
   AlertCircle,
   Loader2,
   RefreshCw
 } from 'lucide-react';
-import { PERSONA_CATEGORIES } from '@/types/persona';
 
 interface PersonaSelectorProps {
   onSelectPersona: (persona: PersonaDisplay) => Promise<void>;
   disabled?: boolean;
 }
 
-// Helper function to get category icon
-const getCategoryIcon = (category: string) => {
-  const iconMap: Record<string, React.ComponentType<React.SVGProps<SVGSVGElement>>> = {
-    'Development': Brain,
-    'Policy': Target,
-    'Creative': Palette,
-    'Analysis': Settings,
-    'Business': Briefcase,
-    'Social': Heart,
-    'Technical': Settings,
-    'Management': Briefcase,
-    'Research': BookOpen,
-    'Design': Palette,
-    'General': Users,
-  };
-  return iconMap[category] || Users;
-};
 
 export const PersonaSelector: React.FC<PersonaSelectorProps> = ({ 
   onSelectPersona, 
   disabled = false 
 }) => {
   const [personas, setPersonas] = useState<PersonaDisplay[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeCategory, setActiveCategory] = useState<string>('');
   const [hoveredPersona, setHoveredPersona] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchExpertise, setSearchExpertise] = useState('');
 
-  // Load personas and categories on mount
+  // Load personas on mount
   useEffect(() => {
     loadData();
   }, []);
@@ -68,27 +38,9 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
     setError(null);
     
     try {
-      // Try to load personas using the display API endpoint with proper categorization
+      // Try to load personas using the display API endpoint
       const personasResult = await uaipAPI.personas.getForDisplay();
-      
-      setCategories([
-        'Development',
-        'Policy', 
-        'Creative',
-        'Analysis',
-        'Business',
-        'Social',
-        'Technical',
-        'Management',
-        'Research',
-        'Design'
-      ]);
       setPersonas(personasResult.personas || []);
-      
-      // Set default active category
-      if (!activeCategory) {
-        setActiveCategory('Development');
-      }
     } catch (err) {
       console.warn('Failed to load persona data from API, using fallback data:', err);
       
@@ -162,24 +114,7 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
         }
       ];
       
-      setCategories([
-        'Development',
-        'Policy', 
-        'Creative',
-        'Analysis',
-        'Business',
-        'Social',
-        'Technical',
-        'Management',
-        'Research',
-        'Design'
-      ]);
       setPersonas(mockPersonas);
-      
-      // Set default active category
-      if (!activeCategory) {
-        setActiveCategory('Development');
-      }
     } finally {
       setLoading(false);
     }
@@ -194,7 +129,7 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
     try {
       const result = await uaipAPI.personas.search(
         searchQuery.trim() || undefined,
-        searchExpertise.trim() || undefined
+        undefined // Remove expertise search parameter
       );
       setPersonas(result.personas || []);
     } catch (err) {
@@ -202,7 +137,6 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
       
       // Filter the current personas (which should be the fallback data)
       const query = searchQuery.toLowerCase();
-      const expertise = searchExpertise.toLowerCase();
       
       const filtered = personas.filter(persona => {
         const matchesQuery = !query || 
@@ -211,10 +145,7 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
           persona.description.toLowerCase().includes(query) ||
           persona.background?.toLowerCase().includes(query);
           
-        const matchesExpertise = !expertise ||
-          persona.expertise.some(skill => skill.toLowerCase().includes(expertise));
-          
-        return matchesQuery && matchesExpertise;
+        return matchesQuery;
       });
       
       setPersonas(filtered);
@@ -226,7 +157,6 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
   const handleRefresh = async () => {
     if (disabled || loading) return;
     setSearchQuery('');
-    setSearchExpertise('');
     await loadData();
   };
 
@@ -241,9 +171,15 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
     }
   };
 
-  // Filter personas by active category
-  const filteredPersonas = activeCategory 
-    ? personas.filter(p => p.category === activeCategory)
+  // Filter personas by search query
+  const filteredPersonas = searchQuery 
+    ? personas.filter(persona => {
+        const query = searchQuery.toLowerCase();
+        return persona.name.toLowerCase().includes(query) ||
+               persona.role.toLowerCase().includes(query) ||
+               persona.description.toLowerCase().includes(query) ||
+               persona.background?.toLowerCase().includes(query);
+      })
     : personas;
 
   // Show loading state
@@ -312,8 +248,8 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
         </div>
 
         {/* Search Controls */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="md:col-span-2">
+        <div className="flex space-x-4">
+          <div className="flex-1">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
@@ -327,28 +263,17 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
               />
             </div>
           </div>
-          <div className="flex space-x-2">
-            <input
-              type="text"
-              value={searchExpertise}
-              onChange={(e) => setSearchExpertise(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              disabled={loading || disabled}
-              className="flex-1 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              placeholder="Expertise filter..."
-            />
-            <button
-              onClick={handleSearch}
-              disabled={loading || disabled}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-            >
-              {loading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Search className="w-4 h-4" />
-              )}
-            </button>
-          </div>
+          <button
+            onClick={handleSearch}
+            disabled={loading || disabled}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+          >
+            {loading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Search className="w-4 h-4" />
+            )}
+          </button>
         </div>
 
         {/* Show search/loading status */}
@@ -367,33 +292,10 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
         )}
       </div>
 
-      {/* Enhanced Category Tabs */}
-      <div className="flex space-x-2 overflow-x-auto pb-2">
-        {categories.map((category) => {
-          const IconComponent = getCategoryIcon(category);
-          const count = filteredPersonas.filter(p => p.category === category).length;
-          return (
-            <button
-              key={category}
-              onClick={() => setActiveCategory(category)}
-              disabled={disabled || loading}
-              className={`flex items-center space-x-2 px-4 py-3 text-sm font-semibold rounded-xl whitespace-nowrap transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
-                activeCategory === category
-                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 scale-105'
-                  : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 hover:scale-105'
-              }`}
-            >
-              <IconComponent className="w-4 h-4" />
-              <span>{category}</span>
-              <span className="px-2 py-1 bg-white/20 rounded-full text-xs">{count}</span>
-            </button>
-          );
-        })}
-      </div>
 
       {/* Enhanced Persona Grid */}
       <div className="grid grid-cols-1 gap-4">
-        {activeCategory && filteredPersonas.length > 0 ? (
+        {filteredPersonas.length > 0 ? (
           filteredPersonas.map((persona) => (
             <button
               key={persona.id}
@@ -463,7 +365,7 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
               <Users className="w-10 h-10 text-slate-400" />
             </div>
             <p className="text-slate-600 dark:text-slate-300 font-semibold text-lg">
-              {activeCategory ? `No personas found in ${activeCategory}` : 'No personas available'}
+              No personas available
             </p>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
               Try adjusting your search criteria or refresh to load more personas
@@ -481,7 +383,7 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
           </div>
           <div className="flex items-center space-x-2">
             <BookOpen className="w-4 h-4" />
-            <span>{categories.length} Categories</span>
+            <span>{filteredPersonas.length} Filtered</span>
           </div>
         </div>
       </div>

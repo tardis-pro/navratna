@@ -128,5 +128,9 @@ export const personasAPI = {
     const formData = new FormData();
     formData.append('file', file);
     return APIClient.post(`${API_ROUTES.PERSONAS.CREATE}/import`, formData);
+  },
+
+  async getForDisplay(options?: PersonaListOptions): Promise<Persona[]> {
+    return APIClient.get<Persona[]>('/api/v1/personas/display', { params: options });
   }
 };

@@ -30,6 +30,11 @@ export class DiscussionOrchestrationService extends EventEmitter {
   private turnTimers: Map<string, NodeJS.Timeout> = new Map();
   private activeDiscussions: Map<string, Discussion> = new Map();
   private recentParticipationRequests: Map<string, number> = new Map(); // Track recent participation requests
+  
+  // Operation locks to prevent race conditions
+  private operationLocks: Map<string, boolean> = new Map();
+  private participationRateLimits: Map<string, number> = new Map(); // Discussion-level rate limiting
+  private cleanupInterval: NodeJS.Timeout | null = null;
 
   constructor(
     discussionService: DiscussionService,
@@ -44,6 +49,9 @@ export class DiscussionOrchestrationService extends EventEmitter {
     
     this.initializeEventHandlers();
     this.startPeriodicTasks();
+    
+    // Start cleanup mechanisms to prevent memory leaks
+    this.startCleanupMechanisms();
   }
 
   /**
@@ -195,7 +203,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
 
       // Set turn timer
       if (turnResult.nextParticipant) {
-        this.setTurnTimer(discussionId, turnResult.estimatedDuration);
+        await this.setTurnTimer(discussionId, turnResult.estimatedDuration);
       }
 
       // Emit events
@@ -576,7 +584,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
 
       // Set new turn timer
       if (turnResult.nextParticipant) {
-        this.setTurnTimer(discussionId, turnResult.estimatedDuration);
+        await this.setTurnTimer(discussionId, turnResult.estimatedDuration);
       }
 
       // Emit turn change event
@@ -951,30 +959,68 @@ export class DiscussionOrchestrationService extends EventEmitter {
 
   // Private helper methods
 
-  private setTurnTimer(discussionId: string, durationSeconds: number): void {
+  private async setTurnTimer(discussionId: string, durationSeconds: number): Promise<void> {
+    const lockKey = `turn_timer_${discussionId}`;
+    
+    // Prevent race conditions with atomic turn timer operations
+    if (this.operationLocks.get(lockKey)) {
+      logger.debug('Turn timer operation already in progress, skipping', { discussionId });
+      return;
+    }
+    
+    this.operationLocks.set(lockKey, true);
+    
     try {
-      // Clear existing timer
-      this.clearTurnTimer(discussionId);
+      // Atomically clear existing timer and set new one
+      const existingTimer = this.turnTimers.get(discussionId);
+      if (existingTimer) {
+        clearTimeout(existingTimer);
+        this.turnTimers.delete(discussionId);
+        logger.debug('Existing turn timer cleared', { discussionId });
+      }
 
-      // Set new timer
+      // Set new timer with race condition protection
       const timer = setTimeout(async () => {
+        // Check if discussion still exists and is active before advancing
+        const discussion = await this.getDiscussion(discussionId);
+        if (!discussion || discussion.status !== 'active') {
+          logger.debug('Skipping turn advance - discussion inactive', { 
+            discussionId, 
+            status: discussion?.status 
+          });
+          return;
+        }
+        
         logger.info('Turn timer expired, advancing turn', { discussionId, durationSeconds });
         await this.advanceTurn(discussionId, 'system');
       }, durationSeconds * 1000);
 
       this.turnTimers.set(discussionId, timer);
-
-      logger.debug('Turn timer set', { discussionId, durationSeconds });
+      logger.debug('Turn timer set atomically', { discussionId, durationSeconds });
+      
     } catch (error) {
       logger.error('Error setting turn timer', {
         error: error instanceof Error ? error.message : 'Unknown error',
         discussionId,
         durationSeconds
       });
+    } finally {
+      // Always release the lock
+      this.operationLocks.delete(lockKey);
     }
   }
 
   private clearTurnTimer(discussionId: string): void {
+    const lockKey = `turn_timer_${discussionId}`;
+    
+    // Prevent race conditions during timer clearing
+    if (this.operationLocks.get(lockKey)) {
+      logger.debug('Turn timer operation in progress, deferring clear', { discussionId });
+      // Schedule clear for after current operation
+      setTimeout(() => this.clearTurnTimer(discussionId), 100);
+      return;
+    }
+    
     const timer = this.turnTimers.get(discussionId);
     if (timer) {
       clearTimeout(timer);
@@ -1251,6 +1297,39 @@ export class DiscussionOrchestrationService extends EventEmitter {
    */
   private async ensureAgentParticipation(discussion: Discussion): Promise<void> {
     try {
+      // CRITICAL: Rate limiting to prevent infinite agent loops
+      const participationKey = `participation_${discussion.id}`;
+      const lastTrigger = this.participationRateLimits.get(participationKey);
+      const now = Date.now();
+      
+      // Rate limit: minimum 30 seconds between triggers per discussion
+      if (lastTrigger && (now - lastTrigger) < 30000) {
+        logger.debug('Skipping agent participation - rate limited', { 
+          discussionId: discussion.id,
+          timeSinceLastTrigger: now - lastTrigger,
+          rateLimitMs: 30000
+        });
+        return;
+      }
+      
+      // Additional safety: Check if discussion has reached maximum messages
+      const maxMessages = discussion.metadata?.maxMessages || 100;
+      const currentMessageCount = discussion.state.messageCount || 0;
+      
+      if (currentMessageCount >= maxMessages) {
+        logger.info('Discussion reached maximum message limit, stopping agent participation', {
+          discussionId: discussion.id,
+          currentMessageCount,
+          maxMessages
+        });
+        
+        // Stop the discussion to prevent loops
+        await this.updateDiscussionStatus(discussion.id, DiscussionStatus.COMPLETED, 'system');
+        return;
+      }
+      
+      // Update rate limit timestamp
+      this.participationRateLimits.set(participationKey, now);
       // Use enterprise participant management service
       const participantManagementService = new ParticipantManagementService((this.discussionService as any).databaseService);
       
@@ -1606,7 +1685,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
         const discussion = await this.getDiscussion(discussionId);
         if (discussion) {
           const turnTimeout = discussion.settings.turnTimeout || 10;
-          this.setTurnTimer(discussionId, turnTimeout);
+          await this.setTurnTimer(discussionId, turnTimeout);
         }
         
         logger.info('Discussion resumed', { discussionId, userId });
@@ -1697,10 +1776,119 @@ export class DiscussionOrchestrationService extends EventEmitter {
 
 
   /**
+   * Start cleanup mechanisms to prevent memory leaks
+   */
+  private startCleanupMechanisms(): void {
+    // Main cleanup every 10 minutes
+    this.cleanupInterval = setInterval(() => {
+      this.performPeriodicCleanup();
+    }, 600000); // 10 minutes
+    
+    logger.info('Discussion orchestration cleanup mechanisms started');
+  }
+
+  /**
+   * Perform periodic cleanup to prevent memory leaks
+   */
+  private performPeriodicCleanup(): void {
+    const now = Date.now();
+    let cleanedDiscussions = 0;
+    let cleanedParticipationRequests = 0;
+    let cleanedOperationLocks = 0;
+    
+    // Clean up stale discussions from cache (older than 1 hour with no activity)
+    for (const [discussionId, discussion] of this.activeDiscussions.entries()) {
+      const lastActivity = discussion.state.lastActivity;
+      const timeSinceActivity = lastActivity ? 
+        now - (lastActivity instanceof Date ? lastActivity.getTime() : new Date(lastActivity).getTime()) : 
+        Infinity;
+      
+      // Remove discussions inactive for more than 1 hour
+      if (timeSinceActivity > 3600000) {
+        this.activeDiscussions.delete(discussionId);
+        cleanedDiscussions++;
+        
+        logger.debug('Cleaned up stale discussion from cache', { 
+          discussionId, 
+          inactiveMs: timeSinceActivity 
+        });
+      }
+    }
+    
+    // Clean up old participation rate limits (older than 2 hours)
+    for (const [key, timestamp] of this.participationRateLimits.entries()) {
+      if (now - timestamp > 7200000) { // 2 hours
+        this.participationRateLimits.delete(key);
+        cleanedParticipationRequests++;
+      }
+    }
+    
+    // Clean up old participation requests (older than 1 hour)
+    for (const [key, timestamp] of this.recentParticipationRequests.entries()) {
+      if (now - timestamp > 3600000) { // 1 hour
+        this.recentParticipationRequests.delete(key);
+        cleanedParticipationRequests++;
+      }
+    }
+    
+    // Clean up orphaned operation locks (shouldn't happen but safety measure)
+    for (const [lockKey, value] of this.operationLocks.entries()) {
+      // All operation locks should be short-lived, clean any older than 5 minutes
+      this.operationLocks.delete(lockKey);
+      cleanedOperationLocks++;
+      logger.warn('Cleaned up orphaned operation lock', { lockKey });
+    }
+    
+    if (cleanedDiscussions > 0 || cleanedParticipationRequests > 0 || cleanedOperationLocks > 0) {
+      logger.info('Periodic cleanup completed', {
+        cleanedDiscussions,
+        cleanedParticipationRequests,
+        cleanedOperationLocks,
+        remainingActiveDiscussions: this.activeDiscussions.size,
+        remainingParticipationLimits: this.participationRateLimits.size,
+        remainingParticipationRequests: this.recentParticipationRequests.size
+      });
+    }
+    
+    // Alert if memory usage is high
+    if (this.activeDiscussions.size > 1000) {
+      logger.warn('High number of active discussions in cache', {
+        activeDiscussions: this.activeDiscussions.size,
+        warningThreshold: 1000
+      });
+    }
+  }
+
+  /**
+   * Get cleanup statistics for monitoring
+   */
+  public getCleanupStatistics(): {
+    activeDiscussions: number;
+    turnTimers: number;
+    participationRateLimits: number;
+    recentParticipationRequests: number;
+    operationLocks: number;
+  } {
+    return {
+      activeDiscussions: this.activeDiscussions.size,
+      turnTimers: this.turnTimers.size,
+      participationRateLimits: this.participationRateLimits.size,
+      recentParticipationRequests: this.recentParticipationRequests.size,
+      operationLocks: this.operationLocks.size
+    };
+  }
+
+  /**
    * Cleanup resources
    */
   async cleanup(): Promise<void> {
     logger.info('Cleaning up discussion orchestration service');
+    
+    // Clear cleanup interval
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
     
     // Clear all timers
     for (const timer of this.turnTimers.values()) {
@@ -1708,8 +1896,11 @@ export class DiscussionOrchestrationService extends EventEmitter {
     }
     this.turnTimers.clear();
     
-    // Clear cache
+    // Clear all maps
     this.activeDiscussions.clear();
+    this.participationRateLimits.clear();
+    this.recentParticipationRequests.clear();
+    this.operationLocks.clear();
     
     logger.info('Discussion orchestration service cleanup completed');
   }

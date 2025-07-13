@@ -6,7 +6,9 @@ import { createAgentRoutes } from './routes/agentRoutes.js';
 import knowledgeRoutes from './routes/knowledgeRoutes.js';
 import { createDiscussionRoutes } from './routes/discussionRoutes.js';
 import { createConversationEnhancementRoutes } from './routes/conversationEnhancementRoutes.js';
+import { createPersonaRoutes } from './routes/personaRoutes.js';
 import { DiscussionController } from './controllers/discussionController.js';
+import { PersonaController } from './controllers/personaController.js';
 import { ConversationEnhancementService } from './services/conversationEnhancementService.js';
 import { AgentDiscussionService } from './services/agent-discussion.service.js';
 import { initializeChatIngestionServices } from './controllers/chatIngestionController.js';
@@ -16,6 +18,7 @@ class AgentIntelligenceService extends BaseService {
   private agentDiscussionService: AgentDiscussionService;
   private discussionService: DiscussionService;
   private discussionController: DiscussionController;
+  private personaController: PersonaController;
   private personaService: PersonaService;
   private conversationEnhancementService: ConversationEnhancementService;
   private llmService: LLMService;
@@ -48,6 +51,68 @@ class AgentIntelligenceService extends BaseService {
     this.app.use('/api/v1/knowledge', knowledgeRoutes);
     this.app.use('/api/v1/discussions', createDiscussionRoutes(this.discussionController));
     this.app.use('/api/v1/conversation', createConversationEnhancementRoutes(this.conversationEnhancementService));
+    this.app.use('/api/v1/personas', createPersonaRoutes(this.personaController));
+    
+    // Monitoring and debug routes for race condition detection
+    this.app.get('/api/v1/debug/conversation-enhancement', (req, res) => {
+      try {
+        const stats = this.conversationEnhancementService.getCleanupStatistics();
+        const memoryUsage = process.memoryUsage();
+        
+        const alerts: string[] = [];
+        
+        // Check for high pending LLM requests (memory leak indicator)
+        if (stats.pendingLLMRequests > 1000) {
+          alerts.push(`CRITICAL: High pending LLM requests: ${stats.pendingLLMRequests}`);
+        } else if (stats.pendingLLMRequests > 500) {
+          alerts.push(`WARNING: Elevated pending LLM requests: ${stats.pendingLLMRequests}`);
+        }
+        
+        // Check for high conversation states (memory usage)
+        if (stats.conversationStates > 500) {
+          alerts.push(`INFO: High conversation states: ${stats.conversationStates}`);
+        }
+        
+        // Check for high agent persona mappings
+        if (stats.agentPersonaMappings > 200) {
+          alerts.push(`INFO: High agent persona mappings: ${stats.agentPersonaMappings}`);
+        }
+        
+        res.json({
+          success: true,
+          timestamp: new Date().toISOString(),
+          conversationEnhancement: stats,
+          memory: {
+            heapUsedMB: Math.round(memoryUsage.heapUsed / 1024 / 1024),
+            heapTotalMB: Math.round(memoryUsage.heapTotal / 1024 / 1024)
+          },
+          alerts
+        });
+      } catch (error) {
+        res.status(500).json({
+          success: false,
+          error: 'Failed to fetch conversation enhancement debug info'
+        });
+      }
+    });
+
+    this.app.post('/api/v1/debug/force-llm-cleanup', (req, res) => {
+      try {
+        // Trigger immediate cleanup on conversation enhancement service
+        this.conversationEnhancementService['cleanupStaleLLMRequests']();
+        
+        res.json({
+          success: true,
+          message: 'LLM cleanup triggered',
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        res.status(500).json({
+          success: false,
+          error: 'Failed to trigger LLM cleanup'
+        });
+      }
+    });
     
     // Test endpoint for manual sync trigger
     this.app.post('/test/sync', async (req, res) => {
@@ -338,6 +403,10 @@ class AgentIntelligenceService extends BaseService {
     // Initialize DiscussionController
     this.discussionController = new DiscussionController(this.discussionService);
     logger.info('DiscussionController initialized');
+
+    // Initialize PersonaController
+    this.personaController = new PersonaController(this.personaService);
+    logger.info('PersonaController initialized');
 
     // Initialize chat ingestion services
     const chatServicesInitialized = await initializeChatIngestionServices();

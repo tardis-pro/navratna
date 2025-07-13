@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAgents } from '../contexts/AgentContext';
+import { useOnboarding } from '../contexts/OnboardingContext';
 import { AgentSettings } from './AgentSettings';
 import { ModelProviderSettings } from './ModelProviderSettings';
 import { Button } from './ui/button';
-import { Bot, Server, Settings, Users, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
+import { Bot, Server, Settings, Users, AlertCircle, CheckCircle2, RefreshCw, Sparkles, RotateCcw } from 'lucide-react';
 
 type SettingsTab = 'agents' | 'providers' | 'general';
 
@@ -22,6 +23,8 @@ export const SettingsContent: React.FC = () => {
     getModelsForProvider,
     getRecommendedModels
   } = useAgents();
+  
+  const { restartOnboarding } = useOnboarding();
   
   const [activeTab, setActiveTab] = useState<SettingsTab>('agents');
   const [initializationStatus, setInitializationStatus] = useState<{
@@ -284,15 +287,152 @@ export const SettingsContent: React.FC = () => {
         )}
         
         {activeTab === 'general' && (
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <Settings className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">
-                General Settings
-              </h3>
-              <p className="text-slate-600 dark:text-slate-400">
-                General settings coming soon...
-              </p>
+          <div className="space-y-8">
+            {/* Onboarding Section */}
+            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
+                  <Sparkles className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+                    Onboarding & Welcome
+                  </h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                    Customize your welcome experience and preferences
+                  </p>
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <h4 className="font-medium text-slate-900 dark:text-white mb-1">
+                      Restart Onboarding
+                    </h4>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      Go through the welcome flow again to update your preferences and work style settings. 
+                      This will help us better customize your experience.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={restartOnboarding}
+                    variant="outline"
+                    className="ml-4 flex items-center gap-2"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    Restart Setup
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* User Experience Section */}
+            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center">
+                  <Users className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+                    User Experience
+                  </h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                    General application behavior and interface preferences
+                  </p>
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between py-3 border-b border-slate-200 dark:border-slate-700 last:border-b-0">
+                  <div>
+                    <h4 className="font-medium text-slate-900 dark:text-white">
+                      Animation Settings
+                    </h4>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      Control UI animations and transitions
+                    </p>
+                  </div>
+                  <div className="text-sm text-slate-500 dark:text-slate-400">
+                    Coming soon
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between py-3 border-b border-slate-200 dark:border-slate-700 last:border-b-0">
+                  <div>
+                    <h4 className="font-medium text-slate-900 dark:text-white">
+                      Notification Preferences
+                    </h4>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      Manage how you receive updates and alerts
+                    </p>
+                  </div>
+                  <div className="text-sm text-slate-500 dark:text-slate-400">
+                    Coming soon
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between py-3">
+                  <div>
+                    <h4 className="font-medium text-slate-900 dark:text-white">
+                      Language & Region
+                    </h4>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      Set your preferred language and regional settings
+                    </p>
+                  </div>
+                  <div className="text-sm text-slate-500 dark:text-slate-400">
+                    Coming soon
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Data & Privacy Section */}
+            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg flex items-center justify-center">
+                  <Settings className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+                    Data & Privacy
+                  </h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                    Manage your data preferences and privacy settings
+                  </p>
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between py-3 border-b border-slate-200 dark:border-slate-700 last:border-b-0">
+                  <div>
+                    <h4 className="font-medium text-slate-900 dark:text-white">
+                      Data Export
+                    </h4>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      Download your data and conversation history
+                    </p>
+                  </div>
+                  <div className="text-sm text-slate-500 dark:text-slate-400">
+                    Coming soon
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between py-3">
+                  <div>
+                    <h4 className="font-medium text-slate-900 dark:text-white">
+                      Privacy Controls
+                    </h4>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      Control how your data is used and stored
+                    </p>
+                  </div>
+                  <div className="text-sm text-slate-500 dark:text-slate-400">
+                    Coming soon
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}

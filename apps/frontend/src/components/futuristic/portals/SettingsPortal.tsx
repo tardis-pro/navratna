@@ -7,7 +7,9 @@ import {
   Database,
   ChevronRight,
   Zap,
-  ArrowRight
+  ArrowRight,
+  User,
+  Sparkles
 } from 'lucide-react';
 
 interface ViewportSize {
@@ -42,6 +44,17 @@ export const SettingsPortal: React.FC<SettingsPortalProps> = ({
 
   const settingsCategories = [
     {
+      id: 'general-settings',
+      title: 'General Settings',
+      description: 'User preferences, onboarding, and general application settings',
+      icon: User,
+      color: 'indigo',
+      gradient: 'from-indigo-500 to-purple-500',
+      borderColor: 'border-indigo-500/20',
+      bgColor: 'from-indigo-500/10 to-purple-500/10',
+      features: ['Onboarding Setup', 'User Preferences', 'Theme Settings', 'Language & Region']
+    },
+    {
       id: 'agent-settings',
       title: ' Agents',
       description: 'Configure AI consciousness entities and their  models',
@@ -72,7 +85,7 @@ export const SettingsPortal: React.FC<SettingsPortalProps> = ({
       gradient: 'from-emerald-500 to-teal-500',
       borderColor: 'border-emerald-500/20',
       bgColor: 'from-emerald-500/10 to-teal-500/10',
-      features: ['General Settings', 'Security Options', 'Performance Tuning', 'Advanced Features']
+      features: ['Security Options', 'Performance Tuning', 'Advanced Features', 'System Monitoring']
     }
   ];
 

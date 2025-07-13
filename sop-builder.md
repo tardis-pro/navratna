@@ -539,22 +539,212 @@
   - Process automation progression: Manual → Semi → Fully automated
 
   ---
-  🚀 Next Steps
+  ## 🎯 Lean Agent Routing for Business Processes
 
-  1. Immediate Action Items:
-    - Extend @uaip/types/operation.ts with SOP-specific operation types
-    - Create SOP Builder service structure
-    - Design and implement core database entities
-  2. Integration Priorities:
-    - Agent Intelligence: Natural language process analysis
-    - Orchestration Pipeline: SOP execution workflows
-    - Frontend: SOP Builder user interface
-  3. Validation Approach:
-    - Start with 2-3 common business processes (Customer Onboarding, Invoice Processing, Employee
-  Onboarding)
-    - Test with real small business scenarios
-    - Iterate based on user feedback and automation opportunities
+  ### Zero-Infrastructure Business Process Automation
 
-  This implementation plan transforms UAIP into a comprehensive business process automation
-  platform, providing small businesses with the tools they need to standardize, automate, and
-  optimize their operations while maintaining full control and compliance.
+  **Core Philosophy**: Extend existing services instead of creating new ones. Achieve 80% functionality with 20% complexity.
+
+  #### 💡 Lean Architecture Strategy
+
+  **Leverage Existing Infrastructure:**
+  ```typescript
+  // Extend existing DiscussionDomain enum
+  enum DiscussionDomain {
+    // ... existing domains
+    BUSINESS_PROCESS = 'business_process',
+    CUSTOMER_ONBOARDING = 'customer_onboarding', 
+    INVOICE_PROCESSING = 'invoice_processing',
+    COMPLIANCE_AUDIT = 'compliance_audit'
+  }
+
+  // Extend existing ContextAwareStrategy
+  class BusinessProcessStrategy extends ContextAwareStrategy {
+    protected getBusinessProcessScore(agent: Agent, processType: string): number {
+      // Simple domain matching using existing agent expertise
+      return agent.expertise.includes(processType) ? 0.9 : 0.3;
+    }
+  }
+  ```
+
+  #### 🔧 Minimal Service Extensions
+
+  **1. Discussion Orchestration (Existing Service)**
+  ```typescript
+  // backend/services/discussion-orchestration/src/strategies/BusinessProcessStrategy.ts
+  export class BusinessProcessStrategy extends ContextAwareStrategy {
+    async selectOptimalAgent(
+      processStep: BusinessProcessStep,
+      availableAgents: Agent[]
+    ): Promise<Agent> {
+      return availableAgents
+        .map(agent => ({
+          agent,
+          score: this.calculateProcessScore(agent, processStep)
+        }))
+        .sort((a, b) => b.score - a.score)[0].agent;
+    }
+
+    private calculateProcessScore(agent: Agent, step: BusinessProcessStep): number {
+      const domainMatch = agent.expertise.includes(step.domain) ? 0.4 : 0;
+      const workloadPenalty = agent.currentWorkload > 0.7 ? -0.3 : 0;
+      const toolsMatch = step.requiredTools.every(tool => 
+        agent.capabilities.includes(tool)) ? 0.3 : 0;
+      
+      return domainMatch + workloadPenalty + toolsMatch;
+    }
+  }
+  ```
+
+  **2. Agent Intelligence (Existing Service)**
+  ```typescript
+  // backend/services/agent-intelligence/src/services/businessProcessAnalysis.ts
+  export class BusinessProcessAnalysis {
+    async analyzeProcessDescription(description: string): Promise<ProcessSteps> {
+      // Use existing LLM integration
+      const analysis = await this.llmService.analyze({
+        prompt: `Extract business process steps: ${description}`,
+        context: { format: 'structured_steps' }
+      });
+      
+      return {
+        steps: analysis.steps,
+        suggestedAgents: this.mapStepsToAgents(analysis.steps)
+      };
+    }
+  }
+  ```
+
+  **3. Orchestration Pipeline (Existing Service)**
+  ```typescript
+  // backend/services/orchestration-pipeline/src/businessProcessExecutor.ts
+  export class BusinessProcessExecutor extends WorkflowOrchestrator {
+    async executeBusinessProcess(
+      processSteps: ProcessStep[],
+      context: ExecutionContext
+    ): Promise<ExecutionResult> {
+      // Convert to existing Operation format
+      const operation: Operation = {
+        type: OperationType.BUSINESS_PROCESS_AUTOMATION,
+        steps: processSteps.map(step => ({
+          id: step.id,
+          type: 'automated',
+          agentId: step.assignedAgent?.id,
+          tools: step.requiredTools
+        }))
+      };
+      
+      return this.executeWorkflow(operation, context);
+    }
+  }
+  ```
+
+  #### 📊 Simple Metrics Extension
+
+  **Enhance Existing Agent Metrics:**
+  ```typescript
+  // backend/services/agent-intelligence/src/services/agent-metrics.service.ts
+  interface EnhancedAgentMetrics {
+    // ... existing metrics
+    businessProcessEfficiency: {
+      processesCompleted: number;
+      averageCompletionTime: number;
+      successRate: number;
+      favoriteProcessTypes: string[];
+    };
+  }
+  ```
+
+  #### 🎮 Frontend Integration
+
+  **Single Business Process Component:**
+  ```typescript
+  // apps/frontend/src/components/BusinessProcessManager.tsx
+  const BusinessProcessManager = () => {
+    const [processDescription, setProcessDescription] = useState('');
+    const [suggestedAgents, setSuggestedAgents] = useState<Agent[]>([]);
+    
+    const analyzeProcess = async () => {
+      const analysis = await api.analyzeBusinessProcess(processDescription);
+      setSuggestedAgents(analysis.suggestedAgents);
+    };
+    
+    return (
+      <div className="space-y-4">
+        <textarea 
+          value={processDescription}
+          onChange={(e) => setProcessDescription(e.target.value)}
+          placeholder="Describe your business process..."
+        />
+        <button onClick={analyzeProcess}>Analyze & Route</button>
+        
+        {suggestedAgents.map(agent => (
+          <AgentCard key={agent.id} agent={agent} />
+        ))}
+      </div>
+    );
+  };
+  ```
+
+  #### 💰 Cost-Benefit Analysis
+
+  | **Metric** | **Original Plan** | **Lean Plan** | **Savings** |
+  |------------|------------------|---------------|-------------|
+  | **Development Time** | 12 weeks | 2 weeks | 83% reduction |
+  | **New Services** | 2 services | 0 services | 100% reduction |
+  | **Infrastructure Cost** | $500/month | $0/month | 100% reduction |
+  | **Security Review** | 3 weeks | 0 weeks | 100% reduction |
+  | **Code Complexity** | 5,000+ lines | 500 lines | 90% reduction |
+
+  #### 🔒 Security by Design
+
+  **Zero New Attack Surface:**
+  - All routing through existing Security Gateway
+  - Business processes use existing agent security contexts  
+  - No new authentication/authorization systems
+  - Leverage existing audit trails and compliance
+  - Same RBAC, MFA, and OAuth patterns
+
+  **Enhanced Security:**
+  - Business process execution audit trails
+  - Agent assignment logging
+  - Process step validation using existing patterns
+
+  ---
+  🚀 Lean Implementation Plan
+
+  ### Week 1: Foundation Extensions
+  **Day 1-2: Type Extensions**
+  - Extend `DiscussionDomain` enum with business process types
+  - Add `BUSINESS_PROCESS_AUTOMATION` to `OperationType`
+  - Extend agent metrics interface
+
+  **Day 3-5: Routing Logic**  
+  - Create `BusinessProcessStrategy` extending `ContextAwareStrategy`
+  - Add business process analysis to Agent Intelligence
+  - Extend Orchestration Pipeline with business process executor
+
+  ### Week 2: Integration & Frontend
+  **Day 1-3: Integration**
+  - Wire business process routing into Discussion Orchestration
+  - Test end-to-end process creation and execution
+  - Add simple process templates
+
+  **Day 4-5: Frontend**
+  - Create `BusinessProcessManager` component
+  - Integrate with existing agent management UI
+  - Add process execution tracking
+
+  ### Immediate Business Value
+  - **Week 1 MVP**: Natural language business process analysis with agent suggestions
+  - **Week 2 Complete**: Full business process automation with intelligent agent routing
+  - **Zero Infrastructure**: Leverage existing $500k+ platform investment
+  - **Rapid ROI**: Immediate value from existing agent expertise and tools
+
+  ### Success Metrics (Simplified)
+  - **Process Creation Time**: < 5 minutes via natural language
+  - **Agent Assignment Accuracy**: > 80% optimal routing
+  - **Automation Rate**: 60%+ of routine processes automated
+  - **Cost Efficiency**: 100% functionality at 10% cost
+
+  This lean approach delivers the core value proposition—intelligent business process automation with agent routing—while eliminating complexity, reducing costs, and accelerating time to market.

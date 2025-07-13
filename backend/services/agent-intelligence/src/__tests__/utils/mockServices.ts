@@ -190,60 +190,52 @@ export const createMockSecurityValidationService = (): any => ({
   createApprovalWorkflow: vi.fn().mockResolvedValue('workflow-123')
 });
 
-// Note: EnhancedAgentIntelligenceService has been refactored into modular services
-// Use the individual service mocks instead (AgentCoreService, AgentContextService, etc.)
-// 
-// Mock for legacy compatibility - TO BE REMOVED
-export const createMockEnhancedAgentIntelligenceService = (): any => ({
+// --- Mocks for Refactored Agent Intelligence Services ---
+
+export const createMockAgentCoreService = () => ({
+  listAgents: vi.fn().mockResolvedValue([createMockAgent()]),
+  getAgent: vi.fn().mockResolvedValue(createMockAgent()),
+  createAgent: vi.fn().mockResolvedValue(createMockAgent()),
+  updateAgent: vi.fn().mockResolvedValue(createMockAgent({ name: 'Updated Agent' })),
+  deleteAgent: vi.fn().mockResolvedValue(undefined),
+  getAgentCapabilities: vi.fn().mockResolvedValue([]),
+  getAgentWithPersona: vi.fn().mockResolvedValue({ ...createMockAgent(), personaData: {} }),
+});
+
+export const createMockAgentContextService = () => ({
   analyzeContext: vi.fn().mockResolvedValue({
-    analysisId: 'analysis-123',
-    agentId: 'agent-123',
-    contextSummary: 'Test context analysis',
-    insights: ['Insight 1', 'Insight 2'],
-    recommendations: ['Recommendation 1'],
+    analysis: 'Context analysis result',
+    recommendations: ['action1', 'action2'],
     confidence: 0.85,
-    processingTime: 150,
-    timestamp: new Date()
+    explanation: 'Test explanation'
   }),
-  planExecution: vi.fn().mockResolvedValue({
-    planId: 'plan-123',
-    agentId: 'agent-123',
-    steps: [
-      {
-        id: 'step-1',
-        name: 'Analysis',
-        type: 'cognitive',
-        estimatedDuration: 30,
-        dependencies: []
-      }
-    ],
+});
+
+export const createMockAgentPlanningService = () => ({
+  generateExecutionPlan: vi.fn().mockResolvedValue({
+    id: 'plan-123',
+    type: 'analysis',
+    steps: [{ id: 'step-1', name: 'Analysis', type: 'cognitive' }],
     estimatedDuration: 30,
-    resourceRequirements: {
-      cpu: 1,
-      memory: 512
-    },
-    riskAssessment: {
-      level: SecurityLevel.LOW,
-      score: 10
-    },
-    timestamp: new Date()
+    dependencies: []
   }),
-  executeAction: vi.fn().mockResolvedValue({
-    actionId: 'action-123',
-    result: 'success',
-    output: 'Action completed successfully',
-    duration: 100,
-    timestamp: new Date()
-  }),
-  healthCheck: vi.fn().mockResolvedValue({
-    status: 'healthy',
-    services: {
-      knowledgeGraph: 'healthy',
-      memory: 'healthy',
-      persona: 'healthy',
-      discussion: 'healthy'
-    }
-  })
+});
+
+export const createMockAgentLearningService = () => ({
+  processLearningData: vi.fn().mockResolvedValue({ success: true }),
+  learnFromOperation: vi.fn().mockResolvedValue({ learningApplied: true }),
+});
+
+export const createMockAgentDiscussionService = () => ({
+  processDiscussionMessage: vi.fn().mockResolvedValue({ response: 'Hello there!' }),
+  participateInDiscussion: vi.fn().mockResolvedValue({ response: 'I agree.' }),
+  generateAgentResponse: vi.fn().mockResolvedValue({ response: 'Thinking...' }),
+});
+
+export const createMockAgentEventOrchestrator = () => ({
+  initialize: vi.fn().mockResolvedValue(undefined),
+  shutdown: vi.fn().mockResolvedValue(undefined),
+  publishEvent: vi.fn().mockResolvedValue(undefined),
 });
 
 // Utility to create a complete mock agent

@@ -16,6 +16,7 @@ const isProduction = import.meta.env.PROD;
  */
 export const API_BASE_URL = import.meta.env.API_BASE_URL || 'http://localhost:8081';
 
+
 /**
  * API Gateway Configuration
  */
@@ -74,7 +75,19 @@ export const API_ROUTES = {
   },
 
   // Persona Management Service routes
-  PERSONAS: '/api/v1/personas',
+  PERSONAS: {
+    BASE: '/api/v1/personas',
+    LIST: '/api/v1/personas',
+    GET: '/api/v1/personas',
+    CREATE: '/api/v1/personas',
+    UPDATE: '/api/v1/personas',
+    DELETE: '/api/v1/personas',
+    SEARCH: '/api/v1/personas/search',
+    RECOMMENDATIONS: '/api/v1/personas/recommendations',
+    TEMPLATES: '/api/v1/personas/templates',
+    ANALYTICS: '/api/v1/personas',
+    VALIDATE: '/api/v1/personas/validate'
+  },
 
   // Security Gateway Service routes
   SECURITY: '/api/v1/security',

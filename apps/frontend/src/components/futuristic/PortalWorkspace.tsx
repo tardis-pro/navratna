@@ -4,6 +4,7 @@ import { Portal } from './Portal';
 import { DiscussionControlsPortal } from './portals/DiscussionControlsPortal';
 import { DiscussionLogPortal } from './portals/DiscussionLogPortal';
 import { SettingsPortal } from './portals/SettingsPortal';
+import { GeneralSettingsPortal } from './portals/GeneralSettingsPortal';
 import { ChatPortal } from './portals/ChatPortal';
 import { ProviderSettingsPortal } from './portals/ProviderSettingsPortal';
 import { SystemConfigPortal } from './portals/SystemConfigPortal';
@@ -94,6 +95,18 @@ const PORTAL_CONFIGS = {
     type: 'tool' as const,
     icon: Settings,
     description: 'System configuration, providers, and security settings'
+  },
+  'general-settings': {
+    title: 'General Settings',
+    component: GeneralSettingsPortal,
+    defaultSize: {
+      desktop: { width: 900, height: 750 },
+      tablet: { width: 750, height: 700 },
+      mobile: { width: 500, height: 650 }
+    },
+    type: 'tool' as const,
+    icon: Settings,
+    description: 'User preferences, onboarding, and general application settings'
   },
   'monitoring-hub': {
     title: 'Monitoring Hub',

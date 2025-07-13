@@ -7,7 +7,7 @@ import { AgentState, createAgentStateFromBackend } from '../types/agent';
 import { Persona, PersonaDisplay } from '../types/persona';
 import { useDiscussion } from '../contexts/DiscussionContext';
 import { uaipAPI } from '../utils/uaip-api';
-import { AgentRole, LLMModel, LLMProviderType } from '@uaip/types';
+import { AgentRole, LLMModel, LLMProviderType, LLMTaskType, AgentLLMPreference } from '@uaip/types';
 import { 
   Users, 
   Plus, 
@@ -242,6 +242,7 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
     description: '',
     isActive: true,
     attachedTools: [] as Array<{toolId: string, toolName: string, category: string, permissions?: string[]}>,
+    llmPreferences: [] as Omit<AgentLLMPreference, 'agentId'>[],
     chatConfig: {
       enableKnowledgeAccess: true,
       enableToolExecution: true,
@@ -390,6 +391,7 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
         description: agent.description || '',
         isActive: agent.isActive,
         attachedTools: agent.attachedTools || [],
+        llmPreferences: agent.llmPreferences || [],
         chatConfig: agent.chatConfig || {
           enableKnowledgeAccess: true,
           enableToolExecution: true,
@@ -418,6 +420,7 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
       description: '',
       isActive: true,
       attachedTools: [],
+      llmPreferences: [],
       chatConfig: {
         enableKnowledgeAccess: true,
         enableToolExecution: true,
@@ -482,6 +485,7 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
         presencePenalty: 0,
         // Enhanced agent functionality
         attachedTools: agentForm.attachedTools,
+        llmPreferences: agentForm.llmPreferences,
         chatConfig: agentForm.chatConfig
       };
 
@@ -525,6 +529,7 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
           description: '',
           isActive: true,
           attachedTools: [],
+          llmPreferences: [],
           chatConfig: {
             enableKnowledgeAccess: true,
             enableToolExecution: true,
@@ -815,6 +820,58 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
 
       </motion.div>
     );
+  };
+
+  // LLM Task Types for UI
+  const LLM_TASK_TYPE_OPTIONS = [
+    { value: LLMTaskType.REASONING, label: 'Reasoning & Analysis' },
+    { value: LLMTaskType.CODE_GENERATION, label: 'Code Generation' },
+    { value: LLMTaskType.CREATIVE_WRITING, label: 'Creative Writing' },
+    { value: LLMTaskType.SUMMARIZATION, label: 'Summarization' },
+    { value: LLMTaskType.CLASSIFICATION, label: 'Classification' },
+    { value: LLMTaskType.TRANSLATION, label: 'Translation' },
+    { value: LLMTaskType.TOOL_CALLING, label: 'Tool Calling' },
+    { value: LLMTaskType.VISION, label: 'Vision Analysis' }
+  ];
+
+  // LLM Provider Types for UI
+  const LLM_PROVIDER_TYPE_OPTIONS = [
+    { value: LLMProviderType.ANTHROPIC, label: 'Anthropic' },
+    { value: LLMProviderType.OPENAI, label: 'OpenAI' },
+    { value: LLMProviderType.OLLAMA, label: 'Ollama' },
+    { value: LLMProviderType.LLMSTUDIO, label: 'LLM Studio' },
+    { value: LLMProviderType.CUSTOM, label: 'Custom' }
+  ];
+
+  // Helper functions for LLM preferences
+  const addLLMPreference = () => {
+    const newPreference: Omit<AgentLLMPreference, 'agentId'> = {
+      taskType: LLMTaskType.REASONING,
+      preferredProvider: LLMProviderType.ANTHROPIC,
+      preferredModel: 'claude-3-5-sonnet-20241022',
+      isActive: true,
+      priority: 50
+    };
+    setAgentForm(prev => ({
+      ...prev,
+      llmPreferences: [...prev.llmPreferences, newPreference]
+    }));
+  };
+
+  const updateLLMPreference = (index: number, updates: Partial<Omit<AgentLLMPreference, 'agentId'>>) => {
+    setAgentForm(prev => ({
+      ...prev,
+      llmPreferences: prev.llmPreferences.map((pref, i) => 
+        i === index ? { ...pref, ...updates } : pref
+      )
+    }));
+  };
+
+  const removeLLMPreference = (index: number) => {
+    setAgentForm(prev => ({
+      ...prev,
+      llmPreferences: prev.llmPreferences.filter((_, i) => i !== index)
+    }));
   };
 
   // Helper functions for tool attachment and chat configuration
@@ -1194,11 +1251,12 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
         />
       </div>
 
-      {/* Persona Selection */}
-      <div>
-        <label className="block text-sm font-medium text-slate-300 mb-2">
-          Persona
-        </label>
+      {/* Persona Selection Section */}
+      <div className="border border-slate-700/50 rounded-lg p-4 bg-slate-800/30">
+        <h4 className="text-sm font-medium text-slate-300 mb-3 flex items-center gap-2">
+          <Brain className="w-4 h-4" />
+          Persona Selection
+        </h4>
         <PersonaSelector
           onSelectPersona={handlePersonaSelect}
           disabled={!agentForm.name.trim() || !agentForm.modelId}
@@ -1233,6 +1291,139 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
                   </span>
                 ))}
               </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Task Model Preferences Section */}
+      {selectedPersona && (
+        <div className="border border-slate-700/50 rounded-lg p-4 bg-slate-800/30">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-medium text-slate-300 flex items-center gap-2">
+              <Cpu className="w-4 h-4" />
+              Task-Specific Model Preferences
+            </h4>
+            <button
+              onClick={addLLMPreference}
+              className="flex items-center gap-1 px-2 py-1 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded text-xs transition-colors"
+            >
+              <Plus className="w-3 h-3" />
+              Add Preference
+            </button>
+          </div>
+          
+          <div className="space-y-3">
+            {agentForm.llmPreferences.length === 0 ? (
+              <div className="text-center py-4 border-2 border-dashed border-slate-600/50 rounded-lg">
+                <Cpu className="w-6 h-6 mx-auto mb-2 text-slate-500" />
+                <p className="text-xs text-slate-500">No task-specific preferences configured</p>
+                <p className="text-xs text-slate-600 mt-1">Add preferences to optimize model selection for different tasks</p>
+              </div>
+            ) : (
+              agentForm.llmPreferences.map((preference, index) => (
+                <div key={index} className="border border-slate-600/30 rounded-lg p-3 bg-slate-900/30">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs text-slate-400 mb-1">Task Type</label>
+                      <select
+                        value={preference.taskType}
+                        onChange={(e) => updateLLMPreference(index, { taskType: e.target.value as LLMTaskType })}
+                        className="w-full px-2 py-1 text-xs bg-slate-800/50 border border-slate-700/50 rounded text-white"
+                      >
+                        {LLM_TASK_TYPE_OPTIONS.map(type => (
+                          <option key={type.value} value={type.value}>{type.label}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs text-slate-400 mb-1">Provider</label>
+                      <select
+                        value={preference.preferredProvider}
+                        onChange={(e) => updateLLMPreference(index, { preferredProvider: e.target.value as LLMProviderType })}
+                        className="w-full px-2 py-1 text-xs bg-slate-800/50 border border-slate-700/50 rounded text-white"
+                      >
+                        {LLM_PROVIDER_TYPE_OPTIONS.map(provider => (
+                          <option key={provider.value} value={provider.value}>{provider.label}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs text-slate-400 mb-1">Model</label>
+                      <div className="flex gap-1">
+                        <select
+                          value={preference.preferredModel}
+                          onChange={(e) => updateLLMPreference(index, { preferredModel: e.target.value })}
+                          className="flex-1 px-2 py-1 text-xs bg-slate-800/50 border border-slate-700/50 rounded text-white"
+                        >
+                          {availableModels
+                            .filter(m => 
+                              m.apiType === preference.preferredProvider || 
+                              (preference.preferredProvider === LLMProviderType.ANTHROPIC && m.name?.toLowerCase().includes('claude')) ||
+                              (preference.preferredProvider === LLMProviderType.OPENAI && m.name?.toLowerCase().includes('gpt'))
+                            )
+                            .map(model => (
+                              <option key={model.id} value={model.id}>{model.name}</option>
+                            ))
+                          }
+                          <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                          <option value="gpt-4o-mini">GPT-4O Mini</option>
+                        </select>
+                        <button
+                          onClick={() => removeLLMPreference(index)}
+                          className="px-2 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded text-xs transition-colors"
+                          title="Remove preference"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                    <div>
+                      <label className="block text-xs text-slate-400 mb-1">Priority (1-100)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={preference.priority}
+                        onChange={(e) => updateLLMPreference(index, { priority: parseInt(e.target.value) })}
+                        className="w-full px-2 py-1 text-xs bg-slate-800/50 border border-slate-700/50 rounded text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs text-slate-400 mb-1">Temperature (0-2)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="2"
+                        step="0.1"
+                        value={preference.settings?.temperature || 0.7}
+                        onChange={(e) => updateLLMPreference(index, { 
+                          settings: { ...preference.settings, temperature: parseFloat(e.target.value) }
+                        })}
+                        className="w-full px-2 py-1 text-xs bg-slate-800/50 border border-slate-700/50 rounded text-white"
+                      />
+                    </div>
+
+                    <div className="flex items-center">
+                      <label className="flex items-center text-xs text-slate-400">
+                        <input
+                          type="checkbox"
+                          checked={preference.isActive}
+                          onChange={(e) => updateLLMPreference(index, { isActive: e.target.checked })}
+                          className="mr-1 w-3 h-3 text-blue-600 bg-slate-800 border-slate-600 rounded focus:ring-blue-500 focus:ring-1"
+                        />
+                        Active
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              ))
             )}
           </div>
         </div>
@@ -1635,6 +1826,25 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
             </div>
           </div>
 
+          {/* LLM Model Selection */}
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Primary LLM Model *
+            </label>
+            <select
+              value={agentForm.modelId}
+              onChange={(e) => setAgentForm(prev => ({ ...prev, modelId: e.target.value }))}
+              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-colors"
+            >
+              <option value="">Select a model...</option>
+              {availableModels.map((model) => (
+                <option key={model.id} value={model.id}>
+                  {model.name} ({model.source})
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Description */}
           <div className="mt-4">
             <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -1650,50 +1860,150 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
           </div>
         </div>
 
-        {/* Model Configuration */}
-        <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50">
-          <h4 className="text-base font-semibold text-white mb-4">Model Configuration</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Model Selection */}
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                LLM Model *
-              </label>
-              <select
-                value={agentForm.modelId}
-                onChange={(e) => setAgentForm(prev => ({ ...prev, modelId: e.target.value }))}
-                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-colors"
-              >
-                <option value="">Select a model...</option>
-                {availableModels.map((model) => (
-                  <option key={model.id} value={model.id}>
-                    {model.name} ({model.source})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Persona Selection */}
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Persona
-              </label>
-              <PersonaSelector
-                selectedPersona={selectedPersona}
-                onPersonaSelect={(persona) => {
-                  setSelectedPersona(persona);
-                  setAgentForm(prev => ({ ...prev, personaId: persona?.id || '' }));
-                }}
-                className="w-full"
-              />
-            </div>
-          </div>
+        {/* Persona Selection */}
+        <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50 max-h-96 overflow-y-auto">
+          <PersonaSelector
+            onSelectPersona={handlePersonaSelect}
+            disabled={!agentForm.name.trim() || !agentForm.modelId}
+          />
         </div>
 
-        {/* Tool Attachment (same as create form) */}
+        {/* Task-Specific Model Preferences */}
         {selectedPersona && (
           <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50">
-            <h4 className="text-base font-semibold text-white mb-4">Tool Configuration</h4>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Cpu className="w-4 h-4 text-slate-400" />
+                <span className="text-slate-300">Task-Specific Models</span>
+              </div>
+              <button
+                onClick={addLLMPreference}
+                className="flex items-center gap-1 px-2 py-1 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded text-xs transition-colors"
+              >
+                <Plus className="w-3 h-3" />
+                Add
+              </button>
+            </div>
+            
+            <div className="space-y-3 max-h-80 overflow-y-auto">
+              {agentForm.llmPreferences.length === 0 ? (
+                  <div className="text-center py-4 border-2 border-dashed border-slate-600/50 rounded-lg">
+                    <Cpu className="w-6 h-6 mx-auto mb-2 text-slate-500" />
+                    <p className="text-xs text-slate-500">No task-specific preferences configured</p>
+                    <p className="text-xs text-slate-600 mt-1">Add preferences to optimize model selection for different tasks</p>
+                  </div>
+                ) : (
+                  agentForm.llmPreferences.map((preference, index) => (
+                    <div key={index} className="border border-slate-600/30 rounded-lg p-3 bg-slate-900/30">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-xs text-slate-400 mb-1">Task Type</label>
+                          <select
+                            value={preference.taskType}
+                            onChange={(e) => updateLLMPreference(index, { taskType: e.target.value as LLMTaskType })}
+                            className="w-full px-2 py-1 text-xs bg-slate-800/50 border border-slate-700/50 rounded text-white"
+                          >
+                            {LLM_TASK_TYPE_OPTIONS.map(type => (
+                              <option key={type.value} value={type.value}>{type.label}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs text-slate-400 mb-1">Provider</label>
+                          <select
+                            value={preference.preferredProvider}
+                            onChange={(e) => updateLLMPreference(index, { preferredProvider: e.target.value as LLMProviderType })}
+                            className="w-full px-2 py-1 text-xs bg-slate-800/50 border border-slate-700/50 rounded text-white"
+                          >
+                            {LLM_PROVIDER_TYPE_OPTIONS.map(provider => (
+                              <option key={provider.value} value={provider.value}>{provider.label}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs text-slate-400 mb-1">Model</label>
+                          <div className="flex gap-1">
+                            <select
+                              value={preference.preferredModel}
+                              onChange={(e) => updateLLMPreference(index, { preferredModel: e.target.value })}
+                              className="flex-1 px-2 py-1 text-xs bg-slate-800/50 border border-slate-700/50 rounded text-white"
+                            >
+                              {availableModels
+                                .filter(m => 
+                                  m.apiType === preference.preferredProvider || 
+                                  (preference.preferredProvider === LLMProviderType.ANTHROPIC && m.name?.toLowerCase().includes('claude')) ||
+                                  (preference.preferredProvider === LLMProviderType.OPENAI && m.name?.toLowerCase().includes('gpt'))
+                                )
+                                .map(model => (
+                                  <option key={model.id} value={model.id}>{model.name}</option>
+                                ))
+                              }
+                              <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                              <option value="gpt-4o-mini">GPT-4O Mini</option>
+                            </select>
+                            <button
+                              onClick={() => removeLLMPreference(index)}
+                              className="px-2 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded text-xs transition-colors"
+                              title="Remove preference"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                        <div>
+                          <label className="block text-xs text-slate-400 mb-1">Priority (1-100)</label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="100"
+                            value={preference.priority}
+                            onChange={(e) => updateLLMPreference(index, { priority: parseInt(e.target.value) })}
+                            className="w-full px-2 py-1 text-xs bg-slate-800/50 border border-slate-700/50 rounded text-white"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs text-slate-400 mb-1">Temperature (0-2)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="2"
+                            step="0.1"
+                            value={preference.settings?.temperature || 0.7}
+                            onChange={(e) => updateLLMPreference(index, { 
+                              settings: { ...preference.settings, temperature: parseFloat(e.target.value) }
+                            })}
+                            className="w-full px-2 py-1 text-xs bg-slate-800/50 border border-slate-700/50 rounded text-white"
+                          />
+                        </div>
+
+                        <div className="flex items-center">
+                          <label className="flex items-center text-xs text-slate-400">
+                            <input
+                              type="checkbox"
+                              checked={preference.isActive}
+                              onChange={(e) => updateLLMPreference(index, { isActive: e.target.checked })}
+                              className="mr-1 w-3 h-3 text-blue-600 bg-slate-800 border-slate-600 rounded focus:ring-blue-500 focus:ring-1"
+                            />
+                            Active
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+          </div>
+        )}
+
+        {/* Tool Attachment */}
+        {selectedPersona && (
+          <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50">
             <div className="space-y-4">
               {/* Available Tools */}
               <div>
@@ -1765,6 +2075,7 @@ export const AgentManager: React.FC<AgentManagerProps> = ({
                   modelId: agentForm.modelId,
                   personaId: agentForm.personaId,
                   attachedTools: agentForm.attachedTools || [],
+                  llmPreferences: agentForm.llmPreferences,
                   chatConfig: agentForm.chatConfig
                 });
                 navigateToView();

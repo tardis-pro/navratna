@@ -19,7 +19,7 @@ import {
   AgentRole
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
-import { AgentService, ToolService } from '@uaip/shared-services';
+
 import {
   AgentCoreService,
   AgentContextService,
@@ -28,45 +28,7 @@ import {
   AgentDiscussionService
 } from '../services/index.js';
 
-// Lazy initialization of services to avoid singleton issues
-let agentService: AgentService | null = null;
-let toolService: ToolService | null = null;
-let agentCore: AgentCoreService | null = null;
-let agentContext: AgentContextService | null = null;
-let agentPlanning: AgentPlanningService | null = null;
-let agentLearning: AgentLearningService | null = null;
-let agentDiscussion: AgentDiscussionService | null = null;
 
-function getServices() {
-  if (!agentService) {
-    try {
-      agentService = AgentService.getInstance();
-      toolService = ToolService.getInstance();
-      agentCore = new AgentCoreService();
-      agentContext = new AgentContextService();
-      agentPlanning = new AgentPlanningService();
-      agentLearning = new AgentLearningService();
-      agentDiscussion = new AgentDiscussionService();
-    } catch (error) {
-      logger.warn('Services not yet initialized, retrying...', error);
-      return null;
-    }
-  }
-  return { agentService, toolService, agentCore, agentContext, agentPlanning, agentLearning, agentDiscussion };
-}
-
-// Middleware to ensure services are ready
-const ensureServicesReady = (req: Request, res: Response, next: NextFunction) => {
-  const services = getServices();
-  if (!services) {
-    res.status(503).json({ 
-      error: 'Service temporarily unavailable', 
-      message: 'Services are still initializing' 
-    });
-    return;
-  }
-  next();
-};
 
 // Create router
 export function createAgentRoutes(): Router {
@@ -80,11 +42,10 @@ export function createAgentRoutes(): Router {
   // List all agents
   router.get('/',
     authMiddleware,
-    ensureServicesReady,
     async (req, res, next) => {
       try {
-        const { agentCore } = getServices();
-        const agents = await agentCore!.listAgents();
+        const agentCore = new AgentCoreService();
+        const agents = await agentCore.listAgents();
         res.json(agents);
       } catch (error) {
         next(error);
@@ -99,8 +60,8 @@ export function createAgentRoutes(): Router {
     trackAgentOperation('create-agent'),
     async (req, res, next) => {
       try {
-        const { agentCore } = getServices();
-        const agent = await agentCore!.createAgent(req.body, req.user?.id || 'system');
+        const agentCore = new AgentCoreService();
+        const agent = await agentCore.createAgent(req.body, req.user?.id || 'system');
         res.status(201).json(agent);
       } catch (error) {
         next(error);
@@ -115,8 +76,8 @@ export function createAgentRoutes(): Router {
     trackAgentOperation('get-agent'),
     async (req, res, next) => {
       try {
-        const { agentService } = getServices();
-        const agent = await agentService!.findAgentById(req.agentContext!.agentId);
+        const agentCore = new AgentCoreService();
+        const agent = await agentCore.getAgent(req.params.agentId);
         res.json(agent);
       } catch (error) {
         next(error);
@@ -132,24 +93,8 @@ export function createAgentRoutes(): Router {
     trackAgentOperation('update-agent'),
     async (req, res, next) => {
       try {
-        const { agentService } = getServices();
-        const updateData = req.body as AgentUpdateRequest;
-        
-        // Filter out capabilities field as it's handled separately if needed
-        const { capabilities, ...agentUpdateData } = updateData;
-        
-        const updatedAgent = await agentService!.updateAgent(req.agentContext!.agentId, agentUpdateData);
-        
-        if (!updatedAgent) {
-          res.status(404).json({ error: 'Agent not found' });
-          return;
-        }
-        
-        // Update capabilities if provided
-        if (capabilities) {
-          await agentService!.updateAgent(req.agentContext!.agentId, { capabilities });
-        }
-        
+        const agentCore = new AgentCoreService();
+        const updatedAgent = await agentCore.updateAgent(req.params.agentId, req.body, req.user?.id || 'system');
         res.json(updatedAgent);
       } catch (error) {
         next(error);
@@ -178,8 +123,8 @@ export function createAgentRoutes(): Router {
           startedAt: new Date(),
           lastActivityAt: new Date()
         };
-        const { agentContext } = getServices();
-        const result = await agentContext!.analyzeContext(
+        const agentContext = new AgentContextService();
+        const result = await agentContext.analyzeContext(
           req.agentContext.agentId,
           analysisRequest.userRequest,
           conversationContext,
@@ -213,8 +158,8 @@ export function createAgentRoutes(): Router {
           return;
         }
         const planRequest = req.body as AgentPlanRequest;
-        const { agentPlanning } = getServices();
-        const plan = await agentPlanning!.generateExecutionPlan(
+        const agentPlanning = new AgentPlanningService();
+        const plan = await agentPlanning.generateExecutionPlan(
           req.agentContext.agentId,
           planRequest.analysis,
           planRequest.userPreferences,
@@ -222,8 +167,8 @@ export function createAgentRoutes(): Router {
         );
         
         // Update agent status  
-        const { agentService } = getServices();
-        await agentService!.updateAgentStatus(req.agentContext.agentId, AgentStatus.ACTIVE);
+        const agentCore = new AgentCoreService();
+        await agentCore.updateAgent(req.agentContext.agentId, { status: AgentStatus.ACTIVE }, req.user?.id || 'system');
         
         res.json({
           success: true,
@@ -242,9 +187,6 @@ export function createAgentRoutes(): Router {
 
   // Agent learning endpoint
   router.post('/:agentId/learn',
-    ensureServicesReady,
-    authMiddleware,
-    loadAgentContext,
     trackAgentOperation('agent-learn'),
     async (req, res, next) => {
       try {
@@ -252,10 +194,7 @@ export function createAgentRoutes(): Router {
           res.status(401).json({ error: 'Agent context required' });
           return;
         }
-        if (!agentLearning) {
-          res.status(503).json({ error: 'Learning service not available' });
-          return;
-        }
+        const agentLearning = new AgentLearningService();
         const learningData = req.body as Record<string, unknown>;
         const result = await agentLearning.processLearningData({
           agentId: req.agentContext.agentId,
@@ -278,9 +217,6 @@ export function createAgentRoutes(): Router {
 
   // Agent chat endpoint
   router.post('/:agentId/chat',
-    ensureServicesReady,
-    authMiddleware,
-    loadAgentContext,
     trackAgentOperation('agent-chat'),
     async (req, res, next) => {
       try {
@@ -288,10 +224,7 @@ export function createAgentRoutes(): Router {
           res.status(401).json({ error: 'Agent context required' });
           return;
         }
-        if (!agentDiscussion) {
-          res.status(503).json({ error: 'Discussion service not available' });
-          return;
-        }
+        const agentDiscussion = new AgentDiscussionService();
         const messageData = req.body as Record<string, unknown>;
         const result = await agentDiscussion.processDiscussionMessage({
           agentId: req.agentContext.agentId,
@@ -317,19 +250,3 @@ export function createAgentRoutes(): Router {
   return router;
 }
 
-// Helper function to execute tool logic (would be moved to capability registry)
-async function executeToolLogic(tool: any, input: any, context: any): Promise<any> {
-  // This is a placeholder - actual implementation would delegate to capability registry
-  logger.info(`Executing tool ${tool.name} with input:`, input);
-  
-  // Simulate tool execution
-  return {
-    success: true,
-    output: `Tool ${tool.name} executed successfully`,
-    metadata: {
-      toolId: tool.id,
-      executedAt: new Date(),
-      context: context.metadata
-    }
-  };
-}

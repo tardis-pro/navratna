@@ -117,7 +117,11 @@ export class ConversationEnhancementService extends EventEmitter {
     resolve: (response: any) => void;
     reject: (error: any) => void;
     timeout: NodeJS.Timeout;
+    timestamp: number; // Add timestamp for cleanup
   }> = new Map();
+  
+  // Cleanup interval to prevent memory leaks
+  private cleanupInterval: NodeJS.Timeout | null = null;
 
   constructor(
     databaseService: DatabaseService,
@@ -129,6 +133,9 @@ export class ConversationEnhancementService extends EventEmitter {
 
     this.initializeEventHandlers();
     this.setupLLMEventSubscriptions();
+    
+    // Start cleanup mechanisms to prevent memory leaks
+    this.startCleanupMechanisms();
   }
 
   /**
@@ -243,7 +250,7 @@ export class ConversationEnhancementService extends EventEmitter {
         });
       }, 45000);
 
-      // Store the promise handlers
+      // Store the promise handlers with timestamp for cleanup
       this.pendingLLMRequests.set(requestId, {
         resolve: (response) => {
           resolve(response);
@@ -252,7 +259,8 @@ export class ConversationEnhancementService extends EventEmitter {
           clearTimeout(timeout);
           reject(error);
         },
-        timeout
+        timeout,
+        timestamp: Date.now()
       });
 
       try {
@@ -1165,12 +1173,93 @@ Please contribute to this discussion about "${topic}" in a way that's natural an
   }
 
   /**
+   * Start cleanup mechanisms to prevent memory leaks
+   */
+  private startCleanupMechanisms(): void {
+    // Clean up stale LLM requests every 5 minutes
+    this.cleanupInterval = setInterval(() => {
+      this.cleanupStaleLLMRequests();
+    }, 300000); // 5 minutes
+    
+    logger.info('Conversation Enhancement Service cleanup mechanisms started');
+  }
+
+  /**
+   * Clean up stale LLM requests to prevent memory leaks
+   */
+  private cleanupStaleLLMRequests(): void {
+    const now = Date.now();
+    const staleThreshold = 120000; // 2 minutes
+    let cleanedCount = 0;
+    
+    for (const [requestId, request] of this.pendingLLMRequests.entries()) {
+      // Clean up requests older than 2 minutes
+      if (now - request.timestamp > staleThreshold) {
+        clearTimeout(request.timeout);
+        this.pendingLLMRequests.delete(requestId);
+        cleanedCount++;
+        
+        logger.debug('Cleaned up stale LLM request', { 
+          requestId, 
+          ageMs: now - request.timestamp 
+        });
+      }
+    }
+    
+    if (cleanedCount > 0) {
+      logger.info('Cleaned up stale LLM requests', { 
+        cleanedCount, 
+        remainingCount: this.pendingLLMRequests.size 
+      });
+    }
+    
+    // Alert if too many pending requests (memory pressure indicator)
+    if (this.pendingLLMRequests.size > 1000) {
+      logger.warn('High number of pending LLM requests detected', {
+        pendingCount: this.pendingLLMRequests.size,
+        warningThreshold: 1000
+      });
+    }
+  }
+
+  /**
+   * Get cleanup statistics for monitoring
+   */
+  public getCleanupStatistics(): {
+    pendingLLMRequests: number;
+    agentPersonaMappings: number;
+    conversationStates: number;
+  } {
+    return {
+      pendingLLMRequests: this.pendingLLMRequests.size,
+      agentPersonaMappings: this.agentPersonaMappings.size,
+      conversationStates: this.conversationStates.size
+    };
+  }
+
+  /**
    * Cleanup resources
    */
   async cleanup(): Promise<void> {
+    // Clear cleanup interval
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
+    
+    // Clear all pending LLM requests
+    for (const [requestId, request] of this.pendingLLMRequests.entries()) {
+      clearTimeout(request.timeout);
+    }
+    this.pendingLLMRequests.clear();
+    
+    // Clear other maps
     this.agentPersonaMappings.clear();
     this.conversationStates.clear();
+    
+    // Remove event listeners
     this.removeAllListeners();
+    
     logger.info('Conversation Enhancement Service cleanup completed');
   }
 }

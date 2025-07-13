@@ -34,15 +34,16 @@ import { useAuth } from '../contexts/AuthContext';
 import { ProjectManagementPortal } from './futuristic/portals/ProjectManagementPortal';
 import { ProjectOnboardingFlow } from './futuristic/portals/ProjectOnboardingFlow';
 import { ProjectTaskManager } from './ProjectTaskManager';
-import { UserPersonaOnboardingFlow } from './UserPersonaOnboardingFlow';
 import { MapWallpaper } from './futuristic/desktop/MapWallpaper';
 import { LocationService, LocationData } from '../services/LocationService';
 import { WeatherService } from '../services/WeatherService';
 import { userPersonaAPI } from '../api/user-persona.api';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
+import { useOnboarding } from '../contexts/OnboardingContext';
 import { useWallpaper } from '../hooks/useWallpaper';
 import { WallpaperCustomizationPanel } from './WallpaperCustomizationPanel';
 import { DiscussionConfigModal } from './DiscussionConfigModal';
+import { OnboardingManager } from './OnboardingManager';
 
 // Design System Tokens
 const DESIGN_TOKENS = {
@@ -1071,7 +1072,6 @@ export const Desktop: React.FC = () => {
   const [showChatIngestion, setShowChatIngestion] = useState(false);
   const [selectedKnowledgeItem, setSelectedKnowledgeItem] = useState<any>(null);
   const [showProjectOnboarding, setShowProjectOnboarding] = useState(false);
-  const [showUserPersonaOnboarding, setShowUserPersonaOnboarding] = useState(false);
   const [showDiscussionConfig, setShowDiscussionConfig] = useState(false);
 
   // Map wallpaper state
@@ -1107,23 +1107,8 @@ export const Desktop: React.FC = () => {
     }
   }, []);
 
-  // Check user persona onboarding status
-  useEffect(() => {
-    if (user) {
-      const checkPersonaOnboarding = async () => {
-        try {
-          const status = await userPersonaAPI.checkOnboardingStatus();
-          if (status && status.isRequired) {
-            setShowUserPersonaOnboarding(true);
-          }
-        } catch (error) {
-          console.error('Error checking persona onboarding status:', error);
-          // Fail silently - onboarding is optional
-        }
-      };
-      checkPersonaOnboarding();
-    }
-  }, [user]);
+  // The onboarding logic is now handled by OnboardingContext and OnboardingManager
+  // No need for separate onboarding check here anymore
 
   // Save customizations
   useEffect(() => {
@@ -1181,7 +1166,6 @@ export const Desktop: React.FC = () => {
         setShowChatIngestion(false);
         setShowKnowledgeShortcut(false);
         setShowProjectOnboarding(false);
-        setShowUserPersonaOnboarding(false);
         if (selectedKnowledgeItem) {
           setSelectedKnowledgeItem(null);
         }
@@ -1274,7 +1258,6 @@ export const Desktop: React.FC = () => {
   const handlePersonaCompleted = async (data: any) => {
     try {
       await userPersonaAPI.completeOnboarding(data);
-      setShowUserPersonaOnboarding(false);
 
       // Optionally show success notification or adapt UI immediately
       console.log('User persona onboarding completed:', data);
@@ -1564,12 +1547,7 @@ export const Desktop: React.FC = () => {
         onProjectCreate={handleProjectCreated}
       />
 
-      {/* User Persona Onboarding Flow */}
-      <UserPersonaOnboardingFlow
-        isOpen={showUserPersonaOnboarding}
-        onClose={() => setShowUserPersonaOnboarding(false)}
-        onComplete={handlePersonaCompleted}
-      />
+      {/* User Persona Onboarding is now handled by OnboardingManager */}
 
       {/* Discussion Config Modal */}
       <DiscussionConfigModal
@@ -1677,6 +1655,9 @@ export const Desktop: React.FC = () => {
         time={time}
         userRole={userRole}
       />
+
+      {/* Integrated Onboarding Manager - handles welcome screen + persona onboarding */}
+      <OnboardingManager />
     </div>
   );
 };

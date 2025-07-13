@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AuthProvider } from './contexts/AuthContext';
+import { OnboardingProvider } from './contexts/OnboardingContext';
 import { AgentProvider } from './contexts/AgentContext';
 import { UAIPProvider } from './contexts/UAIPContext';
 import { DocumentProvider } from './contexts/DocumentContext';
@@ -15,6 +16,7 @@ import { UAIPDashboard } from './components/UAIPDashboard';
 import { SettingsContent } from './components/SettingsContent';
 import { BackendStatusIndicator } from './components/BackendStatusIndicator';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { OnboardingManager } from './components/OnboardingManager';
 import { FuturisticDemo } from './pages/FuturisticDemo';
 import { Button } from './components/ui/button';
 import {
@@ -93,12 +95,13 @@ function App() {
 
   return (
     <AuthProvider>
-      <ProtectedRoute>
-        <AgentProvider>
-          <UAIPProvider>
-            <KnowledgeProvider>
-              <DocumentProvider>
-                <DiscussionProvider topic="Council of Nycea">
+      <OnboardingProvider>
+        <ProtectedRoute>
+          <AgentProvider>
+            <UAIPProvider>
+              <KnowledgeProvider>
+                <DocumentProvider>
+                  <DiscussionProvider topic="Council of Nycea">
                 <div className="h-screen w-full bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 dark:from-slate-950 dark:via-slate-900 dark:to-slate-800 flex flex-col overflow-hidden">
 
                   {/* Header */}
@@ -244,6 +247,9 @@ function App() {
                       })}
                     </nav>
                   </div>
+
+                  {/* Onboarding Manager - renders on top of everything when needed */}
+                  <OnboardingManager />
                 </div>
               </DiscussionProvider>
               </DocumentProvider>
@@ -251,6 +257,7 @@ function App() {
           </UAIPProvider>
         </AgentProvider>
       </ProtectedRoute>
+      </OnboardingProvider>
     </AuthProvider>
   );
 }

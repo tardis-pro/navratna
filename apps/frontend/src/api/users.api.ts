@@ -5,7 +5,7 @@
 
 import { APIClient } from './client';
 import { API_ROUTES } from '@/config/apiConfig';
-import type { UserRole } from '@uaip/types';
+import type { UserRole, UserLLMPreference } from '@uaip/types';
 
 export interface User {
   id: string;
@@ -135,5 +135,13 @@ export const usersAPI = {
 
   async updatePermissions(id: string, permissions: string[]): Promise<string[]> {
     return APIClient.put<string[]>(`${API_ROUTES.USERS.UPDATE}/${id}/permissions`, { permissions });
+  },
+
+  async getUserLLMPreferences(): Promise<UserLLMPreference[]> {
+    return APIClient.get<UserLLMPreference[]>('/api/v1/users/llm-preferences');
+  },
+
+  async updateUserLLMPreferences(preferences: UserLLMPreference[]): Promise<UserLLMPreference[]> {
+    return APIClient.put<UserLLMPreference[]>('/api/v1/users/llm-preferences', { preferences });
   }
 };

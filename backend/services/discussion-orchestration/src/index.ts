@@ -121,6 +121,90 @@ class DiscussionOrchestrationServer extends BaseService {
       });
     });
 
+    // Debug and monitoring routes for race condition detection
+    this.app.get('/api/v1/debug/race-conditions', (req, res) => {
+      try {
+        const orchestrationStats = this.orchestrationService.getCleanupStatistics();
+        const systemHealth = this.getSystemHealthMetrics();
+        
+        res.json({
+          success: true,
+          timestamp: new Date().toISOString(),
+          orchestrationStats,
+          systemHealth,
+          warnings: this.detectRaceConditionWarnings(orchestrationStats, systemHealth)
+        });
+      } catch (error) {
+        res.status(500).json({
+          success: false,
+          error: 'Failed to fetch race condition debug info'
+        });
+      }
+    });
+
+    this.app.get('/api/v1/debug/memory-usage', (req, res) => {
+      try {
+        const memoryUsage = process.memoryUsage();
+        const orchestrationStats = this.orchestrationService.getCleanupStatistics();
+        
+        res.json({
+          success: true,
+          timestamp: new Date().toISOString(),
+          process: {
+            ...memoryUsage,
+            heapUsedMB: Math.round(memoryUsage.heapUsed / 1024 / 1024),
+            heapTotalMB: Math.round(memoryUsage.heapTotal / 1024 / 1024),
+            rssGB: Math.round(memoryUsage.rss / 1024 / 1024 / 1024 * 100) / 100
+          },
+          orchestration: orchestrationStats,
+          alerts: this.generateMemoryAlerts(memoryUsage, orchestrationStats)
+        });
+      } catch (error) {
+        res.status(500).json({
+          success: false,
+          error: 'Failed to fetch memory usage debug info'
+        });
+      }
+    });
+
+    this.app.post('/api/v1/debug/force-cleanup', (req, res) => {
+      try {
+        // Trigger immediate cleanup
+        this.orchestrationService['performPeriodicCleanup']();
+        
+        res.json({
+          success: true,
+          message: 'Forced cleanup triggered',
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        res.status(500).json({
+          success: false,
+          error: 'Failed to trigger cleanup'
+        });
+      }
+    });
+
+    this.app.get('/api/v1/debug/pending-requests', (req, res) => {
+      try {
+        // This would require exposing cleanup stats from ConversationEnhancementService
+        // For now, return orchestration stats
+        const stats = this.orchestrationService.getCleanupStatistics();
+        
+        res.json({
+          success: true,
+          timestamp: new Date().toISOString(),
+          orchestration: stats,
+          note: 'LLM pending requests require agent-intelligence service endpoint'
+        });
+      } catch (error) {
+        res.status(500).json({
+          success: false,
+          error: 'Failed to fetch pending requests info'
+        });
+      }
+    });
+
     // User chat API routes
     this.app.get('/api/v1/users/online', (req, res) => {
       try {
@@ -588,6 +672,99 @@ class DiscussionOrchestrationServer extends BaseService {
       logger.error('Error during shutdown:', error);
       process.exit(1);
     }
+  }
+
+  /**
+   * Get system health metrics for race condition detection
+   */
+  private getSystemHealthMetrics(): any {
+    const memory = process.memoryUsage();
+    const uptime = process.uptime();
+    
+    return {
+      memory: {
+        heapUsedMB: Math.round(memory.heapUsed / 1024 / 1024),
+        heapTotalMB: Math.round(memory.heapTotal / 1024 / 1024),
+        rssGB: Math.round(memory.rss / 1024 / 1024 / 1024 * 100) / 100,
+        external: Math.round(memory.external / 1024 / 1024),
+        arrayBuffers: Math.round(memory.arrayBuffers / 1024 / 1024)
+      },
+      cpu: {
+        uptime: uptime,
+        loadAverage: process.platform !== 'win32' ? require('os').loadavg() : [0, 0, 0]
+      },
+      connections: {
+        socketIO: this.io ? this.io.engine?.clientsCount || 0 : 0,
+        authHandlers: this.authResponseHandlers.size
+      }
+    };
+  }
+
+  /**
+   * Detect race condition warnings
+   */
+  private detectRaceConditionWarnings(orchestrationStats: any, systemHealth: any): string[] {
+    const warnings: string[] = [];
+    
+    // Check for high number of operation locks (race condition indicator)
+    if (orchestrationStats.operationLocks > 5) {
+      warnings.push(`High operation locks detected: ${orchestrationStats.operationLocks} (normal: 0-2)`);
+    }
+    
+    // Check for high turn timer count vs discussions
+    if (orchestrationStats.turnTimers > orchestrationStats.activeDiscussions + 5) {
+      warnings.push(`Timer count mismatch: ${orchestrationStats.turnTimers} timers vs ${orchestrationStats.activeDiscussions} discussions`);
+    }
+    
+    // Check for high participation rate limits (possible infinite loop)
+    if (orchestrationStats.participationRateLimits > orchestrationStats.activeDiscussions * 2) {
+      warnings.push(`High participation rate limits: ${orchestrationStats.participationRateLimits} (may indicate agent loops)`);
+    }
+    
+    // Check for memory pressure
+    if (systemHealth.memory.heapUsedMB > 1000) {
+      warnings.push(`High memory usage: ${systemHealth.memory.heapUsedMB}MB (consider cleanup)`);
+    }
+    
+    // Check for stale discussions
+    if (orchestrationStats.activeDiscussions > 100) {
+      warnings.push(`High discussion count: ${orchestrationStats.activeDiscussions} (cleanup may be needed)`);
+    }
+    
+    return warnings;
+  }
+
+  /**
+   * Generate memory alerts
+   */
+  private generateMemoryAlerts(memoryUsage: NodeJS.MemoryUsage, orchestrationStats: any): string[] {
+    const alerts: string[] = [];
+    const heapUsedMB = Math.round(memoryUsage.heapUsed / 1024 / 1024);
+    const rssGB = Math.round(memoryUsage.rss / 1024 / 1024 / 1024 * 100) / 100;
+    
+    // Memory thresholds
+    if (heapUsedMB > 1500) {
+      alerts.push(`CRITICAL: Heap usage ${heapUsedMB}MB exceeds 1.5GB threshold`);
+    } else if (heapUsedMB > 1000) {
+      alerts.push(`WARNING: Heap usage ${heapUsedMB}MB exceeds 1GB threshold`);
+    }
+    
+    if (rssGB > 2.0) {
+      alerts.push(`CRITICAL: RSS usage ${rssGB}GB exceeds 2GB threshold`);
+    } else if (rssGB > 1.5) {
+      alerts.push(`WARNING: RSS usage ${rssGB}GB exceeds 1.5GB threshold`);
+    }
+    
+    // Data structure size alerts
+    if (orchestrationStats.activeDiscussions > 1000) {
+      alerts.push(`INFO: High active discussions: ${orchestrationStats.activeDiscussions}`);
+    }
+    
+    if (orchestrationStats.participationRateLimits > 500) {
+      alerts.push(`INFO: High participation rate limits: ${orchestrationStats.participationRateLimits}`);
+    }
+    
+    return alerts;
   }
 
   public getStatus(): any {

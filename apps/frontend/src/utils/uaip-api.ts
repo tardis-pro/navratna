@@ -189,6 +189,7 @@ export const uaipAPI = {
 
   // WebSocket client access removed - using useWebSocket hook instead
 
+
   // ============================================================================
   // PERSONA API METHODS
   // ============================================================================
@@ -198,11 +199,16 @@ export const uaipAPI = {
       try {
         const client = getAPIClient();
 
-        const response = await client.personas.search(query, expertise);
+        const searchRequest = {
+          query,
+          isActive: true
+        };
+
+        const response = await client.personas.search(searchRequest);
         console.log('🔍 Persona search response:', response);
 
         // Handle the response data properly - it should be an array of personas
-        const personas = Array.isArray(response.data) ? response.data : [];
+        const personas = Array.isArray(response) ? response : [];
 
         return {
           personas: personas,
@@ -219,11 +225,11 @@ export const uaipAPI = {
       try {
         const client = getAPIClient();
 
-        const response = await client.personas.getForDisplay();
+        const response = await client.personas.getForDisplay({ isActive: true });
         console.log('🔍 Persona display response:', response);
 
-        // Handle the response data properly - it should be an array of personas with categories
-        const personas = Array.isArray(response.data) ? response.data : [];
+        // Handle the response data properly - it should be an array of personas
+        const personas = Array.isArray(response) ? response : [];
 
         return {
           personas: personas,
