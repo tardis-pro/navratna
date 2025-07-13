@@ -328,6 +328,22 @@ export class ProviderFallbackService {
       return false;
     }
 
+    // Validate API key is not a placeholder
+    const apiKey = provider.getApiKey();
+    if (!apiKey || 
+        apiKey.includes('placeholder') || 
+        apiKey.includes('demo-') ||
+        apiKey.includes('AIza-placeholder') ||
+        apiKey.includes('replace-in-settings')) {
+      logger.debug('Provider has placeholder API key, skipping', { 
+        providerId, 
+        providerName: provider.name,
+        hasApiKey: !!apiKey,
+        isPlaceholder: !!(apiKey && (apiKey.includes('placeholder') || apiKey.includes('demo-')))
+      });
+      return false;
+    }
+
     const expectedProvider = this.getProviderTypeFromModel(model);
     return provider.type === expectedProvider;
   }

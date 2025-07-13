@@ -138,9 +138,18 @@ export const validateJWTToken = async (token: string): Promise<TokenValidationRe
 
 **Recommendation:** Split into focused modules while preserving API contracts
 
-### 3. Oversized Files Requiring Decomposition
+---
 
-**enhancedSecurityGatewayService.ts (1,123 lines)**
+## 🎯 Focused Refactoring Plan
+
+Based on the **actual analysis**, the Security Gateway needs targeted improvements rather than massive architectural changes. The service has excellent foundations but requires specific fixes.
+
+### **Phase 1: Critical Infrastructure Repair** (Week 1) 🚨 BLOCKING
+
+#### **Task 1.1: Fix Test Infrastructure**
+**Priority:** CRITICAL | **Effort:** 2 days | **Impact:** Restore testing capability
+
+**Root Cause:** Missing entity exports in shared services
 ```typescript
 // MIXED RESPONSIBILITIES - Should be 4+ separate services
 export class EnhancedSecurityGatewayService {

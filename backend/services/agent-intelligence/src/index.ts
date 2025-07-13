@@ -54,9 +54,9 @@ class AgentIntelligenceService extends BaseService {
     this.app.use('/api/v1/personas', createPersonaRoutes(this.personaController));
     
     // Monitoring and debug routes for race condition detection
-    this.app.get('/api/v1/debug/conversation-enhancement', (req, res) => {
+    this.app.get('/api/v1/debug/conversation-enhancement', async (req, res) => {
       try {
-        const stats = this.conversationEnhancementService.getCleanupStatistics();
+        const stats = await this.conversationEnhancementService.getServiceStatistics();
         const memoryUsage = process.memoryUsage();
         
         const alerts: string[] = [];

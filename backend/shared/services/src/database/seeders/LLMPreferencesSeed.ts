@@ -4,6 +4,7 @@ import { UserLLMPreference } from '../../entities/userLLMPreference.entity.js';
 import { AgentLLMPreference } from '../../entities/agentLLMPreference.entity.js';
 import { UserEntity } from '../../entities/user.entity.js';
 import { Agent } from '../../entities/agent.entity.js';
+import { UserLLMProvider } from '../../entities/userLLMProvider.entity.js';
 import { LLMProviderType, LLMTaskType } from '@uaip/types';
 
 interface TaskConfiguration {
@@ -34,6 +35,7 @@ interface TaskConfiguration {
 export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
   private users: UserEntity[];
   private agents: Agent[];
+  private availableProviders: UserLLMProvider[] = [];
 
   constructor(dataSource: DataSource, users: UserEntity[], agents: Agent[]) {
     super(dataSource, dataSource.getRepository(UserLLMPreference), 'LLM Preferences');
@@ -47,12 +49,63 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
   }
 
   /**
+   * Load available providers and models from the database
+   */
+  private async loadAvailableProviders(): Promise<void> {
+    const providerRepo = this.dataSource.getRepository(UserLLMProvider);
+    this.availableProviders = await providerRepo.find({
+      where: { isActive: true },
+      order: { priority: 'DESC' }
+    });
+    console.log(`   📡 Loaded ${this.availableProviders.length} available LLM providers`);
+  }
+
+  /**
+   * Get a model by provider type and model preference
+   */
+  private getModelForProvider(providerType: LLMProviderType, preferredModel?: string): string {
+    const providers = this.availableProviders.filter(p => p.type === providerType);
+    
+    if (providers.length === 0) {
+      // Fallback to common models if no providers found
+      switch (providerType) {
+        case LLMProviderType.OPENAI: return 'gpt-4o-mini';
+        case LLMProviderType.ANTHROPIC: return 'claude-3-5-sonnet-20241022';
+        case LLMProviderType.LLMSTUDIO: return 'local-model';
+        case LLMProviderType.OLLAMA: return 'llama3.2:latest';
+        default: return 'default-model';
+      }
+    }
+
+    // Try to find a provider with the preferred model (partial match for LLM Studio models)
+    if (preferredModel) {
+      // First try exact match
+      const exactMatch = providers.find(p => p.defaultModel === preferredModel);
+      if (exactMatch) return exactMatch.defaultModel;
+      
+      // For LLM Studio, try partial match since model names contain UUID prefixes
+      if (providerType === LLMProviderType.LLMSTUDIO) {
+        const partialMatch = providers.find(p => 
+          p.defaultModel.includes(preferredModel) || preferredModel.includes(p.defaultModel)
+        );
+        if (partialMatch) return partialMatch.defaultModel;
+      }
+    }
+
+    // Return the highest priority provider's default model
+    return providers[0].defaultModel;
+  }
+
+  /**
    * Override seed method to handle composite unique constraint (userId + taskType)
    */
   async seed(): Promise<UserLLMPreference[]> {
     console.log(`🌱 Seeding ${this.entityName}...`);
 
     try {
+      // Load available providers first
+      await this.loadAvailableProviders();
+      
       const userPreferences = this.generateUserPreferences();
       const agentPreferences = this.generateAgentPreferences();
       
@@ -135,8 +188,8 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
       userId,
       taskType: taskType as LLMTaskType,
       preferredProvider: config.primaryProvider,
-      preferredModel: config.primaryModel,
-      fallbackModel: config.fallbackModel,
+      preferredModel: this.getModelForProvider(config.primaryProvider, config.primaryModel),
+      fallbackModel: this.getModelForProvider(config.primaryProvider, config.fallbackModel),
       settings: config.settings,
       isActive: true,
       priority: config.priority,
@@ -152,8 +205,8 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
       agentId,
       taskType: taskType as LLMTaskType,
       preferredProvider: config.primaryProvider,
-      preferredModel: config.primaryModel,
-      fallbackModel: config.fallbackModel,
+      preferredModel: this.getModelForProvider(config.primaryProvider, config.primaryModel),
+      fallbackModel: this.getModelForProvider(config.primaryProvider, config.fallbackModel),
       settings: config.settings,
       isActive: true,
       priority: config.priority,
@@ -166,11 +219,11 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
   private getTaskConfigurations(): Record<LLMTaskType, TaskConfiguration> {
     return {
       [LLMTaskType.CODE_GENERATION]: {
-        primaryProvider: LLMProviderType.ANTHROPIC,
-        primaryModel: 'claude-3-5-sonnet-20241022',
+        primaryProvider: LLMProviderType.LLMSTUDIO,
+        primaryModel: 'smollm3-3b', // Will be resolved to actual model ID
         fallbackModel: 'gpt-4o',
         priority: 90,
-        description: 'High-quality code generation with Claude Sonnet',
+        description: 'High-quality code generation with SmolLM3',
         settings: {
           temperature: 0.1,
           maxTokens: 4000,
@@ -179,11 +232,11 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
         }
       },
       [LLMTaskType.REASONING]: {
-        primaryProvider: LLMProviderType.ANTHROPIC,
-        primaryModel: 'claude-3-5-sonnet-20241022',
+        primaryProvider: LLMProviderType.LLMSTUDIO,
+        primaryModel: 'deepcogito_cogito-v1-preview-llama-8b', // Will be resolved to actual model ID
         fallbackModel: 'gpt-4o',
         priority: 95,
-        description: 'Complex reasoning and analysis with Claude Sonnet',
+        description: 'Complex reasoning and analysis with DeepCogito Cogito',
         settings: {
           temperature: 0.2,
           maxTokens: 3000,
@@ -192,11 +245,11 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
         }
       },
       [LLMTaskType.TOOL_CALLING]: {
-        primaryProvider: LLMProviderType.OPENAI,
-        primaryModel: 'gpt-4o-mini',
+        primaryProvider: LLMProviderType.LLMSTUDIO,
+        primaryModel: 'menlo_jan-nano-128k',
         fallbackModel: 'gpt-4o',
         priority: 85,
-        description: 'Fast and reliable tool execution with GPT-4o-mini',
+        description: 'Fast and reliable tool execution with Menlo Jan Nano',
         settings: {
           temperature: 0.1,
           maxTokens: 2000,
@@ -205,11 +258,11 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
         }
       },
       [LLMTaskType.SUMMARIZATION]: {
-        primaryProvider: LLMProviderType.ANTHROPIC,
-        primaryModel: 'claude-3-5-haiku-20241022',
+        primaryProvider: LLMProviderType.LLMSTUDIO,
+        primaryModel: 'internlm3-8b-instruct',
         fallbackModel: 'gpt-4o-mini',
         priority: 80,
-        description: 'Efficient summarization with Claude Haiku',
+        description: 'Efficient summarization with InternLM3',
         settings: {
           temperature: 0.3,
           maxTokens: 1000,
@@ -218,11 +271,11 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
         }
       },
       [LLMTaskType.CREATIVE_WRITING]: {
-        primaryProvider: LLMProviderType.ANTHROPIC,
-        primaryModel: 'claude-3-5-sonnet-20241022',
+        primaryProvider: LLMProviderType.LLMSTUDIO,
+        primaryModel: 'llama-3.2-3b-overthinker',
         fallbackModel: 'gpt-4o',
         priority: 75,
-        description: 'Creative content generation with high temperature',
+        description: 'Creative content generation with Llama 3.2 Overthinker',
         settings: {
           temperature: 0.8,
           maxTokens: 2000,
@@ -231,11 +284,11 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
         }
       },
       [LLMTaskType.TRANSLATION]: {
-        primaryProvider: LLMProviderType.OPENAI,
-        primaryModel: 'gpt-4o',
+        primaryProvider: LLMProviderType.LLMSTUDIO,
+        primaryModel: 'qwen3-30b-a3b-128k',
         fallbackModel: 'gpt-4o-mini',
         priority: 70,
-        description: 'Accurate translation with GPT-4o',
+        description: 'Accurate translation with Qwen3 30B',
         settings: {
           temperature: 0.2,
           maxTokens: 2000,
@@ -244,11 +297,11 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
         }
       },
       [LLMTaskType.CLASSIFICATION]: {
-        primaryProvider: LLMProviderType.OPENAI,
-        primaryModel: 'gpt-4o-mini',
+        primaryProvider: LLMProviderType.LLMSTUDIO,
+        primaryModel: 'arch-router-1.5b',
         fallbackModel: 'gpt-3.5-turbo',
         priority: 65,
-        description: 'Fast classification with GPT-4o-mini',
+        description: 'Fast classification with Arch Router',
         settings: {
           temperature: 0.1,
           maxTokens: 500,
@@ -270,42 +323,42 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
         }
       },
       [LLMTaskType.EMBEDDINGS]: {
-        primaryProvider: LLMProviderType.OPENAI,
-        primaryModel: 'text-embedding-3-large',
+        primaryProvider: LLMProviderType.LLMSTUDIO,
+        primaryModel: 'deepcogito_cogito-v1-preview-llama-8b',
         fallbackModel: 'text-embedding-3-small',
         priority: 90,
-        description: 'High-quality embeddings with OpenAI',
+        description: 'High-quality embeddings with DeepCogito',
         settings: {
-          temperature: 0.0,
+          temperature: 0,
           maxTokens: 8191,
-          topP: 1.0,
+          topP: 1,
         }
       },
       [LLMTaskType.SPEECH_TO_TEXT]: {
-        primaryProvider: LLMProviderType.OPENAI,
-        primaryModel: 'whisper-1',
+        primaryProvider: LLMProviderType.LLMSTUDIO,
+        primaryModel: 'deepcogito_cogito-v1-preview-llama-8b',
         fallbackModel: 'whisper-1',
         priority: 80,
-        description: 'Speech transcription with Whisper',
+        description: 'Speech transcription with DeepCogito',
         settings: {
-          temperature: 0.0,
+          temperature: 0,
           maxTokens: 1000,
-          topP: 1.0,
+          topP: 1,
         }
       },
       [LLMTaskType.TEXT_TO_SPEECH]: {
-        primaryProvider: LLMProviderType.OPENAI,
-        primaryModel: 'tts-1',
+        primaryProvider: LLMProviderType.LLMSTUDIO,
+        primaryModel: 'deepcogito_cogito-v1-preview-llama-8b',
         fallbackModel: 'tts-1-hd',
         priority: 80,
-        description: 'Text to speech conversion',
+        description: 'Text to speech conversion with DeepCogito',
         settings: {
-          temperature: 0.0,
+          temperature: 0,
           maxTokens: 4096,
-          topP: 1.0,
+          topP: 1,
           customSettings: {
             voice: 'alloy',
-            speed: 1.0
+            speed: 1
           }
         }
       }

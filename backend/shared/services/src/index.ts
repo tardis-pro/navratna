@@ -68,6 +68,9 @@ export { QdrantService } from './qdrant.service.js';
 // Cache Services
 export { redisCacheService, RedisCacheService } from './redis-cache.service.js';
 
+// LLM Request Tracking Service
+export { LLMRequestTracker } from './llm-request-tracker.service.js';
+
 // =============================================================================
 // DOMAIN SERVICES
 // =============================================================================

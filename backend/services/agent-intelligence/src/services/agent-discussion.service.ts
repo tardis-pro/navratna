@@ -19,7 +19,8 @@ import {
   EventBusService,
   KnowledgeGraphService,
   AgentMemoryService,
-  DiscussionService
+  DiscussionService,
+  LLMRequestTracker
 } from '@uaip/shared-services';
 import { LLMService, UserLLMService, LLMRequest } from '@uaip/llm-service';
 
@@ -54,12 +55,8 @@ export class AgentDiscussionService {
     handler: ((responseData: any) => Promise<void>) | null;
   }>();
 
-  // Track pending LLM requests for event-driven responses
-  private pendingLLMRequests: Map<string, {
-    resolve: (response: any) => void;
-    reject: (error: any) => void;
-    timeout: NodeJS.Timeout;
-  }> = new Map();
+  // Redis-based LLM request tracker for persistence
+  private llmRequestTracker: LLMRequestTracker;
 
   constructor(config: AgentDiscussionConfig) {
     this.databaseService = config.databaseService;
@@ -71,6 +68,12 @@ export class AgentDiscussionService {
     this.userLLMService = config.userLLMService;
     this.serviceName = config.serviceName;
     this.securityLevel = config.securityLevel;
+    
+    // Initialize Redis-based LLM request tracker
+    this.llmRequestTracker = new LLMRequestTracker(
+      'agent-discussion',
+      30000 // 30 second timeout
+    );
   }
 
   async initialize(): Promise<void> {
@@ -80,8 +83,7 @@ export class AgentDiscussionService {
     // Set up LLM event subscriptions
     await this.setupLLMEventSubscriptions();
 
-    // Start periodic monitoring of active requests
-    this.startRequestMonitoring();
+    // Note: Request monitoring is now handled by Redis TTL and LLMRequestTracker
 
     logger.info('Agent Discussion Service initialized', {
       service: this.serviceName,
@@ -97,29 +99,28 @@ export class AgentDiscussionService {
     await this.eventBusService.subscribe('llm.agent.generate.response', async (event) => {
       const { requestId, content, error, confidence, model } = event.data;
       
-      const pendingRequest = this.pendingLLMRequests.get(requestId);
-      if (!pendingRequest) {
+      const isPending = await this.llmRequestTracker.isPending(requestId);
+      if (!isPending) {
+        const pendingCount = await this.llmRequestTracker.getPendingCount();
+        const pendingKeys = await this.llmRequestTracker.getPendingRequestIds();
         logger.warn('Received LLM response for unknown agent discussion request', { 
           requestId, 
-          pendingCount: this.pendingLLMRequests.size,
-          pendingKeys: Array.from(this.pendingLLMRequests.keys())
+          pendingCount,
+          pendingKeys
         });
         return;
       }
 
-      this.pendingLLMRequests.delete(requestId);
-      clearTimeout(pendingRequest.timeout);
-
       if (error) {
         logger.warn('LLM generation failed for agent discussion', { requestId, error });
-        // Resolve with fallback instead of rejecting
-        pendingRequest.resolve({
+        // Complete with fallback instead of rejecting
+        await this.llmRequestTracker.completePendingRequest(requestId, {
           content: 'I appreciate the opportunity to respond.',
           confidence: 0.3,
           model: model || 'fallback'
         });
       } else {
-        pendingRequest.resolve({
+        await this.llmRequestTracker.completePendingRequest(requestId, {
           content: content || 'I have some thoughts on this.',
           confidence: confidence || 0.7,
           model: model || 'unknown'
@@ -138,61 +139,42 @@ export class AgentDiscussionService {
     systemPrompt: string,
     temperature: number = 0.7,
     maxTokens: number = 300,
-    agentId?: string
+    agentId?: string,
+    preSelectedModel?: string,
+    preSelectedProvider?: string,
+    preSelectedProviderId?: string
   ): Promise<{ content: string; confidence: number; model: string }> {
     return new Promise(async (resolve, reject) => {
       const requestId = `agent_disc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
-      // Set up timeout (30 seconds for LLM generation)
-      const timeout = setTimeout(() => {
-        this.pendingLLMRequests.delete(requestId);
-        logger.warn('LLM generation timeout for agent discussion', { 
-          requestId, 
-          pendingCount: this.pendingLLMRequests.size 
-        });
-        // Resolve with fallback instead of rejecting
-        resolve({
-          content: 'I appreciate the opportunity to respond.',
-          confidence: 0.5,
-          model: 'timeout-fallback'
-        });
-      }, 30000);
-
-      // Store the promise handlers
-      this.pendingLLMRequests.set(requestId, {
-        resolve: (response) => {
-          resolve(response);
-        },
-        reject: (error) => {
-          clearTimeout(timeout);
-          reject(error);
-        },
-        timeout
-      });
+      // Add to Redis-based request tracker (30 seconds timeout)
+      await this.llmRequestTracker.addPendingRequest(
+        requestId,
+        (response) => resolve(response),
+        (error) => reject(error),
+        30000,
+        'agent-discussion'
+      );
 
       try {
-        // The parent AgentIntelligenceService (which extends BaseService) should handle model selection
-        // and pass the selected model/provider to this service via event data or configuration
-        console.log('llm.agent.generate.request', {
+        // Use pre-selected model/provider if available, otherwise let LLM service decide
+        const selectedModel = preSelectedModel || null;
+        const selectedProvider = preSelectedProvider || null;
+        const providerId = preSelectedProviderId || null;
+
+        logger.debug('Publishing LLM agent request', {
           requestId,
-          agentId: agentId || null, // Pass agent ID if provided
-          messages: [{
-            id: `msg_${Date.now()}`,
-            content: prompt,
-            sender: 'user',
-            timestamp: new Date().toISOString(),
-            type: 'user' as const
-          }],
-          systemPrompt,
-          maxTokens: maxTokens,
-          temperature: temperature,
-          model: null, // Model selection is handled by the parent service
-          provider: null
-        })
+          agentId: agentId || null,
+          selectedModel,
+          selectedProvider,
+          providerId,
+          hasPreSelection: !!preSelectedModel
+        });
+
         // Publish LLM generation request via event bus
         await this.eventBusService.publish('llm.agent.generate.request', {
           requestId,
-          agentId: agentId || null, // Pass agent ID if provided
+          agentId: agentId || null,
           messages: [{
             id: `msg_${Date.now()}`,
             content: prompt,
@@ -203,87 +185,38 @@ export class AgentDiscussionService {
           systemPrompt,
           maxTokens: maxTokens,
           temperature: temperature,
-          model: null, // Model selection is handled by the parent service
-          provider: null
+          model: selectedModel,
+          provider: selectedProvider,
+          providerId: providerId
         });
 
+        const pendingCount = await this.llmRequestTracker.getPendingCount();
         logger.debug('Agent discussion LLM request published', { 
           requestId, 
-          pendingCount: this.pendingLLMRequests.size 
+          pendingCount
         });
 
       } catch (error) {
-        clearTimeout(timeout);
-        this.pendingLLMRequests.delete(requestId);
-        reject(error);
+        await this.llmRequestTracker.failPendingRequest(requestId, error);
       }
     });
   }
 
-  /**
-   * Start periodic monitoring of active LLM requests
-   */
-  private startRequestMonitoring(): void {
-    setInterval(() => {
-      const stats = this.getActiveRequestStats();
-      
-      if (stats.totalActiveRequests > 0) {
-        logger.info('LLM Request Monitoring', {
-          activeRequests: stats.totalActiveRequests,
-          oldestRequestAge: stats.oldestRequestAge ? `${Math.round(stats.oldestRequestAge / 1000)}s` : 'N/A',
-          channels: Object.keys(stats.requestsByChannel).length
-        });
-
-        // Warn if requests are accumulating (potential leak)
-        if (stats.totalActiveRequests > 10) {
-          logger.warn('High number of active LLM requests detected', {
-            count: stats.totalActiveRequests,
-            oldestAge: stats.oldestRequestAge
-          });
-        }
-
-        // Warn if very old requests exist (potential stuck requests)
-        if (stats.oldestRequestAge && stats.oldestRequestAge > 60000) { // 1 minute
-          logger.warn('Very old LLM request detected', {
-            oldestAge: `${Math.round(stats.oldestRequestAge / 1000)}s`,
-            totalActive: stats.totalActiveRequests
-          });
-        }
-      }
-    }, 30000); // Every 30 seconds
-  }
+  // Note: Request monitoring is now handled automatically by Redis TTL and LLMRequestTracker
 
   /**
    * Get statistics about active LLM requests for monitoring
    */
-  public getActiveRequestStats(): {
+  public async getActiveRequestStats(): Promise<{
     totalActiveRequests: number;
-    oldestRequestAge: number | null;
-    requestsByChannel: Record<string, number>;
-  } {
-    const stats = {
-      totalActiveRequests: this.activeRequests.size,
-      oldestRequestAge: null as number | null,
-      requestsByChannel: {} as Record<string, number>
+    activeRequestsInMemory: number;
+  }> {
+    const totalActiveRequests = await this.llmRequestTracker.getPendingCount();
+    
+    return {
+      totalActiveRequests,
+      activeRequestsInMemory: this.activeRequests.size
     };
-
-    if (this.activeRequests.size > 0) {
-      const now = Date.now();
-      let oldestTimestamp = now;
-
-      for (const [requestId, request] of this.activeRequests) {
-        if (request.timestamp < oldestTimestamp) {
-          oldestTimestamp = request.timestamp;
-        }
-        
-        const channel = request.responseChannel;
-        stats.requestsByChannel[channel] = (stats.requestsByChannel[channel] || 0) + 1;
-      }
-
-      stats.oldestRequestAge = now - oldestTimestamp;
-    }
-
-    return stats;
   }
 
   /**
@@ -1579,7 +1512,8 @@ Reasoning: ${reasoning.join('; ')}`,
   private async getDiscussionMessages(discussionId: string): Promise<any> {
     try {
       // Get messages directly from database
-      const messages = await this.databaseService.discussions.getDiscussionMessages(discussionId);
+      const discussionService = await this.databaseService.getDiscussionService();
+      const messages = await discussionService.getDiscussionMessages(discussionId);
       
       logger.debug('Retrieved discussion messages for context', {
         discussionId,
@@ -1750,13 +1684,21 @@ Reasoning: ${reasoning.join('; ')}`,
       // Create system prompt for agent
       const systemPrompt = `You are a helpful AI assistant. Provide a natural, conversational response to the user's message.`;
       
+      // Extract model selection info if available
+      const selectedModel = params.modelSelection?.model?.model;
+      const selectedProvider = params.modelSelection?.provider?.effectiveProvider;
+      const selectedProviderId = params.modelSelection?.provider?.providerId;
+
       // Get agent response via event-driven LLM service
       const llmResponse = await this.requestLLMGeneration(
         params.message,
         systemPrompt,
         0.7,
         300,
-        params.agentId
+        params.agentId,
+        selectedModel,
+        selectedProvider,
+        selectedProviderId
       );
 
       // Publish discussion event

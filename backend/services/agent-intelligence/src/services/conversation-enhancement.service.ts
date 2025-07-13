@@ -14,7 +14,7 @@ import {
   Discussion,
   DiscussionParticipant
 } from '@uaip/types';
-import { DatabaseService, EventBusService } from '@uaip/shared-services';
+import { DatabaseService, EventBusService, LLMRequestTracker } from '@uaip/shared-services';
 
 // Local type definitions until they're properly exported from @uaip/types
 interface ConversationContext {
@@ -111,17 +111,9 @@ export interface AgentPersonaMapping {
 export class ConversationEnhancementService extends EventEmitter {
   private databaseService: DatabaseService;
   private eventBusService: EventBusService;
+  private llmRequestTracker: LLMRequestTracker;
   private agentPersonaMappings: Map<string, AgentPersonaMapping> = new Map();
   private conversationStates: Map<string, ConversationState> = new Map();
-  private pendingLLMRequests: Map<string, {
-    resolve: (response: any) => void;
-    reject: (error: any) => void;
-    timeout: NodeJS.Timeout;
-    timestamp: number; // Add timestamp for cleanup
-  }> = new Map();
-  
-  // Cleanup interval to prevent memory leaks
-  private cleanupInterval: NodeJS.Timeout | null = null;
 
   constructor(
     databaseService: DatabaseService,
@@ -130,12 +122,15 @@ export class ConversationEnhancementService extends EventEmitter {
     super();
     this.databaseService = databaseService;
     this.eventBusService = eventBusService;
+    
+    // Initialize Redis-based LLM request tracker
+    this.llmRequestTracker = new LLMRequestTracker(
+      'conversation-enhancement',
+      30000 // 30 second timeout
+    );
 
     this.initializeEventHandlers();
     this.setupLLMEventSubscriptions();
-    
-    // Start cleanup mechanisms to prevent memory leaks
-    this.startCleanupMechanisms();
   }
 
   /**
@@ -177,20 +172,19 @@ export class ConversationEnhancementService extends EventEmitter {
     logger.info('Conversation Enhancement LLM event subscriptions established');
   }
 
-  private handleLLMResponse(requestId: string, content: string, error: any, confidence: number, source: string): void {
-    const pendingRequest = this.pendingLLMRequests.get(requestId);
-    if (!pendingRequest) {
+  private async handleLLMResponse(requestId: string, content: string, error: any, confidence: number, source: string): Promise<void> {
+    const isPending = await this.llmRequestTracker.isPending(requestId);
+    if (!isPending) {
+      const pendingCount = await this.llmRequestTracker.getPendingCount();
+      const pendingKeys = await this.llmRequestTracker.getPendingRequestIds();
       logger.warn('Received LLM response for unknown conversation enhancement request', { 
         requestId, 
         source,
-        pendingCount: this.pendingLLMRequests.size,
-        pendingKeys: Array.from(this.pendingLLMRequests.keys())
+        pendingCount,
+        pendingKeys
       });
       return;
     }
-
-    this.pendingLLMRequests.delete(requestId);
-    clearTimeout(pendingRequest.timeout);
 
     // Check if content contains error messages from LLM service
     const isErrorContent = content && (
@@ -209,13 +203,13 @@ export class ConversationEnhancementService extends EventEmitter {
         isErrorContent,
         contentPreview: content?.substring(0, 100)
       });
-      // Resolve with graceful fallback instead of error message
-      pendingRequest.resolve({
+      // Fail with graceful fallback
+      await this.llmRequestTracker.completePendingRequest(requestId, {
         content: 'I appreciate the discussion and would like to contribute further.',
         confidence: 0.3
       });
     } else {
-      pendingRequest.resolve({
+      await this.llmRequestTracker.completePendingRequest(requestId, {
         content: content || 'I have some thoughts on this topic.',
         confidence: confidence || 0.7
       });
@@ -236,39 +230,22 @@ export class ConversationEnhancementService extends EventEmitter {
     return new Promise(async (resolve, reject) => {
       const requestId = `conv_enh_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-      // Set up timeout (45 seconds for LLM generation - increased for better reliability)
-      const timeout = setTimeout(() => {
-        this.pendingLLMRequests.delete(requestId);
-        logger.warn('LLM generation timeout for conversation enhancement', {
-          requestId,
-          pendingCount: this.pendingLLMRequests.size
-        });
-        // Resolve with fallback instead of rejecting
-        resolve({
-          content: 'I appreciate the discussion and would like to contribute further.',
-          confidence: 0.5
-        });
-      }, 45000);
-
-      // Store the promise handlers with timestamp for cleanup
-      this.pendingLLMRequests.set(requestId, {
-        resolve: (response) => {
-          resolve(response);
-        },
-        reject: (error) => {
-          clearTimeout(timeout);
-          reject(error);
-        },
-        timeout,
-        timestamp: Date.now()
-      });
+      // Add to Redis-based request tracker (45 seconds timeout)
+      await this.llmRequestTracker.addPendingRequest(
+        requestId,
+        (response) => resolve(response),
+        (error) => reject(error),
+        45000,
+        'conversation-enhancement'
+      );
 
       try {
         // Get discussion creator's userId for LLM provider
         let userId = null;
         if (discussionId) {
           try {
-            const discussion = await this.databaseService.discussions.getDiscussion(discussionId);
+            const discussionService = await this.databaseService.getDiscussionService();
+            const discussion = await discussionService.getDiscussion(discussionId);
             if (discussion && discussion.createdBy) {
               userId = discussion.createdBy;
               logger.info('Found discussion creator for LLM provider', { 
@@ -280,7 +257,7 @@ export class ConversationEnhancementService extends EventEmitter {
               logger.warn('No discussion creator found', { discussionId, discussion: !!discussion });
             }
           } catch (error) {
-            logger.warn('Failed to get discussion creator for LLM provider', { discussionId, error });
+            logger.warn('Failed to get discussion creator for LLM provider', { discussionId, error: error.message });
           }
         } else {
           logger.warn('No discussionId provided for LLM generation');
@@ -335,15 +312,14 @@ export class ConversationEnhancementService extends EventEmitter {
           });
         }
 
+        const pendingCount = await this.llmRequestTracker.getPendingCount();
         logger.debug('Conversation enhancement LLM request published', {
           requestId,
-          pendingCount: this.pendingLLMRequests.size
+          pendingCount
         });
 
       } catch (error) {
-        clearTimeout(timeout);
-        this.pendingLLMRequests.delete(requestId);
-        reject(error);
+        await this.llmRequestTracker.failPendingRequest(requestId, error);
       }
     });
   }
@@ -884,7 +860,8 @@ export class ConversationEnhancementService extends EventEmitter {
 
   private async getDiscussionData(discussionId: string): Promise<Discussion | null> {
     try {
-      return await this.databaseService.discussions.getDiscussion(discussionId);
+      const discussionService = await this.databaseService.getDiscussionService();
+      return await discussionService.getDiscussion(discussionId);
     } catch (error) {
       logger.error('Failed to get discussion data', { error, discussionId });
       return null;
@@ -893,10 +870,11 @@ export class ConversationEnhancementService extends EventEmitter {
 
   private async createMessageHistoryFromDiscussion(discussion: Discussion): Promise<MessageHistoryItem[]> {
     try {
-      const messages = await this.databaseService.discussions.getDiscussionMessages(discussion.id);
+      const discussionService = await this.databaseService.getDiscussionService();
+      const messages = await discussionService.getDiscussionMessages(discussion.id);
 
       // Get full discussion with participants to map IDs to names
-      const fullDiscussion = await this.databaseService.discussions.getDiscussion(discussion.id);
+      const fullDiscussion = await discussionService.getDiscussion(discussion.id);
       const participantMap = new Map();
 
       if (fullDiscussion && fullDiscussion.participants) {
@@ -944,10 +922,10 @@ export class ConversationEnhancementService extends EventEmitter {
 
   private async setupEventSubscriptions(): Promise<void> {
     // Subscribe to discussion participation events
-    // await this.eventBusService.subscribe(
-    //   'agent.discussion.participate',
-    //   this.processDiscussionParticipation.bind(this)
-    // );
+    await this.eventBusService.subscribe(
+      'agent.discussion.participate',
+      this.processDiscussionParticipation.bind(this)
+    );
 
     // Subscribe to agent updates
     await this.eventBusService.subscribe(
@@ -1172,66 +1150,19 @@ Please contribute to this discussion about "${topic}" in a way that's natural an
     }));
   }
 
-  /**
-   * Start cleanup mechanisms to prevent memory leaks
-   */
-  private startCleanupMechanisms(): void {
-    // Clean up stale LLM requests every 5 minutes
-    this.cleanupInterval = setInterval(() => {
-      this.cleanupStaleLLMRequests();
-    }, 300000); // 5 minutes
-    
-    logger.info('Conversation Enhancement Service cleanup mechanisms started');
-  }
+  // Note: Cleanup is now handled automatically by Redis TTL and LLMRequestTracker
 
   /**
-   * Clean up stale LLM requests to prevent memory leaks
+   * Get service statistics for monitoring
    */
-  private cleanupStaleLLMRequests(): void {
-    const now = Date.now();
-    const staleThreshold = 120000; // 2 minutes
-    let cleanedCount = 0;
-    
-    for (const [requestId, request] of this.pendingLLMRequests.entries()) {
-      // Clean up requests older than 2 minutes
-      if (now - request.timestamp > staleThreshold) {
-        clearTimeout(request.timeout);
-        this.pendingLLMRequests.delete(requestId);
-        cleanedCount++;
-        
-        logger.debug('Cleaned up stale LLM request', { 
-          requestId, 
-          ageMs: now - request.timestamp 
-        });
-      }
-    }
-    
-    if (cleanedCount > 0) {
-      logger.info('Cleaned up stale LLM requests', { 
-        cleanedCount, 
-        remainingCount: this.pendingLLMRequests.size 
-      });
-    }
-    
-    // Alert if too many pending requests (memory pressure indicator)
-    if (this.pendingLLMRequests.size > 1000) {
-      logger.warn('High number of pending LLM requests detected', {
-        pendingCount: this.pendingLLMRequests.size,
-        warningThreshold: 1000
-      });
-    }
-  }
-
-  /**
-   * Get cleanup statistics for monitoring
-   */
-  public getCleanupStatistics(): {
+  public async getServiceStatistics(): Promise<{
     pendingLLMRequests: number;
     agentPersonaMappings: number;
     conversationStates: number;
-  } {
+  }> {
+    const pendingLLMRequests = await this.llmRequestTracker.getPendingCount();
     return {
-      pendingLLMRequests: this.pendingLLMRequests.size,
+      pendingLLMRequests,
       agentPersonaMappings: this.agentPersonaMappings.size,
       conversationStates: this.conversationStates.size
     };
@@ -1241,19 +1172,10 @@ Please contribute to this discussion about "${topic}" in a way that's natural an
    * Cleanup resources
    */
   async cleanup(): Promise<void> {
-    // Clear cleanup interval
-    if (this.cleanupInterval) {
-      clearInterval(this.cleanupInterval);
-      this.cleanupInterval = null;
-    }
+    // Shutdown Redis-based LLM request tracker
+    await this.llmRequestTracker.shutdown();
     
-    // Clear all pending LLM requests
-    for (const [requestId, request] of this.pendingLLMRequests.entries()) {
-      clearTimeout(request.timeout);
-    }
-    this.pendingLLMRequests.clear();
-    
-    // Clear other maps
+    // Clear in-memory maps
     this.agentPersonaMappings.clear();
     this.conversationStates.clear();
     
