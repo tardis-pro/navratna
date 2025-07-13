@@ -9,7 +9,7 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { validateRequest, authMiddleware } from '@uaip/middleware';
-import { ConversationEnhancementService } from '../services/conversationEnhancementService.js';
+import { ConversationEnhancementService } from '../services/conversation-enhancement.service.js';
 
 // Request validation schemas
 const enhancementRequestSchema = z.object({

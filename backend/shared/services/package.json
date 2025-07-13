@@ -29,12 +29,6 @@
     "seed:build": "tsc && node dist/database/seeders/index.js"
   },
   "dependencies": {
-    "@nestjs/common": "^11.1.3",
-    "@nestjs/config": "^4.0.2",
-    "@nestjs/core": "^11.1.3",
-    "@nestjs/jwt": "^11.0.0",
-    "@nestjs/passport": "^11.0.5",
-    "@nestjs/typeorm": "^11.0.0",
     "@types/uuid": "^10.0.0",
     "@uaip/config": "workspace:*",
     "@uaip/middleware": "workspace:*",

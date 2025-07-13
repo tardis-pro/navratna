@@ -20,19 +20,26 @@ import {
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 
-import {
-  AgentCoreService,
-  AgentContextService,
-  AgentPlanningService,
-  AgentLearningService,
-  AgentDiscussionService
-} from '../services/index.js';
+import { AgentController } from '../controllers/agentController.js';
 
 
 
 // Create router
 export function createAgentRoutes(): Router {
   const router = Router();
+  
+  // Initialize shared controller instance
+  const agentController = new AgentController();
+  
+  // Initialize controller asynchronously when first accessed
+  let controllerInitialized = false;
+  const ensureInitialized = async () => {
+    if (!controllerInitialized) {
+      await agentController.initialize();
+      controllerInitialized = true;
+    }
+    return agentController;
+  };
 
   // Simple health check route first
   router.get('/health', (req, res) => {
@@ -44,9 +51,8 @@ export function createAgentRoutes(): Router {
     authMiddleware,
     async (req, res, next) => {
       try {
-        const agentCore = new AgentCoreService();
-        const agents = await agentCore.listAgents();
-        res.json(agents);
+        const controller = await ensureInitialized();
+        await controller.listAgents(req, res, next);
       } catch (error) {
         next(error);
       }
@@ -60,9 +66,8 @@ export function createAgentRoutes(): Router {
     trackAgentOperation('create-agent'),
     async (req, res, next) => {
       try {
-        const agentCore = new AgentCoreService();
-        const agent = await agentCore.createAgent(req.body, req.user?.id || 'system');
-        res.status(201).json(agent);
+        const controller = await ensureInitialized();
+        await controller.createAgent(req, res, next);
       } catch (error) {
         next(error);
       }
@@ -76,9 +81,10 @@ export function createAgentRoutes(): Router {
     trackAgentOperation('get-agent'),
     async (req, res, next) => {
       try {
-        const agentCore = new AgentCoreService();
-        const agent = await agentCore.getAgent(req.params.agentId);
-        res.json(agent);
+        const controller = await ensureInitialized();
+        // Map agentId to id for controller compatibility
+        req.params.id = req.params.agentId;
+        await controller.getAgent(req, res, next);
       } catch (error) {
         next(error);
       }
@@ -93,9 +99,27 @@ export function createAgentRoutes(): Router {
     trackAgentOperation('update-agent'),
     async (req, res, next) => {
       try {
-        const agentCore = new AgentCoreService();
-        const updatedAgent = await agentCore.updateAgent(req.params.agentId, req.body, req.user?.id || 'system');
-        res.json(updatedAgent);
+        const controller = await ensureInitialized();
+        // Map agentId to id for controller compatibility
+        req.params.id = req.params.agentId;
+        await controller.updateAgent(req, res, next);
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
+  // Delete agent
+  router.delete('/:agentId',
+    authMiddleware,
+    loadAgentContext,
+    trackAgentOperation('delete-agent'),
+    async (req, res, next) => {
+      try {
+        const controller = await ensureInitialized();
+        // Map agentId to id for controller compatibility
+        req.params.id = req.params.agentId;
+        await controller.deleteAgent(req, res, next);
       } catch (error) {
         next(error);
       }
@@ -114,31 +138,26 @@ export function createAgentRoutes(): Router {
           res.status(401).json({ error: 'Agent context required' });
           return;
         }
+        const controller = await ensureInitialized();
+        // Map agentId to id for controller compatibility
+        req.params.id = req.params.agentId;
+        
+        // Adapt the request body to match controller expectations
         const analysisRequest = req.body as AgentAnalysisRequest;
-        const conversationContext = {
-          id: 'temp-' + Date.now(),
-          agentId: req.agentContext.agentId,
-          userId: req.agentContext.userId,
-          messages: [],
-          startedAt: new Date(),
-          lastActivityAt: new Date()
-        };
-        const agentContext = new AgentContextService();
-        const result = await agentContext.analyzeContext(
-          req.agentContext.agentId,
-          analysisRequest.userRequest,
-          conversationContext,
-          analysisRequest.constraints
-        );
-        res.json({
-          success: true,
-          data: result,
-          metadata: {
+        req.body = {
+          conversationContext: {
+            id: 'temp-' + Date.now(),
             agentId: req.agentContext.agentId,
-            operation: 'agent-analyze',
-            timestamp: new Date()
-          }
-        });
+            userId: req.agentContext.userId,
+            messages: [],
+            startedAt: new Date(),
+            lastActivityAt: new Date()
+          },
+          userRequest: analysisRequest.userRequest,
+          constraints: analysisRequest.constraints
+        };
+        
+        await controller.analyzeContext(req, res, next);
       } catch (error) {
         next(error);
       }
@@ -157,28 +176,14 @@ export function createAgentRoutes(): Router {
           res.status(401).json({ error: 'Agent context required' });
           return;
         }
+        const controller = await ensureInitialized();
+        // Map agentId to id for controller compatibility
+        req.params.id = req.params.agentId;
+        
         const planRequest = req.body as AgentPlanRequest;
-        const agentPlanning = new AgentPlanningService();
-        const plan = await agentPlanning.generateExecutionPlan(
-          req.agentContext.agentId,
-          planRequest.analysis,
-          planRequest.userPreferences,
-          planRequest.securityContext
-        );
         
-        // Update agent status  
-        const agentCore = new AgentCoreService();
-        await agentCore.updateAgent(req.agentContext.agentId, { status: AgentStatus.ACTIVE }, req.user?.id || 'system');
-        
-        res.json({
-          success: true,
-          data: plan,
-          metadata: {
-            agentId: req.agentContext.agentId,
-            operation: 'agent-plan',
-            timestamp: new Date()
-          }
-        });
+        // Execute plan generation through controller
+        await controller.planExecution(req, res, next);
       } catch (error) {
         next(error);
       }
@@ -194,21 +199,11 @@ export function createAgentRoutes(): Router {
           res.status(401).json({ error: 'Agent context required' });
           return;
         }
-        const agentLearning = new AgentLearningService();
-        const learningData = req.body as Record<string, unknown>;
-        const result = await agentLearning.processLearningData({
-          agentId: req.agentContext.agentId,
-          executionData: learningData
-        });
-        res.json({
-          success: true,
-          data: result,
-          metadata: {
-            agentId: req.agentContext.agentId,
-            operation: 'agent-learn',
-            timestamp: new Date()
-          }
-        });
+        const controller = await ensureInitialized();
+        // Map agentId to id for controller compatibility
+        req.params.id = req.params.agentId;
+        
+        await controller.learnFromExecution(req, res, next);
       } catch (error) {
         next(error);
       }
@@ -224,23 +219,19 @@ export function createAgentRoutes(): Router {
           res.status(401).json({ error: 'Agent context required' });
           return;
         }
-        const agentDiscussion = new AgentDiscussionService();
+        const controller = await ensureInitialized();
+        // Map agentId to id for controller compatibility
+        req.params.id = req.params.agentId;
+        
+        // Adapt the request body to include agentContext data
         const messageData = req.body as Record<string, unknown>;
-        const result = await agentDiscussion.processDiscussionMessage({
+        req.body = {
+          ...messageData,
           agentId: req.agentContext.agentId,
-          userId: req.agentContext.userId,
-          message: messageData.message as string,
-          conversationId: messageData.conversationId as string
-        });
-        res.json({
-          success: true,
-          data: result,
-          metadata: {
-            agentId: req.agentContext.agentId,
-            operation: 'agent-chat',
-            timestamp: new Date()
-          }
-        });
+          userId: req.agentContext.userId
+        };
+        
+        await controller.handleAgentChat(req, res, next);
       } catch (error) {
         next(error);
       }

@@ -1,5 +1,3 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AgentLLMPreference } from '../../entities/agentLLMPreference.entity.js';
 import { LLMTaskType, LLMProviderType } from '@uaip/types';
@@ -39,10 +37,8 @@ export interface UpdateAgentLLMPreferenceData {
   isActive?: boolean;
 }
 
-@Injectable()
 export class AgentLLMPreferenceRepository {
   constructor(
-    @InjectRepository(AgentLLMPreference)
     private repository: Repository<AgentLLMPreference>
   ) {}
 

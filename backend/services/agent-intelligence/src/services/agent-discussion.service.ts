@@ -10,7 +10,8 @@ import {
   KnowledgeItem,
   WorkingMemoryUpdate,
   KnowledgeType,
-  SourceType
+  SourceType,
+  LLMTaskType
 } from '@uaip/types';
 import { logger, ApiError } from '@uaip/utils';
 import {
@@ -18,7 +19,8 @@ import {
   EventBusService,
   KnowledgeGraphService,
   AgentMemoryService,
-  DiscussionService
+  DiscussionService,
+  LLMPreferenceResolutionService
 } from '@uaip/shared-services';
 import { LLMService, UserLLMService, LLMRequest } from '@uaip/llm-service';
 
@@ -30,6 +32,7 @@ export interface AgentDiscussionConfig {
   discussionService?: DiscussionService;
   llmService: LLMService;
   userLLMService: UserLLMService;
+  llmPreferenceResolutionService?: LLMPreferenceResolutionService;
   serviceName: string;
   securityLevel: number;
 }
@@ -42,6 +45,7 @@ export class AgentDiscussionService {
   private discussionService?: DiscussionService;
   private llmService: LLMService;
   private userLLMService: UserLLMService;
+  private llmPreferenceResolutionService?: LLMPreferenceResolutionService;
   private serviceName: string;
   private securityLevel: number;
   
@@ -68,6 +72,7 @@ export class AgentDiscussionService {
     this.discussionService = config.discussionService;
     this.llmService = config.llmService;
     this.userLLMService = config.userLLMService;
+    this.llmPreferenceResolutionService = config.llmPreferenceResolutionService;
     this.serviceName = config.serviceName;
     this.securityLevel = config.securityLevel;
   }
@@ -170,6 +175,22 @@ export class AgentDiscussionService {
       });
 
       try {
+        // Resolve agent-specific LLM preferences
+        let resolvedPreferences = null;
+        if (agentId && this.llmPreferenceResolutionService) {
+          try {
+            resolvedPreferences = await this.llmPreferenceResolutionService.resolveLLMPreference(
+              agentId,
+              LLMTaskType.REASONING // Default to reasoning for agent discussions
+            );
+          } catch (error) {
+            logger.warn('Failed to resolve LLM preferences for agent, using system defaults', { 
+              agentId, 
+              error: error.message 
+            });
+          }
+        }
+
         // Publish LLM generation request via event bus
         await this.eventBusService.publish('llm.agent.generate.request', {
           requestId,
@@ -182,10 +203,10 @@ export class AgentDiscussionService {
             type: 'user' as const
           }],
           systemPrompt,
-          maxTokens,
-          temperature,
-          model: 'auto',
-          provider: 'auto'
+          maxTokens: resolvedPreferences?.settings?.maxTokens || maxTokens,
+          temperature: resolvedPreferences?.settings?.temperature || temperature,
+          model: resolvedPreferences?.model || null,
+          provider: resolvedPreferences?.provider || null
         });
 
         logger.debug('Agent discussion LLM request published', { 

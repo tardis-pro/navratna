@@ -9,7 +9,7 @@ import { createConversationEnhancementRoutes } from './routes/conversationEnhanc
 import { createPersonaRoutes } from './routes/personaRoutes.js';
 import { DiscussionController } from './controllers/discussionController.js';
 import { PersonaController } from './controllers/personaController.js';
-import { ConversationEnhancementService } from './services/conversationEnhancementService.js';
+import { ConversationEnhancementService } from './services/conversation-enhancement.service.js';
 import { AgentDiscussionService } from './services/agent-discussion.service.js';
 import { initializeChatIngestionServices } from './controllers/chatIngestionController.js';
 import { logger } from '@uaip/utils';
@@ -383,6 +383,7 @@ class AgentIntelligenceService extends BaseService {
       discussionService: undefined, // Optional
       llmService: this.llmService,
       userLLMService: new UserLLMService(),
+      llmPreferenceResolutionService: undefined, // Will implement proper LLM preference resolution later
       serviceName: 'agent-intelligence',
       securityLevel: 1
     });

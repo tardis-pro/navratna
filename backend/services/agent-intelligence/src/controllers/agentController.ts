@@ -14,7 +14,11 @@ import {
   AgentPlanningService,
   AgentLearningService,
   AgentDiscussionService,
-  AgentEventOrchestrator
+  AgentEventOrchestrator,
+  type AgentContextConfig,
+  type AgentPlanningConfig,
+  type AgentLearningConfig,
+  type AgentDiscussionConfig
 } from '../services/index.js';
 import { DatabaseService, EventBusService } from '@uaip/shared-services';
 
@@ -50,18 +54,62 @@ export class AgentController {
       securityLevel: 3
     };
 
-    // Initialize services
-    this.agentCore = new AgentCoreService();
-    this.agentContext = new AgentContextService();
-    this.agentPlanning = new AgentPlanningService();
-    this.agentLearning = new AgentLearningService();
-    this.agentDiscussion = new AgentDiscussionService();
+    // Initialize event-driven services with proper configs
+    this.agentCore = new AgentCoreService({
+      databaseService: baseConfig.databaseService,
+      eventBusService: baseConfig.eventBusService,
+      serviceName: 'agent-intelligence',
+      securityLevel: 3
+    });
+
+    this.agentContext = new AgentContextService({
+      eventBusService: baseConfig.eventBusService,
+      knowledgeGraphService: this.knowledgeGraphService,
+      llmService: null, // Event-driven, no direct LLM
+      serviceName: 'agent-intelligence',
+      securityLevel: 3
+    });
+
+    this.agentPlanning = new AgentPlanningService({
+      databaseService: baseConfig.databaseService,
+      eventBusService: baseConfig.eventBusService,
+      knowledgeGraphService: this.knowledgeGraphService,
+      serviceName: 'agent-intelligence',
+      securityLevel: 3
+    });
+
+    this.agentLearning = new AgentLearningService({
+      databaseService: baseConfig.databaseService,
+      eventBusService: baseConfig.eventBusService,
+      knowledgeGraphService: this.knowledgeGraphService,
+      agentMemoryService: this.agentMemoryService,
+      serviceName: 'agent-intelligence',
+      securityLevel: 3
+    });
+
+    this.agentDiscussion = new AgentDiscussionService({
+      databaseService: baseConfig.databaseService,
+      eventBusService: baseConfig.eventBusService,
+      knowledgeGraphService: this.knowledgeGraphService,
+      agentMemoryService: this.agentMemoryService,
+      discussionService: this.discussionService,
+      llmService: null, // Event-driven
+      userLLMService: null, // Event-driven
+      serviceName: 'agent-intelligence',
+      securityLevel: 3
+    });
+
     this.agentOrchestrator = new AgentEventOrchestrator({
       ...baseConfig,
       orchestrationPipelineUrl: process.env.ORCHESTRATION_PIPELINE_URL || 'http://localhost:3002'
     });
 
-    // Services are ready to use (no initialize method needed)
+    // Initialize all services
+    await this.agentCore.initialize();
+    await this.agentContext.initialize();
+    await this.agentPlanning.initialize();
+    await this.agentLearning.initialize();
+    await this.agentDiscussion.initialize();
 
     this.initialized = true;
     logger.info('AgentController initialized successfully');
@@ -95,7 +143,7 @@ export class AgentController {
   // Legacy method handlers for backward compatibility
   async listAgents(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const agents = await this.agentCore.listAgents(req.query);
+      const agents = await this.agentCore.getAgents(req.query);
       res.json(agents);
     } catch (error) {
       next(error);
@@ -142,9 +190,9 @@ export class AgentController {
     try {
       const result = await this.agentContext.analyzeContext(
         req.params.id,
-        req.body.userRequest || '',
         req.body.conversationContext || {},
-        req.body.constraints
+        req.body.userRequest || '',
+        req.user?.id
       );
       res.json(result);
     } catch (error) {
@@ -154,8 +202,15 @@ export class AgentController {
 
   async planExecution(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      // Get agent first, then generate plan
+      const agent = await this.agentCore.getAgent(req.params.id);
+      if (!agent) {
+        res.status(404).json({ error: 'Agent not found' });
+        return;
+      }
+      
       const plan = await this.agentPlanning.generateExecutionPlan(
-        req.params.id,
+        agent,
         req.body.analysis || {},
         req.body.userPreferences,
         req.body.securityContext
@@ -168,8 +223,13 @@ export class AgentController {
 
   async getCapabilities(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const capabilities = await this.agentCore.getAgentCapabilities(req.params.id);
-      res.json(capabilities);
+      // Get agent and return its capabilities
+      const agent = await this.agentCore.getAgent(req.params.id);
+      if (!agent) {
+        res.status(404).json({ error: 'Agent not found' });
+        return;
+      }
+      res.json({ capabilities: agent.capabilities || [] });
     } catch (error) {
       next(error);
     }

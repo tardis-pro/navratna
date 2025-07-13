@@ -3,12 +3,12 @@
  * Exports all refactored agent intelligence services and orchestrator
  */
 
-// Export all service classes - Updated implementations
-export { AgentCoreService } from './AgentCoreService.js';
-export { AgentContextService } from './AgentContextService.js';
-export { AgentPlanningService } from './AgentPlanningService.js';
-export { AgentLearningService } from './AgentLearningService.js';
-export { AgentDiscussionService } from './AgentDiscussionService.js';
+// Export all service classes - Full event-driven implementations
+export { AgentCoreService } from './agent-core.service.js';
+export { AgentContextService } from './agent-context.service.js';
+export { AgentPlanningService } from './agent-planning.service.js';
+export { AgentLearningService } from './agent-learning.service.js';
+export { AgentDiscussionService } from './agent-discussion.service.js';
 
 
 export { AgentMetricsService } from './agent-metrics.service';
@@ -17,11 +17,11 @@ export { AgentInitializationService } from './agent-initialization.service';
 export { AgentEventOrchestrator } from './agent-event-orchestrator.service';
 
 
-// Export types from updated implementations
-export type { ConversationContext, AnalysisResult } from './AgentContextService.js';
-export type { ExecutionStep, ExecutionPlan } from './AgentPlanningService.js';
-export type { LearningInteraction, LearningResult } from './AgentLearningService.js';
-export type { DiscussionMessage, DiscussionResponse } from './AgentDiscussionService.js';
+// Export types from event-driven implementations
+export type { AgentContextConfig } from './agent-context.service.js';
+export type { AgentPlanningConfig } from './agent-planning.service.js';
+export type { AgentLearningConfig } from './agent-learning.service.js';
+export type { AgentDiscussionConfig } from './agent-discussion.service.js';
 
 
 export type { AgentMetricsConfig } from './agent-metrics.service';

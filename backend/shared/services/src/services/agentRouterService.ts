@@ -1,5 +1,3 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Agent } from '../entities/agent.entity.js';
 import { LLMPreferenceResolutionService } from './llmPreferenceResolutionService.js';
@@ -30,10 +28,8 @@ export interface RoutingDecision {
   alternatives: AgentCandidate[];
 }
 
-@Injectable()
 export class AgentRouterService {
   constructor(
-    @InjectRepository(Agent)
     private agentRepository: Repository<Agent>,
     private llmPreferenceService: LLMPreferenceResolutionService
   ) {}

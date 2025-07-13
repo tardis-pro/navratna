@@ -1,5 +1,3 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UserLLMPreference } from '../entities/userLLMPreference.entity.js';
 import { AgentLLMPreference } from '../entities/agentLLMPreference.entity.js';
@@ -114,14 +112,10 @@ const SYSTEM_DEFAULTS: Record<LLMTaskType, ResolvedLLMPreference> = {
   }
 };
 
-@Injectable()
 export class LLMPreferenceResolutionService {
   constructor(
-    @InjectRepository(UserLLMPreference)
     private userLLMPreferenceRepository: Repository<UserLLMPreference>,
-    @InjectRepository(AgentLLMPreference)
     private agentLLMPreferenceRepository: Repository<AgentLLMPreference>,
-    @InjectRepository(Agent)
     private agentRepository: Repository<Agent>
   ) {}
 
