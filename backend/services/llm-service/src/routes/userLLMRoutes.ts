@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { UserLLMService } from '@uaip/llm-service';
 import { authMiddleware } from '@uaip/middleware';
 import { logger } from '@uaip/utils';
-import { ModelCapabilityDetector, DatabaseService } from '@uaip/shared-services';
+import { ModelCapabilityDetector } from '@uaip/shared-services';
 
 const router: Router = Router();
 let userLLMService: UserLLMService | null = null;
@@ -359,10 +359,10 @@ router.get('/models', async (req: Request, res: Response) => {
       });
       return;
     }
-    console.log('Getting available models for user', userId);
+    logger.info('Getting available models for user', { userId });
     const models = await getUserLLMService().getAvailableModels(userId);
     const healthResults = await getUserLLMService().testUserProvider(userId);
-    console.log('healthResults', healthResults);
+    logger.debug('Health check results', { userId, healthResults });
     res.json({
       success: true,
       data: models
@@ -393,7 +393,7 @@ router.post('/generate', async (req: Request, res: Response) => {
       return;
     }
 
-    const { prompt, systemPrompt, maxTokens, temperature, model, preferredType } = req.body;
+    const { prompt, systemPrompt, maxTokens, temperature, model } = req.body;
 
     if (!prompt) {
       res.status(400).json({
@@ -490,10 +490,7 @@ router.get('/capabilities', async (req: Request, res: Response) => {
       return;
     }
 
-    const databaseService = DatabaseService.getInstance();
-    const dataSource = await databaseService.getDataSource();
-    const userLLMProviderRepo = dataSource.getRepository('UserLLMProvider');
-    const userProviders = await userLLMProviderRepo.find({ where: { userId } });
+    const userProviders = await getUserLLMService().getUserProviders(userId);
     
     const capabilities = [];
     
@@ -503,9 +500,9 @@ router.get('/capabilities', async (req: Request, res: Response) => {
         providerName: provider.name,
         providerType: provider.type,
         defaultModel: provider.defaultModel,
-        modelCapabilities: provider.configuration?.modelCapabilities || {},
-        detectedCapabilities: provider.configuration?.detectedCapabilities || [],
-        lastCapabilityCheck: provider.configuration?.lastCapabilityCheck,
+        modelCapabilities: (provider.configuration as any)?.modelCapabilities || {},
+        detectedCapabilities: (provider.configuration as any)?.detectedCapabilities || [],
+        lastCapabilityCheck: (provider.configuration as any)?.lastCapabilityCheck,
         isActive: provider.isActive,
         status: provider.status
       };
@@ -550,12 +547,7 @@ router.post('/providers/:providerId/detect-capabilities', async (req: Request, r
       return;
     }
 
-    const databaseService = DatabaseService.getInstance();
-    const dataSource = await databaseService.getDataSource();
-    const userLLMProviderRepo = dataSource.getRepository('UserLLMProvider');
-    const provider = await userLLMProviderRepo.findOne({ 
-      where: { id: providerId, userId } 
-    });
+    const provider = await getUserLLMService().getUserProviderById(providerId);
     
     if (!provider) {
       res.status(404).json({
@@ -566,11 +558,12 @@ router.post('/providers/:providerId/detect-capabilities', async (req: Request, r
     }
 
     const detector = ModelCapabilityDetector.getInstance();
+    const apiKey = await provider.getApiKey();
     const detection = await detector.detectCapabilities(
       provider.defaultModel,
       provider.type as any,
       provider.baseUrl,
-      provider.apiKey
+      apiKey
     );
     
     // Update provider configuration with detected capabilities
@@ -579,9 +572,9 @@ router.post('/providers/:providerId/detect-capabilities', async (req: Request, r
       detectedCapabilities: detection.detectedCapabilities,
       lastCapabilityCheck: new Date(),
       capabilityTestResults: detection.testResults
-    };
+    } as any;
     
-    await userLLMProviderRepo.save(provider);
+    await getUserLLMService().updateUserProviderConfig(userId, provider.id, { configuration: provider.configuration });
 
     res.json({
       success: true,
@@ -619,10 +612,7 @@ router.post('/detect-all-capabilities', async (req: Request, res: Response) => {
       return;
     }
 
-    const databaseService = DatabaseService.getInstance();
-    const dataSource = await databaseService.getDataSource();
-    const userLLMProviderRepo = dataSource.getRepository('UserLLMProvider');
-    const userProviders = await userLLMProviderRepo.find({ where: { userId } });
+    const userProviders = await getUserLLMService().getUserProviders(userId);
     
     const detector = ModelCapabilityDetector.getInstance();
     const results = [];
@@ -630,11 +620,12 @@ router.post('/detect-all-capabilities', async (req: Request, res: Response) => {
     for (const provider of userProviders) {
       try {
         if (provider.defaultModel) {
+          const apiKey = await provider.getApiKey();
           const detection = await detector.detectCapabilities(
             provider.defaultModel,
             provider.type as any,
             provider.baseUrl,
-            provider.apiKey
+            apiKey
           );
           
           // Update provider configuration with detected capabilities
@@ -643,9 +634,9 @@ router.post('/detect-all-capabilities', async (req: Request, res: Response) => {
             detectedCapabilities: detection.detectedCapabilities,
             lastCapabilityCheck: new Date(),
             capabilityTestResults: detection.testResults
-          };
+          } as any;
           
-          await userLLMProviderRepo.save(provider);
+          await getUserLLMService().updateUserProviderConfig(userId, provider.id, { configuration: provider.configuration });
           
           results.push({
             providerId: provider.id,

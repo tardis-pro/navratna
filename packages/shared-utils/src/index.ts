@@ -25,7 +25,8 @@ export {
   RateLimitError,
   InternalServerError,
   ExternalServiceError,
-  SecurityError
+  SecurityError,
+  asyncHandler
 } from './errors';
 
 // Widget system utilities
