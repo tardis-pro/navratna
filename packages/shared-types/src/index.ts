@@ -1,9 +1,9 @@
-export * from './common';
+export * from './common.js';
 export * from './agent';
 export * from './operation';
 export { CheckpointType } from './operation';
 export * from './capability';
-export * from './security';
+export * from './security.js';
 export * from './api';
 export * from './database';
 export * from './events';
@@ -19,11 +19,10 @@ export * from './mcp';
 export * from './knowledge-graph';
 export * from './personaDefaults';
 export * from './personaUtils';
-// Export specific items from personaAdvanced to avoid conflicts
+// Export personaAdvanced types (avoiding conflicts)
 export {
   HybridPersona,
   PersonalityTrait,
-  ExpertiseDomain as PersonaExpertiseDomain,
   ConversationContext as PersonaConversationContext,
   ConversationState,
   ResponseType,
@@ -34,10 +33,11 @@ export {
   HybridSuggestion,
   ConversationType,
   PersonaCategory,
-  ContributionScore
-} from './personaAdvanced';
+  ContributionScore,
+  ExpertiseDomain as PersonaExpertiseDomain
+} from './personaAdvanced.js';
 // Audit and LLM types - NEW
-export * from './audit';
+export * from './audit.js';
 export * from './llm';
 // User management types - NEW
 export * from './user';

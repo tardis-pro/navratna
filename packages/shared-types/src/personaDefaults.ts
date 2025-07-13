@@ -1,11 +1,11 @@
-import { Persona, PersonaTrait, PersonaTraitType, ExpertiseDomain, PersonaStatus, PersonaVisibility } from './persona.js';
+import { Persona, PersonaTrait, PersonaTraitType, ExpertiseDomain, PersonaStatus, PersonaVisibility } from './persona';
 import { 
   HybridPersona, 
   HybridSuggestion,
   PersonaCategory 
-} from './personaAdvanced.js';
-import { personalityTraits, expertiseDomains } from './personaConstants.js';
-import { contextualTriggers } from './contextTriggers.js';
+} from './personaAdvanced';
+import { personalityTraits, expertiseDomains } from './personaConstants';
+import { contextualTriggers } from './contextTriggers';
 import {
   crossBreedPersonas,
   generateRandomHybrid,
@@ -21,7 +21,7 @@ import {
   shouldPersonaContribute,
   generateConversationStarter,
   createConversationContext
-} from './personaUtils.js';
+} from './personaUtils';
 
 // Export utilities
 export {

@@ -1,4 +1,4 @@
-import { Persona, PersonaTrait } from './persona.js';
+import { Persona, PersonaTrait } from './persona';
 import { 
   HybridPersona, 
   ConversationContext, 
@@ -11,7 +11,7 @@ import {
   FillerType,
   ResponseEnhancement,
   ContributionScore
-} from './personaAdvanced.js';
+} from './personaAdvanced';
 
 // Helper function to extract trait strings from PersonaTrait objects or string arrays
 function extractTraitStrings(traits: PersonaTrait[] | string[]): string[] {

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { BaseEntitySchema, IDSchema } from './common.js';
-import { ExecutionPlanSchema } from './agent.js';
+import { ExecutionPlanSchema } from './agent';
 
 // Operation types - EXTENDED for discussions
 export enum OperationType {

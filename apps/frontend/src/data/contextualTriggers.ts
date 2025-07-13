@@ -1,4 +1,4 @@
-import { ContextualTrigger } from '../types/personaAdvanced';
+import { ContextualTrigger } from '@uaip/types';
 
 // Natural conversation triggers based on context rather than keywords
 export const contextualTriggers: Record<string, ContextualTrigger> = {

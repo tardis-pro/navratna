@@ -1,4 +1,4 @@
-import { PersonalityTrait, ExpertiseDomain } from '../types/personaAdvanced';
+import { PersonalityTrait, PersonaExpertiseDomain } from '@uaip/types';
 
 // Core personality traits available for cross-breeding
 export const personalityTraits: Record<string, PersonalityTrait> = {
@@ -20,7 +20,7 @@ export const personalityTraits: Record<string, PersonalityTrait> = {
 };
 
 // Expertise domains available for cross-breeding
-export const expertiseDomains: Record<string, ExpertiseDomain> = {
+export const expertiseDomains: Record<string, PersonaExpertiseDomain> = {
   // Technical
   software_engineering: { category: 'Technical', description: 'Programming, architecture, and development' },
   data_science: { category: 'Technical', description: 'Analytics, machine learning, and data insights' },

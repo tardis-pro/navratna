@@ -7,8 +7,18 @@
 
 import { api } from '@/api';
 
-// Re-export all types for backward compatibility
-export * from '@uaip/types';
+// Re-export specific types for backward compatibility
+export type {
+  Agent,
+  Persona,
+  Operation,
+  Capability,
+  SecurityLevel,
+  User,
+  Discussion,
+  DiscussionParticipant,
+  KnowledgeItem
+} from '@uaip/types';
 export * from '@/api';
 
 // Create legacy API structure

@@ -43,6 +43,8 @@ import { KnowledgeItemEntity } from '../entities/knowledge-item.entity.js';
 import { KnowledgeRelationshipEntity } from '../entities/knowledge-relationship.entity.js';
 import { LLMProvider } from '../entities/llmProvider.entity.js';
 import { UserLLMProvider } from '../entities/userLLMProvider.entity.js';
+import { UserLLMPreference } from '../entities/userLLMPreference.entity.js';
+import { AgentLLMPreference } from '../entities/agentLLMPreference.entity.js';
 import { IntegrationEventEntity } from '../entities/integrationEvent.entity.js';
 import { OAuthProviderEntity } from '../entities/oauthProvider.entity.js';
 import { OAuthStateEntity } from '../entities/oauthState.entity.js';
@@ -105,6 +107,8 @@ export const allEntities = [
   KnowledgeRelationshipEntity,
   LLMProvider,
   UserLLMProvider,
+  UserLLMPreference,
+  AgentLLMPreference,
   IntegrationEventEntity,
   OAuthProviderEntity,
   OAuthStateEntity,

@@ -1,4 +1,4 @@
-import { ContextualTrigger } from './personaAdvanced.js';
+import { ContextualTrigger } from './personaAdvanced';
 
 // Natural conversation triggers based on context rather than keywords
 export const contextualTriggers: Record<string, ContextualTrigger> = {

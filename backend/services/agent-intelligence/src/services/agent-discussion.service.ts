@@ -1002,27 +1002,68 @@ export class AgentDiscussionService {
       let conversationHistory = [];
       
       if (discussionContext?.recentMessages && discussionContext.recentMessages.length > 0) {
-        // Extract conversation history from recent messages
-        conversationHistory = discussionContext.recentMessages.map(msg => ({
-          id: msg.id,
-          content: msg.content,
-          sender: msg.participantName || 'Unknown',
-          timestamp: msg.timestamp,
-          type: msg.agentId ? 'agent' : 'user'
-        }));
+        // Filter out error messages and extract conversation history from recent messages
+        const validMessages = discussionContext.recentMessages.filter(msg => {
+          // Filter out common error messages
+          const content = msg.content?.toLowerCase() || '';
+          return !content.includes('i apologize, but i encountered an error') &&
+                 !content.includes('please try again') &&
+                 !content.includes('check your provider configuration') &&
+                 !content.includes('error while processing') &&
+                 !content.includes('error while generating') &&
+                 content.trim().length > 0;
+        });
         
-        // Check if this agent has already introduced itself
-        const hasIntroduced = discussionContext.recentMessages.some(
+        conversationHistory = validMessages.map(msg => {
+          // Resolve participant name from available data
+          let participantName = 'Unknown';
+          if (msg.participantName) {
+            participantName = msg.participantName;
+          } else if (msg.agentId && discussionContext.activeParticipants) {
+            // Find agent participant
+            const agentParticipant = discussionContext.activeParticipants.find(p => p.agentId === msg.agentId);
+            participantName = agentParticipant?.displayName || agentParticipant?.agentId || 'Agent';
+          } else if (msg.participantId && discussionContext.activeParticipants) {
+            // Find participant by ID
+            const participant = discussionContext.activeParticipants.find(p => p.id === msg.participantId);
+            participantName = participant?.displayName || participant?.agentId || 'User';
+          }
+          
+          return {
+            id: msg.id,
+            content: msg.content,
+            sender: participantName,
+            timestamp: msg.timestamp,
+            type: msg.agentId ? 'agent' : 'user'
+          };
+        });
+        
+        // Check if this agent has already introduced itself (use filtered messages)
+        const hasIntroduced = validMessages.some(
           msg => msg.agentId === agentId && 
                  (msg.content.toLowerCase().includes('hello') || 
                   msg.content.toLowerCase().includes('i\'m') ||
                   msg.content.toLowerCase().includes('excited to join'))
         );
         
-        // Get the last few messages for immediate context
-        const lastMessages = discussionContext.recentMessages.slice(-3);
+        // Get the last few messages for immediate context (use filtered messages)
+        const lastMessages = validMessages.slice(-3);
         const lastMessageContent = lastMessages[lastMessages.length - 1]?.content || '';
-        const lastSpeaker = lastMessages[lastMessages.length - 1]?.participantName || '';
+        
+        // Resolve last speaker name using the same logic as above
+        let lastSpeaker = '';
+        const lastMessage = lastMessages[lastMessages.length - 1];
+        if (lastMessage) {
+          if (lastMessage.participantName) {
+            lastSpeaker = lastMessage.participantName;
+          } else if (lastMessage.agentId && discussionContext.activeParticipants) {
+            const agentParticipant = discussionContext.activeParticipants.find(p => p.agentId === lastMessage.agentId);
+            lastSpeaker = agentParticipant?.displayName || agentParticipant?.agentId || 'Agent';
+          } else if (lastMessage.participantId && discussionContext.activeParticipants) {
+            const participant = discussionContext.activeParticipants.find(p => p.id === lastMessage.participantId);
+            lastSpeaker = participant?.displayName || participant?.agentId || 'User';
+          }
+        }
         
         if (hasIntroduced) {
           // Agent has already introduced, respond to the conversation
@@ -1588,9 +1629,9 @@ Reasoning: ${reasoning.join('; ')}`,
     userId: string
   ): Promise<string> {
     try {
-      // Build conversation context from history
+      // Build conversation context from history using actual participant names
       const historyContext = conversationHistory.map(entry => 
-        `${entry.sender === 'user' ? 'User' : 'Assistant'}: ${entry.content}`
+        `${entry.sender}: ${entry.content}`
       ).join('\n');
 
       // Build knowledge context

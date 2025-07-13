@@ -1549,10 +1549,33 @@ export class DiscussionOrchestrationService extends EventEmitter {
         limit: 20
       });
 
-      // Format messages for agent context
-      const messageHistory = recentMessages.map(msg => {
+      // Format messages for agent context with proper name resolution
+      const messageHistory = await Promise.all(recentMessages.map(async (msg) => {
         // Find the participant to get agent ID
         const msgParticipant = discussion.participants.find(p => p.id === msg.participantId);
+        
+        // Resolve participant name from agent data if available
+        let participantName = 'Unknown';
+        if (msgParticipant?.agentId) {
+          try {
+            // Try to get agent information for proper name
+            const agentData = await (this.discussionService as any).databaseService?.getAgentById?.(msgParticipant.agentId);
+            participantName = agentData?.name || msgParticipant.agentId || 'Agent';
+          } catch (error) {
+            participantName = msgParticipant.agentId || 'Agent';
+          }
+        } else if (msgParticipant?.userId) {
+          try {
+            // Try to get user information for proper name
+            const userData = await (this.discussionService as any).databaseService?.getUserById?.(msgParticipant.userId);
+            participantName = userData?.email?.split('@')[0] || userData?.id || 'User';
+          } catch (error) {
+            participantName = 'User';
+          }
+        } else {
+          participantName = msgParticipant?.metadata?.displayName || 'Participant';
+        }
+        
         return {
           id: msg.id,
           participantId: msg.participantId,
@@ -1560,10 +1583,9 @@ export class DiscussionOrchestrationService extends EventEmitter {
           timestamp: msg.createdAt,
           messageType: msg.messageType,
           agentId: msgParticipant?.agentId || null,
-          // Find participant name for better context
-          participantName: msgParticipant?.metadata?.displayName || 'Unknown'
+          participantName
         };
-      });
+      }));
 
       // Send direct participation request to agent intelligence service
       await this.eventBusService.publish('agent.discussion.participate', {
@@ -1579,15 +1601,37 @@ export class DiscussionOrchestrationService extends EventEmitter {
           participantCount: discussion.participants.length,
           // Add message history for context
           recentMessages: messageHistory,
-          // Add information about who has already participated
-          activeParticipants: discussion.participants
+          // Add information about who has already participated with proper name resolution
+          activeParticipants: await Promise.all(discussion.participants
             .filter(p => p.messageCount > 0)
-            .map(p => ({
-              id: p.id,
-              agentId: p.agentId,
-              displayName: p.metadata?.displayName || 'Unknown',
-              messageCount: p.messageCount,
-              lastMessageAt: p.lastMessageAt
+            .map(async (p) => {
+              // Resolve participant display name
+              let displayName = 'Unknown';
+              if (p.agentId) {
+                try {
+                  const agentData = await (this.discussionService as any).databaseService?.getAgentById?.(p.agentId);
+                  displayName = agentData?.name || p.agentId || 'Agent';
+                } catch (error) {
+                  displayName = p.agentId || 'Agent';
+                }
+              } else if (p.userId) {
+                try {
+                  const userData = await (this.discussionService as any).databaseService?.getUserById?.(p.userId);
+                  displayName = userData?.email?.split('@')[0] || userData?.id || 'User';
+                } catch (error) {
+                  displayName = 'User';
+                }
+              } else {
+                displayName = p.metadata?.displayName || 'Participant';
+              }
+              
+              return {
+                id: p.id,
+                agentId: p.agentId,
+                displayName,
+                messageCount: p.messageCount,
+                lastMessageAt: p.lastMessageAt
+              };
             }))
         },
         timestamp: new Date()

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { IDSchema } from './common.js';
-import { DiscussionEventType } from './discussion.js';
+import { DiscussionEventType } from './discussion';
 
 // WebSocket connection types
 export enum WebSocketConnectionStatus {

@@ -90,11 +90,7 @@ export type {
 
 // Local types that remain frontend-specific
 export type { Persona } from './persona';
-export type { 
-  AnalysisDepth,
-  CollaborationMode,
-  AuditLevel
-} from './personaAdvanced';
+// AnalysisDepth, CollaborationMode, AuditLevel types were not actually defined - removed
 
 // Re-export helper functions
 export { createAgentStateFromShared as createAgentStateFromBackend } from './frontend-extensions'; 

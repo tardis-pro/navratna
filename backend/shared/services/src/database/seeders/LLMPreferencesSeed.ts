@@ -42,8 +42,60 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
   }
 
   getUniqueField(): keyof UserLLMPreference {
-    // Use a composite unique constraint simulation (userId + taskType)
+    // This won't be used since we override the seed method
     return 'userId' as keyof UserLLMPreference;
+  }
+
+  /**
+   * Override seed method to handle composite unique constraint (userId + taskType)
+   */
+  async seed(): Promise<UserLLMPreference[]> {
+    console.log(`🌱 Seeding ${this.entityName}...`);
+
+    try {
+      const userPreferences = this.generateUserPreferences();
+      const agentPreferences = this.generateAgentPreferences();
+      
+      // Handle user preferences with composite unique constraint
+      let processedUserPrefs = 0;
+      for (const pref of userPreferences) {
+        try {
+          await this.repository.upsert(pref as any, {
+            conflictPaths: ['userId', 'taskType'],
+            skipUpdateIfNoValuesChanged: true
+          });
+          processedUserPrefs++;
+        } catch (error) {
+          // Manual fallback for individual preference
+          try {
+            const existing = await this.repository.findOne({
+              where: { userId: pref.userId, taskType: pref.taskType } as any
+            });
+            if (existing) {
+              await this.repository.update(
+                { userId: pref.userId, taskType: pref.taskType } as any,
+                pref as any
+              );
+            } else {
+              await this.repository.save(this.repository.create(pref as any));
+            }
+            processedUserPrefs++;
+          } catch (fallbackError) {
+            console.warn(`   ⚠️ Failed to process user preference:`, fallbackError.message);
+          }
+        }
+      }
+
+      // Seed agent preferences
+      await this.seedAgentPreferences(agentPreferences);
+      
+      console.log(`   ✅ LLM preferences seeded successfully: ${processedUserPrefs} user preferences processed`);
+      return await this.repository.find();
+    } catch (error) {
+      console.error(`   ❌ LLM preferences seeding failed:`, error);
+      console.warn(`   ⚠️ Continuing without LLM Preferences seeding...`);
+      return [];
+    }
   }
 
   async getSeedData(): Promise<DeepPartial<UserLLMPreference>[]> {
@@ -281,8 +333,8 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
   }
 
   private getAgentSpecificOptimizations(agentName: string, agentDescription: string): Partial<Record<LLMTaskType, Partial<TaskConfiguration>>> {
-    const name = agentName.toLowerCase();
-    const description = agentDescription.toLowerCase();
+    const name = (agentName || '').toLowerCase();
+    const description = (agentDescription || '').toLowerCase();
     
     // Code-focused agents
     if (name.includes('engineer') || name.includes('developer') || description.includes('code')) {

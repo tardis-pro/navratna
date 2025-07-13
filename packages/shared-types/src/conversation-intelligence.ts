@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { IDSchema, BaseEntitySchema } from './common.js';
-import { EventType } from './events.js';
-import { WebSocketEventType } from './websocket.js';
-import { KnowledgeType, SourceType } from './knowledge-graph.js';
+import { EventType } from './events';
+import { WebSocketEventType } from './websocket';
+import { KnowledgeType, SourceType } from './knowledge-graph';
 
 // Extend EventType enum for conversation intelligence
 export enum ConversationIntelligenceEventType {

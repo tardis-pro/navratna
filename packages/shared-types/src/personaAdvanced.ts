@@ -1,4 +1,4 @@
-import { Persona } from './persona';
+import { Persona } from './persona.js';
 
 // Extended persona interface for hybrid personas
 export interface HybridPersona extends Persona {

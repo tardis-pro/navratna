@@ -1,4 +1,4 @@
-import { PersonalityTrait, ExpertiseDomain } from './personaAdvanced.js';
+import { PersonalityTrait, ExpertiseDomain } from './personaAdvanced';
 
 // Core personality traits available for cross-breeding
 export const personalityTraits: Record<string, PersonalityTrait> = {
