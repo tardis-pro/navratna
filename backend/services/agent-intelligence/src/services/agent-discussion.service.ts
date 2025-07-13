@@ -223,12 +223,14 @@ export class AgentDiscussionService {
    * Set up event bus subscriptions for discussion operations
    */
   private async setupEventSubscriptions(): Promise<void> {
-    await this.eventBusService.subscribe('agent.discussion.participate', this.handleParticipateInDiscussion.bind(this));
+    // DISABLED: Direct agent participation - using only enhanced responses from ConversationEnhancementService
+    // await this.eventBusService.subscribe('agent.discussion.participate', this.handleParticipateInDiscussion.bind(this));
+    
     await this.eventBusService.subscribe('agent.discussion.generate', this.handleGenerateResponse.bind(this));
     await this.eventBusService.subscribe('agent.discussion.process', this.handleProcessInput.bind(this));
     await this.eventBusService.subscribe('agent.discussion.trigger', this.handleTriggerParticipation.bind(this));
 
-    logger.info('Agent Discussion Service event subscriptions configured');
+    logger.info('Agent Discussion Service event subscriptions configured (direct participation disabled)');
   }
 
   /**

@@ -310,11 +310,11 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
         }
       },
       [LLMTaskType.VISION]: {
-        primaryProvider: LLMProviderType.OPENAI,
-        primaryModel: 'gpt-4o',
-        fallbackModel: 'gpt-4o-mini',
+        primaryProvider: LLMProviderType.LLMSTUDIO,
+        primaryModel: 'deepcogito_cogito-v1-preview-llama-8b',
+        fallbackModel: 'gpt-4o',
         priority: 85,
-        description: 'Image analysis and vision tasks with GPT-4o',
+        description: 'Image analysis and vision tasks with DeepCogito',
         settings: {
           temperature: 0.3,
           maxTokens: 1500,

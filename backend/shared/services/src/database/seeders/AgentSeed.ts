@@ -136,16 +136,26 @@ export class AgentSeed extends BaseSeed<Agent> {
    * Prioritizes active providers with good performance
    */
   private getUserLLMProvider(agentRole: AgentRole, createdBy: string): { userLLMProviderId?: string; apiType?: 'openai' | 'anthropic' | 'ollama' | 'llmstudio' | 'custom' } {
-    // Find providers for the user who created this agent
+    // Find providers for the user who created this agent - prioritize LLMStudio
     const userProviders = this.userLLMProviders.filter(p =>
       p.userId === createdBy && p.isActive && p.status === 'active'
-    ).sort((a, b) => a.priority - b.priority); // Sort by priority (lower = higher priority)
+    ).sort((a, b) => {
+      // Force LLMStudio to be highest priority
+      if (a.type === 'llmstudio' && b.type !== 'llmstudio') return -1;
+      if (b.type === 'llmstudio' && a.type !== 'llmstudio') return 1;
+      return a.priority - b.priority; // Otherwise sort by priority (lower = higher priority)
+    });
 
     if (userProviders.length === 0) {
-      // Fallback: find any active provider from any user (for demo purposes)
+      // Fallback: find any active provider from any user (for demo purposes) - prioritize LLMStudio
       const fallbackProviders = this.userLLMProviders.filter(p =>
         p.isActive && p.status === 'active'
-      ).sort((a, b) => a.priority - b.priority);
+      ).sort((a, b) => {
+        // Force LLMStudio to be highest priority
+        if (a.type === 'llmstudio' && b.type !== 'llmstudio') return -1;
+        if (b.type === 'llmstudio' && a.type !== 'llmstudio') return 1;
+        return a.priority - b.priority; // Otherwise sort by priority
+      });
 
       if (fallbackProviders.length > 0) {
         console.log(`   ⚠️ Using fallback LLM provider for agent (role: ${agentRole})`);
@@ -160,23 +170,23 @@ export class AgentSeed extends BaseSeed<Agent> {
       return { apiType: 'llmstudio' as const };
     }
 
-    // Role-based provider selection preferences
+    // Role-based provider selection preferences - LLMStudio only
     const rolePreferences: Record<AgentRole, string[]> = {
-      [AgentRole.ASSISTANT]: ['llmstudio', 'anthropic', 'openai'], // General assistance
-      [AgentRole.ANALYZER]: ['llmstudio', 'anthropic', 'openai', 'google'], // Analysis needs reasoning
-      [AgentRole.ORCHESTRATOR]: ['llmstudio', 'openai', 'anthropic'], // Orchestration needs planning
-      [AgentRole.SPECIALIST]: ['llmstudio', 'anthropic', 'openai', 'google'], // Specialized needs depth
-      [AgentRole.EXECUTOR]: ['llmstudio', 'openai', 'anthropic'], // Execution needs speed
-      [AgentRole.ADVISOR]: ['llmstudio', 'anthropic', 'openai', 'google'], // Advisory needs depth
-      [AgentRole.STRATEGIST]: ['llmstudio', 'anthropic', 'openai', 'google'], // Strategy needs reasoning
-      [AgentRole.COMMUNICATOR]: ['llmstudio', 'openai', 'anthropic'], // Communication needs fluency
-      [AgentRole.VALIDATOR]: ['llmstudio', 'openai', 'anthropic'], // Validation needs precision
-      [AgentRole.ARCHITECT]: ['llmstudio', 'anthropic', 'openai', 'google'], // Architecture needs deep thinking
-      [AgentRole.REVIEWER]: ['llmstudio', 'anthropic', 'openai'], // Review needs thoroughness
-      [AgentRole.DESIGNER]: ['llmstudio', 'openai', 'anthropic'] // Design needs creativity
+      [AgentRole.ASSISTANT]: ['llmstudio'], // General assistance
+      [AgentRole.ANALYZER]: ['llmstudio'], // Analysis needs reasoning
+      [AgentRole.ORCHESTRATOR]: ['llmstudio'], // Orchestration needs planning
+      [AgentRole.SPECIALIST]: ['llmstudio'], // Specialized needs depth
+      [AgentRole.EXECUTOR]: ['llmstudio'], // Execution needs speed
+      [AgentRole.ADVISOR]: ['llmstudio'], // Advisory needs depth
+      [AgentRole.STRATEGIST]: ['llmstudio'], // Strategy needs reasoning
+      [AgentRole.COMMUNICATOR]: ['llmstudio'], // Communication needs fluency
+      [AgentRole.VALIDATOR]: ['llmstudio'], // Validation needs precision
+      [AgentRole.ARCHITECT]: ['llmstudio'], // Architecture needs deep thinking
+      [AgentRole.REVIEWER]: ['llmstudio'], // Review needs thoroughness
+      [AgentRole.DESIGNER]: ['llmstudio'] // Design needs creativity
     };
 
-    const preferredTypes = rolePreferences[agentRole] || ['openai', 'anthropic', 'llmstudio'];
+    const preferredTypes = rolePreferences[agentRole] || ['llmstudio'];
 
     // Find the best provider based on role preferences
     for (const preferredType of preferredTypes) {
@@ -370,7 +380,7 @@ export class AgentSeed extends BaseSeed<Agent> {
         totalOperations: 2890,
         successfulOperations: 2630,
         averageResponseTime: 2.2,
-        modelId: 'deepcogito_cogito-v1-preview-llama-8b',
+        modelId: 'smollm3-3b',
         ...this.getUserLLMProvider(AgentRole.EXECUTOR, this.users.find(u => u.role === 'developer')?.id || this.users[0].id),
         temperature: 0.4,
         maxTokens: 3500,
@@ -428,7 +438,7 @@ export class AgentSeed extends BaseSeed<Agent> {
         totalOperations: 1876,
         successfulOperations: 1745,
         averageResponseTime: 1.9,
-        modelId: 'deepcogito_cogito-v1-preview-llama-8b',
+        modelId: 'smollm3-3b',
         ...this.getUserLLMProvider(AgentRole.EXECUTOR, this.users.find(u => u.role === 'developer')?.id || this.users[0].id),
         temperature: 0.3,
         maxTokens: 4000,
@@ -486,7 +496,7 @@ export class AgentSeed extends BaseSeed<Agent> {
         totalOperations: 3245,
         successfulOperations: 2888,
         averageResponseTime: 2.1,
-        modelId: 'deepcogito_cogito-v1-preview-llama-8b',
+        modelId: 'smollm3-3b',
         ...this.getUserLLMProvider(AgentRole.EXECUTOR, this.users.find(u => u.role === 'developer')?.id || this.users[0].id),
         temperature: 0.5,
         maxTokens: 3200,
@@ -603,7 +613,7 @@ export class AgentSeed extends BaseSeed<Agent> {
         totalOperations: 1567,
         successfulOperations: 1363,
         averageResponseTime: 3.2,
-        modelId: 'deepcogito_cogito-v1-preview-llama-8b',
+        modelId: 'llama-3.2-3b-overthinker',
         ...this.getUserLLMProvider(AgentRole.ADVISOR, this.users.find(u => u.role === 'creative_director')?.id || this.users[0].id),
         temperature: 0.8,
         maxTokens: 4200,
@@ -836,7 +846,7 @@ export class AgentSeed extends BaseSeed<Agent> {
         totalOperations: 4567,
         successfulOperations: 4156,
         averageResponseTime: 1.5,
-        modelId: 'deepcogito_cogito-v1-preview-llama-8b',
+        modelId: 'llama-3.2-3b-overthinker',
         ...this.getUserLLMProvider(AgentRole.COMMUNICATOR, this.users.find(u => u.role === 'marketing_manager')?.id || this.users[0].id),
         temperature: 0.7,
         maxTokens: 3000,
@@ -894,7 +904,7 @@ export class AgentSeed extends BaseSeed<Agent> {
         totalOperations: 3421,
         successfulOperations: 3318,
         averageResponseTime: 2.3,
-        modelId: 'deepcogito_cogito-v1-preview-llama-8b',
+        modelId: 'arch-router-1.5b',
         ...this.getUserLLMProvider(AgentRole.VALIDATOR, this.users.find(u => u.role === 'qa_engineer')?.id || this.users[0].id),
         temperature: 0.2,
         maxTokens: 3600,
@@ -1010,7 +1020,7 @@ export class AgentSeed extends BaseSeed<Agent> {
         totalOperations: 2876,
         successfulOperations: 2732,
         averageResponseTime: 3.1,
-        modelId: 'deepcogito_cogito-v1-preview-llama-8b',
+        modelId: 'smollm3-3b',
         ...this.getUserLLMProvider(AgentRole.REVIEWER, this.users.find(u => u.role === 'senior_developer')?.id || this.users[0].id),
         temperature: 0.4,
         maxTokens: 4200,

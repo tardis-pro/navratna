@@ -90,6 +90,7 @@ export function getViralAgentsData(users: UserEntity[], personas: PersonaEntity[
       name: '👑 CodeWhisperer Sage',
       role: AgentRole.SPECIALIST,
       personaId: getPersonaIdByRole('CodeWhisperer Sage'),
+      
       legacyPersona: {
         name: 'CodeWhisperer Sage',
         description: 'Ancient code oracle that transforms legacy nightmares into modern masterpieces',
@@ -138,7 +139,7 @@ export function getViralAgentsData(users: UserEntity[], personas: PersonaEntity[
       totalOperations: 2847,
       successfulOperations: 2647,
       averageResponseTime: 4.2,
-      modelId: 'claude-3-opus',
+      modelId: 'cogito 14',
       apiType: 'llmstudio' as any,
       temperature: 0.4,
       maxTokens: 8000,

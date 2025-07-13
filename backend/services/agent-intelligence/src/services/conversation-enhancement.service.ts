@@ -561,81 +561,6 @@ export class ConversationEnhancementService extends EventEmitter {
     }
   }
 
-  /**
-   * Process discussion participation event from orchestration service
-   */
-  async processDiscussionParticipation(event: any): Promise<void> {
-    try {
-      const { discussionId, agentId, participantId, discussionContext } = event;
-
-      logger.info('Processing discussion participation event', {
-        discussionId,
-        agentId,
-        participantId
-      });
-
-      // Get discussion data
-      const discussion = await this.getDiscussionData(discussionId);
-      if (!discussion) {
-        logger.warn('Discussion not found for participation event', { discussionId });
-        return;
-      }
-
-      // Get agent data
-      const agent = await this.databaseService.getAgentService().findAgentById(agentId);
-      if (!agent) {
-        logger.warn('Agent not found for participation event', { agentId });
-        return;
-      }
-
-      // Create message history from discussion
-      const messageHistory = await this.createMessageHistoryFromDiscussion(discussion);
-
-      // Get conversation state
-      const conversationState = this.getConversationState(discussionId);
-
-      // Request enhanced contribution
-      const enhancementResult = await this.getEnhancedContribution({
-        discussionId,
-        availableAgents: [agent as any],
-        messageHistory,
-        currentTopic: discussionContext?.topic || discussion.topic,
-        conversationState,
-        participantId,
-        enhancementType: 'triggered',
-        context: discussionContext
-      });
-
-      if (enhancementResult.success && enhancementResult.enhancedResponse) {
-        // Send the enhanced response via discussion orchestration
-        await this.eventBusService.publish('discussion.message.send', {
-          discussionId,
-          participantId,
-          content: enhancementResult.enhancedResponse,
-          messageType: 'agent_contribution',
-          metadata: {
-            agentId,
-            personaId: enhancementResult.selectedPersona?.id,
-            enhancementType: 'contextual',
-            contributionScore: enhancementResult.contributionScores?.[0]?.score
-          }
-        });
-
-        logger.info('Enhanced response sent to discussion', {
-          discussionId,
-          agentId,
-          personaId: enhancementResult.selectedPersona?.id,
-          responseLength: enhancementResult.enhancedResponse.length
-        });
-      }
-
-    } catch (error) {
-      logger.error('Failed to process discussion participation event', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        event
-      });
-    }
-  }
 
   // Private helper methods
 
@@ -921,12 +846,9 @@ export class ConversationEnhancementService extends EventEmitter {
   }
 
   private async setupEventSubscriptions(): Promise<void> {
-    // Subscribe to discussion participation events
-    await this.eventBusService.subscribe(
-      'agent.discussion.participate',
-      this.processDiscussionParticipation.bind(this)
-    );
-
+    // NOTE: AgentDiscussionService handles agent.discussion.participate events
+    // ConversationEnhancementService focuses on conversation analysis and enhancement only
+    
     // Subscribe to agent updates
     await this.eventBusService.subscribe(
       'agent.updated',
