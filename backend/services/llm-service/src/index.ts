@@ -4,13 +4,11 @@ import { errorTrackingMiddleware, createErrorLogger } from '@uaip/middleware';
 import { LLMService, UserLLMService } from '@uaip/llm-service';
 import llmRoutes from './routes/llmRoutes.js';
 import userLLMRoutes from './routes/userLLMRoutes.js';
-import { ProviderResolutionService } from './services/ProviderResolutionService.js';
 import { AgentGenerationHandler } from './handlers/AgentGenerationHandler.js';
 
 class LLMServiceServer extends BaseService {
   private llmService: LLMService;
   private userLLMService: UserLLMService;
-  private providerResolver: ProviderResolutionService;
   private agentGenerationHandler: AgentGenerationHandler;
   private errorLogger = createErrorLogger('llm-service');
 
@@ -24,9 +22,7 @@ class LLMServiceServer extends BaseService {
     // Initialize services
     this.llmService = LLMService.getInstance();
     this.userLLMService = new UserLLMService();
-    this.providerResolver = new ProviderResolutionService(this.userLLMService);
     this.agentGenerationHandler = new AgentGenerationHandler(
-      this.providerResolver,
       this.userLLMService,
       this.llmService,
       this.eventBusService

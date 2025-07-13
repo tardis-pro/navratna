@@ -6,6 +6,12 @@ import { logger } from '@uaip/utils';
 import { errorHandler, rateLimiter, metricsMiddleware, metricsEndpoint } from '@uaip/middleware';
 import { DatabaseService } from './databaseService.js';
 import { EventBusService } from './eventBusService.js';
+import { UnifiedModelSelectionFacade, UnifiedModelSelection, UnifiedSelectionRequest } from './services/UnifiedModelSelectionFacade.js';
+import { LLMTaskType } from '@uaip/types';
+import { Agent } from './entities/agent.entity.js';
+import { UserLLMPreference } from './entities/userLLMPreference.entity.js';
+import { AgentLLMPreference } from './entities/agentLLMPreference.entity.js';
+import { LLMProvider } from './entities/llmProvider.entity.js';
 
 // Extend Request interface to include id property
 declare global {
@@ -38,6 +44,7 @@ export abstract class BaseService {
   protected databaseService: DatabaseService;
   protected eventBusService: EventBusService;
   protected enterpriseEventBusService?: EventBusService;
+  protected modelSelectionFacade: UnifiedModelSelectionFacade | null = null;
   protected config: ServiceConfig;
   private shutdownHandlers: (() => Promise<void>)[] = [];
   private isShuttingDown: boolean = false;
@@ -169,9 +176,31 @@ export abstract class BaseService {
     try {
       await this.databaseService.initialize();
       logger.info(`${this.config.name}: Database initialized`);
+      
+      // Initialize unified model selection facade
+      await this.initializeModelSelection();
+      
     } catch (error) {
       logger.error(`${this.config.name}: Database initialization failed:`, error);
       throw error;
+    }
+  }
+
+  protected async initializeModelSelection(): Promise<void> {
+    try {
+      // Get TypeORM repositories for the facade
+      const dataSource = await this.databaseService.getDataSource();
+      
+      this.modelSelectionFacade = new UnifiedModelSelectionFacade(
+        dataSource.getRepository(Agent),
+        dataSource.getRepository(UserLLMPreference),
+        dataSource.getRepository(AgentLLMPreference),
+        dataSource.getRepository(LLMProvider)
+      );
+      logger.info(`${this.config.name}: Unified model selection initialized`);
+    } catch (error) {
+      logger.warn(`${this.config.name}: Model selection initialization failed, continuing without it:`, error);
+      // Service can still function without model selection
     }
   }
 
@@ -269,6 +298,16 @@ export abstract class BaseService {
         }
       }
 
+      // Cleanup model selection facade
+      if (this.modelSelectionFacade) {
+        try {
+          this.modelSelectionFacade.destroy();
+          logger.info(`${this.config.name}: Model selection facade cleaned up`);
+        } catch (error) {
+          logger.error(`${this.config.name}: Model selection cleanup error:`, error);
+        }
+      }
+
       // Force exit after timeout
       setTimeout(() => {
         logger.error(`${this.config.name}: Graceful shutdown timeout, forcing exit`);
@@ -294,6 +333,99 @@ export abstract class BaseService {
 
   protected addShutdownHandler(handler: () => Promise<void>): void {
     this.shutdownHandlers.push(handler);
+  }
+
+  // =============================================================================
+  // UNIFIED MODEL SELECTION METHODS
+  // =============================================================================
+
+  /**
+   * Select model for agent-based tasks
+   */
+  protected async selectModelForAgent(
+    agentId: string,
+    taskType: LLMTaskType,
+    options?: {
+      model?: string;
+      provider?: string;
+      urgency?: 'low' | 'medium' | 'high' | 'critical';
+    }
+  ): Promise<UnifiedModelSelection> {
+    if (!this.modelSelectionFacade) {
+      throw new Error(`Model selection not initialized in ${this.config.name}`);
+    }
+
+    return this.modelSelectionFacade.selectForAgent(agentId, taskType, options);
+  }
+
+  /**
+   * Select model for user-based tasks
+   */
+  protected async selectModelForUser(
+    userId: string,
+    taskType: LLMTaskType,
+    options?: {
+      model?: string;
+      provider?: string;
+      urgency?: 'low' | 'medium' | 'high' | 'critical';
+    }
+  ): Promise<UnifiedModelSelection> {
+    if (!this.modelSelectionFacade) {
+      throw new Error(`Model selection not initialized in ${this.config.name}`);
+    }
+
+    return this.modelSelectionFacade.selectForUser(userId, taskType, options);
+  }
+
+  /**
+   * Select model for system-level tasks
+   */
+  protected async selectModelForSystem(
+    taskType: LLMTaskType,
+    options?: {
+      model?: string;
+      provider?: string;
+      urgency?: 'low' | 'medium' | 'high' | 'critical';
+    }
+  ): Promise<UnifiedModelSelection> {
+    if (!this.modelSelectionFacade) {
+      throw new Error(`Model selection not initialized in ${this.config.name}`);
+    }
+
+    return this.modelSelectionFacade.selectForSystem(taskType, options);
+  }
+
+  /**
+   * Update model selection usage statistics for learning
+   */
+  protected async updateModelUsageStats(
+    selection: UnifiedModelSelection,
+    request: UnifiedSelectionRequest,
+    responseTime: number,
+    success: boolean,
+    quality?: number
+  ): Promise<void> {
+    if (!this.modelSelectionFacade) {
+      logger.warn(`Model selection not initialized, skipping usage stats update in ${this.config.name}`);
+      return;
+    }
+
+    try {
+      await this.modelSelectionFacade.updateUsageStats(selection, request, responseTime, success, quality);
+    } catch (error) {
+      logger.error(`Failed to update model usage stats in ${this.config.name}:`, error);
+    }
+  }
+
+  /**
+   * Get model selection metrics for monitoring
+   */
+  protected getModelSelectionMetrics() {
+    if (!this.modelSelectionFacade) {
+      return null;
+    }
+
+    return this.modelSelectionFacade.getMetrics();
   }
 
   public async start(): Promise<void> {

@@ -19,8 +19,7 @@ import {
   EventBusService,
   KnowledgeGraphService,
   AgentMemoryService,
-  DiscussionService,
-  LLMPreferenceResolutionService
+  DiscussionService
 } from '@uaip/shared-services';
 import { LLMService, UserLLMService, LLMRequest } from '@uaip/llm-service';
 
@@ -32,7 +31,6 @@ export interface AgentDiscussionConfig {
   discussionService?: DiscussionService;
   llmService: LLMService;
   userLLMService: UserLLMService;
-  llmPreferenceResolutionService?: LLMPreferenceResolutionService;
   serviceName: string;
   securityLevel: number;
 }
@@ -45,7 +43,6 @@ export class AgentDiscussionService {
   private discussionService?: DiscussionService;
   private llmService: LLMService;
   private userLLMService: UserLLMService;
-  private llmPreferenceResolutionService?: LLMPreferenceResolutionService;
   private serviceName: string;
   private securityLevel: number;
   
@@ -72,7 +69,6 @@ export class AgentDiscussionService {
     this.discussionService = config.discussionService;
     this.llmService = config.llmService;
     this.userLLMService = config.userLLMService;
-    this.llmPreferenceResolutionService = config.llmPreferenceResolutionService;
     this.serviceName = config.serviceName;
     this.securityLevel = config.securityLevel;
   }
@@ -175,22 +171,8 @@ export class AgentDiscussionService {
       });
 
       try {
-        // Resolve agent-specific LLM preferences
-        let resolvedPreferences = null;
-        if (agentId && this.llmPreferenceResolutionService) {
-          try {
-            resolvedPreferences = await this.llmPreferenceResolutionService.resolveLLMPreference(
-              agentId,
-              LLMTaskType.REASONING // Default to reasoning for agent discussions
-            );
-            console.log(resolvedPreferences);
-          } catch (error) {
-            logger.warn('Failed to resolve LLM preferences for agent, using system defaults', { 
-              agentId, 
-              error: error.message 
-            });
-          }
-        }
+        // The parent AgentIntelligenceService (which extends BaseService) should handle model selection
+        // and pass the selected model/provider to this service via event data or configuration
         console.log('llm.agent.generate.request', {
           requestId,
           agentId: agentId || null, // Pass agent ID if provided
@@ -202,10 +184,10 @@ export class AgentDiscussionService {
             type: 'user' as const
           }],
           systemPrompt,
-          maxTokens: resolvedPreferences?.settings?.maxTokens || maxTokens,
-          temperature: resolvedPreferences?.settings?.temperature || temperature,
-          model: resolvedPreferences?.model || null,
-          provider: resolvedPreferences?.provider || null
+          maxTokens: maxTokens,
+          temperature: temperature,
+          model: null, // Model selection is handled by the parent service
+          provider: null
         })
         // Publish LLM generation request via event bus
         await this.eventBusService.publish('llm.agent.generate.request', {
@@ -219,10 +201,10 @@ export class AgentDiscussionService {
             type: 'user' as const
           }],
           systemPrompt,
-          maxTokens: resolvedPreferences?.settings?.maxTokens || maxTokens,
-          temperature: resolvedPreferences?.settings?.temperature || temperature,
-          model: resolvedPreferences?.model || null,
-          provider: resolvedPreferences?.provider || null
+          maxTokens: maxTokens,
+          temperature: temperature,
+          model: null, // Model selection is handled by the parent service
+          provider: null
         });
 
         logger.debug('Agent discussion LLM request published', { 
@@ -1721,6 +1703,7 @@ Reasoning: ${reasoning.join('; ')}`,
     userId: string;
     message: string;
     conversationId: string;
+    modelSelection?: any; // Optional model selection from parent service
   }): Promise<{ response: string; metadata: Record<string, unknown> }> {
     try {
       // Create system prompt for agent

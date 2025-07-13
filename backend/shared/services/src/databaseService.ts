@@ -396,6 +396,12 @@ export class DatabaseService {
   public get userLLMProviderRepository() {
     return this.userService.getUserLLMProviderRepository();
   }
+  public getUserLLMPreferenceRepository() {
+    return this.userService.getUserLLMPreferenceRepository();
+  }
+  public getAgentLLMPreferenceRepository() {
+    return this.agentService.getAgentLLMPreferenceRepository();
+  }
 
   // Expose domain services for direct access
   public get users(): UserService {

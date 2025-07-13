@@ -1,7 +1,7 @@
 import express from 'express';
 import { BaseService, DiscussionService, PersonaService } from '@uaip/shared-services';
 import { LLMService, UserLLMService } from '@uaip/llm-service';
-import { DiscussionEventType } from '@uaip/types';
+import { DiscussionEventType, LLMTaskType } from '@uaip/types';
 import { createAgentRoutes } from './routes/agentRoutes.js';
 import knowledgeRoutes from './routes/knowledgeRoutes.js';
 import { createDiscussionRoutes } from './routes/discussionRoutes.js';
@@ -179,12 +179,29 @@ class AgentIntelligenceService extends BaseService {
           socketId: socketId?.substring(0, 10) + '...'
         });
 
+        // Use unified model selection for the agent
+        let modelSelection = null;
+        if (agentId) {
+          try {
+            modelSelection = await this.selectModelForAgent(agentId, LLMTaskType.REASONING);
+            logger.info('Selected model for agent', {
+              agentId,
+              model: modelSelection.model.model,
+              provider: modelSelection.provider.effectiveProvider,
+              strategy: modelSelection.model.selectionStrategy
+            });
+          } catch (error) {
+            logger.warn('Failed to select model for agent, using defaults', { agentId, error });
+          }
+        }
+
         // Process the chat request using AgentDiscussionService
         const result = await this.agentDiscussionService.processDiscussionMessage({
           agentId,
           userId, 
           message,
-          conversationId: `websocket-chat-${Date.now()}`
+          conversationId: `websocket-chat-${Date.now()}`,
+          modelSelection // Pass the selected model
         });
 
         // Prepare enhanced response with WebSocket metadata
@@ -383,7 +400,6 @@ class AgentIntelligenceService extends BaseService {
       discussionService: undefined, // Optional
       llmService: this.llmService,
       userLLMService: new UserLLMService(),
-      llmPreferenceResolutionService: undefined, // Will implement proper LLM preference resolution later
       serviceName: 'agent-intelligence',
       securityLevel: 1
     });

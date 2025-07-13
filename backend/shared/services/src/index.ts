@@ -22,8 +22,45 @@ export * from './database/index.js';
 export { EventBusService } from './eventBusService.js';
 
 // Agent Intelligence Services
-export { AgentRouterService } from './services/agentRouterService.js';
-export { LLMPreferenceResolutionService } from './services/llmPreferenceResolutionService.js';
+// LLMPreferenceResolutionService deprecated - use UnifiedModelSelectionFacade from BaseService
+
+// =============================================================================
+// UNIFIED MODEL SELECTION SERVICES
+// =============================================================================
+
+// Unified Model Selection System (replaces distributed selection logic)
+export { 
+  ModelSelectionOrchestrator,
+  ModelSelectionRequest,
+  ModelSelectionResult,
+  FallbackChain,
+  ModelSelectionStrategy,
+  ModelSelectionContext,
+  AgentSpecificStrategy,
+  UserSpecificStrategy,
+  PerformanceOptimizedStrategy,
+  ContextAwareStrategy,
+  SystemDefaultStrategy,
+  UNIFIED_SYSTEM_DEFAULTS
+} from './services/ModelSelectionOrchestrator.js';
+
+export {
+  ProviderFallbackService,
+  ProviderResolution,
+  ProviderCapabilities,
+  FallbackConfig,
+  DEFAULT_FALLBACK_CONFIG
+} from './services/ProviderFallbackService.js';
+
+export {
+  UnifiedModelSelectionFacade,
+  UnifiedModelSelection,
+  UnifiedSelectionRequest,
+  SelectionMetrics
+} from './services/UnifiedModelSelectionFacade.js';
+
+// Conversation Utilities
+export { ConversationUtils } from './conversation/index.js';
 
 // Vector Search Services
 export { QdrantService } from './qdrant.service.js';

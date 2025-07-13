@@ -5,15 +5,19 @@ import {
 } from '../database/repositories/UserRepository';
 import { LLMProviderRepository } from '../database/repositories/LLMProviderRepository';
 import { UserLLMProviderRepository } from '../database/repositories/UserLLMProviderRepository';
+import { UserLLMPreferenceRepository } from '../database/repositories/UserLLMPreferenceRepository';
 import { UserContactRepository } from '../database/repositories/UserContactRepository';
+import { TypeOrmService } from '../typeormService';
 import { UserEntity } from '../entities/user.entity';
 import { RefreshTokenEntity } from '../entities/refreshToken.entity';
 import { PasswordResetTokenEntity } from '../entities/passwordResetToken.entity';
+import { UserLLMPreference } from '../entities/userLLMPreference.entity';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 
 export class UserService {
   private static instance: UserService;
+  private typeormService: TypeOrmService;
 
   // Repositories
   private userRepository: UserRepository | null = null;
@@ -21,10 +25,11 @@ export class UserService {
   private passwordResetTokenRepository: PasswordResetTokenRepository | null = null;
   private llmProviderRepository: LLMProviderRepository | null = null;
   private userLLMProviderRepository: UserLLMProviderRepository | null = null;
+  private userLLMPreferenceRepository: UserLLMPreferenceRepository | null = null;
   private userContactRepository: UserContactRepository | null = null;
 
   protected constructor() {
-    // Domain service - no direct TypeORM dependencies
+    this.typeormService = TypeOrmService.getInstance();
   }
 
   public static getInstance(): UserService {
@@ -68,6 +73,15 @@ export class UserService {
       this.userLLMProviderRepository = new UserLLMProviderRepository();
     }
     return this.userLLMProviderRepository;
+  }
+
+  public getUserLLMPreferenceRepository(): UserLLMPreferenceRepository {
+    if (!this.userLLMPreferenceRepository) {
+      const typeormService = this.typeormService || TypeOrmService.getInstance();
+      const repository = typeormService.getRepository(UserLLMPreference);
+      this.userLLMPreferenceRepository = new UserLLMPreferenceRepository(repository);
+    }
+    return this.userLLMPreferenceRepository;
   }
 
   public getUserContactRepository(): UserContactRepository {

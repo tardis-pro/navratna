@@ -1,7 +1,7 @@
 import { LLMService, UserLLMService } from '@uaip/llm-service';
 import { EventBusService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
-import { ProviderResolutionService, ProviderResolution, LLM_CONFIG } from '../services/ProviderResolutionService.js';
+import { LLMTaskType } from '@uaip/types';
 
 export interface AgentGenerationRequest {
   requestId: string;
@@ -16,7 +16,6 @@ export interface AgentGenerationRequest {
 
 export class AgentGenerationHandler {
   constructor(
-    private providerResolver: ProviderResolutionService,
     private userLLMService: UserLLMService,
     private llmService: LLMService,
     private eventBus: EventBusService
@@ -26,20 +25,13 @@ export class AgentGenerationHandler {
     try {
       const request = this.validateRequest(event);
       const agent = await this.loadAgent(request.agentId);
-      const resolution = await this.providerResolver.resolveProvider(
-        agent, 
-        request.model, 
-        request.provider
-      );
-      const response = await this.generateResponse(request, agent, resolution);
+      const response = await this.generateResponse(request, agent);
       await this.publishResponse(request.requestId, request.agentId, response);
       
       logger.info('Agent generation completed', {
         requestId: request.requestId,
         agentId: request.agentId,
-        provider: resolution.effectiveProvider,
-        model: resolution.effectiveModel,
-        confidence: resolution.confidence
+        responseLength: response.content?.length || 0
       });
     } catch (error) {
       await this.handleError(event, error);
@@ -88,20 +80,19 @@ export class AgentGenerationHandler {
 
   private async generateResponse(
     request: AgentGenerationRequest, 
-    agent: any, 
-    resolution: ProviderResolution
+    agent: any
   ): Promise<any> {
     const prompt = this.buildPromptFromMessages(request.messages);
     const generationRequest = {
       prompt,
       systemPrompt: request.systemPrompt,
-      maxTokens: request.maxTokens || agent?.maxTokens || LLM_CONFIG.DEFAULT_MAX_TOKENS,
-      temperature: request.temperature || agent?.temperature || LLM_CONFIG.DEFAULT_TEMPERATURE,
-      model: resolution.effectiveModel
+      maxTokens: request.maxTokens || agent?.maxTokens || 1000,
+      temperature: request.temperature || agent?.temperature || 0.7,
+      model: request.model || agent?.configuration?.model
     };
 
     // Use user-specific service if agent has user context
-    if (agent?.createdBy && resolution.resolutionPath !== 'global-fallback') {
+    if (agent?.createdBy) {
       try {
         return await this.userLLMService.generateResponse(agent.createdBy, generationRequest);
       } catch (error) {
@@ -114,7 +105,7 @@ export class AgentGenerationHandler {
     }
 
     // Fall back to global service
-    return await this.llmService.generateResponse(generationRequest, resolution.effectiveProvider);
+    return await this.llmService.generateResponse(generationRequest);
   }
 
   private buildPromptFromMessages(messages: any[]): string {

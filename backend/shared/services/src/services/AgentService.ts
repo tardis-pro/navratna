@@ -2,8 +2,10 @@ import { logger } from '@uaip/utils';
 import { TypeOrmService } from '../typeormService';
 import { AgentRepository } from '../database/repositories/AgentRepository';
 import { CapabilityRepository } from '../database/repositories/CapabilityRepository';
+import { AgentLLMPreferenceRepository } from '../database/repositories/AgentLLMPreferenceRepository';
 import { Agent } from '../entities/agent.entity';
 import { Capability } from '../entities/capability.entity';
+import { AgentLLMPreference } from '../entities/agentLLMPreference.entity';
 import { AgentStatus, AgentRole, SecurityLevel } from '@uaip/types';
 import { EventBusService } from '../eventBusService';
 
@@ -14,6 +16,7 @@ export class AgentService {
   // Core repositories
   private agentRepository: AgentRepository | null = null;
   private capabilityRepository: CapabilityRepository | null = null;
+  private agentLLMPreferenceRepository: AgentLLMPreferenceRepository | null = null;
   private eventBusService: EventBusService | null = null;
 
   private constructor() {
@@ -47,6 +50,14 @@ export class AgentService {
       this.capabilityRepository = new CapabilityRepository();
     }
     return this.capabilityRepository;
+  }
+
+  public getAgentLLMPreferenceRepository(): AgentLLMPreferenceRepository {
+    if (!this.agentLLMPreferenceRepository) {
+      const repository = this.typeormService.getRepository(AgentLLMPreference);
+      this.agentLLMPreferenceRepository = new AgentLLMPreferenceRepository(repository);
+    }
+    return this.agentLLMPreferenceRepository;
   }
 
   // Core agent operations

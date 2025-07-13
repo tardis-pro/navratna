@@ -200,8 +200,7 @@ export class LLMService {
       logger.info('Generating LLM response', {
         provider: preferredType || 'auto',
         promptLength: request.prompt.length,
-        model: request.model,
-        request: JSON.stringify(request)
+        model: request.model
       });
 
       const response = await provider.generateResponse(request);
@@ -210,7 +209,6 @@ export class LLMService {
       logger.info('LLM response generated successfully', {
         tokensUsed: response.tokensUsed,
         duration,
-        response,
         isError: !!response.error
       });
 
@@ -757,6 +755,7 @@ export class LLMService {
 
     return prompt;
   }
+
 
   private getPreferredProviderType(agent: any): string | undefined {
     // Logic to determine preferred provider based on agent configuration
