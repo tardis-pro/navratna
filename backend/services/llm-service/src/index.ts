@@ -19,17 +19,38 @@ class LLMServiceServer extends BaseService {
       enableEnterpriseEventBus: true
     });
 
-    // Initialize services
+    // Initialize LLM service only - UserLLMService will be created after facade is ready
     this.llmService = LLMService.getInstance();
-    this.userLLMService = new UserLLMService();
+    // Note: userLLMService and agentGenerationHandler will be initialized in initialize()
+  }
+
+  protected async initialize(): Promise<void> {
+    // Initialize model selection facade first
+    await this.initializeModelSelection();
+    
+    // Debug: Check facade availability
+    logger.info('Debug: Facade state before creating UserLLMService', {
+      facadeExists: !!this.modelSelectionFacade,
+      facadeType: typeof this.modelSelectionFacade,
+      facadeConstructor: this.modelSelectionFacade?.constructor?.name
+    });
+    
+    // Create UserLLMService with facade (always pass it, even if null)
+    this.userLLMService = new UserLLMService(this.modelSelectionFacade);
+    
+    // Create AgentGenerationHandler after UserLLMService is ready
     this.agentGenerationHandler = new AgentGenerationHandler(
       this.userLLMService,
       this.llmService,
       this.eventBusService
     );
-  }
-
-  protected async initialize(): Promise<void> {
+    
+    if (this.modelSelectionFacade) {
+      logger.info('UserLLMService initialized with model selection facade');
+    } else {
+      logger.warn('Model selection facade not available, UserLLMService will use fallback behavior');
+    }
+    
     logger.info('LLM Service initialized');
   }
 
@@ -83,9 +104,8 @@ class LLMServiceServer extends BaseService {
         return;
       }
 
-      // Import and use UserLLMService from shared package
-      const { UserLLMService } = await import('@uaip/llm-service');
-      const userLLMService = new UserLLMService();
+      // Use the initialized UserLLMService instance (which has the facade)
+      const userLLMService = this.userLLMService;
 
       // Add error handling and better logging
       logger.info('Calling UserLLMService.generateAgentResponse', {

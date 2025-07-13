@@ -9,7 +9,7 @@ import { NotificationService } from '../services/notificationService.js';
 import { DatabaseService } from '@uaip/shared-services';
 import { Request, Response } from 'express';
 import { config } from '@uaip/config';
-import { AuditEventType } from '@uaip/types';
+import { AuditEventType, LLMTaskType, LLMProviderType } from '@uaip/types';
 
 const router: Router = express.Router();
 
@@ -86,6 +86,27 @@ const bulkActionSchema = z.object({
   userIds: z.array(z.string()).min(1).max(100),
   action: z.enum(['activate', 'deactivate', 'delete', 'reset_password']),
   reason: z.string().max(500).optional()
+});
+
+const userLLMPreferenceSchema = z.object({
+  taskType: z.nativeEnum(LLMTaskType),
+  preferredProvider: z.nativeEnum(LLMProviderType),
+  preferredModel: z.string().min(1).max(255),
+  fallbackModel: z.string().max(255).optional(),
+  settings: z.object({
+    temperature: z.number().min(0).max(2).optional(),
+    maxTokens: z.number().positive().optional(),
+    topP: z.number().min(0).max(1).optional(),
+    systemPrompt: z.string().max(1000).optional(),
+    customSettings: z.record(z.any()).optional()
+  }).optional(),
+  description: z.string().max(500).optional(),
+  priority: z.number().int().min(1).max(100).default(50),
+  isActive: z.boolean().default(true)
+});
+
+const updateUserLLMPreferencesSchema = z.object({
+  preferences: z.array(userLLMPreferenceSchema)
 });
 
 // Helper function for Zod validation
@@ -268,6 +289,108 @@ router.get('/public',
         success: false,
         error: 'Internal Server Error',
         message: 'An error occurred while retrieving public users'
+      });
+    }
+  });
+
+/**
+ * @route GET /api/v1/users/llm-preferences
+ * @desc Get current user's LLM preferences
+ * @access Private - Authenticated users only
+ */
+router.get('/llm-preferences', authMiddleware, async (req, res) => {
+  try {
+    const userId = (req as any).user?.id;
+    
+    if (!userId) {
+      res.status(401).json({
+        error: 'Unauthorized',
+        message: 'User ID not found in token'
+      });
+      return;
+    }
+
+    const { databaseService } = await getServices();
+    
+    // Get user's LLM preferences using UserService
+    const userLLMRepo = databaseService.users.getUserLLMPreferenceRepository();
+    const preferences = await userLLMRepo.findByUser(userId);
+
+    res.json(preferences);
+
+  } catch (error) {
+    logger.error('Get user LLM preferences error', { error, userId: (req as any).user?.id });
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'An error occurred while retrieving user LLM preferences'
+    });
+  }
+});
+
+/**
+ * @route PUT /api/v1/users/llm-preferences
+ * @desc Update current user's LLM preferences
+ * @access Private - Authenticated users only
+ */
+router.put('/llm-preferences', 
+  authMiddleware,
+  validateRequest({ body: updateUserLLMPreferencesSchema }),
+  async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      
+      if (!userId) {
+        res.status(401).json({
+          error: 'Unauthorized',
+          message: 'User ID not found in token'
+        });
+        return;
+      }
+
+      const { error, value } = validateWithZod(updateUserLLMPreferencesSchema, req.body);
+      if (error) {
+        res.status(400).json({
+          error: 'Validation Error',
+          details: error.details.map(d => d.message)
+        });
+        return;
+      }
+
+      const { preferences } = value;
+      const { databaseService } = await getServices();
+      
+      // Get user's LLM preference repository
+      const userLLMRepo = databaseService.users.getUserLLMPreferenceRepository();
+      
+      // Clear existing preferences for this user
+      const existingPreferences = await userLLMRepo.findByUser(userId);
+      for (const existing of existingPreferences) {
+        await userLLMRepo.delete(existing.id);
+      }
+
+      // Create new preferences
+      const createdPreferences = [];
+      for (const prefData of preferences) {
+        const created = await userLLMRepo.create({
+          userId,
+          taskType: prefData.taskType,
+          preferredProvider: prefData.preferredProvider,
+          preferredModel: prefData.preferredModel,
+          fallbackModel: prefData.fallbackModel,
+          settings: prefData.settings,
+          description: prefData.description,
+          priority: prefData.priority
+        });
+        createdPreferences.push(created);
+      }
+
+      res.json(createdPreferences);
+
+    } catch (error) {
+      logger.error('Update user LLM preferences error', { error, userId: (req as any).user?.id });
+      res.status(500).json({
+        error: 'Internal Server Error',
+        message: 'An error occurred while updating the user'
       });
     }
   });

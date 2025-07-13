@@ -201,13 +201,15 @@ export class UserLLMProviderSeed extends BaseSeed<UserLLMProvider> {
       totalErrors: '0'
     };
 
-    // Add demo API key for admins/demo users
+    // Add API key - demo key for admins/demo users, placeholder for others
+    const demoProvider = new UserLLMProvider();
+    Object.assign(demoProvider, openaiProvider);
     if (withDemoKeys) {
-      const demoProvider = new UserLLMProvider();
-      Object.assign(demoProvider, openaiProvider);
       demoProvider.setApiKey('demo-openai-key-for-testing-' + user.role);
-      openaiProvider.apiKeyEncrypted = demoProvider.apiKeyEncrypted;
+    } else {
+      demoProvider.setApiKey('sk-placeholder-openai-key-replace-in-settings');
     }
+    openaiProvider.apiKeyEncrypted = demoProvider.apiKeyEncrypted;
 
     providers.push(openaiProvider);
 
@@ -238,12 +240,15 @@ export class UserLLMProviderSeed extends BaseSeed<UserLLMProvider> {
       totalErrors: '0'
     };
 
+    // Add API key - demo key for admins/demo users, placeholder for others
+    const demoAnthropicProvider = new UserLLMProvider();
+    Object.assign(demoAnthropicProvider, anthropicProvider);
     if (withDemoKeys) {
-      const demoProvider = new UserLLMProvider();
-      Object.assign(demoProvider, anthropicProvider);
-      demoProvider.setApiKey('demo-anthropic-key-for-testing-' + user.role);
-      anthropicProvider.apiKeyEncrypted = demoProvider.apiKeyEncrypted;
+      demoAnthropicProvider.setApiKey('demo-anthropic-key-for-testing-' + user.role);
+    } else {
+      demoAnthropicProvider.setApiKey('sk-ant-placeholder-anthropic-key-replace-in-settings');
     }
+    anthropicProvider.apiKeyEncrypted = demoAnthropicProvider.apiKeyEncrypted;
 
     providers.push(anthropicProvider);
 
@@ -282,12 +287,15 @@ export class UserLLMProviderSeed extends BaseSeed<UserLLMProvider> {
       totalErrors: '0'
     };
 
+    // Add API key - demo key for admins/demo users, placeholder for others
+    const demoGoogleProvider = new UserLLMProvider();
+    Object.assign(demoGoogleProvider, googleProvider);
     if (withDemoKeys) {
-      const demoProvider = new UserLLMProvider();
-      Object.assign(demoProvider, googleProvider);
-      demoProvider.setApiKey('demo-google-key-for-testing-' + user.role);
-      googleProvider.apiKeyEncrypted = demoProvider.apiKeyEncrypted;
+      demoGoogleProvider.setApiKey('demo-google-key-for-testing-' + user.role);
+    } else {
+      demoGoogleProvider.setApiKey('AIza-placeholder-google-key-replace-in-settings');
     }
+    googleProvider.apiKeyEncrypted = demoGoogleProvider.apiKeyEncrypted;
 
     providers.push(googleProvider);
 
@@ -413,7 +421,13 @@ export class UserLLMProviderSeed extends BaseSeed<UserLLMProvider> {
             processedCount++;
           }
         } catch (itemError) {
-          logger.warn(`   ⚠️ Failed to process ${this.entityName} for user ${providerData.userId}:`, itemError.message);
+          logger.warn(`   ⚠️ Failed to process ${this.entityName} for user ${providerData.userId}:`, {
+            error: itemError.message,
+            stack: itemError.stack,
+            providerName: providerData.name,
+            providerType: providerData.type,
+            userId: providerData.userId
+          });
           skippedCount++;
           continue;
         }

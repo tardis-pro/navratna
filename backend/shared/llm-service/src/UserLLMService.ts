@@ -12,16 +12,23 @@ import { BaseProvider } from './providers/BaseProvider.js';
 import { OllamaProvider } from './providers/OllamaProvider.js';
 import { LLMStudioProvider } from './providers/LLMStudioProvider.js';
 import { OpenAIProvider } from './providers/OpenAIProvider.js';
-import { UserLLMProviderRepository, UserLLMProvider, UserLLMProviderType } from '@uaip/shared-services';
-import { DatabaseService } from '@uaip/shared-services';
+import { UserLLMProviderRepository, UserLLMProvider, UserLLMProviderType, DatabaseService, UnifiedModelSelectionFacade, UnifiedModelSelection } from '@uaip/shared-services';
+import { LLMTaskType } from '@uaip/types';
 import { logger } from '@uaip/utils';
 
 export class UserLLMService {
   private userLLMProviderRepository: UserLLMProviderRepository | null = null;
   private providerCache: Map<string, BaseProvider> = new Map(); // Cache providers by user+type
+  private modelSelectionFacade: UnifiedModelSelectionFacade | null = null;
 
-  constructor() {
-    // Don't initialize repository in constructor - use lazy initialization
+  constructor(modelSelectionFacade?: UnifiedModelSelectionFacade) {
+    this.modelSelectionFacade = modelSelectionFacade || null;
+    logger.info('UserLLMService constructor called', {
+      facadeProvided: !!modelSelectionFacade,
+      facadeType: typeof modelSelectionFacade,
+      facadeConstructor: modelSelectionFacade?.constructor?.name,
+      facadeStored: !!this.modelSelectionFacade
+    });
   }
 
   // Lazy initialization of repository
@@ -397,7 +404,57 @@ export class UserLLMService {
         temperature: llmRequest.temperature
       });
 
-      const response = await this.generateResponse(userId, llmRequest);
+      // Use model selection facade if available
+      let response: LLMResponse;
+      
+      logger.info('Checking model selection facade availability', {
+        hasFacade: !!this.modelSelectionFacade,
+        hasAgentId: !!request.agent?.id,
+        agentId: request.agent?.id,
+        agentName: request.agent?.name
+      });
+      
+      if (this.modelSelectionFacade && request.agent?.id) {
+        logger.info('Using model selection facade for agent response', {
+          agentId: request.agent.id,
+          agentName: request.agent.name,
+          model: llmRequest.model
+        });
+        
+        // Use facade to select model and provider
+        const modelSelection = await this.modelSelectionFacade.selectForAgent(
+          request.agent.id,
+          LLMTaskType.REASONING,
+          {
+            model: llmRequest.model,
+            urgency: 'medium'
+          }
+        );
+
+        logger.info('Model selection facade result', {
+          selectedModel: modelSelection.model.model,
+          selectedProvider: modelSelection.provider.effectiveProvider,
+          providerId: modelSelection.provider.providerId,
+          confidence: modelSelection.model.confidence
+        });
+
+        // Trust the facade result - it handles fallbacks internally
+        const repository = await this.getUserLLMProviderRepository();
+        const selectedProvider = await repository.findById(modelSelection.provider.providerId);
+        
+        if (selectedProvider) {
+          logger.info('Using selected provider from facade', { providerId: selectedProvider.id, providerName: selectedProvider.name });
+          response = await this.generateResponse(userId, llmRequest, selectedProvider);
+        } else {
+          logger.error('Selected provider not found', { providerId: modelSelection.provider.providerId });
+          throw new Error(`Selected provider not found: ${modelSelection.provider.providerId}`);
+        }
+      } else {
+        logger.info('Using traditional user provider lookup', {
+          reason: !this.modelSelectionFacade ? 'no facade' : 'no agent id'
+        });
+        response = await this.generateResponse(userId, llmRequest);
+      }
 
       return {
         content: response.content,

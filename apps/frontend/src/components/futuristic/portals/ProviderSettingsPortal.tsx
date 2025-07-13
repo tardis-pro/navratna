@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { LLMTaskType, LLMProviderType, UserLLMPreference } from '@uaip/types';
 import { uaipAPI } from '../../../utils/uaip-api';
+import { usersAPI } from '../../../api/users.api';
 
 interface ViewportSize {
   width: number;
@@ -98,7 +99,7 @@ export const ProviderSettingsPortal: React.FC<ProviderSettingsPortalProps> = ({ 
   const loadUserPreferences = useCallback(async () => {
     setLoadingPreferences(true);
     try {
-      const response = await uaipAPI.users.getUserLLMPreferences();
+      const response = await usersAPI.getUserLLMPreferences();
       setUserPreferences(response || []);
     } catch (error) {
       console.error('Failed to load user preferences:', error);
@@ -137,7 +138,7 @@ export const ProviderSettingsPortal: React.FC<ProviderSettingsPortalProps> = ({ 
   // Save user preferences
   const saveUserPreferences = async () => {
     try {
-      await uaipAPI.users.updateUserLLMPreferences(userPreferences);
+      await usersAPI.updateUserLLMPreferences(userPreferences);
       // Show success message or notification
     } catch (error) {
       console.error('Failed to save user preferences:', error);
