@@ -1,6 +1,7 @@
 import { DataSource } from 'typeorm';
 import { UserSeed } from './UserSeed.js';
 import { UserLLMProviderSeed } from './UserLLMProviderSeed.js';
+import { LLMPreferencesSeed } from './LLMPreferencesSeed.js';
 import { SecurityPolicySeed } from './SecurityPolicySeed.js';
 import { PersonaSeed } from './PersonaSeed.js';
 import { AgentSeed } from './AgentSeed.js';
@@ -32,6 +33,7 @@ export class DatabaseSeeder {
     const results = {
       users: false,
       userLLMProviders: false,
+      llmPreferences: false,
       securityPolicies: false,
       personas: false,
       agents: false,
@@ -81,6 +83,15 @@ export class DatabaseSeeder {
       console.log('   ✅ Agents seeded successfully');
     } catch (error) {
       console.error('   ❌ Agent seeding failed:', error.message);
+      console.warn('   ⚠️ Continuing with other seeders...');
+    }
+
+    try {
+      await this.seedLLMPreferences();
+      results.llmPreferences = true;
+      console.log('   ✅ LLM preferences seeded successfully');
+    } catch (error) {
+      console.error('   ❌ LLM preferences seeding failed:', error.message);
       console.warn('   ⚠️ Continuing with other seeders...');
     }
 
@@ -184,6 +195,20 @@ export class DatabaseSeeder {
         console.error(`   ❌ Error processing viral agent ${agentData.name}:`, error);
       }
     }
+  }
+
+  /**
+   * Seed LLM Preferences for Users and Agents
+   */
+  private async seedLLMPreferences(): Promise<void> {
+    // Get users and agents for LLM preferences creation
+    const userRepository = this.dataSource.getRepository(UserEntity);
+    const agentRepository = this.dataSource.getRepository(Agent);
+    const users = await userRepository.find();
+    const agents = await agentRepository.find();
+
+    const llmPreferencesSeed = new LLMPreferencesSeed(this.dataSource, users, agents);
+    await llmPreferencesSeed.seed();
   }
 
   /**

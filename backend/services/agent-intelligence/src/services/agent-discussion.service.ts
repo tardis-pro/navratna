@@ -183,6 +183,7 @@ export class AgentDiscussionService {
               agentId,
               LLMTaskType.REASONING // Default to reasoning for agent discussions
             );
+            console.log(resolvedPreferences);
           } catch (error) {
             logger.warn('Failed to resolve LLM preferences for agent, using system defaults', { 
               agentId, 
@@ -190,7 +191,22 @@ export class AgentDiscussionService {
             });
           }
         }
-
+        console.log('llm.agent.generate.request', {
+          requestId,
+          agentId: agentId || null, // Pass agent ID if provided
+          messages: [{
+            id: `msg_${Date.now()}`,
+            content: prompt,
+            sender: 'user',
+            timestamp: new Date().toISOString(),
+            type: 'user' as const
+          }],
+          systemPrompt,
+          maxTokens: resolvedPreferences?.settings?.maxTokens || maxTokens,
+          temperature: resolvedPreferences?.settings?.temperature || temperature,
+          model: resolvedPreferences?.model || null,
+          provider: resolvedPreferences?.provider || null
+        })
         // Publish LLM generation request via event bus
         await this.eventBusService.publish('llm.agent.generate.request', {
           requestId,

@@ -1,56 +1,13 @@
 import {
   Persona,
-  PersonaCategory
+  PersonaCategory,
+  PersonaConversationContext as ConversationContext,
+  ConversationState,
+  ResponseType,
+  ResponseEnhancement,
+  ContributionScore,
+  MessageHistoryItem
 } from '@uaip/types';
-
-// Local ConversationContext type to match usage
-type ConversationContext = {
-  conversationMomentum: number;
-  overallTone: string;
-  topicShiftDetected: boolean;
-  recentTopics: string[];
-};
-// Define missing types locally until they're properly exported
-type ConversationState = {
-  activePersonaId?: string;
-  lastSpeakerContinuityCount: number;
-  conversationMomentum: number;
-  overallTone: string;
-  topicShiftDetected: boolean;
-  recentTopics: string[];
-  recentContributors: string[];
-  conversationEnergy: number;
-  needsClarification: boolean;
-  topicStability: string;
-};
-
-type ResponseType = 'primary' | 'follow-up' | 'agreement' | 'concern' | 'transition' | 'clarification';
-
-type ResponseEnhancement = {
-  responseType: ResponseType;
-  enhancementType: string;
-  content: string;
-  confidence: number;
-  type: string;
-  useTransition: boolean;
-  useFiller: boolean;
-  referenceMemory: boolean;
-  addEmotionalReflection: boolean;
-};
-
-type ContributionScore = {
-  participantId: string;
-  score: number;
-  contributions: string[];
-};
-
-type MessageHistoryItem = {
-  id: string;
-  speaker: string;
-  content: string;
-  timestamp: Date;
-  type?: string;
-};
 import {
   calculateContributionScore,
   shouldPersonaContribute,
@@ -64,6 +21,7 @@ import {
   createConversationContext,
   contextualTriggers
 } from '@uaip/types';
+import { ConversationUtils } from '@uaip/shared-services';
 
 /**
  * Enhanced Conversation Manager
@@ -72,20 +30,9 @@ import {
  * to create natural, fluid, human-like persona interactions.
  */
 
-// Initialize conversation state
+// Initialize conversation state - delegate to shared utility
 export function initializeConversationState(): ConversationState {
-  return {
-    activePersonaId: undefined,
-    lastSpeakerContinuityCount: 0,
-    conversationMomentum: 3,
-    overallTone: 'neutral',
-    topicShiftDetected: false,
-    recentTopics: [],
-    recentContributors: [],
-    conversationEnergy: 0.5,
-    needsClarification: false,
-    topicStability: 'stable'
-  };
+  return ConversationUtils.initializeConversationState();
 }
 
 // Main function to get the next persona and their enhanced response
@@ -104,17 +51,28 @@ export function getNextPersonaContribution(
 
   // Create conversation context from message history - simplified
   const context: ConversationContext = {
-    conversationMomentum: 3,
-    overallTone: 'neutral',
+    recentTopics: [],
+    speakerHistory: messageHistory.slice(-5).map(m => m.speaker),
+    keyPoints: {},
+    conversationMomentum: 'exploring',
+    lastSpeakerContribution: {},
+    lastSpeakerContinuityCount: 0,
     topicShiftDetected: false,
-    recentTopics: []
+    overallTone: 'collaborative',
+    emotionalContext: 'neutral'
   };
 
   // Calculate contribution scores for all personas - simplified implementation
   const contributionScores = availablePersonas.map(persona => ({
-    participantId: persona.id,
+    personaId: persona.id,
     score: Math.random() * 5, // Simplified scoring
-    contributions: []
+    factors: {
+      topicMatch: Math.random(),
+      momentumMatch: Math.random(),
+      chattinessFactor: Math.random(),
+      continuityPenalty: Math.random(),
+      energyBonus: Math.random()
+    }
   }));
 
   // Sort by score and get top candidates
@@ -131,7 +89,7 @@ export function getNextPersonaContribution(
   const randomIndex = Math.floor(Math.random() * topCandidates.length);
   const selectedScore = topCandidates[randomIndex];
 
-  const selectedPersona = availablePersonas.find(p => p.id === selectedScore.participantId);
+  const selectedPersona = availablePersonas.find(p => p.id === selectedScore.personaId);
   if (!selectedPersona) return null;
 
   // Determine response type based on context and persona
@@ -164,8 +122,10 @@ export function getNextPersonaContribution(
     activePersonaId: selectedPersona.id,
     lastSpeakerContinuityCount: conversationState.activePersonaId === selectedPersona.id ? 
       conversationState.lastSpeakerContinuityCount + 1 : 0,
-    conversationMomentum: Math.min(5, conversationState.conversationMomentum + 0.5),
-    topicShiftDetected: topicChanged
+    recentContributors: [...conversationState.recentContributors.slice(-4), selectedPersona.id],
+    conversationEnergy: Math.min(1, conversationState.conversationEnergy + 0.1),
+    needsClarification: false,
+    topicStability: topicChanged ? 'shifting' : 'stable'
   };
 
   return {
@@ -186,7 +146,7 @@ function determineResponseType(
   // Follow-up if same persona spoke recently and conversation is building
   if (conversationState.activePersonaId === persona.id &&
     conversationState.lastSpeakerContinuityCount < 3 &&
-    context.conversationMomentum > 3) {
+    context.conversationMomentum === 'building') {
     return 'follow-up';
   }
 
@@ -197,7 +157,7 @@ function determineResponseType(
   }
 
   // Concern if persona is formal and conversation momentum is low
-  if (persona.conversationalStyle?.tone === 'formal' && context.conversationMomentum < 2) {
+  if (persona.conversationalStyle?.tone === 'formal' && context.conversationMomentum === 'deciding') {
     return Math.random() < 0.4 ? 'concern' : 'primary';
   }
 
@@ -206,8 +166,8 @@ function determineResponseType(
     return 'transition';
   }
 
-  // Clarification if conversation momentum is low or persona is junior
-  if (context.conversationMomentum < 1 || persona.id === 'junior-developer') {
+  // Clarification if conversation momentum is clarifying or persona is junior
+  if (context.conversationMomentum === 'clarifying' || persona.id === 'junior-developer') {
     return Math.random() < 0.6 ? 'clarification' : 'primary';
   }
 
@@ -223,13 +183,10 @@ function createResponseEnhancement(
 ): ResponseEnhancement {
 
   return {
-    responseType,
-    enhancementType: 'standard',
-    content: '',
-    confidence: 0.8,
-    type: responseType as any,
+    type: responseType,
     useTransition: responseType === 'transition',
     useFiller: Math.random() < 0.3,
+    fillerType: 'casual',
     referenceMemory: Math.random() < 0.2,
     addEmotionalReflection: Math.random() < 0.1
   };
@@ -298,7 +255,7 @@ function generateBaseContent(
   return templates[Math.floor(Math.random() * templates.length)];
 }
 
-// Analyze conversation flow and suggest improvements
+// Analyze conversation flow and suggest improvements - delegate to shared utility
 export function analyzeConversationFlow(
   messageHistory: MessageHistoryItem[],
   contributionScores: ContributionScore[]
@@ -307,66 +264,17 @@ export function analyzeConversationFlow(
   suggestions: string[];
   diversityScore: number; // 0-1 score for speaker diversity
 } {
-
-  if (messageHistory.length < 3) {
-    return {
-      flowQuality: 1.0,
-      suggestions: [],
-      diversityScore: 1.0
-    };
-  }
-
-  const recentSpeakers = messageHistory.slice(-5).map(m => m.speaker);
-  const uniqueSpeakers = new Set(recentSpeakers);
-  const diversityScore = uniqueSpeakers.size / Math.min(5, recentSpeakers.length);
-
-  // Check for back-to-back speakers
-  let backToBackCount = 0;
-  for (let i = 1; i < recentSpeakers.length; i++) {
-    if (recentSpeakers[i] === recentSpeakers[i - 1]) {
-      backToBackCount++;
-    }
-  }
-
-  // Check for dominating speakers
-  const speakerCounts = recentSpeakers.reduce((acc, speaker) => {
-    acc[speaker] = (acc[speaker] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-
-  const maxContributions = Math.max(...Object.values(speakerCounts));
-  const dominationScore = maxContributions / recentSpeakers.length;
-
-  // Calculate overall flow quality
-  const flowQuality = Math.max(0, 1 - (backToBackCount * 0.2) - (dominationScore > 0.6 ? 0.3 : 0));
-
-  // Generate suggestions
-  const suggestions: string[] = [];
-
-  if (diversityScore < 0.4) {
-    suggestions.push("Consider encouraging more personas to participate for better diversity.");
-  }
-
-  if (backToBackCount > 2) {
-    suggestions.push("Too many back-to-back contributions. Encourage speaker transitions.");
-  }
-
-  if (dominationScore > 0.6) {
-    suggestions.push("One persona is dominating. Balance participation across personas.");
-  }
-
-  if (contributionScores.every(score => score.score < 1.5)) {
-    suggestions.push("Low engagement scores. Consider introducing new topics or perspectives.");
-  }
-
+  const analysis = ConversationUtils.analyzeConversationFlow(messageHistory, contributionScores);
+  
+  // Return compatible interface (subset of shared utility response)
   return {
-    flowQuality,
-    suggestions,
-    diversityScore
+    flowQuality: analysis.flowQuality,
+    suggestions: analysis.suggestions,
+    diversityScore: analysis.diversityScore
   };
 }
 
-// Get conversation insights and metrics
+// Get conversation insights and metrics - delegate to shared utility
 export function getConversationInsights(
   messageHistory: MessageHistoryItem[],
   conversationState: ConversationState
@@ -379,57 +287,16 @@ export function getConversationInsights(
   topicStability: string;
   emotionalTone: string;
 } {
-
-  const totalMessages = messageHistory.length;
-  const uniqueParticipants = new Set(messageHistory.map(m => m.speaker)).size;
-  const averageMessageLength = messageHistory.reduce((sum, m) => sum + m.content.length, 0) / totalMessages;
-
-  // Calculate speaker contributions
-  const speakerCounts = messageHistory.reduce((acc, msg) => {
-    acc[msg.speaker] = (acc[msg.speaker] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-
-  const topContributors = Object.entries(speakerCounts)
-    .map(([speaker, count]) => ({
-      speaker,
-      count: Number(count),
-      percentage: (Number(count) / totalMessages) * 100
-    }))
-    .sort((a, b) => b.count - a.count);
-
-  // Analyze emotional tone from recent messages
-  const recentMessages = messageHistory.slice(-5);
-  const emotionalWords = {
-    positive: ['excited', 'great', 'love', 'excellent', 'amazing', 'fantastic'],
-    negative: ['concerned', 'worried', 'problem', 'issue', 'difficult', 'frustrated'],
-    neutral: ['think', 'consider', 'analyze', 'suggest', 'propose']
-  };
-
-  let positiveCount = 0;
-  let negativeCount = 0;
-
-  recentMessages.forEach(msg => {
-    const content = msg.content.toLowerCase();
-    emotionalWords.positive.forEach(word => {
-      if (content.includes(word)) positiveCount++;
-    });
-    emotionalWords.negative.forEach(word => {
-      if (content.includes(word)) negativeCount++;
-    });
-  });
-
-  let emotionalTone = 'neutral';
-  if (positiveCount > negativeCount) emotionalTone = 'positive';
-  else if (negativeCount > positiveCount) emotionalTone = 'negative';
-
+  const insights = ConversationUtils.getConversationInsights(messageHistory, conversationState);
+  
+  // Return compatible interface (subset of shared utility response)
   return {
-    totalMessages,
-    uniqueParticipants,
-    averageMessageLength,
-    conversationEnergy: conversationState.conversationEnergy,
-    topContributors,
-    topicStability: conversationState.topicStability,
-    emotionalTone
+    totalMessages: insights.totalMessages,
+    uniqueParticipants: insights.uniqueParticipants,
+    averageMessageLength: insights.averageMessageLength,
+    conversationEnergy: insights.conversationEnergy,
+    topContributors: insights.topContributors,
+    topicStability: insights.topicStability,
+    emotionalTone: insights.emotionalTone
   };
 }

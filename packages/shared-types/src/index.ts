@@ -19,6 +19,23 @@ export * from './mcp';
 export * from './knowledge-graph';
 export * from './personaDefaults';
 export * from './personaUtils';
+// Export specific items from personaAdvanced to avoid conflicts
+export {
+  HybridPersona,
+  PersonalityTrait,
+  ExpertiseDomain as PersonaExpertiseDomain,
+  ConversationContext as PersonaConversationContext,
+  ConversationState,
+  ResponseType,
+  FillerType,
+  ResponseEnhancement,
+  ContextualTrigger,
+  MessageHistoryItem,
+  HybridSuggestion,
+  ConversationType,
+  PersonaCategory,
+  ContributionScore
+} from './personaAdvanced';
 // Audit and LLM types - NEW
 export * from './audit';
 export * from './llm';

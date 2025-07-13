@@ -61,6 +61,7 @@ export { DatabaseSeeder } from './DatabaseSeeder.js';
 export { BaseSeed } from './BaseSeed.js';
 export { UserSeed } from './UserSeed.js';
 export { UserLLMProviderSeed } from './UserLLMProviderSeed.js';
+export { LLMPreferencesSeed } from './LLMPreferencesSeed.js';
 export { SecurityPolicySeed } from './SecurityPolicySeed.js';
 export { PersonaSeed } from './PersonaSeed.js';
 export { AgentSeed } from './AgentSeed.js';
