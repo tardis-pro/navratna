@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Council of Nycea - Enhanced Development Environment Manager
+# Navratna - Enhanced Development Environment Manager
 # Supports hot reloading, daemon mode, and selective service management
 
 set -e
@@ -166,7 +166,7 @@ create_env_file() {
         log_info "Creating .env file with default development values..."
         cat > "$ENV_FILE" << 'EOF'
 # =============================================================================
-# Council of Nycea - Development Environment Variables
+# Navratna - Development Environment Variables
 # =============================================================================
 
 # Application Environment
@@ -534,7 +534,7 @@ service_status() {
 
 # Show help
 show_help() {
-    echo "Council of Nycea - Development Environment Manager"
+    echo "Navratna - Development Environment Manager"
     echo ""
     echo "Usage: $0 [ACTION] [OPTIONS]"
     echo ""
@@ -627,7 +627,7 @@ done
 
 # Main execution
 main() {
-    log_header "Council of Nycea Development Environment"
+    log_header "Navratna Development Environment"
     
     check_prerequisites
     check_gpu_availability

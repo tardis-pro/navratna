@@ -80,7 +80,8 @@ const DiscussionOrchestrationConfigSchema = z.object({
     allowedFileTypes: z.array(z.string()).default([
       'image/jpeg', 'image/png', 'image/gif', 'image/webp',
       'application/pdf', 'text/plain', 'text/markdown'
-    ])
+    ]),
+    websocketAuthTimeout: z.number().default(12000) // 12 seconds for WebSocket authentication
   })
 });
 
@@ -158,7 +159,8 @@ const loadConfig = (): DiscussionOrchestrationConfig => {
       rateLimitMax: process.env.RATE_LIMIT_MAX ? parseInt(process.env.RATE_LIMIT_MAX) : undefined,
       enableInputSanitization: process.env.ENABLE_INPUT_SANITIZATION === 'true',
       maxFileSize: process.env.MAX_FILE_SIZE ? parseInt(process.env.MAX_FILE_SIZE) : undefined,
-      allowedFileTypes: process.env.ALLOWED_FILE_TYPES?.split(',')
+      allowedFileTypes: process.env.ALLOWED_FILE_TYPES?.split(','),
+      websocketAuthTimeout: process.env.WEBSOCKET_AUTH_TIMEOUT ? parseInt(process.env.WEBSOCKET_AUTH_TIMEOUT) : undefined
     }
   };
 

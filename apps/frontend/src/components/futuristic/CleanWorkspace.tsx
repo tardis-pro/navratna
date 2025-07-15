@@ -143,7 +143,7 @@ export const CleanWorkspace: React.FC = () => {
             <span className="text-white font-bold text-sm">🏛️</span>
           </div>
           <h1 className="text-white font-semibold text-lg truncate">
-            Council of Nycea
+            Navratna
           </h1>
         </div>
         

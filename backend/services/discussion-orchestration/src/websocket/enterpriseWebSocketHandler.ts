@@ -8,6 +8,7 @@ import WebSocket from 'ws';
 import { EventEmitter } from 'events';
 import { logger } from '@uaip/utils';
 import { validateServiceAccess, SERVICE_ACCESS_MATRIX, AccessLevel } from '@uaip/shared-services';
+import { config } from '../config/index.js';
 import { EventBusService } from '@uaip/shared-services';
 
 interface EnterpriseConnection {
@@ -281,8 +282,8 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
         return { valid: false, reason: 'No authentication token provided' };
       }
 
-      // Wait for auth response from Security Gateway with shorter timeout
-      const authResponse = await this.waitForAuthResponse(token, 2000);
+      // Wait for auth response from Security Gateway with configurable timeout
+      const authResponse = await this.waitForAuthResponse(token, config.discussionOrchestration.security.websocketAuthTimeout);
 
       if (!authResponse || !authResponse.valid) {
         return { valid: false, reason: authResponse?.reason || 'Authentication validation failed' };

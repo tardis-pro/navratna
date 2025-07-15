@@ -1,4 +1,4 @@
-// MCP Server Manager Component for Council of Nycea
+// MCP Server Manager Component for Navratna
 // Interface for managing MCP servers and their configurations
 
 import React, { useState, useEffect } from 'react';

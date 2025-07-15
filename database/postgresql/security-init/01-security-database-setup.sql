@@ -1,5 +1,5 @@
 -- =============================================================================
--- Council of Nycea - Security Database Initialization
+-- Navratna - Security Database Initialization
 -- Level 4 Restricted Security Database (Port 5433)
 -- SOC 2, HIPAA, PCI DSS, ISO 27001 Compliance
 -- =============================================================================

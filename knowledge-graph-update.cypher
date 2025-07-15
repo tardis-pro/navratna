@@ -1,5 +1,5 @@
 // =============================================================================
-// Council of Nycea / UAIP Knowledge Graph Update
+// Navratna / UAIP Knowledge Graph Update
 // Comprehensive project understanding and architecture mapping
 // =============================================================================
 
@@ -10,7 +10,7 @@
 // Main Project Entity
 MERGE (uaip:Project {
   id: 'council-of-nycea-uaip',
-  name: 'Council of Nycea - Unified Agent Intelligence Platform',
+  name: 'Navratna - Unified Agent Intelligence Platform',
   type: 'Multi-Agent Collaboration Platform',
   status: 'Production Ready (Backend)',
   completionPercentage: 85,
@@ -563,7 +563,7 @@ MERGE (projectStatus:Observation {
   type: 'Project Status',
   timestamp: datetime(),
   
-  summary: 'Council of Nycea UAIP is 85% complete with enterprise-grade backend infrastructure operational',
+  summary: 'Navratna UAIP is 85% complete with enterprise-grade backend infrastructure operational',
   
   keyFindings: [
     'Phase 0 (Database Compartmentalization) successfully completed',
@@ -708,7 +708,7 @@ MERGE (uaip)-[:HAS_OBSERVATION]->(techAchievement)
 MERGE (uaip)-[:HAS_OBSERVATION]->(devReadiness)
 
 // Return summary
-RETURN 'Council of Nycea UAIP Knowledge Graph Updated Successfully' AS status,
+RETURN 'Navratna UAIP Knowledge Graph Updated Successfully' AS status,
        'Entities: Project, Phases, Services, Databases, Security, Compliance, Technologies, Packages, Achievements, Observations' AS entities_created,
        'Relationships: Dependencies, Architecture, Security, Compliance, Technology Stack' AS relationships_created,
        'Key Insight: Enterprise-grade platform 85% complete, production-ready backend' AS key_insight;

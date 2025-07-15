@@ -599,7 +599,7 @@ class DiscussionOrchestrationServer extends BaseService {
         // Clean up handler on timeout
         this.authResponseHandlers.delete(correlationId);
         resolve({ valid: false, reason: 'Authentication service timeout' });
-      }, 10000); // Increased timeout from 5s to 10s for better reliability
+      }, config.discussionOrchestration.security.websocketAuthTimeout); // Configurable authentication timeout
       
       try {
         // Register response handler for this specific correlation ID
@@ -665,7 +665,7 @@ class DiscussionOrchestrationServer extends BaseService {
       setTimeout(() => {
         logger.warn('Forceful shutdown due to timeout');
         process.exit(1);
-      }, 10000);
+      }, config.discussionOrchestration.security.websocketAuthTimeout);
       
       logger.info('Discussion Orchestration Server shutdown completed');
     } catch (error) {

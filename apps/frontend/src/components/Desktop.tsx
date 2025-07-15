@@ -222,7 +222,7 @@ const ActionsMenu: React.FC<{
               <span className="text-white font-bold text-lg">🏛️</span>
             </div>
             <div>
-              <h3 className="text-white font-semibold">Council of Nycea</h3>
+              <h3 className="text-white font-semibold">Navratna</h3>
               <p className="text-slate-400 text-xs">Actions Menu</p>
             </div>
           </div>
@@ -367,7 +367,7 @@ const Taskbar: React.FC<{
         <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-cyan-400 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
           <span className="text-white font-bold text-sm">🏛️</span>
         </div>
-        <span className="text-white font-medium text-sm hidden md:inline group-hover:text-blue-200">Council of Nycea</span>
+        <span className="text-white font-medium text-sm hidden md:inline group-hover:text-blue-200">Navratna</span>
       </button>
 
       {/* Window Buttons */}

@@ -158,7 +158,7 @@ const TOOL_INTEGRATIONS: ToolIntegration[] = [
     required: false,
     configured: false,
     setupSteps: [
-      'Install Council of Nycea Slack app',
+      'Install Navratna Slack app',
       'Select channels for notifications',
       'Configure notification preferences',
       'Set up slash commands'

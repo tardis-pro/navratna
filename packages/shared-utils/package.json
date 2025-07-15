@@ -1,7 +1,7 @@
 {
   "name": "@uaip/utils",
   "version": "1.0.0",
-  "description": "Shared utilities for Council of Nycea frontend and backend",
+  "description": "Shared utilities for Navratna frontend and backend",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "type": "module",

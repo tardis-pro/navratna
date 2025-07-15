@@ -977,7 +977,7 @@ const Taskbar: React.FC<{
           <span className="text-white font-bold text-sm">🏛️</span>
         </div>
         <div className="hidden md:flex flex-col">
-          <span className="text-sm">Council of Nycea</span>
+          <span className="text-sm">Navratna</span>
           <span className="text-xs text-slate-400 capitalize">{userRole}</span>
         </div>
       </Button>

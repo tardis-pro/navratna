@@ -1,4 +1,4 @@
-// MCP (Model Context Protocol) Integration Types for Council of Nycea
+// MCP (Model Context Protocol) Integration Types for Navratna
 // This file defines the comprehensive type system for MCP server management and integration
 
 export enum MCPServerType {

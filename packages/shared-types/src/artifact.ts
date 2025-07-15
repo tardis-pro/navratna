@@ -1,4 +1,4 @@
-// Artifact System Type Definitions for Council of Nycea
+// Artifact System Type Definitions for Navratna
 // This file defines the comprehensive type system for artifact generation and management
 
 export type ArtifactType = 

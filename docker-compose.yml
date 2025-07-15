@@ -1,7 +1,7 @@
 # version: '3.8'  # Removed obsolete version field
 
 # =============================================================================
-# Council of Nycea - Unified Monorepo Docker Compose Configuration
+# Navratna - Unified Monorepo Docker Compose Configuration
 # Development Setup with Hot Reloading
 # =============================================================================
 # 

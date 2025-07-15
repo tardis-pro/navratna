@@ -97,7 +97,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
           </div>
           {!viewport.isMobile && (
             <div>
-              <h1 className="text-white font-bold text-lg">Council of Nycea</h1>
+              <h1 className="text-white font-bold text-lg">Navratna</h1>
               <p className="text-slate-400 text-xs">Unified Agent Intelligence Platform</p>
             </div>
           )}

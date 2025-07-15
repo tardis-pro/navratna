@@ -1,5 +1,5 @@
 // =============================================================================
-// Council of Nycea - Security Graph Database Initialization
+// Navratna - Security Graph Database Initialization
 // Level 4 Restricted Security Graph (Port 7687)
 // SOC 2, HIPAA, PCI DSS, ISO 27001 Compliance
 // =============================================================================

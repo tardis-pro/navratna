@@ -486,7 +486,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
             transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
           />
           <h2 className={`text-xl font-bold ${currentTheme.colors.text.primary} mb-2`}>
-            Council of Nycea
+            Navratna
           </h2>
           <p className={`${currentTheme.colors.text.secondary}`}>
             Initializing Desktop Workspace...
@@ -544,7 +544,7 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
               <span className="text-white font-bold text-sm">🏛️</span>
             </div>
             <div>
-              <div className="text-white font-medium">Council of Nycea</div>
+              <div className="text-white font-medium">Navratna</div>
               <div className="text-xs text-white/60">Role: {userRole} | Icons: {Object.values(desktopLayout).flat().length}</div>
             </div>
           </div>

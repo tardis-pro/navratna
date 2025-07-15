@@ -2,7 +2,7 @@
  * Security Implementation Demo Test
  *
  * This test demonstrates the core security features that have been implemented
- * for the Council of Nycea platform, focusing on agent security and OAuth integration.
+ * for the Navratna platform, focusing on agent security and OAuth integration.
  */
 
 // Define security enums and types for demonstration

@@ -118,7 +118,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
             </div>
             <div>
               <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">
-                Welcome to Council of Nycea
+                Welcome to Navratna
               </h1>
               <div className="flex items-center justify-center gap-2 text-white/80">
                 <Sparkles className="w-5 h-5" />

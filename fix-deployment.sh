@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Fix Deployment Script for Council of Nycea
+# Fix Deployment Script for Navratna
 # Addresses Prometheus mount issues and TEI GPU configuration
 
 set -e

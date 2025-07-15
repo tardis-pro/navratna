@@ -1,10 +1,10 @@
 
-  Detailed Implementation Plan for Council of Nycea
+  Detailed Implementation Plan for Navratna
 
   🎯 Executive Summary
 
   This document outlines the implementation of a Universal Standard Operating Procedure (SOP)
-  Framework for the Council of Nycea UAIP platform. This system will enable small businesses to
+  Framework for the Navratna UAIP platform. This system will enable small businesses to
   create, automate, and manage their operational processes through AI-powered workflow
   orchestration, leveraging the existing microservices architecture.
 

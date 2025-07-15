@@ -101,7 +101,7 @@ function App() {
             <UAIPProvider>
               <KnowledgeProvider>
                 <DocumentProvider>
-                  <DiscussionProvider topic="Council of Nycea">
+                  <DiscussionProvider topic="Navratna">
                 <div className="h-screen w-full bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 dark:from-slate-950 dark:via-slate-900 dark:to-slate-800 flex flex-col overflow-hidden">
 
                   {/* Header */}
@@ -115,7 +115,7 @@ function App() {
                         </div>
                         <div>
                           <h1 className="text-xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
-                            Council of Nycea
+                            Navratna
                           </h1>
                           <p className="text-xs text-slate-500 dark:text-slate-400 -mt-0.5">AI Discussion Platform</p>
                         </div>

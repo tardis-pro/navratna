@@ -1,5 +1,5 @@
 -- =============================================================================
--- Council of Nycea - Application Database Initialization
+-- Navratna - Application Database Initialization
 -- Level 3 Confidential Application Database (Port 5432)
 -- Business Logic and Application Data
 -- =============================================================================

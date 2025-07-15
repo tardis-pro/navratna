@@ -195,7 +195,7 @@ export const DashboardPortal: React.FC<DashboardPortalProps> = ({
             <Home className="w-8 h-8 text-blue-400" />
             <div>
               <h2 className="text-2xl font-bold text-white">System Dashboard</h2>
-              <p className="text-blue-300">Council of Nycea Overview</p>
+              <p className="text-blue-300">Navratna Overview</p>
             </div>
           </div>
           <div className="flex items-center space-x-2">

@@ -1,4 +1,4 @@
-// Tool Usage Indicator Component for Council of Nycea
+// Tool Usage Indicator Component for Navratna
 // Displays tool usage, execution status, and results in the UI
 
 import React, { useState } from 'react';

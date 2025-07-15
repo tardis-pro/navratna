@@ -41,7 +41,7 @@ function DesktopApp() {
                 <UAIPProvider>
                   <KnowledgeProvider>
                     <DocumentProvider>
-                      <DiscussionProvider topic="Council of Nycea">
+                      <DiscussionProvider topic="Navratna">
                         <ErrorBoundary>
                           <Desktop />
                         </ErrorBoundary>

@@ -2,7 +2,7 @@
   "name": "council-of-nycea",
   "private": true,
   "version": "1.0.0",
-  "description": "Council of Nycea - Unified Frontend/Backend Monorepo",
+  "description": "Navratna - Unified Frontend/Backend Monorepo",
   "type": "module",
   "workspaces": [
     "apps/*",

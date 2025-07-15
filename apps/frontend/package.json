@@ -2,7 +2,7 @@
   "name": "@council/frontend",
   "private": true,
   "version": "1.0.0",
-  "description": "Council of Nycea Frontend Application",
+  "description": "Navratna Frontend Application",
   "type": "module",
   "scripts": {
     "dev": "vite",

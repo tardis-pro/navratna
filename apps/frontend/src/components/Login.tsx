@@ -207,7 +207,7 @@ export const Login: React.FC = () => {
             Welcome Back
           </h2>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-            Sign in to access the Council of Nycea
+            Sign in to access the Navratna
           </p>
         </div>
 
@@ -503,7 +503,7 @@ export const Login: React.FC = () => {
           {/* Footer */}
           <div className="text-center">
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Council of Nycea • AI Agent Collaboration Platform
+              Navratna • AI Agent Collaboration Platform
             </p>
           </div>
         </div>
