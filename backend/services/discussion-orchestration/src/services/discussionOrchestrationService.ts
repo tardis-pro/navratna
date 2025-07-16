@@ -1117,6 +1117,19 @@ export class DiscussionOrchestrationService extends EventEmitter {
           const lastActivity = fullDiscussion.state.lastActivity;
           const timeSinceActivity = lastActivity ? Date.now() - (lastActivity instanceof Date ? lastActivity.getTime() : new Date(lastActivity).getTime()) : Infinity;
           
+          // Check if discussion has reached its goal naturally
+          const hasReachedGoal = await this.checkDiscussionGoalAchievement(fullDiscussion);
+          if (hasReachedGoal) {
+            logger.info('Discussion has reached its goal, completing', {
+              discussionId: fullDiscussion.id,
+              messageCount: fullDiscussion.state.messageCount
+            });
+            
+            await this.updateDiscussionStatus(fullDiscussion.id, DiscussionStatus.COMPLETED, 'system');
+            await this.emitDiscussionCompletionEvent(fullDiscussion.id, 'system', 'goal_achieved');
+            continue;
+          }
+          
           // For new discussions (more than 10 seconds old), trigger initial participation
           // For ongoing discussions (more than 15 seconds), check if agents should participate
           if (timeSinceActivity > 10000 && fullDiscussion.state.messageCount === 0) { // 10 seconds for initial participation
@@ -1325,6 +1338,8 @@ export class DiscussionOrchestrationService extends EventEmitter {
         
         // Stop the discussion to prevent loops
         await this.updateDiscussionStatus(discussion.id, DiscussionStatus.COMPLETED, 'system');
+        // Emit discussion completion event for artifact generation
+        await this.emitDiscussionCompletionEvent(discussion.id, 'system', 'max_messages_reached');
         return;
       }
       
@@ -1402,6 +1417,8 @@ export class DiscussionOrchestrationService extends EventEmitter {
           
           // Stop the discussion properly to prevent loops
           await this.updateDiscussionStatus(discussion.id, DiscussionStatus.COMPLETED, 'system');
+          // Emit discussion completion event for artifact generation
+          await this.emitDiscussionCompletionEvent(discussion.id, 'system', 'max_messages_reached');
           return;
         }
 
@@ -1762,6 +1779,9 @@ export class DiscussionOrchestrationService extends EventEmitter {
         }
         this.activeDiscussions.delete(discussionId);
         
+        // Emit discussion completion event for artifact generation
+        await this.emitDiscussionCompletionEvent(discussionId, userId, 'manual');
+        
         logger.info('Discussion stopped', { discussionId, userId });
       }
       
@@ -1920,6 +1940,205 @@ export class DiscussionOrchestrationService extends EventEmitter {
       recentParticipationRequests: this.recentParticipationRequests.size,
       operationLocks: this.operationLocks.size
     };
+  }
+
+  /**
+   * Emit discussion completion event for artifact generation
+   */
+  private async emitDiscussionCompletionEvent(
+    discussionId: string,
+    completedBy: string,
+    completionReason: 'manual' | 'max_messages_reached' | 'goal_achieved' | 'timeout' | 'consensus_reached'
+  ): Promise<void> {
+    try {
+      const discussion = await this.getDiscussion(discussionId);
+      if (!discussion) {
+        logger.error('Cannot emit completion event - discussion not found', { discussionId });
+        return;
+      }
+
+      // Get recent messages for context
+      const recentMessages = await this.getDiscussionMessages(discussionId, { limit: 50 });
+      
+      // Calculate discussion summary metrics
+      const discussionMetrics = {
+        totalMessages: discussion.state.messageCount,
+        totalParticipants: discussion.participants.length,
+        activeParticipants: discussion.participants.filter(p => p.isActive).length,
+        duration: discussion.state.lastActivity 
+          ? new Date(discussion.state.lastActivity).getTime() - new Date(discussion.createdAt).getTime()
+          : 0,
+        turnCount: discussion.state.currentTurn?.turnNumber || 0
+      };
+
+      // Determine artifact type based on discussion content and context
+      const artifactType = this.determineArtifactType(discussion, recentMessages);
+      
+      // Emit completion event
+      await this.eventBusService.publish('discussion.completed', {
+        discussionId,
+        discussion: {
+          id: discussion.id,
+          title: discussion.title,
+          description: discussion.description,
+          topic: discussion.topic,
+          status: discussion.status,
+          completedBy,
+          completionReason,
+          metrics: discussionMetrics
+        },
+        messages: recentMessages.map(msg => ({
+          id: msg.id,
+          content: msg.content,
+          participantId: msg.participantId,
+          messageType: msg.messageType,
+          timestamp: msg.createdAt
+        })),
+        participants: discussion.participants.map(p => ({
+          id: p.id,
+          agentId: p.agentId,
+          userId: p.userId,
+          role: p.role,
+          messageCount: p.messageCount,
+          isActive: p.isActive
+        })),
+        artifactGeneration: {
+          suggestedType: artifactType,
+          priority: this.calculateArtifactPriority(discussion, completionReason),
+          metadata: {
+            discussionType: discussion.turnStrategy.strategy,
+            completionReason,
+            messageCount: discussionMetrics.totalMessages,
+            participantCount: discussionMetrics.totalParticipants
+          }
+        },
+        timestamp: new Date()
+      });
+
+      logger.info('Discussion completion event emitted', {
+        discussionId,
+        completedBy,
+        completionReason,
+        artifactType,
+        messageCount: discussionMetrics.totalMessages,
+        participantCount: discussionMetrics.totalParticipants
+      });
+    } catch (error) {
+      logger.error('Error emitting discussion completion event', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        discussionId,
+        completedBy,
+        completionReason
+      });
+    }
+  }
+
+  /**
+   * Determine appropriate artifact type based on discussion content
+   */
+  private determineArtifactType(discussion: Discussion, messages: any[]): string {
+    const title = discussion.title.toLowerCase();
+    const description = discussion.description.toLowerCase();
+    const messageContent = messages.map(m => m.content.toLowerCase()).join(' ');
+    
+    // Check for code-related discussions
+    if (title.includes('code') || title.includes('implementation') || 
+        description.includes('code') || messageContent.includes('function') ||
+        messageContent.includes('class') || messageContent.includes('implement')) {
+      return 'code';
+    }
+    
+    // Check for documentation-related discussions
+    if (title.includes('documentation') || title.includes('docs') || 
+        description.includes('documentation') || messageContent.includes('document') ||
+        messageContent.includes('guide') || messageContent.includes('manual')) {
+      return 'documentation';
+    }
+    
+    // Check for test-related discussions
+    if (title.includes('test') || title.includes('testing') || 
+        description.includes('test') || messageContent.includes('test') ||
+        messageContent.includes('spec') || messageContent.includes('validation')) {
+      return 'test';
+    }
+    
+    // Check for PRD/requirement-related discussions
+    if (title.includes('requirement') || title.includes('prd') || title.includes('feature') ||
+        description.includes('requirement') || messageContent.includes('requirement') ||
+        messageContent.includes('specification') || messageContent.includes('feature')) {
+      return 'prd';
+    }
+    
+    // Default to documentation for general discussions
+    return 'documentation';
+  }
+
+  /**
+   * Calculate artifact generation priority based on discussion characteristics
+   */
+  private calculateArtifactPriority(discussion: Discussion, completionReason: string): 'high' | 'medium' | 'low' {
+    const messageCount = discussion.state.messageCount;
+    const participantCount = discussion.participants.length;
+    
+    // High priority for goal-achieved or consensus-reached discussions
+    if (completionReason === 'goal_achieved' || completionReason === 'consensus_reached') {
+      return 'high';
+    }
+    
+    // High priority for discussions with many participants and messages
+    if (participantCount >= 3 && messageCount >= 10) {
+      return 'high';
+    }
+    
+    // Medium priority for moderately active discussions
+    if (participantCount >= 2 && messageCount >= 5) {
+      return 'medium';
+    }
+    
+    // Low priority for simple discussions or timeouts
+    return 'low';
+  }
+
+  /**
+   * Check if discussion has reached a natural conclusion
+   */
+  private async checkDiscussionGoalAchievement(discussion: Discussion): Promise<boolean> {
+    try {
+      // Get recent messages to analyze for conclusion indicators
+      const recentMessages = await this.getDiscussionMessages(discussion.id, { limit: 10 });
+      
+      if (recentMessages.length === 0) {
+        return false;
+      }
+      
+      // Simple heuristic: check for conclusion keywords in recent messages
+      const conclusionKeywords = [
+        'concluded', 'resolved', 'agreed', 'decision', 'final', 'summary',
+        'complete', 'done', 'finished', 'consensus', 'solution', 'answer'
+      ];
+      
+      const recentContent = recentMessages
+        .slice(0, 5) // Check last 5 messages
+        .map(m => m.content.toLowerCase())
+        .join(' ');
+      
+      const hasConclusion = conclusionKeywords.some(keyword => 
+        recentContent.includes(keyword)
+      );
+      
+      // Check if there's been recent activity (last 5 minutes)
+      const lastMessage = recentMessages[0];
+      const timeSinceLastMessage = Date.now() - lastMessage.createdAt.getTime();
+      const isStale = timeSinceLastMessage > 300000; // 5 minutes
+      
+      return hasConclusion && !isStale;
+    } catch (error) {
+      logger.error('Error checking discussion goal achievement', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        discussionId: discussion.id
+      });
+      return false;
+    }
   }
 
   /**
