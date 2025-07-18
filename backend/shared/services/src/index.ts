@@ -44,13 +44,6 @@ export {
   UNIFIED_SYSTEM_DEFAULTS
 } from './services/ModelSelectionOrchestrator.js';
 
-export {
-  ProviderFallbackService,
-  ProviderResolution,
-  ProviderCapabilities,
-  FallbackConfig,
-  DEFAULT_FALLBACK_CONFIG
-} from './services/ProviderFallbackService.js';
 
 export {
   UnifiedModelSelectionFacade,

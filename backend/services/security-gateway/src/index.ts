@@ -25,12 +25,14 @@ import { ApprovalWorkflowService } from './services/approvalWorkflowService.js';
 import { AuditService } from './services/auditService.js';
 import { NotificationService } from './services/notificationService.js';
 import { LLMProviderManagementService } from './services/llmProviderManagementService.js';
+import { ApiKeyDecryptionHandler } from './services/apiKeyDecryptionHandler.js';
 
 class SecurityGatewayServer extends BaseService {
   private securityGatewayService: SecurityGatewayService | null = null;
   private approvalWorkflowService: ApprovalWorkflowService | null = null;
   private auditService: AuditService | null = null;
   private notificationService: NotificationService | null = null;
+  private apiKeyDecryptionHandler: ApiKeyDecryptionHandler | null = null;
   private errorLogger = createErrorLogger('security-gateway');
 
   constructor() {
@@ -62,6 +64,12 @@ class SecurityGatewayServer extends BaseService {
     // Initialize LLM Provider Management Service and set EventBusService
     const llmProviderManagementService = LLMProviderManagementService.getInstance();
     llmProviderManagementService.setEventBusService(this.eventBusService);
+
+    // Initialize API Key Decryption Handler
+    this.apiKeyDecryptionHandler = new ApiKeyDecryptionHandler(
+      this.eventBusService,
+      this.databaseService
+    );
 
     // Initialize knowledge services (non-blocking)
     initializeServices().then(() => {

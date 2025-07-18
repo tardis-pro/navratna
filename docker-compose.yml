@@ -442,6 +442,9 @@ services:
       - QDRANT_URL=http://qdrant:6333
       - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:-uaip_user}:${RABBITMQ_DEFAULT_PASS:-uaip_password}@rabbitmq:5672
       - JWT_SECRET=${JWT_SECRET:-uaip_dev_jwt_secret_key_change_in_production}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CUSTOM_OPENAI_API_KEY=${CUSTOM_OPENAI_API_KEY}
+      - OPENAI_API_URL=${OPENAI_API_URL}
       # MinIO Configuration
       - MINIO_ENDPOINT=minio:9000
       - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-uaip_minio}
@@ -495,6 +498,7 @@ services:
       - REDIS_URL=redis://:${REDIS_PASSWORD:-uaip_redis_password}@redis:6379
       - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:-uaip_user}:${RABBITMQ_DEFAULT_PASS:-uaip_password}@rabbitmq:5672
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_API_URL=${OPENAI_API_URL}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
     ports:
       - "3006:3006"
@@ -536,6 +540,8 @@ services:
       - OLLAMA_URL=${OLLAMA_URL:-http://localhost:11434}
       - LLM_STUDIO_URL=${LLM_STUDIO_URL:-http://localhost:1234}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CUSTOM_OPENAI_API_KEY=${CUSTOM_OPENAI_API_KEY}
+      - OPENAI_API_URL=${OPENAI_API_URL}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - LLM_PROVIDER_ENCRYPTION_KEY=${LLM_PROVIDER_ENCRYPTION_KEY:-default-key-change-in-production}
     ports:

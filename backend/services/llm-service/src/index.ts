@@ -1,7 +1,7 @@
 import { BaseService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { errorTrackingMiddleware, createErrorLogger } from '@uaip/middleware';
-import { LLMService, UserLLMService } from '@uaip/llm-service';
+import { LLMService, UserLLMService, ModelBootstrapService, ApiKeyDecryptionService } from '@uaip/llm-service';
 import llmRoutes from './routes/llmRoutes.js';
 import userLLMRoutes from './routes/userLLMRoutes.js';
 import { AgentGenerationHandler } from './handlers/AgentGenerationHandler.js';
@@ -9,7 +9,9 @@ import { AgentGenerationHandler } from './handlers/AgentGenerationHandler.js';
 class LLMServiceServer extends BaseService {
   private llmService: LLMService;
   private userLLMService: UserLLMService;
+  private modelBootstrapService: ModelBootstrapService;
   private agentGenerationHandler: AgentGenerationHandler;
+  private apiKeyDecryptionService: ApiKeyDecryptionService;
   private errorLogger = createErrorLogger('llm-service');
 
   constructor() {
@@ -21,6 +23,8 @@ class LLMServiceServer extends BaseService {
 
     // Initialize LLM service only - UserLLMService will be created after facade is ready
     this.llmService = LLMService.getInstance();
+    this.modelBootstrapService = ModelBootstrapService.getInstance();
+    this.apiKeyDecryptionService = ApiKeyDecryptionService.getInstance();
     // Note: userLLMService and agentGenerationHandler will be initialized in initialize()
   }
 
@@ -44,12 +48,21 @@ class LLMServiceServer extends BaseService {
       this.llmService,
       this.eventBusService
     );
+
+    // Initialize API Key Decryption Service with event bus
+    this.apiKeyDecryptionService.setEventBusService(this.eventBusService);
     
     if (this.modelSelectionFacade) {
       logger.info('UserLLMService initialized with model selection facade');
     } else {
       logger.warn('Model selection facade not available, UserLLMService will use fallback behavior');
     }
+    
+    // Bootstrap all models on startup (run in background)
+    logger.info('Starting model bootstrap process...');
+    this.modelBootstrapService.bootstrapAllModels().catch(error => {
+      logger.error('Model bootstrap failed, continuing with service startup', { error });
+    });
     
     logger.info('LLM Service initialized');
   }

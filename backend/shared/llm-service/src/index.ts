@@ -3,6 +3,8 @@ import { LLMService } from './LLMService.js';
 // Main exports for the LLM service package
 export { LLMService, llmService } from './LLMService.js';
 export { UserLLMService } from './UserLLMService.js';
+export { ModelBootstrapService } from './services/ModelBootstrapService.js';
+export { ApiKeyDecryptionService } from './services/ApiKeyDecryptionService.js';
 
 // Interface exports
 export type {
@@ -19,7 +21,9 @@ export type {
   ToolCall,
   ToolResult,
   AvailableTool,
-  LLMProviderConfig
+  LLMProviderConfig,
+  ApiKeyDecryptionRequest,
+  ApiKeyDecryptionResponse
 } from './interfaces.js';
 
 // Provider exports

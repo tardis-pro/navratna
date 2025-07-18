@@ -9,12 +9,7 @@ import {
   ModelSelectionResult,
   FallbackChain
 } from './ModelSelectionOrchestrator.js';
-import { 
-  ProviderFallbackService,
-  ProviderResolution,
-  ProviderCapabilities,
-  FallbackConfig
-} from './ProviderFallbackService.js';
+// Fallback service removed - no fallback logic allowed
 import { LLMTaskType, LLMProviderType, RoutingRequest } from '@uaip/types';
 import { logger } from '@uaip/utils';
 
@@ -26,12 +21,6 @@ export interface UnifiedModelSelection {
   // Model selection result
   model: ModelSelectionResult;
   
-  // Provider resolution details
-  provider: ProviderResolution;
-  
-  // Provider capabilities
-  capabilities: ProviderCapabilities | null;
-  
   // Complete fallback chain
   fallbackChain: FallbackChain;
   
@@ -39,8 +28,6 @@ export interface UnifiedModelSelection {
   metadata: {
     selectionTimeMs: number;
     strategiesAttempted: string[];
-    fallbacksAvailable: number;
-    healthChecksPerformed: number;
   };
 }
 
@@ -75,8 +62,6 @@ export interface SelectionMetrics {
   averageSelectionTimeMs: number;
   strategyUsageCount: Record<string, number>;
   providerUsageCount: Record<string, number>;
-  fallbackUsageCount: number;
-  healthCheckFailures: number;
 }
 
 // =============================================================================
@@ -85,15 +70,13 @@ export interface SelectionMetrics {
 
 export class UnifiedModelSelectionFacade {
   private orchestrator: ModelSelectionOrchestrator;
-  private fallbackService: ProviderFallbackService;
   private metrics: SelectionMetrics;
 
   constructor(
     agentRepository: Repository<Agent>,
     userLLMPreferenceRepository: Repository<UserLLMPreference>,
     agentLLMPreferenceRepository: Repository<AgentLLMPreference>,
-    llmProviderRepository: Repository<LLMProvider>,
-    fallbackConfig?: Partial<FallbackConfig>
+    llmProviderRepository: Repository<LLMProvider>
   ) {
     this.orchestrator = new ModelSelectionOrchestrator(
       agentRepository,
@@ -102,35 +85,27 @@ export class UnifiedModelSelectionFacade {
       llmProviderRepository
     );
 
-    this.fallbackService = new ProviderFallbackService(
-      llmProviderRepository,
-      fallbackConfig
-    );
-
     this.metrics = {
       totalSelections: 0,
       successfulSelections: 0,
       averageSelectionTimeMs: 0,
       strategyUsageCount: {},
-      providerUsageCount: {},
-      fallbackUsageCount: 0,
-      healthCheckFailures: 0
+      providerUsageCount: {}
     };
   }
 
   /**
    * Main unified model selection method
-   * Combines orchestrator model selection with provider fallback resolution
+   * Uses only orchestrator model selection - no fallback logic
    */
   async selectModel(request: UnifiedSelectionRequest): Promise<UnifiedModelSelection> {
     const startTime = Date.now();
     const strategiesAttempted: string[] = [];
-    let healthChecksPerformed = 0;
 
     try {
       this.metrics.totalSelections++;
 
-      // Step 1: Use orchestrator to select the best model
+      // Use orchestrator to select the best model - no fallbacks
       const modelRequest: ModelSelectionRequest = {
         agentId: request.agentId,
         userId: request.userId,
@@ -145,53 +120,17 @@ export class UnifiedModelSelectionFacade {
       const modelSelection = await this.orchestrator.selectModel(modelRequest);
       strategiesAttempted.push(modelSelection.selectionStrategy);
 
-      // Step 2: Resolve provider for the selected model
-      const providerResolution = await this.fallbackService.resolveProvider(
-        modelSelection.model,
-        modelSelection.provider,
-        request.agentProviderId,
-        request.userProviders,
-        request.taskType
-      );
+      // Generate fallback chain (simplified - no provider fallbacks)
+      const fallbackChain = { primary: modelSelection, fallbacks: [] };
 
-      // Step 3: Get provider capabilities
-      let capabilities: ProviderCapabilities | null = null;
-      if (providerResolution.providerId) {
-        capabilities = await this.fallbackService.getProviderCapabilities(providerResolution.providerId);
-        healthChecksPerformed++;
-        
-        // If provider is unhealthy and fallbacks are allowed, try fallback
-        if (request.requireHealthyProvider && capabilities?.healthStatus === 'unavailable') {
-          if (request.allowFallbacks !== false) {
-            logger.info('Primary provider unhealthy, attempting fallback', {
-              provider: providerResolution.effectiveProvider,
-              model: modelSelection.model
-            });
-            
-            return await this.handleUnhealthyProvider(request, modelSelection, startTime, strategiesAttempted, healthChecksPerformed);
-          } else {
-            throw new Error(`Provider ${providerResolution.effectiveProvider} is unavailable and fallbacks are disabled`);
-          }
-        }
-      }
-
-      // Step 4: Generate fallback chain
-      const fallbackChain = request.allowFallbacks !== false 
-        ? await this.orchestrator.selectWithFallbacks(modelRequest)
-        : { primary: modelSelection, fallbacks: [] };
-
-      // Step 5: Build unified result
+      // Build unified result
       const selectionTime = Date.now() - startTime;
       const result: UnifiedModelSelection = {
         model: modelSelection,
-        provider: providerResolution,
-        capabilities,
         fallbackChain,
         metadata: {
           selectionTimeMs: selectionTime,
-          strategiesAttempted,
-          fallbacksAvailable: fallbackChain.fallbacks.length,
-          healthChecksPerformed
+          strategiesAttempted
         }
       };
 
@@ -200,7 +139,7 @@ export class UnifiedModelSelectionFacade {
 
       logger.info('Unified model selection completed', {
         model: modelSelection.model,
-        provider: providerResolution.effectiveProvider,
+        provider: modelSelection.provider,
         strategy: modelSelection.selectionStrategy,
         confidence: modelSelection.confidence,
         selectionTimeMs: selectionTime
@@ -221,11 +160,7 @@ export class UnifiedModelSelectionFacade {
       // Update metrics for failure
       this.updateMetrics(null, false);
 
-      // If fallbacks are allowed, try emergency fallback
-      if (request.allowFallbacks !== false) {
-        return await this.handleEmergencyFallback(request, startTime, strategiesAttempted, healthChecksPerformed);
-      }
-
+      // No fallbacks - fail immediately
       throw error;
     }
   }
@@ -333,7 +268,7 @@ export class UnifiedModelSelectionFacade {
 
       logger.debug('Usage stats updated', {
         strategy: selection.model.selectionStrategy,
-        provider: selection.provider.effectiveProvider,
+        provider: selection.model.provider,
         success,
         responseTime,
         quality
@@ -362,174 +297,13 @@ export class UnifiedModelSelectionFacade {
       successfulSelections: 0,
       averageSelectionTimeMs: 0,
       strategyUsageCount: {},
-      providerUsageCount: {},
-      fallbackUsageCount: 0,
-      healthCheckFailures: 0
+      providerUsageCount: {}
     };
-  }
-
-  /**
-   * Validate provider and model combination
-   */
-  async validateSelection(
-    provider: LLMProviderType,
-    model: string,
-    providerId?: string
-  ): Promise<boolean> {
-    if (!providerId) {
-      // Try to find provider by type
-      const resolution = await this.fallbackService.resolveProvider(model, provider);
-      providerId = resolution.providerId;
-    }
-
-    if (!providerId) {
-      return false;
-    }
-
-    return this.fallbackService.validateProviderModel(providerId, model);
-  }
-
-  /**
-   * Get all available models for a specific provider type
-   */
-  async getAvailableModels(providerType: LLMProviderType): Promise<string[]> {
-    // This would typically query the provider to get available models
-    // For now, return common models based on provider type
-    const commonModels: Record<LLMProviderType, string[]> = {
-      [LLMProviderType.ANTHROPIC]: [
-        'claude-3-5-sonnet-20241022',
-        'claude-3-5-haiku-20241022',
-        'claude-3-opus-20240229',
-        'claude-3-sonnet-20240229',
-        'claude-3-haiku-20240307'
-      ],
-      [LLMProviderType.OPENAI]: [
-        'gpt-4o',
-        'gpt-4o-mini',
-        'gpt-4-turbo',
-        'gpt-4',
-        'gpt-3.5-turbo',
-        'text-embedding-3-large',
-        'text-embedding-3-small',
-        'whisper-1',
-        'tts-1'
-      ],
-      [LLMProviderType.OLLAMA]: [
-        'llama2',
-        'llama2:13b',
-        'llama2:70b',
-        'codellama',
-        'mistral',
-        'mixtral',
-        'phi'
-      ],
-      [LLMProviderType.LLMSTUDIO]: [
-        'llama2',
-        'mistral',
-        'codellama'
-      ],
-      [LLMProviderType.CUSTOM]: []
-    };
-
-    return commonModels[providerType] || [];
-  }
-
-  /**
-   * Cleanup method
-   */
-  destroy(): void {
-    this.fallbackService.destroy();
   }
 
   // =============================================================================
   // PRIVATE HELPER METHODS
   // =============================================================================
-
-  private async handleUnhealthyProvider(
-    request: UnifiedSelectionRequest,
-    originalSelection: ModelSelectionResult,
-    startTime: number,
-    strategiesAttempted: string[],
-    healthChecksPerformed: number
-  ): Promise<UnifiedModelSelection> {
-    this.metrics.fallbackUsageCount++;
-    
-    // Try to get fallback chain and use first healthy option
-    const fallbackChain = await this.orchestrator.selectWithFallbacks({
-      agentId: request.agentId,
-      userId: request.userId,
-      taskType: request.taskType,
-      context: request.context,
-      urgency: request.urgency,
-      complexity: request.complexity
-    });
-
-    for (const fallback of fallbackChain.fallbacks) {
-      const fallbackResolution = await this.fallbackService.resolveProvider(
-        fallback.model,
-        fallback.provider
-      );
-
-      if (fallbackResolution.providerId) {
-        const capabilities = await this.fallbackService.getProviderCapabilities(fallbackResolution.providerId);
-        healthChecksPerformed++;
-
-        if (capabilities?.healthStatus === 'healthy') {
-          const selectionTime = Date.now() - startTime;
-          strategiesAttempted.push(`fallback:${fallback.selectionStrategy}`);
-
-          return {
-            model: fallback,
-            provider: fallbackResolution,
-            capabilities,
-            fallbackChain,
-            metadata: {
-              selectionTimeMs: selectionTime,
-              strategiesAttempted,
-              fallbacksAvailable: fallbackChain.fallbacks.length - 1,
-              healthChecksPerformed
-            }
-          };
-        }
-      }
-    }
-
-    throw new Error('No healthy providers available in fallback chain');
-  }
-
-  private async handleEmergencyFallback(
-    request: UnifiedSelectionRequest,
-    startTime: number,
-    strategiesAttempted: string[],
-    healthChecksPerformed: number
-  ): Promise<UnifiedModelSelection> {
-    logger.warn('Attempting emergency fallback selection', { taskType: request.taskType });
-    
-    this.metrics.fallbackUsageCount++;
-    strategiesAttempted.push('emergency-fallback');
-
-    // Use system defaults as absolute fallback
-    const emergencySelection = await this.orchestrator.selectForSystem(request.taskType);
-    const emergencyResolution = await this.fallbackService.resolveProvider(
-      emergencySelection.model,
-      emergencySelection.provider
-    );
-
-    const selectionTime = Date.now() - startTime;
-
-    return {
-      model: emergencySelection,
-      provider: emergencyResolution,
-      capabilities: null,
-      fallbackChain: { primary: emergencySelection, fallbacks: [] },
-      metadata: {
-        selectionTimeMs: selectionTime,
-        strategiesAttempted,
-        fallbacksAvailable: 0,
-        healthChecksPerformed
-      }
-    };
-  }
 
   private updateMetrics(result: UnifiedModelSelection | null, success: boolean): void {
     if (result) {
@@ -537,9 +311,10 @@ export class UnifiedModelSelectionFacade {
       const strategy = result.model.selectionStrategy;
       this.metrics.strategyUsageCount[strategy] = (this.metrics.strategyUsageCount[strategy] || 0) + 1;
 
-      // Update provider usage
-      const provider = result.provider.effectiveProvider;
-      this.metrics.providerUsageCount[provider] = (this.metrics.providerUsageCount[provider] || 0) + 1;
+      // Update provider usage (if available)
+      if (result.model.provider) {
+        this.metrics.providerUsageCount[result.model.provider] = (this.metrics.providerUsageCount[result.model.provider] || 0) + 1;
+      }
 
       // Update average selection time
       const currentAvg = this.metrics.averageSelectionTimeMs;

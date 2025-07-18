@@ -200,6 +200,8 @@ export const ProviderSettingsPortal: React.FC<ProviderSettingsPortalProps> = ({ 
       if (refreshModelData) {
         await refreshModelData();
       }
+      // Also refresh user preferences when refreshing
+      await loadUserPreferences();
       setInitializationStatus(prev => ({ ...prev, loading: false }));
     } catch (error) {
       console.error('Failed to refresh  providers:', error);
@@ -209,7 +211,7 @@ export const ProviderSettingsPortal: React.FC<ProviderSettingsPortalProps> = ({ 
         error: error instanceof Error ? error.message : 'Failed to refresh  providers'
       }));
     }
-  }, [refreshModelData]);
+  }, [refreshModelData, loadUserPreferences]);
 
   // Calculate statistics
   const providerCount = modelState?.providers?.length || 0;
@@ -539,14 +541,6 @@ export const ProviderSettingsPortal: React.FC<ProviderSettingsPortalProps> = ({ 
                                     </option>
                                   ))
                                 }
-                                {/* Fallback popular models if none found */}
-                                {(modelState?.models || []).length === 0 && (
-                                  <>
-                                    <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
-                                    <option value="gpt-4o-mini">GPT-4O Mini</option>
-                                    <option value="gpt-4o">GPT-4O</option>
-                                  </>
-                                )}
                               </select>
                               <motion.button
                                 onClick={() => removeUserPreference(index)}

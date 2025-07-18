@@ -204,5 +204,14 @@ export const llmAPI = {
         isDefault: boolean;
       }>>(API_ROUTES.USER_LLM.LIST_MODELS);
     }
+  },
+
+  // Cache management
+  async invalidateCache(type: 'models' | 'providers' | 'all' = 'all'): Promise<{ success: boolean; message: string }> {
+    return APIClient.post<{ success: boolean; message: string }>(API_ROUTES.LLM.CACHE_INVALIDATE, { type });
+  },
+
+  async refreshCache(): Promise<{ success: boolean; message: string }> {
+    return APIClient.post<{ success: boolean; message: string }>(API_ROUTES.LLM.CACHE_REFRESH);
   }
 };

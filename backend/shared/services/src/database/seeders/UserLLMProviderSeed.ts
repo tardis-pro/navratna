@@ -299,6 +299,46 @@ export class UserLLMProviderSeed extends BaseSeed<UserLLMProvider> {
 
     providers.push(googleProvider);
 
+    // Add OpenRouter for aggregated model access
+    const openRouterProvider: DeepPartial<UserLLMProvider> = {
+      userId: user.id,
+      name: 'OpenRouter (300+ Models)',
+      description: withDemoKeys
+        ? 'OpenRouter aggregator with 300+ models from multiple providers - demo access'
+        : 'OpenRouter aggregator with 300+ models from multiple providers - add your API key to access',
+      type: 'openai' as UserLLMProviderType, // Uses OpenAI-compatible API
+      baseUrl: 'https://openrouter.ai/api/v1',
+      defaultModel: 'anthropic/claude-3.5-sonnet',
+      configuration: {
+        timeout: 60000,
+        retries: 3,
+        rateLimit: 50,
+        headers: {
+          'User-Agent': 'UAIP-Client/1.0',
+          'HTTP-Referer': 'https://council-of-nycea.com',
+          'X-Title': 'Council of Nycea'
+        }
+      },
+      status: withDemoKeys ? 'active' as UserLLMProviderStatus : 'inactive' as UserLLMProviderStatus,
+      isActive: withDemoKeys,
+      priority: 25, // Between Anthropic and Google
+      totalTokensUsed: '0',
+      totalRequests: '0',
+      totalErrors: '0'
+    };
+
+    // Add API key - demo key for admins/demo users, placeholder for others
+    const demoOpenRouterProvider = new UserLLMProvider();
+    Object.assign(demoOpenRouterProvider, openRouterProvider);
+    if (withDemoKeys) {
+      demoOpenRouterProvider.setApiKey('demo-openrouter-key-for-testing-' + user.role);
+    } else {
+      demoOpenRouterProvider.setApiKey('sk-or-placeholder-openrouter-key-replace-in-settings');
+    }
+    openRouterProvider.apiKeyEncrypted = demoOpenRouterProvider.apiKeyEncrypted;
+
+    providers.push(openRouterProvider);
+
     return providers;
   }
 

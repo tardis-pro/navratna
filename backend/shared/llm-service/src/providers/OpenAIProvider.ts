@@ -6,7 +6,7 @@ export class OpenAIProvider extends BaseProvider {
     try {
       const url = `${this.config.baseUrl || 'https://api.openai.com'}/v1/chat/completions`;
       const messages = [];
-
+      console.log(url);
       if (request.systemPrompt) {
         messages.push({ role: 'system', content: request.systemPrompt });
       }
@@ -21,7 +21,14 @@ export class OpenAIProvider extends BaseProvider {
         temperature: request.temperature || 0.7,
       };
 
-      const data = await this.makeRequest(url, body);
+      // OpenRouter requires specific headers
+      const isOpenRouter = this.config.baseUrl?.includes('openrouter.ai');
+      const headers = isOpenRouter ? {
+        'HTTP-Referer': 'https://council-of-nycea.com',
+        'X-Title': 'Council of Nycea'
+      } : {};
+
+      const data = await this.makeRequest(url, body, headers);
 
       if (!data.choices?.[0]?.message?.content) {
         throw new Error('Invalid response format from OpenAI');
@@ -44,33 +51,53 @@ export class OpenAIProvider extends BaseProvider {
     id: string;
     name: string;
     description?: string;
-    source: string; 
+    source: string;
     apiEndpoint: string;
   }>> {
     try {
       const url = `${this.config.baseUrl || 'https://api.openai.com'}/v1/models`;
-      const data = await this.makeGetRequest(url);
+      
+      // OpenRouter requires specific headers
+      const isOpenRouter = this.config.baseUrl?.includes('openrouter.ai');
+      const headers = isOpenRouter ? {
+        'HTTP-Referer': 'https://council-of-nycea.com',
+        'X-Title': 'Council of Nycea'
+      } : {};
+      
+      const data = await this.makeGetRequest(url, headers);
 
       if (!data.data || !Array.isArray(data.data)) {
         return [];
       }
 
-      // Filter to only chat models
-      const chatModels = data.data.filter((model: any) => 
-        model.id.includes('gpt') || model.id.includes('chat')
-      );
+      // Filter to only chat models - be more inclusive for OpenRouter and custom providers
+      const isOpenRouterModels = this.config.baseUrl?.includes('openrouter.ai');
+      const isCustomProvider = this.config.baseUrl && !this.config.baseUrl.includes('api.openai.com');
+      
+      let chatModels: any[];
+      if (isOpenRouterModels || isCustomProvider) {
+        // For OpenRouter and custom providers, include all models (they usually only return chat models anyway)
+        chatModels = data.data;
+      } else {
+        // For OpenAI, filter to only chat models
+        chatModels = data.data.filter((model: any) =>
+          model.id.includes('gpt') || model.id.includes('chat')
+        );
+      }
 
       return chatModels.map((model: any) => ({
         id: model.id,
         name: model.id,
-        description: `OpenAI model: ${model.id}${model.owned_by ? ` (${model.owned_by})` : ''}`,
+        description: isOpenRouterModels 
+          ? `OpenRouter model: ${model.id}${model.owned_by ? ` (${model.owned_by})` : ''}` 
+          : `OpenAI model: ${model.id}${model.owned_by ? ` (${model.owned_by})` : ''}`,
         source: this.config.baseUrl || 'https://api.openai.com',
         apiEndpoint: `${this.config.baseUrl || 'https://api.openai.com'}/v1/chat/completions`
       }));
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error(`Failed to fetch models from OpenAI:`, errorMessage);
-      
+
       // If we have an API key, return fallback models, otherwise throw error
       if (this.config.apiKey) {
         console.log('Returning fallback OpenAI models since API key is available');

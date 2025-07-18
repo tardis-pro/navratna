@@ -16,6 +16,7 @@ import {
   ToolExecutionStatus
 } from '@uaip/types';
 import uaipAPI from '@/utils/uaip-api';
+import { llmAPI } from '@/api/llm.api';
 import { PERSONA_CATEGORIES } from '@/types/persona';
 
 // Agent Intelligence Flow - using backend API
@@ -573,6 +574,16 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     if (debounceRefs.current.modelsTimer) {
       clearTimeout(debounceRefs.current.modelsTimer);
       debounceRefs.current.modelsTimer = null;
+    }
+
+    // Invalidate Redis cache for LLM providers and models
+    try {
+      console.log('Invalidating LLM provider and model cache...');
+      await llmAPI.invalidateCache('all');
+      console.log('LLM cache invalidated successfully');
+    } catch (error) {
+      console.warn('Failed to invalidate LLM cache:', error);
+      // Continue with refresh even if cache invalidation fails
     }
 
     // Reset loading states to allow fresh loading

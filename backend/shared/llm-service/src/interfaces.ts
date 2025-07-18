@@ -106,9 +106,27 @@ export interface LLMProviderConfig {
   type: 'ollama' | 'openai' | 'llmstudio' | 'anthropic' | 'custom';
   baseUrl: string;
   apiKey?: string;
+  apiKeyEncrypted?: string; // For encrypted API keys that need decryption via Security Gateway
   defaultModel?: string;
   timeout?: number;
   retries?: number;
+}
+
+// API Key Decryption Events
+export interface ApiKeyDecryptionRequest {
+  providerId: string;
+  providerName: string;
+  encryptedApiKey: string;
+  requestId: string;
+  timestamp: Date;
+}
+
+export interface ApiKeyDecryptionResponse {
+  requestId: string;
+  success: boolean;
+  decryptedApiKey?: string;
+  error?: string;
+  timestamp: Date;
 }
 
 // Artifact generation interfaces

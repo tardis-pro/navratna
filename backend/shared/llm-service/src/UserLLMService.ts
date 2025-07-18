@@ -433,21 +433,20 @@ export class UserLLMService {
 
         logger.info('Model selection facade result', {
           selectedModel: modelSelection.model.model,
-          selectedProvider: modelSelection.provider.effectiveProvider,
-          providerId: modelSelection.provider.providerId,
+          selectedProvider: modelSelection.model.provider,
           confidence: modelSelection.model.confidence
         });
 
-        // Trust the facade result - it handles fallbacks internally
+        // Use the selected model and provider type to find a matching user provider
         const repository = await this.getUserLLMProviderRepository();
-        const selectedProvider = await repository.findById(modelSelection.provider.providerId);
+        const selectedProvider = await repository.findByUserAndType(userId, modelSelection.model.provider);
         
         if (selectedProvider) {
           logger.info('Using selected provider from facade', { providerId: selectedProvider.id, providerName: selectedProvider.name });
           response = await this.generateResponse(userId, llmRequest, selectedProvider);
         } else {
-          logger.error('Selected provider not found', { providerId: modelSelection.provider.providerId });
-          throw new Error(`Selected provider not found: ${modelSelection.provider.providerId}`);
+          logger.error('Selected provider not found', { providerType: modelSelection.model.provider });
+          throw new Error(`Selected provider not found: ${modelSelection.model.provider}`);
         }
       } else {
         logger.info('Using traditional user provider lookup', {
@@ -528,7 +527,7 @@ export class UserLLMService {
   }
 
   private async getOrCreateProviderInstance(userProvider: UserLLMProvider): Promise<BaseProvider> {
-    const cacheKey = `${userProvider.userId}-${userProvider.type}`;
+    const cacheKey = `${userProvider.userId}-${userProvider.id}`;
     
     if (this.providerCache.has(cacheKey)) {
       return this.providerCache.get(cacheKey)!;
@@ -602,6 +601,10 @@ export class UserLLMService {
       case 'llmstudio':
         return new LLMStudioProvider(config as any, userProvider.name);
       case 'openai':
+      case 'anthropic':
+      case 'custom':
+      case 'google':
+        // OpenAI, Anthropic, Google, and custom providers all use OpenAI-compatible endpoints
         return new OpenAIProvider(config as any, userProvider.name);
       default:
         throw new Error(`Unsupported provider type: ${userProvider.type}`);

@@ -298,15 +298,7 @@ export abstract class BaseService {
         }
       }
 
-      // Cleanup model selection facade
-      if (this.modelSelectionFacade) {
-        try {
-          this.modelSelectionFacade.destroy();
-          logger.info(`${this.config.name}: Model selection facade cleaned up`);
-        } catch (error) {
-          logger.error(`${this.config.name}: Model selection cleanup error:`, error);
-        }
-      }
+      // Model selection facade cleanup no longer needed (fallback service removed)
 
       // Force exit after timeout
       setTimeout(() => {

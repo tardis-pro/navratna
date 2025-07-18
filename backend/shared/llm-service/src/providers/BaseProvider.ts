@@ -1,5 +1,6 @@
 import { LLMRequest, LLMResponse, LLMProviderConfig } from '../interfaces';
 import { logger } from '@uaip/utils';
+import { ApiKeyDecryptionService } from '../services/ApiKeyDecryptionService';
 
 export abstract class BaseProvider {
   protected config: LLMProviderConfig;
@@ -54,6 +55,34 @@ export abstract class BaseProvider {
     return this.config.defaultModel;
   }
 
+  /**
+   * Get API key, using event-driven decryption if needed
+   */
+  protected async getApiKey(): Promise<string | undefined> {
+    // If we have a plain text API key, use it directly
+    if (this.config.apiKey) {
+      return this.config.apiKey;
+    }
+
+    // If we have an encrypted API key, request decryption from Security Gateway
+    if (this.config.apiKeyEncrypted) {
+      try {
+        const decryptionService = ApiKeyDecryptionService.getInstance();
+        const decryptedKey = await decryptionService.decryptApiKey(
+          'provider-id', // TODO: Pass actual provider ID
+          this.name,
+          this.config.apiKeyEncrypted
+        );
+        return decryptedKey;
+      } catch (error) {
+        logger.error(`Failed to decrypt API key for ${this.name}`, { error });
+        return undefined;
+      }
+    }
+
+    return undefined;
+  }
+
   protected async makeRequest(
     url: string,
     body: any,
@@ -64,8 +93,9 @@ export abstract class BaseProvider {
       ...headers,
     };
 
-    if (this.config.apiKey) {
-      defaultHeaders['Authorization'] = `Bearer ${this.config.apiKey}`;
+    const apiKey = await this.getApiKey();
+    if (apiKey) {
+      defaultHeaders['Authorization'] = `Bearer ${apiKey}`;
     }
 
     const maxRetries = this.config.retries || 3;
@@ -130,8 +160,9 @@ export abstract class BaseProvider {
       ...headers,
     };
 
-    if (this.config.apiKey) {
-      defaultHeaders['Authorization'] = `Bearer ${this.config.apiKey}`;
+    const apiKey = await this.getApiKey();
+    if (apiKey) {
+      defaultHeaders['Authorization'] = `Bearer ${apiKey}`;
     }
 
     const maxRetries = this.config.retries || 3;

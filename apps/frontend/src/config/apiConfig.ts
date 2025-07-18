@@ -140,7 +140,9 @@ export const API_ROUTES = {
     LIST_PROVIDERS: '/api/v1/llm/providers',
     GET_PROVIDER: '/api/v1/llm/providers',
     GENERATE: '/api/v1/llm/generate',
-    ANALYZE_CONTEXT: '/api/v1/llm/analyze'
+    ANALYZE_CONTEXT: '/api/v1/llm/analyze',
+    CACHE_INVALIDATE: '/api/v1/llm/cache/invalidate',
+    CACHE_REFRESH: '/api/v1/llm/cache/refresh'
   },
   USER_LLM: {
     BASE: '/api/v1/llm',

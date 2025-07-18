@@ -141,9 +141,9 @@ export class LLMService {
     if (process.env.OPENAI_API_KEY) {
       const openaiProvider = new OpenAIProvider({
         type: 'openai',
-        baseUrl: 'https://api.openai.com',
-        apiKey: process.env.OPENAI_API_KEY,
-        defaultModel: 'gpt-3.5-turbo',
+        baseUrl: process.env.OPENAI_API_URL ? process.env.OPENAI_API_URL : 'https://api.openai.com',
+        apiKey: process.env.OPENAI_API_URL ? process.env.CUSTOM_OPENAI_API_KEY : process.env.OPENAI_API_KEY,
+        defaultModel: process.env.OPENAI_API_URL ? '' : 'gpt-3.5-turbo',
         timeout: 30000,
         retries: 3
       }, 'OpenAI');
@@ -404,35 +404,49 @@ export class LLMService {
       await this.initializeFromDatabase();
     }
 
-    logger.info(`Getting available models from ${this.providers.size} providers`, {
-      providerTypes: Array.from(this.providers.keys())
-    });
+    // Only get models from database-configured providers
+    if (!this.llmProviderRepository) {
+      logger.error('No database repository available, cannot load models');
+      return [];
+    }
 
     const allModels = [];
+    try {
+      // Get only active providers from database
+      const dbProviders = await this.llmProviderRepository.findMany({ isActive: true });
 
-    for (const [providerType, provider] of this.providers) {
-      try {
-        logger.info(`Fetching models from provider: ${providerType}`, {
-          baseUrl: provider.getBaseUrl()
-        });
+      logger.info(`Getting available models from ${dbProviders.length} database-configured providers`);
 
-        const models = await provider.getAvailableModels();
+      for (const dbProvider of dbProviders) {
+        const provider = this.providers.get(dbProvider.type);
+        if (!provider) {
+          logger.warn(`Provider type ${dbProvider.type} not initialized, skipping`);
+          continue;
+        }
 
-        logger.info(`Provider ${providerType} returned ${models.length} models`);
-
-        allModels.push(...models.map(model => ({
-          ...model,
-          provider: providerType,
-          apiType: providerType as any,
-          isAvailable: true
-        })));
-      } catch (error) {
-        logger.error(`Failed to get models from provider ${providerType}`, {
-          error: error instanceof Error ? error.message : error,
-          stack: error instanceof Error ? error.stack : undefined,
-          baseUrl: provider.getBaseUrl()
-        });
+        try {
+          logger.info(`Fetching models from database provider: ${dbProvider.name} (${dbProvider.type})`, {
+            baseUrl: dbProvider.baseUrl
+          });
+          const models = await provider.getAvailableModels();
+          logger.info(`Provider ${dbProvider.name} returned ${models.length} models`);
+          allModels.push(...models.map(model => ({
+            ...model,
+            provider: dbProvider.type,
+            apiType: dbProvider.type as any,
+            isAvailable: true
+          })));
+        } catch (error) {
+          logger.error(`Failed to get models from database provider ${dbProvider.name}`, {
+            error: error instanceof Error ? error.message : error,
+            stack: error instanceof Error ? error.stack : undefined,
+            baseUrl: dbProvider.baseUrl
+          });
+        }
       }
+    } catch (error) {
+      logger.error('Failed to load models from database providers', { error });
+      return [];
     }
 
     // Cache the results for 1 hour
@@ -557,28 +571,7 @@ export class LLMService {
       }
     }
 
-    // Add fallback providers if no database providers
-    if (providers.length === 0) {
-      for (const [providerType, provider] of this.providers) {
-        let modelCount = 0;
-        try {
-          const models = await provider.getAvailableModels();
-          modelCount = models.length;
-        } catch (error) {
-          logger.warn(`Failed to get model count for fallback provider ${providerType}`, { error });
-        }
-
-        providers.push({
-          name: `Default ${providerType.charAt(0).toUpperCase() + providerType.slice(1)}`,
-          type: providerType,
-          baseUrl: provider.getBaseUrl(),
-          isActive: true,
-          defaultModel: provider.getDefaultModel(),
-          modelCount,
-          status: 'active'
-        });
-      }
-    }
+    // No fallback providers - only database-configured providers are allowed
 
     // Cache the results for 1 hour
     try {

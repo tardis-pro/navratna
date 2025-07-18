@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { LLMService } from '@uaip/llm-service';
+import { LLMService, ModelBootstrapService } from '@uaip/llm-service';
 import { logger, ValidationError } from '@uaip/utils';
 
 // Temporary asyncHandler implementation until shared package is rebuilt
@@ -11,6 +11,7 @@ const asyncHandler = (fn: (req: any, res: any, next?: any) => Promise<void>) => 
 
 const router: Router = Router();
 const llmService = LLMService.getInstance();
+const modelBootstrapService = ModelBootstrapService.getInstance();
 
 // Get available models from all providers
 router.get('/models', asyncHandler(async (req: Request, res: Response) => {
@@ -214,6 +215,47 @@ router.post('/cache/refresh', asyncHandler(async (req: Request, res: Response) =
   res.json({
     success: true,
     message: 'Providers refreshed and cache cleared'
+  });
+}));
+
+// Model bootstrap management endpoints
+router.get('/bootstrap/status', asyncHandler(async (req: Request, res: Response) => {
+  const status = await modelBootstrapService.getBootstrapStatus();
+
+  res.json({
+    success: true,
+    data: status
+  });
+}));
+
+router.post('/bootstrap/refresh', asyncHandler(async (req: Request, res: Response) => {
+  logger.info('Manual model bootstrap refresh requested');
+  
+  // Run bootstrap in background
+  modelBootstrapService.bootstrapAllModels().catch(error => {
+    logger.error('Manual model bootstrap failed', { error });
+  });
+
+  res.json({
+    success: true,
+    message: 'Model bootstrap refresh started'
+  });
+}));
+
+router.post('/bootstrap/refresh-user/:userId', asyncHandler(async (req: Request, res: Response) => {
+  const { userId } = req.params;
+  
+  if (!userId) {
+    throw new ValidationError('User ID is required');
+  }
+
+  logger.info('Manual user model refresh requested', { userId });
+  
+  await modelBootstrapService.refreshUserModels(userId);
+
+  res.json({
+    success: true,
+    message: `Models refreshed for user ${userId}`
   });
 }));
 

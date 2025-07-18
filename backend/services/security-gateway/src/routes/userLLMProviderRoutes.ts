@@ -3,7 +3,7 @@ import { UserService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { authMiddleware } from '@uaip/middleware';
 import { z } from 'zod';
-import { LLMStudioProvider, OllamaProvider, OpenAIProvider } from '@uaip/llm-service';
+import { UserLLMService, ModelBootstrapService } from '@uaip/llm-service';
 
 // Request/Response schemas with Zod validation
 const createUserProviderSchema = z.object({
@@ -82,12 +82,20 @@ const router: Router = Router();
 
 // Lazy initialization of services
 let userService: UserService | null = null;
+let userLLMService: UserLLMService | null = null;
+let modelBootstrapService: ModelBootstrapService | null = null;
 
 async function getServices() {
   if (!userService) {
     userService = UserService.getInstance();
   }
-  return { userService };
+  if (!userLLMService) {
+    userLLMService = new UserLLMService();
+  }
+  if (!modelBootstrapService) {
+    modelBootstrapService = ModelBootstrapService.getInstance();
+  }
+  return { userService, userLLMService, modelBootstrapService };
 }
 
 // Apply authentication middleware to all routes
@@ -231,106 +239,52 @@ router.get('/my-providers/active', async (req: AuthenticatedRequest, res: Respon
 // Get all available models from user's providers
 router.get('/my-providers/models', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { userService } = await getServices();
+    const { userLLMService, modelBootstrapService } = await getServices();
+    const userId = req.user!.id;
     
-    // Get user's active providers
-    const providers = await userService.getUserLLMProviderRepository().findActiveProvidersByUser(req.user!.id);
-    const activeProviders = providers.filter(p => p.isActive && (p.status === 'active' || p.status === 'testing'));
+    logger.info('Fetching models for user', { userId });
     
-    logger.info('Fetching models from active providers', {
-      userId: req.user!.id,
-      providerCount: activeProviders.length,
-      providers: activeProviders.map(p => `${p.name}(${p.type})`)
-    });
+    // Try to get cached models first (fast path)
+    let allModels = await modelBootstrapService.getCachedUserModels(userId);
     
-    const allModels = [];
-    
-    // Fetch models from each active provider
-    for (const provider of activeProviders) {
-      try {
-        let providerInstance;
-        
-        // Create provider instance based on type
-        switch (provider.type) {
-          case 'llmstudio':
-            providerInstance = new LLMStudioProvider({
-              type: provider.type,
-              baseUrl: provider.baseUrl,
-              defaultModel: provider.defaultModel || undefined,
-              timeout: provider.configuration?.timeout || 30000,
-              retries: provider.configuration?.retries || 3
-            }, provider.name);
-            break;
-            
-          case 'ollama':
-            providerInstance = new OllamaProvider({
-              type: provider.type,
-              baseUrl: provider.baseUrl,
-              defaultModel: provider.defaultModel || undefined,
-              timeout: provider.configuration?.timeout || 30000,
-              retries: provider.configuration?.retries || 3
-            }, provider.name);
-            break;
-            
-          case 'openai':
-            providerInstance = new OpenAIProvider({
-              type: provider.type,
-              baseUrl: provider.baseUrl,
-              apiKey: provider.getApiKey() || '',
-              defaultModel: provider.defaultModel || undefined,
-              timeout: provider.configuration?.timeout || 30000,
-              retries: provider.configuration?.retries || 3
-            }, provider.name);
-            break;
-            
-          default:
-            logger.warn(`Unsupported provider type: ${provider.type}`, { providerId: provider.id });
-            continue;
-        }
-        
-        // Fetch models from provider
-        const models = await providerInstance.getAvailableModels();
-        
-        // Add models to response
-        for (const model of models) {
-          allModels.push({
-            id: `${provider.id}-${model.name}`,
-            name: model.name,
-            description: model.description || `${model.name} from ${provider.name}`,
-            source: provider.name,
-            apiEndpoint: model.apiEndpoint || provider.baseUrl,
-            apiType: provider.type,
-            provider: provider.name,
-            providerId: provider.id,
-            isAvailable: true,
-            isDefault: provider.defaultModel === model.name
-          });
-        }
-        
-        logger.info(`Fetched ${models.length} models from ${provider.name}`, {
-          providerId: provider.id,
-          models: models.map(m => m.name)
-        });
-        
-      } catch (error) {
-        logger.error(`Failed to fetch models from provider ${provider.name}`, {
-          providerId: provider.id,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        });
-        // Continue with other providers
-      }
+    if (!allModels) {
+      // Cache miss - fetch fresh models
+      logger.info('Cache miss for user models, fetching fresh', { userId });
+      allModels = await userLLMService.getAvailableModels(userId);
+      
+      // Trigger cache refresh in background (no await)
+      modelBootstrapService.refreshUserModels(userId).catch(error => {
+        logger.warn('Background model cache refresh failed', { userId, error });
+      });
+    } else {
+      logger.debug('Using cached models for user', { userId, modelCount: allModels.length });
     }
     
+    // Transform to legacy format for compatibility
+    const transformedModels = allModels.map(model => ({
+      id: `${model.provider}-${model.name}`,
+      name: model.name,
+      description: model.description || `${model.name} from ${model.provider}`,
+      source: model.provider,
+      apiEndpoint: model.apiEndpoint,
+      apiType: model.apiType,
+      provider: model.provider,
+      providerId: model.providerId || model.provider, // fallback for compatibility
+      isAvailable: model.isAvailable,
+      isDefault: false // We don't have this info in the new format
+    }));
+    
     logger.info('Models fetched successfully', {
-      userId: req.user!.id,
-      totalModels: allModels.length,
-      providersProcessed: activeProviders.length
+      userId,
+      totalModels: transformedModels.length,
+      source: allModels === await modelBootstrapService.getCachedUserModels(userId) ? 'cache' : 'fresh'
     });
     
     res.json({
       success: true,
-      data: allModels
+      data: transformedModels
     });
+    
   } catch (error) {
     logger.error('Error getting user LLM models', { error, userId: req.user?.id });
     res.status(500).json({
@@ -584,11 +538,12 @@ router.delete('/my-providers/:id', async (req: AuthenticatedRequest, res: Respon
 router.post('/my-providers/:id/test', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const userService = UserService.getInstance();
+    const { userService, userLLMService } = await getServices();
+    const userId = req.user!.id;
     
     // Find provider to ensure user ownership
     const provider = await userService.getUserLLMProviderRepository().findById(id);
-    if (!provider || provider.userId !== req.user!.id) {
+    if (!provider || provider.userId !== userId) {
       res.status(404).json({
         success: false,
         error: 'LLM provider not found'
@@ -596,107 +551,18 @@ router.post('/my-providers/:id/test', async (req: AuthenticatedRequest, res: Res
       return;
     }
     
-    // Test connection based on provider type
-    const startTime = Date.now();
-    let testResult: { status: 'healthy' | 'unhealthy'; error?: string; latency?: number };
+    logger.info('Testing user LLM provider connection', {
+      userId,
+      providerId: id,
+      providerName: provider.name,
+      providerType: provider.type
+    });
     
-    try {
-      const config = provider.getProviderConfig();
-      
-      // Simple test based on provider type
-      switch (provider.type) {
-        case 'openai':
-          // Test OpenAI API
-          const response = await fetch(`${config.baseUrl}/v1/models`, {
-            headers: {
-              'Authorization': `Bearer ${config.apiKey}`,
-              'Content-Type': 'application/json'
-            },
-            signal: AbortSignal.timeout(10000)
-          });
-          
-          if (response.ok) {
-            testResult = { 
-              status: 'healthy', 
-              latency: Date.now() - startTime 
-            };
-          } else {
-            testResult = { 
-              status: 'unhealthy', 
-              error: `HTTP ${response.status}: ${response.statusText}` 
-            };
-          }
-          break;
-          
-        case 'anthropic':
-          // Test Anthropic API
-          const anthropicResponse = await fetch(`${config.baseUrl}/v1/messages`, {
-            method: 'POST',
-            headers: {
-              'x-api-key': config.apiKey!,
-              'Content-Type': 'application/json',
-              'anthropic-version': '2023-06-01'
-            },
-            body: JSON.stringify({
-              model: config.defaultModel || 'claude-3-haiku-20240307',
-              max_tokens: 1,
-              messages: [{ role: 'user', content: 'test' }]
-            }),
-            signal: AbortSignal.timeout(10000)
-          });
-          
-          if (anthropicResponse.ok || anthropicResponse.status === 400) {
-            // 400 is OK for this test (means API is reachable)
-            testResult = { 
-              status: 'healthy', 
-              latency: Date.now() - startTime 
-            };
-          } else {
-            testResult = { 
-              status: 'unhealthy', 
-              error: `HTTP ${anthropicResponse.status}: ${anthropicResponse.statusText}` 
-            };
-          }
-          break;
-          
-        case 'ollama':
-        case 'llmstudio':
-          // Test local providers
-          const localResponse = await fetch(`${config.baseUrl}/api/tags`, {
-            signal: AbortSignal.timeout(5000)
-          });
-          
-          if (localResponse.ok) {
-            testResult = { 
-              status: 'healthy', 
-              latency: Date.now() - startTime 
-            };
-          } else {
-            testResult = { 
-              status: 'unhealthy', 
-              error: `HTTP ${localResponse.status}: ${localResponse.statusText}` 
-            };
-          }
-          break;
-          
-        default:
-          testResult = { 
-            status: 'unhealthy', 
-            error: 'Unsupported provider type for testing' 
-          };
-      }
-    } catch (error) {
-      testResult = { 
-        status: 'unhealthy', 
-        error: error instanceof Error ? error.message : 'Connection failed' 
-      };
-    }
-    
-    // Update provider health check using repository method
-    await userService.getUserLLMProviderRepository().updateHealthCheck(id, testResult);
+    // Use UserLLMService for connection testing
+    const testResult = await userLLMService.testUserProvider(userId);
     
     logger.info('User LLM provider connection test completed', {
-      userId: req.user!.id,
+      userId,
       providerId: id,
       result: testResult
     });
@@ -704,10 +570,14 @@ router.post('/my-providers/:id/test', async (req: AuthenticatedRequest, res: Res
     res.json({
       success: true,
       data: {
-        ...testResult,
+        status: testResult.isHealthy ? 'healthy' : 'unhealthy',
+        latency: testResult.responseTime,
+        error: testResult.error,
+        modelCount: testResult.modelCount,
         testedAt: new Date().toISOString()
       }
     });
+    
   } catch (error) {
     logger.error('Error testing user LLM provider connection', { 
       error, 
