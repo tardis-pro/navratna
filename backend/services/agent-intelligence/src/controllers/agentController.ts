@@ -272,6 +272,308 @@ export class AgentController {
     }
   }
 
+  // MCP Tool Management Methods
+  
+  /**
+   * Get available MCP tools from all configured servers
+   */
+  async getAvailableMCPTools(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      logger.info('Getting available MCP tools');
+      
+      // Call the capability registry service to get MCP tools
+      const capabilityRegistryUrl = process.env.CAPABILITY_REGISTRY_URL || 'http://localhost:3003';
+      const response = await fetch(`${capabilityRegistryUrl}/api/v1/mcp/tools`, {
+        method: 'GET',
+        headers: {
+          'Authorization': req.headers.authorization || '',
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        logger.error('Failed to fetch MCP tools from capability registry', { 
+          status: response.status, 
+          statusText: response.statusText 
+        });
+        res.status(response.status).json({
+          success: false,
+          error: 'Failed to fetch MCP tools from capability registry'
+        });
+        return;
+      }
+
+      const mcpToolsData = await response.json();
+      
+      res.json({
+        success: true,
+        data: mcpToolsData.data
+      });
+    } catch (error) {
+      logger.error('Error getting available MCP tools', error);
+      next(error);
+    }
+  }
+
+  /**
+   * Get agent's assigned MCP tools
+   */
+  async getAgentMCPTools(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const agentId = req.params.id;
+      logger.info('Getting agent MCP tools', { agentId });
+      
+      const agent = await this.agentCore.getAgent(agentId);
+      if (!agent) {
+        res.status(404).json({
+          success: false,
+          error: 'Agent not found'
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: {
+          agentId,
+          assignedMCPTools: agent.assignedMCPTools || [],
+          mcpToolSettings: agent.mcpToolSettings || {}
+        }
+      });
+    } catch (error) {
+      logger.error('Error getting agent MCP tools', error);
+      next(error);
+    }
+  }
+
+  /**
+   * Assign MCP tools to agent
+   */
+  async assignMCPToolsToAgent(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const agentId = req.params.id;
+      const { toolsToAssign } = req.body;
+      
+      logger.info('Assigning MCP tools to agent', { agentId, toolsToAssign });
+      
+      if (!Array.isArray(toolsToAssign)) {
+        res.status(400).json({
+          success: false,
+          error: 'toolsToAssign must be an array'
+        });
+        return;
+      }
+
+      const agent = await this.agentCore.getAgent(agentId);
+      if (!agent) {
+        res.status(404).json({
+          success: false,
+          error: 'Agent not found'
+        });
+        return;
+      }
+
+      // Validate and format the tools
+      const validatedTools = toolsToAssign.map((tool: any) => ({
+        toolId: tool.toolId,
+        toolName: tool.toolName,
+        serverName: tool.serverName,
+        enabled: tool.enabled !== undefined ? tool.enabled : true,
+        priority: tool.priority || 1,
+        parameters: tool.parameters || {}
+      }));
+
+      // Merge with existing tools (avoiding duplicates)
+      const existingTools = agent.assignedMCPTools || [];
+      const existingToolIds = new Set(existingTools.map(t => t.toolId));
+      
+      const newTools = validatedTools.filter((tool: any) => !existingToolIds.has(tool.toolId));
+      const updatedTools = [...existingTools, ...newTools];
+
+      // Update the agent
+      await this.agentCore.updateAgent(agentId, {
+        assignedMCPTools: updatedTools
+      }, req.user?.id || 'system');
+
+      res.json({
+        success: true,
+        data: {
+          agentId,
+          assignedMCPTools: updatedTools,
+          newToolsCount: newTools.length
+        }
+      });
+    } catch (error) {
+      logger.error('Error assigning MCP tools to agent', error);
+      next(error);
+    }
+  }
+
+  /**
+   * Update agent's MCP tool assignment
+   */
+  async updateAgentMCPTool(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const agentId = req.params.id;
+      const toolId = req.params.toolId;
+      const updates = req.body;
+      
+      logger.info('Updating agent MCP tool', { agentId, toolId, updates });
+      
+      const agent = await this.agentCore.getAgent(agentId);
+      if (!agent) {
+        res.status(404).json({
+          success: false,
+          error: 'Agent not found'
+        });
+        return;
+      }
+
+      const existingTools = agent.assignedMCPTools || [];
+      const toolIndex = existingTools.findIndex(t => t.toolId === toolId);
+      
+      if (toolIndex === -1) {
+        res.status(404).json({
+          success: false,
+          error: 'Tool not found in agent assignments'
+        });
+        return;
+      }
+
+      // Update the tool
+      existingTools[toolIndex] = {
+        ...existingTools[toolIndex],
+        ...updates,
+        toolId, // Ensure toolId cannot be changed
+        toolName: updates.toolName || existingTools[toolIndex].toolName,
+        serverName: updates.serverName || existingTools[toolIndex].serverName
+      };
+
+      // Update the agent
+      await this.agentCore.updateAgent(agentId, {
+        assignedMCPTools: existingTools
+      }, req.user?.id || 'system');
+
+      res.json({
+        success: true,
+        data: {
+          agentId,
+          toolId,
+          updatedTool: existingTools[toolIndex]
+        }
+      });
+    } catch (error) {
+      logger.error('Error updating agent MCP tool', error);
+      next(error);
+    }
+  }
+
+  /**
+   * Remove MCP tool from agent
+   */
+  async removeMCPToolFromAgent(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const agentId = req.params.id;
+      const toolId = req.params.toolId;
+      
+      logger.info('Removing MCP tool from agent', { agentId, toolId });
+      
+      const agent = await this.agentCore.getAgent(agentId);
+      if (!agent) {
+        res.status(404).json({
+          success: false,
+          error: 'Agent not found'
+        });
+        return;
+      }
+
+      const existingTools = agent.assignedMCPTools || [];
+      const updatedTools = existingTools.filter(t => t.toolId !== toolId);
+      
+      if (updatedTools.length === existingTools.length) {
+        res.status(404).json({
+          success: false,
+          error: 'Tool not found in agent assignments'
+        });
+        return;
+      }
+
+      // Update the agent
+      await this.agentCore.updateAgent(agentId, {
+        assignedMCPTools: updatedTools
+      }, req.user?.id || 'system');
+
+      res.json({
+        success: true,
+        data: {
+          agentId,
+          toolId,
+          removedTool: true,
+          remainingToolsCount: updatedTools.length
+        }
+      });
+    } catch (error) {
+      logger.error('Error removing MCP tool from agent', error);
+      next(error);
+    }
+  }
+
+  /**
+   * Update agent's MCP tool settings
+   */
+  async updateAgentMCPSettings(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const agentId = req.params.id;
+      const settings = req.body;
+      
+      logger.info('Updating agent MCP settings', { agentId, settings });
+      
+      const agent = await this.agentCore.getAgent(agentId);
+      if (!agent) {
+        res.status(404).json({
+          success: false,
+          error: 'Agent not found'
+        });
+        return;
+      }
+
+      // Validate settings
+      const validSettings = {
+        allowedServers: Array.isArray(settings.allowedServers) ? settings.allowedServers : undefined,
+        blockedServers: Array.isArray(settings.blockedServers) ? settings.blockedServers : undefined,
+        maxToolsPerServer: typeof settings.maxToolsPerServer === 'number' ? settings.maxToolsPerServer : undefined,
+        autoDiscoveryEnabled: typeof settings.autoDiscoveryEnabled === 'boolean' ? settings.autoDiscoveryEnabled : undefined
+      };
+
+      // Remove undefined values
+      const cleanSettings = Object.fromEntries(
+        Object.entries(validSettings).filter(([_, value]) => value !== undefined)
+      );
+
+      // Update the agent
+      await this.agentCore.updateAgent(agentId, {
+        mcpToolSettings: {
+          ...agent.mcpToolSettings,
+          ...cleanSettings
+        }
+      }, req.user?.id || 'system');
+
+      res.json({
+        success: true,
+        data: {
+          agentId,
+          mcpToolSettings: {
+            ...agent.mcpToolSettings,
+            ...cleanSettings
+          }
+        }
+      });
+    } catch (error) {
+      logger.error('Error updating agent MCP settings', error);
+      next(error);
+    }
+  }
+
   // Shutdown method
   async shutdown(): Promise<void> {
     if (this.agentOrchestrator) {

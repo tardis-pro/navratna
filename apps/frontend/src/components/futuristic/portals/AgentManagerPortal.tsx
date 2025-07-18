@@ -243,6 +243,14 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
     description: '',
     isActive: true,
     attachedTools: [] as Array<{toolId: string, toolName: string, category: string, permissions?: string[]}>,
+    // MCP Tool Selection
+    assignedMCPTools: [] as Array<{toolId: string, toolName: string, serverName: string, enabled: boolean, priority?: number, parameters?: Record<string, any>}>,
+    mcpToolSettings: {
+      allowedServers: [] as string[],
+      blockedServers: [] as string[],
+      maxToolsPerServer: 10,
+      autoDiscoveryEnabled: true
+    },
     chatConfig: {
       enableKnowledgeAccess: true,
       enableToolExecution: true,
@@ -257,6 +265,11 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
 
   // Available tools state
   const [availableTools, setAvailableTools] = useState<Array<{id: string, name: string, category: string, description: string}>>([]);
+  
+  // MCP Tool states
+  const [availableMCPTools, setAvailableMCPTools] = useState<Array<{toolId: string, toolName: string, serverName: string, description?: string}>>([]);
+  const [mcpToolsLoading, setMcpToolsLoading] = useState(false);
+  const [mcpToolsError, setMcpToolsError] = useState<string | null>(null);
   
   // Edit modal state
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -278,6 +291,47 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = viewMode === 'grid' ? 12 : 10;
+
+  // Load MCP tools
+  const loadMCPTools = async () => {
+    setMcpToolsLoading(true);
+    setMcpToolsError(null);
+    
+    try {
+      const response = await fetch('/api/v1/agents/mcp-tools', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch MCP tools: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success && Array.isArray(data.data)) {
+        setAvailableMCPTools(data.data);
+      } else {
+        setMcpToolsError('Invalid MCP tools response format');
+      }
+    } catch (error) {
+      console.error('Failed to load MCP tools:', error);
+      setMcpToolsError('Failed to load MCP tools');
+      // Fallback to mock data for development
+      setAvailableMCPTools([
+        { toolId: 'search-web', toolName: 'Web Search', serverName: 'web-mcp', description: 'Search the web for information' },
+        { toolId: 'file-read', toolName: 'File Reader', serverName: 'filesystem-mcp', description: 'Read files from the filesystem' },
+        { toolId: 'code-run', toolName: 'Code Runner', serverName: 'code-mcp', description: 'Execute code snippets' },
+        { toolId: 'db-query', toolName: 'Database Query', serverName: 'database-mcp', description: 'Query databases' },
+        { toolId: 'api-call', toolName: 'API Caller', serverName: 'http-mcp', description: 'Make HTTP API calls' }
+      ]);
+    } finally {
+      setMcpToolsLoading(false);
+    }
+  };
 
   // Load models
   const loadModels = async () => {
@@ -367,6 +421,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
   useEffect(() => {
     loadModels();
     loadExistingAgents();
+    loadMCPTools();
   }, []);
 
   // Debug: Monitor agents changes
@@ -413,6 +468,14 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
       description: '',
       isActive: true,
       attachedTools: [],
+      // Reset MCP tool selection
+      assignedMCPTools: [],
+      mcpToolSettings: {
+        allowedServers: [],
+        blockedServers: [],
+        maxToolsPerServer: 10,
+        autoDiscoveryEnabled: true
+      },
       chatConfig: {
         enableKnowledgeAccess: true,
         enableToolExecution: true,
@@ -477,6 +540,9 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
         presencePenalty: 0,
         // Enhanced agent functionality
         attachedTools: agentForm.attachedTools,
+        // MCP Tool Integration
+        assignedMCPTools: agentForm.assignedMCPTools,
+        mcpToolSettings: agentForm.mcpToolSettings,
         chatConfig: agentForm.chatConfig
       };
 
@@ -520,6 +586,14 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
           description: '',
           isActive: true,
           attachedTools: [],
+          // Reset MCP tool selection
+          assignedMCPTools: [],
+          mcpToolSettings: {
+            allowedServers: [],
+            blockedServers: [],
+            maxToolsPerServer: 10,
+            autoDiscoveryEnabled: true
+          },
           chatConfig: {
             enableKnowledgeAccess: true,
             enableToolExecution: true,
@@ -933,6 +1007,66 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
     }));
   };
 
+  // MCP Tool Management Functions
+  const toggleMCPToolAssignment = (tool: {toolId: string, toolName: string, serverName: string}) => {
+    setAgentForm(prev => {
+      const isAssigned = prev.assignedMCPTools?.some(t => t.toolId === tool.toolId) || false;
+      if (isAssigned) {
+        return {
+          ...prev,
+          assignedMCPTools: (prev.assignedMCPTools || []).filter(t => t.toolId !== tool.toolId)
+        };
+      } else {
+        return {
+          ...prev,
+          assignedMCPTools: [...(prev.assignedMCPTools || []), {
+            toolId: tool.toolId,
+            toolName: tool.toolName,
+            serverName: tool.serverName,
+            enabled: true,
+            priority: 1,
+            parameters: {}
+          }]
+        };
+      }
+    });
+  };
+
+  const removeMCPToolAssignment = (toolId: string) => {
+    setAgentForm(prev => ({
+      ...prev,
+      assignedMCPTools: prev.assignedMCPTools.filter(t => t.toolId !== toolId)
+    }));
+  };
+
+  const updateMCPToolSettings = (key: string, value: any) => {
+    setAgentForm(prev => ({
+      ...prev,
+      mcpToolSettings: {
+        ...prev.mcpToolSettings,
+        [key]: value
+      }
+    }));
+  };
+
+  const updateMCPToolPriority = (toolId: string, priority: number) => {
+    setAgentForm(prev => ({
+      ...prev,
+      assignedMCPTools: prev.assignedMCPTools.map(tool => 
+        tool.toolId === toolId ? { ...tool, priority } : tool
+      )
+    }));
+  };
+
+  const toggleMCPToolEnabled = (toolId: string) => {
+    setAgentForm(prev => ({
+      ...prev,
+      assignedMCPTools: prev.assignedMCPTools.map(tool => 
+        tool.toolId === toolId ? { ...tool, enabled: !tool.enabled } : tool
+      )
+    }));
+  };
+
   const renderHeader = () => (
     <div className="flex items-center justify-between mb-6">
       <div className="flex items-center gap-4">
@@ -1031,7 +1165,8 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
             setRefreshing(true);
             Promise.all([
               loadModels(),
-              loadExistingAgents()
+              loadExistingAgents(),
+              loadMCPTools()
             ]).then(() => {
               console.log('✅ Manual refresh completed');
             }).catch(error => {
@@ -1361,6 +1496,136 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* MCP Tool Selection Section */}
+      {selectedPersona && (
+        <div className="border border-slate-700/50 rounded-lg p-4 bg-slate-800/30">
+          <h4 className="text-sm font-medium text-slate-300 mb-3">MCP Tool Selection</h4>
+          <div className="space-y-4">
+            {/* MCP Tools Loading/Error State */}
+            {mcpToolsLoading && (
+              <div className="text-xs text-slate-400 flex items-center gap-2">
+                <RefreshCw className="w-3 h-3 animate-spin" />
+                Loading MCP tools...
+              </div>
+            )}
+            {mcpToolsError && (
+              <div className="text-xs text-red-400 flex items-center gap-2">
+                <AlertCircle className="w-3 h-3" />
+                {mcpToolsError}
+              </div>
+            )}
+            
+            {/* Available MCP Tools */}
+            {!mcpToolsLoading && !mcpToolsError && (
+              <div>
+                <label className="block text-xs text-slate-400 mb-2">Available MCP Tools</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-32 overflow-y-auto">
+                  {availableMCPTools.map((tool) => (
+                    <div
+                      key={tool.toolId}
+                      className={`p-2 border rounded cursor-pointer transition-colors ${
+                        agentForm.assignedMCPTools?.some(t => t.toolId === tool.toolId)
+                          ? 'border-cyan-500 bg-cyan-500/10 text-cyan-300'
+                          : 'border-slate-600 hover:border-slate-500 text-slate-300'
+                      }`}
+                      onClick={() => toggleMCPToolAssignment(tool)}
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-medium">{tool.toolName}</span>
+                        <span className="text-xs px-1 py-0.5 bg-slate-600 rounded">{tool.serverName}</span>
+                      </div>
+                      {tool.description && (
+                        <p className="text-xs text-slate-400 mt-1">{tool.description}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Assigned MCP Tools Summary */}
+            {(agentForm.assignedMCPTools?.length || 0) > 0 && (
+              <div>
+                <label className="block text-xs text-slate-400 mb-2">
+                  Assigned MCP Tools ({agentForm.assignedMCPTools?.length || 0})
+                </label>
+                <div className="space-y-2">
+                  {(agentForm.assignedMCPTools || []).map((tool, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-2 bg-slate-700/50 rounded border border-slate-600/50"
+                    >
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => toggleMCPToolEnabled(tool.toolId)}
+                          className={`w-4 h-4 rounded border-2 transition-colors ${
+                            tool.enabled
+                              ? 'bg-cyan-500 border-cyan-500'
+                              : 'border-slate-500 hover:border-slate-400'
+                          }`}
+                        >
+                          {tool.enabled && (
+                            <CheckCircle2 className="w-2 h-2 text-white mx-auto" />
+                          )}
+                        </button>
+                        <span className="text-xs font-medium text-slate-300">{tool.toolName}</span>
+                        <span className="text-xs px-1 py-0.5 bg-slate-600 text-slate-400 rounded">
+                          {tool.serverName}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={tool.priority || 1}
+                          onChange={(e) => updateMCPToolPriority(tool.toolId, parseInt(e.target.value))}
+                          className="text-xs px-1 py-0.5 bg-slate-800 border border-slate-600 rounded text-slate-300"
+                        >
+                          <option value={1}>Priority 1</option>
+                          <option value={2}>Priority 2</option>
+                          <option value={3}>Priority 3</option>
+                        </select>
+                        <button
+                          onClick={() => removeMCPToolAssignment(tool.toolId)}
+                          className="text-slate-400 hover:text-red-400 transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* MCP Tool Settings */}
+            <div className="border-t border-slate-600/50 pt-3">
+              <label className="block text-xs text-slate-400 mb-2">MCP Tool Settings</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">Max Tools Per Server</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="50"
+                    value={agentForm.mcpToolSettings?.maxToolsPerServer || 10}
+                    onChange={(e) => updateMCPToolSettings('maxToolsPerServer', parseInt(e.target.value))}
+                    className="w-full px-2 py-1 text-xs bg-slate-800/50 border border-slate-700/50 rounded text-white"
+                  />
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={agentForm.mcpToolSettings?.autoDiscoveryEnabled || false}
+                    onChange={(e) => updateMCPToolSettings('autoDiscoveryEnabled', e.target.checked)}
+                    className="w-4 h-4 text-cyan-600 bg-slate-800 border-slate-600 rounded focus:ring-cyan-500 focus:ring-2"
+                  />
+                  <label className="text-xs text-slate-400">Auto-discover new tools</label>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

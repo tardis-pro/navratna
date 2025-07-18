@@ -140,6 +140,25 @@ export class Agent extends BaseEntity {
   @Column({ name: 'max_concurrent_tools', default: 3 })
   maxConcurrentTools: number;
 
+  // MCP Tool System Integration - New feature for granular tool access
+  @Column({ name: 'assigned_mcp_tools', type: 'jsonb', default: '[]' })
+  assignedMCPTools: Array<{
+    toolId: string;
+    toolName: string;
+    serverName: string;
+    enabled: boolean;
+    priority?: number;
+    parameters?: Record<string, any>;
+  }>;
+
+  @Column({ name: 'mcp_tool_settings', type: 'jsonb', nullable: true })
+  mcpToolSettings?: {
+    allowedServers?: string[];
+    blockedServers?: string[];
+    maxToolsPerServer?: number;
+    autoDiscoveryEnabled?: boolean;
+  };
+
   // Model Configuration - Enhanced from migration plan
   @Column({ name: 'model_id', nullable: true })
   modelId?: string;

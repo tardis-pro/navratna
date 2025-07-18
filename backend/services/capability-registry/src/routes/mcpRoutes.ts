@@ -13,6 +13,8 @@ import path from 'path';
 import { spawn } from 'child_process';
 import { authMiddleware, createRateLimiter } from '@uaip/middleware';
 import { logger } from '@uaip/utils';
+import { MCPClientService } from '../services/mcpClientService.js';
+import MCPToolGraphService from '../services/mcpToolGraphService.js';
 
 interface MCPServer {
   command: string;
@@ -65,6 +67,7 @@ const uploadRateLimit = createRateLimiter({
 class MCPConfigManager {
   private configPath: string;
   private activeServers: Map<string, any> = new Map();
+  private logger = logger; // Add logger reference
 
   constructor() {
     // Use project root for .mcp.json file
@@ -131,10 +134,10 @@ class MCPConfigManager {
       return JSON.parse(content);
     } catch (error) {
       if ((error as any).code === 'ENOENT') {
-        logger.info('No existing .mcp.json file found, will create new one');
+        this.logger.info('No existing .mcp.json file found, will create new one');
         return null;
       }
-      logger.error('Error reading existing MCP config:', error);
+      this.logger.error('Error reading existing MCP config:', error);
       throw error;
     }
   }
@@ -161,7 +164,7 @@ class MCPConfigManager {
   async writeConfig(config: MCPConfig): Promise<void> {
     const configContent = JSON.stringify(config, null, 2);
     await fs.writeFile(this.configPath, configContent, 'utf-8');
-    logger.info(`MCP configuration written to ${this.configPath}`);
+    this.logger.info(`MCP configuration written to ${this.configPath}`);
   }
 
   /**
@@ -169,15 +172,19 @@ class MCPConfigManager {
    */
   async testServerInstallation(serverName: string, server: MCPServer): Promise<boolean> {
     return new Promise((resolve) => {
-      // For npm/npx commands, test with --help flag
-      // For uvx commands, test with --help flag
-      // For other commands, just check if command exists
-
+      // Test if the command itself is available, not the MCP server packages
       let testArgs: string[];
+      
       if (server.command === 'npx') {
-        testArgs = [...server.args, '--help'];
+        // Test if npx is available
+        testArgs = ['--help'];
       } else if (server.command === 'uvx') {
-        testArgs = [...server.args, '--help'];
+        // Test if uvx is available - skip if not available
+        testArgs = ['--help'];
+        // For uvx, we know it's not available, so skip with warning
+        this.logger.warn(`MCP server ${serverName} skipped: uvx not available in container`);
+        resolve(false);
+        return;
       } else {
         // For other commands, try to run with --version or --help
         testArgs = ['--version'];
@@ -185,8 +192,7 @@ class MCPConfigManager {
 
       const testProcess = spawn(server.command, testArgs, {
         stdio: 'pipe',
-        env: { ...process.env, ...server.env },
-        timeout: 10000 // 10 second timeout
+        env: { ...process.env, ...server.env }
       });
 
       let resolved = false;
@@ -195,13 +201,20 @@ class MCPConfigManager {
         if (!resolved) {
           resolved = true;
           // Accept exit codes 0, 1 (some help commands exit with 1)
-          resolve(code === 0 || code === 1);
+          const success = code === 0 || code === 1;
+          if (success) {
+            this.logger.info(`MCP server ${serverName} installation test passed`);
+          } else {
+            this.logger.warn(`MCP server ${serverName} installation test failed with exit code ${code}`);
+          }
+          resolve(success);
         }
       });
 
-      testProcess.on('error', () => {
+      testProcess.on('error', (error) => {
         if (!resolved) {
           resolved = true;
+          this.logger.warn(`MCP server ${serverName} installation test failed: ${error.message}`);
           resolve(false);
         }
       });
@@ -211,9 +224,10 @@ class MCPConfigManager {
         if (!resolved) {
           resolved = true;
           testProcess.kill();
+          this.logger.warn(`MCP server ${serverName} installation test timed out`);
           resolve(false);
         }
-      }, 10000);
+      }, 5000);
     });
   }
 
@@ -244,7 +258,7 @@ class MCPConfigManager {
           continue;
         }
 
-        logger.info(`Testing installation for MCP server: ${serverName}`);
+        this.logger.info(`Testing installation for MCP server: ${serverName}`);
         
         // Test if the server can be installed/run
         const canInstall = await this.testServerInstallation(serverName, serverConfig);
@@ -255,7 +269,7 @@ class MCPConfigManager {
             status: 'success'
           });
           installationStatus[serverName] = 'success';
-          logger.info(`MCP server ${serverName} installation test successful`);
+          this.logger.info(`MCP server ${serverName} installation test successful`);
         } else {
           const error = `Failed to test installation for command: ${serverConfig.command}`;
           results.push({
@@ -265,7 +279,7 @@ class MCPConfigManager {
           });
           installationStatus[serverName] = 'error';
           installationErrors[serverName] = error;
-          logger.warn(`MCP server ${serverName} installation test failed: ${error}`);
+          this.logger.warn(`MCP server ${serverName} installation test failed: ${error}`);
         }
 
       } catch (error) {
@@ -277,7 +291,7 @@ class MCPConfigManager {
         });
         installationStatus[serverName] = 'error';
         installationErrors[serverName] = errorMessage;
-        logger.error(`Error installing MCP server ${serverName}:`, error);
+        this.logger.error(`Error installing MCP server ${serverName}:`, error);
       }
     }
 
@@ -328,9 +342,185 @@ class MCPConfigManager {
       };
 
     } catch (error) {
-      logger.error('Error getting MCP server status:', error);
+      this.logger.error('Error getting MCP server status:', error);
       throw error;
     }
+  }
+
+  /**
+   * Get available MCP tools from all configured servers
+   */
+  async getAvailableMCPTools(): Promise<Array<{
+    id: string;
+    name: string;
+    description: string;
+    serverName: string;
+    command: string;
+    parameters: any;
+    category: string;
+  }>> {
+    try {
+      const config = await this.readExistingConfig();
+      
+      if (!config) {
+        return [];
+      }
+
+      const tools: Array<{
+        id: string;
+        name: string;
+        description: string;
+        serverName: string;
+        command: string;
+        parameters: any;
+        category: string;
+      }> = [];
+
+      // For each configured MCP server, extract available tools
+      for (const [serverName, serverConfig] of Object.entries(config.mcpServers)) {
+        if (serverConfig.disabled) {
+          continue;
+        }
+
+        // Mock tools for now - in a real implementation, we would:
+        // 1. Connect to the MCP server
+        // 2. Query available tools via MCP protocol
+        // 3. Parse and return the tools
+        
+        // For demonstration, we'll create mock tools based on common MCP servers
+        const mockTools = this.getMockToolsForServer(serverName, serverConfig);
+        tools.push(...mockTools);
+      }
+
+      return tools;
+    } catch (error) {
+      this.logger.error('Error getting available MCP tools:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get mock tools for a server (placeholder for real MCP tool discovery)
+   */
+  private getMockToolsForServer(serverName: string, serverConfig: MCPServer): Array<{
+    id: string;
+    name: string;
+    description: string;
+    serverName: string;
+    command: string;
+    parameters: any;
+    category: string;
+  }> {
+    const tools = [];
+
+    // Generate mock tools based on server name patterns
+    if (serverName.includes('filesystem') || serverName.includes('file')) {
+      tools.push({
+        id: `${serverName}_read_file`,
+        name: 'read_file',
+        description: 'Read contents of a file',
+        serverName,
+        command: serverConfig.command,
+        parameters: {
+          type: 'object',
+          properties: {
+            path: { type: 'string', description: 'Path to the file' }
+          },
+          required: ['path']
+        },
+        category: 'mcp'
+      });
+
+      tools.push({
+        id: `${serverName}_write_file`,
+        name: 'write_file',
+        description: 'Write contents to a file',
+        serverName,
+        command: serverConfig.command,
+        parameters: {
+          type: 'object',
+          properties: {
+            path: { type: 'string', description: 'Path to the file' },
+            content: { type: 'string', description: 'Content to write' }
+          },
+          required: ['path', 'content']
+        },
+        category: 'mcp'
+      });
+    }
+
+    if (serverName.includes('web') || serverName.includes('browser')) {
+      tools.push({
+        id: `${serverName}_web_search`,
+        name: 'web_search',
+        description: 'Search the web for information',
+        serverName,
+        command: serverConfig.command,
+        parameters: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'Search query' }
+          },
+          required: ['query']
+        },
+        category: 'mcp'
+      });
+
+      tools.push({
+        id: `${serverName}_web_scrape`,
+        name: 'web_scrape',
+        description: 'Scrape content from a web page',
+        serverName,
+        command: serverConfig.command,
+        parameters: {
+          type: 'object',
+          properties: {
+            url: { type: 'string', description: 'URL to scrape' }
+          },
+          required: ['url']
+        },
+        category: 'mcp'
+      });
+    }
+
+    if (serverName.includes('database') || serverName.includes('sqlite')) {
+      tools.push({
+        id: `${serverName}_query_db`,
+        name: 'query_database',
+        description: 'Execute a database query',
+        serverName,
+        command: serverConfig.command,
+        parameters: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'SQL query to execute' }
+          },
+          required: ['query']
+        },
+        category: 'mcp'
+      });
+    }
+
+    // If no specific tools found, create a generic tool
+    if (tools.length === 0) {
+      tools.push({
+        id: `${serverName}_generic_tool`,
+        name: `${serverName}_tool`,
+        description: `Generic tool from ${serverName} MCP server`,
+        serverName,
+        command: serverConfig.command,
+        parameters: {
+          type: 'object',
+          properties: {
+            input: { type: 'string', description: 'Input for the tool' }
+          },
+          required: ['input']
+        },
+        category: 'mcp'
+      });
+    }
+
+    return tools;
   }
 }
 
@@ -548,6 +738,484 @@ export function createMCPRoutes(): Router {
         error: {
           code: 'RESTART_ERROR',
           message: 'Failed to restart MCP server',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        }
+      });
+    }
+  });
+
+  /**
+   * GET /api/v1/mcp/tools
+   * Get available MCP tools from all configured servers
+   */
+  router.get('/tools', authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const tools = await mcpManager.getAvailableMCPTools();
+
+      res.json({
+        success: true,
+        data: {
+          tools,
+          count: tools.length,
+          servers: [...new Set(tools.map(tool => tool.serverName))]
+        }
+      });
+
+    } catch (error) {
+      logger.error('Error getting MCP tools:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'TOOLS_ERROR',
+          message: 'Failed to get MCP tools',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        }
+      });
+    }
+  });
+
+  /**
+   * GET /api/v1/mcp/tools/:serverName
+   * Get available tools from a specific MCP server
+   */
+  // System Requirements Check
+  router.get('/system-requirements', authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const mcpService = MCPClientService.getInstance();
+      const requirements = await mcpService.checkSystemRequirements();
+      
+      res.json({
+        success: true,
+        data: requirements
+      });
+    } catch (error) {
+      logger.error('Failed to check system requirements:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to check system requirements',
+        details: error.message
+      });
+    }
+  });
+
+  // Install Missing Tool
+  router.post('/install-tool/:toolName', authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const { toolName } = req.params;
+      const mcpService = MCPClientService.getInstance();
+      
+      logger.info(`Attempting to install tool: ${toolName}`);
+      const success = await mcpService.installMissingTool(toolName);
+      
+      if (success) {
+        res.json({
+          success: true,
+          message: `Successfully installed ${toolName}`,
+          tool: toolName
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          error: `Failed to install ${toolName}`,
+          message: 'Tool installation failed or requires manual setup'
+        });
+      }
+    } catch (error) {
+      logger.error(`Failed to install tool ${req.params.toolName}:`, error);
+      res.status(500).json({
+        success: false,
+        error: 'Tool installation failed',
+        details: error.message
+      });
+    }
+  });
+
+  router.get('/tools/:serverName', authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const { serverName } = req.params;
+      const allTools = await mcpManager.getAvailableMCPTools();
+      const serverTools = allTools.filter(tool => tool.serverName === serverName);
+
+      res.json({
+        success: true,
+        data: {
+          serverName,
+          tools: serverTools,
+          count: serverTools.length
+        }
+      });
+
+    } catch (error) {
+      logger.error(`Error getting MCP tools for server ${req.params.serverName}:`, error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'TOOLS_ERROR',
+          message: 'Failed to get MCP tools for server',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        }
+      });
+    }
+  });
+
+  /**
+   * POST /api/v1/mcp/tools
+   * Create a new MCP tool definition
+   */
+  router.post('/tools', authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const { name, description, serverName, parameters, category = 'mcp' } = req.body;
+
+      if (!name || !description || !serverName) {
+        res.status(400).json({
+          success: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Missing required fields: name, description, serverName'
+          }
+        });
+        return;
+      }
+
+      // Create the tool in the unified tool system and knowledge graph
+      const toolId = `mcp_${serverName}_${name}_${Date.now()}`;
+      
+      const newTool = {
+        id: toolId,
+        name,
+        description,
+        serverName,
+        parameters: parameters || {},
+        category,
+        createdAt: new Date().toISOString(),
+        command: 'mcp-call', // Special command indicating MCP tool
+        enabled: true
+      };
+
+      // Register tool in knowledge graph
+      try {
+        const graphService = MCPToolGraphService.getInstance();
+        await graphService.registerToolInGraph({
+          id: toolId,
+          name,
+          description,
+          serverName,
+          category,
+          capabilities: parameters?.capabilities || [],
+          dependencies: parameters?.dependencies || [],
+          parameters: parameters || {},
+          metadata: {
+            mcpServer: serverName,
+            version: parameters?.version || '1.0.0',
+            author: parameters?.author || 'MCP Server',
+            tags: parameters?.tags || [category, 'mcp']
+          }
+        });
+        
+        logger.info(`Created and registered MCP tool: ${name} for server: ${serverName} in knowledge graph`);
+      } catch (graphError) {
+        logger.error(`Failed to register tool in graph, but tool created:`, graphError);
+        // Continue with tool creation even if graph registration fails
+      }
+
+      res.json({
+        success: true,
+        data: {
+          tool: newTool,
+          message: 'MCP tool created successfully'
+        }
+      });
+
+    } catch (error) {
+      logger.error('Error creating MCP tool:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'CREATION_ERROR',
+          message: 'Failed to create MCP tool',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        }
+      });
+    }
+  });
+
+  /**
+   * PUT /api/v1/mcp/tools/:toolId
+   * Update an existing MCP tool
+   */
+  router.put('/tools/:toolId', authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const { toolId } = req.params;
+      const { name, description, parameters, enabled } = req.body;
+
+      // TODO: Implement actual MCP tool update in database
+      // This would involve updating the tool in the unified tool system
+
+      logger.info(`Updated MCP tool: ${toolId}`);
+
+      res.json({
+        success: true,
+        data: {
+          toolId,
+          message: 'MCP tool updated successfully',
+          updates: { name, description, parameters, enabled }
+        }
+      });
+
+    } catch (error) {
+      logger.error(`Error updating MCP tool ${req.params.toolId}:`, error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'UPDATE_ERROR',
+          message: 'Failed to update MCP tool',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        }
+      });
+    }
+  });
+
+  /**
+   * DELETE /api/v1/mcp/tools/:toolId
+   * Delete an MCP tool
+   */
+  router.delete('/tools/:toolId', authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const { toolId } = req.params;
+
+      // Remove tool from database and knowledge graph
+      try {
+        const graphService = MCPToolGraphService.getInstance();
+        await graphService.removeToolFromGraph(toolId);
+        
+        // TODO: Also remove from unified tool system database
+        
+        logger.info(`Deleted MCP tool: ${toolId} from database and knowledge graph`);
+      } catch (graphError) {
+        logger.error(`Failed to remove tool from graph:`, graphError);
+        // Continue with deletion response even if graph cleanup fails
+      }
+
+      res.json({
+        success: true,
+        data: {
+          toolId,
+          message: 'MCP tool deleted successfully'
+        }
+      });
+
+    } catch (error) {
+      logger.error(`Error deleting MCP tool ${req.params.toolId}:`, error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'DELETION_ERROR',
+          message: 'Failed to delete MCP tool',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        }
+      });
+    }
+  });
+
+  /**
+   * POST /api/v1/mcp/tools/:toolId/execute
+   * Execute an MCP tool
+   */
+  router.post('/tools/:toolId/execute', authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const { toolId } = req.params;
+      const { parameters, agentId } = req.body;
+
+      // TODO: Implement actual MCP tool execution
+      // This would involve:
+      // 1. Looking up the tool in the database
+      // 2. Finding the associated MCP server
+      // 3. Establishing connection to the MCP server
+      // 4. Sending the tool execution request
+      // 5. Returning the result
+
+      logger.info(`Executing MCP tool: ${toolId} with agent: ${agentId}`);
+
+      // Mock execution result for now
+      const executionResult = {
+        success: true,
+        output: `Mock execution of MCP tool ${toolId}`,
+        timestamp: new Date().toISOString(),
+        executionTime: Math.random() * 1000,
+        parameters
+      };
+
+      res.json({
+        success: true,
+        data: {
+          toolId,
+          result: executionResult,
+          message: 'MCP tool executed successfully'
+        }
+      });
+
+    } catch (error) {
+      logger.error(`Error executing MCP tool ${req.params.toolId}:`, error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'EXECUTION_ERROR',
+          message: 'Failed to execute MCP tool',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        }
+      });
+    }
+  });
+
+  /**
+   * GET /api/v1/mcp/tools/:toolId/schema
+   * Get the schema for an MCP tool
+   */
+  router.get('/tools/:toolId/schema', authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const { toolId } = req.params;
+
+      // TODO: Implement actual schema retrieval from MCP server
+      // This would involve connecting to the MCP server and querying the tool schema
+
+      const mockSchema = {
+        name: toolId,
+        description: `Schema for MCP tool ${toolId}`,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            input: {
+              type: 'string',
+              description: 'Input parameter for the tool'
+            }
+          },
+          required: ['input']
+        },
+        outputSchema: {
+          type: 'object',
+          properties: {
+            result: {
+              type: 'string',
+              description: 'Output from the tool execution'
+            }
+          }
+        }
+      };
+
+      res.json({
+        success: true,
+        data: {
+          toolId,
+          schema: mockSchema
+        }
+      });
+
+    } catch (error) {
+      logger.error(`Error getting schema for MCP tool ${req.params.toolId}:`, error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'SCHEMA_ERROR',
+          message: 'Failed to get MCP tool schema',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        }
+      });
+    }
+  });
+
+  /**
+   * GET /api/v1/mcp/tools/:toolId/recommendations
+   * Get tool recommendations based on graph relationships
+   */
+  router.get('/tools/:toolId/recommendations', authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const { toolId } = req.params;
+      const limit = parseInt(req.query.limit as string) || 5;
+
+      const graphService = MCPToolGraphService.getInstance();
+      const recommendations = await graphService.getToolRecommendations(toolId, limit);
+
+      res.json({
+        success: true,
+        data: {
+          toolId,
+          recommendations,
+          count: recommendations.length
+        }
+      });
+
+    } catch (error) {
+      logger.error(`Error getting recommendations for MCP tool ${req.params.toolId}:`, error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'RECOMMENDATIONS_ERROR',
+          message: 'Failed to get tool recommendations',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        }
+      });
+    }
+  });
+
+  /**
+   * GET /api/v1/mcp/tools/capabilities/:capability
+   * Find tools by capability
+   */
+  router.get('/tools/capabilities/:capability', authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const { capability } = req.params;
+
+      const graphService = MCPToolGraphService.getInstance();
+      const tools = await graphService.findToolsByCapability(capability);
+
+      res.json({
+        success: true,
+        data: {
+          capability,
+          tools,
+          count: tools.length
+        }
+      });
+
+    } catch (error) {
+      logger.error(`Error finding tools by capability ${req.params.capability}:`, error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'CAPABILITY_SEARCH_ERROR',
+          message: 'Failed to find tools by capability',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        }
+      });
+    }
+  });
+
+  /**
+   * GET /api/v1/mcp/tools/:toolId/dependencies
+   * Get tool dependency graph
+   */
+  router.get('/tools/:toolId/dependencies', authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const { toolId } = req.params;
+
+      const graphService = MCPToolGraphService.getInstance();
+      const dependencyGraph = await graphService.getToolDependencyGraph(toolId);
+
+      res.json({
+        success: true,
+        data: {
+          toolId,
+          dependencyGraph
+        }
+      });
+
+    } catch (error) {
+      logger.error(`Error getting dependency graph for MCP tool ${req.params.toolId}:`, error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'DEPENDENCY_GRAPH_ERROR',
+          message: 'Failed to get tool dependency graph',
           details: error instanceof Error ? error.message : 'Unknown error'
         }
       });

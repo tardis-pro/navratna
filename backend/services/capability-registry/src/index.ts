@@ -17,6 +17,7 @@ import { ToolRecommendationService } from './services/tool-recommendation.servic
 import { SandboxExecutionService } from './services/sandbox-execution.service.js';
 import { ToolAdapterService } from './services/tool-adapter.service.js';
 import { createToolRoutes } from './routes/toolRoutes.js';
+import { createMCPRoutes } from './routes/mcpRoutes.js';
 import { logger } from '@uaip/utils';
 
 class CapabilityRegistryService extends BaseService {
@@ -183,6 +184,12 @@ class CapabilityRegistryService extends BaseService {
     // API routes
     const toolRoutes = createToolRoutes(this.toolController, this.eventBusService);
     this.app.use('/api/v1/tools', toolRoutes);
+    
+    // MCP configuration routes
+    logger.info('Mounting MCP routes...');
+    const mcpRoutes = createMCPRoutes();
+    this.app.use('/api/v1/mcp', mcpRoutes);
+    logger.info('MCP routes mounted successfully');
   }
 
   protected async getHealthInfo(): Promise<any> {

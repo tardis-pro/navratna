@@ -238,6 +238,111 @@ export function createAgentRoutes(): Router {
     }
   );
 
+  // MCP Tool Management Routes
+  
+  // Get available MCP tools
+  router.get('/mcp-tools',
+    trackAgentOperation('get-mcp-tools'),
+    async (req, res, next) => {
+      try {
+        const controller = await ensureInitialized();
+        await controller.getAvailableMCPTools(req, res, next);
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
+  // Get agent's assigned MCP tools
+  router.get('/:agentId/mcp-tools',
+    trackAgentOperation('get-agent-mcp-tools'),
+    async (req, res, next) => {
+      try {
+        if (!req.agentContext) {
+          res.status(401).json({ error: 'Agent context required' });
+          return;
+        }
+        const controller = await ensureInitialized();
+        req.params.id = req.params.agentId;
+        await controller.getAgentMCPTools(req, res, next);
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
+  // Assign MCP tools to agent
+  router.post('/:agentId/mcp-tools',
+    trackAgentOperation('assign-agent-mcp-tools'),
+    async (req, res, next) => {
+      try {
+        if (!req.agentContext) {
+          res.status(401).json({ error: 'Agent context required' });
+          return;
+        }
+        const controller = await ensureInitialized();
+        req.params.id = req.params.agentId;
+        await controller.assignMCPToolsToAgent(req, res, next);
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
+  // Update agent's MCP tool assignment
+  router.put('/:agentId/mcp-tools/:toolId',
+    trackAgentOperation('update-agent-mcp-tool'),
+    async (req, res, next) => {
+      try {
+        if (!req.agentContext) {
+          res.status(401).json({ error: 'Agent context required' });
+          return;
+        }
+        const controller = await ensureInitialized();
+        req.params.id = req.params.agentId;
+        await controller.updateAgentMCPTool(req, res, next);
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
+  // Remove MCP tool from agent
+  router.delete('/:agentId/mcp-tools/:toolId',
+    trackAgentOperation('remove-agent-mcp-tool'),
+    async (req, res, next) => {
+      try {
+        if (!req.agentContext) {
+          res.status(401).json({ error: 'Agent context required' });
+          return;
+        }
+        const controller = await ensureInitialized();
+        req.params.id = req.params.agentId;
+        await controller.removeMCPToolFromAgent(req, res, next);
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
+  // Update agent's MCP tool settings
+  router.put('/:agentId/mcp-settings',
+    trackAgentOperation('update-agent-mcp-settings'),
+    async (req, res, next) => {
+      try {
+        if (!req.agentContext) {
+          res.status(401).json({ error: 'Agent context required' });
+          return;
+        }
+        const controller = await ensureInitialized();
+        req.params.id = req.params.agentId;
+        await controller.updateAgentMCPSettings(req, res, next);
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
   return router;
 }
 

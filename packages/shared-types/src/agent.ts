@@ -90,7 +90,24 @@ export const AgentSchema = BaseEntitySchema.extend({
   userLLMProviderId: IDSchema.optional(),
   temperature: z.number().min(0).max(2).optional(),
   maxTokens: z.number().positive().optional(),
-  systemPrompt: z.string().optional()
+  systemPrompt: z.string().optional(),
+  
+  // MCP Tool System Integration
+  assignedMCPTools: z.array(z.object({
+    toolId: z.string(),
+    toolName: z.string(),
+    serverName: z.string(),
+    enabled: z.boolean(),
+    priority: z.number().optional(),
+    parameters: z.record(z.any()).optional()
+  })).default([]),
+  
+  mcpToolSettings: z.object({
+    allowedServers: z.array(z.string()).optional(),
+    blockedServers: z.array(z.string()).optional(),
+    maxToolsPerServer: z.number().positive().optional(),
+    autoDiscoveryEnabled: z.boolean().optional()
+  }).optional()
 });
 
 export type Agent = z.infer<typeof AgentSchema>;
@@ -125,6 +142,23 @@ export const AgentCreateRequestSchema = z.object({
     category: z.string(),
     permissions: z.array(z.string()).optional()
   })).optional().default([]),
+  
+  // MCP Tool System Integration
+  assignedMCPTools: z.array(z.object({
+    toolId: z.string(),
+    toolName: z.string(),
+    serverName: z.string(),
+    enabled: z.boolean().default(true),
+    priority: z.number().optional(),
+    parameters: z.record(z.any()).optional()
+  })).optional().default([]),
+  
+  mcpToolSettings: z.object({
+    allowedServers: z.array(z.string()).optional(),
+    blockedServers: z.array(z.string()).optional(),
+    maxToolsPerServer: z.number().positive().optional(),
+    autoDiscoveryEnabled: z.boolean().optional().default(true)
+  }).optional(),
   // Chat functionality enhancements
   chatConfig: z.object({
     enableKnowledgeAccess: z.boolean().optional().default(true),
@@ -185,7 +219,24 @@ export const AgentUpdateSchema = z.object({
   userLLMProviderId: IDSchema.optional(),
   temperature: z.number().min(0).max(2).optional(),
   maxTokens: z.number().positive().optional(),
-  systemPrompt: z.string().optional()
+  systemPrompt: z.string().optional(),
+  
+  // MCP Tool System Integration
+  assignedMCPTools: z.array(z.object({
+    toolId: z.string(),
+    toolName: z.string(),
+    serverName: z.string(),
+    enabled: z.boolean(),
+    priority: z.number().optional(),
+    parameters: z.record(z.any()).optional()
+  })).optional(),
+  
+  mcpToolSettings: z.object({
+    allowedServers: z.array(z.string()).optional(),
+    blockedServers: z.array(z.string()).optional(),
+    maxToolsPerServer: z.number().positive().optional(),
+    autoDiscoveryEnabled: z.boolean().optional()
+  }).optional()
 });
 
 export type AgentUpdate = z.infer<typeof AgentUpdateSchema>;
@@ -211,7 +262,24 @@ export const AgentUpdateRequestSchema = z.object({
   apiType: z.enum(['ollama', 'llmstudio', 'openai', 'anthropic', 'custom']).optional(),
   userLLMProviderId: IDSchema.optional(),
   securityLevel: z.enum(['low', 'medium', 'high', 'critical']).optional(),
-  isActive: z.boolean().optional()
+  isActive: z.boolean().optional(),
+  
+  // MCP Tool System Integration
+  assignedMCPTools: z.array(z.object({
+    toolId: z.string(),
+    toolName: z.string(),
+    serverName: z.string(),
+    enabled: z.boolean().default(true),
+    priority: z.number().optional(),
+    parameters: z.record(z.any()).optional()
+  })).optional(),
+  
+  mcpToolSettings: z.object({
+    allowedServers: z.array(z.string()).optional(),
+    blockedServers: z.array(z.string()).optional(),
+    maxToolsPerServer: z.number().positive().optional(),
+    autoDiscoveryEnabled: z.boolean().optional()
+  }).optional()
 });
 
 export type AgentUpdateRequest = z.infer<typeof AgentUpdateRequestSchema>;
@@ -240,7 +308,24 @@ export const CreateAgentRequestSchema = z.object({
   maxTokens: z.number().positive().optional(),
   systemPrompt: z.string().optional(),
   securityLevel: z.enum(['low', 'medium', 'high', 'critical']).optional(),
-  isActive: z.boolean().default(true)
+  isActive: z.boolean().default(true),
+  
+  // MCP Tool System Integration
+  assignedMCPTools: z.array(z.object({
+    toolId: z.string(),
+    toolName: z.string(),
+    serverName: z.string(),
+    enabled: z.boolean().default(true),
+    priority: z.number().optional(),
+    parameters: z.record(z.any()).optional()
+  })).optional(),
+  
+  mcpToolSettings: z.object({
+    allowedServers: z.array(z.string()).optional(),
+    blockedServers: z.array(z.string()).optional(),
+    maxToolsPerServer: z.number().positive().optional(),
+    autoDiscoveryEnabled: z.boolean().optional()
+  }).optional()
 });
 
 export type CreateAgentRequest = z.infer<typeof CreateAgentRequestSchema>;

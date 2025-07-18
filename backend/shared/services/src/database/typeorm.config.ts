@@ -42,6 +42,7 @@ import { MCPToolCall } from '../entities/mcpToolCall.entity.js';
 import { KnowledgeItemEntity } from '../entities/knowledge-item.entity.js';
 import { KnowledgeRelationshipEntity } from '../entities/knowledge-relationship.entity.js';
 import { LLMProvider } from '../entities/llmProvider.entity.js';
+import { LLMModel } from '../entities/llmModel.entity.js';
 import { UserLLMProvider } from '../entities/userLLMProvider.entity.js';
 import { UserLLMPreference } from '../entities/userLLMPreference.entity.js';
 import { AgentLLMPreference } from '../entities/agentLLMPreference.entity.js';
@@ -106,6 +107,7 @@ export const allEntities = [
   KnowledgeItemEntity,
   KnowledgeRelationshipEntity,
   LLMProvider,
+  LLMModel,
   UserLLMProvider,
   UserLLMPreference,
   AgentLLMPreference,

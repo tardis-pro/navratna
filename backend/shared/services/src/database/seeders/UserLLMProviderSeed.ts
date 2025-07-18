@@ -307,7 +307,7 @@ export class UserLLMProviderSeed extends BaseSeed<UserLLMProvider> {
         ? 'OpenRouter aggregator with 300+ models from multiple providers - demo access'
         : 'OpenRouter aggregator with 300+ models from multiple providers - add your API key to access',
       type: 'openai' as UserLLMProviderType, // Uses OpenAI-compatible API
-      baseUrl: 'https://openrouter.ai/api/v1',
+      baseUrl: 'https://openrouter.ai/api',
       defaultModel: 'anthropic/claude-3.5-sonnet',
       configuration: {
         timeout: 60000,

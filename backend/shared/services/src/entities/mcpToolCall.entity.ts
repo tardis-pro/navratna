@@ -37,19 +37,19 @@ export class MCPToolCall extends BaseEntity {
 
   // Execution context
   @Column({ name: 'agent_id', type: 'varchar', nullable: true })
-  agentId?: number;
+  agentId?: string;
 
   @Column({ name: 'user_id', type: 'varchar', nullable: true })
-  userId?: number;
+  userId?: string;
 
   @Column({ name: 'conversation_id', type: 'varchar', nullable: true })
-  conversationId?: number;
+  conversationId?: string;
 
   @Column({ name: 'operation_id', type: 'varchar', nullable: true })
-  operationId?: number;
+  operationId?: string;
 
   @Column({ name: 'session_id', type: 'varchar', nullable: true })
-  sessionId?: number;
+  sessionId?: string;
 
   // Performance metrics
   @Column({ name: 'start_time', type: 'timestamp', nullable: true })
@@ -104,7 +104,7 @@ export class MCPToolCall extends BaseEntity {
   approvalRequired: boolean;
 
   @Column({ name: 'approved_by', type: 'varchar', nullable: true })
-  approvedBy?: number;
+  approvedBy?: string;
 
   @Column({ name: 'approved_at', type: 'timestamp', nullable: true })
   approvedAt?: Date;
@@ -143,7 +143,7 @@ export class MCPToolCall extends BaseEntity {
   cancelledAt?: Date;
 
   @Column({ name: 'cancelled_by', type: 'varchar', nullable: true })
-  cancelledBy?: number;
+  cancelledBy?: string;
 
   @Column({ name: 'cancellation_reason', type: 'text', nullable: true })
   cancellationReason?: string;

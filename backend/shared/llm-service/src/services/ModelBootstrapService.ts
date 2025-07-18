@@ -2,6 +2,7 @@ import { logger } from '@uaip/utils';
 import { LLMService } from '../LLMService.js';
 import { UserLLMService } from '../UserLLMService.js';
 import { DatabaseService, RedisCacheService, UserService } from '@uaip/shared-services';
+import { ModelSyncService } from './ModelSyncService.js';
 
 /**
  * Service responsible for boot-time model discovery and caching
@@ -13,6 +14,7 @@ export class ModelBootstrapService {
   private llmService: LLMService;
   private userLLMService: UserLLMService;
   private userService: UserService;
+  private modelSyncService: ModelSyncService;
   
   // Cache keys and TTL (6 hours for boot cache = 21600 seconds)
   private static readonly BOOT_CACHE_TTL = 21600;
@@ -26,6 +28,8 @@ export class ModelBootstrapService {
     this.llmService = LLMService.getInstance();
     this.userLLMService = new UserLLMService();
     this.userService = UserService.getInstance();
+    // Initialize ModelSyncService lazily to avoid async in constructor
+    this.modelSyncService = null as any;
   }
 
   public static getInstance(): ModelBootstrapService {
@@ -60,7 +64,8 @@ export class ModelBootstrapService {
         }
       }
 
-      // Step 1: Cache global system models
+      // Step 1: Sync models to database and cache global system models
+      await this.syncModelsToDatabase();
       await this.cacheGlobalModels();
 
       // Step 2: Cache all user-specific models
@@ -81,6 +86,53 @@ export class ModelBootstrapService {
         duration: `${Date.now() - startTime}ms`
       });
       // Don't throw - let the system continue even if bootstrap fails
+    }
+  }
+
+  /**
+   * Sync models from provider APIs to database
+   */
+  private async syncModelsToDatabase(): Promise<void> {
+    logger.info('Syncing models from provider APIs to database...');
+    
+    try {
+      // Initialize ModelSyncService lazily
+      if (!this.modelSyncService) {
+        const dataSource = await DatabaseService.getInstance().getDataSource();
+        this.modelSyncService = new ModelSyncService(dataSource);
+      }
+      
+      // Get all configured providers from LLMService
+      const providers = this.llmService.getProvidersMap();
+      
+      // Sync models to database
+      const syncResults = await this.modelSyncService.syncAllProvidersModels(providers);
+      
+      // Log summary
+      const totalModels = syncResults.reduce((sum, r) => sum + r.modelsFound, 0);
+      const totalCreated = syncResults.reduce((sum, r) => sum + r.modelsCreated, 0);
+      const totalUpdated = syncResults.reduce((sum, r) => sum + r.modelsUpdated, 0);
+      const totalErrors = syncResults.reduce((sum, r) => sum + r.errors.length, 0);
+      
+      logger.info('Model sync to database completed', {
+        providerCount: syncResults.length,
+        totalModels,
+        totalCreated,
+        totalUpdated,
+        totalErrors,
+        results: syncResults.map(r => ({
+          provider: r.providerName,
+          models: r.modelsFound,
+          errors: r.errors.length
+        }))
+      });
+      
+      // Clean up stale models
+      await this.modelSyncService.cleanupStaleModels(24);
+      
+    } catch (error) {
+      logger.error('Failed to sync models to database', { error });
+      // Don't throw - let the system continue even if sync fails
     }
   }
 

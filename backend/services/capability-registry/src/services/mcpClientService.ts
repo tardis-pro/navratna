@@ -8,6 +8,10 @@ import { logger } from '@uaip/utils';
 import { EventBusService, DatabaseService } from '@uaip/shared-services';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { promisify } from 'util';
+import { exec } from 'child_process';
+
+const execAsync = promisify(exec);
 
 // JSON-RPC 2.0 Message Types
 interface JSONRPCRequest {
@@ -110,7 +114,7 @@ export class MCPClientService extends EventEmitter {
 
   // Server Lifecycle Management
   async startServer(serverName: string): Promise<void> {
-    const config = await this.loadServerConfig(serverName);
+    let config = await this.loadServerConfig(serverName);
     if (!config) {
       throw new Error(`Server configuration not found: ${serverName}`);
     }
@@ -120,6 +124,30 @@ export class MCPClientService extends EventEmitter {
       if (server.status === 'running') {
         logger.info(`MCP server ${serverName} is already running`);
         return;
+      }
+    }
+
+    // Validate command exists before attempting to start
+    const commandValidation = await this.validateCommand(config.command);
+    if (!commandValidation.isValid) {
+      logger.warn(`Command '${config.command}' not found for server ${serverName}. ${commandValidation.suggestion}`);
+      
+      // Try fallback configuration if available
+      if (commandValidation.fallbackConfig) {
+        logger.info(`Attempting fallback configuration for ${serverName}`);
+        config = commandValidation.fallbackConfig;
+        
+        // Validate the fallback command
+        const fallbackValidation = await this.validateCommand(config.command);
+        if (!fallbackValidation.isValid) {
+          const error = `Both primary and fallback commands failed for ${serverName}. ${commandValidation.suggestion}`;
+          logger.error(error);
+          throw new Error(error);
+        }
+      } else {
+        const error = `Command '${config.command}' not found. ${commandValidation.suggestion}`;
+        logger.error(`Cannot start MCP server ${serverName}: ${error}`);
+        throw new Error(error);
       }
     }
 
@@ -384,6 +412,17 @@ export class MCPClientService extends EventEmitter {
           serverName
         });
 
+        // Also publish to agents for dynamic discovery
+        await this.publishEvent('agent.tool.available', {
+          toolId: toolRegistration.id,
+          toolName: tool.name,
+          serverName,
+          description: tool.description,
+          inputSchema: tool.inputSchema,
+          capabilities: tool.capabilities || [],
+          source: 'mcp-discovery'
+        });
+
         logger.info(`Auto-registered MCP tool: ${toolRegistration.id} from ${serverName}`);
       }
     } catch (error) {
@@ -391,14 +430,42 @@ export class MCPClientService extends EventEmitter {
     }
   }
 
-  // Tool Execution
-  async executeTool(serverName: string, toolName: string, parameters: any): Promise<any> {
+  // Tool Execution with Database Persistence
+  async executeTool(serverName: string, toolName: string, parameters: any, context?: {
+    agentId?: string;
+    userId?: string;
+    conversationId?: string;
+    operationId?: string;
+    sessionId?: string;
+  }): Promise<any> {
     const server = this.servers.get(serverName);
     if (!server || server.status !== 'running') {
       throw new Error(`Server ${serverName} is not running`);
     }
 
+    let jobId: string | null = null;
+
     try {
+      // Create job record in database if DatabaseService is available
+      if (this.databaseService) {
+        const mcpService = this.databaseService.getMCPService();
+        const toolCall = await mcpService.createToolCall({
+          serverId: serverName,
+          toolName,
+          parameters,
+          agentId: context?.agentId,
+          userId: context?.userId,
+          conversationId: context?.conversationId,
+          operationId: context?.operationId,
+          sessionId: context?.sessionId,
+          securityLevel: 'medium'
+        });
+        jobId = toolCall.id;
+        
+        // Start the job
+        await mcpService.startToolCall(jobId);
+      }
+
       const startTime = Date.now();
       
       const response = await this.sendRequest(serverName, 'tools/call', {
@@ -406,15 +473,51 @@ export class MCPClientService extends EventEmitter {
         arguments: parameters
       });
 
-      const responseTime = Date.now() - startTime;
+      const executionTime = Date.now() - startTime;
       server.stats.averageResponseTime = 
-        (server.stats.averageResponseTime + responseTime) / 2;
+        (server.stats.averageResponseTime + executionTime) / 2;
 
       this.addLog(serverName, `← ${toolName}: ${JSON.stringify(response).substring(0, 100)}...`);
+      
+      // Complete the job in database
+      if (this.databaseService && jobId) {
+        const mcpService = this.databaseService.getMCPService();
+        await mcpService.completeToolCall(jobId, response, executionTime);
+      }
+
+      // Publish success event
+      await this.publishEvent('mcp.tool.executed', {
+        serverName,
+        toolName,
+        parameters,
+        result: response,
+        executionTimeMs: executionTime,
+        success: true,
+        jobId,
+        ...context
+      });
       
       return response;
     } catch (error) {
       this.addLog(serverName, `✗ ${toolName}: ${error.message}`);
+      
+      // Fail the job in database
+      if (this.databaseService && jobId) {
+        const mcpService = this.databaseService.getMCPService();
+        await mcpService.failToolCall(jobId, error.message, 'EXECUTION_ERROR', 'execution');
+      }
+
+      // Publish failure event
+      await this.publishEvent('mcp.tool.failed', {
+        serverName,
+        toolName,
+        parameters,
+        error: error.message,
+        success: false,
+        jobId,
+        ...context
+      });
+
       throw error;
     }
   }
@@ -498,6 +601,69 @@ export class MCPClientService extends EventEmitter {
       case 'notifications/resources/list_changed':
         this.discoverTools(serverName);
         break;
+    }
+  }
+
+  // Command Validation with Fallback Options
+  private async validateCommand(command: string): Promise<{
+    isValid: boolean;
+    suggestion?: string;
+    fallbackConfig?: MCPServerConfig;
+  }> {
+    try {
+      // Try to find the command using 'which' (Unix) or 'where' (Windows)
+      const whichCommand = process.platform === 'win32' ? 'where' : 'which';
+      await execAsync(`${whichCommand} ${command}`);
+      return { isValid: true };
+    } catch (error) {
+      // Command not found, provide helpful suggestions and fallbacks
+      let suggestion = '';
+      let fallbackConfig: MCPServerConfig | undefined;
+      
+      switch (command) {
+        case 'uvx':
+          suggestion = 'Install uv with: curl -LsSf https://astral.sh/uv/install.sh | sh, then restart your terminal.';
+          // Try python fallback for MCP servers that support it
+          const pythonAvailable = await this.isCommandAvailable('python3') || await this.isCommandAvailable('python');
+          if (pythonAvailable) {
+            const pythonCmd = await this.isCommandAvailable('python3') ? 'python3' : 'python';
+            suggestion += ` Alternatively, you can try using python directly.`;
+            fallbackConfig = {
+              command: pythonCmd,
+              args: ['-m', 'pip', 'install', '--user', 'mcp-server-duckduckgo', '&&', pythonCmd, '-m', 'mcp_server_duckduckgo'],
+              env: {}
+            };
+          }
+          break;
+        case 'npx':
+          suggestion = 'Install Node.js and npm from https://nodejs.org/';
+          // Try node fallback
+          if (await this.isCommandAvailable('node')) {
+            suggestion += ' Alternatively, install packages globally and use node directly.';
+          }
+          break;
+        case 'python':
+        case 'python3':
+          suggestion = 'Install Python from https://python.org/ or use your system package manager.';
+          break;
+        case 'node':
+          suggestion = 'Install Node.js from https://nodejs.org/';
+          break;
+        default:
+          suggestion = `Make sure '${command}' is installed and available in your PATH.`;
+      }
+      
+      return { isValid: false, suggestion, fallbackConfig };
+    }
+  }
+
+  private async isCommandAvailable(command: string): Promise<boolean> {
+    try {
+      const whichCommand = process.platform === 'win32' ? 'where' : 'which';
+      await execAsync(`${whichCommand} ${command}`);
+      return true;
+    } catch {
+      return false;
     }
   }
 
@@ -680,13 +846,30 @@ export class MCPClientService extends EventEmitter {
 
       await this.eventBusService.subscribe('mcp.tool.execute', async (event) => {
         try {
-          const result = await this.executeTool(event.data.serverName, event.data.toolName, event.data.parameters);
+          const result = await this.executeTool(
+            event.data.serverName, 
+            event.data.toolName, 
+            event.data.parameters,
+            {
+              agentId: event.data.agentId,
+              userId: event.data.userId,
+              conversationId: event.data.conversationId,
+              operationId: event.data.operationId,
+              sessionId: event.data.sessionId
+            }
+          );
+          
           await this.publishEvent('mcp.tool.executed', {
             requestId: event.data.requestId,
             serverName: event.data.serverName,
             toolName: event.data.toolName,
             result,
-            success: true
+            success: true,
+            agentId: event.data.agentId,
+            userId: event.data.userId,
+            conversationId: event.data.conversationId,
+            operationId: event.data.operationId,
+            sessionId: event.data.sessionId
           });
         } catch (error) {
           await this.publishEvent('mcp.tool.executed', {
@@ -694,7 +877,12 @@ export class MCPClientService extends EventEmitter {
             serverName: event.data.serverName,
             toolName: event.data.toolName,
             error: error.message,
-            success: false
+            success: false,
+            agentId: event.data.agentId,
+            userId: event.data.userId,
+            conversationId: event.data.conversationId,
+            operationId: event.data.operationId,
+            sessionId: event.data.sessionId
           });
         }
       });
@@ -712,6 +900,61 @@ export class MCPClientService extends EventEmitter {
             lastHealthCheck: server.lastHealthCheck
           }))
         });
+      });
+
+      // Agent tool discovery requests
+      await this.eventBusService.subscribe('agent.tools.request', async (event) => {
+        const availableTools = this.getAvailableToolsForAgent(event.data.agentId);
+        await this.publishEvent('agent.tools.response', {
+          requestId: event.data.requestId,
+          agentId: event.data.agentId,
+          tools: availableTools
+        });
+      });
+
+      // Tool execution requests from agents
+      await this.eventBusService.subscribe('agent.tool.execute', async (event) => {
+        const { toolId, parameters, agentId, userId, conversationId, operationId, sessionId } = event.data;
+        
+        // Parse MCP tool ID to get server and tool name
+        const mcpToolMatch = toolId.match(/^mcp-([^-]+)-(.+)$/);
+        if (!mcpToolMatch) {
+          await this.publishEvent('agent.tool.error', {
+            requestId: event.data.requestId,
+            agentId,
+            error: 'Invalid MCP tool ID format',
+            toolId
+          });
+          return;
+        }
+
+        const [, serverName, toolName] = mcpToolMatch;
+        
+        try {
+          const result = await this.executeTool(serverName, toolName, parameters, {
+            agentId,
+            userId,
+            conversationId,
+            operationId,
+            sessionId
+          });
+
+          await this.publishEvent('agent.tool.result', {
+            requestId: event.data.requestId,
+            agentId,
+            toolId,
+            result,
+            success: true
+          });
+        } catch (error) {
+          await this.publishEvent('agent.tool.error', {
+            requestId: event.data.requestId,
+            agentId,
+            toolId,
+            error: error.message,
+            success: false
+          });
+        }
       });
 
       logger.info('MCP event subscriptions configured');
@@ -751,6 +994,84 @@ export class MCPClientService extends EventEmitter {
     } catch (error) {
       logger.warn('Failed to auto-start servers:', error.message);
     }
+  }
+
+  // Tool Installation Helpers
+  async installMissingTool(tool: string): Promise<boolean> {
+    try {
+      switch (tool) {
+        case 'uvx':
+          logger.info('Attempting to install uv...');
+          if (process.platform === 'win32') {
+            await execAsync('powershell -c "irm https://astral.sh/uv/install.ps1 | iex"');
+          } else {
+            await execAsync('curl -LsSf https://astral.sh/uv/install.sh | sh');
+          }
+          // Verify installation
+          return await this.isCommandAvailable('uvx');
+          
+        case 'python':
+        case 'python3':
+          logger.warn('Python installation requires manual setup. Please install from https://python.org/');
+          return false;
+          
+        case 'node':
+        case 'npx':
+          logger.warn('Node.js installation requires manual setup. Please install from https://nodejs.org/');
+          return false;
+          
+        default:
+          logger.warn(`Unknown tool '${tool}' - cannot auto-install`);
+          return false;
+      }
+    } catch (error) {
+      logger.error(`Failed to install ${tool}:`, error);
+      return false;
+    }
+  }
+
+  async checkSystemRequirements(): Promise<{
+    system: string;
+    requirements: Array<{
+      tool: string;
+      available: boolean;
+      suggestion?: string;
+    }>;
+  }> {
+    const commonTools = ['uvx', 'npx', 'python3', 'python', 'node'];
+    const requirements = [];
+    
+    for (const tool of commonTools) {
+      const available = await this.isCommandAvailable(tool);
+      let suggestion;
+      
+      if (!available) {
+        switch (tool) {
+          case 'uvx':
+            suggestion = 'Install uv: curl -LsSf https://astral.sh/uv/install.sh | sh';
+            break;
+          case 'npx':
+          case 'node':
+            suggestion = 'Install Node.js from https://nodejs.org/';
+            break;
+          case 'python3':
+          case 'python':
+            suggestion = 'Install Python from https://python.org/';
+            break;
+        }
+      }
+      
+      requirements.push({
+        tool,
+        available,
+        suggestion
+      });
+    }
+    
+    return {
+      system: `${process.platform} ${process.arch}`,
+      requirements
+    };
   }
 
   // Enhanced status methods for frontend integration
@@ -799,6 +1120,71 @@ export class MCPClientService extends EventEmitter {
         lastHealthCheck: server.lastHealthCheck
       }))
     };
+  }
+
+  // Agent tool discovery
+  getAvailableToolsForAgent(agentId?: string): any[] {
+    const availableTools: any[] = [];
+    
+    for (const [serverName, server] of this.servers.entries()) {
+      if (server.status === 'running' && server.tools) {
+        for (const tool of server.tools) {
+          availableTools.push({
+            id: `mcp-${serverName}-${tool.name}`,
+            name: tool.name,
+            description: tool.description || `${tool.name} from ${serverName} MCP server`,
+            serverName,
+            category: 'mcp',
+            inputSchema: tool.inputSchema || {},
+            capabilities: tool.capabilities || [],
+            executionTimeEstimate: server.stats.averageResponseTime || 5000,
+            costEstimate: 0.01,
+            metadata: {
+              mcpServer: serverName,
+              mcpTool: tool.name,
+              protocol: 'mcp',
+              serverStatus: server.status,
+              lastHealthCheck: server.lastHealthCheck
+            }
+          });
+        }
+      }
+    }
+    
+    return availableTools;
+  }
+
+  // Get tools by category for agents
+  getToolsByCategory(category: string): any[] {
+    const tools = this.getAvailableToolsForAgent();
+    return tools.filter(tool => tool.category === category);
+  }
+
+  // Get tools by server for agents
+  getToolsByServer(serverName: string): any[] {
+    const server = this.servers.get(serverName);
+    if (!server || server.status !== 'running' || !server.tools) {
+      return [];
+    }
+
+    return server.tools.map(tool => ({
+      id: `mcp-${serverName}-${tool.name}`,
+      name: tool.name,
+      description: tool.description || `${tool.name} from ${serverName} MCP server`,
+      serverName,
+      category: 'mcp',
+      inputSchema: tool.inputSchema || {},
+      capabilities: tool.capabilities || [],
+      executionTimeEstimate: server.stats.averageResponseTime || 5000,
+      costEstimate: 0.01,
+      metadata: {
+        mcpServer: serverName,
+        mcpTool: tool.name,
+        protocol: 'mcp',
+        serverStatus: server.status,
+        lastHealthCheck: server.lastHealthCheck
+      }
+    }));
   }
 
   // Real-time log streaming for frontend

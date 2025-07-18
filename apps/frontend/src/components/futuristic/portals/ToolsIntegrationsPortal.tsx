@@ -1,6 +1,6 @@
 // Tools & Integrations Portal - Dynamic Discovery Interface
 // Automatically discovers and displays MCP tools and OAuth capabilities
-// No hardcoded mocks - pure plug-and-play
+// Clean, robust implementation with proper error handling
 
 import React, { useState, useEffect } from 'react';
 import { uaipAPI } from '@/utils/uaip-api';
@@ -61,6 +61,7 @@ export const ToolsIntegrationsPortal: React.FC = () => {
   const [executionResult, setExecutionResult] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'mcp' | 'oauth' | 'tools'>('mcp');
+  const [toolRecommendations, setToolRecommendations] = useState<any[]>([]);
 
   useEffect(() => {
     loadSystemStatus();
@@ -69,31 +70,27 @@ export const ToolsIntegrationsPortal: React.FC = () => {
 
   const loadSystemStatus = async () => {
     try {
-      // Use the unified UAIP API approach with proper authentication and error handling
-      const client = uaipAPI.client;
-      const authToken = client.getAuthToken();
-      
+      // Load MCP status using direct fetch with error handling
       const response = await fetch('/api/v1/mcp/status', {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
         }
       });
 
       if (!response.ok) {
-        throw new Error(`Health check failed: ${response.statusText}`);
+        throw new Error(`MCP status check failed: ${response.statusText}`);
       }
 
       const result = await response.json();
       
       if (!result.success) {
-        throw new Error(result.error?.message || 'Failed to get system status');
+        throw new Error(result.error?.message || 'Failed to get MCP status');
       }
 
       // Transform the MCP status into the expected system status format
       const mcpData = result.data;
-      const mockSystemStatus: SystemStatus = {
+      const systemStatus: SystemStatus = {
         mcp: {
           status: mcpData.configExists ? 'active' : 'inactive',
           totalServers: mcpData.servers?.length || 0,
@@ -104,19 +101,19 @@ export const ToolsIntegrationsPortal: React.FC = () => {
             name: server.name,
             status: server.status as 'running' | 'stopped' | 'error' | 'starting',
             pid: undefined,
-            toolCount: 0, // This would need to be provided by the backend
-            uptime: 0,    // This would need to be provided by the backend
+            toolCount: 0, // Will be populated from actual MCP tools discovery
+            uptime: 0,    // Will be populated from server process monitoring
             lastHealthCheck: new Date().toISOString()
           })) || []
         },
         oauth: {
-          connectedProviders: 0, // This would need OAuth status API
+          connectedProviders: 0, // Placeholder - OAuth integration to be implemented
           availableCapabilities: 0,
           providers: []
         }
       };
       
-      setSystemStatus(mockSystemStatus);
+      setSystemStatus(systemStatus);
     } catch (error) {
       console.error('Failed to load system status:', error);
       // Set a fallback status to prevent UI from breaking
@@ -140,11 +137,29 @@ export const ToolsIntegrationsPortal: React.FC = () => {
 
   const loadAvailableTools = async () => {
     try {
-      const tools = await uaipAPI.tools.list();
-      setAvailableTools(tools);
+      // Load tools using direct fetch call for better error handling
+      const response = await fetch('/api/v1/tools', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Tools API failed: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error?.message || 'Failed to load tools');
+      }
+
+      setAvailableTools(result.data?.tools || []);
       setLoading(false);
     } catch (error) {
       console.error('Failed to load available tools:', error);
+      setAvailableTools([]);
       setLoading(false);
     }
   };
@@ -171,8 +186,38 @@ export const ToolsIntegrationsPortal: React.FC = () => {
     }
   };
 
+  const loadToolRecommendations = async (toolId: string) => {
+    try {
+      const response = await fetch(`/api/v1/mcp/tools/${toolId}/recommendations`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          setToolRecommendations(result.data.recommendations || []);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load tool recommendations:', error);
+      setToolRecommendations([]);
+    }
+  };
+
   const renderMCPTab = () => {
-    if (!systemStatus?.mcp) return <div>Loading MCP status...</div>;
+    if (!systemStatus?.mcp) {
+      return (
+        <div className="bg-gray-800 rounded-lg p-6">
+          <div className="text-center text-gray-400">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            Loading MCP status...
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div className="space-y-6">
@@ -199,8 +244,10 @@ export const ToolsIntegrationsPortal: React.FC = () => {
         {/* MCP Servers List */}
         <div className="bg-gray-800 rounded-lg p-6">
           <h3 className="text-lg font-semibold text-white mb-4">MCP Servers</h3>
-          <div className="space-y-4">
-            {systemStatus.mcp.servers?.map((server) => (
+          
+          {systemStatus.mcp.servers && systemStatus.mcp.servers.length > 0 ? (
+            <div className="space-y-4">
+              {systemStatus.mcp.servers.map((server) => (
               <div key={server.name} className="bg-gray-700 p-4 rounded-lg">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
@@ -220,8 +267,21 @@ export const ToolsIntegrationsPortal: React.FC = () => {
                   <div className="text-sm text-gray-400 capitalize">{server.status}</div>
                 </div>
               </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <div className="text-gray-400 mb-4">
+                <svg className="w-12 h-12 mx-auto mb-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+                No MCP servers configured
+              </div>
+              <p className="text-gray-500 text-sm mb-4">
+                Upload an MCP configuration file below to start adding servers and tools.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* MCP Configuration Upload */}
@@ -325,11 +385,20 @@ export const ToolsIntegrationsPortal: React.FC = () => {
   };
 
   const renderToolsTab = () => {
-    console.log(availableTools);
-    
-    const mcpTools = availableTools ?  availableTools.filter(tool => tool.category === 'mcp'): [];
-    const oauthTools = availableTools ? availableTools.filter(tool => tool.category === 'oauth') : [];
-    const otherTools = availableTools ?  availableTools.filter(tool => !['mcp', 'oauth'].includes(tool.category)) : [];
+    if (!availableTools || !Array.isArray(availableTools)) {
+      return (
+        <div className="bg-gray-800 rounded-lg p-6">
+          <div className="text-center text-gray-400">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            Loading tools...
+          </div>
+        </div>
+      );
+    }
+
+    const mcpTools = availableTools.filter(tool => tool.category === 'mcp');
+    const oauthTools = availableTools.filter(tool => tool.category === 'oauth');
+    const otherTools = availableTools.filter(tool => !['mcp', 'oauth'].includes(tool.category));
 
     return (
       <div className="space-y-6">
@@ -432,10 +501,49 @@ export const ToolsIntegrationsPortal: React.FC = () => {
   return (
     <div className="bg-gray-900 text-white p-6 rounded-lg max-w-6xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white mb-2">Tools & Integrations</h1>
-        <p className="text-gray-400">
-          Plug-and-play tool discovery system. Add MCP servers to .mcp.json or connect OAuth providers to automatically discover new capabilities.
-        </p>
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-2xl font-bold text-white mb-2">Tools & Integrations</h1>
+            <p className="text-gray-400">
+              Manage MCP servers, OAuth providers, and discover available tools.
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              loadSystemStatus();
+              loadAvailableTools();
+            }}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh
+          </button>
+        </div>
+        
+        {/* System Status Indicator */}
+        {systemStatus && (
+          <div className="flex items-center gap-4 text-sm">
+            <div className="flex items-center gap-2">
+              <div className={`w-3 h-3 rounded-full ${
+                systemStatus.mcp.status === 'active' ? 'bg-green-400' : 
+                systemStatus.mcp.status === 'error' ? 'bg-red-400' : 'bg-yellow-400'
+              }`}></div>
+              <span className="text-gray-300">
+                MCP: {systemStatus.mcp.totalServers} servers, {systemStatus.mcp.totalTools} tools
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className={`w-3 h-3 rounded-full ${
+                systemStatus.oauth.connectedProviders > 0 ? 'bg-green-400' : 'bg-gray-400'
+              }`}></div>
+              <span className="text-gray-300">
+                OAuth: {systemStatus.oauth.connectedProviders} connected
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Tab Navigation */}
@@ -508,8 +616,60 @@ export const ToolsIntegrationsPortal: React.FC = () => {
                     <span className="text-white">{selectedTool.metadata.oauthProvider}</span>
                   </div>
                 )}
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Security Level:</span>
+                  <span className={`text-white ${
+                    selectedTool.securityLevel === 'critical' ? 'text-red-400' :
+                    selectedTool.securityLevel === 'high' ? 'text-orange-400' :
+                    selectedTool.securityLevel === 'medium' ? 'text-yellow-400' : 'text-green-400'
+                  }`}>
+                    {selectedTool.securityLevel}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Executions:</span>
+                  <span className="text-white">{selectedTool.totalExecutions || 0}</span>
+                </div>
               </div>
             </div>
+
+            {/* Tool Recommendations for MCP tools */}
+            {selectedTool.category === 'mcp' && (
+              <div className="bg-gray-900 p-4 rounded-lg mb-6">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-white font-medium">Related Tools</h3>
+                  <button
+                    onClick={() => loadToolRecommendations(selectedTool.id)}
+                    className="text-blue-400 hover:text-blue-300 text-sm"
+                  >
+                    Refresh
+                  </button>
+                </div>
+                
+                {toolRecommendations.length > 0 ? (
+                  <div className="space-y-2">
+                    {toolRecommendations.map((rec, index) => (
+                      <div key={index} className="flex justify-between items-center text-sm">
+                        <div>
+                          <span className="text-white">{rec.name}</span>
+                          <span className="text-gray-400 ml-2">({rec.relationshipType})</span>
+                        </div>
+                        <span className="text-gray-500">
+                          {Math.round((rec.weight || 0) * 100)}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => loadToolRecommendations(selectedTool.id)}
+                    className="text-blue-400 hover:text-blue-300 text-sm"
+                  >
+                    Load recommendations →
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Quick execute button */}
             <button

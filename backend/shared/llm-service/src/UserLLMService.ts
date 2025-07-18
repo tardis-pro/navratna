@@ -12,7 +12,7 @@ import { BaseProvider } from './providers/BaseProvider.js';
 import { OllamaProvider } from './providers/OllamaProvider.js';
 import { LLMStudioProvider } from './providers/LLMStudioProvider.js';
 import { OpenAIProvider } from './providers/OpenAIProvider.js';
-import { UserLLMProviderRepository, UserLLMProvider, UserLLMProviderType, DatabaseService, UnifiedModelSelectionFacade, UnifiedModelSelection } from '@uaip/shared-services';
+import { UserLLMProviderRepository, UserLLMProvider, UserLLMProviderType, DatabaseService, UnifiedModelSelectionFacade, UnifiedModelSelection, AgentTaskTypeResolver } from '@uaip/shared-services';
 import { LLMTaskType } from '@uaip/types';
 import { logger } from '@uaip/utils';
 
@@ -20,6 +20,7 @@ export class UserLLMService {
   private userLLMProviderRepository: UserLLMProviderRepository | null = null;
   private providerCache: Map<string, BaseProvider> = new Map(); // Cache providers by user+type
   private modelSelectionFacade: UnifiedModelSelectionFacade | null = null;
+  private taskTypeResolver: AgentTaskTypeResolver | null = null;
 
   constructor(modelSelectionFacade?: UnifiedModelSelectionFacade) {
     this.modelSelectionFacade = modelSelectionFacade || null;
@@ -39,6 +40,16 @@ export class UserLLMService {
       this.userLLMProviderRepository = databaseService.userLLMProviderRepository;
     }
     return this.userLLMProviderRepository;
+  }
+
+  // Lazy initialization of task type resolver
+  private async getTaskTypeResolver(): Promise<AgentTaskTypeResolver> {
+    if (!this.taskTypeResolver) {
+      const databaseService = DatabaseService.getInstance();
+      await databaseService.initialize(); // Ensure database is initialized
+      this.taskTypeResolver = new AgentTaskTypeResolver(databaseService);
+    }
+    return this.taskTypeResolver;
   }
 
   // Provider Management Methods
@@ -335,96 +346,89 @@ export class UserLLMService {
       logger.info('UserLLMService.generateAgentResponse - Incoming request', {
         userId,
         hasAgent: !!request.agent,
-        agentKeys: request.agent ? Object.keys(request.agent) : [],
-        agentName: request.agent?.name,
-        agentRole: request.agent?.role,
-        hasPersona: !!request.agent?.persona,
-        personaKeys: request.agent?.persona ? Object.keys(request.agent.persona) : [],
-        personaDescription: request.agent?.persona?.description,
-        personaCapabilities: request.agent?.persona?.capabilities,
+        hasMessages: !!request.messages,
         messagesCount: request.messages?.length || 0,
         hasContext: !!request.context,
-        hasTools: !!(request.tools && request.tools.length > 0),
+        hasTools: !!request.tools,
         toolsCount: request.tools?.length || 0
       });
 
-      // Build prompts
-      const agentPrompt = this.buildAgentPrompt(request);
+      // Build the LLM request from the agent context
+      const prompt = this.buildAgentPrompt(request);
       const systemPrompt = this.buildAgentSystemPrompt(request);
 
-      // Log the built prompts
-      logger.info('UserLLMService.generateAgentResponse - Built prompts', {
-        userId,
-        agentName: request.agent?.name,
-        systemPromptLength: systemPrompt.length,
-        systemPrompt: systemPrompt.substring(0, 500) + (systemPrompt.length > 500 ? '...' : ''),
-        agentPromptLength: agentPrompt.length,
-        agentPrompt: agentPrompt.substring(0, 300) + (agentPrompt.length > 300 ? '...' : ''),
-        hasContext: !!request.context,
-        contextContent: request.context?.content?.substring(0, 200) || 'none'
-      });
-
-      // Extract original prompt and systemPrompt if context contains them
-      let finalPrompt = agentPrompt;
-      let finalSystemPrompt = systemPrompt;
-      
-      // If context contains embedded prompts (for compatibility with current architecture)
-      if (request.context && request.context.content) {
-        const contextContent = request.context.content;
-        const promptMatch = contextContent.match(/Prompt: (.*?)(?:\n|$)/);
-        const systemMatch = contextContent.match(/System Instructions: (.*?)(?:\n|$)/);
-        
-        if (promptMatch && promptMatch[1]) {
-          finalPrompt = promptMatch[1];
-        }
-        if (systemMatch && systemMatch[1]) {
-          finalSystemPrompt = systemMatch[1];
-        }
-      }
-
-      // Convert to LLM request
       const llmRequest: LLMRequest = {
-        prompt: finalPrompt,
-        systemPrompt: finalSystemPrompt,
-        maxTokens: 200, // Keep responses concise
-        temperature: 0.7,
-        model: request.agent.configuration?.model || request.agent.modelId
+        prompt,
+        systemPrompt,
+        maxTokens: request.agent.maxTokens,
+        temperature: request.agent.temperature,
+        model: request.agent.modelId,
+        userId,
+        agentId: request.agent.id
       };
 
-      // Log final prompts being used
-      logger.info('UserLLMService.generateAgentResponse - Final prompts for LLM', {
+      logger.info('Built LLM request for agent', {
         userId,
-        agentName: request.agent?.name,
-        finalPromptLength: finalPrompt.length,
-        finalPrompt: finalPrompt.substring(0, 200) + (finalPrompt.length > 200 ? '...' : ''),
-        finalSystemPromptLength: finalSystemPrompt.length,
-        finalSystemPrompt: finalSystemPrompt.substring(0, 200) + (finalSystemPrompt.length > 200 ? '...' : ''),
-        model: llmRequest.model,
+        agentId: request.agent.id,
+        agentName: request.agent.name,
+        hasPrompt: !!prompt,
+        hasSystemPrompt: !!systemPrompt,
         maxTokens: llmRequest.maxTokens,
-        temperature: llmRequest.temperature
+        temperature: llmRequest.temperature,
+        model: llmRequest.model
       });
 
-      // Use model selection facade if available
       let response: LLMResponse;
       
-      logger.info('Checking model selection facade availability', {
-        hasFacade: !!this.modelSelectionFacade,
-        hasAgentId: !!request.agent?.id,
-        agentId: request.agent?.id,
-        agentName: request.agent?.name
-      });
-      
-      if (this.modelSelectionFacade && request.agent?.id) {
-        logger.info('Using model selection facade for agent response', {
+      // Check if we have model selection facade and agent ID for intelligent selection
+      if (this.modelSelectionFacade && request.agent.id) {
+        logger.info('Using model selection facade for agent', {
           agentId: request.agent.id,
-          agentName: request.agent.name,
-          model: llmRequest.model
+          agentName: request.agent.name
         });
         
+        // Convert the types Agent to a partial database Agent for task type determination
+        // Only include the properties that are actually available and needed
+        const agentForTaskType = {
+          id: request.agent.id,
+          name: request.agent.name,
+          description: request.agent.description,
+          role: request.agent.role,
+          capabilities: request.agent.capabilities || [],
+          // Set reasonable defaults for missing properties
+          learningHistory: [],
+          securityLevel: 'medium' as const,
+          complianceTags: [],
+          auditTrail: [],
+          performanceMetrics: {},
+          configuration: request.agent.configuration || {},
+          preferences: {},
+          tags: [],
+          metadata: request.agent.metadata || {},
+          version: request.agent.version || 1,
+          toolPermissions: {},
+          toolPreferences: {},
+          toolBudget: {},
+          maxConcurrentTools: 3,
+          modelId: request.agent.modelId,
+          apiType: request.agent.apiType,
+          userLLMProviderId: request.agent.userLLMProviderId,
+          temperature: request.agent.temperature,
+          maxTokens: request.agent.maxTokens,
+          systemPrompt: request.agent.systemPrompt
+        };
+
+        // Determine appropriate task type for the agent
+        const taskTypeResolver = await this.getTaskTypeResolver();
+        const taskType = await taskTypeResolver.determineTaskType(agentForTaskType as any, {
+          userIntent: request.messages?.[0]?.content,
+          conversationHistory: request.messages
+        });
+
         // Use facade to select model and provider
         const modelSelection = await this.modelSelectionFacade.selectForAgent(
           request.agent.id,
-          LLMTaskType.REASONING,
+          taskType,
           {
             model: llmRequest.model,
             urgency: 'medium'
@@ -434,7 +438,8 @@ export class UserLLMService {
         logger.info('Model selection facade result', {
           selectedModel: modelSelection.model.model,
           selectedProvider: modelSelection.model.provider,
-          confidence: modelSelection.model.confidence
+          confidence: modelSelection.model.confidence,
+          taskType: taskType
         });
 
         // Use the selected model and provider type to find a matching user provider

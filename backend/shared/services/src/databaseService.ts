@@ -13,6 +13,7 @@ import { ArtifactService } from './services/ArtifactService.js';
 import { SessionService } from './services/SessionService.js';
 import { MFAService } from './services/MFAService.js';
 import { OAuthService } from './services/OAuthService.js';
+import { MCPService } from './services/MCPService.js';
 import { KnowledgeBootstrapService } from './knowledge-graph/bootstrap.service.js';
 import { seedDatabase } from './database/seedDatabase.js';
 import { KnowledgeRepository } from './database/repositories/knowledge.repository.js';
@@ -60,6 +61,7 @@ export class DatabaseService {
   private sessionService: SessionService;
   private mfaService: MFAService;
   private oauthService: OAuthService;
+  private mcpService: MCPService;
 
   // Knowledge graph services (lazy-loaded)
   private _knowledgeRepository: KnowledgeRepository | null = null;
@@ -82,6 +84,7 @@ export class DatabaseService {
     this.sessionService = SessionService.getInstance();
     this.mfaService = MFAService.getInstance();
     this.oauthService = OAuthService.getInstance();
+    this.mcpService = MCPService.getInstance();
     
     // Note: DiscussionService will be lazily initialized when accessed via getter
   }
@@ -459,6 +462,17 @@ export class DatabaseService {
   // Service getters for dependency injection
   public getAgentService(): AgentService {
     return this.agentService;
+  }
+
+  public getMCPService(): MCPService {
+    // Initialize the MCP service with the dataSource if not already done
+    try {
+      const dataSource = this.typeormService.getDataSource();
+      this.mcpService.setDataSource(dataSource);
+    } catch (error) {
+      logger.warn('DataSource not available for MCP service:', error);
+    }
+    return this.mcpService;
   }
 
   public async getDiscussionService(): Promise<DiscussionService> {

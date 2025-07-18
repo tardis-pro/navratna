@@ -18,6 +18,9 @@ export { BaseService, ServiceConfig, createService } from './BaseService.js';
 // Database Services (consolidated - no duplicates)
 export * from './database/index.js';
 
+// MCP Services
+export { MCPService } from './services/MCPService.js';
+
 // Communication Services
 export { EventBusService } from './eventBusService.js';
 
@@ -92,6 +95,7 @@ export { AgentIntelligenceService } from './agentIntelligenceService.js';
 export { CapabilityDiscoveryService } from './capabilityDiscoveryService.js';
 export { SecurityValidationService } from './securityValidationService.js';
 export { ModelCapabilityDetector } from './capabilities/ModelCapabilityDetector.js';
+export { AgentTaskTypeResolver } from './services/AgentTaskTypeResolver.js';
 
 // Business Logic Services
 export { ToolManagementService } from './tool-management.service.js';

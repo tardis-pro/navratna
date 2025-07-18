@@ -16,7 +16,7 @@ import { BaseProvider } from './providers/BaseProvider.js';
 import { OllamaProvider } from './providers/OllamaProvider.js';
 import { LLMStudioProvider } from './providers/LLMStudioProvider.js';
 import { OpenAIProvider } from './providers/OpenAIProvider.js';
-import { LLMProviderRepository, LLMProvider, RedisCacheService } from '@uaip/shared-services';
+import { LLMProviderRepository, LLMProvider, UserLLMProviderRepository, UserLLMProvider, RedisCacheService } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { v4 as uuidv4 } from 'uuid';
@@ -26,6 +26,7 @@ export class LLMService {
   private providers: Map<string, BaseProvider> = new Map();
   private initialized = false;
   private llmProviderRepository: LLMProviderRepository | null = null;
+  private userLLMProviderRepository: UserLLMProviderRepository | null = null;
   private cacheService: RedisCacheService;
 
   // Cache keys and TTL (1 hour = 3600 seconds)
@@ -54,32 +55,50 @@ export class LLMService {
         await databaseService.initialize();
         // Use the properly initialized repository from DatabaseService
         this.llmProviderRepository = databaseService.llmProviderRepository;
+        this.userLLMProviderRepository = databaseService.userLLMProviderRepository;
       }
 
-      // Get active providers from database
-      const dbProviders = await this.llmProviderRepository.findActiveProviders();
+      // Get active providers from all users (UserLLMProvider)
+      const userProviders = await this.userLLMProviderRepository!.findActiveProviders();
+      
+      logger.info(`Found ${userProviders.length} active user providers in database`);
 
       // Clear existing providers
       this.providers.clear();
 
-      // Initialize providers from database configuration
-      for (const dbProvider of dbProviders) {
+      // Group providers by type to avoid duplicates
+      const providersByType = new Map<string, UserLLMProvider>();
+      for (const userProvider of userProviders) {
+        if (!providersByType.has(userProvider.type)) {
+          providersByType.set(userProvider.type, userProvider);
+        }
+      }
+
+      // Initialize providers from user provider configuration
+      for (const [type, dbProvider] of providersByType) {
         try {
           const providerConfig = dbProvider.getProviderConfig();
           let provider: BaseProvider;
 
+          // Cast the type to the expected LLMProviderConfig type
+          const llmProviderConfig = {
+            ...providerConfig,
+            type: providerConfig.type as 'ollama' | 'openai' | 'llmstudio' | 'anthropic' | 'custom',
+            baseUrl: providerConfig.baseUrl || 'http://localhost:11434' // Default baseUrl if not provided
+          };
+
           switch (dbProvider.type) {
             case 'ollama':
-              provider = new OllamaProvider(providerConfig, dbProvider.name);
+              provider = new OllamaProvider(llmProviderConfig, dbProvider.name);
               break;
             case 'llmstudio':
-              provider = new LLMStudioProvider(providerConfig, dbProvider.name);
+              provider = new LLMStudioProvider(llmProviderConfig, dbProvider.name);
               break;
             case 'openai':
-              provider = new OpenAIProvider(providerConfig, dbProvider.name);
+              provider = new OpenAIProvider(llmProviderConfig, dbProvider.name);
               break;
             default:
-              logger.warn(`Unknown provider type: ${dbProvider.type}`, { providerId: dbProvider.id });
+              logger.warn(`Unsupported provider type: ${dbProvider.type}`, { providerId: dbProvider.id });
               continue;
           }
 
@@ -413,7 +432,7 @@ export class LLMService {
     const allModels = [];
     try {
       // Get only active providers from database
-      const dbProviders = await this.llmProviderRepository.findMany({ isActive: true });
+      const dbProviders = await this.llmProviderRepository.findActiveProviders();
 
       logger.info(`Getting available models from ${dbProviders.length} database-configured providers`);
 
@@ -943,7 +962,13 @@ export class LLMService {
     this.providers.clear();
     await this.invalidateAllCache();
     await this.initializeFromDatabase();
-    logger.info('Refreshed providers and cleared cache');
+  }
+
+  /**
+   * Get the providers map for internal use
+   */
+  getProvidersMap(): Map<string, BaseProvider> {
+    return this.providers;
   }
 }
 

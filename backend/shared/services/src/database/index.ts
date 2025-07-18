@@ -30,6 +30,7 @@ export { RepositoryFactory, repositoryFactory } from './base/RepositoryFactory.j
 
 // Repositories
 export { LLMProviderRepository } from './repositories/LLMProviderRepository.js';
+export { LLMModelRepository } from '../repositories/llmModelRepository.js';
 export { UserLLMProviderRepository } from './repositories/UserLLMProviderRepository.js';
 export { UserLLMPreferenceRepository } from './repositories/UserLLMPreferenceRepository.js';
 export { AgentLLMPreferenceRepository } from './repositories/AgentLLMPreferenceRepository.js';
@@ -37,6 +38,7 @@ export * from './repositories/index.js';
 
 // Entities
 export { LLMProvider } from '../entities/llmProvider.entity.js';
+export { LLMModel } from '../entities/llmModel.entity.js';
 export { UserLLMProvider, UserLLMProviderType, UserLLMProviderStatus } from '../entities/userLLMProvider.entity.js';
 
 // Types

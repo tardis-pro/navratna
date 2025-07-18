@@ -362,17 +362,335 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
     </div>
   );
 
-  const renderToolsTab = () => (
-    <div className="space-y-6">
-      <div className="text-center py-8">
-        <Zap className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-        <p className="text-gray-500">Tool management coming soon...</p>
-        <p className="text-sm text-gray-400 mt-2">
-          Advanced tool configuration and permissions will be available here.
-        </p>
+  const renderToolsTab = () => {
+    const [mcpTools, setMcpTools] = useState<any[]>([]);
+    const [loadingTools, setLoadingTools] = useState(true);
+    const [assignedTools, setAssignedTools] = useState<any[]>([]);
+    const [toolSettings, setToolSettings] = useState<any>({});
+    const [showAddTool, setShowAddTool] = useState(false);
+
+    // Load MCP tools and agent's assigned tools
+    useEffect(() => {
+      const loadMCPTools = async () => {
+        try {
+          setLoadingTools(true);
+          
+          // Get available MCP tools
+          const availableResponse = await fetch('/api/v1/agents/mcp-tools', {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (availableResponse.ok) {
+            const availableData = await availableResponse.json();
+            setMcpTools(availableData.data?.tools || []);
+          }
+
+          // Get agent's assigned tools
+          const assignedResponse = await fetch(`/api/v1/agents/${agentId}/mcp-tools`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (assignedResponse.ok) {
+            const assignedData = await assignedResponse.json();
+            setAssignedTools(assignedData.data?.assignedMCPTools || []);
+            setToolSettings(assignedData.data?.mcpToolSettings || {});
+          }
+        } catch (error) {
+          console.error('Error loading MCP tools:', error);
+        } finally {
+          setLoadingTools(false);
+        }
+      };
+
+      if (isOpen && agentId) {
+        loadMCPTools();
+      }
+    }, [isOpen, agentId]);
+
+    const handleAssignTool = async (tool: any) => {
+      try {
+        const response = await fetch(`/api/v1/agents/${agentId}/mcp-tools`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            toolsToAssign: [{
+              toolId: tool.id,
+              toolName: tool.name,
+              serverName: tool.serverName,
+              enabled: true,
+              priority: 1,
+              parameters: tool.parameters || {}
+            }]
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setAssignedTools(data.data.assignedMCPTools);
+          setShowAddTool(false);
+        }
+      } catch (error) {
+        console.error('Error assigning tool:', error);
+      }
+    };
+
+    const handleRemoveTool = async (toolId: string) => {
+      try {
+        const response = await fetch(`/api/v1/agents/${agentId}/mcp-tools/${toolId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          setAssignedTools(prev => prev.filter(t => t.toolId !== toolId));
+        }
+      } catch (error) {
+        console.error('Error removing tool:', error);
+      }
+    };
+
+    const handleToggleTool = async (toolId: string, enabled: boolean) => {
+      try {
+        const response = await fetch(`/api/v1/agents/${agentId}/mcp-tools/${toolId}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ enabled })
+        });
+
+        if (response.ok) {
+          setAssignedTools(prev => 
+            prev.map(t => t.toolId === toolId ? { ...t, enabled } : t)
+          );
+        }
+      } catch (error) {
+        console.error('Error toggling tool:', error);
+      }
+    };
+
+    const handleUpdateSettings = async (newSettings: any) => {
+      try {
+        const response = await fetch(`/api/v1/agents/${agentId}/mcp-settings`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(newSettings)
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setToolSettings(data.data.mcpToolSettings);
+        }
+      } catch (error) {
+        console.error('Error updating settings:', error);
+      }
+    };
+
+    return (
+      <div className="space-y-6">
+        {/* MCP Tool Settings */}
+        <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 p-4 rounded-lg">
+          <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">MCP Tool Settings</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Max Tools Per Server
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="20"
+                value={toolSettings.maxToolsPerServer || 5}
+                onChange={(e) => {
+                  const newSettings = { ...toolSettings, maxToolsPerServer: parseInt(e.target.value) };
+                  setToolSettings(newSettings);
+                  handleUpdateSettings(newSettings);
+                }}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+            </div>
+            <div className="flex items-center">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={toolSettings.autoDiscoveryEnabled || false}
+                  onChange={(e) => {
+                    const newSettings = { ...toolSettings, autoDiscoveryEnabled: e.target.checked };
+                    setToolSettings(newSettings);
+                    handleUpdateSettings(newSettings);
+                  }}
+                  className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">Auto-discover new tools</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {/* Assigned Tools */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Assigned MCP Tools</h4>
+            <button
+              onClick={() => setShowAddTool(true)}
+              className="flex items-center gap-2 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Add Tool
+            </button>
+          </div>
+
+          {loadingTools ? (
+            <div className="text-center py-8">
+              <Loader2 className="h-8 w-8 mx-auto mb-4 text-gray-400 animate-spin" />
+              <p className="text-gray-500">Loading MCP tools...</p>
+            </div>
+          ) : assignedTools.length === 0 ? (
+            <div className="text-center py-8 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
+              <Zap className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+              <p className="text-gray-500 dark:text-gray-400">No MCP tools assigned</p>
+              <p className="text-sm text-gray-400 mt-2">
+                Add tools to enhance your agent's capabilities
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {assignedTools.map((tool) => (
+                <div key={tool.toolId} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="flex items-center gap-2">
+                          <Zap className="h-4 w-4 text-blue-500" />
+                          <h5 className="font-medium text-gray-900 dark:text-white">{tool.toolName}</h5>
+                        </div>
+                        <span className="px-2 py-1 bg-purple-100 dark:bg-purple-800 text-purple-800 dark:text-purple-200 text-xs rounded-full">
+                          {tool.serverName}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                        Tool ID: {tool.toolId}
+                      </p>
+                      <div className="flex items-center gap-4">
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={tool.enabled}
+                            onChange={(e) => handleToggleTool(tool.toolId, e.target.checked)}
+                            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          />
+                          <span className="text-sm text-gray-700 dark:text-gray-300">Enabled</span>
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-700 dark:text-gray-300">Priority:</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max="10"
+                            value={tool.priority || 1}
+                            onChange={(e) => {
+                              const newPriority = parseInt(e.target.value);
+                              setAssignedTools(prev => 
+                                prev.map(t => t.toolId === tool.toolId ? { ...t, priority: newPriority } : t)
+                              );
+                            }}
+                            className="w-16 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleRemoveTool(tool.toolId)}
+                      className="text-red-600 hover:text-red-800 p-2"
+                      title="Remove tool"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Add Tool Modal */}
+        {showAddTool && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <div className="w-full max-w-2xl max-h-[80vh] bg-white dark:bg-gray-800 rounded-xl shadow-2xl overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Add MCP Tool</h3>
+                  <button
+                    onClick={() => setShowAddTool(false)}
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-gray-600 dark:text-gray-400"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+              <div className="p-6 max-h-[60vh] overflow-y-auto">
+                {mcpTools.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Zap className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                    <p className="text-gray-500 dark:text-gray-400">No MCP tools available</p>
+                    <p className="text-sm text-gray-400 mt-2">
+                      Configure MCP servers in the capability registry to see available tools
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {mcpTools.filter(tool => !assignedTools.some(at => at.toolId === tool.id)).map((tool) => (
+                      <div key={tool.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <Zap className="h-4 w-4 text-blue-500" />
+                              <h5 className="font-medium text-gray-900 dark:text-white">{tool.name}</h5>
+                              <span className="px-2 py-1 bg-purple-100 dark:bg-purple-800 text-purple-800 dark:text-purple-200 text-xs rounded-full">
+                                {tool.serverName}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                              {tool.description}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-500">
+                              Tool ID: {tool.id}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => handleAssignTool(tool)}
+                            className="ml-4 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors text-sm"
+                          >
+                            Add Tool
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderLLMPreferencesTab = () => (
     <div className="space-y-6">

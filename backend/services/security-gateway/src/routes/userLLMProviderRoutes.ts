@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { UserService } from '@uaip/shared-services';
+import { UserService, DatabaseService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { authMiddleware } from '@uaip/middleware';
 import { z } from 'zod';
@@ -95,7 +95,8 @@ async function getServices() {
   if (!modelBootstrapService) {
     modelBootstrapService = ModelBootstrapService.getInstance();
   }
-  return { userService, userLLMService, modelBootstrapService };
+  const dataSource = await DatabaseService.getInstance().getDataSource();
+  return { userService, userLLMService, modelBootstrapService, dataSource };
 }
 
 // Apply authentication middleware to all routes
@@ -239,50 +240,26 @@ router.get('/my-providers/active', async (req: AuthenticatedRequest, res: Respon
 // Get all available models from user's providers
 router.get('/my-providers/models', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { userLLMService, modelBootstrapService } = await getServices();
+    const { dataSource } = await getServices();
+    const { ModelService } = await import('../services/modelService.js');
+    const modelService = new ModelService(dataSource);
+    
     const userId = req.user!.id;
     
-    logger.info('Fetching models for user', { userId });
+    logger.info('Fetching models for user from database', { userId });
     
-    // Try to get cached models first (fast path)
-    let allModels = await modelBootstrapService.getCachedUserModels(userId);
+    // Get models from database only (no external API calls)
+    const models = await modelService.getModelsForUser(userId);
     
-    if (!allModels) {
-      // Cache miss - fetch fresh models
-      logger.info('Cache miss for user models, fetching fresh', { userId });
-      allModels = await userLLMService.getAvailableModels(userId);
-      
-      // Trigger cache refresh in background (no await)
-      modelBootstrapService.refreshUserModels(userId).catch(error => {
-        logger.warn('Background model cache refresh failed', { userId, error });
-      });
-    } else {
-      logger.debug('Using cached models for user', { userId, modelCount: allModels.length });
-    }
-    
-    // Transform to legacy format for compatibility
-    const transformedModels = allModels.map(model => ({
-      id: `${model.provider}-${model.name}`,
-      name: model.name,
-      description: model.description || `${model.name} from ${model.provider}`,
-      source: model.provider,
-      apiEndpoint: model.apiEndpoint,
-      apiType: model.apiType,
-      provider: model.provider,
-      providerId: model.providerId || model.provider, // fallback for compatibility
-      isAvailable: model.isAvailable,
-      isDefault: false // We don't have this info in the new format
-    }));
-    
-    logger.info('Models fetched successfully', {
+    logger.info('Models fetched successfully from database', {
       userId,
-      totalModels: transformedModels.length,
-      source: allModels === await modelBootstrapService.getCachedUserModels(userId) ? 'cache' : 'fresh'
+      totalModels: models.length,
+      source: 'database'
     });
     
     res.json({
       success: true,
-      data: transformedModels
+      data: models
     });
     
   } catch (error) {
@@ -534,11 +511,13 @@ router.delete('/my-providers/:id', async (req: AuthenticatedRequest, res: Respon
   }
 });
 
-// Test LLM provider connection
+// Test LLM provider connection (database check only)
 router.post('/my-providers/:id/test', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { userService, userLLMService } = await getServices();
+    const { userService, dataSource } = await getServices();
+    const { ModelService } = await import('../services/modelService.js');
+    const modelService = new ModelService(dataSource);
     const userId = req.user!.id;
     
     // Find provider to ensure user ownership
@@ -551,35 +530,38 @@ router.post('/my-providers/:id/test', async (req: AuthenticatedRequest, res: Res
       return;
     }
     
-    logger.info('Testing user LLM provider connection', {
+    logger.info('Testing user LLM provider database connection', {
       userId,
       providerId: id,
       providerName: provider.name,
       providerType: provider.type
     });
     
-    // Use UserLLMService for connection testing
-    const testResult = await userLLMService.testUserProvider(userId);
+    // Test database connection and get models from database
+    const isHealthy = await modelService.healthCheck();
+    const models = await modelService.getModelsForProvider(id);
     
-    logger.info('User LLM provider connection test completed', {
+    logger.info('User LLM provider database test completed', {
       userId,
       providerId: id,
-      result: testResult
+      isHealthy,
+      modelCount: models.length
     });
     
     res.json({
       success: true,
       data: {
-        status: testResult.isHealthy ? 'healthy' : 'unhealthy',
-        latency: testResult.responseTime,
-        error: testResult.error,
-        modelCount: testResult.modelCount,
-        testedAt: new Date().toISOString()
+        status: isHealthy ? 'healthy' : 'unhealthy',
+        latency: 0, // No external API call, so no latency
+        error: isHealthy ? null : 'Database connection failed',
+        modelCount: models.length,
+        testedAt: new Date().toISOString(),
+        note: 'Database-only test. External API connectivity tested by LLM Service.'
       }
     });
     
   } catch (error) {
-    logger.error('Error testing user LLM provider connection', { 
+    logger.error('Error testing user LLM provider database connection', { 
       error, 
       userId: req.user?.id,
       providerId: req.params.id
@@ -587,7 +569,7 @@ router.post('/my-providers/:id/test', async (req: AuthenticatedRequest, res: Res
     
     res.status(500).json({
       success: false,
-      error: 'Failed to test LLM provider connection'
+      error: 'Failed to test LLM provider database connection'
     });
   }
 });

@@ -47,6 +47,10 @@ export abstract class BaseProvider {
     return [];
   }
 
+  getName(): string {
+    return this.name;
+  }
+
   getBaseUrl(): string {
     return this.config.baseUrl;
   }

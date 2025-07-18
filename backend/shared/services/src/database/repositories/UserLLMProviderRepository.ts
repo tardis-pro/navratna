@@ -48,6 +48,27 @@ export class UserLLMProviderRepository extends BaseRepository<UserLLMProvider> {
   }
 
   /**
+   * Find all active providers across all users
+   */
+  async findActiveProviders(): Promise<UserLLMProvider[]> {
+    try {
+      return await this.repository.find({
+        where: [
+          { isActive: true, status: 'active' },
+          { isActive: true, status: 'testing' }
+        ],
+        order: { 
+          priority: 'ASC',
+          createdAt: 'ASC'
+        }
+      });
+    } catch (error) {
+      logger.error('Error finding active user LLM providers', { error });
+      throw error;
+    }
+  }
+
+  /**
    * Find provider by user and type
    */
   async findByUserAndType(userId: string, type: UserLLMProviderType): Promise<UserLLMProvider | null> {
