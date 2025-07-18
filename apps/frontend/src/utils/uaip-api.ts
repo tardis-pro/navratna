@@ -502,8 +502,7 @@ export const uaipAPI = {
       toolsExecuted?: Array<any>;
     }> {
       try {
-        const client = getAPIClient();
-        const authToken = client.getAuthToken();
+        const authToken = APIClient.getAuthToken();
 
         // Make direct HTTP request to the agent chat endpoint with timeout
         const controller = new AbortController();
@@ -560,6 +559,25 @@ export const uaipAPI = {
           }
         }
 
+        throw error;
+      }
+    },
+
+    // Agent tool management functions
+    async addTool(agentId: string, toolId: string): Promise<any> {
+      try {
+        return await APIClient.post(`/api/v1/agents/${agentId}/tools`, { toolId });
+      } catch (error) {
+        console.error(`Failed to add tool ${toolId} to agent ${agentId}:`, error);
+        throw error;
+      }
+    },
+
+    async removeTool(agentId: string, toolId: string): Promise<any> {
+      try {
+        return await APIClient.delete(`/api/v1/agents/${agentId}/tools/${toolId}`);
+      } catch (error) {
+        console.error(`Failed to remove tool ${toolId} from agent ${agentId}:`, error);
         throw error;
       }
     }
@@ -1184,7 +1202,7 @@ export const uaipAPI = {
         const formData = new FormData();
         formData.append('mcpConfig', configFile);
 
-        const authToken = uaipAPI.client.getAuthToken();
+        const authToken = APIClient.getAuthToken();
 
         const response = await fetch('/api/v1/mcp/upload-config', {
           method: 'POST',
@@ -1224,25 +1242,7 @@ export const uaipAPI = {
     }> {
       try {
         const client = getAPIClient();
-        const response = await fetch('/api/v1/mcp/status', {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${client.getAuthToken()}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error(`Status request failed: ${response.statusText}`);
-        }
-
-        const result = await response.json();
-
-        if (!result.success) {
-          throw new Error(result.error?.message || 'Failed to get MCP status');
-        }
-
-        return result.data;
+        return await api.mcp.getStatus();
       } catch (error) {
         console.error('MCP status error:', error);
         throw error;
@@ -1258,25 +1258,7 @@ export const uaipAPI = {
     }> {
       try {
         const client = getAPIClient();
-        const response = await fetch('/api/v1/mcp/config', {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${client.getAuthToken()}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error(`Config request failed: ${response.statusText}`);
-        }
-
-        const result = await response.json();
-
-        if (!result.success) {
-          throw new Error(result.error?.message || 'Failed to get MCP config');
-        }
-
-        return result.data;
+        return await api.mcp.getConfig();
       } catch (error) {
         console.error('MCP config error:', error);
         throw error;
@@ -1290,27 +1272,30 @@ export const uaipAPI = {
     }> {
       try {
         const client = getAPIClient();
-        const response = await fetch(`/api/v1/mcp/restart-server/${encodeURIComponent(serverName)}`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${client.getAuthToken()}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error(`Restart request failed: ${response.statusText}`);
-        }
-
-        const result = await response.json();
-
-        if (!result.success) {
-          throw new Error(result.error?.message || 'Failed to restart MCP server');
-        }
-
-        return result.data;
+        return await APIClient.post(`/api/v1/mcp/restart-server/${encodeURIComponent(serverName)}`);
       } catch (error) {
         console.error('MCP server restart error:', error);
+        throw error;
+      }
+    },
+
+    async getTools(): Promise<{
+      tools: Array<{
+        id: string;
+        name: string;
+        description: string;
+        serverName: string;
+        command: string;
+        parameters: any;
+        category: string;
+      }>;
+      count: number;
+      servers: string[];
+    }> {
+      try {
+        return await api.mcp.getTools();
+      } catch (error) {
+        console.error('MCP tools error:', error);
         throw error;
       }
     }

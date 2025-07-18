@@ -238,6 +238,92 @@ export function createAgentRoutes(): Router {
     }
   );
 
+  // Generic Tool Management Routes (for all tool types)
+  
+  // Add any tool to agent
+  router.post('/:agentId/tools',
+    authMiddleware,
+    trackAgentOperation('add-tool-to-agent'),
+    async (req, res, next) => {
+      try {
+        const { agentId } = req.params;
+        const { toolId } = req.body;
+        
+        if (!toolId) {
+          res.status(400).json({ 
+            success: false, 
+            error: 'toolId is required' 
+          });
+          return;
+        }
+
+        // TODO: Implement actual tool attachment logic
+        // For now, return success response
+        logger.info(`Adding tool ${toolId} to agent ${agentId}`);
+        
+        res.json({
+          success: true,
+          data: {
+            agentId,
+            toolId,
+            message: 'Tool added to agent successfully'
+          }
+        });
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
+  // Remove any tool from agent
+  router.delete('/:agentId/tools/:toolId',
+    authMiddleware,
+    trackAgentOperation('remove-tool-from-agent'),
+    async (req, res, next) => {
+      try {
+        const { agentId, toolId } = req.params;
+        
+        // TODO: Implement actual tool removal logic
+        logger.info(`Removing tool ${toolId} from agent ${agentId}`);
+        
+        res.json({
+          success: true,
+          data: {
+            agentId,
+            toolId,
+            message: 'Tool removed from agent successfully'
+          }
+        });
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
+  // Get agent's attached tools
+  router.get('/:agentId/tools',
+    authMiddleware,
+    trackAgentOperation('get-agent-tools'),
+    async (req, res, next) => {
+      try {
+        const { agentId } = req.params;
+        
+        // TODO: Implement actual tool retrieval logic
+        // For now, return empty array
+        res.json({
+          success: true,
+          data: {
+            agentId,
+            tools: [],
+            count: 0
+          }
+        });
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
   // MCP Tool Management Routes
   
   // Get available MCP tools

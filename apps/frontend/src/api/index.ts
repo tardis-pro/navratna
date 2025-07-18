@@ -21,6 +21,7 @@ export * from './capabilities.api';
 export * from './orchestration.api';
 export * from './knowledge.api';
 export * from './llm.api';
+export * from './mcp.api';
 
 // Convenience namespace exports
 import { authAPI } from './auth.api';
@@ -37,6 +38,7 @@ import { capabilitiesAPI } from './capabilities.api';
 import { orchestrationAPI } from './orchestration.api';
 import { knowledgeAPI } from './knowledge.api';
 import { llmAPI } from './llm.api';
+import { mcpAPI } from './mcp.api';
 
 export const api = {
   auth: authAPI,
@@ -52,5 +54,6 @@ export const api = {
   capabilities: capabilitiesAPI,
   orchestration: orchestrationAPI,
   knowledge: knowledgeAPI,
-  llm: llmAPI
+  llm: llmAPI,
+  mcp: mcpAPI
 };
