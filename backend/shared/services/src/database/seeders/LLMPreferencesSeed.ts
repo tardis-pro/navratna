@@ -220,7 +220,7 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
     return {
       [LLMTaskType.CODE_GENERATION]: {
         primaryProvider: LLMProviderType.LLMSTUDIO,
-        primaryModel: 'smollm3-3b', // Will be resolved to actual model ID
+        primaryModel: 'deepseek-r1-0528-qwen3-8b', // Will be resolved to actual model ID
         fallbackModel: 'gpt-4o',
         priority: 90,
         description: 'High-quality code generation with SmolLM3',
@@ -233,7 +233,7 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
       },
       [LLMTaskType.REASONING]: {
         primaryProvider: LLMProviderType.LLMSTUDIO,
-        primaryModel: 'deepcogito_cogito-v1-preview-llama-8b', // Will be resolved to actual model ID
+        primaryModel: 'qwen/qwen3-30b-a3b', // Will be resolved to actual model ID
         fallbackModel: 'gpt-4o',
         priority: 95,
         description: 'Complex reasoning and analysis with DeepCogito Cogito',
@@ -246,7 +246,7 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
       },
       [LLMTaskType.TOOL_CALLING]: {
         primaryProvider: LLMProviderType.LLMSTUDIO,
-        primaryModel: 'menlo_jan-nano-128k',
+        primaryModel: 'arch-agent-7b',
         fallbackModel: 'gpt-4o',
         priority: 85,
         description: 'Fast and reliable tool execution with Menlo Jan Nano',
@@ -259,7 +259,7 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
       },
       [LLMTaskType.SUMMARIZATION]: {
         primaryProvider: LLMProviderType.LLMSTUDIO,
-        primaryModel: 'internlm3-8b-instruct',
+        primaryModel: 'arch-agent-7b',
         fallbackModel: 'gpt-4o-mini',
         priority: 80,
         description: 'Efficient summarization with InternLM3',
@@ -272,7 +272,7 @@ export class LLMPreferencesSeed extends BaseSeed<UserLLMPreference> {
       },
       [LLMTaskType.CREATIVE_WRITING]: {
         primaryProvider: LLMProviderType.LLMSTUDIO,
-        primaryModel: 'llama-3.2-3b-overthinker',
+        primaryModel: 'arch-agent-7b',
         fallbackModel: 'gpt-4o',
         priority: 75,
         description: 'Creative content generation with Llama 3.2 Overthinker',

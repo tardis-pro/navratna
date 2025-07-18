@@ -144,7 +144,7 @@ export class UserLLMProviderSeed extends BaseSeed<UserLLMProvider> {
         description: 'Local LM Studio instance for running open-source models privately',
         type: 'llmstudio' as UserLLMProviderType,
         baseUrl: 'http://192.168.1.11:1234',
-        defaultModel: 'llama-3.2-3b-overthinker',
+        defaultModel: 'arch-agent-7b',
         configuration: {
           timeout: 60000,
           retries: 2,

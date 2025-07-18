@@ -46,6 +46,34 @@ interface MCPServerConfig {
   cwd?: string;
 }
 
+// MCP Resource Types
+interface MCPResource {
+  uri: string;
+  name: string;
+  description?: string;
+  mimeType?: string;
+  annotations?: {
+    audience?: string[];
+    priority?: number;
+  };
+}
+
+interface MCPPrompt {
+  name: string;
+  description?: string;
+  arguments?: Array<{
+    name: string;
+    description?: string;
+    required?: boolean;
+  }>;
+}
+
+interface MCPTool {
+  name: string;
+  description?: string;
+  inputSchema: any;
+}
+
 // MCP Server State
 interface MCPServerState {
   name: string;
@@ -57,9 +85,9 @@ interface MCPServerState {
   lastHealthCheck?: Date;
   error?: string;
   capabilities?: any;
-  tools?: any[];
-  resources?: any[];
-  prompts?: any[];
+  tools?: MCPTool[];
+  resources?: MCPResource[];
+  prompts?: MCPPrompt[];
   logs: string[];
   stats: {
     totalRequests: number;
@@ -1207,6 +1235,216 @@ export class MCPClientService extends EventEmitter {
     });
 
     return logStream;
+  }
+
+  // Comprehensive Resource Discovery
+  async discoverResources(serverName?: string): Promise<MCPResource[]> {
+    const resources: MCPResource[] = [];
+    const serversToCheck = serverName ? [serverName] : Array.from(this.servers.keys());
+
+    for (const name of serversToCheck) {
+      const server = this.servers.get(name);
+      if (!server || server.status !== 'running') {
+        continue;
+      }
+
+      try {
+        const response = await this.sendRequest(name, 'resources/list', {});
+
+        if (response.result?.resources) {
+          const serverResources = response.result.resources.map((resource: any) => ({
+            ...resource,
+            serverName: name,
+            discoveredAt: new Date().toISOString()
+          }));
+          resources.push(...serverResources);
+          
+          // Cache resources on server state
+          server.resources = serverResources;
+        }
+      } catch (error) {
+        logger.error(`Failed to discover resources from server ${name}:`, error);
+      }
+    }
+
+    return resources;
+  }
+
+  async getResource(serverName: string, uri: string): Promise<any> {
+    const server = this.servers.get(serverName);
+    if (!server || server.status !== 'running') {
+      throw new Error(`Server ${serverName} is not running`);
+    }
+
+    try {
+      const response = await this.sendRequest(serverName, 'resources/read', { uri });
+
+      return response.result;
+    } catch (error) {
+      logger.error(`Failed to get resource ${uri} from server ${serverName}:`, error);
+      throw error;
+    }
+  }
+
+  async discoverPrompts(serverName?: string): Promise<MCPPrompt[]> {
+    const prompts: MCPPrompt[] = [];
+    const serversToCheck = serverName ? [serverName] : Array.from(this.servers.keys());
+
+    for (const name of serversToCheck) {
+      const server = this.servers.get(name);
+      if (!server || server.status !== 'running') {
+        continue;
+      }
+
+      try {
+        const response = await this.sendRequest(name, {
+          jsonrpc: '2.0',
+          id: this.getNextRequestId(),
+          method: 'prompts/list',
+          params: {}
+        });
+
+        if (response.result?.prompts) {
+          const serverPrompts = response.result.prompts.map((prompt: any) => ({
+            ...prompt,
+            serverName: name,
+            discoveredAt: new Date().toISOString()
+          }));
+          prompts.push(...serverPrompts);
+          
+          // Cache prompts on server state
+          server.prompts = serverPrompts;
+        }
+      } catch (error) {
+        logger.error(`Failed to discover prompts from server ${name}:`, error);
+      }
+    }
+
+    return prompts;
+  }
+
+  async getPrompt(serverName: string, name: string, arguments?: Record<string, any>): Promise<any> {
+    const server = this.servers.get(serverName);
+    if (!server || server.status !== 'running') {
+      throw new Error(`Server ${serverName} is not running`);
+    }
+
+    try {
+      const response = await this.sendRequest(serverName, {
+        jsonrpc: '2.0',
+        id: this.getNextRequestId(),
+        method: 'prompts/get',
+        params: { name, arguments }
+      });
+
+      return response.result;
+    } catch (error) {
+      logger.error(`Failed to get prompt ${name} from server ${serverName}:`, error);
+      throw error;
+    }
+  }
+
+  // Single Tool Selection from Multi-Tool Servers
+  async getSelectableToolsFromServer(serverName: string): Promise<Array<{
+    id: string;
+    name: string;
+    description: string;
+    serverName: string;
+    inputSchema: any;
+    selectable: boolean;
+  }>> {
+    const server = this.servers.get(serverName);
+    if (!server || server.status !== 'running') {
+      return [];
+    }
+
+    const tools = server.tools || [];
+    return tools.map(tool => ({
+      id: `${serverName}:${tool.name}`,
+      name: tool.name,
+      description: tool.description || `${tool.name} from ${serverName}`,
+      serverName,
+      inputSchema: tool.inputSchema,
+      selectable: true
+    }));
+  }
+
+  async attachSingleToolToAgent(agentId: string, serverName: string, toolName: string): Promise<{
+    success: boolean;
+    toolId: string;
+    assignment?: any;
+  }> {
+    try {
+      const server = this.servers.get(serverName);
+      if (!server || server.status !== 'running') {
+        throw new Error(`Server ${serverName} is not running`);
+      }
+
+      const tool = server.tools?.find(t => t.name === toolName);
+      if (!tool) {
+        throw new Error(`Tool ${toolName} not found in server ${serverName}`);
+      }
+
+      const toolId = `mcp:${serverName}:${toolName}`;
+      
+      // Create tool assignment in database (using existing patterns)
+      if (this.databaseService) {
+        const toolService = this.databaseService.getToolService();
+        const agentService = this.databaseService.getAgentService();
+        
+        // Check if agent exists
+        const agent = await agentService.getAgent(agentId);
+        if (!agent) {
+          throw new Error(`Agent ${agentId} not found`);
+        }
+
+        // Create or update tool definition
+        const toolDefinition = {
+          id: toolId,
+          name: tool.name,
+          description: tool.description || `${tool.name} from MCP server ${serverName}`,
+          category: 'mcp',
+          inputSchema: tool.inputSchema,
+          mcpServer: serverName,
+          mcpTool: toolName
+        };
+
+        // Register the specific tool
+        await toolService.registerTool(toolDefinition);
+
+        // Create tool assignment
+        const assignment = await toolService.assignToolToAgent(agentId, toolId, {
+          canExecute: true,
+          canRead: true,
+          customConfig: {
+            mcpServer: serverName,
+            mcpTool: toolName,
+            selectiveAttachment: true
+          }
+        });
+
+        logger.info(`Attached single tool ${toolName} from server ${serverName} to agent ${agentId}`);
+
+        return {
+          success: true,
+          toolId,
+          assignment
+        };
+      }
+
+      // Fallback if no database service
+      return {
+        success: true,
+        toolId
+      };
+
+    } catch (error) {
+      logger.error(`Failed to attach tool ${toolName} from server ${serverName} to agent ${agentId}:`, error);
+      return {
+        success: false,
+        toolId: `mcp:${serverName}:${toolName}`
+      };
+    }
   }
 
   // Enhanced error handling and recovery

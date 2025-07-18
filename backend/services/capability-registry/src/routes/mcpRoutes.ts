@@ -15,6 +15,7 @@ import { authMiddleware, createRateLimiter } from '@uaip/middleware';
 import { logger } from '@uaip/utils';
 import { MCPClientService } from '../services/mcpClientService.js';
 import MCPToolGraphService from '../services/mcpToolGraphService.js';
+import { MCPResourceDiscoveryService } from '../services/mcpResourceDiscoveryService.js';
 
 interface MCPServer {
   command: string;
@@ -1216,6 +1217,314 @@ export function createMCPRoutes(): Router {
         error: {
           code: 'DEPENDENCY_GRAPH_ERROR',
           message: 'Failed to get tool dependency graph',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        }
+      });
+    }
+  });
+
+  /**
+   * GET /api/v1/mcp/resources
+   * Discover all available MCP resources
+   */
+  router.get('/resources', authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const { serverName } = req.query as { serverName?: string };
+      const mcpService = MCPClientService.getInstance();
+      const resources = await mcpService.discoverResources(serverName);
+
+      res.json({
+        success: true,
+        data: {
+          resources,
+          count: resources.length,
+          servers: [...new Set(resources.map(r => r.serverName))]
+        }
+      });
+
+    } catch (error) {
+      logger.error('Error discovering MCP resources:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'RESOURCE_DISCOVERY_ERROR',
+          message: 'Failed to discover MCP resources',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        }
+      });
+    }
+  });
+
+  /**
+   * GET /api/v1/mcp/resources/:serverName/:uri
+   * Get specific resource content
+   */
+  router.get('/resources/:serverName/*', authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const { serverName } = req.params;
+      const uri = req.params[0]; // Capture the rest of the path as URI
+      
+      const mcpService = MCPClientService.getInstance();
+      const resource = await mcpService.getResource(serverName, uri);
+
+      res.json({
+        success: true,
+        data: {
+          serverName,
+          uri,
+          resource
+        }
+      });
+
+    } catch (error) {
+      logger.error(`Error getting resource ${req.params[0]} from server ${req.params.serverName}:`, error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'RESOURCE_GET_ERROR',
+          message: 'Failed to get MCP resource',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        }
+      });
+    }
+  });
+
+  /**
+   * GET /api/v1/mcp/prompts
+   * Discover all available MCP prompts
+   */
+  router.get('/prompts', authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const { serverName } = req.query as { serverName?: string };
+      const mcpService = MCPClientService.getInstance();
+      const prompts = await mcpService.discoverPrompts(serverName);
+
+      res.json({
+        success: true,
+        data: {
+          prompts,
+          count: prompts.length,
+          servers: [...new Set(prompts.map(p => p.serverName))]
+        }
+      });
+
+    } catch (error) {
+      logger.error('Error discovering MCP prompts:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'PROMPT_DISCOVERY_ERROR',
+          message: 'Failed to discover MCP prompts',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        }
+      });
+    }
+  });
+
+  /**
+   * POST /api/v1/mcp/prompts/:serverName/:promptName
+   * Execute a specific prompt
+   */
+  router.post('/prompts/:serverName/:promptName', authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const { serverName, promptName } = req.params;
+      const { arguments: promptArgs } = req.body;
+      
+      const mcpService = MCPClientService.getInstance();
+      const result = await mcpService.getPrompt(serverName, promptName, promptArgs);
+
+      res.json({
+        success: true,
+        data: {
+          serverName,
+          promptName,
+          arguments: promptArgs,
+          result
+        }
+      });
+
+    } catch (error) {
+      logger.error(`Error executing prompt ${req.params.promptName} from server ${req.params.serverName}:`, error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'PROMPT_EXECUTION_ERROR',
+          message: 'Failed to execute MCP prompt',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        }
+      });
+    }
+  });
+
+  /**
+   * GET /api/v1/mcp/servers/:serverName/selectable-tools
+   * Get selectable tools from a specific server for individual attachment
+   */
+  router.get('/servers/:serverName/selectable-tools', authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const { serverName } = req.params;
+      const mcpService = MCPClientService.getInstance();
+      const tools = await mcpService.getSelectableToolsFromServer(serverName);
+
+      res.json({
+        success: true,
+        data: {
+          serverName,
+          tools,
+          count: tools.length
+        }
+      });
+
+    } catch (error) {
+      logger.error(`Error getting selectable tools from server ${req.params.serverName}:`, error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'SELECTABLE_TOOLS_ERROR',
+          message: 'Failed to get selectable tools from MCP server',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        }
+      });
+    }
+  });
+
+  /**
+   * POST /api/v1/mcp/agents/:agentId/attach-tool
+   * Attach a single tool from an MCP server to an agent
+   */
+  router.post('/agents/:agentId/attach-tool', authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const { agentId } = req.params;
+      const { serverName, toolName } = req.body;
+
+      if (!serverName || !toolName) {
+        res.status(400).json({
+          success: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Missing required fields: serverName, toolName'
+          }
+        });
+        return;
+      }
+
+      const mcpService = MCPClientService.getInstance();
+      const result = await mcpService.attachSingleToolToAgent(agentId, serverName, toolName);
+
+      res.json({
+        success: result.success,
+        data: {
+          agentId,
+          serverName,
+          toolName,
+          toolId: result.toolId,
+          assignment: result.assignment,
+          message: result.success 
+            ? `Successfully attached tool ${toolName} from server ${serverName} to agent ${agentId}`
+            : `Failed to attach tool ${toolName} from server ${serverName} to agent ${agentId}`
+        }
+      });
+
+    } catch (error) {
+      logger.error(`Error attaching tool to agent ${req.params.agentId}:`, error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'TOOL_ATTACHMENT_ERROR',
+          message: 'Failed to attach MCP tool to agent',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        }
+      });
+    }
+  });
+
+  /**
+   * GET /api/v1/mcp/discover
+   * Comprehensive resource discovery across all MCP servers
+   */
+  router.get('/discover', authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const { serverName } = req.query as { serverName?: string };
+      const discoveryService = MCPResourceDiscoveryService.getInstance();
+      const discovery = await discoveryService.discoverAllResources(serverName);
+
+      res.json({
+        success: true,
+        data: {
+          ...discovery,
+          summary: {
+            totalResources: discovery.resources.length,
+            totalPrompts: discovery.prompts.length,
+            totalTools: discovery.tools.length,
+            totalServers: discovery.servers.length,
+            resourceCategories: [...new Set(discovery.resources.map(r => r.category))],
+            promptCategories: [...new Set(discovery.prompts.map(p => p.category))],
+            toolCategories: [...new Set(discovery.tools.map(t => t.category))]
+          }
+        }
+      });
+
+    } catch (error) {
+      logger.error('Error in comprehensive MCP discovery:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'DISCOVERY_ERROR',
+          message: 'Failed to perform comprehensive MCP discovery',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        }
+      });
+    }
+  });
+
+  /**
+   * GET /api/v1/mcp/search/resources
+   * Search MCP resources with filters
+   */
+  router.get('/search/resources', authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const { query, serverName, category, mimeType } = req.query as {
+        query: string;
+        serverName?: string;
+        category?: string;
+        mimeType?: string;
+      };
+
+      if (!query) {
+        res.status(400).json({
+          success: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Query parameter is required'
+          }
+        });
+        return;
+      }
+
+      const discoveryService = MCPResourceDiscoveryService.getInstance();
+      const resources = await discoveryService.searchResources(query, {
+        serverName,
+        category,
+        mimeType
+      });
+
+      res.json({
+        success: true,
+        data: {
+          query,
+          filters: { serverName, category, mimeType },
+          resources,
+          count: resources.length
+        }
+      });
+
+    } catch (error) {
+      logger.error('Error searching MCP resources:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'SEARCH_ERROR',
+          message: 'Failed to search MCP resources',
           details: error instanceof Error ? error.message : 'Unknown error'
         }
       });
