@@ -304,6 +304,18 @@ export const DiscussionSchema = BaseEntitySchema.extend({
 
 export type Discussion = z.infer<typeof DiscussionSchema>;
 
+// Artifact generation configuration
+export const ArtifactGenerationConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  artifactType: z.enum(['code', 'test', 'documentation', 'prd', 'config', 'deployment', 'script', 'template', 'report', 'analysis', 'code-diff', 'workflow']).optional(),
+  generateOnCompletion: z.boolean().default(true),
+  requiresApproval: z.boolean().default(false),
+  autoShare: z.boolean().default(true), // Auto-generate shareable URL
+  metadata: z.record(z.any()).optional()
+});
+
+export type ArtifactGenerationConfig = z.infer<typeof ArtifactGenerationConfigSchema>;
+
 // Discussion creation request
 export const CreateDiscussionRequestSchema = DiscussionSchema.omit({
   id: true,
@@ -341,7 +353,9 @@ export const CreateDiscussionRequestSchema = DiscussionSchema.omit({
     turnTimeout: 300,
     responseTimeout: 60,
     moderationRules: []
-  })
+  }),
+  // Artifact generation configuration
+  artifactConfig: ArtifactGenerationConfigSchema.optional()
 });
 
 export type CreateDiscussionRequest = z.infer<typeof CreateDiscussionRequestSchema>;
@@ -482,7 +496,8 @@ export enum DiscussionEventType {
   SETTINGS_UPDATED = 'settings_updated',
   REACTION_ADDED = 'reaction_added',
   TYPING_STARTED = 'typing_started',
-  TYPING_STOPPED = 'typing_stopped'
+  TYPING_STOPPED = 'typing_stopped',
+  DISCUSSION_COMPLETED = 'discussion_completed'
 }
 
 export const DiscussionEventSchema = z.object({

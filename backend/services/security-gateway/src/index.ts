@@ -18,6 +18,7 @@ import userPersonaRoutes from './routes/userPersonaRoutes.js';
 import contactRoutes from './routes/contactRoutes.js';
 import userToolPreferencesRoutes from './routes/userToolPreferencesRoutes.js';
 import projectRoutes from './routes/projectRoutes.js';
+import shortLinkRoutes from './routes/shortLinkRoutes.js';
 
 // Import services
 import { SecurityGatewayService } from './services/securityGatewayService.js';
@@ -146,6 +147,10 @@ class SecurityGatewayServer extends BaseService {
     this.app.use('/api/v1/users/persona', userPersonaRoutes);
     this.app.use('/api/v1/contacts', contactRoutes);
     this.app.use('/api/v1/projects', projectRoutes);
+    this.app.use('/api/v1', shortLinkRoutes);
+    
+    // Public short link resolution (no auth required)
+    this.app.use('/s', shortLinkRoutes);
   }
 
   protected async setupEventSubscriptions(): Promise<void> {

@@ -2005,11 +2005,15 @@ export class DiscussionOrchestrationService extends EventEmitter {
         artifactGeneration: {
           suggestedType: artifactType,
           priority: this.calculateArtifactPriority(discussion, completionReason),
+          autoShare: (discussion as any).artifactConfig?.autoShare || true,
+          generateOnCompletion: (discussion as any).artifactConfig?.generateOnCompletion !== false,
+          requiresApproval: (discussion as any).artifactConfig?.requiresApproval || false,
           metadata: {
             discussionType: discussion.turnStrategy.strategy,
             completionReason,
             messageCount: discussionMetrics.totalMessages,
-            participantCount: discussionMetrics.totalParticipants
+            participantCount: discussionMetrics.totalParticipants,
+            ...(discussion as any).artifactConfig?.metadata
           }
         },
         timestamp: new Date()
@@ -2034,11 +2038,18 @@ export class DiscussionOrchestrationService extends EventEmitter {
   }
 
   /**
-   * Determine appropriate artifact type based on discussion content
+   * Determine appropriate artifact type based on discussion content and configuration
    */
   private determineArtifactType(discussion: Discussion, messages: any[]): string {
+    // First check if discussion has configured artifact type
+    const artifactConfig = (discussion as any).artifactConfig;
+    if (artifactConfig?.enabled && artifactConfig?.artifactType) {
+      return artifactConfig.artifactType;
+    }
+
+    // Fallback to content-based detection
     const title = discussion.title.toLowerCase();
-    const description = discussion.description.toLowerCase();
+    const description = (discussion.description || '').toLowerCase();
     const messageContent = messages.map(m => m.content.toLowerCase()).join(' ');
     
     // Check for code-related discussions

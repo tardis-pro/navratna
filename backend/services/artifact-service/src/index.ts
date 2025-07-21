@@ -138,6 +138,30 @@ class ArtifactServiceApp extends BaseService {
           validationScore: result.artifact?.validation?.score
         });
 
+        // Generate short link for the artifact if autoShare is enabled
+        let shareUrl: string | undefined;
+        if (artifactGeneration.autoShare && result.artifact?.id) {
+          try {
+            const shortLinkResponse = await this.createArtifactShareLink(result.artifact.id, {
+              title: `${result.artifact.metadata?.title || 'Generated Artifact'}`,
+              description: `Auto-shared artifact from discussion: ${discussion.title}`,
+              generateQR: true
+            });
+            shareUrl = shortLinkResponse.shortUrl;
+            logger.info('Share URL generated for artifact', {
+              discussionId,
+              artifactId: result.artifact.id,
+              shareUrl
+            });
+          } catch (error) {
+            logger.error('Failed to create share link for artifact', {
+              discussionId,
+              artifactId: result.artifact.id,
+              error: error instanceof Error ? error.message : 'Unknown error'
+            });
+          }
+        }
+
         // Emit artifact generation success event
         await this.eventBusService.publish('artifact.generated', {
           discussionId,
@@ -146,6 +170,7 @@ class ArtifactServiceApp extends BaseService {
           generationTrigger: 'discussion_completion',
           success: true,
           artifact: result.artifact,
+          shareUrl,
           timestamp: new Date()
         });
       } else {
@@ -267,6 +292,56 @@ class ArtifactServiceApp extends BaseService {
 
   public getArtifactService(): ArtifactService {
     return this.artifactService;
+  }
+
+  private async createArtifactShareLink(
+    artifactId: string, 
+    options: {
+      title?: string;
+      description?: string;
+      generateQR?: boolean;
+    }
+  ): Promise<{ shortUrl: string; qrCode?: string }> {
+    try {
+      // Make HTTP request to security-gateway short link service
+      const securityGatewayUrl = process.env.SECURITY_GATEWAY_URL || 'http://localhost:3004';
+      const response = await fetch(`${securityGatewayUrl}/api/v1/artifacts/${artifactId}/share`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // Use system authentication for internal service calls
+          'Authorization': `Bearer ${process.env.INTERNAL_SERVICE_TOKEN || 'system-internal-token'}`
+        },
+        body: JSON.stringify({
+          title: options.title,
+          description: options.description,
+          generateQR: options.generateQR,
+          maxClicks: 10000, // High limit for public artifacts
+          tags: ['artifact', 'auto-generated', 'discussion-triggered']
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.message || 'Failed to create share link');
+      }
+
+      return {
+        shortUrl: data.data.shortUrl,
+        qrCode: data.data.qrCode
+      };
+    } catch (error) {
+      logger.error('Failed to create artifact share link via security gateway', {
+        artifactId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    }
   }
 }
 

@@ -94,6 +94,7 @@ class LLMServiceServer extends BaseService {
     await this.eventBusService.subscribe('llm.user.request', (event: any) => this.handleUserLLMRequest(event));
     await this.eventBusService.subscribe('llm.global.request', (event: any) => this.handleGlobalLLMRequest(event));
     await this.eventBusService.subscribe('llm.agent.generate.request', (event: any) => this.handleAgentGenerateRequest(event));
+    await this.eventBusService.subscribe('llm.generate.request', (event: any) => this.handleArtifactGenerationRequest(event));
     await this.eventBusService.subscribe('llm.provider.changed', (event: any) => this.handleProviderChanged(event));
     logger.info('Event bus subscriptions configured');
   }
@@ -202,7 +203,232 @@ class LLMServiceServer extends BaseService {
     await this.agentGenerationHandler.handle(event);
   }
 
+  private async handleArtifactGenerationRequest(event: any): Promise<void> {
+    try {
+      const { type, artifactType, context, options, metadata } = event.data || event;
+      const requestId = event.metadata?.requestId;
+      
+      logger.info('Processing artifact generation request', {
+        requestId,
+        artifactType,
+        type,
+        conversationId: context?.conversationId
+      });
 
+      if (type !== 'generate_artifact_content') {
+        logger.warn('Unknown artifact generation request type', { type, requestId });
+        await this.publishArtifactResponse(requestId, {
+          success: false,
+          error: {
+            code: 'UNKNOWN_REQUEST_TYPE',
+            message: `Unknown request type: ${type}`
+          }
+        });
+        return;
+      }
+
+      // Prepare prompt for artifact generation
+      const prompt = this.buildArtifactGenerationPrompt(artifactType, context, options);
+      
+      // Create agent request for LLM generation
+      const agentRequest = {
+        agent: {
+          id: 'artifact-generator',
+          name: 'Artifact Generator',
+          persona: {
+            name: 'Artifact Generator',
+            description: `AI agent specialized in generating ${artifactType} artifacts`,
+            capabilities: [artifactType, 'documentation', 'code_generation'],
+            preferences: {
+              communicationStyle: 'technical',
+              role: 'technical_writer'
+            }
+          }
+        },
+        messages: [{
+          id: `msg_${Date.now()}`,
+          role: 'user',
+          content: prompt,
+          sender: 'system',
+          timestamp: new Date().toISOString(),
+          type: 'user' as const
+        }],
+        context: {
+          id: context.conversationId || 'artifact-gen',
+          title: `Generate ${artifactType} artifact`,
+          content: prompt,
+          type: 'artifact_generation',
+          metadata: {
+            createdAt: new Date(),
+            lastModified: new Date(),
+            author: 'artifact-service',
+            conversationId: context.conversationId,
+            requiresStructuredOutput: true,
+            artifactType,
+            outputFormat: this.getOutputFormat(artifactType)
+          }
+        }
+      };
+
+      // Generate response using LLM service
+      const response = await this.llmService.generateAgentResponse(agentRequest);
+
+      if (response?.content) {
+        await this.publishArtifactResponse(requestId, {
+          success: true,
+          content: response.content,
+          metadata: {
+            model: response.model,
+            processingTime: Date.now() - (metadata?.timestamp ? new Date(metadata.timestamp).getTime() : Date.now()),
+            artifactType
+          }
+        });
+        
+        logger.info('Artifact generation completed successfully', {
+          requestId,
+          artifactType,
+          contentLength: response.content.length
+        });
+      } else {
+        await this.publishArtifactResponse(requestId, {
+          success: false,
+          error: {
+            code: 'GENERATION_FAILED',
+            message: 'LLM failed to generate artifact content',
+            details: response?.error || 'No content generated'
+          }
+        });
+        
+        logger.error('Artifact generation failed', {
+          requestId,
+          artifactType,
+          error: response?.error || 'No content generated'
+        });
+      }
+
+    } catch (error) {
+      const requestId = event.metadata?.requestId;
+      logger.error('Failed to process artifact generation request', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        requestId,
+        eventData: event.data
+      });
+
+      await this.publishArtifactResponse(requestId, {
+        success: false,
+        error: {
+          code: 'PROCESSING_ERROR',
+          message: error instanceof Error ? error.message : 'Unknown error occurred'
+        }
+      });
+    }
+  }
+
+  private buildArtifactGenerationPrompt(artifactType: string, context: any, options?: any): string {
+    const { summary, keyMessages, decisions, actionItems, technical } = context;
+    
+    let prompt = `Generate a ${artifactType} artifact based on the following discussion context:\n\n`;
+    
+    if (summary) {
+      prompt += `## Discussion Summary\n${summary}\n\n`;
+    }
+    
+    if (keyMessages && keyMessages.length > 0) {
+      prompt += `## Key Messages\n`;
+      keyMessages.forEach((msg: any, index: number) => {
+        prompt += `${index + 1}. ${msg.content}\n`;
+      });
+      prompt += '\n';
+    }
+    
+    if (decisions && decisions.length > 0) {
+      prompt += `## Decisions Made\n`;
+      decisions.forEach((decision: any, index: number) => {
+        prompt += `${index + 1}. ${decision.description || decision.decision}\n`;
+      });
+      prompt += '\n';
+    }
+    
+    if (actionItems && actionItems.length > 0) {
+      prompt += `## Action Items\n`;
+      actionItems.forEach((item: any, index: number) => {
+        prompt += `${index + 1}. ${item.description || item.item}\n`;
+      });
+      prompt += '\n';
+    }
+    
+    if (technical) {
+      prompt += `## Technical Context\n`;
+      if (technical.language) prompt += `- Language: ${technical.language}\n`;
+      if (technical.framework) prompt += `- Framework: ${technical.framework}\n`;
+      if (technical.requirements) {
+        prompt += `- Requirements:\n`;
+        technical.requirements.forEach((req: string) => {
+          prompt += `  - ${req}\n`;
+        });
+      }
+      prompt += '\n';
+    }
+    
+    // Add artifact-specific instructions
+    prompt += this.getArtifactSpecificInstructions(artifactType, options);
+    
+    return prompt;
+  }
+
+  private getArtifactSpecificInstructions(artifactType: string, options?: any): string {
+    switch (artifactType) {
+      case 'code':
+        return `## Instructions\nGenerate production-ready code that implements the discussed requirements. Include:\n- Proper error handling\n- Clear variable names and structure\n- Brief inline comments for complex logic\n- Follow ${options?.language || 'TypeScript'} best practices\n\nProvide only the code without additional explanations.`;
+        
+      case 'test':
+        return `## Instructions\nGenerate comprehensive unit tests for the discussed functionality. Include:\n- Test cases for normal operation\n- Edge cases and error conditions\n- Clear test descriptions\n- Use ${options?.framework || 'Jest'} testing framework\n\nProvide only the test code without additional explanations.`;
+        
+      case 'documentation':
+        return `## Instructions\nGenerate clear, comprehensive documentation that covers:\n- Purpose and overview\n- Key features and functionality\n- Usage examples\n- API reference (if applicable)\n- Implementation details discussed\n\nUse markdown format with proper headings and structure.`;
+        
+      case 'prd':
+        return `## Instructions\nGenerate a Product Requirements Document (PRD) that includes:\n- Product Overview\n- User Stories and Use Cases\n- Functional Requirements\n- Non-Functional Requirements\n- Technical Specifications\n- Success Metrics\n- Implementation Timeline\n\nUse professional PRD format with clear sections and bullet points.`;
+        
+      case 'analysis':
+        return `## Instructions\nGenerate a comprehensive analysis document that includes:\n- Executive Summary\n- Problem Statement\n- Current State Analysis\n- Recommendations\n- Risk Assessment\n- Next Steps\n\nProvide structured analysis with clear reasoning and data-driven insights.`;
+        
+      case 'workflow':
+        return `## Instructions\nGenerate a workflow specification that includes:\n- Process Overview\n- Step-by-step Workflow\n- Decision Points\n- Roles and Responsibilities\n- Success Criteria\n- Error Handling\n\nUse clear, actionable language with numbered steps.`;
+        
+      default:
+        return `## Instructions\nGenerate a ${artifactType} artifact based on the discussion context. Ensure it is well-structured, comprehensive, and directly addresses the requirements and decisions mentioned in the discussion.`;
+    }
+  }
+
+  private getOutputFormat(artifactType: string): string {
+    switch (artifactType) {
+      case 'code':
+      case 'test':
+        return 'code_block';
+      case 'documentation':
+      case 'prd':
+      case 'analysis':
+        return 'markdown';
+      case 'workflow':
+        return 'structured_list';
+      default:
+        return 'plain_text';
+    }
+  }
+
+  private async publishArtifactResponse(requestId: string, response: any): Promise<void> {
+    try {
+      await this.eventBusService.publish('llm.generate.response', response, {
+        metadata: { requestId }
+      });
+    } catch (error) {
+      logger.error('Failed to publish artifact response', {
+        requestId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
 
   private async handleProviderChanged(event: any): Promise<void> {
     try {
