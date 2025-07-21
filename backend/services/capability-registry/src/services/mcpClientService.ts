@@ -52,6 +52,8 @@ interface MCPResource {
   name: string;
   description?: string;
   mimeType?: string;
+  serverName?: string;
+  discoveredAt?: string;
   annotations?: {
     audience?: string[];
     priority?: number;
@@ -61,6 +63,8 @@ interface MCPResource {
 interface MCPPrompt {
   name: string;
   description?: string;
+  serverName?: string;
+  discoveredAt?: string;
   arguments?: Array<{
     name: string;
     description?: string;
@@ -72,6 +76,7 @@ interface MCPTool {
   name: string;
   description?: string;
   inputSchema: any;
+  capabilities?: string[];
 }
 
 // MCP Server State
@@ -1297,12 +1302,7 @@ export class MCPClientService extends EventEmitter {
       }
 
       try {
-        const response = await this.sendRequest(name, {
-          jsonrpc: '2.0',
-          id: this.getNextRequestId(),
-          method: 'prompts/list',
-          params: {}
-        });
+        const response = await this.sendRequest(name, 'prompts/list', {});
 
         if (response.result?.prompts) {
           const serverPrompts = response.result.prompts.map((prompt: any) => ({
@@ -1323,19 +1323,14 @@ export class MCPClientService extends EventEmitter {
     return prompts;
   }
 
-  async getPrompt(serverName: string, name: string, arguments?: Record<string, any>): Promise<any> {
+  async getPrompt(serverName: string, name: string, promptArgs?: Record<string, any>): Promise<any> {
     const server = this.servers.get(serverName);
     if (!server || server.status !== 'running') {
       throw new Error(`Server ${serverName} is not running`);
     }
 
     try {
-      const response = await this.sendRequest(serverName, {
-        jsonrpc: '2.0',
-        id: this.getNextRequestId(),
-        method: 'prompts/get',
-        params: { name, arguments }
-      });
+      const response = await this.sendRequest(serverName, 'prompts/get', { name, arguments: promptArgs });
 
       return response.result;
     } catch (error) {
@@ -1389,31 +1384,34 @@ export class MCPClientService extends EventEmitter {
       
       // Create tool assignment in database (using existing patterns)
       if (this.databaseService) {
-        const toolService = this.databaseService.getToolService();
-        const agentService = this.databaseService.getAgentService();
+        const toolService = this.databaseService.tools;
+        const agentService = this.databaseService.agents;
         
         // Check if agent exists
-        const agent = await agentService.getAgent(agentId);
+        const agent = await agentService.findAgentById(agentId);
         if (!agent) {
           throw new Error(`Agent ${agentId} not found`);
         }
 
         // Create or update tool definition
         const toolDefinition = {
-          id: toolId,
           name: tool.name,
+          displayName: tool.name,
           description: tool.description || `${tool.name} from MCP server ${serverName}`,
-          category: 'mcp',
+          category: 'mcp' as any,
           inputSchema: tool.inputSchema,
-          mcpServer: serverName,
-          mcpTool: toolName
+          configuration: {
+            mcpServer: serverName,
+            mcpTool: toolName
+          },
+          version: '1.0.0'
         };
 
-        // Register the specific tool
-        await toolService.registerTool(toolDefinition);
+        // Create the specific tool definition
+        const createdTool = await toolService.createTool(toolDefinition);
 
         // Create tool assignment
-        const assignment = await toolService.assignToolToAgent(agentId, toolId, {
+        const assignment = await toolService.assignToolToAgent(agentId, createdTool.id, {
           canExecute: true,
           canRead: true,
           customConfig: {
@@ -1427,7 +1425,7 @@ export class MCPClientService extends EventEmitter {
 
         return {
           success: true,
-          toolId,
+          toolId: createdTool.id,
           assignment
         };
       }
