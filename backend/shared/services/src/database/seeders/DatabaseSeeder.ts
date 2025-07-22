@@ -6,6 +6,7 @@ import { SecurityPolicySeed } from './SecurityPolicySeed.js';
 import { PersonaSeed } from './PersonaSeed.js';
 import { AgentSeed } from './AgentSeed.js';
 import { ToolDefinitionSeed } from './ToolDefinitionSeed.js';
+import { ProjectSeed } from './ProjectSeed.js';
 import { getViralAgentsData } from './data/viralAgents.js';
 
 // Import all entities
@@ -37,7 +38,8 @@ export class DatabaseSeeder {
       securityPolicies: false,
       personas: false,
       agents: false,
-      toolDefinitions: false
+      toolDefinitions: false,
+      projects: false
     };
 
     // Seed in dependency order, but continue even if individual seeders fail
@@ -101,6 +103,15 @@ export class DatabaseSeeder {
       console.log('   ✅ Tool definitions seeded successfully');
     } catch (error) {
       console.error('   ❌ Tool definition seeding failed:', error.message);
+      console.warn('   ⚠️ Continuing with other seeders...');
+    }
+
+    try {
+      await this.seedProjects();
+      results.projects = true;
+      console.log('   ✅ Projects seeded successfully');
+    } catch (error) {
+      console.error('   ❌ Project seeding failed:', error.message);
       console.warn('   ⚠️ Continuing with other seeders...');
     }
 
@@ -221,5 +232,19 @@ export class DatabaseSeeder {
 
     const toolDefinitionSeed = new ToolDefinitionSeed(this.dataSource, users);
     await toolDefinitionSeed.seed();
+  }
+
+  /**
+   * Seed Projects with different types and agent recommendations
+   */
+  private async seedProjects(): Promise<void> {
+    // Get users and agents for project creation
+    const userRepository = this.dataSource.getRepository(UserEntity);
+    const agentRepository = this.dataSource.getRepository(Agent);
+    const users = await userRepository.find();
+    const agents = await agentRepository.find();
+
+    const projectSeed = new ProjectSeed(this.dataSource, users, agents);
+    await projectSeed.seed();
   }
 }

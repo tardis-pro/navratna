@@ -5,7 +5,7 @@
 
 import { APIClient } from './client';
 import { API_ROUTES } from '@/config/apiConfig';
-import type { ProjectStatus, ProjectMemberRole } from '@uaip/types/project';
+import type { ProjectStatus, ProjectMemberRole, ProjectType } from '@uaip/types/project';
 
 export interface Project {
   id: string;
@@ -13,8 +13,9 @@ export interface Project {
   description?: string;
   ownerId: string;
   status: ProjectStatus;
-  type?: string;
+  type: ProjectType;
   visibility: 'public' | 'private' | 'internal';
+  recommendedAgents?: string[];
   settings: {
     allowedTools: string[];
     enabledFeatures: string[];
@@ -28,8 +29,9 @@ export interface Project {
 export interface ProjectCreate {
   name: string;
   description?: string;
-  type?: string;
+  type: ProjectType;
   visibility?: 'public' | 'private' | 'internal';
+  recommendedAgents?: string[];
   settings?: any;
   metadata?: any;
 }
@@ -38,8 +40,9 @@ export interface ProjectUpdate {
   name?: string;
   description?: string;
   status?: ProjectStatus;
-  type?: string;
+  type?: ProjectType;
   visibility?: 'public' | 'private' | 'internal';
+  recommendedAgents?: string[];
   settings?: any;
   metadata?: any;
 }

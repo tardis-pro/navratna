@@ -1,6 +1,7 @@
 import { Entity, Column, ManyToOne, OneToMany, JoinColumn, Index } from 'typeorm';
 import { BaseEntity } from './base.entity.js';
 import { UserEntity } from './user.entity.js';
+import { ProjectType } from '@uaip/types/project';
 
 export enum ProjectStatus {
   ACTIVE = 'active',
@@ -24,6 +25,7 @@ export interface ProjectSettings {
   allowedFileTypes?: string[];
   autoArchiveAfterDays?: number;
   requireApprovalForArtifacts?: boolean;
+  allowedTools?: string[]; // Tool IDs that are allowed in this project
 }
 
 @Entity('projects')
@@ -38,6 +40,13 @@ export class ProjectEntity extends BaseEntity {
 
   @Column({ type: 'text', nullable: true })
   description?: string;
+
+  @Column({ 
+    type: 'enum', 
+    enum: ProjectType, 
+    default: ProjectType.GENERAL 
+  })
+  type!: ProjectType;
 
   @Column({ type: 'uuid', name: 'owner_id' })
   ownerId!: string;
@@ -89,6 +98,9 @@ export class ProjectEntity extends BaseEntity {
 
   @Column({ type: 'bigint', name: 'total_size_bytes', default: 0 })
   totalSizeBytes!: number;
+
+  @Column({ type: 'json', nullable: true })
+  recommendedAgents?: string[]; // Agent IDs that are recommended for this project type
 
   @Column({ type: 'jsonb', nullable: true })
   metadata?: Record<string, any>;
