@@ -8,6 +8,7 @@ import {
   ContextRequest,
   ContextAnalysis
 } from './interfaces.js';
+import { getContextManager, ContextManager } from './context-manager/ContextManager.js';
 import { BaseProvider } from './providers/BaseProvider.js';
 import { OllamaProvider } from './providers/OllamaProvider.js';
 import { LLMStudioProvider } from './providers/LLMStudioProvider.js';
@@ -21,9 +22,11 @@ export class UserLLMService {
   private providerCache: Map<string, BaseProvider> = new Map(); // Cache providers by user+type
   private modelSelectionFacade: UnifiedModelSelectionFacade | null = null;
   private taskTypeResolver: AgentTaskTypeResolver | null = null;
+  private contextManager: ContextManager;
 
   constructor(modelSelectionFacade?: UnifiedModelSelectionFacade) {
     this.modelSelectionFacade = modelSelectionFacade || null;
+    this.contextManager = getContextManager();
     logger.info('UserLLMService constructor called', {
       facadeProvided: !!modelSelectionFacade,
       facadeType: typeof modelSelectionFacade,
@@ -626,30 +629,76 @@ export class UserLLMService {
   }
 
   private buildAgentPrompt(request: AgentResponseRequest): string {
-    const { agent, messages, context } = request;
+    const { agent, messages = [], context, tools = [] } = request;
+    
+    // Create optimized rolling window context
+    const contextDocs = context ? [context] : [];
+    const systemPrompt = this.buildAgentSystemPrompt(request);
+    const systemPromptTokens = this.contextManager.estimateTokens(systemPrompt);
+    
+    const window = this.contextManager.createRollingWindow(
+      messages, 
+      systemPromptTokens, 
+      tools.length, 
+      contextDocs
+    );
+
+    // Log context health
+    const health = this.contextManager.analyzeContextHealth(window);
+    if (health.status !== 'healthy') {
+      logger.warn('UserLLM Context health issue', { 
+        status: health.status, 
+        warnings: health.warnings,
+        recommendations: health.recommendations,
+        agentId: agent.id 
+      });
+    }
 
     let prompt = '';
 
-    // Add context if available
-    if (context) {
-      prompt += `Context Document:\nTitle: ${context.title}\nContent: ${context.content}\n\n`;
+    // Add deduplicated context documents
+    if (window.contextDocuments.length > 0) {
+      window.contextDocuments.forEach(doc => {
+        prompt += `Context Document:\nTitle: ${doc.title}\nContent: ${doc.content}\n\n`;
+      });
     }
 
-    // Add conversation history (with null check)
-    if (messages && messages.length > 0) {
-      prompt += 'Conversation History:\n';
-      messages.forEach(msg => {
+    // Add summarized older context if available
+    if (window.summarizedContext) {
+      prompt += `${window.summarizedContext}\n\n`;
+    }
+
+    // Add recent conversation history
+    if (window.recentMessages.length > 0) {
+      prompt += 'Recent Conversation:\n';
+      window.recentMessages.forEach(msg => {
         prompt += `${msg.sender}: ${msg.content}\n`;
       });
       prompt += '\n';
     }
 
     prompt += `${agent.name}:`;
+    
+    logger.info('UserLLM Context window created', {
+      agentId: agent.id,
+      totalMessages: messages.length,
+      recentMessages: window.recentMessages.length,
+      hasSummary: !!window.summarizedContext,
+      estimatedTokens: window.estimatedTokens,
+      contextHealth: health.status
+    });
+    
     return prompt;
   }
 
   private buildAgentSystemPrompt(request: AgentResponseRequest): string {
-    const { agent } = request;
+    const { agent, tools = [] } = request;
+
+    // Check cache for persona prompt
+    const cachedPrompt = this.contextManager.getCachedPersonaPrompt(agent.id);
+    if (cachedPrompt) {
+      return cachedPrompt;
+    }
     
     let systemPrompt = `You are ${agent.name}`;
     
@@ -657,24 +706,34 @@ export class UserLLMService {
       systemPrompt += `, ${agent.persona.description}`;
     }
     
-    systemPrompt += '.\n\nCRITICAL RESPONSE RULES:\n';
-    systemPrompt += '- Keep responses under 200 words maximum\n';
-    systemPrompt += '- Be direct and concise - no fluff or filler\n';
-    systemPrompt += '- Only answer what was asked - don\'t elaborate unnecessarily\n';
-    systemPrompt += '- Use bullet points or short sentences\n';
-    systemPrompt += '- If the topic is complex, give a brief answer and offer to elaborate if needed\n\n';
+    systemPrompt += '.\n\n';
+
+    // Dynamic response limits based on available context
+    const availableTokens = this.contextManager.calculateOptimalResponseLimit(
+      this.contextManager.config.maxTokens - this.contextManager.estimateTokens(systemPrompt)
+    );
+    const responseWordLimit = Math.max(200, Math.floor(availableTokens / 4)); // Rough tokens to words
+
+    systemPrompt += `RESPONSE GUIDELINES:\n`;
+    systemPrompt += `- Keep responses under ${responseWordLimit} words unless the query explicitly requires more detail\n`;
+    systemPrompt += '- Be direct and concise while maintaining helpfulness\n';
+    systemPrompt += '- Use structured format (bullet points, numbered lists) for complex information\n';
+    systemPrompt += '- Offer to elaborate on specific aspects if the topic is complex\n\n';
     
     if (agent.persona?.capabilities && agent.persona.capabilities.length > 0) {
       systemPrompt += `Your capabilities include: ${agent.persona.capabilities.join(', ')}\n`;
     }
     
-    if (request.tools && request.tools.length > 0) {
+    if (tools.length > 0) {
       systemPrompt += '\nAvailable tools:\n';
-      request.tools.forEach(tool => {
+      tools.forEach(tool => {
         systemPrompt += `- ${tool.name}: ${tool.description}\n`;
       });
     }
 
+    // Cache the persona prompt to avoid rebuilding
+    this.contextManager.cachePersonaPrompt(agent.id, systemPrompt);
+    
     return systemPrompt;
   }
 } 
