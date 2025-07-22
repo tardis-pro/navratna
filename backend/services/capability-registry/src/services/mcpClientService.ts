@@ -5,7 +5,7 @@
 import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import { logger } from '@uaip/utils';
-import { EventBusService, DatabaseService } from '@uaip/shared-services';
+import { EventBusService, DatabaseService, ToolGraphDatabase, SecurityLevel } from '@uaip/shared-services';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { promisify } from 'util';
@@ -116,6 +116,7 @@ export class MCPClientService extends EventEmitter {
   private healthCheckInterval?: NodeJS.Timeout;
   private eventBusService?: EventBusService;
   private databaseService?: DatabaseService;
+  private toolGraphDatabase?: ToolGraphDatabase;
 
   private constructor() {
     super();
@@ -125,6 +126,15 @@ export class MCPClientService extends EventEmitter {
   async initialize(eventBusService?: EventBusService, databaseService?: DatabaseService): Promise<void> {
     this.eventBusService = eventBusService;
     this.databaseService = databaseService;
+    
+    // Initialize ToolGraphDatabase for Neo4j integration
+    try {
+      this.toolGraphDatabase = new ToolGraphDatabase();
+      await this.toolGraphDatabase.verifyConnectivity();
+      logger.info('ToolGraphDatabase initialized for MCP integration');
+    } catch (error) {
+      logger.warn('ToolGraphDatabase initialization failed, continuing without graph features:', error);
+    }
     
     // Setup event subscriptions for MCP management
     await this.setupEventSubscriptions();
@@ -456,10 +466,124 @@ export class MCPClientService extends EventEmitter {
           source: 'mcp-discovery'
         });
 
+        // Register tool in Neo4j knowledge graph if available
+        await this.registerToolInGraph(toolRegistration, serverName, tool);
+
         logger.info(`Auto-registered MCP tool: ${toolRegistration.id} from ${serverName}`);
       }
     } catch (error) {
       logger.error(`Failed to register tools from ${serverName}:`, error);
+    }
+  }
+
+  // Register tool in Neo4j knowledge graph
+  private async registerToolInGraph(toolRegistration: any, serverName: string, mcpTool: any): Promise<void> {
+    if (!this.toolGraphDatabase) {
+      return; // Gracefully skip if graph database not available
+    }
+
+    try {
+      // Create the tool node in Neo4j
+      await this.toolGraphDatabase.createToolNode({
+        id: toolRegistration.id,
+        name: toolRegistration.name,
+        description: toolRegistration.description,
+        category: toolRegistration.category,
+        version: toolRegistration.version,
+        tags: mcpTool.capabilities || [],
+        securityLevel: SecurityLevel.LOW, // Default for MCP tools
+        isEnabled: toolRegistration.isEnabled,
+        requiresApproval: toolRegistration.requiresApproval,
+        dependencies: [],
+        parameters: mcpTool.inputSchema || {},
+        returnType: {},
+        examples: [],
+        executionTimeEstimate: toolRegistration.executionTimeEstimate,
+        costEstimate: toolRegistration.costEstimate,
+        author: 'mcp-system'
+      });
+
+      // Create MCP Server node if it doesn't exist
+      await this.toolGraphDatabase.createMcpServerNode({
+        id: serverName,
+        name: serverName,
+        type: 'mcp',
+        status: 'active',
+        capabilities: this.servers.get(serverName)?.capabilities,
+        tags: ['mcp', 'external'],
+        metadata: {
+          config: this.servers.get(serverName)?.config,
+          registeredAt: new Date().toISOString()
+        }
+      });
+
+      // Link tool to MCP server
+      await this.toolGraphDatabase.linkToolToMcpServer(toolRegistration.id, serverName);
+
+      // Analyze and create relationships with similar tools
+      await this.createToolRelationships(toolRegistration.id, mcpTool);
+
+      logger.debug(`Tool ${toolRegistration.id} successfully registered in knowledge graph`);
+    } catch (error) {
+      logger.warn(`Failed to register tool ${toolRegistration.id} in knowledge graph:`, error);
+      // Don't throw - this is supplementary functionality
+    }
+  }
+
+  // Create relationships between tools based on capabilities and categories
+  private async createToolRelationships(toolId: string, mcpTool: any): Promise<void> {
+    if (!this.toolGraphDatabase) {
+      return;
+    }
+
+    try {
+      // Find similar tools based on capabilities
+      const capabilities = mcpTool.capabilities || [];
+      if (capabilities.length > 0) {
+        const relatedTools = await this.toolGraphDatabase.getRelatedTools(toolId, ['SIMILAR_TO'], 0.4);
+        
+        // Create SIMILAR_TO relationships for tools with shared capabilities
+        for (const relatedTool of relatedTools.slice(0, 3)) { // Limit to top 3 similar tools
+          if (relatedTool.id !== toolId) {
+            await this.toolGraphDatabase.addToolRelationship(toolId, relatedTool.id, {
+              type: 'SIMILAR_TO',
+              strength: 0.7,
+              reason: `Shared capabilities: ${capabilities.join(', ')}`,
+              metadata: {
+                sharedCapabilities: capabilities,
+                createdBy: 'mcp-auto-discovery'
+              }
+            });
+          }
+        }
+      }
+
+      // Create enhancement relationships for complementary tools
+      const enhancementKeywords = ['enhance', 'improve', 'extend', 'augment'];
+      const toolName = mcpTool.name?.toLowerCase() || '';
+      const toolDescription = mcpTool.description?.toLowerCase() || '';
+      
+      if (enhancementKeywords.some(keyword => 
+        toolName.includes(keyword) || toolDescription.includes(keyword)
+      )) {
+        // Find tools that this tool might enhance
+        const potentialTargets = await this.toolGraphDatabase.getRelatedTools(toolId, [], 0.3);
+        for (const target of potentialTargets.slice(0, 2)) {
+          if (target.id !== toolId && !target.id.startsWith('mcp-')) {
+            await this.toolGraphDatabase.addToolRelationship(toolId, target.id, {
+              type: 'ENHANCES',
+              strength: 0.6,
+              reason: 'Tool appears to enhance functionality based on name/description',
+              metadata: {
+                detectionMethod: 'keyword-analysis',
+                createdBy: 'mcp-auto-discovery'
+              }
+            });
+          }
+        }
+      }
+    } catch (error) {
+      logger.warn(`Failed to create tool relationships for ${toolId}:`, error);
     }
   }
 
@@ -518,6 +642,9 @@ export class MCPClientService extends EventEmitter {
         await mcpService.completeToolCall(jobId, response, executionTime);
       }
 
+      // Track tool execution in Neo4j graph
+      await this.trackToolExecution(serverName, toolName, executionTime, true, context?.agentId, jobId);
+
       // Publish success event
       await this.publishEvent('mcp.tool.executed', {
         serverName,
@@ -540,6 +667,10 @@ export class MCPClientService extends EventEmitter {
         await mcpService.failToolCall(jobId, error.message, 'EXECUTION_ERROR', 'execution');
       }
 
+      // Track failed tool execution in Neo4j graph
+      const executionTime = Date.now() - (Date.now() - 1000); // Approximate execution time
+      await this.trackToolExecution(serverName, toolName, executionTime, false, context?.agentId, jobId);
+
       // Publish failure event
       await this.publishEvent('mcp.tool.failed', {
         serverName,
@@ -552,6 +683,60 @@ export class MCPClientService extends EventEmitter {
       });
 
       throw error;
+    }
+  }
+
+  // Track tool execution in Neo4j graph
+  private async trackToolExecution(
+    serverName: string, 
+    toolName: string, 
+    executionTime: number, 
+    success: boolean, 
+    agentId?: string,
+    jobId?: string | null
+  ): Promise<void> {
+    if (!this.toolGraphDatabase) {
+      return;
+    }
+
+    try {
+      const toolId = `mcp-${serverName}-${toolName}`;
+      
+      // Update or create agent usage pattern if agentId provided
+      if (agentId) {
+        await this.toolGraphDatabase.incrementUsage(agentId, toolId, executionTime, success);
+        
+        // Create agent node if it doesn't exist
+        await this.toolGraphDatabase.createAgentNode({
+          id: agentId,
+          name: `Agent-${agentId}`,
+          role: 'assistant',
+          isActive: true,
+          capabilities: []
+        });
+      }
+
+      // Create MCP tool call record in Neo4j
+      if (jobId) {
+        await this.toolGraphDatabase.createMcpToolCallNode({
+          id: jobId,
+          serverId: serverName,
+          toolName,
+          status: success ? 'completed' : 'failed',
+          duration: executionTime,
+          agentId,
+          timestamp: new Date(),
+          metadata: {
+            executionTimeMs: executionTime,
+            success,
+            serverName
+          }
+        });
+      }
+
+      logger.debug(`Tool execution tracked: ${toolId} (success: ${success}, time: ${executionTime}ms)`);
+    } catch (error) {
+      logger.warn(`Failed to track tool execution in graph for ${toolName}:`, error);
     }
   }
 
@@ -1474,6 +1659,130 @@ export class MCPClientService extends EventEmitter {
         error: error.message 
       });
       throw error;
+    }
+  }
+
+  // Graph-based tool recommendations and analytics methods
+  async getToolRecommendations(agentId: string, context?: string, limit: number = 5): Promise<any[]> {
+    if (!this.toolGraphDatabase) {
+      logger.warn('Tool recommendations requested but graph database not available');
+      return [];
+    }
+
+    try {
+      if (context) {
+        return await this.toolGraphDatabase.getContextualRecommendations(context, limit);
+      } else {
+        return await this.toolGraphDatabase.getRecommendations(agentId, undefined, limit);
+      }
+    } catch (error) {
+      logger.error('Failed to get tool recommendations:', error);
+      return [];
+    }
+  }
+
+  async getRelatedTools(toolId: string, relationshipTypes?: string[], minStrength: number = 0.5, limit: number = 10): Promise<any[]> {
+    if (!this.toolGraphDatabase) {
+      logger.warn('Related tools requested but graph database not available');
+      return [];
+    }
+
+    try {
+      return await this.toolGraphDatabase.getRelatedTools(toolId, relationshipTypes, minStrength);
+    } catch (error) {
+      logger.error(`Failed to get related tools for ${toolId}:`, error);
+      return [];
+    }
+  }
+
+  async getUsageAnalytics(toolId?: string, agentId?: string, serverName?: string): Promise<any[]> {
+    if (!this.toolGraphDatabase) {
+      logger.warn('Usage analytics requested but graph database not available');
+      return [];
+    }
+
+    try {
+      // If serverName provided, filter by MCP tools from that server
+      if (serverName && !toolId) {
+        // Get all tools from this server and aggregate their analytics
+        const serverTools = Array.from(this.servers.get(serverName)?.tools || []);
+        const analytics = [];
+        
+        for (const tool of serverTools) {
+          const mcpToolId = `mcp-${serverName}-${tool.name}`;
+          const toolAnalytics = await this.toolGraphDatabase.getToolUsageAnalytics(mcpToolId, agentId);
+          analytics.push(...toolAnalytics);
+        }
+        
+        return analytics;
+      } else {
+        return await this.toolGraphDatabase.getToolUsageAnalytics(toolId, agentId);
+      }
+    } catch (error) {
+      logger.error('Failed to get usage analytics:', error);
+      return [];
+    }
+  }
+
+  async getGraphStatus(): Promise<any> {
+    if (!this.toolGraphDatabase) {
+      return {
+        connected: false,
+        error: 'Graph database not initialized',
+        features: {
+          toolRecommendations: false,
+          usageAnalytics: false,
+          relationshipTracking: false
+        }
+      };
+    }
+
+    try {
+      const connectionStatus = this.toolGraphDatabase.getConnectionStatus();
+      
+      // Get some basic statistics if connected
+      let statistics = {};
+      if (connectionStatus.isConnected) {
+        try {
+          const popularTools = await this.toolGraphDatabase.getPopularTools(undefined, 5);
+          statistics = {
+            totalPopularTools: popularTools.length,
+            samplePopularTools: popularTools.slice(0, 3).map(t => ({
+              toolId: t.toolId,
+              totalUsage: t.totalUsage,
+              avgSuccessRate: t.avgSuccessRate
+            }))
+          };
+        } catch (statError) {
+          logger.warn('Failed to get graph statistics:', statError);
+          statistics = { error: 'Failed to fetch statistics' };
+        }
+      }
+
+      return {
+        connected: connectionStatus.isConnected,
+        database: connectionStatus.database,
+        retries: connectionStatus.retries,
+        features: {
+          toolRecommendations: connectionStatus.isConnected,
+          usageAnalytics: connectionStatus.isConnected,
+          relationshipTracking: connectionStatus.isConnected,
+          mcpIntegration: connectionStatus.isConnected
+        },
+        statistics,
+        lastChecked: new Date().toISOString()
+      };
+    } catch (error) {
+      logger.error('Failed to get graph status:', error);
+      return {
+        connected: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        features: {
+          toolRecommendations: false,
+          usageAnalytics: false,
+          relationshipTracking: false
+        }
+      };
     }
   }
 

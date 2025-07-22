@@ -1585,6 +1585,158 @@ export function createMCPRoutes(): Router {
     }
   });
 
+  /**
+   * GET /api/v1/mcp/recommendations/:agentId
+   * Get tool recommendations for an agent based on usage patterns and graph relationships
+   */
+  router.get('/recommendations/:agentId', authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const { agentId } = req.params;
+      const { context, limit = 5 } = req.query as { context?: string; limit?: string };
+
+      const mcpService = MCPClientService.getInstance();
+      const recommendations = await mcpService.getToolRecommendations(agentId, context, parseInt(limit as string));
+
+      res.json({
+        success: true,
+        data: {
+          agentId,
+          context,
+          recommendations,
+          totalRecommendations: recommendations.length,
+          generatedAt: new Date().toISOString()
+        }
+      });
+
+    } catch (error) {
+      logger.error('Error getting tool recommendations:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'RECOMMENDATION_ERROR',
+          message: 'Failed to get tool recommendations',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        }
+      });
+    }
+  });
+
+  /**
+   * GET /api/v1/mcp/tools/:toolId/related
+   * Get related tools based on graph relationships
+   */
+  router.get('/tools/:toolId/related', authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const { toolId } = req.params;
+      const { relationshipTypes, minStrength = '0.5', limit = '10' } = req.query as {
+        relationshipTypes?: string;
+        minStrength?: string;
+        limit?: string;
+      };
+
+      const mcpService = MCPClientService.getInstance();
+      const types = relationshipTypes ? relationshipTypes.split(',') : undefined;
+      const relatedTools = await mcpService.getRelatedTools(toolId, types, parseFloat(minStrength), parseInt(limit));
+
+      res.json({
+        success: true,
+        data: {
+          toolId,
+          relationshipTypes: types,
+          minStrength: parseFloat(minStrength),
+          relatedTools,
+          totalRelated: relatedTools.length
+        }
+      });
+
+    } catch (error) {
+      logger.error('Error getting related tools:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'RELATED_TOOLS_ERROR',
+          message: 'Failed to get related tools',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        }
+      });
+    }
+  });
+
+  /**
+   * GET /api/v1/mcp/analytics/usage
+   * Get tool usage analytics from the graph database
+   */
+  router.get('/analytics/usage', authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const { toolId, agentId, serverName } = req.query as {
+        toolId?: string;
+        agentId?: string;
+        serverName?: string;
+      };
+
+      const mcpService = MCPClientService.getInstance();
+      const analytics = await mcpService.getUsageAnalytics(toolId, agentId, serverName);
+
+      res.json({
+        success: true,
+        data: {
+          filters: { toolId, agentId, serverName },
+          analytics,
+          summary: {
+            totalRecords: analytics.length,
+            uniqueTools: [...new Set(analytics.map(a => a.toolId))].length,
+            uniqueAgents: [...new Set(analytics.map(a => a.agentId))].length,
+            avgSuccessRate: analytics.length > 0 
+              ? analytics.reduce((sum, a) => sum + (a.successRate || 0), 0) / analytics.length 
+              : 0
+          },
+          generatedAt: new Date().toISOString()
+        }
+      });
+
+    } catch (error) {
+      logger.error('Error getting usage analytics:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'ANALYTICS_ERROR',
+          message: 'Failed to get usage analytics',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        }
+      });
+    }
+  });
+
+  /**
+   * GET /api/v1/mcp/graph/status
+   * Get Neo4j graph database connection status and statistics
+   */
+  router.get('/graph/status', authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const mcpService = MCPClientService.getInstance();
+      const status = await mcpService.getGraphStatus();
+
+      res.json({
+        success: true,
+        data: {
+          ...status,
+          checkedAt: new Date().toISOString()
+        }
+      });
+
+    } catch (error) {
+      logger.error('Error getting graph status:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'GRAPH_STATUS_ERROR',
+          message: 'Failed to get graph status',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        }
+      });
+    }
+  });
+
   return router;
 }
 
