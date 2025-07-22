@@ -91,7 +91,7 @@ export interface HybridSuggestion {
 export type ConversationType = 'build-on' | 'question' | 'support' | 'agree' | 'concern' | 'transition' | 'reflect';
 
 // Persona category type
-export type PersonaCategory = 'Development' | 'Policy' | 'Creative' | 'Analysis' | 'Business' | 'Social';
+export type PersonaCategory = 'Development' | 'Policy' | 'Creative' | 'Analysis' | 'Business' | 'Social' | 'Healthcare' | 'Academic' | 'Finance' | 'Media' | 'Manufacturing' | 'Governance' | 'Specialized';
 
 // Weighted contribution scoring interface
 export interface ContributionScore {
