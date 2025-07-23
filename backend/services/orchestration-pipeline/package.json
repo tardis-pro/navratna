@@ -50,7 +50,7 @@
     "eslint": "catalog:",
     "jest": "catalog:backend",
     "nodemon": "catalog:backend",
-    "supertest": "^7.0.0",
+    "supertest": "^7.1.4",
     "ts-jest": "catalog:backend",
     "ts-node": "catalog:backend",
     "tsc-alias": "catalog:backend",
