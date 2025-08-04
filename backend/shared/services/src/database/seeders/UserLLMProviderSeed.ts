@@ -315,8 +315,8 @@ export class UserLLMProviderSeed extends BaseSeed<UserLLMProvider> {
         rateLimit: 50,
         headers: {
           'User-Agent': 'UAIP-Client/1.0',
-          'HTTP-Referer': 'https://council-of-nycea.com',
-          'X-Title': 'Council of Nycea'
+          'HTTP-Referer': 'https://Navratna.tardis.digital',
+          'X-Title': 'Navratna'
         }
       },
       status: withDemoKeys ? 'active' as UserLLMProviderStatus : 'inactive' as UserLLMProviderStatus,

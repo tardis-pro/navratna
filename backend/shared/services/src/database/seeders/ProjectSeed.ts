@@ -3,7 +3,7 @@ import { BaseSeed } from './BaseSeed.js';
 import { ProjectEntity, ProjectStatus, ProjectVisibility } from '../../entities/project.entity.js';
 import { UserEntity } from '../../entities/user.entity.js';
 import { Agent } from '../../entities/agent.entity.js';
-import { ProjectType } from '@uaip/types/project';
+import { ProjectType } from '@uaip/types';
 
 /**
  * Project seeder with diverse project types and agent recommendations

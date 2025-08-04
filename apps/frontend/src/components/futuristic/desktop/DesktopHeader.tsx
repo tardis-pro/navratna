@@ -261,7 +261,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
               >
                 <div className="p-3 border-b border-slate-700">
                   <p className="text-white font-medium">Administrator</p>
-                  <p className="text-slate-400 text-sm">admin@nycea.ai</p>
+                  <p className="text-slate-400 text-sm">admin@tardis.digital</p>
                 </div>
                 <div className="py-2">
                   <button className="w-full px-3 py-2 text-left text-slate-300 hover:text-white hover:bg-slate-700/50 flex items-center space-x-2">

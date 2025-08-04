@@ -24,8 +24,8 @@ export class OpenAIProvider extends BaseProvider {
       // OpenRouter requires specific headers
       const isOpenRouter = this.config.baseUrl?.includes('openrouter.ai');
       const headers = isOpenRouter ? {
-        'HTTP-Referer': 'https://council-of-nycea.com',
-        'X-Title': 'Council of Nycea'
+        'HTTP-Referer': 'https://Navratna.tardis.digital',
+        'X-Title': 'Navratna'
       } : {};
 
       const data = await this.makeRequest(url, body, headers);
@@ -60,8 +60,8 @@ export class OpenAIProvider extends BaseProvider {
       // OpenRouter requires specific headers
       const isOpenRouter = this.config.baseUrl?.includes('openrouter.ai');
       const headers = isOpenRouter ? {
-        'HTTP-Referer': 'https://council-of-nycea.com',
-        'X-Title': 'Council of Nycea'
+         'HTTP-Referer': 'https://Navratna.tardis.digital',
+        'X-Title': 'Navratna'
       } : {};
       
       const data = await this.makeGetRequest(url, headers);
