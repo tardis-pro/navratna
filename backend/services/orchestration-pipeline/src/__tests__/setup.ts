@@ -28,6 +28,7 @@ export const createMockResponse = () => {
     cookie: jest.fn().mockReturnThis(),
     clearCookie: jest.fn().mockReturnThis(),
     header: jest.fn().mockReturnThis(),
+    removeHeader: jest.fn().mockReturnThis(),
     redirect: jest.fn().mockReturnThis()
   };
   return res;

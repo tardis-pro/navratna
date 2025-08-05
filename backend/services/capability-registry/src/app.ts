@@ -1,4 +1,4 @@
-import express from 'express';
+import { createHyperExpressApp } from '@uaip/shared-services';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
@@ -14,13 +14,13 @@ import { healthRoutes } from './routes/healthRoutes.js';
 import { mcpRoutes } from './routes/mcpRoutes.js';
 
 export class CapabilityRegistryApp {
-  private app: express.Application;
+  private app: any;
   private databaseService: DatabaseService;
   private eventBusService: EventBusService;
   private server?: any;
 
   constructor() {
-    this.app = express();
+    this.app = createHyperExpressApp();
     this.databaseService = new DatabaseService();
     this.eventBusService = new EventBusService({
       url: process.env.RABBITMQ_URL || 'amqp://localhost',
@@ -50,9 +50,9 @@ export class CapabilityRegistryApp {
       stream: { write: (message: string) => logger.info(message.trim()) }
     }));
 
-    // Request parsing middleware
-    this.app.use(express.json({ limit: '10mb' }));
-    this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+    // Request parsing middleware - HyperExpress handles this automatically
+    // this.app.use(express.json({ limit: '10mb' }));
+    // this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
     // Metrics middleware
     this.app.use(metricsMiddleware);
@@ -165,7 +165,7 @@ export class CapabilityRegistryApp {
     }
   }
 
-  public getApp(): express.Application {
+  public getApp(): any {
     return this.app;
   }
 }

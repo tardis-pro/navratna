@@ -153,7 +153,7 @@ export class LLMService {
     // Default LLM Studio provider
     const llmStudioProvider = new LLMStudioProvider({
       type: 'llmstudio',
-      baseUrl: process.env.LLM_STUDIO_URL || 'http://192.168.1.11:1234',
+      baseUrl: process.env.LLM_STUDIO_URL || 'http://192.168.1.9:1234',
       defaultModel: 'gpt-3.5-turbo',
       timeout: 30000,
       retries: 3

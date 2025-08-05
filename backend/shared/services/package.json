@@ -38,6 +38,7 @@
     "bcrypt": "catalog:backend",
     "compression": "catalog:backend",
     "express": "catalog:backend",
+    "hyper-express": "catalog:backend",
     "helmet": "catalog:backend",
     "ioredis": "^5.6.1",
     "morgan": "^1.10.0",

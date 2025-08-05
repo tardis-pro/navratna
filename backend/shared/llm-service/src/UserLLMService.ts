@@ -574,7 +574,7 @@ export class UserLLMService {
         case 'ollama':
           return 'http://localhost:11434';
         case 'llmstudio':
-          return 'http://192.168.1.11:1234';
+          return 'http://192.168.1.9:1234';
         default:
           return userProvider.baseUrl || '';
       }

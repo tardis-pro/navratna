@@ -1,4 +1,4 @@
-import express, { Request, Response } from '@uaip/shared-services';
+import express, { Request, Response, Router } from '@uaip/shared-services';
 import { authMiddleware } from '@uaip/middleware';
 import { DatabaseService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { ForceOnboardRequestSchema } from '@uaip/types';
 import { DefaultUserLLMProviderSeed, ModelCapabilityDetector } from '@uaip/shared-services';
 
-const router: express.Router = Router();
+const router = Router();
 
 // Validation schemas
 const UserPersonaSchema = z.object({
