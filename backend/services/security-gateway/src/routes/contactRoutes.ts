@@ -1,11 +1,11 @@
-import express, { Router } from '@uaip/shared-services/express-compat';
+import express, { Router } from '@uaip/shared-services';
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { authMiddleware, optionalAuth } from '@uaip/middleware';
 import { validateRequest } from '@uaip/middleware';
 import { AuditService } from '../services/auditService.js';
 import { DatabaseService } from '@uaip/shared-services';
-import { Request, Response } from '@uaip/shared-services/express-compat';
+import { Request, Response } from '@uaip/shared-services';
 import { AuditEventType } from '@uaip/types';
 import { ContactStatus } from '@uaip/shared-services';
 

@@ -1,4 +1,4 @@
-import express, { Router, Request, Response, NextFunction } from '@uaip/shared-services/express-compat';
+import express, { Router, Request, Response, NextFunction } from '@uaip/shared-services';
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';

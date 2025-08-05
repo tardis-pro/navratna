@@ -1,4 +1,4 @@
-import { Router } from '@uaip/shared-services/express-compat';
+import { Router } from '@uaip/shared-services';
 import { body, query, param, validationResult } from 'express-validator';
 import { ShortLinkService } from '../services/shortLink.service.js';
 import { authMiddleware } from '@uaip/middleware';

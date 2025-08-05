@@ -1,5 +1,5 @@
-import express, { Router } from '@uaip/shared-services/express-compat';
-import { Request, Response } from '@uaip/shared-services/express-compat';
+import express, { Router } from '@uaip/shared-services';
+import { Request, Response } from '@uaip/shared-services';
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { authMiddleware, requireAdmin } from '@uaip/middleware';

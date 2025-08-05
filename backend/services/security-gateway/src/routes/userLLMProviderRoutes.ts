@@ -1,4 +1,4 @@
-import { Router, Request, Response, NextFunction } from '@uaip/shared-services/express-compat';
+import { Router, Request, Response, NextFunction } from '@uaip/shared-services';
 import { UserService, DatabaseService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { authMiddleware } from '@uaip/middleware';

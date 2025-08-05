@@ -1,4 +1,4 @@
-import express, { Request, Response } from '@uaip/shared-services/express-compat';
+import express, { Request, Response } from '@uaip/shared-services';
 import { authMiddleware } from '@uaip/middleware';
 import { DatabaseService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';

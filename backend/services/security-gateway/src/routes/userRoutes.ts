@@ -1,4 +1,4 @@
-import express, { Router } from '@uaip/shared-services/express-compat';
+import express, { Router } from '@uaip/shared-services';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import { logger } from '@uaip/utils';
@@ -7,7 +7,7 @@ import { validateRequest } from '@uaip/middleware';
 import { AuditService } from '../services/auditService.js';
 import { NotificationService } from '../services/notificationService.js';
 import { DatabaseService } from '@uaip/shared-services';
-import { Request, Response } from '@uaip/shared-services/express-compat';
+import { Request, Response } from '@uaip/shared-services';
 import { config } from '@uaip/config';
 import { AuditEventType, LLMTaskType, LLMProviderType } from '@uaip/types';
 

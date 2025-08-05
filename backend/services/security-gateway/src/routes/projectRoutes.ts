@@ -1,11 +1,11 @@
-import express, { Request, Response } from '@uaip/shared-services/express-compat';
+import express, { Request, Response, Router } from '@uaip/shared-services';
 import { ProjectManagementService, EventBusService, DatabaseService } from '@uaip/shared-services';
 import { authMiddleware, validateRequest } from '@uaip/middleware';
 import { logger } from '@uaip/utils';
 import { z } from 'zod';
 import { ProjectStatus, ProjectPriority, ProjectVisibility } from '@uaip/types';
 
-const router: express.Router = Router();
+const router = Router();
 
 // Request validation schemas
 const createProjectSchema = z.object({

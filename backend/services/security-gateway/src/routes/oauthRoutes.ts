@@ -1,4 +1,4 @@
-import { Router, Request, Response } from '@uaip/shared-services/express-compat';
+import { Router, Request, Response } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
 import { OAuthProviderService } from '../services/oauthProviderService.js';
