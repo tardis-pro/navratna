@@ -222,6 +222,8 @@ export class HyperExpressPolyfill {
       return;
     }
 
+    console.log(`HyperExpress: Mounting router at base path: "${basePath}", stack size: ${router.stack.length}`);
+
     // Mount each route from the Express router
     router.stack.forEach((layer: any, index: number) => {
       if (layer.route) {
@@ -231,6 +233,7 @@ export class HyperExpressPolyfill {
 
         // Get the HTTP methods for this route
         const methods = Object.keys(route.methods);
+        console.log(`HyperExpress: Route ${fullPath} has methods: ${methods.join(', ')}`);
         methods.forEach((method: string) => {
           const methodLower = method.toLowerCase();
           if (!this.server[methodLower]) {
@@ -302,9 +305,17 @@ export class HyperExpressPolyfill {
       user: (request as any).user || null,
       id: (request as any).id || null,
       ip: request.ip || '127.0.0.1',
+      // Add HTTP version properties for morgan compatibility
+      httpVersion: '1.1', // Default to HTTP/1.1 as HyperExpress doesn't expose this
+      httpVersionMajor: 1,
+      httpVersionMinor: 1,
       // Add common Express request properties that might be missing
       get: (name: string) => {
         return headers[name.toLowerCase()];
+      },
+      // Add connection object for compatibility
+      connection: {
+        remoteAddress: request.ip || '127.0.0.1'
       }
     };
 
@@ -331,6 +342,10 @@ export class HyperExpressPolyfill {
       },
       setHeader: (name: string, value: string) => response.header(name, value),
       header: (name: string, value: string) => response.header(name, value),
+      getHeader: (name: string) => {
+        // Morgan needs this to get response headers
+        return (response as any).headers?.[name] || undefined;
+      },
       removeHeader: (name: string) => {
         // HyperExpress has a built-in removeHeader method
         response.removeHeader(name);

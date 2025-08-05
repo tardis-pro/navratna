@@ -12,6 +12,7 @@ import {
 import { OrchestrationEngine } from './orchestrationEngine.js';
 import { TaskController } from './controllers/taskController.js';
 import { createTaskRoutes } from './routes/taskRoutes.js';
+import projectRoutes from './routes/projectRoutes.js';
 
 class OrchestrationPipelineService extends BaseService {
   private stateManagerService!: StateManagerService;
@@ -66,6 +67,9 @@ class OrchestrationPipelineService extends BaseService {
   protected async setupRoutes(): Promise<void> {
     // Task management routes
     this.app.use('/api/v1', createTaskRoutes(this.taskController));
+    
+    // Project management routes
+    this.app.use('/api/v1/projects', projectRoutes);
 
     // Basic orchestration endpoints
     this.app.post('/api/v1/operations', async (req, res) => {
