@@ -1,5 +1,5 @@
-import express, { Router } from 'express';
-import { Request, Response } from 'express';
+import express, { Router } from '@uaip/shared-services/express-compat';
+import { Request, Response } from '@uaip/shared-services/express-compat';
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { authMiddleware, requireAdmin } from '@uaip/middleware';
@@ -8,7 +8,7 @@ import { AuditService as DomainAuditService } from '@uaip/shared-services';
 import { AuditEventType } from '@uaip/types';
 import { AuditService } from '../services/auditService.js';
 
-const router: Router = express.Router();
+const router: Router = Router();
 
 // Lazy initialization of services
 let domainAuditService: DomainAuditService | null = null;

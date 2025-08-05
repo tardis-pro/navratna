@@ -1,8 +1,8 @@
-import { Router } from 'express';
+import { Router } from '@uaip/shared-services/express-compat';
 import { authMiddleware, validateRequest } from '@uaip/middleware';
 import { UserToolPreferencesService, DatabaseService } from '@uaip/shared-services';
 import { z } from 'zod';
-import { Request, Response } from 'express';
+import { Request, Response } from '@uaip/shared-services/express-compat';
 
 const router: Router = Router();
 

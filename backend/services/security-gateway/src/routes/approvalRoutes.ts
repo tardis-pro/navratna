@@ -1,4 +1,4 @@
-import express, { Router, Request, Response, NextFunction } from 'express';
+import express, { Router, Request, Response, NextFunction } from '@uaip/shared-services/express-compat';
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
@@ -16,7 +16,7 @@ import {
 } from '@uaip/types';
 import { config } from '@uaip/config';
 
-const router: Router = express.Router();
+const router: Router = Router();
 
 // Lazy initialization of services
 let databaseService: DatabaseService | null = null;

@@ -1,5 +1,5 @@
-import express, { Router } from 'express';
-import { Request, Response } from 'express';
+import express, { Router } from '@uaip/shared-services/express-compat';
+import { Request, Response } from '@uaip/shared-services/express-compat';
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
@@ -13,7 +13,7 @@ import { SecurityGatewayService } from '../services/securityGatewayService.js';
 import { ApprovalWorkflowService } from '../services/approvalWorkflowService.js';
 import { config } from '@uaip/config';
 
-const router: Router = express.Router();
+const router: Router = Router();
 
 // Lazy initialization of services
 let securityService: SecurityService | null = null;

@@ -135,7 +135,18 @@ class SecurityGatewayServer extends BaseService {
     // Add error tracking middleware before routes
     this.app.use(errorTrackingMiddleware('security-gateway'));
 
+    // Test route for debugging
+    this.app.get('/api/v1/auth/test', (req: any, res: any) => {
+      res.json({ message: 'Test route working', service: 'security-gateway' });
+    });
+
+    // CSRF token test route
+    this.app.get('/api/v1/auth/csrf-token', (req: any, res: any) => {
+      res.json({ success: true, data: { token: 'test-token' } });
+    });
+
     // API routes
+    logger.info('Setting up auth routes...');
     this.app.use('/api/v1/auth', authRoutes);
     this.app.use('/api/v1/security', securityRoutes);
     this.app.use('/api/v1/approvals', approvalRoutes);

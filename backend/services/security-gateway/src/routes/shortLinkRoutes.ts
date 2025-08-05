@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router } from '@uaip/shared-services/express-compat';
 import { body, query, param, validationResult } from 'express-validator';
 import { ShortLinkService } from '../services/shortLink.service.js';
 import { authMiddleware } from '@uaip/middleware';
@@ -13,7 +13,12 @@ const LinkType = {
 };
 
 const router: Router = Router();
-const shortLinkService = new ShortLinkService();
+
+// Factory function to get ShortLinkService instance
+// This delays initialization until routes are actually called
+function getShortLinkService(): ShortLinkService {
+  return new ShortLinkService();
+}
 
 // Validation middleware
 const validateRequest = (req: any, res: any, next: any) => {
@@ -52,7 +57,7 @@ router.post('/links',
 
       const { originalUrl, title, description, type, customCode, expiresAt, password, maxClicks, tags, generateQR } = req.body;
 
-      const shortLink = await shortLinkService.createShortLink(originalUrl, userId, {
+      const shortLink = await getShortLinkService().createShortLink(originalUrl, userId, {
         title,
         description,
         type,
@@ -114,7 +119,7 @@ router.post('/artifacts/:artifactId/share',
       // Create artifact URL
       const artifactUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/artifacts/${artifactId}`;
 
-      const shortLink = await shortLinkService.createShortLink(artifactUrl, userId, {
+      const shortLink = await getShortLinkService().createShortLink(artifactUrl, userId, {
         title: title || `Artifact ${artifactId}`,
         description: description || `Shared artifact: ${artifactId}`,
         type: LinkType.ARTIFACT,
@@ -172,7 +177,7 @@ router.get('/links',
       const type = req.query.type;
       const search = req.query.search;
 
-      const links = await shortLinkService.getUserLinks(userId, { page, limit, type, search });
+      const links = await getShortLinkService().getUserLinks(userId, { page, limit, type, search });
 
       res.json({
         success: true,
@@ -217,7 +222,7 @@ router.get('/links/:id',
         return res.status(401).json({ success: false, message: 'User not authenticated' });
       }
 
-      const link = await shortLinkService.getLinkById(id, userId);
+      const link = await getShortLinkService().getLinkById(id, userId);
 
       if (!link) {
         return res.status(404).json({
@@ -276,7 +281,7 @@ router.put('/links/:id',
         return res.status(401).json({ success: false, message: 'User not authenticated' });
       }
 
-      const updatedLink = await shortLinkService.updateLink(id, userId, updates);
+      const updatedLink = await getShortLinkService().updateLink(id, userId, updates);
 
       res.json({
         success: true,
@@ -316,7 +321,7 @@ router.delete('/links/:id',
         return res.status(401).json({ success: false, message: 'User not authenticated' });
       }
 
-      await shortLinkService.deleteLink(id, userId);
+      await getShortLinkService().deleteLink(id, userId);
 
       res.json({
         success: true,
@@ -348,7 +353,7 @@ router.post('/links/:id/qr',
         return res.status(401).json({ success: false, message: 'User not authenticated' });
       }
 
-      const qrCode = await shortLinkService.generateQRCode(id, userId);
+      const qrCode = await getShortLinkService().generateQRCode(id, userId);
 
       res.json({
         success: true,
@@ -382,7 +387,7 @@ router.get('/links/:id/analytics',
         return res.status(401).json({ success: false, message: 'User not authenticated' });
       }
 
-      const analytics = await shortLinkService.getLinkAnalytics(id, userId);
+      const analytics = await getShortLinkService().getLinkAnalytics(id, userId);
 
       res.json({
         success: true,
@@ -415,7 +420,7 @@ router.get('/:shortCode',
       const ip = req.ip || req.connection.remoteAddress;
       const referer = req.get('Referer');
 
-      const result = await shortLinkService.resolveShortLink(shortCode, {
+      const result = await getShortLinkService().resolveShortLink(shortCode, {
         password,
         userAgent,
         ip,
