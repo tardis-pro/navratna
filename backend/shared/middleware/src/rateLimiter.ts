@@ -41,7 +41,7 @@ export const createRateLimiter = (options: RateLimiterOptions = {}) => {
     handler: options.handler || ((req: Request, res: Response) => {
       logger.warn('Rate limit exceeded', {
         ip: req.ip,
-        userAgent: req.headers['user-agent'],
+        userAgent: req.headers?.['user-agent'] || 'unknown',
         url: req.url,
         method: req.method
       });

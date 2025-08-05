@@ -161,9 +161,12 @@ function generateStackTraceHash(stackTrace: string): string {
   return crypto.createHash('md5').update(cleanStack).digest('hex').substring(0, 12);
 }
 
-function generateMessageHash(message: string): string {
+function generateMessageHash(message: string | undefined): string {
+  // Handle undefined or non-string messages
+  const safeMessage = message || 'unknown error';
+  
   // Extract error message pattern (remove dynamic values)
-  const pattern = message
+  const pattern = safeMessage
     .replace(/\d+/g, 'N') // Replace numbers with N
     .replace(/[0-9a-f]{8,}/g, 'ID') // Replace IDs/hashes with ID
     .replace(/\s+/g, ' ') // Normalize whitespace
@@ -173,11 +176,14 @@ function generateMessageHash(message: string): string {
 }
 
 // Enhanced error logging function
-export function recordError(error: Error, context: ErrorContext): void {
-  const errorType = error.constructor.name;
-  const stackTraceHash = generateStackTraceHash(error.stack || '');
-  const messageHash = generateMessageHash(error.message);
-  const errorId = generateErrorId(error, context);
+export function recordError(error: Error | any, context: ErrorContext): void {
+  // Defensive error handling - ensure error is defined and has properties
+  const safeError = error || { message: 'Unknown error', constructor: { name: 'UnknownError' }, stack: '' };
+  
+  const errorType = safeError.constructor?.name || 'UnknownError';
+  const stackTraceHash = generateStackTraceHash(safeError.stack || '');
+  const messageHash = generateMessageHash(safeError.message);
+  const errorId = generateErrorId(safeError, context);
   const severity = context.severity || 'error';
 
   // Track error occurrence
@@ -238,13 +244,13 @@ export function errorTrackingMiddleware(serviceName: string) {
     const context: ErrorContext = {
       service: serviceName,
       endpoint: req.route?.path || req.path,
-      userId: req.user?.id || req.headers['x-user-id'] as string,
-      requestId: req.id || req.headers['x-request-id'] as string,
+      userId: req.user?.id || (req.headers && req.headers['x-user-id']) as string,
+      requestId: req.id || (req.headers && req.headers['x-request-id']) as string,
       severity: res.statusCode >= 500 ? 'critical' : 'error',
       metadata: {
         method: req.method,
         url: req.url,
-        userAgent: req.headers['user-agent'],
+        userAgent: req.headers?.['user-agent'] || 'unknown',
         ip: req.ip
       }
     };

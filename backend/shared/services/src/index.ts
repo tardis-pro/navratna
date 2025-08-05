@@ -12,8 +12,14 @@ export { SecurityLevel } from '@uaip/types';
 // CORE INFRASTRUCTURE
 // =============================================================================
 
-// Base Service Class for all microservices
+// Base Service Classes for all microservices
 export { BaseService, ServiceConfig, createService } from './BaseService.js';
+
+// HyperExpress Polyfill
+export { HyperExpressPolyfill, createHyperExpressApp } from './HyperExpressPolyfill.js';
+
+// Express Compatibility Layer
+export * from './express-compat.js';
 
 // Database Services (consolidated - no duplicates)
 export * from './database/index.js';

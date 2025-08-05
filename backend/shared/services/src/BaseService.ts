@@ -1,4 +1,4 @@
-import express, { Express, Request, Response, NextFunction } from 'express';
+import { createHyperExpressApp, HyperExpressPolyfill } from './HyperExpressPolyfill.js';
 import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
@@ -13,14 +13,7 @@ import { UserLLMPreference } from './entities/userLLMPreference.entity.js';
 import { AgentLLMPreference } from './entities/agentLLMPreference.entity.js';
 import { LLMProvider } from './entities/llmProvider.entity.js';
 
-// Extend Request interface to include id property
-declare global {
-  namespace Express {
-    interface Request {
-      id?: string;
-    }
-  }
-}
+// HyperExpress types are already available
 
 export interface ServiceConfig {
   name: string;
@@ -35,11 +28,11 @@ export interface ServiceConfig {
     max?: number;
     message?: string;
   };
-  customMiddleware?: express.RequestHandler[];
+  customMiddleware?: any[];
 }
 
 export abstract class BaseService {
-  protected app: Express;
+  protected app: HyperExpressPolyfill;
   protected server: any;
   protected databaseService: DatabaseService;
   protected eventBusService: EventBusService;
@@ -51,7 +44,7 @@ export abstract class BaseService {
 
   constructor(config: ServiceConfig) {
     this.config = config;
-    this.app = express();
+    this.app = createHyperExpressApp();
     this.databaseService = new DatabaseService();
     
     // Initialize EventBusService singleton for first time
@@ -81,9 +74,7 @@ export abstract class BaseService {
     // Compression
     this.app.use(compression());
 
-    // Body parsing with size limits
-    this.app.use(express.json({ limit: '10mb' }));
-    this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+    // Body parsing is handled automatically by HyperExpress
 
     // Request logging with morgan
     this.app.use(morgan('combined', {
@@ -104,16 +95,16 @@ export abstract class BaseService {
     }
 
     // Request ID middleware
-    this.app.use((req: Request, res: Response, next: NextFunction) => {
+    this.app.use((req: any, res: any, next?: any) => {
       req.id = req.headers['x-request-id'] as string || `${Date.now()}-${Math.random()}`;
-      res.setHeader('X-Request-ID', req.id);
-      next();
+      res.header('X-Request-ID', req.id);
+      if (next) next();
     });
   }
 
   protected setupBaseRoutes(): void {
     // Health check
-    this.app.get('/health', async (req: Request, res: Response) => {
+    this.app.get('/health', async (req: any, res: any) => {
       try {
         const dbHealthy = await this.checkDatabaseHealth();
         const eventBusHealthy = await this.checkEventBusHealth();
@@ -143,7 +134,7 @@ export abstract class BaseService {
     });
 
     // Service info
-    this.app.get('/info', (req: Request, res: Response) => {
+    this.app.get('/info', (req: any, res: any) => {
       res.json({
         service: this.config.name,
         version: this.config.version || '1.0.0',
@@ -159,10 +150,10 @@ export abstract class BaseService {
   }
 
   protected setup404Handler(): void {
-    this.app.use((req: Request, res: Response) => {
+    this.app.use((req: any, res: any) => {
       res.status(404).json({
         error: 'Not Found',
-        message: `Route ${req.method} ${req.path} not found`,
+        message: `Route ${req.method} ${req.url} not found`,
         service: this.config.name
       });
     });
@@ -440,9 +431,9 @@ export abstract class BaseService {
       this.setup404Handler();
       this.setupErrorHandler();
 
-      // Start server
-      this.server = this.app.listen(this.config.port, () => {
-        logger.info(`${this.config.name} started on port ${this.config.port}`);
+      // Start server - HyperExpress way
+      this.server = await this.app.listen(this.config.port, () => {
+        logger.info(`${this.config.name} (HyperExpress) started on port ${this.config.port}`);
       });
 
       // Setup graceful shutdown

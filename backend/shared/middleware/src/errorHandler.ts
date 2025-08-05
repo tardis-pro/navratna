@@ -66,7 +66,7 @@ export const errorHandler = (
   logError(logger, error, {
     path: req.path,
     method: req.method,
-    userAgent: req.headers['user-agent'],
+    userAgent: req.headers?.['user-agent'] || 'unknown',
     ip: req.ip,
     userId: req.user?.id,
     requestId: req.id
@@ -82,7 +82,7 @@ export const errorHandler = (
     },
     meta: {
       timestamp: new Date(),
-      requestId: req.headers['x-request-id'] as string,
+      requestId: req.headers?.['x-request-id'] as string,
       version: config.environment
     }
   };
