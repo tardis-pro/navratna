@@ -10,7 +10,7 @@
 
 ## 🎤 Missing Voice Master Components
 
-### 1. **Audio Processing Pipeline Service** (New Microservice - Port 3006)
+### 1. **Audio Processing Pipeline Service** (New Microservice - Port 3008)
 ```
 voice-processing-service/
 ├── audio-input-manager/     # Real-time audio capture & buffering
