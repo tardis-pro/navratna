@@ -12,7 +12,7 @@ const LinkType = {
   EXTERNAL: 'external' as const
 };
 
-const router: Router = Router();
+const router= Router();
 
 // Factory function to get ShortLinkService instance
 // This delays initialization until routes are actually called

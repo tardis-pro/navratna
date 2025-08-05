@@ -11,7 +11,7 @@ import { Request, Response } from '@uaip/shared-services';
 import { config } from '@uaip/config';
 import { AuditEventType, LLMTaskType, LLMProviderType } from '@uaip/types';
 
-const router: Router = Router();
+const router= Router();
 
 // Lazy initialization of services
 let databaseService: DatabaseService | null = null;

@@ -6,7 +6,7 @@
  * and context loading is handled by middleware.
  */
 
-import { Request, Response, NextFunction } from '@uaip/shared-services/express-compat';
+import { Request, Response, NextFunction } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import {
   AgentCoreService,

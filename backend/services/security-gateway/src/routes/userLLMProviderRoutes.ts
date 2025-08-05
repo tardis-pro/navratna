@@ -78,7 +78,7 @@ const PROVIDER_LIMITS = {
   'system': 50    // System users have higher limits
 };
 
-const router: Router = Router();
+const router= Router();
 
 // Lazy initialization of services
 let userService: UserService | null = null;

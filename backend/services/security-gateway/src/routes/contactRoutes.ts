@@ -9,7 +9,7 @@ import { Request, Response } from '@uaip/shared-services';
 import { AuditEventType } from '@uaip/types';
 import { ContactStatus } from '@uaip/shared-services';
 
-const router: Router = Router();
+const router= Router();
 
 // Lazy initialization of services
 let databaseService: DatabaseService | null = null;

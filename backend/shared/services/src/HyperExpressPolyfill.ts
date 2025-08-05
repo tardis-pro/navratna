@@ -222,37 +222,58 @@ export class HyperExpressPolyfill {
       return;
     }
 
-    console.log(`HyperExpress: Mounting router at ${basePath}, stack length: ${router.stack.length}`);
-
     // Mount each route from the Express router
     router.stack.forEach((layer: any, index: number) => {
-      console.log(`HyperExpress: Processing layer ${index}`, {
-        hasRoute: !!layer.route,
-        regexp: layer.regexp?.toString(),
-        name: layer.name
-      });
-
       if (layer.route) {
         // This is a route layer
         const route = layer.route;
         const fullPath = basePath + route.path;
 
-        console.log(`HyperExpress: Mounting route ${fullPath}, methods: ${Object.keys(route.methods)}`);
-
-        route.stack.forEach((routeLayer: any) => {
-          const method = routeLayer.method?.toLowerCase();
-          if (!method || !this.server[method]) {
-            console.warn(`HyperExpress: Unsupported method ${method}`);
+        // Get the HTTP methods for this route
+        const methods = Object.keys(route.methods);
+        methods.forEach((method: string) => {
+          const methodLower = method.toLowerCase();
+          if (!this.server[methodLower]) {
+            console.warn(`HyperExpress: Unsupported method ${methodLower}`);
             return;
           }
-
-          console.log(`HyperExpress: Registering ${method.toUpperCase()} ${fullPath}`);
-          this.server[method](fullPath, this.wrapHandler(routeLayer.handle));
+          
+          // Collect all middlewares and handlers for this route
+          const allHandlers: any[] = [];
+          
+          // Add route-level middlewares (all but the last one)
+          if (route.stack && route.stack.length > 1) {
+            route.stack.slice(0, -1).forEach((stackLayer: any) => {
+              if (stackLayer.handle) {
+                allHandlers.push(this.wrapHandler(stackLayer.handle));
+              }
+            });
+          }
+          
+          // Add the final handler
+          const finalHandler = route.stack[route.stack.length - 1]?.handle;
+          if (finalHandler) {
+            allHandlers.push(this.wrapHandler(finalHandler));
+          }
+          
+          if (allHandlers.length > 0) {
+            this.server[methodLower](fullPath, ...allHandlers);
+          }
         });
-      } else {
-        // This might be middleware layer - we'll skip it for now
-        // but log it for debugging
-        console.log(`HyperExpress: Skipping middleware layer at index ${index}`);
+      } else if (layer.handle && typeof layer.handle === 'function') {
+        // This is a router-level middleware layer
+        const middlewarePath = basePath + (layer.regexp ? layer.regexp.source.replace(/^\^\\?|\\?\$$|\\\//g, '').replace(/\.\*/, '*') : '');
+        
+        // Apply middleware to the base path pattern
+        if (middlewarePath === basePath || middlewarePath === basePath + '*') {
+          // Apply to all routes under this base path
+          this.server.use(basePath || '/', this.wrapMiddleware(layer.handle));
+        } else {
+          // Apply to specific path pattern
+          this.server.use(middlewarePath, this.wrapMiddleware(layer.handle));
+        }
+        
+        console.log(`HyperExpress: Mounted router middleware at ${middlewarePath || basePath || '/'}`);
       }
     });
   }

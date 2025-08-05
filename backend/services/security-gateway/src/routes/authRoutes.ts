@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { config } from '@uaip/config';
 import { logger } from '@uaip/utils';
 import { UserService } from '@uaip/shared-services';
-import { authMiddleware, requireAdmin, csrfProtection } from '@uaip/middleware';
+import { authMiddleware, requireAdmin, csrfProtection, csrfMiddleware } from '@uaip/middleware';
 import { validateRequest } from '@uaip/middleware';
 import { AuditEventType } from '@uaip/types';
 import { AuditService } from '../services/auditService.js';
@@ -107,6 +107,7 @@ function generateTokens(userId: string, email: string, role: string) {
  * @access Public
  */
 router.post('/login',
+  csrfMiddleware,
   validateRequest({ body: loginSchema }),
   async (req, res) => {
     try {
@@ -283,6 +284,7 @@ router.post('/login',
  * @access Public
  */
 router.post('/refresh',
+  csrfMiddleware,
   validateRequest({ body: refreshTokenSchema }),
   async (req, res) => {
     try {
@@ -371,7 +373,7 @@ router.post('/refresh',
  * @desc Logout user and revoke refresh token
  * @access Private
  */
-router.post('/logout', authMiddleware, async (req, res) => {
+router.post('/logout', authMiddleware, csrfMiddleware, async (req, res) => {
   try {
     const { userService, auditService } = await getServices();
     const { refreshToken } = req.body;
@@ -421,6 +423,7 @@ router.post('/logout', authMiddleware, async (req, res) => {
  */
 router.post('/change-password',
   authMiddleware,
+  csrfMiddleware,
   validateRequest({ body: changePasswordSchema }),
   async (req, res) => {
     try {
@@ -562,6 +565,7 @@ router.get('/me', authMiddleware, async (req, res) => {
  * @access Public
  */
 router.post('/forgot-password',
+  csrfMiddleware,
   validateRequest({ body: forgotPasswordSchema }),
   async (req, res) => {
     try {
@@ -617,6 +621,7 @@ router.post('/forgot-password',
  * @access Public
  */
 router.post('/reset-password',
+  csrfMiddleware,
   validateRequest({ body: resetPasswordSchema }),
   async (req, res) => {
     try {
@@ -699,8 +704,5 @@ router.post('/reset-password',
  * @access Public
  */
 router.get('/csrf-token', csrfProtection.tokenEndpoint());
-
-// Note: CSRF protection temporarily disabled for testing
-// Will be re-enabled after route registration is confirmed working
 
 export default router; 

@@ -13,7 +13,7 @@ import { SecurityGatewayService } from '../services/securityGatewayService.js';
 import { ApprovalWorkflowService } from '../services/approvalWorkflowService.js';
 import { config } from '@uaip/config';
 
-const router: Router = Router();
+const router= Router();
 
 // Lazy initialization of services
 let securityService: SecurityService | null = null;

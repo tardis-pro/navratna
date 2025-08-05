@@ -1,4 +1,4 @@
-import express from '@uaip/shared-services/express-compat';
+import express from '@uaip/shared-services';
 import { BaseService, DiscussionService, PersonaService } from '@uaip/shared-services';
 import { LLMService, UserLLMService } from '@uaip/llm-service';
 import { DiscussionEventType, LLMTaskType } from '@uaip/types';

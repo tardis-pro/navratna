@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from '@uaip/shared-services/express-compat';
+import { Request, Response, NextFunction } from '@uaip/shared-services';
 import { DiscussionService } from '@uaip/shared-services';
 import { logger, ApiError } from '@uaip/utils';
 import { 

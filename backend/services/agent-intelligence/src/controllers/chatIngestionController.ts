@@ -3,7 +3,7 @@
  * Integrates real chat ingestion services with API endpoints
  */
 
-import { Request, Response } from '@uaip/shared-services/express-compat';
+import { Request, Response } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { 
   KnowledgeGraphService,

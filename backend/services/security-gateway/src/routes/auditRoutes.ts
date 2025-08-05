@@ -8,7 +8,7 @@ import { AuditService as DomainAuditService } from '@uaip/shared-services';
 import { AuditEventType } from '@uaip/types';
 import { AuditService } from '../services/auditService.js';
 
-const router: Router = Router();
+const router= Router();
 
 // Lazy initialization of services
 let domainAuditService: DomainAuditService | null = null;

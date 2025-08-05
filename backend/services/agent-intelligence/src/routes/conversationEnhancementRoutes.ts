@@ -5,7 +5,7 @@
  * including persona selection, contextual responses, and conversation analysis.
  */
 
-import { Router, Request, Response } from '@uaip/shared-services/express-compat';
+import { Router, Request, Response , RouterType } from '@uaip/shared-services';
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { validateRequest, authMiddleware } from '@uaip/middleware';
@@ -82,7 +82,7 @@ const contextualResponseRequestSchema = z.object({
 
 export function createConversationEnhancementRoutes(
   conversationEnhancementService: ConversationEnhancementService
-): Router {
+): RouterType {
   const router = Router();
 
   /**

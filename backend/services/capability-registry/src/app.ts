@@ -1,4 +1,4 @@
-import { createHyperExpressApp } from '@uaip/shared-services';
+import { createHyperExpressApp, HyperExpressPolyfill } from '@uaip/shared-services';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
@@ -14,7 +14,7 @@ import { healthRoutes } from './routes/healthRoutes.js';
 import { mcpRoutes } from './routes/mcpRoutes.js';
 
 export class CapabilityRegistryApp {
-  private app: any;
+  private app: HyperExpressPolyfill;
   private databaseService: DatabaseService;
   private eventBusService: EventBusService;
   private server?: any;
@@ -165,7 +165,7 @@ export class CapabilityRegistryApp {
     }
   }
 
-  public getApp(): any {
+  public getApp(): HyperExpressPolyfill {
     return this.app;
   }
 }

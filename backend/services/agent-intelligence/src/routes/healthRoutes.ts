@@ -1,8 +1,8 @@
-import { Router, Request, Response } from '@uaip/shared-services/express-compat';
+import { Router, Request, Response , RouterType } from '@uaip/shared-services';
 import { ServiceStatus } from '@uaip/types';
 import { metricsEndpoint } from '@uaip/middleware';
 
-const router: Router = Router();
+const router: RouterType = Router();
 
 // Basic health check
 router.get('/', async (req: Request, res: Response) => {

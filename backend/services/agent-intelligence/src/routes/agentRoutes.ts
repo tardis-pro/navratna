@@ -1,4 +1,4 @@
-import { Router, Request, Response, NextFunction } from '@uaip/shared-services/express-compat';
+import { Router, Request, Response, NextFunction, RouterType } from '@uaip/shared-services';
 import { 
   authMiddleware, 
   validateRequest,
@@ -25,7 +25,7 @@ import { AgentController } from '../controllers/agentController.js';
 
 
 // Create router
-export function createAgentRoutes(): Router {
+export function createAgentRoutes(): RouterType {
   const router = Router();
   
   // Initialize shared controller instance

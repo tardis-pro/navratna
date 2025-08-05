@@ -4,7 +4,7 @@ import { UserToolPreferencesService, DatabaseService } from '@uaip/shared-servic
 import { z } from 'zod';
 import { Request, Response } from '@uaip/shared-services';
 
-const router: Router = Router();
+const router= Router();
 
 export interface UserToolPreferencesData {
   userId: string;
