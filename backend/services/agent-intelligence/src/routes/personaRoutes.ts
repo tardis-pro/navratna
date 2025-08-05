@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router } from '@uaip/shared-services/express-compat';
 import { PersonaController } from '../controllers/personaController';
 import { 
   validateRequest, 

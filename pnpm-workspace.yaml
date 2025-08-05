@@ -67,6 +67,7 @@ catalogs:
   backend:
     express: ^5.1.0
     '@types/express': ^5.0.3
+    hyper-express: ^6.17.3
     express-rate-limit: ^7.5.0
     express-validator: ^7.2.1
     express-slow-down: ^2.1.0

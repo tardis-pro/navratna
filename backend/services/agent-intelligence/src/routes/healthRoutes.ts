@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response } from '@uaip/shared-services/express-compat';
 import { ServiceStatus } from '@uaip/types';
 import { metricsEndpoint } from '@uaip/middleware';
 

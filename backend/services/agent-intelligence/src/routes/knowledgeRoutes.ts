@@ -4,7 +4,7 @@
  * Focuses on advanced features: chat ingestion, ontology, workflows, expertise analysis
  */
 
-import express, { Request, Response, Router } from 'express';
+import express, { Request, Response, Router } from '@uaip/shared-services/express-compat';
 import { authMiddleware } from '@uaip/middleware';
 import { logger } from '@uaip/utils';
 import multer from 'multer';
@@ -17,7 +17,7 @@ import {
   getLearningInsights
 } from '../controllers/chatIngestionController.js';
 
-const router: Router = express.Router();
+const router: Router = Router();
 
 // Configure multer for file uploads
 const upload = multer({

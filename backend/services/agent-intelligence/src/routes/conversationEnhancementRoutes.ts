@@ -5,7 +5,7 @@
  * including persona selection, contextual responses, and conversation analysis.
  */
 
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response } from '@uaip/shared-services/express-compat';
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { validateRequest, authMiddleware } from '@uaip/middleware';

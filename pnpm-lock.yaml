@@ -72,6 +72,9 @@ catalogs:
     helmet:
       specifier: ^8.1.0
       version: 8.1.0
+    hyper-express:
+      specifier: ^6.17.3
+      version: 6.17.3
     jest:
       specifier: ^30.0.2
       version: 30.0.3
@@ -774,6 +777,9 @@ importers:
       helmet:
         specifier: catalog:backend
         version: 8.1.0
+      hyper-express:
+        specifier: catalog:backend
+        version: 6.17.3
       morgan:
         specifier: ^1.10.0
         version: 1.10.0
@@ -1532,7 +1538,7 @@ importers:
         version: 6.0.1
       ts-jest:
         specifier: ^29.2.5
-        version: 29.4.0(@babel/core@7.27.4)(@jest/transform@30.0.2)(@jest/types@30.0.1)(babel-jest@30.0.2(@babel/core@7.27.4))(jest-util@30.0.2)(jest@29.7.0(@types/node@22.15.33)(ts-node@10.9.2(@swc/core@1.12.6)(@types/node@22.15.33)(typescript@5.8.3)))(typescript@5.8.3)
+        version: 29.4.0(@babel/core@7.27.4)(@jest/transform@30.0.2)(@jest/types@30.0.1)(babel-jest@30.0.2(@babel/core@7.27.4))(jest-util@30.0.2)(jest@29.7.0(@types/node@22.15.33))(typescript@5.8.3)
       typescript:
         specifier: 'catalog:'
         version: 5.8.3
@@ -1572,6 +1578,9 @@ importers:
       helmet:
         specifier: catalog:backend
         version: 8.1.0
+      hyper-express:
+        specifier: catalog:backend
+        version: 6.17.3
       ioredis:
         specifier: ^5.6.1
         version: 5.6.1
@@ -1653,7 +1662,7 @@ importers:
         version: 10.28.0
       ts-jest:
         specifier: ^29.2.5
-        version: 29.4.0(@babel/core@7.27.4)(@jest/transform@30.0.2)(@jest/types@30.0.1)(babel-jest@30.0.2(@babel/core@7.27.4))(jest-util@30.0.2)(jest@29.7.0(@types/node@22.15.33)(ts-node@10.9.2(@swc/core@1.12.6)(@types/node@22.15.33)(typescript@5.8.3)))(typescript@5.8.3)
+        version: 29.4.0(@babel/core@7.27.4)(@jest/transform@30.0.2)(@jest/types@30.0.1)(babel-jest@30.0.2(@babel/core@7.27.4))(jest-util@30.0.2)(jest@29.7.0(@types/node@22.15.33))(typescript@5.8.3)
       ts-node:
         specifier: 'catalog:'
         version: 10.9.2(@swc/core@1.12.6)(@types/node@22.15.33)(typescript@5.8.3)
@@ -5103,6 +5112,9 @@ packages:
     resolution: {integrity: sha512-B4FFZ6q/T2jhhksgkbEW3HBvWIfDW85snkQgawt07S7J5QXTk6BkNV+0yAeZrM5QpMAdYlocGoljn0sJ/WQkFw==}
     engines: {node: '>=10.17.0'}
 
+  hyper-express@6.17.3:
+    resolution: {integrity: sha512-fNFrRVEAIqjADtAq2F5wFRBlpo3G63QgK9PsNklsKLpM2S3fNlFaojafv926mlEW+C4zZ1VI8Tm5PCJOaIWJMQ==}
+
   iconv-lite@0.6.3:
     resolution: {integrity: sha512-4fCk79wshMdzMp2rH06qWrJE4iolqLhCUH+OiuIgU++RB0+94NlDL81atO7GX55uUKueo0txHNtvEyI6D7WdMw==}
     engines: {node: '>=0.10.0'}
@@ -6922,6 +6934,9 @@ packages:
     resolution: {integrity: sha512-OZs6gsjF4vMp32qrCbiVSkrFmXtG/AZhY3t0iAMrMBiAZyV9oALtXO8hsrHbMXF9x6L3grlFuwW2oAz7cav+Gw==}
     engines: {node: '>= 0.6'}
 
+  typed-emitter@2.1.0:
+    resolution: {integrity: sha512-g/KzbYKbH5C2vPkaXGu8DJlHrGKHLsM25Zg9WuC9pMGfuvT+X25tZQWo5fK1BjBm8+UrVE9LDCvaY0CQk+fXDA==}
+
   typedarray@0.0.6:
     resolution: {integrity: sha512-/aCDEGatGvZ2BIk+HmLf4ifCJFwvKFNb9/JeZPMulfgFracn9QFcAf5GO8B/mweUjSoblS5In0cWhqpfs/5PQA==}
 
@@ -6995,6 +7010,10 @@ packages:
     resolution: {integrity: sha512-p1diW6TqL9L07nNxvRMM7hMMw4c5XOo/1ibL4aAIGmSAt9slTE1Xgw5KWuof2uTOvCg9BY7ZRi+GaF+7sfgPeQ==}
     engines: {node: '>=14.17'}
     hasBin: true
+
+  uWebSockets.js@https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/6609a88ffa9a16ac5158046761356ce03250a0df:
+    resolution: {tarball: https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/6609a88ffa9a16ac5158046761356ce03250a0df}
+    version: 20.51.0
 
   undefsafe@2.0.5:
     resolution: {integrity: sha512-WxONCrssBM8TSPRqN5EmsjVrsv4A8X12J4ArBiiayv3DyyG3ZlIg6yysuuSYdZsVz3TKcTg2fd//Ujd4CHV1iA==}
@@ -11018,6 +11037,18 @@ snapshots:
 
   human-signals@2.1.0: {}
 
+  hyper-express@6.17.3:
+    dependencies:
+      busboy: 1.6.0
+      cookie: 1.0.2
+      cookie-signature: 1.2.2
+      mime-types: 2.1.35
+      negotiator: 1.0.0
+      range-parser: 1.2.1
+      type-is: 1.6.18
+      typed-emitter: 2.1.0
+      uWebSockets.js: https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/6609a88ffa9a16ac5158046761356ce03250a0df
+
   iconv-lite@0.6.3:
     dependencies:
       safer-buffer: 2.1.2
@@ -13134,7 +13165,7 @@ snapshots:
     dependencies:
       typescript: 5.8.3
 
-  ts-jest@29.4.0(@babel/core@7.27.4)(@jest/transform@30.0.2)(@jest/types@30.0.1)(babel-jest@30.0.2(@babel/core@7.27.4))(jest-util@30.0.2)(jest@29.7.0(@types/node@22.15.33)(ts-node@10.9.2(@swc/core@1.12.6)(@types/node@22.15.33)(typescript@5.8.3)))(typescript@5.8.3):
+  ts-jest@29.4.0(@babel/core@7.27.4)(@jest/transform@30.0.2)(@jest/types@30.0.1)(babel-jest@30.0.2(@babel/core@7.27.4))(jest-util@30.0.2)(jest@29.7.0(@types/node@22.15.33))(typescript@5.8.3):
     dependencies:
       bs-logger: 0.2.6
       ejs: 3.1.10
@@ -13261,6 +13292,10 @@ snapshots:
       media-typer: 1.1.0
       mime-types: 3.0.1
 
+  typed-emitter@2.1.0:
+    optionalDependencies:
+      rxjs: 7.8.2
+
   typedarray@0.0.6: {}
 
   typeorm@0.3.25(ioredis@5.6.1)(pg@8.16.2)(redis@5.5.6)(reflect-metadata@0.2.2)(ts-node@10.9.2(@swc/core@1.12.6)(@types/node@22.15.33)(typescript@5.8.3)):
@@ -13300,6 +13335,8 @@ snapshots:
       - supports-color
 
   typescript@5.8.3: {}
+
+  uWebSockets.js@https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/6609a88ffa9a16ac5158046761356ce03250a0df: {}
 
   undefsafe@2.0.5: {}
 
