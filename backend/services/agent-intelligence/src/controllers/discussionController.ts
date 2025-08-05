@@ -355,7 +355,7 @@ export class DiscussionController {
         participantId
       });
 
-      res.status(204).send();
+      res.status(204).send('');
 
     } catch (error) {
       logger.error('Error removing participant', { 

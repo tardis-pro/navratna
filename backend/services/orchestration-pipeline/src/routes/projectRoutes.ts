@@ -162,7 +162,7 @@ router.delete('/:id', authMiddleware, async (req: Request, res: Response) => {
     const projectId = req.params.id;
 
     await projectService.deleteProject(projectId, userId);
-    res.status(204).send();
+    res.status(204).send('');
   } catch (error) {
     logger.error('Error deleting project', { error });
     res.status(500).json({ error: 'Failed to delete project' });

@@ -180,7 +180,7 @@ export class AgentController {
   async deleteAgent(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       await this.agentCore.deleteAgent(req.params.id, req.user?.id || 'system');
-      res.status(204).send();
+      res.status(204).send('');
     } catch (error) {
       next(error);
     }
