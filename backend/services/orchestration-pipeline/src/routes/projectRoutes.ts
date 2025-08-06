@@ -82,7 +82,7 @@ const initServices = async () => {
 };
 
 // Create project
-router.post('/', authMiddleware, validateRequest(createProjectSchema), async (req: Request, res: Response) => {
+router.post('/', authMiddleware, validateRequest({ body: createProjectSchema }), async (req: Request, res: Response) => {
   try {
     await initServices();
     const userId = (req as any).user?.id;
@@ -112,7 +112,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'User not authenticated' });
     }
 
-    const projects = await projectService.getUserProjects(userId);
+    const projects = await projectService.getProjects({ ownerId: userId });
     res.json(projects);
   } catch (error) {
     logger.error('Error fetching projects', { error });
@@ -140,13 +140,13 @@ router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // Update project
-router.put('/:id', authMiddleware, validateRequest(updateProjectSchema), async (req: Request, res: Response) => {
+router.put('/:id', authMiddleware, validateRequest({ body: updateProjectSchema }), async (req: Request, res: Response) => {
   try {
     await initServices();
     const userId = (req as any).user?.id;
     const projectId = req.params.id;
 
-    const project = await projectService.updateProject(projectId, req.body, userId);
+    const project = await projectService.updateProject(projectId, req.body);
     res.json(project);
   } catch (error) {
     logger.error('Error updating project', { error });
@@ -161,7 +161,7 @@ router.delete('/:id', authMiddleware, async (req: Request, res: Response) => {
     const userId = (req as any).user?.id;
     const projectId = req.params.id;
 
-    await projectService.deleteProject(projectId, userId);
+    await projectService.deleteProject(projectId);
     res.status(204).send('');
   } catch (error) {
     logger.error('Error deleting project', { error });
@@ -170,13 +170,13 @@ router.delete('/:id', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // Create task
-router.post('/:id/tasks', authMiddleware, validateRequest(createTaskSchema), async (req: Request, res: Response) => {
+router.post('/:id/tasks', authMiddleware, validateRequest({ body: createTaskSchema }), async (req: Request, res: Response) => {
   try {
     await initServices();
     const userId = (req as any).user?.id;
     const projectId = req.params.id;
 
-    const task = await projectService.createTask(projectId, req.body, userId);
+    const task = await projectService.createTask({ ...req.body, projectId });
     res.status(201).json(task);
   } catch (error) {
     logger.error('Error creating task', { error });
@@ -192,7 +192,7 @@ router.put('/:id/tasks/:taskId', authMiddleware, async (req: Request, res: Respo
     const projectId = req.params.id;
     const taskId = req.params.taskId;
 
-    const task = await projectService.updateTask(projectId, taskId, req.body, userId);
+    const task = await projectService.updateTask(taskId, req.body);
     res.json(task);
   } catch (error) {
     logger.error('Error updating task', { error });
@@ -201,13 +201,14 @@ router.put('/:id/tasks/:taskId', authMiddleware, async (req: Request, res: Respo
 });
 
 // Add agent to project
-router.post('/:id/agents', authMiddleware, validateRequest(addAgentSchema), async (req: Request, res: Response) => {
+router.post('/:id/agents', authMiddleware, validateRequest({ body: addAgentSchema }), async (req: Request, res: Response) => {
   try {
     await initServices();
     const userId = (req as any).user?.id;
     const projectId = req.params.id;
 
-    await projectService.addAgentToProject(projectId, req.body.agentId, req.body.role, userId);
+    // Agent assignment functionality needs to be implemented in ProjectManagementService
+    res.status(501).json({ error: 'Agent assignment not yet implemented' });
     res.status(201).json({ message: 'Agent added to project' });
   } catch (error) {
     logger.error('Error adding agent to project', { error });
@@ -216,13 +217,13 @@ router.post('/:id/agents', authMiddleware, validateRequest(addAgentSchema), asyn
 });
 
 // Record tool usage
-router.post('/:id/tool-usage', authMiddleware, validateRequest(recordToolUsageSchema), async (req: Request, res: Response) => {
+router.post('/:id/tool-usage', authMiddleware, validateRequest({ body: recordToolUsageSchema }), async (req: Request, res: Response) => {
   try {
     await initServices();
     const userId = (req as any).user?.id;
     const projectId = req.params.id;
 
-    await projectService.recordToolUsage(projectId, req.body.toolId, req.body.usage, userId);
+    await projectService.recordToolUsage({ projectId, ...req.body });
     res.status(201).json({ message: 'Tool usage recorded' });
   } catch (error) {
     logger.error('Error recording tool usage', { error });
@@ -237,7 +238,7 @@ router.get('/:id/metrics', authMiddleware, async (req: Request, res: Response) =
     const userId = (req as any).user?.id;
     const projectId = req.params.id;
 
-    const metrics = await projectService.getProjectMetrics(projectId, userId);
+    const metrics = await projectService.getProjectMetrics(projectId);
     res.json(metrics);
   } catch (error) {
     logger.error('Error fetching project metrics', { error });
@@ -252,7 +253,7 @@ router.get('/analytics', authMiddleware, async (req: Request, res: Response) => 
     const userId = (req as any).user?.id;
     const timeRange = req.query.timeRange as string || '30d';
 
-    const analytics = await projectService.getProjectAnalytics(userId, timeRange);
+    const analytics = await projectService.getProjectAnalytics({ ownerId: userId });
     res.json(analytics);
   } catch (error) {
     logger.error('Error fetching project analytics', { error });

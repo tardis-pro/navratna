@@ -35,6 +35,13 @@ export interface LinkAnalytics {
   countries?: Record<string, number>;
   devices?: Record<string, number>;
   browsers?: Record<string, number>;
+  clickHistory?: Array<{
+    timestamp: Date;
+    userAgent?: string;
+    ip?: string;
+    referer?: string;
+    userId?: string;
+  }>;
 }
 
 @Entity('short_links')

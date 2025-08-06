@@ -1,8 +1,8 @@
 import { Router } from '@uaip/shared-services';
-import { body, query, param, validationResult } from 'express-validator';
 import { ShortLinkService } from '../services/shortLink.service.js';
-import { authMiddleware } from '@uaip/middleware';
+import { authMiddleware, validateRequest } from '@uaip/middleware';
 import { logger } from '@uaip/utils';
+import { z } from 'zod';
 
 // Define types locally to avoid entity imports
 const LinkType = {
@@ -12,7 +12,7 @@ const LinkType = {
   EXTERNAL: 'external' as const
 };
 
-const router= Router();
+const router = Router();
 
 // Factory function to get ShortLinkService instance
 // This delays initialization until routes are actually called
@@ -20,137 +20,77 @@ function getShortLinkService(): ShortLinkService {
   return new ShortLinkService();
 }
 
-// Validation middleware
-const validateRequest = (req: any, res: any, next: any) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      errors: errors.array()
-    });
-  }
-  next();
-};
+// Zod schemas for validation
+const createShortLinkSchema = z.object({
+  originalUrl: z.string().url('Must be a valid URL'),
+  title: z.string().max(255, 'Title must be max 255 characters').optional(),
+  description: z.string().max(1000, 'Description must be max 1000 characters').optional(),
+  type: z.enum(['artifact', 'project_file', 'document', 'external']).optional(),
+  customCode: z.string().min(3, 'Custom code must be at least 3 characters').max(20, 'Custom code must be max 20 characters').optional(),
+  expiresAt: z.string().datetime().optional(),
+  password: z.string().min(4, 'Password must be at least 4 characters').max(50, 'Password must be max 50 characters').optional(),
+  maxClicks: z.number().int().positive('Max clicks must be positive').optional(),
+  tags: z.array(z.string()).optional(),
+  generateQR: z.boolean().optional(),
+  artifactId: z.string().uuid().optional(),
+  projectFileId: z.string().uuid().optional()
+});
+
+const updateShortLinkSchema = z.object({
+  title: z.string().max(255).optional(),
+  description: z.string().max(1000).optional(),
+  type: z.enum(['artifact', 'project_file', 'document', 'external']).optional(),
+  expiresAt: z.string().datetime().optional(),
+  password: z.string().min(4).max(50).optional(),
+  maxClicks: z.number().int().positive().optional(),
+  tags: z.array(z.string()).optional()
+});
+
+const getUserLinksSchema = z.object({
+  page: z.number().int().positive().default(1),
+  limit: z.number().int().positive().max(100).default(20),
+  type: z.enum(['artifact', 'project_file', 'document', 'external']).optional(),
+  search: z.string().optional()
+});
+
+const resolveShortLinkSchema = z.object({
+  password: z.string().optional()
+});
 
 // Create short link
 router.post('/links',
   authMiddleware,
-  [
-    body('originalUrl').isURL().withMessage('Must be a valid URL'),
-    body('title').optional().isString().isLength({ max: 255 }).withMessage('Title must be max 255 characters'),
-    body('description').optional().isString().isLength({ max: 1000 }).withMessage('Description must be max 1000 characters'),
-    body('type').optional().isIn(Object.values(LinkType)).withMessage('Invalid link type'),
-    body('customCode').optional().isString().isLength({ min: 3, max: 20 }).withMessage('Custom code must be 3-20 characters'),
-    body('expiresAt').optional().isISO8601().withMessage('Must be a valid date'),
-    body('password').optional().isString().isLength({ min: 4, max: 50 }).withMessage('Password must be 4-50 characters'),
-    body('maxClicks').optional().isInt({ min: 1 }).withMessage('Max clicks must be positive'),
-    body('tags').optional().isArray().withMessage('Tags must be an array'),
-    body('generateQR').optional().isBoolean().withMessage('Generate QR must be boolean')
-  ],
-  validateRequest,
+  validateRequest({ body: createShortLinkSchema }),
   async (req: any, res: any) => {
     try {
+      const shortLinkService = getShortLinkService();
       const userId = req.user?.id;
+
       if (!userId) {
-        return res.status(401).json({ success: false, message: 'User not authenticated' });
+        return res.status(401).json({ error: 'User not authenticated' });
       }
 
-      const { originalUrl, title, description, type, customCode, expiresAt, password, maxClicks, tags, generateQR } = req.body;
+      const shortLink = await shortLinkService.createShortLink(
+        req.body.originalUrl,
+        userId,
+        req.body
+      );
 
-      const shortLink = await getShortLinkService().createShortLink(originalUrl, userId, {
-        title,
-        description,
-        type,
-        customCode,
-        expiresAt: expiresAt ? new Date(expiresAt) : undefined,
-        password,
-        maxClicks,
-        tags,
-        generateQR
+      logger.info('Short link created', { 
+        shortCode: shortLink.shortCode, 
+        userId, 
+        originalUrl: req.body.originalUrl 
       });
 
       res.status(201).json({
         success: true,
-        data: {
-          id: shortLink.id,
-          shortCode: shortLink.shortCode,
-          originalUrl: shortLink.originalUrl,
-          shortUrl: `${process.env.SHORT_LINK_DOMAIN || 'https://s.uaip.dev'}/${shortLink.shortCode}`,
-          title: shortLink.title,
-          description: shortLink.description,
-          type: shortLink.type,
-          qrCode: shortLink.qrCode,
-          createdAt: shortLink.createdAt
-        }
+        data: shortLink
       });
-    } catch (error: any) {
+
+    } catch (error) {
       logger.error('Error creating short link:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Failed to create short link'
-      });
-    }
-  }
-);
-
-// Create short link for artifact
-router.post('/artifacts/:artifactId/share',
-  authMiddleware,
-  [
-    param('artifactId').isString().withMessage('Artifact ID is required'),
-    body('title').optional().isString().isLength({ max: 255 }),
-    body('description').optional().isString().isLength({ max: 1000 }),
-    body('expiresAt').optional().isISO8601(),
-    body('password').optional().isString().isLength({ min: 4, max: 50 }),
-    body('maxClicks').optional().isInt({ min: 1 }),
-    body('generateQR').optional().isBoolean()
-  ],
-  validateRequest,
-  async (req: any, res: any) => {
-    try {
-      const userId = req.user?.id;
-      const { artifactId } = req.params;
-      const { title, description, expiresAt, password, maxClicks, generateQR } = req.body;
-
-      if (!userId) {
-        return res.status(401).json({ success: false, message: 'User not authenticated' });
-      }
-
-      // Create artifact URL
-      const artifactUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/artifacts/${artifactId}`;
-
-      const shortLink = await getShortLinkService().createShortLink(artifactUrl, userId, {
-        title: title || `Artifact ${artifactId}`,
-        description: description || `Shared artifact: ${artifactId}`,
-        type: LinkType.ARTIFACT,
-        artifactId,
-        expiresAt: expiresAt ? new Date(expiresAt) : undefined,
-        password,
-        maxClicks,
-        generateQR: generateQR !== false, // Default to true for artifacts
-        tags: ['artifact', 'generated']
-      });
-
-      res.status(201).json({
-        success: true,
-        data: {
-          id: shortLink.id,
-          shortCode: shortLink.shortCode,
-          originalUrl: shortLink.originalUrl,
-          shortUrl: `${process.env.SHORT_LINK_DOMAIN || 'https://s.uaip.dev'}/${shortLink.shortCode}`,
-          artifactId: shortLink.artifactId,
-          title: shortLink.title,
-          description: shortLink.description,
-          qrCode: shortLink.qrCode,
-          createdAt: shortLink.createdAt
-        }
-      });
-    } catch (error: any) {
-      logger.error('Error creating artifact share link:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Failed to create artifact share link'
-      });
+      const message = error instanceof Error ? error.message : 'Failed to create short link';
+      res.status(500).json({ success: false, error: message });
     }
   }
 );
@@ -158,104 +98,64 @@ router.post('/artifacts/:artifactId/share',
 // Get user's short links
 router.get('/links',
   authMiddleware,
-  [
-    query('page').optional().isInt({ min: 1 }).withMessage('Page must be positive integer'),
-    query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be 1-100'),
-    query('type').optional().isIn(Object.values(LinkType)).withMessage('Invalid link type'),
-    query('search').optional().isString().isLength({ max: 255 })
-  ],
-  validateRequest,
+  validateRequest({ query: getUserLinksSchema }),
   async (req: any, res: any) => {
     try {
+      const shortLinkService = getShortLinkService();
       const userId = req.user?.id;
+
       if (!userId) {
-        return res.status(401).json({ success: false, message: 'User not authenticated' });
+        return res.status(401).json({ error: 'User not authenticated' });
       }
 
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 20;
-      const type = req.query.type;
-      const search = req.query.search;
+      const options = {
+        page: parseInt(req.query.page as string) || 1,
+        limit: parseInt(req.query.limit as string) || 20,
+        type: req.query.type,
+        search: req.query.search
+      };
 
-      const links = await getShortLinkService().getUserLinks(userId, { page, limit, type, search });
+      const links = await shortLinkService.getUserLinks(userId, options);
 
       res.json({
         success: true,
-        data: links.map(link => ({
-          id: link.id,
-          shortCode: link.shortCode,
-          originalUrl: link.originalUrl,
-          shortUrl: `${process.env.SHORT_LINK_DOMAIN || 'https://s.uaip.dev'}/${link.shortCode}`,
-          title: link.title,
-          description: link.description,
-          type: link.type,
-          status: link.status,
-          clickCount: link.clickCount,
-          analytics: link.analytics,
-          createdAt: link.createdAt,
-          expiresAt: link.expiresAt
-        }))
+        data: links
       });
-    } catch (error: any) {
-      logger.error('Error getting user links:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Failed to get links'
-      });
+
+    } catch (error) {
+      logger.error('Error fetching user links:', error);
+      res.status(500).json({ success: false, error: 'Failed to fetch links' });
     }
   }
 );
 
-// Get short link details
+// Get short link by ID
 router.get('/links/:id',
   authMiddleware,
-  [
-    param('id').isString().withMessage('Link ID is required')
-  ],
-  validateRequest,
   async (req: any, res: any) => {
     try {
+      const shortLinkService = getShortLinkService();
       const userId = req.user?.id;
-      const { id } = req.params;
+      const linkId = req.params.id;
 
       if (!userId) {
-        return res.status(401).json({ success: false, message: 'User not authenticated' });
+        return res.status(401).json({ error: 'User not authenticated' });
       }
 
-      const link = await getShortLinkService().getLinkById(id, userId);
+      const link = await shortLinkService.getLinkById(linkId, userId);
 
       if (!link) {
-        return res.status(404).json({
-          success: false,
-          message: 'Link not found'
-        });
+        return res.status(404).json({ success: false, error: 'Link not found' });
       }
 
       res.json({
         success: true,
-        data: {
-          id: link.id,
-          shortCode: link.shortCode,
-          originalUrl: link.originalUrl,
-          shortUrl: `${process.env.SHORT_LINK_DOMAIN || 'https://s.uaip.dev'}/${link.shortCode}`,
-          title: link.title,
-          description: link.description,
-          type: link.type,
-          status: link.status,
-          clickCount: link.clickCount,
-          analytics: link.analytics,
-          createdAt: link.createdAt,
-          expiresAt: link.expiresAt,
-          qrCode: link.qrCode,
-          tags: link.tags
-        }
+        data: link
       });
-    } catch (error: any) {
-      logger.error('Error getting link details:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Failed to get link details'
-      });
+
+    } catch (error) {
+      logger.error('Error fetching link by ID:', error);
+      res.status(500).json({ success: false, error: 'Failed to fetch link' });
     }
   }
 );
@@ -263,44 +163,30 @@ router.get('/links/:id',
 // Update short link
 router.put('/links/:id',
   authMiddleware,
-  [
-    param('id').isString().withMessage('Link ID is required'),
-    body('title').optional().isString().isLength({ max: 255 }),
-    body('description').optional().isString().isLength({ max: 1000 }),
-    body('expiresAt').optional().isISO8601(),
-    body('tags').optional().isArray()
-  ],
-  validateRequest,
+  validateRequest({ body: updateShortLinkSchema }),
   async (req: any, res: any) => {
     try {
+      const shortLinkService = getShortLinkService();
       const userId = req.user?.id;
-      const { id } = req.params;
-      const updates = req.body;
+      const linkId = req.params.id;
 
       if (!userId) {
-        return res.status(401).json({ success: false, message: 'User not authenticated' });
+        return res.status(401).json({ error: 'User not authenticated' });
       }
 
-      const updatedLink = await getShortLinkService().updateLink(id, userId, updates);
+      const updatedLink = await shortLinkService.updateLink(linkId, userId, req.body);
+
+      logger.info('Short link updated', { linkId, userId });
 
       res.json({
         success: true,
-        data: {
-          id: updatedLink.id,
-          shortCode: updatedLink.shortCode,
-          title: updatedLink.title,
-          description: updatedLink.description,
-          expiresAt: updatedLink.expiresAt,
-          tags: updatedLink.tags,
-          updatedAt: updatedLink.updatedAt
-        }
+        data: updatedLink
       });
-    } catch (error: any) {
-      logger.error('Error updating short link:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Failed to update link'
-      });
+
+    } catch (error) {
+      logger.error('Error updating link:', error);
+      const message = error instanceof Error ? error.message : 'Failed to update link';
+      res.status(500).json({ success: false, error: message });
     }
   }
 );
@@ -308,65 +194,57 @@ router.put('/links/:id',
 // Delete short link
 router.delete('/links/:id',
   authMiddleware,
-  [
-    param('id').isString().withMessage('Link ID is required')
-  ],
-  validateRequest,
   async (req: any, res: any) => {
     try {
+      const shortLinkService = getShortLinkService();
       const userId = req.user?.id;
-      const { id } = req.params;
+      const linkId = req.params.id;
 
       if (!userId) {
-        return res.status(401).json({ success: false, message: 'User not authenticated' });
+        return res.status(401).json({ error: 'User not authenticated' });
       }
 
-      await getShortLinkService().deleteLink(id, userId);
+      await shortLinkService.deleteLink(linkId, userId);
+
+      logger.info('Short link deleted', { linkId, userId });
 
       res.json({
         success: true,
         message: 'Link deleted successfully'
       });
-    } catch (error: any) {
-      logger.error('Error deleting short link:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Failed to delete link'
-      });
+
+    } catch (error) {
+      logger.error('Error deleting link:', error);
+      const message = error instanceof Error ? error.message : 'Failed to delete link';
+      res.status(500).json({ success: false, error: message });
     }
   }
 );
 
-// Generate QR code for existing link
+// Generate QR code for link
 router.post('/links/:id/qr',
   authMiddleware,
-  [
-    param('id').isString().withMessage('Link ID is required')
-  ],
-  validateRequest,
   async (req: any, res: any) => {
     try {
+      const shortLinkService = getShortLinkService();
       const userId = req.user?.id;
-      const { id } = req.params;
+      const linkId = req.params.id;
 
       if (!userId) {
-        return res.status(401).json({ success: false, message: 'User not authenticated' });
+        return res.status(401).json({ error: 'User not authenticated' });
       }
 
-      const qrCode = await getShortLinkService().generateQRCode(id, userId);
+      const qrCode = await shortLinkService.generateQRCode(linkId, userId);
 
       res.json({
         success: true,
-        data: {
-          qrCode
-        }
+        data: { qrCode }
       });
-    } catch (error: any) {
+
+    } catch (error) {
       logger.error('Error generating QR code:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Failed to generate QR code'
-      });
+      const message = error instanceof Error ? error.message : 'Failed to generate QR code';
+      res.status(500).json({ success: false, error: message });
     }
   }
 );
@@ -374,105 +252,74 @@ router.post('/links/:id/qr',
 // Get link analytics
 router.get('/links/:id/analytics',
   authMiddleware,
-  [
-    param('id').isString().withMessage('Link ID is required')
-  ],
-  validateRequest,
   async (req: any, res: any) => {
     try {
+      const shortLinkService = getShortLinkService();
       const userId = req.user?.id;
-      const { id } = req.params;
+      const linkId = req.params.id;
 
       if (!userId) {
-        return res.status(401).json({ success: false, message: 'User not authenticated' });
+        return res.status(401).json({ error: 'User not authenticated' });
       }
 
-      const analytics = await getShortLinkService().getLinkAnalytics(id, userId);
+      const analytics = await shortLinkService.getLinkAnalytics(linkId, userId);
 
       res.json({
         success: true,
         data: analytics
       });
-    } catch (error: any) {
-      logger.error('Error getting link analytics:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Failed to get analytics'
-      });
+
+    } catch (error) {
+      logger.error('Error fetching link analytics:', error);
+      res.status(500).json({ success: false, error: 'Failed to fetch analytics' });
     }
   }
 );
 
-// PUBLIC ROUTES - No authentication required
-
-// Resolve short link (public)
+// Resolve short link (public endpoint)
 router.get('/:shortCode',
-  [
-    param('shortCode').isString().withMessage('Short code is required'),
-    query('password').optional().isString()
-  ],
-  validateRequest,
+  validateRequest({ body: resolveShortLinkSchema }),
   async (req: any, res: any) => {
     try {
-      const { shortCode } = req.params;
-      const password = req.query.password;
-      const userAgent = req.get('User-Agent');
-      const ip = req.ip || req.connection.remoteAddress;
-      const referer = req.get('Referer');
+      const shortLinkService = getShortLinkService();
+      const shortCode = req.params.shortCode;
 
-      const result = await getShortLinkService().resolveShortLink(shortCode, {
-        password,
-        userAgent,
-        ip,
-        referer
-      });
+      const options = {
+        password: req.body?.password,
+        userId: req.user?.id,
+        userAgent: req.headers['user-agent'],
+        ip: req.ip,
+        referer: req.headers.referer
+      };
+
+      const result = await shortLinkService.resolveShortLink(shortCode, options);
 
       if (result.requiresPassword) {
-        return res.status(200).json({
+        return res.status(401).json({
           success: false,
-          requiresPassword: true,
-          message: 'Password required'
+          error: 'Password required',
+          requiresPassword: true
         });
       }
 
-      // Check if client accepts JSON (API call) or HTML (browser)
-      const acceptsJson = req.get('Accept')?.includes('application/json');
+      // Redirect to original URL
+      res.redirect(302, result.url);
 
-      if (acceptsJson) {
-        // Return JSON for API calls
-        res.json({
-          success: true,
-          url: result.url
-        });
-      } else {
-        // Redirect for browser requests
-        res.redirect(302, result.url);
-      }
-    } catch (error: any) {
+    } catch (error) {
       logger.error('Error resolving short link:', error);
-
-      const acceptsJson = req.get('Accept')?.includes('application/json');
-
-      if (acceptsJson) {
-        res.status(404).json({
-          success: false,
-          message: error.message || 'Link not found'
-        });
+      const message = error instanceof Error ? error.message : 'Failed to resolve link';
+      
+      if (message.includes('not found')) {
+        res.status(404).json({ success: false, error: 'Link not found' });
+      } else if (message.includes('expired')) {
+        res.status(410).json({ success: false, error: 'Link has expired' });
+      } else if (message.includes('password')) {
+        res.status(401).json({ success: false, error: 'Invalid password' });
       } else {
-        // Redirect to a 404 page or home page for browser requests
-        res.status(404).send(`
-          <html>
-            <head><title>Link Not Found</title></head>
-            <body>
-              <h1>Link Not Found</h1>
-              <p>The short link you requested could not be found or has expired.</p>
-              <p><a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}">Go to Home</a></p>
-            </body>
-          </html>
-        `);
+        res.status(500).json({ success: false, error: message });
       }
     }
   }
 );
 
-export default router;
+export { router as shortLinkRoutes };

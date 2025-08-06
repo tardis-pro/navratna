@@ -58,7 +58,6 @@
     "@types/compression": "catalog:backend",
     "@types/cors": "catalog:backend",
     "@types/express": "catalog:backend",
-    "@types/hyper-express": "^6.17.3",
     "@types/express-validator": "^3.0.0",
     "@types/jest": "catalog:backend",
     "@types/jsonwebtoken": "catalog:backend",

@@ -24,6 +24,9 @@ export * from './express-compat.js';
 // Database Services (consolidated - no duplicates)
 export * from './database/index.js';
 
+// TypeORM Service
+export { TypeOrmService, typeormService } from './typeormService.js';
+
 // MCP Services
 export { MCPService } from './services/MCPService.js';
 
@@ -163,6 +166,9 @@ export * from './integration/index.js';
 // ENTITIES
 // =============================================================================
 
+// Short Link Entities
+export { ShortLinkEntity, LinkType, LinkStatus } from './entities/short-link.entity.js';
+
 // Project Management Entities
 export {
   Project,
@@ -178,6 +184,9 @@ export { ContactStatus, ContactType } from './database/repositories/UserContactR
 
 // Database Seeders
 export { DefaultUserLLMProviderSeed } from './database/seeders/DefaultUserLLMProviderSeed.js';
+
+// All Entities Export
+export * from './entities/index.js';
 
 // =============================================================================
 // SERVICE FACTORY AND DEPENDENCY INJECTION

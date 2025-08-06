@@ -286,7 +286,7 @@ export class AgentController {
       const response = await fetch(`${capabilityRegistryUrl}/api/v1/mcp/tools`, {
         method: 'GET',
         headers: {
-          'Authorization': req.headers.authorization || '',
+          'Authorization': Array.isArray(req.headers.authorization) ? req.headers.authorization[0] : req.headers.authorization || '',
           'Content-Type': 'application/json'
         }
       });

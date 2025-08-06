@@ -106,6 +106,8 @@ catalogs:
     neo4j-driver: ^5.28.1
     multer: ^2.0.1
     '@types/multer': ^1.4.12
+    qrcode: ^1.5.4
+    '@types/qrcode': ^1.5.5
   dev:
     esbuild: ^0.24.2
     vite: ^6.0.7

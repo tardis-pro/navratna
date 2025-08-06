@@ -6,7 +6,7 @@ import { authMiddleware } from '@uaip/middleware';
 import { ArtifactFactory } from './ArtifactFactory.js';
 import { ArtifactService } from './ArtifactService.js';
 import { artifactRoutes } from './routes/artifactRoutes.js';
-import shortLinkRoutes from './routes/shortLinkRoutes.js';
+import { shortLinkRoutes } from './routes/shortLinkRoutes.js';
 import { ConversationAnalyzerImpl } from './analysis/ConversationAnalyzer.js';
 
 class ArtifactServiceApp extends BaseService {

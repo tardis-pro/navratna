@@ -1,42 +1,18 @@
-import { getDataSource } from '@uaip/shared-services';
+import { TypeOrmService } from '@uaip/shared-services';
+import { ShortLinkEntity, LinkType, LinkStatus } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
-import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
 import QRCode from 'qrcode';
+import { Repository } from 'typeorm';
 
-// Define types locally to avoid direct entity imports
-type LinkType = 'artifact' | 'project_file' | 'document' | 'external';
-type LinkStatus = 'active' | 'expired' | 'disabled' | 'deleted';
-
-interface ShortLink {
-  id: string;
-  shortCode: string;
-  originalUrl: string;
-  title?: string;
-  description?: string;
-  type: LinkType;
-  status: LinkStatus;
-  createdById: string;
-  clickCount: number;
-  expiresAt?: Date;
-  password?: string;
-  tags?: string[];
-  artifactId?: string;
-  projectFileId?: string;
-  accessRestrictions?: any;
-  analytics?: any;
-  qrCode?: string;
-  lastClickedAt?: Date;
-  createdAt: Date;
-  updatedAt: Date;
-}
 
 export class ShortLinkService {
-  private repository: Repository<any>;
+  private typeormService: TypeOrmService;
+  private shortLinkRepository: Repository<ShortLinkEntity>;
 
   constructor() {
-    // Get repository using the proper DataSource pattern
-    this.repository = getDataSource().getRepository('ShortLinkEntity');
+    this.typeormService = TypeOrmService.getInstance();
+    this.shortLinkRepository = this.typeormService.getDataSource().getRepository(ShortLinkEntity);
   }
 
   async createShortLink(
@@ -55,14 +31,14 @@ export class ShortLinkService {
       projectFileId?: string;
       generateQR?: boolean;
     } = {}
-  ): Promise<ShortLink> {
+  ): Promise<ShortLinkEntity> {
     try {
       // Generate short code
       const shortCode = options.customCode || await this.generateUniqueCode();
 
       // Validate custom code availability
       if (options.customCode) {
-        const existing = await this.repository.findOne({ where: { shortCode } });
+        const existing = await this.shortLinkRepository.findOne({ where: { shortCode } });
         if (existing) {
           throw new Error('Custom short code already exists');
         }
@@ -98,7 +74,32 @@ export class ShortLinkService {
         }
       };
 
-      const savedLink = await this.repository.save(shortLinkData);
+      const shortLink = this.shortLinkRepository.create({
+        shortCode,
+        originalUrl,
+        title: options.title,
+        description: options.description,
+        type: (options.type as LinkType) || LinkType.EXTERNAL,
+        status: LinkStatus.ACTIVE,
+        createdById,
+        clickCount: 0,
+        expiresAt: options.expiresAt,
+        password: hashedPassword,
+        tags: options.tags || [],
+        artifactId: options.artifactId,
+        projectFileId: options.projectFileId,
+        accessRestrictions: {
+          maxClicks: options.maxClicks
+        },
+        analytics: {
+          totalClicks: 0,
+          uniqueClicks: 0
+        },
+        trackClicks: true,
+        isPublic: true
+      });
+
+      const savedLink = await this.shortLinkRepository.save(shortLink);
 
       // Generate QR code if requested
       if (options.generateQR) {
@@ -113,10 +114,10 @@ export class ShortLinkService {
     }
   }
 
-  async getShortLink(shortCode: string): Promise<ShortLink | null> {
+  async getShortLink(shortCode: string): Promise<ShortLinkEntity | null> {
     try {
-      return await this.repository.findOne({
-        where: { shortCode, status: 'active' },
+      return await this.shortLinkRepository.findOne({
+        where: { shortCode, status: LinkStatus.ACTIVE },
         relations: ['createdBy', 'artifact']
       });
     } catch (error) {
@@ -144,7 +145,7 @@ export class ShortLinkService {
 
       // Check if expired
       if (shortLink.expiresAt && new Date() > shortLink.expiresAt) {
-        await this.repository.update(shortLink.id, { status: 'expired' });
+        await this.shortLinkRepository.update(shortLink.id, { status: LinkStatus.EXPIRED });
         throw new Error('Short link has expired');
       }
 
@@ -169,12 +170,12 @@ export class ShortLinkService {
     }
   }
 
-  async getUserLinks(userId: string, options: any = {}): Promise<ShortLink[]> {
+  async getUserLinks(userId: string, options: any = {}): Promise<ShortLinkEntity[]> {
     try {
       const { page = 1, limit = 20, type, search } = options;
       const skip = (page - 1) * limit;
 
-      const queryBuilder = this.repository.createQueryBuilder('link')
+      const queryBuilder = this.shortLinkRepository.createQueryBuilder('link')
         .where('link.createdById = :userId', { userId })
         .orderBy('link.createdAt', 'DESC')
         .skip(skip)
@@ -198,9 +199,9 @@ export class ShortLinkService {
     }
   }
 
-  async getLinkById(linkId: string, userId: string): Promise<ShortLink | null> {
+  async getLinkById(linkId: string, userId: string): Promise<ShortLinkEntity | null> {
     try {
-      return await this.repository.findOne({
+      return await this.shortLinkRepository.findOne({
         where: { id: linkId, createdById: userId }
       });
     } catch (error) {
@@ -209,19 +210,19 @@ export class ShortLinkService {
     }
   }
 
-  async updateLink(linkId: string, userId: string, updates: any): Promise<ShortLink> {
+  async updateLink(linkId: string, userId: string, updates: any): Promise<ShortLinkEntity> {
     try {
       const link = await this.getLinkById(linkId, userId);
       if (!link) {
         throw new Error('Link not found');
       }
 
-      await this.repository.update(linkId, {
+      await this.shortLinkRepository.update(linkId, {
         ...updates,
         updatedAt: new Date()
       });
 
-      const updatedLink = await this.repository.findOne({ where: { id: linkId } });
+      const updatedLink = await this.shortLinkRepository.findOne({ where: { id: linkId } });
       if (!updatedLink) {
         throw new Error('Failed to retrieve updated link');
       }
@@ -240,8 +241,8 @@ export class ShortLinkService {
         throw new Error('Link not found');
       }
 
-      await this.repository.update(linkId, {
-        status: 'deleted',
+      await this.shortLinkRepository.update(linkId, {
+        status: LinkStatus.DELETED,
         updatedAt: new Date()
       });
 
@@ -254,12 +255,12 @@ export class ShortLinkService {
 
   async generateQRCode(linkId: string, userId?: string): Promise<string> {
     try {
-      let link: ShortLink | null;
+      let link: ShortLinkEntity | null;
       
       if (userId) {
         link = await this.getLinkById(linkId, userId);
       } else {
-        link = await this.repository.findOne({ where: { id: linkId } });
+        link = await this.shortLinkRepository.findOne({ where: { id: linkId } });
       }
 
       if (!link) {
@@ -277,7 +278,7 @@ export class ShortLinkService {
       });
 
       // Save QR code to link
-      await this.repository.update(linkId, {
+      await this.shortLinkRepository.update(linkId, {
         qrCode: qrCodeDataURL,
         updatedAt: new Date()
       });
@@ -323,7 +324,7 @@ export class ShortLinkService {
       }
 
       // Check if code already exists
-      const existing = await this.repository.findOne({ where: { shortCode: code } });
+      const existing = await this.shortLinkRepository.findOne({ where: { shortCode: code } });
       if (!existing) {
         return code;
       }
@@ -339,7 +340,7 @@ export class ShortLinkService {
 
   private async recordClick(linkId: string, clickData: any): Promise<void> {
     try {
-      const link = await this.repository.findOne({ where: { id: linkId } });
+      const link = await this.shortLinkRepository.findOne({ where: { id: linkId } });
       if (!link) {
         return;
       }
@@ -360,7 +361,7 @@ export class ShortLinkService {
         ]
       };
 
-      await this.repository.update(linkId, {
+      await this.shortLinkRepository.update(linkId, {
         clickCount: link.clickCount + 1,
         lastClickedAt: new Date(),
         analytics: updatedAnalytics,
