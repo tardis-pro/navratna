@@ -30,7 +30,7 @@
     "express": "catalog:backend",
     "express-rate-limit": "catalog:backend",
     "helmet": "catalog:backend",
-    "ioredis": "^5.6.1",
+    "ioredis": "^5.7.0",
     "jsonwebtoken": "catalog:backend",
     "socket.io": "catalog:backend",
     "typeorm": "^0.3.25",
