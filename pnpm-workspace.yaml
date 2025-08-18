@@ -57,7 +57,7 @@ catalogs:
     '@radix-ui/react-toggle-group': ^1.1.10
     '@radix-ui/react-tooltip': ^1.2.7
     '@heroicons/react': ^2.2.0
-    '@tanstack/react-query': ^5.80.10
+    '@tanstack/react-query': ^5.85.3
     '@tanstack/react-virtual': ^3.13.10
     lucide-react: ^0.518.0
     embla-carousel-react: ^8.6.0
