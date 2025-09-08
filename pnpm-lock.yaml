@@ -55,8 +55,8 @@ catalogs:
       specifier: ^2.8.5
       version: 2.8.5
     dotenv:
-      specifier: ^16.4.7
-      version: 16.5.0
+      specifier: ^17.2.2
+      version: 17.2.2
     express:
       specifier: ^5.1.0
       version: 5.1.0
@@ -594,7 +594,7 @@ importers:
         version: 2.8.5
       dotenv:
         specifier: catalog:backend
-        version: 16.5.0
+        version: 17.2.2
       express:
         specifier: catalog:backend
         version: 5.1.0
@@ -767,7 +767,7 @@ importers:
         version: 2.8.5
       dotenv:
         specifier: catalog:backend
-        version: 16.5.0
+        version: 17.2.2
       express:
         specifier: catalog:backend
         version: 5.1.0
@@ -840,7 +840,7 @@ importers:
         version: 3.1.10
       ts-jest:
         specifier: catalog:backend
-        version: 29.4.0(@babel/core@7.27.4)(@jest/transform@30.0.2)(@jest/types@30.0.1)(babel-jest@30.0.2(@babel/core@7.27.4))(jest-util@30.0.2)(jest@30.0.3(@types/node@22.15.33)(ts-node@10.9.2(@swc/core@1.12.6)(@types/node@22.15.33)(typescript@5.8.3)))(typescript@5.8.3)
+        version: 29.4.0(@babel/core@7.27.4)(@jest/transform@30.0.2)(@jest/types@30.0.1)(babel-jest@30.0.2(@babel/core@7.27.4))(jest-util@30.0.2)(jest@30.0.3(@types/node@22.15.33))(typescript@5.8.3)
       ts-node-dev:
         specifier: ^2.0.0
         version: 2.0.0(@swc/core@1.12.6)(@types/node@22.15.33)(typescript@5.8.3)
@@ -882,7 +882,7 @@ importers:
         version: 2.8.5
       dotenv:
         specifier: catalog:backend
-        version: 16.5.0
+        version: 17.2.2
       express:
         specifier: catalog:backend
         version: 5.1.0
@@ -955,7 +955,7 @@ importers:
         version: 7.1.1
       ts-jest:
         specifier: catalog:backend
-        version: 29.4.0(@babel/core@7.27.4)(@jest/transform@30.0.2)(@jest/types@30.0.1)(babel-jest@30.0.2(@babel/core@7.27.4))(jest-util@30.0.2)(jest@30.0.3(@types/node@22.15.33)(ts-node@10.9.2(@swc/core@1.12.6)(@types/node@22.15.33)(typescript@5.8.3)))(typescript@5.8.3)
+        version: 29.4.0(@babel/core@7.27.4)(@jest/transform@30.0.2)(@jest/types@30.0.1)(babel-jest@30.0.2(@babel/core@7.27.4))(jest-util@30.0.2)(jest@30.0.3(@types/node@22.15.33))(typescript@5.8.3)
       tsc-alias:
         specifier: catalog:backend
         version: 1.8.16
@@ -1049,7 +1049,7 @@ importers:
         version: 2.8.5
       dotenv:
         specifier: catalog:backend
-        version: 16.5.0
+        version: 17.2.2
       express:
         specifier: catalog:backend
         version: 5.1.0
@@ -1207,7 +1207,7 @@ importers:
         version: 7.1.1
       ts-jest:
         specifier: catalog:backend
-        version: 29.4.0(@babel/core@7.27.4)(@jest/transform@30.0.2)(@jest/types@30.0.1)(babel-jest@30.0.2(@babel/core@7.27.4))(jest-util@30.0.2)(jest@30.0.3(@types/node@22.15.33)(ts-node@10.9.2(@swc/core@1.12.6)(@types/node@22.15.33)(typescript@5.8.3)))(typescript@5.8.3)
+        version: 29.4.0(@babel/core@7.27.4)(@jest/transform@30.0.2)(@jest/types@30.0.1)(babel-jest@30.0.2(@babel/core@7.27.4))(jest-util@30.0.2)(jest@30.0.3(@types/node@22.15.33))(typescript@5.8.3)
       ts-node:
         specifier: catalog:backend
         version: 10.9.2(@swc/core@1.12.6)(@types/node@22.15.33)(typescript@5.8.3)
@@ -1385,7 +1385,7 @@ importers:
         version: 7.1.1
       ts-jest:
         specifier: ^29.1.2
-        version: 29.4.0(@babel/core@7.27.4)(@jest/transform@30.0.2)(@jest/types@30.0.1)(babel-jest@30.0.2(@babel/core@7.27.4))(jest-util@30.0.2)(jest@30.0.3(@types/node@22.15.33)(ts-node@10.9.2(@swc/core@1.12.6)(@types/node@22.15.33)(typescript@5.8.3)))(typescript@5.8.3)
+        version: 29.4.0(@babel/core@7.27.4)(@jest/transform@30.0.2)(@jest/types@30.0.1)(babel-jest@30.0.2(@babel/core@7.27.4))(jest-util@30.0.2)(jest@30.0.3(@types/node@22.15.33))(typescript@5.8.3)
       ts-node-dev:
         specifier: ^2.0.0
         version: 2.0.0(@swc/core@1.12.6)(@types/node@22.15.33)(typescript@5.8.3)
@@ -1403,7 +1403,7 @@ importers:
     dependencies:
       dotenv:
         specifier: catalog:backend
-        version: 16.5.0
+        version: 17.2.2
       zod:
         specifier: 'catalog:'
         version: 3.25.67
@@ -4603,6 +4603,10 @@ packages:
     resolution: {integrity: sha512-m/C+AwOAr9/W1UOIZUo232ejMNnJAJtYQjUbHoNTBNTJSvqzzDh7vnrei3o3r3m9blf6ZoDkvcw0VmozNRFJxg==}
     engines: {node: '>=12'}
 
+  dotenv@17.2.2:
+    resolution: {integrity: sha512-Sf2LSQP+bOlhKWWyhFsn0UsfdK/kCWRv1iuA2gXAwt3dyNabr6QSj00I2V10pidqz69soatm9ZwZvpQMTIOd5Q==}
+    engines: {node: '>=12'}
+
   dunder-proto@1.0.1:
     resolution: {integrity: sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A==}
     engines: {node: '>= 0.4'}
@@ -6693,10 +6697,12 @@ packages:
   superagent@10.2.1:
     resolution: {integrity: sha512-O+PCv11lgTNJUzy49teNAWLjBZfc+A1enOwTpLlH6/rsvKcTwcdTT8m9azGkVqM7HBl5jpyZ7KTPhHweokBcdg==}
     engines: {node: '>=14.18.0'}
+    deprecated: Please upgrade to superagent v10.2.2+, see release notes at https://github.com/forwardemail/superagent/releases/tag/v10.2.2 - maintenance is supported by Forward Email @ https://forwardemail.net
 
   supertest@7.1.1:
     resolution: {integrity: sha512-aI59HBTlG9e2wTjxGJV+DygfNLgnWbGdZxiA/sgrnNNikIW8lbDvCtF6RnhZoJ82nU7qv7ZLjrvWqCEm52fAmw==}
     engines: {node: '>=14.18.0'}
+    deprecated: Please upgrade to supertest v7.1.3+, see release notes at https://github.com/forwardemail/supertest/releases/tag/v7.1.3 - maintenance is supported by Forward Email @ https://forwardemail.net
 
   supports-color@5.5.0:
     resolution: {integrity: sha512-QjVjwdXIt408MIiAqCX4oUKsgU2EqAGzs2Ppkm4aQYbjm+ZEWEcW4SfFNTr4uMNZma0ey4f5lgLrkB0aX0QMow==}
@@ -10449,6 +10455,8 @@ snapshots:
 
   dotenv@16.5.0: {}
 
+  dotenv@17.2.2: {}
+
   dunder-proto@1.0.1:
     dependencies:
       call-bind-apply-helpers: 1.0.2
@@ -13154,7 +13162,7 @@ snapshots:
       babel-jest: 30.0.2(@babel/core@7.27.4)
       jest-util: 30.0.2
 
-  ts-jest@29.4.0(@babel/core@7.27.4)(@jest/transform@30.0.2)(@jest/types@30.0.1)(babel-jest@30.0.2(@babel/core@7.27.4))(jest-util@30.0.2)(jest@30.0.3(@types/node@22.15.33)(ts-node@10.9.2(@swc/core@1.12.6)(@types/node@22.15.33)(typescript@5.8.3)))(typescript@5.8.3):
+  ts-jest@29.4.0(@babel/core@7.27.4)(@jest/transform@30.0.2)(@jest/types@30.0.1)(babel-jest@30.0.2(@babel/core@7.27.4))(jest-util@30.0.2)(jest@30.0.3(@types/node@22.15.33))(typescript@5.8.3):
     dependencies:
       bs-logger: 0.2.6
       ejs: 3.1.10
