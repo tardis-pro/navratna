@@ -6,17 +6,18 @@ import jwt from 'jsonwebtoken';
 import { validateJWTToken, errorTrackingMiddleware } from '@uaip/middleware';
 import { createErrorLogger } from '@uaip/middleware';
 
-// Import routes
-import authRoutes from './routes/authRoutes.js';
-import securityRoutes from './routes/securityRoutes.js';
-import approvalRoutes from './routes/approvalRoutes.js';
-import auditRoutes from './routes/auditRoutes.js';
-import userRoutes from './routes/userRoutes.js';
-import knowledgeRoutes from './routes/knowledgeRoutes.js';
-import userLLMProviderRoutes from './routes/userLLMProviderRoutes.js';
-import userPersonaRoutes from './routes/userPersonaRoutes.js';
-import contactRoutes from './routes/contactRoutes.js';
-import userToolPreferencesRoutes from './routes/userToolPreferencesRoutes.js';
+// Import new Elysia route groups
+import { registerAuthRoutes } from './http/auth.elysia.js';
+import { registerUserRoutes } from './http/users.elysia.js';
+import { registerApprovalRoutes } from './http/approval.elysia.js';
+import { registerSecurityRoutes } from './http/security.elysia.js';
+import { registerAuditRoutes } from './http/audit.elysia.js';
+import { registerKnowledgeRoutes } from './http/knowledge.elysia.js';
+import { registerProviderRoutes } from './http/providers.elysia.js';
+import { registerOAuthRoutes } from './http/oauth.elysia.js';
+import { registerPersonaRoutes } from './http/persona.elysia.js';
+import { registerToolPreferenceRoutes } from './http/tool-preferences.elysia.js';
+import { registerContactRoutes } from './http/contacts.elysia.js';
 
 // Import services
 import { SecurityGatewayService } from './services/securityGatewayService.js';
@@ -100,51 +101,25 @@ class SecurityGatewayServer extends BaseService {
   }
 
   protected setupCustomMiddleware(): void {
-    // Add request logging middleware
-    this.app.use((req, res, next) => {
-      const startTime = Date.now();
-      // @ts-ignore
-      req.startTime = startTime;
-      
-      logger.info('Incoming request', {
-        method: req.method,
-        path: req.path,
-        userAgent: req.headers['user-agent'],
-        ip: req.ip,
-        timestamp: new Date().toISOString()
-      });
-
-      res.on('finish', () => {
-        const duration = Date.now() - startTime;
-        logger.info('Request completed', {
-          method: req.method,
-          path: req.path,
-          statusCode: res.statusCode,
-          duration,
-          ip: req.ip
-        });
-      });
-
-      next();
-    });
+    // BaseService already sets up structured request logging and error handling via Elysia hooks
   }
 
   protected async setupRoutes(): Promise<void> {
-    // Add error tracking middleware before routes
-    this.app.use(errorTrackingMiddleware('security-gateway'));
+    // Core readiness endpoint
+    this.app.get('/ready', () => ({ ready: true, service: 'security-gateway' }));
 
-    // API routes
-    logger.info('Setting up auth routes...');
-    this.app.use('/api/v1/auth', authRoutes);
-    this.app.use('/api/v1/security', securityRoutes);
-    this.app.use('/api/v1/approvals', approvalRoutes);
-    this.app.use('/api/v1/audit', auditRoutes);
-    this.app.use('/api/v1/users', userRoutes);
-    this.app.use('/api/v1/users', userToolPreferencesRoutes);
-    this.app.use('/api/v1/knowledge', knowledgeRoutes);
-    this.app.use('/api/v1/llm', userLLMProviderRoutes);
-    this.app.use('/api/v1/users/persona', userPersonaRoutes);
-    this.app.use('/api/v1/contacts', contactRoutes);
+    // Register Elysia route groups
+    registerAuthRoutes(this.app);
+    registerUserRoutes(this.app);
+    registerApprovalRoutes(this.app);
+    registerSecurityRoutes(this.app);
+    registerAuditRoutes(this.app);
+    registerKnowledgeRoutes(this.app);
+    registerProviderRoutes(this.app);
+    registerOAuthRoutes(this.app);
+    registerPersonaRoutes(this.app);
+    registerToolPreferenceRoutes(this.app);
+    registerContactRoutes(this.app);
   }
 
   protected async setupEventSubscriptions(): Promise<void> {
