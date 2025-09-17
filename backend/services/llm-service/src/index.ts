@@ -1,9 +1,8 @@
 import { BaseService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
-import { errorTrackingMiddleware, createErrorLogger } from '@uaip/middleware';
 import { LLMService, UserLLMService, ModelBootstrapService, ApiKeyDecryptionService } from '@uaip/llm-service';
-import llmRoutes from './routes/llmRoutes.js';
-import userLLMRoutes from './routes/userLLMRoutes.js';
+import { registerLLMRoutes } from './routes/llm.routes.js';
+import { registerUserLLMRoutes } from './routes/user-llm.routes.js';
 import { AgentGenerationHandler } from './handlers/AgentGenerationHandler.js';
 
 class LLMServiceServer extends BaseService {
@@ -12,7 +11,6 @@ class LLMServiceServer extends BaseService {
   private modelBootstrapService: ModelBootstrapService;
   private agentGenerationHandler: AgentGenerationHandler;
   private apiKeyDecryptionService: ApiKeyDecryptionService;
-  private errorLogger = createErrorLogger('llm-service');
 
   constructor() {
     super({
@@ -25,23 +23,22 @@ class LLMServiceServer extends BaseService {
     this.llmService = LLMService.getInstance();
     this.modelBootstrapService = ModelBootstrapService.getInstance();
     this.apiKeyDecryptionService = ApiKeyDecryptionService.getInstance();
-    // Note: userLLMService and agentGenerationHandler will be initialized in initialize()
   }
 
   protected async initialize(): Promise<void> {
     // Initialize model selection facade first
     await this.initializeModelSelection();
-    
+
     // Debug: Check facade availability
     logger.info('Debug: Facade state before creating UserLLMService', {
       facadeExists: !!this.modelSelectionFacade,
       facadeType: typeof this.modelSelectionFacade,
       facadeConstructor: this.modelSelectionFacade?.constructor?.name
     });
-    
+
     // Create UserLLMService with facade (always pass it, even if null)
     this.userLLMService = new UserLLMService(this.modelSelectionFacade);
-    
+
     // Create AgentGenerationHandler after UserLLMService is ready
     this.agentGenerationHandler = new AgentGenerationHandler(
       this.userLLMService,
@@ -51,42 +48,31 @@ class LLMServiceServer extends BaseService {
 
     // Initialize API Key Decryption Service with event bus
     this.apiKeyDecryptionService.setEventBusService(this.eventBusService);
-    
+
     if (this.modelSelectionFacade) {
       logger.info('UserLLMService initialized with model selection facade');
     } else {
       logger.warn('Model selection facade not available, UserLLMService will use fallback behavior');
     }
-    
+
     // Bootstrap all models on startup (run in background)
     logger.info('Starting model bootstrap process...');
     this.modelBootstrapService.bootstrapAllModels().catch(error => {
       logger.error('Model bootstrap failed, continuing with service startup', { error });
     });
-    
+
     logger.info('LLM Service initialized');
   }
 
   protected setupCustomMiddleware(): void {
-    // Error tracking middleware
-    this.app.use(errorTrackingMiddleware('llm-service'));
-
-    // Request logging
-    this.app.use((req, res, next) => {
-      logger.info('HTTP Request', {
-        method: req.method,
-        url: req.url,
-        userAgent: req.get('User-Agent'),
-        ip: req.ip
-      });
-      next();
-    });
+    // BaseService handles request logging and error tracking
+    // No custom middleware needed for LLM service
   }
 
   protected async setupRoutes(): Promise<void> {
-    // API routes
-    this.app.use('/api/v1/llm', llmRoutes);
-    this.app.use('/api/v1/user/llm', userLLMRoutes);
+    // Register route groups
+    registerLLMRoutes(this.app, this.llmService, this.modelBootstrapService);
+    registerUserLLMRoutes(this.app, this.userLLMService);
   }
 
   protected async setupEventSubscriptions(): Promise<void> {
@@ -108,10 +94,10 @@ class LLMServiceServer extends BaseService {
       // Validate userId is a proper UUID (reject "system" and other invalid UUIDs)
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       if (!userId || !uuidRegex.test(userId)) {
-        logger.warn('Invalid userId for user LLM request, falling back to global LLM', { 
-          userId, 
+        logger.warn('Invalid userId for user LLM request, falling back to global LLM', {
+          userId,
           requestId,
-          reason: 'Invalid UUID format' 
+          reason: 'Invalid UUID format'
         });
         // Fall back to global LLM request handling
         await this.handleGlobalLLMRequest(event);
@@ -207,7 +193,7 @@ class LLMServiceServer extends BaseService {
     try {
       const { type, artifactType, context, options, metadata } = event.data || event;
       const requestId = event.metadata?.requestId;
-      
+
       logger.info('Processing artifact generation request', {
         requestId,
         artifactType,
@@ -229,7 +215,7 @@ class LLMServiceServer extends BaseService {
 
       // Prepare prompt for artifact generation
       const prompt = this.buildArtifactGenerationPrompt(artifactType, context, options);
-      
+
       // Create agent request for LLM generation
       const agentRequest = {
         agent: {
@@ -283,7 +269,7 @@ class LLMServiceServer extends BaseService {
             artifactType
           }
         });
-        
+
         logger.info('Artifact generation completed successfully', {
           requestId,
           artifactType,
@@ -298,7 +284,7 @@ class LLMServiceServer extends BaseService {
             details: response?.error || 'No content generated'
           }
         });
-        
+
         logger.error('Artifact generation failed', {
           requestId,
           artifactType,
@@ -326,13 +312,13 @@ class LLMServiceServer extends BaseService {
 
   private buildArtifactGenerationPrompt(artifactType: string, context: any, options?: any): string {
     const { summary, keyMessages, decisions, actionItems, technical } = context;
-    
+
     let prompt = `Generate a ${artifactType} artifact based on the following discussion context:\n\n`;
-    
+
     if (summary) {
       prompt += `## Discussion Summary\n${summary}\n\n`;
     }
-    
+
     if (keyMessages && keyMessages.length > 0) {
       prompt += `## Key Messages\n`;
       keyMessages.forEach((msg: any, index: number) => {
@@ -340,7 +326,7 @@ class LLMServiceServer extends BaseService {
       });
       prompt += '\n';
     }
-    
+
     if (decisions && decisions.length > 0) {
       prompt += `## Decisions Made\n`;
       decisions.forEach((decision: any, index: number) => {
@@ -348,7 +334,7 @@ class LLMServiceServer extends BaseService {
       });
       prompt += '\n';
     }
-    
+
     if (actionItems && actionItems.length > 0) {
       prompt += `## Action Items\n`;
       actionItems.forEach((item: any, index: number) => {
@@ -356,7 +342,7 @@ class LLMServiceServer extends BaseService {
       });
       prompt += '\n';
     }
-    
+
     if (technical) {
       prompt += `## Technical Context\n`;
       if (technical.language) prompt += `- Language: ${technical.language}\n`;
@@ -369,10 +355,10 @@ class LLMServiceServer extends BaseService {
       }
       prompt += '\n';
     }
-    
+
     // Add artifact-specific instructions
     prompt += this.getArtifactSpecificInstructions(artifactType, options);
-    
+
     return prompt;
   }
 
@@ -380,22 +366,22 @@ class LLMServiceServer extends BaseService {
     switch (artifactType) {
       case 'code':
         return `## Instructions\nGenerate production-ready code that implements the discussed requirements. Include:\n- Proper error handling\n- Clear variable names and structure\n- Brief inline comments for complex logic\n- Follow ${options?.language || 'TypeScript'} best practices\n\nProvide only the code without additional explanations.`;
-        
+
       case 'test':
         return `## Instructions\nGenerate comprehensive unit tests for the discussed functionality. Include:\n- Test cases for normal operation\n- Edge cases and error conditions\n- Clear test descriptions\n- Use ${options?.framework || 'Jest'} testing framework\n\nProvide only the test code without additional explanations.`;
-        
+
       case 'documentation':
         return `## Instructions\nGenerate clear, comprehensive documentation that covers:\n- Purpose and overview\n- Key features and functionality\n- Usage examples\n- API reference (if applicable)\n- Implementation details discussed\n\nUse markdown format with proper headings and structure.`;
-        
+
       case 'prd':
         return `## Instructions\nGenerate a Product Requirements Document (PRD) that includes:\n- Product Overview\n- User Stories and Use Cases\n- Functional Requirements\n- Non-Functional Requirements\n- Technical Specifications\n- Success Metrics\n- Implementation Timeline\n\nUse professional PRD format with clear sections and bullet points.`;
-        
+
       case 'analysis':
         return `## Instructions\nGenerate a comprehensive analysis document that includes:\n- Executive Summary\n- Problem Statement\n- Current State Analysis\n- Recommendations\n- Risk Assessment\n- Next Steps\n\nProvide structured analysis with clear reasoning and data-driven insights.`;
-        
+
       case 'workflow':
         return `## Instructions\nGenerate a workflow specification that includes:\n- Process Overview\n- Step-by-step Workflow\n- Decision Points\n- Roles and Responsibilities\n- Success Criteria\n- Error Handling\n\nUse clear, actionable language with numbered steps.`;
-        
+
       default:
         return `## Instructions\nGenerate a ${artifactType} artifact based on the discussion context. Ensure it is well-structured, comprehensive, and directly addresses the requirements and decisions mentioned in the discussion.`;
     }
