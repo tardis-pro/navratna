@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node dist/index.js",
     "build": "tsc",
-    "dev": "nodemon --exec tsx src/index.ts",
+    "dev": "bun --hot src/index.ts",
     "clean": "rimraf dist",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -27,6 +27,7 @@
     "bull": "^4.16.5",
     "compression": "catalog:backend",
     "cors": "catalog:backend",
+    "elysia": "^1.4.5",
     "events": "^3.3.0",
     "express": "catalog:backend",
     "helmet": "catalog:backend",
@@ -37,10 +38,10 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@jest/globals": "^29.7.0",
     "@types/compression": "catalog:backend",
     "@types/cors": "catalog:backend",
     "@types/express": "catalog:backend",
-    "@jest/globals": "^29.7.0",
     "@types/jest": "catalog:backend",
     "@types/node": "catalog:backend",
     "@types/ws": "catalog:backend",

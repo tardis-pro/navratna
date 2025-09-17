@@ -1,5 +1,5 @@
 import { Entity, Column, Index, OneToMany } from 'typeorm';
-import { BaseEntity } from '@uaip/shared-services/entities/base.entity.js';
+import { BaseEntity } from '@uaip/shared-services';
 import { 
   MarketplaceItemType,
   MarketplaceCategory,

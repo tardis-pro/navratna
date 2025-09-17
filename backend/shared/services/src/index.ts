@@ -15,11 +15,8 @@ export { SecurityLevel } from '@uaip/types';
 // Base Service Classes for all microservices
 export { BaseService, ServiceConfig, createService } from './BaseService.js';
 
-// HyperExpress Polyfill
-export { HyperExpressPolyfill, createHyperExpressApp } from './HyperExpressPolyfill.js';
-
-// Express Compatibility Layer
-export * from './express-compat.js';
+// HTTP Server (Elysia)
+export { createAppServer } from './http-app.js';
 
 // Database Services (consolidated - no duplicates)
 export * from './database/index.js';

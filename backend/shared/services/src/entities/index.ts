@@ -2,7 +2,7 @@
 // This file exports all TypeORM entities for use across the monorepo
 
 // Base entity
-// export { BaseEntity } from './base.entity.js';
+export { BaseEntity } from './base.entity.js';
 
 // Core entities
 export { Agent } from './agent.entity.js';

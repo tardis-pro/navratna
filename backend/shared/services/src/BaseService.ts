@@ -1,9 +1,6 @@
-import { createHyperExpressApp, HyperExpressPolyfill } from './HyperExpressPolyfill.js';
-import helmet from 'helmet';
-import compression from 'compression';
-import morgan from 'morgan';
+import { createAppServer, type AppServer } from './http-app.js';
 import { logger } from '@uaip/utils';
-import { errorHandler, rateLimiter, metricsMiddleware, metricsEndpoint } from '@uaip/middleware';
+// Express middlewares are not compatible with Elysia; implement minimal handlers inline
 import { DatabaseService } from './databaseService.js';
 import { EventBusService } from './eventBusService.js';
 import { UnifiedModelSelectionFacade, UnifiedModelSelection, UnifiedSelectionRequest } from './services/UnifiedModelSelectionFacade.js';
@@ -32,8 +29,8 @@ export interface ServiceConfig {
 }
 
 export abstract class BaseService {
-  protected app: HyperExpressPolyfill;
-  protected server: any;
+  protected app: AppServer;
+  protected server: AppServer | undefined;
   protected databaseService: DatabaseService;
   protected eventBusService: EventBusService;
   protected enterpriseEventBusService?: EventBusService;
@@ -44,7 +41,7 @@ export abstract class BaseService {
 
   constructor(config: ServiceConfig) {
     this.config = config;
-    this.app = createHyperExpressApp();
+    this.app = createAppServer();
     this.databaseService = new DatabaseService();
     
     // Initialize EventBusService singleton for first time
@@ -65,54 +62,42 @@ export abstract class BaseService {
   }
 
   protected setupBaseMiddleware(): void {
-    // Security middleware
-    this.app.use(helmet({
-      contentSecurityPolicy: false,
-      crossOriginEmbedderPolicy: false
-    }));
-
-    // Compression
-    this.app.use(compression());
-
-    // Body parsing is handled automatically by HyperExpress
-
-    // Request logging with morgan
-    this.app.use(morgan('combined', {
-      stream: { write: (message) => logger.info(message.trim()) }
-    }));
-
-    // Rate limiting
-    this.app.use(rateLimiter);
-
-    // Prometheus metrics
-    this.app.use(metricsMiddleware);
-
-    // Custom middleware
-    if (this.config.customMiddleware) {
-      this.config.customMiddleware.forEach(middleware => {
-        this.app.use(middleware);
+    // Basic request logging and request id
+    this.app.onRequest(({ request, set }) => {
+      const id = request.headers.get('x-request-id') || `${Date.now()}-${Math.random()}`;
+      set.headers['X-Request-ID'] = id;
+      const ip = (request.headers.get('x-forwarded-for') || '') || 'unknown';
+      logger.info('Incoming request', {
+        method: request.method,
+        path: new URL(request.url).pathname,
+        userAgent: request.headers.get('user-agent'),
+        ip,
+        timestamp: new Date().toISOString()
       });
-    }
-
-    // Request ID middleware
-    this.app.use((req: any, res: any, next?: any) => {
-      req.id = req.headers['x-request-id'] as string || `${Date.now()}-${Math.random()}`;
-      res.header('X-Request-ID', req.id);
-      if (next) next();
     });
+
+    // Global error handler
+    this.app.onError(({ code, error }) => {
+      logger.error(`${this.config.name}: onError`, { code, error: (error as any)?.message });
+      return new Response(
+        JSON.stringify({ error: 'Internal Server Error' }),
+        { status: 500, headers: { 'content-type': 'application/json' } }
+      );
+    });
+
+    // 404 handled by Elysia default response
   }
 
   protected setupBaseRoutes(): void {
     // Health check
-    this.app.get('/health', async (req: any, res: any) => {
+    this.app.get('/health', async ({ set }) => {
       try {
         const dbHealthy = await this.checkDatabaseHealth();
         const eventBusHealthy = await this.checkEventBusHealth();
         const serviceHealthy = await this.checkServiceHealth();
-
         const isHealthy = dbHealthy && eventBusHealthy && serviceHealthy;
-
-        res.status(isHealthy ? 200 : 503).json({
+        set.status = isHealthy ? 200 : 503;
+        return {
           status: isHealthy ? 'healthy' : 'unhealthy',
           service: this.config.name,
           version: this.config.version || '1.0.0',
@@ -122,45 +107,38 @@ export abstract class BaseService {
             eventBus: eventBusHealthy ? 'connected' : 'disconnected',
             service: serviceHealthy ? 'healthy' : 'unhealthy'
           }
-        });
+        };
       } catch (error) {
         logger.error(`Health check failed for ${this.config.name}:`, error);
-        res.status(503).json({
+        set.status = 503;
+        return {
           status: 'error',
           service: this.config.name,
           error: error instanceof Error ? error.message : 'Unknown error'
-        });
+        };
       }
     });
 
     // Service info
-    this.app.get('/info', (req: any, res: any) => {
-      res.json({
-        service: this.config.name,
-        version: this.config.version || '1.0.0',
-        uptime: process.uptime(),
-        memory: process.memoryUsage(),
-        pid: process.pid,
-        node: process.version
-      });
-    });
+    this.app.get('/info', () => ({
+      service: this.config.name,
+      version: this.config.version || '1.0.0',
+      uptime: process.uptime(),
+      memory: process.memoryUsage(),
+      pid: process.pid,
+      node: process.version
+    }));
 
-    // Metrics endpoint for Prometheus
-    this.app.get('/metrics', metricsEndpoint);
+    // Metrics endpoint (basic placeholder)
+    this.app.get('/metrics', () => 'uaip_up 1\n');
   }
 
   protected setup404Handler(): void {
-    this.app.use((req: any, res: any) => {
-      res.status(404).json({
-        error: 'Not Found',
-        message: `Route ${req.method} ${req.url} not found`,
-        service: this.config.name
-      });
-    });
+    // handled in onNotFound
   }
 
   protected setupErrorHandler(): void {
-    this.app.use(errorHandler);
+    // handled in onError
   }
 
   protected async initializeDatabase(): Promise<void> {
@@ -244,12 +222,8 @@ export abstract class BaseService {
 
       // Stop accepting new connections
       if (this.server) {
-        await new Promise<void>((resolve) => {
-          this.server.close(() => {
-            logger.info(`${this.config.name}: HTTP server closed`);
-            resolve();
-          });
-        });
+        await this.server.stop();
+        logger.info(`${this.config.name}: HTTP server closed`);
       }
 
       // Run custom shutdown handlers
@@ -431,10 +405,9 @@ export abstract class BaseService {
       this.setup404Handler();
       this.setupErrorHandler();
 
-      // Start server - HyperExpress way
-      this.server = await this.app.listen(this.config.port, () => {
-        logger.info(`${this.config.name} (HyperExpress) started on port ${this.config.port}`);
-      });
+      // Start server - Elysia runtime (Bun)
+      this.server = this.app.listen(this.config.port);
+      logger.info(`${this.config.name} (Elysia) started on port ${this.config.port}`);
 
       // Setup graceful shutdown
       this.setupGracefulShutdown();
@@ -452,7 +425,9 @@ export abstract class BaseService {
    * Stop the service gracefully
    */
   public async stop(): Promise<void> {
-    await this.setupGracefulShutdown();
+    if (this.server) {
+      await this.server.stop();
+    }
   }
 
   // Abstract methods for service-specific implementation

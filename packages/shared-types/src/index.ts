@@ -19,8 +19,8 @@ export * from './mcp';
 export * from './knowledge-graph';
 export * from './personaDefaults';
 export * from './personaUtils';
-// Export personaAdvanced types (avoiding conflicts)
-export {
+// Export personaAdvanced types (type-only to avoid runtime re-exports)
+export type {
   HybridPersona,
   PersonalityTrait,
   ConversationContext as PersonaConversationContext,

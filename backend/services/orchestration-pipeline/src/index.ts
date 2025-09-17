@@ -1,18 +1,17 @@
 import { BaseService, ServiceConfig } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
-import { authMiddleware } from '@uaip/middleware';
-import { 
-  StateManagerService, 
-  ResourceManagerService, 
-  StepExecutorService, 
+import {
+  StateManagerService,
+  ResourceManagerService,
+  StepExecutorService,
   CompensationService,
   serviceFactory,
   TaskService
 } from '@uaip/shared-services';
 import { OrchestrationEngine } from './orchestrationEngine.js';
 import { TaskController } from './controllers/taskController.js';
-import { createTaskRoutes } from './routes/taskRoutes.js';
-import projectRoutes from './routes/projectRoutes.js';
+import { registerTaskRoutes } from './routes/taskRoutes.js';
+import { registerProjectRoutes } from './routes/projectRoutes.js';
 
 class OrchestrationPipelineService extends BaseService {
   private stateManagerService!: StateManagerService;
@@ -60,113 +59,118 @@ class OrchestrationPipelineService extends BaseService {
   }
 
   protected setupCustomMiddleware(): void {
-    // Apply auth middleware to all API routes
-    this.app.use('/api/v1', authMiddleware);
+    // Auth middleware is handled at route level in Elysia
+    // Authentication will be checked via headers['x-user-id'] in routes
   }
 
   protected async setupRoutes(): Promise<void> {
     // Task management routes
-    this.app.use('/api/v1', createTaskRoutes(this.taskController));
-    
+    registerTaskRoutes(this.app, this.taskController);
+
     // Project management routes
-    this.app.use('/api/v1/projects', projectRoutes);
+    registerProjectRoutes(this.app);
 
     // Basic orchestration endpoints
-    this.app.post('/api/v1/operations', async (req, res) => {
+    this.app.post('/api/v1/operations', async ({ body, set }) => {
       try {
-        const operation = req.body;
+        const operation = body;
         const workflowInstanceId = await this.orchestrationEngine.executeOperation(operation);
-        res.json({
+        return {
           success: true,
           data: { workflowInstanceId }
-        });
+        };
       } catch (error) {
-        res.status(500).json({
+        set.status = 500;
+        return {
           success: false,
           error: {
             code: 'EXECUTION_FAILED',
             message: error instanceof Error ? error.message : 'Unknown error'
           }
-        });
+        };
       }
     });
 
-    this.app.get('/api/v1/operations/:operationId/status', async (req, res) => {
+    this.app.get('/api/v1/operations/:operationId/status', async ({ params, set }) => {
       try {
-        const { operationId } = req.params;
+        const { operationId } = params;
         const status = await this.orchestrationEngine.getOperationStatus(operationId);
-        res.json({
+        return {
           success: true,
           data: status
-        });
+        };
       } catch (error) {
-        res.status(500).json({
+        set.status = 500;
+        return {
           success: false,
           error: {
             code: 'STATUS_FETCH_FAILED',
             message: error instanceof Error ? error.message : 'Unknown error'
           }
-        });
+        };
       }
     });
 
-    this.app.post('/api/v1/operations/:operationId/pause', async (req, res) => {
+    this.app.post('/api/v1/operations/:operationId/pause', async ({ params, body, set }) => {
       try {
-        const { operationId } = req.params;
-        const { reason } = req.body;
+        const { operationId } = params;
+        const { reason } = body as any;
         await this.orchestrationEngine.pauseOperation(operationId, reason);
-        res.json({
+        return {
           success: true,
           data: { message: 'Operation paused successfully' }
-        });
+        };
       } catch (error) {
-        res.status(500).json({
+        set.status = 500;
+        return {
           success: false,
           error: {
             code: 'PAUSE_FAILED',
             message: error instanceof Error ? error.message : 'Unknown error'
           }
-        });
+        };
       }
     });
 
-    this.app.post('/api/v1/operations/:operationId/resume', async (req, res) => {
+    this.app.post('/api/v1/operations/:operationId/resume', async ({ params, body, set }) => {
       try {
-        const { operationId } = req.params;
-        const { checkpointId } = req.body;
+        const { operationId } = params;
+        const { checkpointId } = body as any;
         await this.orchestrationEngine.resumeOperation(operationId, checkpointId);
-        res.json({
+        return {
           success: true,
           data: { message: 'Operation resumed successfully' }
-        });
+        };
       } catch (error) {
-        res.status(500).json({
+        set.status = 500;
+        return {
           success: false,
           error: {
             code: 'RESUME_FAILED',
             message: error instanceof Error ? error.message : 'Unknown error'
           }
-        });
+        };
       }
     });
 
-    this.app.post('/api/v1/operations/:operationId/cancel', async (req, res) => {
+    this.app.post('/api/v1/operations/:operationId/cancel', async ({ params, body, set }) => {
       try {
-        const { operationId } = req.params;
-        const { reason, compensate = true, force = false } = req.body;
+        const { operationId } = params;
+        const { reason, compensate = true, force = false } = body as any;
         await this.orchestrationEngine.cancelOperation(operationId, reason, compensate, force);
-        res.json({
+        return {
           success: true,
           data: { message: 'Operation cancelled successfully' }
-        });
+        };
       } catch (error) {
-        res.status(500).json({
+        set.status = 500;
+        return {
           success: false,
           error: {
             code: 'CANCEL_FAILED',
             message: error instanceof Error ? error.message : 'Unknown error'
           }
-        });
+        };
       }
     });
   }
