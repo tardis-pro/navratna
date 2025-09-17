@@ -1,151 +1,157 @@
-// Tool Routes - Express Router Configuration
-// Defines all REST API routes for the tools system
-// Part of capability-registry microservice
-
-import { Router } from 'express';
 import { ToolController } from '../controllers/toolController.js';
-import { ToolRegistry } from '../services/toolRegistry.js';
-import { ToolExecutor } from '../services/toolExecutor.js';
-import { DatabaseService, EventBusService, ToolGraphDatabase } from '@uaip/shared-services';
-import { authMiddleware, createRateLimiter, rateLimiter } from '@uaip/middleware';
+import { DatabaseService, EventBusService } from '@uaip/shared-services';
 
-// Rate limiting configurations using shared middleware
-const generalRateLimit = createRateLimiter({
-  windowMs: 60 * 1000, // 1 minute
-  max: 100, // 100 requests per minute
-  message: {
-    success: false,
-    error: 'Too many requests',
-    message: 'Rate limit exceeded. Please try again later.'
-  }
-});
+// Minimal, clean Elysia route group for tools
+export function registerToolRoutes(app: any, toolController?: ToolController, eventBusService?: EventBusService) {
+  const controller = toolController ?? (() => {
+    // Fall back to a lightweight controller if not provided
+    const db = DatabaseService.getInstance();
+    const { ToolRegistry } = require('../services/toolRegistry.js');
+    const { ToolExecutor } = require('../services/toolExecutor.js');
+    const registry = new ToolRegistry(eventBusService);
+    const base = { execute: async () => ({ success: true, result: null }) } as any;
+    const exec = new ToolExecutor(db, registry, base);
+    return new ToolController(registry, exec);
+  })();
 
-const executionRateLimit = createRateLimiter({
-  windowMs: 60 * 1000, // 1 minute
-  max: 20, // 20 executions per minute
-  message: {
-    success: false,
-    error: 'Execution rate limit exceeded',
-    message: 'Too many tool executions. Please try again later.'
-  }
-});
+  app.group('/api/v1/tools', (g: any) =>
+    g
+      // List tools
+      .get('/', async ({ query, headers }: any) => {
+        const req: any = { query, params: {}, body: {}, headers };
+        const res: any = { json: (v: any) => v, status: () => res };
+        return controller.getTools(req, res);
+      })
 
-const registrationRateLimit = createRateLimiter({
-  windowMs: 60 * 1000, // 1 minute
-  max: 10, // 10 registrations per minute
-  message: {
-    success: false,
-    error: 'Registration rate limit exceeded',
-    message: 'Too many tool registrations. Please try again later.'
-  }
-});
+      // Health
+      .get('/health', async () => {
+        const res: any = { json: (v: any) => v };
+        return controller.healthCheck({} as any, res);
+      })
 
-// Initialize services and create default controller factory
-function createDefaultController(eventBusService?: EventBusService): ToolController {
-  const databaseService = DatabaseService.getInstance();
+      // Categories
+      .get('/categories', async () => {
+        const res: any = { json: (v: any) => v };
+        return controller.getToolCategories({} as any, res);
+      })
 
-  // For now, create a mock ToolGraphDatabase and ToolExecutor
-  // These should be properly configured in a real implementation
-  const mockToolGraphDatabase = {
-    createToolNode: async () => {},
-    updateToolNode: async () => {},
-    deleteToolNode: async () => {},
-    getRelatedTools: async () => [],
-    addToolRelationship: async () => {},
-    getRecommendations: async () => [],
-    getContextualRecommendations: async () => [],
-    findSimilarTools: async () => [],
-    getToolDependencies: async () => [],
-    getToolUsageAnalytics: async () => [],
-    getPopularTools: async () => [],
-    getAgentToolPreferences: async () => [],
-    verifyConnectivity: async () => true
-  } as any;
+      // Recommendations
+      .get('/recommendations', async ({ query }: any) => {
+        const req: any = { query };
+        const res: any = { json: (v: any) => v };
+        return controller.getRecommendations(req, res);
+      })
 
-  const toolRegistry = new ToolRegistry(eventBusService);
+      // Validate tool definition
+      .post('/validate', async ({ body }: any) => {
+        const req: any = { body };
+        const res: any = { json: (v: any) => v };
+        return controller.validateTool(req, res);
+      })
 
-  const mockBaseExecutor = {
-    execute: async () => ({ success: true, result: null })
-  } as any;
+      // Executions listing
+      .get('/executions', async ({ query }: any) => {
+        const req: any = { query };
+        const res: any = { json: (v: any) => v };
+        return controller.getExecutions(req, res);
+      })
 
-  const mockToolExecutor = new ToolExecutor(
-    databaseService,
-    toolRegistry,
-    mockBaseExecutor
+      // Execution by id
+      .get('/executions/:id', async ({ params }: any) => {
+        const req: any = { params };
+        const res: any = { json: (v: any) => v };
+        return controller.getExecution(req, res);
+      })
+
+      // Approve execution
+      .post('/executions/:id/approve', async ({ params, body, headers }: any) => {
+        const req: any = { params, body, user: headers['x-user-id'] ? { id: headers['x-user-id'] } : undefined };
+        const res: any = { json: (v: any) => v, status: () => res };
+        return controller.approveExecution(req, res);
+      })
+
+      // Cancel execution
+      .post('/executions/:id/cancel', async ({ params }: any) => {
+        const req: any = { params };
+        const res: any = { json: (v: any) => v, status: () => res };
+        return controller.cancelExecution(req, res);
+      })
+
+      // Analytics
+      .get('/analytics/usage', async ({ query }: any) => {
+        const req: any = { query };
+        const res: any = { json: (v: any) => v };
+        return controller.getUsageAnalytics(req, res);
+      })
+      .get('/analytics/popular', async ({ query }: any) => {
+        const req: any = { query };
+        const res: any = { json: (v: any) => v };
+        return controller.getPopularTools(req, res);
+      })
+      .get('/analytics/agent/:agentId/preferences', async ({ params }: any) => {
+        const req: any = { params };
+        const res: any = { json: (v: any) => v };
+        return controller.getAgentPreferences(req, res);
+      })
+
+      // Register tool
+      .post('/', async ({ body }: any) => {
+        const req: any = { body };
+        const res: any = { json: (v: any) => v, status: (code: number) => { res.statusCode = code; return res; } };
+        return controller.registerTool(req, res);
+      })
+
+      // Tool by id
+      .get('/:id', async ({ params }: any) => {
+        const req: any = { params };
+        const res: any = { json: (v: any) => v };
+        return controller.getTool(req, res);
+      })
+
+      // Related/similar/dependencies
+      .get('/:id/related', async ({ params, query }: any) => {
+        const req: any = { params, query };
+        const res: any = { json: (v: any) => v };
+        return controller.getRelatedTools(req, res);
+      })
+      .get('/:id/similar', async ({ params, query }: any) => {
+        const req: any = { params, query };
+        const res: any = { json: (v: any) => v };
+        return controller.getSimilarTools(req, res);
+      })
+      .get('/:id/dependencies', async ({ params }: any) => {
+        const req: any = { params };
+        const res: any = { json: (v: any) => v };
+        return controller.getToolDependencies(req, res);
+      })
+
+      // Update/unregister
+      .put('/:id', async ({ params, body }: any) => {
+        const req: any = { params, body };
+        const res: any = { json: (v: any) => v };
+        return controller.updateTool(req, res);
+      })
+      .delete('/:id', async ({ params }: any) => {
+        const req: any = { params };
+        const res: any = { json: (v: any) => v };
+        return controller.unregisterTool(req, res);
+      })
+
+      // Relationships
+      .post('/:id/relationships', async ({ params, body, headers }: any) => {
+        const req: any = { params, body, user: headers['x-user-id'] ? { id: headers['x-user-id'] } : undefined };
+        const res: any = { json: (v: any) => v };
+        return controller.addRelationship(req, res);
+      })
+
+      // Execute tool
+      .post('/:id/execute', async ({ params, body, headers }: any) => {
+        const userId = headers['x-user-id'];
+        const req: any = { params, body, user: userId ? { id: userId } : undefined };
+        const res: any = { json: (v: any) => v, status: () => res };
+        return controller.executeTool(req, res);
+      })
   );
-  
-  return new ToolController(toolRegistry, mockToolExecutor);
+
+  return app;
 }
-
-export function createToolRoutes(toolController?: ToolController, eventBusService?: EventBusService): Router {
-  const router = Router();
-  const controller = toolController || createDefaultController(eventBusService);
-
-  // Apply general rate limiting to all routes
-  router.use(generalRateLimit);
-
-  // Add debugging middleware to see what paths are being processed
-  router.use((req, res, next) => {
-    console.log(`Router middleware: ${req.method} ${req.originalUrl} - Path: ${req.path}, BaseUrl: ${req.baseUrl}`);
-    next();
-  });
-
-  // IMPORTANT: Specific routes must come BEFORE parameterized routes
-  // Otherwise Express will match "categories" as an :id parameter
-  
-  // Tool Management Routes - Specific routes first
-  router.get('/', (req, res, next) => {
-    console.log(`Route matched: GET / - URL: ${req.url}, Path: ${req.path}, OriginalUrl: ${req.originalUrl}`);
-    return controller.getTools(req, res);
-  });
-  
-  // Add a test route to verify routing
-  router.get('/test', (req, res) => {
-    console.log(`Test route matched: ${req.method} ${req.originalUrl}`);
-    res.json({ success: true, message: 'Test route working', path: req.path, originalUrl: req.originalUrl });
-  });
-  
-  router.get('/categories', (req, res) => controller.getToolCategories(req, res));
-  router.get('/recommendations', (req, res) => controller.getRecommendations(req, res));
-  router.post('/validate', (req, res) => controller.validateTool(req, res));
-  
-  // Execution Management Routes - Specific routes
-  router.get('/executions', controller.getExecutions.bind(controller));
-  router.get('/executions/:id', controller.getExecution.bind(controller));
-  router.post('/executions/:id/approve', authMiddleware, controller.approveExecution.bind(controller));
-  router.post('/executions/:id/cancel', authMiddleware, controller.cancelExecution.bind(controller));
-
-  // Analytics Routes - Specific routes
-  router.get('/analytics/usage', controller.getUsageAnalytics.bind(controller));
-  router.get('/analytics/popular', controller.getPopularTools.bind(controller));
-  router.get('/analytics/agent/:agentId/preferences', controller.getAgentPreferences.bind(controller));
-
-  // Health Check Route - Specific route
-  router.get('/health', controller.healthCheck.bind(controller));
-
-  // Tool Registration Routes (with stricter rate limiting) - Specific routes
-  router.post('/', registrationRateLimit, authMiddleware, controller.registerTool.bind(controller));
-
-  // PARAMETERIZED ROUTES MUST COME LAST
-  // These routes use :id parameter and will match anything
-  router.get('/:id', (req, res, next) => {
-    console.log(`Route matched: GET /:id - URL: ${req.url}, Path: ${req.path}, ID: ${req.params.id}`);
-    return controller.getTool(req, res);
-  });
-  router.get('/:id/related', controller.getRelatedTools.bind(controller));
-  router.get('/:id/similar', controller.getSimilarTools.bind(controller));
-  router.get('/:id/dependencies', controller.getToolDependencies.bind(controller));
-  router.put('/:id', authMiddleware, controller.updateTool.bind(controller));
-  router.delete('/:id', authMiddleware, controller.unregisterTool.bind(controller));
-  
-  // Tool Relationship Routes - Parameterized routes
-  router.post('/:id/relationships', authMiddleware, controller.addRelationship.bind(controller));
-
-  // Tool Execution Routes (with execution rate limiting) - Parameterized routes
-  router.post('/:id/execute', executionRateLimit, authMiddleware, controller.executeTool.bind(controller));
-
-  return router;
-}
-
-// Export default routes
-export const toolRoutes = createToolRoutes();

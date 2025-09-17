@@ -1,12 +1,12 @@
 import { BaseService, ServiceConfig } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
-import { authMiddleware } from '@uaip/middleware';
+// All middleware handled by BaseService; auth via headers['x-user-id'] where needed
 
 import { ArtifactFactory } from './ArtifactFactory.js';
 import { ArtifactService } from './ArtifactService.js';
-import { artifactRoutes } from './routes/artifactRoutes.js';
-import { shortLinkRoutes } from './routes/shortLinkRoutes.js';
+import { registerArtifactRoutes } from './routes/artifactRoutes.js';
+import { registerShortLinkRoutes } from './routes/shortLinkRoutes.js';
 import { ConversationAnalyzerImpl } from './analysis/ConversationAnalyzer.js';
 
 class ArtifactServiceApp extends BaseService {
@@ -260,25 +260,20 @@ class ArtifactServiceApp extends BaseService {
 
 
   protected async setupRoutes(): Promise<void> {
-    // API routes with auth middleware
-    this.app.use('/api/v1/artifacts', authMiddleware, artifactRoutes(this.artifactService));
-    
-    // Short link routes (with conditional auth)
-    this.app.use('/api/v1', shortLinkRoutes);
-    
-    // Public short link resolution (no auth required)
-    this.app.use('/s', shortLinkRoutes);
-    
-    // Service-specific status endpoint
-    this.app.get('/status', (req, res) => {
+    // Register Elysia route groups
+    registerArtifactRoutes(this.app as any, this.artifactService);
+    registerShortLinkRoutes(this.app as any);
+
+    // Service-specific status endpoint (Elysia handler)
+    this.app.get('/status', () => {
       const factoryStatus = this.artifactFactory.getSystemStatus();
       const serviceHealth = this.artifactService.getServiceHealth();
-      res.json({
+      return {
         service: this.config.name,
         version: this.config.version,
         factory: factoryStatus,
-        serviceHealth: serviceHealth
-      });
+        serviceHealth
+      };
     });
   }
 

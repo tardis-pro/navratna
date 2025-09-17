@@ -6,7 +6,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc && tsc-alias",
-    "dev": "nodemon --exec tsx src/index.ts",
+    "dev": "bun --hot src/index.ts",
     "clean": "rimraf dist"
   },
   "dependencies": {
