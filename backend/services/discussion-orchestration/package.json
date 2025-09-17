@@ -5,10 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc --build && tsc-alias",
-    "dev": "concurrently \"npm run build:watch\" \"npm run start:watch\"",
-    "build:watch": "tsc --watch",
-    "start:watch": "nodemon --watch dist --delay 1000ms dist/index.js",
-    "start": "node dist/index.js",
+    "dev": "bun --hot src/index.ts",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
@@ -18,6 +15,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@socket.io/bun-engine": "^0.0.2",
     "@types/ws": "catalog:backend",
     "@uaip/config": "workspace:*",
     "@uaip/middleware": "workspace:*",
