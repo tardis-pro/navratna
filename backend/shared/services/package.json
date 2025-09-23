@@ -66,7 +66,7 @@
     "jest-environment-node": "^29.7.0",
     "rimraf": "catalog:",
     "supertest": "^7.0.0",
-    "testcontainers": "^10.13.2",
+    "testcontainers": "^11.6.0",
     "ts-jest": "^29.2.5",
     "ts-node": "catalog:",
     "tsc-alias": "catalog:backend",
