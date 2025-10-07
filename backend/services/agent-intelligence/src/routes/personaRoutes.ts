@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router , RouterType } from '@uaip/shared-services';
 import { PersonaController } from '../controllers/personaController';
 import { 
   validateRequest, 
@@ -12,11 +12,11 @@ import {
   PersonaSchema 
 } from '@uaip/types';
 
-const router: Router = Router();
+const router: RouterType = Router();
 
 // Note: PersonaController will be initialized with PersonaService in the main service
 // This is a factory function that takes the service instances
-export function createPersonaRoutes(personaController: PersonaController): Router {
+export function createPersonaRoutes(personaController: PersonaController): RouterType {
   // ===== DEBUG ROUTE (NO AUTH) =====
   
   // GET /api/v1/personas/debug - Debug personas without auth for testing

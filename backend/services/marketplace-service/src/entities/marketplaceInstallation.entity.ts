@@ -1,5 +1,5 @@
 import { Entity, Column, Index, ManyToOne, JoinColumn } from 'typeorm';
-import { BaseEntity } from '@uaip/shared-services/entities/base.entity.js';
+import { BaseEntity } from '@uaip/shared-services';
 import { MarketplaceItem } from './marketplaceItem.entity.js';
 
 @Entity('marketplace_installations')

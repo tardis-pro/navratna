@@ -162,6 +162,42 @@ export class ProjectManagementService {
     }
   }
 
+  async getProjects(filters: {
+    ownerId?: string;
+    organizationId?: string;
+    status?: ProjectStatus;
+    page?: number;
+    limit?: number;
+  } = {}): Promise<Project[]> {
+    try {
+      const { page = 1, limit = 20, ownerId, organizationId, status } = filters;
+      const skip = (page - 1) * limit;
+
+      const queryBuilder = this.projectRepository.createQueryBuilder('project');
+
+      if (ownerId) {
+        queryBuilder.andWhere('project.ownerId = :ownerId', { ownerId });
+      }
+
+      if (organizationId) {
+        queryBuilder.andWhere('project.organizationId = :organizationId', { organizationId });
+      }
+
+      if (status) {
+        queryBuilder.andWhere('project.status = :status', { status });
+      }
+
+      return await queryBuilder
+        .orderBy('project.createdAt', 'DESC')
+        .skip(skip)
+        .take(limit)
+        .getMany();
+    } catch (error) {
+      logger.error('Failed to get projects', { error, filters });
+      throw error;
+    }
+  }
+
   async updateProject(id: string, updates: Partial<Project>): Promise<Project> {
     try {
       await this.projectRepository.update(id, updates);

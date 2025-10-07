@@ -1,4 +1,4 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router, Request, Response, NextFunction } from '@uaip/shared-services';
 import { 
   llmProviderManagementService,
   CreateLLMProviderRequest,
@@ -92,7 +92,7 @@ interface AuthenticatedRequest extends Request {
   };
 }
 
-const router: Router = Router();
+const router= Router();
 
 // Middleware to ensure admin access
 router.use((req: AuthenticatedRequest, res: Response, next: NextFunction) => {

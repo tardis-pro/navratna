@@ -6,7 +6,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc && tsc-alias",
-    "dev": "nodemon --exec tsx src/index.ts",
+    "dev": "bun --hot src/index.ts",
     "clean": "rimraf dist"
   },
   "dependencies": {
@@ -18,6 +18,8 @@
     "cors": "catalog:backend",
     "express": "catalog:backend",
     "helmet": "catalog:backend",
+    "qrcode": "catalog:backend",
+    "typeorm": "catalog:backend",
     "zod": "catalog:"
   },
   "devDependencies": {
@@ -25,6 +27,7 @@
     "@types/express": "catalog:backend",
     "@types/jest": "catalog:backend",
     "@types/node": "catalog:backend",
+    "@types/qrcode": "catalog:backend",
     "@typescript-eslint/eslint-plugin": "catalog:",
     "@typescript-eslint/parser": "catalog:",
     "eslint": "catalog:",

@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router , RouterType } from '@uaip/shared-services';
 import { z } from 'zod';
 import { DiscussionController } from '../controllers/discussionController';
 import { 
@@ -14,11 +14,11 @@ import {
   DiscussionSchema 
 } from '@uaip/types';
 
-const router: Router = Router();
+const router: RouterType = Router();
 
 // Note: DiscussionController will be initialized with DiscussionService in the main service
 // This is a factory function that takes the service instances
-export function createDiscussionRoutes(discussionController: DiscussionController): Router {
+export function createDiscussionRoutes(discussionController: DiscussionController): RouterType {
   // Apply JSON validation middleware to all routes
   // router.use(validateJSON());
 

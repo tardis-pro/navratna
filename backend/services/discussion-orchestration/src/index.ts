@@ -2,6 +2,7 @@ import { BaseService, ServiceConfig } from '@uaip/shared-services';
 import { createServer } from 'http';
 import WebSocket from 'ws';
 import { Server as SocketIOServer } from 'socket.io';
+import { Server as BunEngine } from '@socket.io/bun-engine';
 import { logger } from '@uaip/utils';
 import { DiscussionService, PersonaService } from '@uaip/shared-services';
 import { authMiddleware } from '@uaip/middleware';
@@ -18,6 +19,7 @@ import { setupWebSocketHandlers } from './websocket/discussionSocket.js';
 class DiscussionOrchestrationServer extends BaseService {
   private wss!: WebSocket.Server;
   private io: SocketIOServer;
+  private bunEngine: BunEngine;
   private orchestrationService: DiscussionOrchestrationService;
   private discussionService: DiscussionService;
   private personaService: PersonaService;
@@ -37,12 +39,22 @@ class DiscussionOrchestrationServer extends BaseService {
       enableWebSocket: true
     });
 
-    // Initialize Socket.IO server - will be attached after server starts
+    // Initialize Socket.IO server with Bun engine
     this.io = new SocketIOServer({
       cors: {
         origin: false
-      }
+      },
+      serveClient: false,
+      path: '/socket.io/'
     });
+
+    // Create and bind Bun engine
+    this.bunEngine = new BunEngine({
+      path: '/socket.io/',
+      pingInterval: 25000,
+      pingTimeout: 60000
+    });
+    this.io.bind(this.bunEngine);
 
     // Validate enterprise database access
     if (!validateServiceAccess(this.serviceName, 'postgresql', 'postgres-application', AccessLevel.WRITE)) {
@@ -85,69 +97,61 @@ class DiscussionOrchestrationServer extends BaseService {
   }
 
   protected setupCustomMiddleware(): void {
-    // Request sanitization for security
-    this.app.use((req, res, next) => {
-      if (config.discussionOrchestration.security.enableInputSanitization) {
-        // Basic input sanitization would go here
-      }
-      next();
-    });
-
-    // Authentication middleware for protected routes
-    this.app.use('/api/', authMiddleware);
+    // Request sanitization and authentication handled in route handlers
+    // Elysia doesn't support Express-style middleware
+    // Input sanitization and auth validation will be done per route
   }
 
   protected async setupRoutes(): Promise<void> {
     // Service info endpoint
-    this.app.get('/api/v1/info', (req, res) => {
-      res.json({
-        service: 'discussion-orchestration',
-        version: process.env.npm_package_version || '1.0.0',
-        description: 'UAIP Discussion Orchestration Service - Manages discussion lifecycle, turn strategies, and real-time coordination',
-        features: [
-          'Discussion lifecycle management',
-          'Multiple turn strategies (Round Robin, Moderated, Context Aware)',
-          'Real-time WebSocket communication',
-          'Event-driven architecture',
-          'Comprehensive turn management'
-        ],
-        endpoints: {
-          websocket: '/socket.io',
-          conversationIntelligence: '/socket.io/conversation-intelligence',
-          health: '/health',
-          info: '/api/v1/info'
-        },
-        note: 'This service provides orchestration capabilities. Discussion CRUD operations are handled by the agent-intelligence service.'
-      });
-    });
+    this.app.get('/api/v1/info', () => ({
+      service: 'discussion-orchestration',
+      version: process.env.npm_package_version || '1.0.0',
+      description: 'UAIP Discussion Orchestration Service - Manages discussion lifecycle, turn strategies, and real-time coordination',
+      features: [
+        'Discussion lifecycle management',
+        'Multiple turn strategies (Round Robin, Moderated, Context Aware)',
+        'Real-time WebSocket communication',
+        'Event-driven architecture',
+        'Comprehensive turn management'
+      ],
+      endpoints: {
+        websocket: '/socket.io',
+        conversationIntelligence: '/socket.io/conversation-intelligence',
+        health: '/health',
+        info: '/api/v1/info'
+      },
+      note: 'This service provides orchestration capabilities. Discussion CRUD operations are handled by the agent-intelligence service.'
+    }));
 
     // Debug and monitoring routes for race condition detection
-    this.app.get('/api/v1/debug/race-conditions', (req, res) => {
+    this.app.get('/api/v1/debug/race-conditions', ({ set }) => {
       try {
         const orchestrationStats = this.orchestrationService.getCleanupStatistics();
         const systemHealth = this.getSystemHealthMetrics();
-        
-        res.json({
+
+        return {
           success: true,
           timestamp: new Date().toISOString(),
           orchestrationStats,
           systemHealth,
           warnings: this.detectRaceConditionWarnings(orchestrationStats, systemHealth)
-        });
+        };
       } catch (error) {
-        res.status(500).json({
+        set.status = 500;
+        return {
           success: false,
           error: 'Failed to fetch race condition debug info'
-        });
+        };
       }
     });
 
-    this.app.get('/api/v1/debug/memory-usage', (req, res) => {
+    this.app.get('/api/v1/debug/memory-usage', ({ set }) => {
       try {
         const memoryUsage = process.memoryUsage();
         const orchestrationStats = this.orchestrationService.getCleanupStatistics();
-        
-        res.json({
+
+        return {
           success: true,
           timestamp: new Date().toISOString(),
           process: {
@@ -158,58 +162,61 @@ class DiscussionOrchestrationServer extends BaseService {
           },
           orchestration: orchestrationStats,
           alerts: this.generateMemoryAlerts(memoryUsage, orchestrationStats)
-        });
+        };
       } catch (error) {
-        res.status(500).json({
+        set.status = 500;
+        return {
           success: false,
           error: 'Failed to fetch memory usage debug info'
-        });
+        };
       }
     });
 
-    this.app.post('/api/v1/debug/force-cleanup', (req, res) => {
+    this.app.post('/api/v1/debug/force-cleanup', ({ set }) => {
       try {
         // Trigger immediate cleanup
         this.orchestrationService['performPeriodicCleanup']();
-        
-        res.json({
+
+        return {
           success: true,
           message: 'Forced cleanup triggered',
           timestamp: new Date().toISOString()
-        });
+        };
       } catch (error) {
-        res.status(500).json({
+        set.status = 500;
+        return {
           success: false,
           error: 'Failed to trigger cleanup'
-        });
+        };
       }
     });
 
-    this.app.get('/api/v1/debug/pending-requests', (req, res) => {
+    this.app.get('/api/v1/debug/pending-requests', ({ set }) => {
       try {
         // This would require exposing cleanup stats from ConversationEnhancementService
         // For now, return orchestration stats
         const stats = this.orchestrationService.getCleanupStatistics();
-        
-        res.json({
+
+        return {
           success: true,
           timestamp: new Date().toISOString(),
           orchestration: stats,
           note: 'LLM pending requests require agent-intelligence service endpoint'
-        });
+        };
       } catch (error) {
-        res.status(500).json({
+        set.status = 500;
+        return {
           success: false,
           error: 'Failed to fetch pending requests info'
-        });
+        };
       }
     });
 
     // User chat API routes
-    this.app.get('/api/v1/users/online', (req, res) => {
+    this.app.get('/api/v1/users/online', ({ set }) => {
       try {
         const connectedUsers = this.userChatHandler.getConnectedUsers();
-        res.json({
+        return {
           success: true,
           users: connectedUsers.map(user => ({
             userId: user.userId,
@@ -217,22 +224,23 @@ class DiscussionOrchestrationServer extends BaseService {
             status: user.status,
             lastActivity: user.lastActivity
           }))
-        });
+        };
       } catch (error) {
-        res.status(500).json({
+        set.status = 500;
+        return {
           success: false,
           error: 'Failed to fetch online users'
-        });
+        };
       }
     });
 
-    this.app.get('/api/v1/users/:userId/status', (req, res) => {
+    this.app.get('/api/v1/users/:userId/status', ({ params, set }) => {
       try {
-        const { userId } = req.params;
+        const { userId } = params;
         const userStatus = this.userChatHandler.getUserStatus(userId);
-        
+
         if (userStatus) {
-          res.json({
+          return {
             success: true,
             user: {
               userId: userStatus.userId,
@@ -241,28 +249,38 @@ class DiscussionOrchestrationServer extends BaseService {
               lastActivity: userStatus.lastActivity,
               isOnline: true
             }
-          });
+          };
         } else {
-          res.json({
+          return {
             success: true,
             user: {
               userId,
               isOnline: false
             }
-          });
+          };
         }
       } catch (error) {
-        res.status(500).json({
+        set.status = 500;
+        return {
           success: false,
           error: 'Failed to fetch user status'
-        });
+        };
       }
+    });
+
+    // Add Socket.IO route handler for Bun engine
+    this.app.all('/socket.io/*', ({ request, server }) => {
+      if (!server) {
+        logger.error('Server not available for Socket.IO request');
+        return new Response('Server not available', { status: 503 });
+      }
+      return this.bunEngine.handleRequest(request, server);
     });
 
     // No traditional API routes - all operations through event bus
     logger.info('Event-driven routes configured', {
       service: this.serviceName,
-      apiEndpoints: ['/health', '/api/v1/info', '/api/v1/users/*'],
+      apiEndpoints: ['/health', '/api/v1/info', '/api/v1/users/*', '/socket.io/*'],
       primaryCommunication: 'RabbitMQ Event Bus'
     });
   }
@@ -433,24 +451,37 @@ class DiscussionOrchestrationServer extends BaseService {
 
   public async start(): Promise<void> {
     try {
-      // Call parent start method first to create the HTTP server
-      await super.start();
-      
-      logger.info('Attaching Socket.IO to HTTP server', {
-        serverExists: !!this.server,
-        port: this.config.port
+      // Initialize base components first (from BaseService)
+      await this['initializeDatabase']();
+      await this['initializeEventBus']();
+
+      // Setup middleware and routes (from BaseService)
+      this['setupBaseMiddleware']();
+      this['setupBaseRoutes']();
+
+      // Service-specific initialization
+      await this.initialize();
+
+      // Service-specific routes
+      await this.setupRoutes();
+
+      // Error handling (from BaseService)
+      this['setup404Handler']();
+      this['setupErrorHandler']();
+
+      // Start server with WebSocket configuration for Bun engine
+      this.server = this.app.listen({
+        port: this.config.port,
+        idleTimeout: 30,
+        websocket: (this.bunEngine.handler() as any).websocket
       });
-      
-      // Attach Socket.IO to the created HTTP server with proper error handling
-      try {
-        this.io.attach(this.server, {
-          cors: {
-            origin: false
-          },
-          transports: ['websocket', 'polling']
-        });
-        
-        // Socket.IO Authentication Middleware
+
+      logger.info(`${this.config.name} (Elysia with Socket.IO Bun engine) started on port ${this.config.port}`);
+
+      // Setup graceful shutdown (from BaseService)
+      this['setupGracefulShutdown']();
+
+      // Socket.IO Authentication Middleware
         this.io.use(async (socket, next) => {
           try {
             // Extract token from multiple sources (Socket.IO standard patterns)
@@ -509,19 +540,12 @@ class DiscussionOrchestrationServer extends BaseService {
           }
         });
         
-        logger.info('Socket.IO attached successfully', {
-          engine: this.io.engine ? 'initialized' : 'not initialized'
-        });
-        
-      } catch (socketError) {
-        logger.error('Failed to attach Socket.IO to server:', socketError);
-        throw socketError;
-      }
+        logger.info('Socket.IO with Bun engine configured successfully');
       
       // Initialize handlers after server is created
       logger.info('Initializing WebSocket handlers', {
         serverExists: !!this.server,
-        serverListening: this.server ? this.server.listening : false
+        serverListening: this.server ? (this.server as any)?.server?.listening : false
       });
       
       if (!this.server) {

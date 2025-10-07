@@ -1,10 +1,10 @@
-import { Router } from 'express';
+import { Router } from '@uaip/shared-services';
 import { authMiddleware, validateRequest } from '@uaip/middleware';
 import { UserToolPreferencesService, DatabaseService } from '@uaip/shared-services';
 import { z } from 'zod';
-import { Request, Response } from 'express';
+import { Request, Response } from '@uaip/shared-services';
 
-const router: Router = Router();
+const router= Router();
 
 export interface UserToolPreferencesData {
   userId: string;

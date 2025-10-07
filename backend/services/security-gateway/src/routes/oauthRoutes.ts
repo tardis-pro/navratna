@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, RouterType } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
 import { OAuthProviderService } from '../services/oauthProviderService.js';
@@ -70,7 +70,7 @@ export function createOAuthRoutes(
   oauthProviderService: OAuthProviderService,
   enhancedAuthService: EnhancedAuthService,
   auditService: AuditService
-): Router {
+): RouterType {
   const router = Router();
 
   /**

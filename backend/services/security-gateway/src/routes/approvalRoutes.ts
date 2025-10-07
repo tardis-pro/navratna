@@ -1,4 +1,4 @@
-import express, { Router, Request, Response, NextFunction } from 'express';
+import express, { Router, Request, Response, NextFunction, RouterType } from '@uaip/shared-services';
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
@@ -16,7 +16,7 @@ import {
 } from '@uaip/types';
 import { config } from '@uaip/config';
 
-const router: Router = express.Router();
+const router= Router();
 
 // Lazy initialization of services
 let databaseService: DatabaseService | null = null;
@@ -131,7 +131,7 @@ router.post('/workflows',
           securityLevel: req.body.securityLevel
         },
         ipAddress: req.ip,
-        userAgent: req.headers['user-agent'],
+        userAgent: Array.isArray(req.headers['user-agent']) ? req.headers['user-agent'][0] : req.headers['user-agent'],
         riskLevel: req.body.securityLevel
       });
 
@@ -366,7 +366,7 @@ router.post('/:workflowId/cancel',
           cancelledBy: req.user?.id
         },
         ipAddress: req.ip,
-        userAgent: req.headers['user-agent'],
+        userAgent: Array.isArray(req.headers['user-agent']) ? req.headers['user-agent'][0] : req.headers['user-agent'],
         riskLevel: SecurityLevel.MEDIUM
       });
 
@@ -562,7 +562,7 @@ router.post('/:workflowId/decisions',
           canProceed: status.canProceed
         },
         ipAddress: req.ip,
-        userAgent: req.headers['user-agent'],
+        userAgent: Array.isArray(req.headers['user-agent']) ? req.headers['user-agent'][0] : req.headers['user-agent'],
         riskLevel: decision === 'reject' ? SecurityLevel.MEDIUM : SecurityLevel.LOW
       });
 

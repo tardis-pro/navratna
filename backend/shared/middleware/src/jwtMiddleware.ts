@@ -228,7 +228,7 @@ export const requirePermissions = (...permissions: string[]) => {
 export const refreshTokenMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const validator = JWTValidator.getInstance();
-    const refreshToken = req.body.refreshToken || req.headers['x-refresh-token'];
+    const refreshToken = req.body.refreshToken || req.headers?.['x-refresh-token'];
 
     if (!refreshToken) {
       return res.status(400).json({ error: 'Refresh token required' });

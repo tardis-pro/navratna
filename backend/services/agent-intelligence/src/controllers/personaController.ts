@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from '@uaip/shared-services';
 import { PersonaService } from '@uaip/shared-services';
 import { logger, ApiError } from '@uaip/utils';
 import { 
@@ -136,7 +136,7 @@ export class PersonaController {
 
       logger.info('Persona deleted successfully', { personaId });
 
-      res.status(204).send();
+      res.status(204).send('');
 
     } catch (error) {
       logger.error('Error deleting persona', { 

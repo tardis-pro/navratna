@@ -16,8 +16,7 @@ import { ToolCacheService } from './services/tool-cache.service.js';
 import { ToolRecommendationService } from './services/tool-recommendation.service.js';
 import { SandboxExecutionService } from './services/sandbox-execution.service.js';
 import { ToolAdapterService } from './services/tool-adapter.service.js';
-import { createToolRoutes } from './routes/toolRoutes.js';
-import { createMCPRoutes } from './routes/mcpRoutes.js';
+// Route registration functions are imported dynamically in setupRoutes
 import { logger } from '@uaip/utils';
 
 class CapabilityRegistryService extends BaseService {
@@ -162,34 +161,37 @@ class CapabilityRegistryService extends BaseService {
   }
 
   protected async setupRoutes(): Promise<void> {
-    // Root endpoint
-    this.app.get('/', (req, res) => {
-      res.json({
-        service: 'Capability Registry',
-        version: '1.0.0',
-        status: 'running',
-        timestamp: new Date().toISOString(),
-        features: [
-          'Tool Registration & Management',
-          'Tool Execution with Tracking',
-          'MCP Protocol Integration',
-          'Graph-based Relationships',
-          'Smart Recommendations',
-          'Usage Analytics',
-          'Approval Workflows'
-        ]
-      });
-    });
+    // Root endpoint (Elysia handler style)
+    this.app.get('/', () => ({
+      service: 'Capability Registry',
+      version: '1.0.0',
+      status: 'running',
+      timestamp: new Date().toISOString(),
+      features: [
+        'Tool Registration & Management',
+        'Tool Execution with Tracking',
+        'MCP Protocol Integration',
+        'Graph-based Relationships',
+        'Smart Recommendations',
+        'Usage Analytics',
+        'Approval Workflows'
+      ]
+    }));
 
-    // API routes
-    const toolRoutes = createToolRoutes(this.toolController, this.eventBusService);
-    this.app.use('/api/v1/tools', toolRoutes);
-    
-    // MCP configuration routes
+    // Register Elysia route groups (tools + MCP + health + capabilities)
+    const { registerToolRoutes } = await import('./routes/toolRoutes.js');
+    registerToolRoutes(this.app as any, this.toolController, this.eventBusService);
+
+    const { registerHealthRoutes } = await import('./routes/healthRoutes.js');
+    registerHealthRoutes(this.app as any);
+
     logger.info('Mounting MCP routes...');
-    const mcpRoutes = createMCPRoutes();
-    this.app.use('/api/v1/mcp', mcpRoutes);
+    const { registerMCPRoutes } = await import('./routes/mcpRoutes.js');
+    registerMCPRoutes(this.app as any);
     logger.info('MCP routes mounted successfully');
+
+    const { registerCapabilityRoutes } = await import('./routes/capabilityRoutes.js');
+    registerCapabilityRoutes(this.app as any);
   }
 
   protected async getHealthInfo(): Promise<any> {

@@ -113,7 +113,7 @@ export const validatePagination = validateRequest({
  */
 export const validateJSON = (req: Request, res: Response, next: NextFunction): void => {
   if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
-    const contentType = req.headers['content-type'];
+    const contentType = req.headers?.['content-type'];
     if (!contentType || !contentType.includes('application/json')) {
       res.status(400).json({
         success: false,
@@ -130,7 +130,7 @@ export const validateJSON = (req: Request, res: Response, next: NextFunction): v
  */
 export const requireContentType = (expectedType: string) => {
   return (req: Request, res: Response, next: NextFunction): void => {
-    const contentType = req.headers['content-type'];
+    const contentType = req.headers?.['content-type'];
     if (!contentType || !contentType.includes(expectedType)) {
       res.status(400).json({
         success: false,
@@ -147,7 +147,7 @@ export const requireContentType = (expectedType: string) => {
  */
 export const validateRequestSize = (maxSizeBytes: number) => {
   return (req: Request, res: Response, next: NextFunction): void => {
-    const contentLength = req.headers['content-length'];
+    const contentLength = req.headers?.['content-length'];
     if (contentLength && parseInt(contentLength) > maxSizeBytes) {
       res.status(413).json({
         success: false,

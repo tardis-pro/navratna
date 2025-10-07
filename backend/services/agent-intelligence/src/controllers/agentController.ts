@@ -6,7 +6,7 @@
  * and context loading is handled by middleware.
  */
 
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import {
   AgentCoreService,
@@ -180,7 +180,7 @@ export class AgentController {
   async deleteAgent(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       await this.agentCore.deleteAgent(req.params.id, req.user?.id || 'system');
-      res.status(204).send();
+      res.status(204).send('');
     } catch (error) {
       next(error);
     }
@@ -286,7 +286,7 @@ export class AgentController {
       const response = await fetch(`${capabilityRegistryUrl}/api/v1/mcp/tools`, {
         method: 'GET',
         headers: {
-          'Authorization': req.headers.authorization || '',
+          'Authorization': Array.isArray(req.headers.authorization) ? req.headers.authorization[0] : req.headers.authorization || '',
           'Content-Type': 'application/json'
         }
       });

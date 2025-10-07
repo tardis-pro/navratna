@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from '@uaip/shared-services';
 import { DiscussionService } from '@uaip/shared-services';
 import { logger, ApiError } from '@uaip/utils';
 import { 
@@ -355,7 +355,7 @@ export class DiscussionController {
         participantId
       });
 
-      res.status(204).send();
+      res.status(204).send('');
 
     } catch (error) {
       logger.error('Error removing participant', { 

@@ -1,4 +1,4 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router, Request, Response, NextFunction } from '@uaip/shared-services';
 import { UserService, DatabaseService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { authMiddleware } from '@uaip/middleware';
@@ -78,7 +78,7 @@ const PROVIDER_LIMITS = {
   'system': 50    // System users have higher limits
 };
 
-const router: Router = Router();
+const router= Router();
 
 // Lazy initialization of services
 let userService: UserService | null = null;

@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response } from '@uaip/shared-services';
 import {
   KnowledgeIngestRequest,
   KnowledgeSearchRequest,
@@ -11,7 +11,7 @@ import {
 } from '@uaip/shared-services';
 import { authMiddleware } from '@uaip/middleware';
 
-const router: Router = Router();
+const router= Router();
 
 // Service access with proper dependency injection
 async function getServices(): Promise<{

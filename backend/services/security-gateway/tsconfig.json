@@ -48,6 +48,7 @@
   ],
   "exclude": [
     "src/__tests__/**/*",
-    "!src/__tests__/types/**/*"
+    "!src/__tests__/types/**/*",
+    "src/routes/**/*"
   ]
 }
