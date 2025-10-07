@@ -38,7 +38,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@jest/globals": "^29.7.0",
+    "@jest/globals": "^30.2.0",
     "@types/compression": "catalog:backend",
     "@types/cors": "catalog:backend",
     "@types/express": "catalog:backend",
@@ -51,7 +51,7 @@
     "eslint": "catalog:",
     "jest": "catalog:backend",
     "nodemon": "catalog:backend",
-    "supertest": "^7.0.0",
+    "supertest": "^7.1.4",
     "ts-jest": "catalog:backend",
     "ts-node": "catalog:backend",
     "tsc-alias": "catalog:backend",
