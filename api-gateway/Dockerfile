@@ -1,5 +1,5 @@
 # Use official nginx image with stub_status module
-FROM nginx:alpine
+FROM nginx:1.29.3-alpine3.22
 
 # Copy custom nginx configuration
 COPY nginx.conf /etc/nginx/nginx.conf
