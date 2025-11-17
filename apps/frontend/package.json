@@ -79,17 +79,17 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@tailwindcss/typography": "^0.5.16",
+    "@tailwindcss/typography": "^0.5.19",
     "@types/node": "catalog:frontend",
     "@types/react": "catalog:frontend",
     "@types/react-dom": "catalog:frontend",
     "@vitejs/plugin-react-swc": "catalog:frontend",
-    "autoprefixer": "^10.4.21",
+    "autoprefixer": "^10.4.22",
     "eslint-plugin-react-hooks": "catalog:frontend",
     "eslint-plugin-react-refresh": "catalog:frontend",
     "postcss": "^8.5.6",
     "rimraf": "catalog:",
-    "tailwindcss": "^4.1.10",
+    "tailwindcss": "^4.1.17",
     "vite": "catalog:dev"
   }
 }
